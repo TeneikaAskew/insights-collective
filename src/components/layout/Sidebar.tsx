@@ -1,358 +1,153 @@
 
-import React, { useState, useEffect } from 'react';
-import { NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { Button } from '../ui/button';
-import {
-  LayoutDashboard,
-  LayoutList,
-  UserPlus,
-  Users,
-  Book,
-  Calendar,
-  Settings as SettingsIcon,
-  HelpCircle,
-  Layout,
-  PanelLeft,
-  LayoutGrid,
-  GraduationCap,
-  BookOpen,
-  CalendarDays,
-  Bell,
-  User,
-  FileText,
+import React from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { 
+  Home, 
+  BookOpen, 
+  Calendar, 
+  MessageSquare, 
+  Briefcase, 
+  User, 
+  Star,
+  PenTool,
+  Sparkles,
+  Code,
+  MessageCircle,
   Settings,
-  MessageSquare,
-  LogOut,
-  Building2,
-  Briefcase,
-  Activity,
-  Users as UsersIcon,
-  CheckSquare,
-  FileCode,
-  FileSpreadsheet,
-  FileQuestion,
-  FormInput,
-  Bug,
+  Users,
+  BarChart3,
+  FileText,
+  Newspaper
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { cn } from '@/lib/utils';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
-interface NavItem {
-  title: string;
-  icon: React.ComponentType<any>;
-  path: string;
-  children?: NavItem[];
-}
-
-interface SidebarProps {
-  expanded: boolean;
-  setExpanded: (expanded: boolean) => void;
-  mobile?: boolean;
-  onClose?: () => void;
-}
-
-const adminNavItems = [
-  {
-    title: 'Dashboard',
-    icon: LayoutDashboard,
-    path: '/admin',
-  },
-  {
-    title: 'Activity',
-    icon: Activity,
-    path: '/admin/activity',
-  },
-  {
-    title: 'Courses',
-    icon: BookOpen,
-    path: '/admin/courses',
-    children: [
-      {
-        title: 'All Courses',
-        path: '/admin/courses',
-        icon: BookOpen,
-      },
-      {
-        title: 'Forms',
-        path: '/admin/forms',
-        icon: FormInput,
-      },
-    ]
-  },
-  {
-    title: 'Users',
-    icon: UsersIcon,
-    path: '/admin/users',
-  },
-  {
-    title: 'Enrollments',
-    icon: UserPlus,
-    path: '/admin/enrollments',
-  },
-  {
-    title: 'Certificates',
-    icon: CheckSquare,
-    path: '/admin/certificates',
-  },
-  {
-    title: 'Resources',
-    icon: FileCode,
-    path: '/admin/resources',
-  },
-  {
-    title: 'Events',
-    icon: CalendarDays,
-    path: '/admin/events',
-  },
-  {
-    title: 'Blog Posts',
-    icon: FileText,
-    path: '/admin/blog',
-  },
-  {
-    title: 'Page Visibility',
-    icon: Layout,
-    path: '/admin/page-visibility',
-  },
-  {
-    title: 'Debugging Tools',
-    icon: Bug,
-    path: '/admin/debug',
-  },
+const navigation = [
+  { name: 'Home', href: '/', icon: Home },
+  { name: 'Courses', href: '/courses', icon: BookOpen },
+  { name: 'Events', href: '/events', icon: Calendar },
+  { name: 'Blog', href: '/blog', icon: Newspaper },
+  { name: 'Messages', href: '/messages', icon: MessageSquare },
+  { name: 'Interview Prep', href: '/interview-prep', icon: Briefcase },
+  { name: 'Portfolio Explorer', href: '/portfolio-explorer', icon: PenTool },
+  { name: 'Career Pathway', href: '/career-pathway', icon: Star },
+  { name: 'Careers Explorer', href: '/careers', icon: Sparkles },
+  { name: 'Resources', href: '/resources', icon: FileText },
+  { name: 'AI Assistant', href: '/ai', icon: Sparkles },
+  { name: 'Code Practice', href: '/code-practice', icon: Code },
+  { name: 'Forum', href: '/forum', icon: MessageCircle },
 ];
 
-const Sidebar: React.FC<SidebarProps> = ({ expanded, setExpanded, mobile = false, onClose }) => {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
+const adminNavigation = [
+  { name: 'Admin Dashboard', href: '/admin', icon: BarChart3 },
+  { name: 'Manage Events', href: '/admin/events', icon: Calendar },
+  { name: 'Manage Blog', href: '/admin/blog', icon: Newspaper },
+  { name: 'Manage Courses', href: '/admin/courses', icon: BookOpen },
+  { name: 'Manage Forms', href: '/admin/forms', icon: FileText },
+  { name: 'User Management', href: '/admin/users', icon: Users },
+];
+
+export default function Sidebar() {
   const location = useLocation();
-  const [isMounted, setIsMounted] = useState(false);
+  const { profiles } = useAuth();
+  
+  const isAdmin = profiles?.roles?.includes('admin');
 
-  const isAdmin = user?.roles?.includes('admin');
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  if (!isMounted) {
-    return null;
-  }
-
-  const handleLogout = async () => {
-    await logout();
-    navigate('/login');
-    if (onClose) {
-      onClose();
+  const isActivePath = (href: string) => {
+    if (href === '/') {
+      return location.pathname === '/';
     }
+    return location.pathname.startsWith(href);
   };
 
-  const renderNavItems = (navItems: NavItem[], isNested = false) => (
-    <ul className={cn("flex flex-col space-y-1", isNested ? "pl-4" : "")}>
-      {navItems.map((item) => (
-        <li key={item.title}>
-          {item.children ? (
-            <Collapsible className="w-full">
-              <CollapsibleTrigger className="flex items-center justify-between w-full p-2 rounded-md hover:bg-secondary">
-                <div className="flex items-center space-x-2">
-                  {item.icon && <item.icon className="h-4 w-4" />}
-                  <span>{item.title}</span>
-                </div>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                {renderNavItems(item.children, true)}
-              </CollapsibleContent>
-            </Collapsible>
-          ) : (
-            <NavLink
-              to={item.path}
-              className={({ isActive }) =>
-                cn(
-                  "flex items-center space-x-2 p-2 rounded-md hover:bg-secondary",
-                  isActive ? "font-medium bg-secondary text-secondary-foreground" : "text-muted-foreground"
-                )
-              }
-            >
-              {item.icon && <item.icon className="h-4 w-4" />}
-              <span>{item.title}</span>
-            </NavLink>
-          )}
-        </li>
-      ))}
-    </ul>
-  );
-
   return (
-    <div
-      className={cn(
-        "flex flex-col h-screen bg-background border-r border-primary/10",
-        expanded ? "w-64" : "w-16",
-        mobile ? "fixed inset-y-0 left-0 z-50" : "hidden md:flex"
-      )}
-    >
-      <div className="flex-1 flex flex-col space-y-1 p-2">
-        <div className="flex justify-end">
-          {mobile && (
-            <Button variant="ghost" size="icon" onClick={onClose}>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-6 w-6"
-              >
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-              <span className="sr-only">Close sidebar</span>
-            </Button>
-          )}
+    <div className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0">
+      <div className="flex flex-col flex-grow pt-5 bg-white border-r border-gray-200 overflow-y-auto">
+        <div className="flex items-center flex-shrink-0 px-4">
+          <Link to="/" className="flex items-center">
+            <div className="w-8 h-8 bg-[#9b87f5] rounded-lg flex items-center justify-center">
+              <span className="text-white font-bold text-sm">DS</span>
+            </div>
+            <span className="ml-2 text-xl font-bold text-gray-900">DataSkills</span>
+          </Link>
         </div>
-        <div className="mb-4">
-          <NavLink to="/" className="flex items-center space-x-2 font-semibold">
-            <LayoutGrid className="h-6 w-6" />
-            {expanded && <div>Data Science Learning</div>}
-          </NavLink>
+        <div className="mt-5 flex-grow flex flex-col">
+          <nav className="flex-1 px-2 pb-4 space-y-1">
+            {navigation.map((item) => {
+              const isActive = isActivePath(item.href);
+              return (
+                <Link
+                  key={item.name}
+                  to={item.href}
+                  className={`${
+                    isActive
+                      ? 'bg-[#9b87f5] text-white'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  } group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors duration-150`}
+                >
+                  <item.icon
+                    className={`${
+                      isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-500'
+                    } mr-3 flex-shrink-0 h-5 w-5`}
+                    aria-hidden="true"
+                  />
+                  {item.name}
+                </Link>
+              );
+            })}
+            
+            {isAdmin && (
+              <>
+                <div className="border-t border-gray-200 my-4"></div>
+                <div className="px-2 mb-2">
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    Admin
+                  </h3>
+                </div>
+                {adminNavigation.map((item) => {
+                  const isActive = isActivePath(item.href);
+                  return (
+                    <Link
+                      key={item.name}
+                      to={item.href}
+                      className={`${
+                        isActive
+                          ? 'bg-red-100 text-red-900'
+                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      } group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors duration-150`}
+                    >
+                      <item.icon
+                        className={`${
+                          isActive ? 'text-red-500' : 'text-gray-400 group-hover:text-gray-500'
+                        } mr-3 flex-shrink-0 h-5 w-5`}
+                        aria-hidden="true"
+                      />
+                      {item.name}
+                    </Link>
+                  );
+                })}
+              </>
+            )}
+          </nav>
         </div>
-        <div className="flex-1">
-          <p className="px-2 text-sm py-1">Main</p>
-          <ul className="flex flex-col space-y-1">
-            <li>
-              <NavLink
-                to="/dashboard"
-                className={({ isActive }) =>
-                  cn(
-                    "flex items-center space-x-2 p-2 rounded-md hover:bg-secondary",
-                    isActive ? "font-medium bg-secondary text-secondary-foreground" : "text-muted-foreground"
-                  )
-                }
-              >
-                <LayoutDashboard className="h-4 w-4" />
-                <span>Dashboard</span>
-              </NavLink>
-            </li>
-            <li>
-              <NavLink
-                to="/courses"
-                className={({ isActive }) =>
-                  cn(
-                    "flex items-center space-x-2 p-2 rounded-md hover:bg-secondary",
-                    isActive ? "font-medium bg-secondary text-secondary-foreground" : "text-muted-foreground"
-                  )
-                }
-              >
-                <GraduationCap className="h-4 w-4" />
-                <span>Courses</span>
-              </NavLink>
-            </li>
-            <li>
-              <NavLink
-                to="/resources"
-                className={({ isActive }) =>
-                  cn(
-                    "flex items-center space-x-2 p-2 rounded-md hover:bg-secondary",
-                    isActive ? "font-medium bg-secondary text-secondary-foreground" : "text-muted-foreground"
-                  )
-                }
-              >
-                <Book className="h-4 w-4" />
-                <span>Resources</span>
-              </NavLink>
-            </li>
-            <li>
-              <NavLink
-                to="/events"
-                className={({ isActive }) =>
-                  cn(
-                    "flex items-center space-x-2 p-2 rounded-md hover:bg-secondary",
-                    isActive ? "font-medium bg-secondary text-secondary-foreground" : "text-muted-foreground"
-                  )
-                }
-              >
-                <Calendar className="h-4 w-4" />
-                <span>Events</span>
-              </NavLink>
-            </li>
-            <li>
-              <NavLink
-                to="/forums"
-                className={({ isActive }) =>
-                  cn(
-                    "flex items-center space-x-2 p-2 rounded-md hover:bg-secondary",
-                    isActive ? "font-medium bg-secondary text-secondary-foreground" : "text-muted-foreground"
-                  )
-                }
-              >
-                <MessageSquare className="h-4 w-4" />
-                <span>Forums</span>
-              </NavLink>
-            </li>
-          </ul>
-          <p className="px-2 text-sm py-1">Account</p>
-          <ul className="flex flex-col space-y-1">
-            <li>
-              <NavLink
-                to="/notifications"
-                className={({ isActive }) =>
-                  cn(
-                    "flex items-center space-x-2 p-2 rounded-md hover:bg-secondary",
-                    isActive ? "font-medium bg-secondary text-secondary-foreground" : "text-muted-foreground"
-                  )
-                }
-              >
-                <Bell className="h-4 w-4" />
-                <span>Notifications</span>
-              </NavLink>
-            </li>
-            <li>
-              <NavLink
-                to="/profile"
-                className={({ isActive }) =>
-                  cn(
-                    "flex items-center space-x-2 p-2 rounded-md hover:bg-secondary",
-                    isActive ? "font-medium bg-secondary text-secondary-foreground" : "text-muted-foreground"
-                  )
-                }
-              >
-                <User className="h-4 w-4" />
-                <span>Profile</span>
-              </NavLink>
-            </li>
-            <li>
-              <NavLink
-                to="/settings"
-                className={({ isActive }) =>
-                  cn(
-                    "flex items-center space-x-2 p-2 rounded-md hover:bg-secondary",
-                    isActive ? "font-medium bg-secondary text-secondary-foreground" : "text-muted-foreground"
-                  )
-                }
-              >
-                <SettingsIcon className="h-4 w-4" />
-                <span>Settings</span>
-              </NavLink>
-            </li>
-          </ul>
-        </div>
-        {isAdmin && (
-          <>
-            <p className="px-2 text-sm py-1">Admin</p>
-            {renderNavItems(adminNavItems)}
-          </>
-        )}
-        <div className="mt-auto">
-          <Button variant="ghost" className="w-full" onClick={handleLogout}>
-            <LogOut className="h-4 w-4 mr-2" />
-            Logout
-          </Button>
+        <div className="flex-shrink-0 flex border-t border-gray-200 p-4">
+          <Link to="/profile" className="flex-shrink-0 w-full group block">
+            <div className="flex items-center">
+              <div>
+                <User className="inline-block h-8 w-8 rounded-full bg-gray-200 p-1 text-gray-600" />
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-700 group-hover:text-gray-900">
+                  {profiles?.first_name && profiles?.last_name 
+                    ? `${profiles.first_name} ${profiles.last_name}`
+                    : 'Your Profile'
+                  }
+                </p>
+                <p className="text-xs font-medium text-gray-500">View profile</p>
+              </div>
+            </div>
+          </Link>
         </div>
       </div>
     </div>
   );
-};
-
-export default Sidebar;
+}

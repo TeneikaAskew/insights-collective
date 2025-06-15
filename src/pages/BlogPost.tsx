@@ -1,72 +1,116 @@
 
-import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { getBlogPostBySlug } from '@/services/blogService';
-import { BlogPost as BlogPostType } from '@/types/blog';
-import AppLayout from '@/components/layout/AppLayout';
-import ReactMarkdown from 'react-markdown';
-import { Separator } from '@/components/ui/separator';
+import React, { useState, useEffect } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Calendar, User, Eye } from 'lucide-react';
-import { format } from 'date-fns';
+import { Separator } from '@/components/ui/separator';
+import { Calendar, Clock, User, ArrowLeft, Share2, Bookmark, Edit } from 'lucide-react';
+import { getBlogPostBySlug } from '@/services/blogService';
+import { BlogPost } from '@/types/blog';
+import AppLayout from '@/components/layout/AppLayout';
 import { useAuth } from '@/contexts/AuthContext';
-import { toast } from '@/hooks/use-toast';
-import { Card, CardContent } from '@/components/ui/card';
-import { BlogPostMetrics } from '@/components/blog/analytics/BlogPostMetrics';
+import { useToast } from '@/hooks/use-toast';
 
-const BlogPost = () => {
+export default function BlogPostPage() {
   const { slug } = useParams<{ slug: string }>();
-  const [post, setPost] = useState<BlogPostType | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const { user } = useAuth();
-  const isAdmin = user?.roles?.includes('admin') || false;
+  const navigate = useNavigate();
+  const { user, profiles } = useAuth();
+  const { toast } = useToast();
+  const [post, setPost] = useState<BlogPost | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const isAdmin = profiles?.roles?.includes('admin');
 
   useEffect(() => {
-    const fetchBlogPost = async () => {
-      if (!slug) return;
-      
-      setIsLoading(true);
-      try {
-        const fetchedPost = await getBlogPostBySlug(slug);
-        if (fetchedPost) {
-          setPost(fetchedPost);
-        } else {
-          toast({
-            title: "Error",
-            description: "Blog post not found",
-            variant: "destructive"
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching blog post:', error);
-        toast({
-          title: "Error",
-          description: "Failed to load blog post",
-          variant: "destructive"
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchBlogPost();
+    if (slug) {
+      loadBlogPost(slug);
+    }
   }, [slug]);
 
-  const formatDate = (dateString: string) => {
+  const loadBlogPost = async (postSlug: string) => {
     try {
-      return format(new Date(dateString), 'MMMM d, yyyy');
-    } catch (e) {
-      return dateString;
+      const postData = await getBlogPostBySlug(postSlug);
+      if (!postData) {
+        navigate('/blog');
+        return;
+      }
+      setPost(postData);
+    } catch (error) {
+      console.error('Error loading blog post:', error);
+      navigate('/blog');
+    } finally {
+      setLoading(false);
     }
   };
 
-  if (isLoading) {
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  const handleShare = async () => {
+    const url = window.location.href;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: post?.title,
+          text: post?.excerpt,
+          url: url
+        });
+      } catch (error) {
+        console.log('Error sharing:', error);
+      }
+    } else {
+      await navigator.clipboard.writeText(url);
+      toast({
+        title: 'Link copied!',
+        description: 'The blog post link has been copied to your clipboard.',
+      });
+    }
+  };
+
+  const renderContent = (content: string) => {
+    // Simple markdown to HTML conversion for better display
+    let html = content
+      .replace(/^### (.*$)/gim, '<h3 class="text-xl font-semibold mb-3 mt-6">$1</h3>')
+      .replace(/^## (.*$)/gim, '<h2 class="text-2xl font-bold mb-4 mt-8">$1</h2>')
+      .replace(/^# (.*$)/gim, '<h1 class="text-3xl font-bold mb-6 mt-10">$1</h1>')
+      .replace(/\*\*(.*?)\*\*/gim, '<strong class="font-semibold">$1</strong>')
+      .replace(/\*(.*?)\*/gim, '<em class="italic">$1</em>')
+      .replace(/~~(.*?)~~/gim, '<del class="line-through">$1</del>')
+      .replace(/`([^`]+)`/gim, '<code class="bg-muted px-1 py-0.5 rounded text-sm font-mono">$1</code>')
+      .replace(/^> (.*$)/gim, '<blockquote class="border-l-4 border-muted-foreground pl-4 italic my-4">$1</blockquote>')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/gim, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-[#9b87f5] hover:underline">$1</a>')
+      .replace(/!\[([^\]]*)\]\(([^)]+)\)/gim, '<img src="$2" alt="$1" class="max-w-full h-auto rounded-lg my-4" />')
+      .replace(/^\* (.*$)/gim, '• $1')
+      .replace(/^- (.*$)/gim, '• $1')
+      .replace(/^\d+\. (.*$)/gim, '<span class="block">$1</span>')
+      .replace(/\n\n/gim, '</p><p class="mb-4">')
+      .replace(/\n/gim, '<br />');
+
+    // Wrap with paragraph tags
+    html = '<p class="mb-4">' + html + '</p>';
+
+    return html;
+  };
+
+  if (loading) {
     return (
       <AppLayout>
-        <div className="container mx-auto py-12 px-4">
-          <div className="flex justify-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <div className="container mx-auto py-8 px-4 max-w-4xl">
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-200 rounded w-3/4 mb-4"></div>
+            <div className="h-4 bg-gray-200 rounded w-1/2 mb-8"></div>
+            <div className="h-64 bg-gray-200 rounded mb-6"></div>
+            <div className="space-y-3">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="h-4 bg-gray-200 rounded"></div>
+              ))}
+            </div>
           </div>
         </div>
       </AppLayout>
@@ -76,14 +120,11 @@ const BlogPost = () => {
   if (!post) {
     return (
       <AppLayout>
-        <div className="container mx-auto py-12 px-4 text-center">
-          <h1 className="text-3xl font-bold mb-4">Post Not Found</h1>
-          <p className="text-muted-foreground mb-6">
-            The blog post you're looking for doesn't exist or has been removed.
-          </p>
-          <Button asChild>
-            <Link to="/blog">Back to Blog</Link>
-          </Button>
+        <div className="container mx-auto py-8 px-4 text-center">
+          <h1 className="text-2xl font-bold mb-4">Blog post not found</h1>
+          <Link to="/blog">
+            <Button>Back to Blog</Button>
+          </Link>
         </div>
       </AppLayout>
     );
@@ -91,106 +132,135 @@ const BlogPost = () => {
 
   return (
     <AppLayout>
-      <div className="container mx-auto py-8 px-4">
-        <div className="mb-8">
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            asChild
-            className="mb-4 gap-2"
-          >
-            <Link to="/blog">
-              <ArrowLeft className="h-4 w-4" />
+      <div className="container mx-auto py-8 px-4 max-w-4xl">
+        {/* Navigation */}
+        <div className="mb-6">
+          <Link to="/blog">
+            <Button variant="ghost" className="pl-0">
+              <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Blog
-            </Link>
-          </Button>
-          
-          {post.imageUrl && (
-            <div className="w-full h-[300px] sm:h-[400px] mb-6 overflow-hidden rounded-lg">
-              <img
-                src={post.imageUrl}
-                alt={post.title}
-                className="w-full h-full object-cover"
-              />
-            </div>
-          )}
-          
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4">
-            {post.title}
-          </h1>
-          
-          <div className="flex flex-wrap items-center gap-4 text-muted-foreground mb-4">
-            <div className="flex items-center gap-1.5">
-              <Calendar className="h-4 w-4" />
-              <span className="text-sm">{formatDate(post.publishedAt)}</span>
-            </div>
-            {post.authorName && (
-              <div className="flex items-center gap-1.5">
-                <User className="h-4 w-4" />
-                <span className="text-sm">{post.authorName}</span>
-              </div>
-            )}
-            {post.views !== undefined && (
-              <div className="flex items-center gap-1.5">
-                <Eye className="h-4 w-4" />
-                <span className="text-sm">{post.views.toLocaleString()} views</span>
-              </div>
-            )}
-            {post.readTime && (
-              <div className="text-sm">
-                {post.readTime} min read
-              </div>
-            )}
-          </div>
-          
-          <div className="flex flex-wrap gap-2 mb-6">
-            {post.category && (
-              <Badge variant="outline" className="bg-muted/50">
-                {post.category}
-              </Badge>
-            )}
-            {post.tags?.map(tag => (
-              <Badge key={tag} variant="secondary">
-                {tag}
-              </Badge>
-            ))}
-          </div>
-          
-          {isAdmin && (
-            <div>
-              <div className="flex gap-2 mb-6">
-                <Button variant="outline" asChild>
-                  <Link to={`/admin/blog/edit/${post.slug}`}>Edit Post</Link>
-                </Button>
-              </div>
-              
-              {/* Show analytics for admins */}
-              <Card className="mb-6">
-                <CardContent className="pt-6">
-                  <h3 className="text-lg font-semibold mb-4">Post Performance</h3>
-                  <BlogPostMetrics slug={post.slug} />
-                </CardContent>
-              </Card>
-            </div>
-          )}
-          
-          {post.excerpt && (
-            <div className="text-lg text-muted-foreground mb-8 italic border-l-4 border-primary/20 pl-4 py-2">
-              {post.excerpt}
-            </div>
-          )}
-          
-          <Separator className="my-8" />
-          
-          <div className="prose prose-lg max-w-none dark:prose-invert">
-            <ReactMarkdown>{post.content}</ReactMarkdown>
-          </div>
-          
-          <Separator className="my-8" />
+            </Button>
+          </Link>
         </div>
+
+        <article>
+          {/* Header */}
+          <header className="mb-8">
+            {post.imageUrl && (
+              <div className="mb-6 rounded-lg overflow-hidden">
+                <img 
+                  src={post.imageUrl} 
+                  alt={post.title}
+                  className="w-full h-64 md:h-80 object-cover"
+                />
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 mb-4">
+              <Badge variant="outline">{post.category}</Badge>
+              {post.featured && (
+                <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">
+                  Featured
+                </Badge>
+              )}
+            </div>
+
+            <h1 className="text-3xl md:text-4xl font-bold leading-tight mb-4">
+              {post.title}
+            </h1>
+
+            <p className="text-lg text-gray-600 mb-6 leading-relaxed">
+              {post.excerpt}
+            </p>
+
+            {/* Meta Information */}
+            <div className="flex flex-wrap items-center gap-6 text-sm text-gray-500 mb-6">
+              <div className="flex items-center gap-1">
+                <User className="h-4 w-4" />
+                <span>{post.authorName}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Calendar className="h-4 w-4" />
+                <span>{formatDate(post.publishedAt)}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Clock className="h-4 w-4" />
+                <span>{post.readTime} min read</span>
+              </div>
+              {post.views && (
+                <div className="flex items-center gap-1">
+                  <span>{post.views} views</span>
+                </div>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-3 mb-8">
+              <Button variant="outline" size="sm" onClick={handleShare}>
+                <Share2 className="h-4 w-4 mr-2" />
+                Share
+              </Button>
+              {isAdmin && (
+                <Link to={`/admin/blog/edit/${post.slug}`}>
+                  <Button variant="outline" size="sm">
+                    <Edit className="h-4 w-4 mr-2" />
+                    Edit Post
+                  </Button>
+                </Link>
+              )}
+            </div>
+
+            <Separator />
+          </header>
+
+          {/* Content */}
+          <div className="prose prose-lg max-w-none mb-8">
+            <div 
+              dangerouslySetInnerHTML={{ __html: renderContent(post.content) }}
+              className="leading-relaxed"
+            />
+          </div>
+
+          {/* Tags */}
+          {post.tags && post.tags.length > 0 && (
+            <div className="mb-8">
+              <h3 className="text-sm font-medium text-gray-500 mb-3">Tags</h3>
+              <div className="flex flex-wrap gap-2">
+                {post.tags.map(tag => (
+                  <Link 
+                    key={tag} 
+                    to={`/blog?tag=${encodeURIComponent(tag)}`}
+                  >
+                    <Badge 
+                      variant="secondary" 
+                      className="cursor-pointer hover:bg-[#9b87f5] hover:text-white transition-colors"
+                    >
+                      {tag}
+                    </Badge>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <Separator className="my-8" />
+
+          {/* Footer */}
+          <footer className="text-center">
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold mb-2">Enjoyed this article?</h3>
+              <p className="text-gray-600 mb-4">
+                Explore more insights from the Data Blueprint Series
+              </p>
+              <Link to="/blog">
+                <Button className="bg-[#9b87f5] hover:bg-[#8B5CF6]">
+                  View All Articles
+                </Button>
+              </Link>
+            </div>
+          </footer>
+        </article>
       </div>
     </AppLayout>
   );
-};
-
-export default BlogPost;
+}
