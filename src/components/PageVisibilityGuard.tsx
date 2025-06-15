@@ -17,15 +17,22 @@ export default function PageVisibilityGuard({ children }: { children: React.Reac
   useEffect(() => {
     // Check page visibility on every location change or when the context data loads
     const checkVisibility = async () => {
-      if (!isLoading) {
-        const pathToCheck = location.pathname;
-        console.log(`[PageVisibilityGuard] Checking visibility for path: ${pathToCheck}`);
-        console.log(`[PageVisibilityGuard] User:`, user);
-        
-        const visibility = isPageVisible(pathToCheck);
-        console.log(`[PageVisibilityGuard] Path ${pathToCheck} is visible: ${visibility}`);
-        
-        setIsVisible(visibility);
+      try {
+        if (!isLoading) {
+          const pathToCheck = location.pathname;
+          console.log(`[PageVisibilityGuard] Checking visibility for path: ${pathToCheck}`);
+          console.log(`[PageVisibilityGuard] User:`, user);
+          
+          const visibility = isPageVisible(pathToCheck);
+          console.log(`[PageVisibilityGuard] Path ${pathToCheck} is visible: ${visibility}`);
+          
+          setIsVisible(visibility);
+          setCheckComplete(true);
+        }
+      } catch (error) {
+        console.error('[PageVisibilityGuard] Error checking visibility:', error);
+        // Default to visible on error to prevent blocking
+        setIsVisible(true);
         setCheckComplete(true);
       }
     };
@@ -38,10 +45,27 @@ export default function PageVisibilityGuard({ children }: { children: React.Reac
     navigate('/resources');
   };
 
-  // During loading state, don't render content yet to prevent flashing
-  if (isLoading || !checkComplete) {
-    console.log('[PageVisibilityGuard] Still loading visibility data or checking visibility...');
-    return <div className="animate-pulse h-screen w-full bg-gray-100 dark:bg-gray-900"></div>;
+  // Shorter loading timeout to prevent infinite loading
+  useEffect(() => {
+    if (isLoading) {
+      const timeout = setTimeout(() => {
+        console.warn('[PageVisibilityGuard] Loading timeout, defaulting to visible');
+        setIsVisible(true);
+        setCheckComplete(true);
+      }, 2000); // 2 second timeout
+
+      return () => clearTimeout(timeout);
+    }
+  }, [isLoading]);
+
+  // During loading state, show a minimal loading indicator instead of full page blur
+  if (isLoading && !checkComplete) {
+    console.log('[PageVisibilityGuard] Still loading visibility data...');
+    return (
+      <div className="flex justify-center items-center h-32">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
   }
   
   // If visible, show the content normally
