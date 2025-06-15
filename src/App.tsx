@@ -4,27 +4,19 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { Toaster } from '@/components/ui/toaster';
-import { WelcomeModal } from '@/components/onboarding/WelcomeModal';
+import WelcomeModal from '@/components/onboarding/WelcomeModal';
 
-// Pages
-import Home from '@/pages/Home';
+// Pages that exist
 import Login from '@/pages/Login';
 import Profile from '@/pages/Profile';
-import Courses from '@/pages/Courses';
 import CourseDetail from '@/pages/CourseDetail';
 import Events from '@/pages/Events';
 import Messages from '@/pages/Messages';
 import InterviewPrep from '@/pages/InterviewPrep';
-import MockInterview from '@/pages/MockInterview';
-import InterviewPractice from '@/pages/InterviewPractice';
 import PortfolioExplorer from '@/pages/PortfolioExplorer';
-import PublicPortfolio from '@/pages/PublicPortfolio';
 import CareerPathway from '@/pages/CareerPathway';
-import Careers from '@/pages/Careers';
-import CareerRoleDetail from '@/pages/CareerRoleDetail';
 import Resources from '@/pages/Resources';
-import AI from '@/pages/AI';
-import AdminDashboard from '@/pages/admin/AdminDashboard';
+import AdminDashboard from '@/pages/AdminDashboard';
 import EventsAdmin from '@/pages/admin/EventsAdmin';
 import BlogAdmin from '@/pages/admin/BlogAdmin';
 import CourseAdmin from '@/pages/admin/CourseAdmin';
@@ -34,9 +26,11 @@ import UserManagement from '@/pages/admin/UserManagement';
 import Blog from '@/pages/Blog';
 import BlogPost from '@/pages/BlogPost';
 import CodePractice from '@/pages/CodePractice';
-import Forum from '@/pages/Forum';
+import Forum from '@/pages/ForumList';
 import ThreadDetail from '@/pages/ThreadDetail';
-import FormSubmission from '@/pages/FormSubmission';
+
+// Use Dashboard as the home page since Index exists
+import Dashboard from '@/pages/Dashboard';
 
 import '@/App.css';
 
@@ -56,31 +50,24 @@ function App() {
         <Router>
           <div className="min-h-screen bg-gray-50">
             <Routes>
-              <Route path="/" element={<Home />} />
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/login" element={<Login />} />
               <Route path="/profile" element={<Profile />} />
-              <Route path="/courses" element={<Courses />} />
+              <Route path="/courses" element={<Navigate to="/dashboard" replace />} />
               <Route path="/courses/:id" element={<CourseDetail />} />
               <Route path="/events" element={<Events />} />
               <Route path="/messages" element={<Messages />} />
               <Route path="/interview-prep" element={<InterviewPrep />} />
-              <Route path="/mock-interview" element={<MockInterview />} />
-              <Route path="/interview-practice" element={<InterviewPractice />} />
               <Route path="/code-practice" element={<CodePractice />} />
               <Route path="/portfolio-explorer" element={<PortfolioExplorer />} />
-              <Route path="/portfolio/:customUrl" element={<PublicPortfolio />} />
               <Route path="/career-pathway" element={<CareerPathway />} />
-              <Route path="/careers" element={<Careers />} />
-              <Route path="/careers/:slug" element={<CareerRoleDetail />} />
               <Route path="/resources" element={<Resources />} />
               <Route path="/blog" element={<Blog />} />
               <Route path="/blog/:slug" element={<BlogPost />} />
               <Route path="/data-blueprint-series" element={<Navigate to="/blog" replace />} />
-              <Route path="/ai" element={<AI />} />
               <Route path="/forum" element={<Forum />} />
-              <Route path="/forum/:courseId" element={<Forum />} />
               <Route path="/thread/:threadId" element={<ThreadDetail />} />
-              <Route path="/forms/:formId" element={<FormSubmission />} />
 
               {/* Admin Routes */}
               <Route path="/admin" element={<AdminDashboard />} />

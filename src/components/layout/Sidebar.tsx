@@ -30,9 +30,7 @@ const navigation = [
   { name: 'Interview Prep', href: '/interview-prep', icon: Briefcase },
   { name: 'Portfolio Explorer', href: '/portfolio-explorer', icon: PenTool },
   { name: 'Career Pathway', href: '/career-pathway', icon: Star },
-  { name: 'Careers Explorer', href: '/careers', icon: Sparkles },
   { name: 'Resources', href: '/resources', icon: FileText },
-  { name: 'AI Assistant', href: '/ai', icon: Sparkles },
   { name: 'Code Practice', href: '/code-practice', icon: Code },
   { name: 'Forum', href: '/forum', icon: MessageCircle },
 ];
@@ -48,9 +46,9 @@ const adminNavigation = [
 
 export default function Sidebar() {
   const location = useLocation();
-  const { profiles } = useAuth();
+  const { user } = useAuth();
   
-  const isAdmin = profiles?.roles?.includes('admin');
+  const isAdmin = user?.roles?.includes('admin');
 
   const isActivePath = (href: string) => {
     if (href === '/') {
@@ -137,10 +135,7 @@ export default function Sidebar() {
               </div>
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-700 group-hover:text-gray-900">
-                  {profiles?.first_name && profiles?.last_name 
-                    ? `${profiles.first_name} ${profiles.last_name}`
-                    : 'Your Profile'
-                  }
+                  {user?.name || 'Your Profile'}
                 </p>
                 <p className="text-xs font-medium text-gray-500">View profile</p>
               </div>

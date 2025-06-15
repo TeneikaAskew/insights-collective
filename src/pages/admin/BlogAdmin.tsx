@@ -3,8 +3,8 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
 import { BlogManagement } from '@/components/admin/blog/BlogManagement';
-import { BlogPostForm } from '@/components/blog/BlogPostForm';
-import { AdminGuard } from '@/components/admin/AdminGuard';
+import BlogPostForm from '@/components/blog/BlogPostForm';
+import AdminGuard from '@/components/admin/AdminGuard';
 
 export default function BlogAdmin() {
   return (

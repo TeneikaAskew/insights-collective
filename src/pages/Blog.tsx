@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,7 +13,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export default function Blog() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { user, profiles } = useAuth();
+  const { user } = useAuth();
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [categories, setCategories] = useState<BlogCategory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -22,7 +21,7 @@ export default function Blog() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedTag, setSelectedTag] = useState<string>('');
 
-  const isAdmin = profiles?.roles?.includes('admin');
+  const isAdmin = user?.roles?.includes('admin');
 
   useEffect(() => {
     loadBlogData();

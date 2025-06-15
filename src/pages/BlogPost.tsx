@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -15,12 +14,12 @@ import { useToast } from '@/hooks/use-toast';
 export default function BlogPostPage() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
-  const { user, profiles } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
   const [post, setPost] = useState<BlogPost | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const isAdmin = profiles?.roles?.includes('admin');
+  const isAdmin = user?.roles?.includes('admin');
 
   useEffect(() => {
     if (slug) {
