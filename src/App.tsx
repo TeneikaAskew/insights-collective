@@ -17,12 +17,7 @@ import PortfolioExplorer from '@/pages/PortfolioExplorer';
 import CareerPathway from '@/pages/CareerPathway';
 import Resources from '@/pages/Resources';
 import AdminDashboard from '@/pages/AdminDashboard';
-import EventsAdmin from '@/pages/admin/EventsAdmin';
 import BlogAdmin from '@/pages/admin/BlogAdmin';
-import CourseAdmin from '@/pages/admin/CourseAdmin';
-import FormsAdmin from '@/pages/admin/FormsAdmin';
-import FormResponsesAdmin from '@/pages/admin/FormResponsesAdmin';
-import UserManagement from '@/pages/admin/UserManagement';
 import Blog from '@/pages/Blog';
 import BlogPost from '@/pages/BlogPost';
 import CodePractice from '@/pages/CodePractice';
@@ -71,12 +66,7 @@ function App() {
 
               {/* Admin Routes */}
               <Route path="/admin" element={<AdminDashboard />} />
-              <Route path="/admin/events" element={<EventsAdmin />} />
               <Route path="/admin/blog/*" element={<BlogAdmin />} />
-              <Route path="/admin/courses" element={<CourseAdmin />} />
-              <Route path="/admin/forms" element={<FormsAdmin />} />
-              <Route path="/admin/forms/:formId/responses" element={<FormResponsesAdmin />} />
-              <Route path="/admin/users" element={<UserManagement />} />
             </Routes>
             <Toaster />
             <WelcomeModal />

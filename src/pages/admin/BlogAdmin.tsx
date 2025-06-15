@@ -1,22 +1,20 @@
 
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
 import { BlogManagement } from '@/components/admin/blog/BlogManagement';
-import BlogPostForm from '@/components/blog/BlogPostForm';
+import BlogPostEditor from '@/components/admin/blog/BlogPostEditor';
 import AdminGuard from '@/components/admin/AdminGuard';
 
 export default function BlogAdmin() {
   return (
     <AdminGuard>
       <AppLayout>
-        <div className="container mx-auto py-8 px-4">
-          <Routes>
-            <Route index element={<BlogManagement />} />
-            <Route path="new" element={<BlogPostForm />} />
-            <Route path="edit/:slug" element={<BlogPostForm />} />
-          </Routes>
-        </div>
+        <Routes>
+          <Route index element={<BlogManagement />} />
+          <Route path="new" element={<BlogPostEditor />} />
+          <Route path="edit/:slug" element={<BlogPostEditor />} />
+        </Routes>
       </AppLayout>
     </AdminGuard>
   );
