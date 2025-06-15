@@ -8,36 +8,104 @@ import { PageVisibilityProvider } from '@/contexts/PageVisibilityContext';
 import { Toaster } from '@/components/ui/toaster';
 import WelcomeModal from '@/components/onboarding/WelcomeModal';
 
-// Pages that exist
+// Authentication Pages
 import Login from '@/pages/Login';
+import Register from '@/pages/Register';
+import ResetPassword from '@/pages/ResetPassword';
+import AuthCallback from '@/pages/AuthCallback';
+
+// Core Application Pages
+import Index from '@/pages/Index';
+import Dashboard from '@/pages/Dashboard';
 import Profile from '@/pages/Profile';
+import Notifications from '@/pages/Notifications';
+import Calendar from '@/pages/Calendar';
+import UserDashboard from '@/pages/UserDashboard';
+
+// Course & Learning Pages
+import CourseList from '@/pages/CourseList';
 import CourseDetail from '@/pages/CourseDetail';
+import CourseManagement from '@/pages/CourseManagement';
+import CourseManageMaterials from '@/pages/CourseManageMaterials';
+import AssignmentDetail from '@/pages/AssignmentDetail';
+import LessonDetail from '@/pages/LessonDetail';
+import ModuleDetail from '@/pages/ModuleDetail';
+
+// Interview Preparation Pages
+import InterviewPrep from '@/pages/InterviewPrep';
+import MockInterviews from '@/pages/MockInterviews';
+import CodePractice from '@/pages/CodePractice';
+import InterviewCodePractice from '@/pages/interview-prep/CodePractice';
+import JobDescription from '@/pages/interview-prep/JobDescription';
+import MockInterviewRoom from '@/pages/interview-prep/MockInterviewRoom';
+import InterviewMockInterviews from '@/pages/interview-prep/MockInterviews';
+import StarPractice from '@/pages/interview-prep/StarPractice';
+
+// Career & AI Pages
+import CareerAgent from '@/pages/CareerAgent';
+import CareerPathway from '@/pages/CareerPathway';
+import Assistants from '@/pages/Assistants';
+import AssistantInterface from '@/pages/AssistantInterface';
+import ExploreDataCareers from '@/pages/ExploreDataCareers';
+import Resume from '@/pages/Resume';
+
+// Events & Social Pages
 import Events from '@/pages/Events';
 import Messages from '@/pages/Messages';
-import InterviewPrep from '@/pages/InterviewPrep';
-import PortfolioExplorer from '@/pages/PortfolioExplorer';
-import CareerPathway from '@/pages/CareerPathway';
-import Resources from '@/pages/Resources';
-import AdminDashboard from '@/pages/AdminDashboard';
-import BlogAdmin from '@/pages/admin/BlogAdmin';
-import PageVisibility from '@/pages/admin/PageVisibility';
-import Blog from '@/pages/Blog';
-import BlogPost from '@/pages/BlogPost';
-import CodePractice from '@/pages/CodePractice';
 import Forum from '@/pages/ForumList';
+import ForumDetail from '@/pages/ForumDetail';
 import ThreadDetail from '@/pages/ThreadDetail';
 
-// Portfolio related imports
+// Portfolio Pages
+import PortfolioExplorer from '@/pages/PortfolioExplorer';
 import { EnhancedPortfolioEditor } from '@/components/portfolio/EnhancedPortfolioEditor';
 import { PublicPortfolioView } from '@/components/portfolio/PublicPortfolioView';
 import { usePortfolioPages } from '@/hooks/usePortfolioPages';
 import { Spinner } from '@/components/ui/spinner';
+
+// Blog & Content Pages
+import Blog from '@/pages/Blog';
+import BlogPost from '@/pages/BlogPost';
+import BlogList from '@/pages/BlogList';
+import DataBlueprintSeries from '@/pages/DataBlueprintSeries';
+import CreateBlogPost from '@/pages/CreateBlogPost';
+import EditBlogPost from '@/pages/EditBlogPost';
+
+// Resources & Tools Pages
+import Resources from '@/pages/Resources';
+import TeneikaLinkedIn from '@/pages/TeneikaLinkedIn';
+import TeneikaTweets from '@/pages/TeneikaTweets';
+
+// Survey & Forms Pages
+import Survey from '@/pages/Survey';
+import SurveyConfirmation from '@/pages/SurveyConfirmation';
+import SurveyFormCreate from '@/pages/survey/SurveyFormCreate';
+import SurveyFormEdit from '@/pages/survey/SurveyFormEdit';
+import SurveyPage from '@/pages/survey/SurveyPage';
+
+// Admin Pages
+import AdminDashboard from '@/pages/AdminDashboard';
+import AdminActivity from '@/pages/AdminActivity';
+import AdminBlogPosts from '@/pages/AdminBlogPosts';
+import AdminCourses from '@/pages/AdminCourses';
+import AdminCourseEdit from '@/pages/AdminCourseEdit';
+import AdminEvents from '@/pages/AdminEvents';
+import AdminForms from '@/pages/AdminForms';
+import AdminUsers from '@/pages/AdminUsers';
+import BlogAdmin from '@/pages/admin/BlogAdmin';
+import PageVisibility from '@/pages/admin/PageVisibility';
+import FormManagement from '@/pages/admin/FormManagement';
+import UnifiedFormManagement from '@/pages/admin/UnifiedFormManagement';
+import LocalStorageDebug from '@/pages/admin/LocalStorageDebug';
+
+// Legal & Info Pages
+import PrivacyPolicy from '@/pages/PrivacyPolicy';
+import TermsOfService from '@/pages/TermsOfService';
+import NotFound from '@/pages/NotFound';
+
+// Components
 import ProtectedRoute from '@/components/ProtectedRoute';
 import PageVisibilityGuard from '@/components/PageVisibilityGuard';
-
-// Import Index as the home page and Dashboard as authenticated page
-import Index from '@/pages/Index';
-import Dashboard from '@/pages/Dashboard';
 
 import '@/App.css';
 
@@ -89,16 +157,61 @@ function App() {
             <OnboardingProvider>
               <div className="min-h-screen bg-gray-50">
                 <Routes>
+                  {/* Home & Core Routes */}
                   <Route path="/" element={<Index />} />
                   <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/user-dashboard" element={<UserDashboard />} />
+                  <Route path="/notifications" element={<Notifications />} />
+                  <Route path="/calendar" element={<Calendar />} />
+
+                  {/* Authentication Routes */}
                   <Route path="/login" element={<Login />} />
+                  <Route path="/register" element={<Register />} />
+                  <Route path="/reset-password" element={<ResetPassword />} />
+                  <Route path="/auth-callback" element={<AuthCallback />} />
+
+                  {/* Profile & User Routes */}
                   <Route path="/profile" element={<Profile />} />
+
+                  {/* Course & Learning Routes */}
                   <Route path="/courses" element={<Navigate to="/dashboard" replace />} />
+                  <Route path="/course-list" element={<CourseList />} />
                   <Route path="/courses/:id" element={<CourseDetail />} />
+                  <Route path="/course-management" element={<CourseManagement />} />
+                  <Route path="/course-manage-materials" element={<CourseManageMaterials />} />
+                  <Route path="/assignment/:id" element={<AssignmentDetail />} />
+                  <Route path="/lesson/:id" element={<LessonDetail />} />
+                  <Route path="/module/:id" element={<ModuleDetail />} />
+
+                  {/* Interview Preparation Routes */}
+                  <Route path="/interview-prep" element={<InterviewPrep />} />
+                  <Route path="/interview-prep/code-practice" element={<InterviewCodePractice />} />
+                  <Route path="/interview-prep/job-description" element={<JobDescription />} />
+                  <Route path="/interview-prep/mock-interview-room" element={<MockInterviewRoom />} />
+                  <Route path="/interview-prep/mock-interviews" element={<InterviewMockInterviews />} />
+                  <Route path="/interview-prep/star-practice" element={<StarPractice />} />
+                  <Route path="/mock-interviews" element={<MockInterviews />} />
+                  <Route path="/code-practice" element={<CodePractice />} />
+
+                  {/* Career & AI Routes */}
+                  <Route path="/career-agent" element={<CareerAgent />} />
+                  <Route path="/career-pathway" element={<CareerPathway />} />
+                  <Route path="/assistants" element={<Assistants />} />
+                  <Route path="/assistant-interface" element={<AssistantInterface />} />
+                  <Route path="/explore-data-careers" element={<ExploreDataCareers />} />
+                  <Route path="/resume" element={<Resume />} />
+
+                  {/* Events & Social Routes */}
                   <Route path="/events" element={<Events />} />
                   <Route path="/messages" element={<Messages />} />
-                  <Route path="/interview-prep" element={<InterviewPrep />} />
-                  <Route path="/code-practice" element={<CodePractice />} />
+                  <Route path="/forum" element={<Forum />} />
+                  <Route path="/forums" element={<Forum />} />
+                  <Route path="/forum/:forumId" element={<ForumDetail />} />
+                  <Route path="/courses/:courseId/forums/:forumId" element={<ForumDetail />} />
+                  <Route path="/thread/:threadId" element={<ThreadDetail />} />
+                  <Route path="/courses/:courseId/forums/:forumId/threads/:threadId" element={<ThreadDetail />} />
+
+                  {/* Portfolio Routes */}
                   <Route path="/portfolio-explorer" element={
                     <ProtectedRoute>
                       <PageVisibilityGuard>
@@ -114,18 +227,49 @@ function App() {
                     </ProtectedRoute>
                   } />
                   <Route path="/portfolio/:customUrl" element={<PublicPortfolioWrapper />} />
-                  <Route path="/career-pathway" element={<CareerPathway />} />
-                  <Route path="/resources" element={<Resources />} />
+
+                  {/* Blog & Content Routes */}
                   <Route path="/blog" element={<Blog />} />
                   <Route path="/blog/:slug" element={<BlogPost />} />
-                  <Route path="/data-blueprint-series" element={<Navigate to="/blog" replace />} />
-                  <Route path="/forum" element={<Forum />} />
-                  <Route path="/thread/:threadId" element={<ThreadDetail />} />
+                  <Route path="/blog-list" element={<BlogList />} />
+                  <Route path="/data-blueprint-series" element={<DataBlueprintSeries />} />
+                  <Route path="/create-blog-post" element={<CreateBlogPost />} />
+                  <Route path="/edit-blog-post/:slug" element={<EditBlogPost />} />
+
+                  {/* Resources & Tools Routes */}
+                  <Route path="/resources" element={<Resources />} />
+                  <Route path="/teneika-linkedin" element={<TeneikaLinkedIn />} />
+                  <Route path="/teneika-tweets" element={<TeneikaTweets />} />
+
+                  {/* Survey & Forms Routes */}
+                  <Route path="/survey" element={<Survey />} />
+                  <Route path="/survey/:slug" element={<SurveyPage />} />
+                  <Route path="/survey-confirmation" element={<SurveyConfirmation />} />
+                  <Route path="/survey-confirmation/:slug" element={<SurveyConfirmation />} />
+                  <Route path="/survey/survey-form-create" element={<SurveyFormCreate />} />
+                  <Route path="/survey/survey-form-edit/:id" element={<SurveyFormEdit />} />
 
                   {/* Admin Routes */}
                   <Route path="/admin" element={<AdminDashboard />} />
+                  <Route path="/admin/activity" element={<AdminActivity />} />
                   <Route path="/admin/blog/*" element={<BlogAdmin />} />
+                  <Route path="/admin/blog-posts" element={<AdminBlogPosts />} />
+                  <Route path="/admin/courses" element={<AdminCourses />} />
+                  <Route path="/admin/course-edit/:id" element={<AdminCourseEdit />} />
+                  <Route path="/admin/events" element={<AdminEvents />} />
+                  <Route path="/admin/forms" element={<AdminForms />} />
+                  <Route path="/admin/users" element={<AdminUsers />} />
                   <Route path="/admin/page-visibility" element={<PageVisibility />} />
+                  <Route path="/admin/form-management" element={<FormManagement />} />
+                  <Route path="/admin/unified-form-management" element={<UnifiedFormManagement />} />
+                  <Route path="/admin/local-storage-debug" element={<LocalStorageDebug />} />
+
+                  {/* Legal & Info Routes */}
+                  <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+                  <Route path="/terms-of-service" element={<TermsOfService />} />
+
+                  {/* 404 Catch-All Route */}
+                  <Route path="*" element={<NotFound />} />
                 </Routes>
                 <Toaster />
                 <WelcomeModal />
