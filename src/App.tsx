@@ -41,8 +41,8 @@ const queryClient = new QueryClient({
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <Router>
+      <Router>
+        <AuthProvider>
           <div className="min-h-screen bg-gray-50">
             <Routes>
               <Route path="/" element={<Dashboard />} />
@@ -71,8 +71,8 @@ function App() {
             <Toaster />
             <WelcomeModal />
           </div>
-        </Router>
-      </AuthProvider>
+        </AuthProvider>
+      </Router>
     </QueryClientProvider>
   );
 }
