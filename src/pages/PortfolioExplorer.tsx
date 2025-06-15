@@ -1,289 +1,560 @@
-
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { useResumeData } from '@/hooks/resume/useResumeData';
+import { useSearchParams } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
+import { ProfileForm } from '@/components/portfolio/ProfileForm';
+import { ProjectIdeaList } from '@/components/portfolio/ProjectIdeaList';
+import { SkillGapChart } from '@/components/portfolio/SkillGapChart';
+import { KanbanBoard } from '@/components/portfolio/KanbanBoard';
+import { AddProjectDialog } from '@/components/portfolio/AddProjectDialog';
+import { PortfolioPagesTab } from '@/components/portfolio/PortfolioPagesTab';
+import { usePortfolio } from '@/hooks/usePortfolio';
+import { useAuth } from '@/contexts/AuthContext';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ExternalLink, Github, Star, Users, Calendar, Clock } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import ResumeReminderBox from '@/components/portfolio/ResumeReminderBox';
+import { QuestionnaireAnswers, PortfolioInsightData, ProjectIdea, ProjectStatus, PortfolioProject } from '@/types/portfolio';
+import { Check, RefreshCw, WandSparkles } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
-// Mock portfolio projects data
-const portfolioProjects = [
-  {
-    id: 1,
-    title: "Customer Churn Prediction Model",
-    description: "Machine learning model to predict customer churn using Python, scikit-learn, and pandas.",
-    technologies: ["Python", "Scikit-learn", "Pandas", "Jupyter", "SQL"],
-    difficulty: "Intermediate",
-    estimatedHours: 15,
-    category: "Machine Learning",
-    githubUrl: "https://github.com/example/churn-prediction",
-    demoUrl: "https://example.com/churn-demo",
-    popularity: 4.8,
-    completions: 1247,
-    lastUpdated: "2024-01-15"
-  },
-  {
-    id: 2,
-    title: "Sales Dashboard with Tableau",
-    description: "Interactive sales dashboard showcasing KPIs, trends, and regional performance metrics.",
-    technologies: ["Tableau", "SQL", "Excel", "Data Visualization"],
-    difficulty: "Beginner",
-    estimatedHours: 8,
-    category: "Data Visualization",
-    githubUrl: "https://github.com/example/sales-dashboard",
-    demoUrl: "https://public.tableau.com/example",
-    popularity: 4.6,
-    completions: 892,
-    lastUpdated: "2024-01-20"
-  },
-  {
-    id: 3,
-    title: "Real-time Data Pipeline with Apache Kafka",
-    description: "End-to-end data pipeline processing streaming data using Kafka, Spark, and Elasticsearch.",
-    technologies: ["Apache Kafka", "Spark", "Elasticsearch", "Docker", "Python"],
-    difficulty: "Advanced",
-    estimatedHours: 25,
-    category: "Data Engineering",
-    githubUrl: "https://github.com/example/kafka-pipeline",
-    demoUrl: null,
-    popularity: 4.9,
-    completions: 456,
-    lastUpdated: "2024-01-18"
-  },
-  {
-    id: 4,
-    title: "A/B Testing Analysis Framework",
-    description: "Statistical framework for designing and analyzing A/B tests with Python and R.",
-    technologies: ["R", "Python", "Statistics", "Hypothesis Testing", "Power Analysis"],
-    difficulty: "Intermediate",
-    estimatedHours: 12,
-    category: "Statistics",
-    githubUrl: "https://github.com/example/ab-testing",
-    demoUrl: "https://example.com/ab-testing-demo",
-    popularity: 4.7,
-    completions: 723,
-    lastUpdated: "2024-01-22"
-  },
-  {
-    id: 5,
-    title: "Natural Language Processing Sentiment Analysis",
-    description: "Build a sentiment analysis model using BERT and deploy it as a REST API.",
-    technologies: ["Python", "BERT", "PyTorch", "Flask", "Docker", "NLP"],
-    difficulty: "Advanced",
-    estimatedHours: 20,
-    category: "NLP",
-    githubUrl: "https://github.com/example/sentiment-analysis",
-    demoUrl: "https://example.com/sentiment-demo",
-    popularity: 4.8,
-    completions: 634,
-    lastUpdated: "2024-01-25"
-  },
-  {
-    id: 6,
-    title: "Financial Portfolio Optimization",
-    description: "Optimize investment portfolios using modern portfolio theory and Python.",
-    technologies: ["Python", "NumPy", "SciPy", "Finance", "Optimization"],
-    difficulty: "Intermediate",
-    estimatedHours: 18,
-    category: "Finance",
-    githubUrl: "https://github.com/example/portfolio-optimization",
-    demoUrl: null,
-    popularity: 4.5,
-    completions: 389,
-    lastUpdated: "2024-01-12"
-  }
-];
+function PortfolioExplorer() {
+  const [searchParams] = useSearchParams();
+  const { user, isAuthenticated } = useAuth();
+  const [activeTab, setActiveTab] = useState(() => {
+    // Initialize active tab from URL param if available
+    const tabParam = searchParams.get('tab');
+    return tabParam === 'discover' || tabParam === 'ideas' || 
+           tabParam === 'tracker' || tabParam === 'pages' 
+           ? tabParam : 'discover';
+  });
+  const [portfolioData, setPortfolioData] = useState<PortfolioInsightData | null>(null);
+  const [profileCompleted, setProfileCompleted] = useState(false);
+  const [savedAnswers, setSavedAnswers] = useState<QuestionnaireAnswers | null>(null);
+  // Add a flag to control tab navigation behavior
+  const [forceDiscoverTab, setForceDiscoverTab] = useState(false);
+  
+  const {
+    projects,
+    projectsLoading,
+    generatePortfolioIdeas,
+    addProject,
+    updateProjectStatus,
+    updateProject,
+    deleteProject,
+    isLoading,
+    previousRecommendations,
+    recommendationsLoading,
+    refetchRecommendations
+  } = usePortfolio();
 
-const PortfolioExplorer = () => {
-  const { user } = useAuth();
-  const { resume, loading: resumeLoading } = useResumeData();
-  const { toast } = useToast();
-  const [selectedCategory, setSelectedCategory] = useState<string>('All');
-  const [selectedDifficulty, setSelectedDifficulty] = useState<string>('All');
-  const [filteredProjects, setFilteredProjects] = useState(portfolioProjects);
-
-  const categories = ['All', 'Machine Learning', 'Data Visualization', 'Data Engineering', 'Statistics', 'NLP', 'Finance'];
-  const difficulties = ['All', 'Beginner', 'Intermediate', 'Advanced'];
-
+  // Handle URL parameter changes
   useEffect(() => {
-    let filtered = portfolioProjects;
-
-    if (selectedCategory !== 'All') {
-      filtered = filtered.filter(project => project.category === selectedCategory);
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'discover' || tabParam === 'ideas' || 
+        tabParam === 'tracker' || tabParam === 'pages') {
+      setActiveTab(tabParam);
     }
+  }, [searchParams]);
 
-    if (selectedDifficulty !== 'All') {
-      filtered = filtered.filter(project => project.difficulty === selectedDifficulty);
+  // Set portfolio data from previous recommendations if available
+  useEffect(() => {
+    if (previousRecommendations && !portfolioData) {
+      console.log('Setting portfolio data from previous recommendations:', previousRecommendations);
+      setPortfolioData(previousRecommendations);
+      setProfileCompleted(true);
     }
+  }, [previousRecommendations, portfolioData]);
 
-    setFilteredProjects(filtered);
-  }, [selectedCategory, selectedDifficulty]);
+  // Update active tab when portfolio data becomes available
+  useEffect(() => {
+    // Only auto-navigate to ideas tab if we're not forcing the discover tab
+    if (portfolioData && activeTab === 'discover' && !forceDiscoverTab) {
+      // If data is available and we're on discover tab, move to ideas tab
+      setActiveTab('ideas');
+    }
+  }, [portfolioData, activeTab, forceDiscoverTab]);
 
-  const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty) {
-      case 'Beginner':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
-      case 'Intermediate':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
-      case 'Advanced':
-        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
+  // Add function to fetch existing questionnaire data
+  const fetchExistingQuestionnaire = async () => {
+    if (!user) return;
+    
+    try {
+      // First try to get from local storage
+      const localData = localStorage.getItem(`portfolio_questionnaire_${user.id}`);
+      if (localData) {
+        const parsedData = JSON.parse(localData);
+        setSavedAnswers({
+          currentRole: parsedData.current_role,
+          interests: parsedData.interests,
+          hobbies: parsedData.hobbies
+        });
+        setProfileCompleted(true);
+        return;
+      }
+
+      // If not in local storage, fetch from Supabase
+      const { data, error } = await supabase
+        .from('portfolio')
+        .select('current_role, interests, hobbies')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error) {
+        if (error.code !== 'PGRST116') { // Not found error
+          console.error("Error fetching questionnaire:", error);
+        }
+        return;
+      }
+
+      if (data) {
+        const answers = {
+          currentRole: data.current_role,
+          interests: data.interests,
+          hobbies: data.hobbies
+        };
+        setSavedAnswers(answers);
+        setProfileCompleted(true);
+        
+        // Save to local storage
+        localStorage.setItem(`portfolio_questionnaire_${user.id}`, JSON.stringify({
+          current_role: data.current_role,
+          interests: data.interests,
+          hobbies: data.hobbies
+        }));
+      }
+    } catch (error) {
+      console.error("Error fetching questionnaire:", error);
     }
   };
 
-  const handleStartProject = (projectId: number) => {
-    toast({
-      title: "Project Started",
-      description: "You can now access the project resources and begin working on it.",
-    });
+  // Fetch existing data when component mounts
+  useEffect(() => {
+    if (user) {
+      fetchExistingQuestionnaire();
+    }
+  }, [user]);
+
+  const handleQuestionnaireSubmit = async (data: QuestionnaireAnswers) => {
+    if (!user) return;
+
+    try {
+      const now = new Date().toISOString();
+      
+      // Save to local storage first for immediate access
+      localStorage.setItem(`portfolio_questionnaire_${user.id}`, JSON.stringify({
+        current_role: data.currentRole,
+        interests: data.interests,
+        hobbies: data.hobbies
+      }));
+      
+      // Check if entry exists
+      const { data: existingData, error: fetchError } = await supabase
+        .from('portfolio')
+        .select('created_at')
+        .eq('user_id', user.id)
+        .single();
+
+      const payload = {
+        user_id: user.id,
+        current_role: data.currentRole,
+        interests: data.interests,
+        hobbies: data.hobbies,
+        updated_at: now
+      };
+
+      if (!existingData) {
+        // If no existing entry, include created_at
+        payload['created_at'] = now;
+      }
+
+      // Save to Supabase
+      const { error: upsertError } = await supabase
+        .from('portfolio')
+        .upsert(payload);
+
+      if (upsertError) throw upsertError;
+
+      // Generate portfolio ideas
+      const result = await generatePortfolioIdeas.mutateAsync(data);
+      setPortfolioData(result);
+      setProfileCompleted(true);
+      setSavedAnswers(data);
+      
+      // Automatically move to next tab after analysis is complete
+      setTimeout(() => {
+        setActiveTab('ideas');
+      }, 500);
+    } catch (error) {
+      console.error("Error saving questionnaire data:", error);
+    }
   };
+
+  const handleAddProject = async (projectIdea: ProjectIdea | any) => {
+    if (!user) return;
+    
+    // Transform the project idea into a portfolio project
+    // Ensure title is always defined with a fallback to prevent type errors
+    const newProject: Omit<PortfolioProject, 'id' | 'user_id' | 'created_at' | 'updated_at'> = {
+      title: projectIdea.title || 'Untitled Project', // Ensure title is always defined
+      description: projectIdea.description || '',
+      required_skills: projectIdea.requiredSkills || projectIdea.required_skills || [],
+      effort_level: projectIdea.effortLevel || projectIdea.effort_level || 'Medium',
+      impact: projectIdea.impact || '',
+      roadmap: projectIdea.roadmap ? { milestones: Array.isArray(projectIdea.roadmap) ? projectIdea.roadmap : [] } : undefined,
+      status: 'Idea' as ProjectStatus
+    };
+    
+    await addProject.mutateAsync(newProject);
+    setActiveTab('tracker');
+  };
+
+  const handleStatusChange = async (projectId: string, newStatus: ProjectStatus) => {
+    await updateProjectStatus.mutateAsync({ projectId, status: newStatus });
+  };
+
+  const handleUpdateProject = async (project: PortfolioProject) => {
+    await updateProject.mutateAsync(project);
+  };
+
+  const handleDeleteProject = async (projectId: string) => {
+    await deleteProject.mutateAsync(projectId);
+  };
+
+  const handleTabChange = (tab: string) => {
+    // Update URL with tab parameter
+    const newSearchParams = new URLSearchParams(searchParams);
+    newSearchParams.set('tab', tab);
+    window.history.replaceState(null, '', `?${newSearchParams.toString()}`);
+    
+    setActiveTab(tab);
+  };
+
+  if (!isAuthenticated) {
+    return (
+      <AppLayout>
+        <div className="flex flex-col items-center justify-center h-[70vh]">
+          <Card className="max-w-md w-full">
+            <CardHeader>
+              <CardTitle>Sign In Required</CardTitle>
+              <CardDescription>
+                Please sign in to access the Portfolio Explorer
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex justify-center">
+              <Button asChild className="bg-[#9b87f5] hover:bg-[#8B5CF6]">
+                <a href="/login">Sign In</a>
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Portfolio Explorer
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Discover and build data science projects to enhance your portfolio
-          </p>
-        </div>
+      <div className="container mx-auto p-4">
+        <Card className="mb-6 border-none shadow-none">
+          <CardHeader className="px-0">
+            <CardTitle className="text-3xl font-bold">Portfolio Explorer</CardTitle>
+            <CardDescription>
+              Create, plan, and track portfolio projects aligned with your career goals
+            </CardDescription>
+          </CardHeader>
+        </Card>
 
-        {/* Resume Reminder Box - only show if user doesn't have a resume */}
-        {!resumeLoading && !resume && (
-          <ResumeReminderBox />
-        )}
-
-        {/* Filters */}
-        <div className="mb-8 space-y-4">
-          <div>
-            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Category</h3>
-            <div className="flex flex-wrap gap-2">
-              {categories.map((category) => (
-                <Badge
-                  key={category}
-                  variant={selectedCategory === category ? "default" : "outline"}
-                  className="cursor-pointer"
-                  onClick={() => setSelectedCategory(category)}
-                >
-                  {category}
-                </Badge>
-              ))}
-            </div>
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
+          <div className="w-full">
+            <TabsList className="grid grid-cols-2 sm:grid-cols-4 gap-1 sm:gap-2 mb-8 w-full max-w-4xl mx-auto h-auto p-2">
+              <TabsTrigger value="discover" className="relative flex-col sm:flex-row gap-1 sm:gap-2 py-2 sm:py-1.5">
+                <div className={`${profileCompleted ? 'bg-green-500' : 'bg-[#9b87f5]'} rounded-full w-5 h-5 sm:w-6 sm:h-6 text-white flex items-center justify-center text-xs flex-shrink-0`}>
+                  {profileCompleted ? <Check className="h-3 w-3 sm:h-4 sm:w-4" /> : '1'}
+                </div>
+                <span className="text-xs sm:text-sm">Discover You</span>
+              </TabsTrigger>
+              <TabsTrigger value="ideas" disabled={!profileCompleted} className="relative flex-col sm:flex-row gap-1 sm:gap-2 py-2 sm:py-1.5">
+                <div className="bg-[#9b87f5] rounded-full w-5 h-5 sm:w-6 sm:h-6 text-white flex items-center justify-center text-xs flex-shrink-0">
+                  2
+                </div>
+                <span className="text-xs sm:text-sm">Project Ideas</span>
+              </TabsTrigger>
+              <TabsTrigger value="tracker" className="relative flex-col sm:flex-row gap-1 sm:gap-2 py-2 sm:py-1.5">
+                <div className="bg-[#9b87f5] rounded-full w-5 h-5 sm:w-6 sm:h-6 text-white flex items-center justify-center text-xs flex-shrink-0">
+                  3
+                </div>
+                <span className="text-xs sm:text-sm">Project Tracker</span>
+              </TabsTrigger>
+              <TabsTrigger value="pages" className="relative flex-col sm:flex-row gap-1 sm:gap-2 py-2 sm:py-1.5">
+                <div className="bg-[#9b87f5] rounded-full w-5 h-5 sm:w-6 sm:h-6 text-white flex items-center justify-center text-xs flex-shrink-0">
+                  4
+                </div>
+                <span className="text-xs sm:text-sm">Portfolio Pages</span>
+              </TabsTrigger>
+            </TabsList>
           </div>
 
-          <div>
-            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Difficulty</h3>
-            <div className="flex flex-wrap gap-2">
-              {difficulties.map((difficulty) => (
-                <Badge
-                  key={difficulty}
-                  variant={selectedDifficulty === difficulty ? "default" : "outline"}
-                  className="cursor-pointer"
-                  onClick={() => setSelectedDifficulty(difficulty)}
-                >
-                  {difficulty}
-                </Badge>
-              ))}
+          <TabsContent value="discover" className="space-y-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2">
+                <ProfileForm 
+                  onSubmit={handleQuestionnaireSubmit}
+                  isLoading={isLoading || generatePortfolioIdeas.isPending}
+                  initialData={savedAnswers}
+                />
+              </div>
+              <div className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">How It Works</CardTitle>
+                    <CardDescription>
+                      Your personalized portfolio journey in 4 steps
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex gap-3">
+                      <div className="bg-[#9b87f5]/10 text-[#9b87f5] rounded-full w-6 h-6 flex items-center justify-center text-xs flex-shrink-0 mt-0.5">
+                        1
+                      </div>
+                      <div>
+                        <h3 className="font-medium text-sm">Profile Analysis</h3>
+                        <p className="text-sm text-gray-500">
+                          We analyze your background, resume, and interests to identify optimal career paths.
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex gap-3">
+                      <div className="bg-[#9b87f5]/10 text-[#9b87f5] rounded-full w-6 h-6 flex items-center justify-center text-xs flex-shrink-0 mt-0.5">
+                        2
+                      </div>
+                      <div>
+                        <h3 className="font-medium text-sm">Project Recommendations</h3>
+                        <p className="text-sm text-gray-500">
+                          Discover tailored portfolio project ideas aligned with your target roles.
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex gap-3">
+                      <div className="bg-[#9b87f5]/10 text-[#9b87f5] rounded-full w-6 h-6 flex items-center justify-center text-xs flex-shrink-0 mt-0.5">
+                        3
+                      </div>
+                      <div>
+                        <h3 className="font-medium text-sm">Progress Tracking</h3>
+                        <p className="text-sm text-gray-500">
+                          Manage your portfolio projects from idea to completion with our visual tracker.
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex gap-3">
+                      <div className="bg-[#9b87f5]/10 text-[#9b87f5] rounded-full w-6 h-6 flex items-center justify-center text-xs flex-shrink-0 mt-0.5">
+                        4
+                      </div>
+                      <div>
+                        <h3 className="font-medium text-sm">Portfolio Showcase</h3>
+                        <p className="text-sm text-gray-500">
+                          Create a professional portfolio page to showcase your completed projects.
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">What You'll Get</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex items-start gap-2">
+                      <WandSparkles className="h-4 w-4 text-[#9b87f5] mt-0.5" />
+                      <p className="text-sm">Career-aligned portfolio project ideas</p>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <WandSparkles className="h-4 w-4 text-[#9b87f5] mt-0.5" />
+                      <p className="text-sm">Skill gap analysis with learning resources</p>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <WandSparkles className="h-4 w-4 text-[#9b87f5] mt-0.5" />
+                      <p className="text-sm">Visual project tracker to manage your portfolio</p>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <WandSparkles className="h-4 w-4 text-[#9b87f5] mt-0.5" />
+                      <p className="text-sm">Shareable portfolio pages to showcase your work</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
-          </div>
-        </div>
+          </TabsContent>
 
-        {/* Projects Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredProjects.map((project) => (
-            <Card key={project.id} className="flex flex-col">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="text-lg mb-2">{project.title}</CardTitle>
-                    <Badge className={getDifficultyColor(project.difficulty)}>
-                      {project.difficulty}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center space-x-1 text-sm text-gray-500">
-                    <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                    <span>{project.popularity}</span>
-                  </div>
-                </div>
-                <CardDescription className="text-sm text-gray-600 dark:text-gray-400">
-                  {project.description}
-                </CardDescription>
-              </CardHeader>
-
-              <CardContent className="flex-1 flex flex-col">
-                <div className="space-y-4 flex-1">
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Technologies
-                    </h4>
-                    <div className="flex flex-wrap gap-1">
-                      {project.technologies.map((tech) => (
-                        <Badge key={tech} variant="secondary" className="text-xs">
-                          {tech}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
-                    <div className="flex items-center space-x-1">
-                      <Clock className="h-4 w-4" />
-                      <span>{project.estimatedHours}h</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <Users className="h-4 w-4" />
-                      <span>{project.completions}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-4 space-y-2">
-                  <Button 
-                    className="w-full" 
-                    onClick={() => handleStartProject(project.id)}
-                  >
-                    Start Project
-                  </Button>
-                  
-                  <div className="flex space-x-2">
-                    <Button variant="outline" size="sm" asChild className="flex-1">
-                      <a href={project.githubUrl} target="_blank" rel="noopener noreferrer">
-                        <Github className="h-4 w-4 mr-1" />
-                        Code
-                      </a>
+          <TabsContent value="ideas">
+            {generatePortfolioIdeas.isPending ? (
+              <div className="flex flex-col items-center justify-center h-64">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#9b87f5]"></div>
+                <p className="mt-4 text-gray-500">Analyzing your profile and generating project ideas...</p>
+              </div>
+            ) : portfolioData ? (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2">
+                  <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-semibold">Project Ideas</h2>
+                    <Button 
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setPortfolioData(null);
+                        // Set the force discover tab flag to true to prevent auto-navigation
+                        setForceDiscoverTab(true);
+                        setActiveTab('discover');
+                      }}
+                    >
+                      Update Profile
                     </Button>
-                    {project.demoUrl && (
-                      <Button variant="outline" size="sm" asChild className="flex-1">
-                        <a href={project.demoUrl} target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="h-4 w-4 mr-1" />
-                          Demo
-                        </a>
-                      </Button>
-                    )}
                   </div>
+                  <ProjectIdeaList 
+                    targetRoles={portfolioData.targetRoles} 
+                    onAddProject={handleAddProject}
+                  />
                 </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                <div>
+                  <SkillGapChart 
+                    userSkills={portfolioData.skills}
+                    missingSkills={portfolioData.skillGaps.missingSkills}
+                    learningResources={portfolioData.skillGaps.learningResources}
+                  />
+                </div>
+              </div>
+            ) : recommendationsLoading ? (
+              // Show loading indicator while fetching previous recommendations
+              <div className="flex flex-col items-center justify-center h-64">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#9b87f5]"></div>
+                <p className="mt-4 text-gray-500">Loading your previous portfolio recommendations...</p>
+              </div>
+            ) : previousRecommendations ? (
+              // This should handle the case when previousRecommendations exists but hasn't been set to portfolioData yet
+              <div className="flex flex-col items-center justify-center h-64">
+                <Button 
+                  onClick={() => {
+                    if (previousRecommendations) {
+                      console.log("Loading previous recommendations:", previousRecommendations);
+                      setPortfolioData(previousRecommendations);
+                    }
+                  }}
+                  className="bg-[#9b87f5] hover:bg-[#8B5CF6] mb-4"
+                >
+                  Load Your Previous Recommendations
+                </Button>
+              </div>
+            ) : savedAnswers ? (
+              <div className="flex flex-col items-center justify-center h-64">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Generate Project Ideas</CardTitle>
+                    <CardDescription>
+                      Your profile is complete. Click below to generate personalized project ideas.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex flex-col items-center gap-4">
+                    <Button 
+                      onClick={() => handleQuestionnaireSubmit(savedAnswers)}
+                      disabled={generatePortfolioIdeas.isPending}
+                      className="bg-[#9b87f5] hover:bg-[#8B5CF6]"
+                    >
+                      {generatePortfolioIdeas.isPending ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Generating Ideas...
+                        </>
+                      ) : (
+                        'Generate Project Ideas'
+                      )}
+                    </Button>
+                    <Button 
+                      variant="outline"
+                      onClick={() => {
+                        setSavedAnswers(null);
+                        setActiveTab('discover');
+                      }}
+                    >
+                      Update Profile First
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+            ) : (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Complete Your Profile</CardTitle>
+                  <CardDescription>
+                    Please fill out the questionnaire in the "Discover You" tab first.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button onClick={() => setActiveTab('discover')}>
+                    Go to Profile Questionnaire
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+            
+            {portfolioData && (
+              <div className="mt-8 flex justify-center">
+                <Button 
+                  className="bg-[#9b87f5] hover:bg-[#8B5CF6]"
+                  onClick={() => {
+                    setForceDiscoverTab(false); // Reset the force flag when navigating away
+                    setActiveTab('tracker');
+                  }}
+                >
+                  Go to Project Tracker
+                </Button>
+              </div>
+            )}
+          </TabsContent>
 
-        {filteredProjects.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-gray-500 dark:text-gray-400">
-              No projects found matching your criteria. Try adjusting your filters.
-            </p>
-          </div>
-        )}
+          <TabsContent value="tracker">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">My Portfolio Projects</h2>
+              <AddProjectDialog onAddProject={handleAddProject} />
+            </div>
+
+            {projectsLoading ? (
+              <div className="flex flex-col items-center justify-center h-64">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#9b87f5]"></div>
+                <p className="mt-4 text-gray-500">Loading your projects...</p>
+              </div>
+            ) : projects && projects.length > 0 ? (
+              <KanbanBoard 
+                projects={projects}
+                onStatusChange={handleStatusChange}
+                onUpdateProject={handleUpdateProject}
+                onDeleteProject={handleDeleteProject}
+              />
+            ) : (
+              <Card>
+                <CardHeader>
+                  <CardTitle>No Projects Yet</CardTitle>
+                  <CardDescription>
+                    You haven't added any portfolio projects yet. Get started by adding a custom project or explore our recommendations.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col sm:flex-row gap-4">
+                  <Button onClick={() => setActiveTab('ideas')}>
+                    Explore Recommended Projects
+                  </Button>
+                  <AddProjectDialog onAddProject={handleAddProject} />
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+          
+          <TabsContent value="pages">
+            <PortfolioPagesTab />
+          </TabsContent>
+        </Tabs>
       </div>
     </AppLayout>
   );
-};
+}
 
 export default PortfolioExplorer;
