@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useAuthenticatedNavigation } from '@/hooks/useAuthenticatedNavigation';
 import { useAuth } from '@/contexts/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,11 +12,11 @@ import { BookOpen, Bell, Calendar, ArrowRight, Clock } from 'lucide-react';
 import { mockService } from '@/lib/mockData';
 import { useToast } from '@/hooks/use-toast';
 import { Course } from '@/types';
+import { Navigate } from 'react-router-dom';
 
 const Dashboard = () => {
   const { user, isAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = useState('courses');
-  const { navigateWithAuth } = useAuthenticatedNavigation();
   const { toast } = useToast();
   
   const [enrolledCourses, setEnrolledCourses] = useState<Course[]>([]);
@@ -25,15 +24,10 @@ const Dashboard = () => {
   const [error, setError] = useState<string | null>(null);
   const [teachingCourses, setTeachingCourses] = useState<Course[]>([]);
   
-  useEffect(() => {
-    if (!isAuthenticated) {
-      navigateWithAuth('/login', { 
-        requireAuth: true, 
-        message: "Please log in to view your dashboard", 
-        title: "Authentication Required" 
-      });
-    }
-  }, [isAuthenticated, navigateWithAuth]);
+  // Redirect to login if not authenticated
+  if (!isAuthenticated) {
+    return <Navigate to="/login?redirect=/dashboard" replace />;
+  }
   
   useEffect(() => {
     const fetchEnrolledCourses = async () => {
@@ -289,7 +283,7 @@ const Dashboard = () => {
           <TabsContent value="courses" className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold">My Courses</h2>
-              <Button variant="outline" size="sm" onClick={() => navigateWithAuth('/courses')}>
+              <Button variant="outline" size="sm" onClick={() => window.location.href = '/courses'}>
                 Browse Courses
               </Button>
             </div>
@@ -318,7 +312,7 @@ const Dashboard = () => {
               <Card>
                 <CardContent className="py-10 text-center">
                   <p className="text-muted-foreground mb-4">You haven't enrolled in any courses yet.</p>
-                  <Button onClick={() => navigateWithAuth('/courses')}>
+                  <Button onClick={() => window.location.href = '/courses'}>
                     Browse Courses
                   </Button>
                 </CardContent>
@@ -330,7 +324,7 @@ const Dashboard = () => {
             <TabsContent value="teaching" className="space-y-6">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-semibold">Courses You Teach</h2>
-                <Button variant="outline" size="sm" onClick={() => navigateWithAuth('/admin/courses')}>
+                <Button variant="outline" size="sm" onClick={() => window.location.href = '/admin/courses'}>
                   Manage Courses
                 </Button>
               </div>
@@ -349,7 +343,7 @@ const Dashboard = () => {
           <TabsContent value="deadlines" className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold">Upcoming Deadlines</h2>
-              <Button variant="outline" size="sm" onClick={() => navigateWithAuth('/calendar')}>
+              <Button variant="outline" size="sm" onClick={() => window.location.href = '/calendar'}>
                 View Calendar
               </Button>
             </div>

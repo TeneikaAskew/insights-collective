@@ -25,7 +25,8 @@ import CodePractice from '@/pages/CodePractice';
 import Forum from '@/pages/ForumList';
 import ThreadDetail from '@/pages/ThreadDetail';
 
-// Use Dashboard as the home page since Index exists
+// Import Index as the home page and Dashboard as authenticated page
+import Index from '@/pages/Index';
 import Dashboard from '@/pages/Dashboard';
 
 import '@/App.css';
@@ -47,7 +48,7 @@ function App() {
           <OnboardingProvider>
             <div className="min-h-screen bg-gray-50">
               <Routes>
-                <Route path="/" element={<Dashboard />} />
+                <Route path="/" element={<Index />} />
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/profile" element={<Profile />} />

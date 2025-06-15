@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -9,6 +10,7 @@ import { GraduationCap, Loader2, Eye, EyeOff } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { FaGoogle, FaGithub, FaTwitter } from 'react-icons/fa';
 import { useToast } from '@/hooks/use-toast';
+
 const Login = () => {
   const {
     login,
@@ -18,9 +20,7 @@ const Login = () => {
     isAuthenticated
   } = useAuth();
   const navigate = useNavigate();
-  const {
-    toast
-  } = useToast();
+  const { toast } = useToast();
   const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -28,28 +28,20 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
   const query = new URLSearchParams(location.search);
   const redirectParam = query.get('redirect');
-  useEffect(() => {
-    console.log('[Login] Mounted');
-    console.log('[Login] redirectParam:', redirectParam);
 
-    // Store the redirect path from query params if it exists
-    if (redirectParam) {
-      localStorage.setItem('redirectAfterLogin', redirectParam);
-    }
-  }, [redirectParam]);
+  // Simple redirect logic - just navigate directly when authenticated
   useEffect(() => {
     if (isAuthenticated) {
       console.log('[Login] User authenticated, redirecting...');
-      // Direct navigation instead of relying on handleRedirectAfterLogin
-      const storedPath = localStorage.getItem('redirectAfterLogin');
-      const redirectTo = storedPath || '/dashboard';
+      const redirectTo = redirectParam || '/dashboard';
       console.log('[Login] Redirecting to:', redirectTo);
-      localStorage.removeItem('redirectAfterLogin');
       navigate(redirectTo, { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, navigate, redirectParam]);
+
   const handleUserLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -68,6 +60,7 @@ const Login = () => {
       setLoading(false);
     }
   };
+
   const handleSocialSignIn = async (provider: 'google' | 'github' | 'twitter') => {
     console.log(`[handleSocialSignIn] Initiating ${provider} login`);
     try {
@@ -75,10 +68,10 @@ const Login = () => {
       setSocialLoading(provider);
 
       // Store the redirect path BEFORE initiating social sign in
-      const redirectParam = query.get('redirect');
-      const redirectPath = redirectParam || '/resources';
+      const redirectPath = redirectParam || '/dashboard';
       localStorage.setItem('redirectAfterLogin', redirectPath);
       console.log(`[handleSocialSignIn] Stored redirect path: ${redirectPath}`);
+      
       const signInMethod = {
         'google': googleSignIn,
         'github': githubSignIn,
@@ -101,16 +94,14 @@ const Login = () => {
       setSocialLoading(null);
     }
   };
+
+  // Don't show loading screen for already authenticated users - just redirect
   if (isAuthenticated) {
-    console.log('[Login] Already authenticated - showing "Redirecting..." screen');
-    return <div className="flex justify-center items-center h-screen">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-lg">Redirecting to your dashboard...</p>
-        </div>
-      </div>;
+    return null;
   }
-  return <div className="min-h-screen flex items-center justify-center p-4 bg-white">
+
+  return (
+    <div className="min-h-screen flex items-center justify-center p-4 bg-white">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center text-2xl font-bold text-primary">
@@ -133,16 +124,6 @@ const Login = () => {
                 {socialLoading === 'google' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FaGoogle className="mr-2 h-4 w-4" />}
                 Sign in with Google
               </Button>
-              
-              {/* <Button type="button" variant="outline" className="w-full flex items-center justify-center" onClick={() => handleSocialSignIn('github')} disabled={!!socialLoading}>
-                {socialLoading === 'github' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FaGithub className="mr-2 h-4 w-4" />}
-                Sign in with GitHub
-              </Button>
-              
-              <Button type="button" variant="outline" className="w-full flex items-center justify-center" onClick={() => handleSocialSignIn('twitter')} disabled={!!socialLoading}>
-                {socialLoading === 'twitter' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FaTwitter className="mr-2 h-4 w-4" />}
-                Sign in with Twitter
-              </Button> */}
             </div>
 
             <div className="relative my-6">
@@ -199,6 +180,8 @@ const Login = () => {
           </CardContent>
         </Card>
       </div>
-    </div>;
+    </div>
+  );
 };
+
 export default Login;
