@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search } from 'lucide-react';
@@ -78,57 +77,57 @@ const SiteSearch = () => {
       }
     });
 
-    // Data Blueprint Series
+    // Data Blueprint Series - updated to use correct route
     const blueprintEntries = [
       {
         id: "1",
         title: "What Is Data Science?",
-        url: "/resources/data-blueprint/what-is-data-science",
+        url: "/data-blueprint-series",
       },
       {
         id: "2",
         title: "Core Roles in a Data Team",
-        url: "/resources/data-blueprint/core-roles",
+        url: "/data-blueprint-series",
       },
       {
         id: "3",
         title: "The Data Science Lifecycle",
-        url: "/resources/data-blueprint/lifecycle",
+        url: "/data-blueprint-series",
       },
       {
         id: "4",
         title: "How to Start a Career in Data Science",
-        url: "/resources/data-blueprint/start-career",
+        url: "/data-blueprint-series",
       },
       {
         id: "5",
         title: "Responsible AI & Ethics in Data Science",
-        url: "/resources/data-blueprint/responsible-ai",
+        url: "/data-blueprint-series",
       },
       {
         id: "6",
         title: "Wisdom From the Field – Career Lessons",
-        url: "/resources/data-blueprint/career-lessons",
+        url: "/data-blueprint-series",
       },
       {
         id: "7",
         title: "Tools of the Trade",
-        url: "/resources/data-blueprint/tools",
+        url: "/data-blueprint-series",
       },
       {
         id: "8",
         title: "Data Science Career Paths",
-        url: "/resources/data-blueprint/career-paths",
+        url: "/data-blueprint-series",
       },
       {
         id: "9",
         title: "Resume & Portfolio Tips", 
-        url: "/resources/data-blueprint/resume-portfolio",
+        url: "/data-blueprint-series",
       },
       {
         id: "10",
         title: "Case Studies That Inspire",
-        url: "/resources/data-blueprint/case-studies",
+        url: "/data-blueprint-series",
       }
     ];
 

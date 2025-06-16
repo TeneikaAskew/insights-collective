@@ -68,12 +68,12 @@ const BlueprintBanner = () => {
               
               <div className="flex flex-wrap gap-3">
                 <Button variant="default" asChild className="shadow-md hover:shadow-lg transition-all duration-300">
-                  <Link to="/data-blueprint" className="flex items-center gap-2">
+                  <Link to="/data-blueprint-series" className="flex items-center gap-2">
                     Explore the series <ArrowRight className="h-4 w-4" />
                   </Link>
                 </Button>
                 <Button variant="outline" asChild>
-                  <Link to="/data-blueprint" className="flex items-center gap-2">
+                  <Link to="/data-blueprint-series" className="flex items-center gap-2">
                     <Bookmark className="h-4 w-4" /> Save for later
                   </Link>
                 </Button>
@@ -101,7 +101,7 @@ const BlueprintBanner = () => {
           <div className="mt-12">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-semibold">Featured Guides</h3>
-              <Link to="/data-blueprint" className="text-primary font-medium flex items-center hover:underline">
+              <Link to="/data-blueprint-series" className="text-primary font-medium flex items-center hover:underline">
                 View all guides <ChevronRight className="h-4 w-4 ml-1" />
               </Link>
             </div>
@@ -110,7 +110,7 @@ const BlueprintBanner = () => {
               <CarouselContent>
                 {blueprintEntries.map((entry) => (
                   <CarouselItem key={entry.id} className="sm:basis-1/2 md:basis-1/3 lg:basis-1/3 p-1">
-                    <Link to="/data-blueprint">
+                    <Link to="/data-blueprint-series">
                       <Card className="hover:shadow-md transition-all border-border/50 h-full flex flex-col">
                         <CardHeader className="pb-3">
                           <div className="flex items-center justify-between mb-1">

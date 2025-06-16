@@ -63,9 +63,9 @@ const AppSidebar = () => {
     active: location.pathname.startsWith('/course') && !location.pathname.includes('/forums')
   }, {
     title: "Data Blueprint",
-    url: "/data-blueprint",
+    url: "/data-blueprint-series",
     icon: FileText,
-    active: location.pathname === '/data-blueprint'
+    active: location.pathname === '/data-blueprint-series'
   }, {
     title: "AI & Automation Fellowship",
     url: "/survey",

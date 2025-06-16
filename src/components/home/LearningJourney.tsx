@@ -42,7 +42,7 @@ const LearningJourney = () => {
       description: "Build a strong foundation with our core courses in statistics, programming, and data manipulation - essential skills for any data professional.",
       icon: Star,
       color: "orange",
-      link: "/resources/data-blueprint",
+      link: "/data-blueprint-series",
       linkText: "View Blueprint"
     },
     {
