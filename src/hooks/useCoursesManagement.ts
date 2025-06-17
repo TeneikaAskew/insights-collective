@@ -108,9 +108,31 @@ export function useCoursesManagement() {
 
   const updateCourse = async (courseId: string, courseData: Partial<CourseFormData>): Promise<boolean> => {
     try {
+      // Clean the data to only include database fields
+      const cleanedData: Partial<CourseFormData> = {
+        title: courseData.title,
+        description: courseData.description,
+        category: courseData.category,
+        level: courseData.level,
+        duration: courseData.duration,
+        tags: courseData.tags,
+        image_url: courseData.image_url,
+        enrollment_status: courseData.enrollment_status,
+        published: courseData.published,
+        status: courseData.status,
+        instructor_id: courseData.instructor_id,
+      };
+
+      // Remove undefined values
+      Object.keys(cleanedData).forEach(key => {
+        if (cleanedData[key as keyof CourseFormData] === undefined) {
+          delete cleanedData[key as keyof CourseFormData];
+        }
+      });
+
       const { data, error } = await supabase
         .from('courses')
-        .update(courseData)
+        .update(cleanedData)
         .eq('id', courseId)
         .select()
         .single();

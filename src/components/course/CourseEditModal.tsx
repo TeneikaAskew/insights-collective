@@ -6,23 +6,42 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Course } from '@/types';
+import { CourseFormData } from '@/types/course';
 import { Upload } from 'lucide-react';
 
 interface CourseEditModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (course: Partial<Course>) => void;
+  onSave: (course: Partial<CourseFormData>) => void;
   course?: Partial<Course>;
 }
 
+// Form data type that matches database fields
+interface CourseFormFields {
+  title: string;
+  description: string;
+  category: string;
+  level: string;
+  duration: string;
+  tags: string[];
+  image_url: string;
+  enrollment_status: string;
+  published: boolean;
+  status: string;
+}
+
 const CourseEditModal = ({ isOpen, onClose, onSave, course }: CourseEditModalProps) => {
-  const [formData, setFormData] = useState<Partial<Course>>({
+  const [formData, setFormData] = useState<Partial<CourseFormFields>>({
     title: '',
     description: '',
     category: '',
     level: 'Beginner',
-    imageUrl: '',
-    // ... other fields
+    image_url: '',
+    duration: '',
+    tags: [],
+    enrollment_status: 'open',
+    published: false,
+    status: 'draft',
   });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -31,7 +50,17 @@ const CourseEditModal = ({ isOpen, onClose, onSave, course }: CourseEditModalPro
   useEffect(() => {
     if (course) {
       setFormData({
-        ...course
+        title: course.title || '',
+        description: course.description || '',
+        category: course.category || '',
+        level: course.level || 'Beginner',
+        duration: course.duration || '',
+        tags: course.tags || [],
+        // Map frontend properties to database field names
+        image_url: course.imageUrl || '',
+        enrollment_status: course.enrollmentStatus || 'open',
+        published: course.published || false,
+        status: 'draft', // Default status since Course type doesn't have this property
       });
       setImagePreview(course.imageUrl || null);
     }
@@ -54,7 +83,7 @@ const CourseEditModal = ({ isOpen, onClose, onSave, course }: CourseEditModalPro
       // Create preview URL
       const previewUrl = URL.createObjectURL(file);
       setImagePreview(previewUrl);
-      setFormData(prev => ({ ...prev, imageUrl: '' })); // Clear the URL input when a file is selected
+      setFormData(prev => ({ ...prev, image_url: '' })); // Clear the URL input when a file is selected
     }
   };
 
@@ -65,12 +94,18 @@ const CourseEditModal = ({ isOpen, onClose, onSave, course }: CourseEditModalPro
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // In a real implementation, you would upload the image file here
-    // and get back a URL to store in the course data
-    // For now, we'll just simulate it by using the preview URL
-    const courseData = {
-      ...formData,
-      imageUrl: imagePreview || formData.imageUrl
+    // Clean the data to only include database fields and remove frontend-only properties
+    const courseData: Partial<CourseFormData> = {
+      title: formData.title,
+      description: formData.description,
+      category: formData.category,
+      level: formData.level,
+      duration: formData.duration,
+      tags: formData.tags,
+      image_url: imagePreview || formData.image_url,
+      enrollment_status: formData.enrollment_status as 'open' | 'closed' | 'waitlist' || 'open',
+      published: formData.published,
+      status: formData.status as 'draft' | 'published' | 'archived' || 'draft',
     };
     
     onSave(courseData);
@@ -175,8 +210,8 @@ const CourseEditModal = ({ isOpen, onClose, onSave, course }: CourseEditModalPro
                 </div>
                 <Input
                   placeholder="Image URL (optional)"
-                  name="imageUrl"
-                  value={formData.imageUrl || ''}
+                  name="image_url"
+                  value={formData.image_url || ''}
                   onChange={(e) => {
                     handleChange(e);
                     if (e.target.value) {
