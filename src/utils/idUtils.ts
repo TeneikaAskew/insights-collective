@@ -44,103 +44,35 @@ const saveCourseUuidMapping = (mapping: Record<string, string>): void => {
   }
 };
 
-// Generate a persistent UUID for a course ID or use existing real UUID
+// Get course UUID - simplified to use IDs directly
 export const getMappedCourseUuid = (courseId: string): string => {
   if (!courseId) return '';
   
-  // If courseId already looks like a UUID, validate it and return it directly
+  // If courseId already looks like a UUID, return it directly
   if (isValidUUID(courseId)) {
     return courseId;
   }
   
-  const mapping = getCourseUuidMapping();
-  
-  // If we already have a UUID for this course ID, return it
-  if (mapping[courseId] && isValidUUID(mapping[courseId])) {
-    return mapping[courseId];
-  }
-  
-  // Check if this is a real course ID from our database
-  const fetchRealCourseId = async (id: string) => {
-    try {
-      const { data } = await supabase
-        .from('courses')
-        .select('id')
-        .eq('id', id)
-        .maybeSingle();
-      
-      if (data?.id) {
-        // If found in database, store mapping and return real ID
-        mapping[courseId] = data.id;
-        saveCourseUuidMapping(mapping);
-        return data.id;
-      }
-    } catch (error) {
-      console.error('Error checking course ID:', error);
-    }
-    return null;
-  };
-  
-  // Try to fetch real course ID, but don't block rendering
-  fetchRealCourseId(courseId);
-  
-  // Meanwhile, generate a new UUID if needed, save it, and return it
-  const newUuid = uuidv4();
-  mapping[courseId] = newUuid;
-  saveCourseUuidMapping(mapping);
-  
-  return newUuid;
+  // For non-UUID course IDs, return them as-is (they might be valid IDs)
+  return courseId;
 };
 
-// Generate a consistent UUID based on a string ID with prefix
+// Simplified UUID generation - use IDs directly when they're valid UUIDs
 export const generatePersistentUUID = (id: string, prefix: string = ''): string => {
   if (!id) return '';
   
-  // If ID already looks like a UUID, validate and return it directly
+  // If ID already looks like a UUID, return it directly
   if (isValidUUID(id)) {
     return id;
   }
   
-  // For courses, use our UUID mapping system
+  // For courses, use our simplified mapping
   if (prefix === 'course') {
     return getMappedCourseUuid(id);
   }
   
-  // Create a namespace using the prefix to ensure different UUIDs for different entity types
-  const namespace = `${prefix}_${id}`;
-  
-  // Use namespace as a seed to generate a UUID in a deterministic way
-  let hash = 0;
-  for (let i = 0; i < namespace.length; i++) {
-    const char = namespace.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32bit integer
-  }
-  
-  // Create a seeded random generator function
-  const createSeededRandom = (initialSeed: number) => {
-    let seed = initialSeed;
-    return () => {
-      const x = Math.sin(seed++) * 10000;
-      return x - Math.floor(x);
-    };
-  };
-  
-  // Use the hash as a seed
-  const seededRandom = createSeededRandom(Math.abs(hash));
-  
-  // Generate parts of a UUID using our seeded random function
-  const parts = [];
-  for (let i = 0; i < 8; i++) {
-    parts.push(Math.floor(seededRandom() * 16).toString(16));
-  }
-  
-  // Format as UUID
-  return [
-    parts.slice(0, 4).join(''),
-    parts.slice(4, 6).join(''),
-    parts.slice(6, 8).join('')
-  ].join('-') + '-' + uuidv4().substring(14);
+  // For other entities, return the ID as-is or generate if needed
+  return id;
 };
 
 // Course enrollment functions - now with UUID validation
@@ -160,9 +92,9 @@ export const addEnrolledCourse = (courseId: string): void => {
   if (!courseId) return;
   
   try {
-    // Ensure we have a valid UUID
-    const courseUUID = generatePersistentUUID(courseId, 'course');
-    if (!isValidUUID(courseUUID)) return;
+    // Use courseId directly if it's a valid UUID
+    const courseUUID = isValidUUID(courseId) ? courseId : generatePersistentUUID(courseId, 'course');
+    if (!courseUUID) return;
     
     const enrolledCourses = getEnrolledCourses();
     
@@ -179,8 +111,8 @@ export const isEnrolledInCourse = (courseId: string): boolean => {
   if (!courseId) return false;
   
   try {
-    const courseUUID = generatePersistentUUID(courseId, 'course');
-    if (!isValidUUID(courseUUID)) return false;
+    const courseUUID = isValidUUID(courseId) ? courseId : generatePersistentUUID(courseId, 'course');
+    if (!courseUUID) return false;
     
     return getEnrolledCourses().includes(courseUUID);
   } catch (error) {
@@ -206,8 +138,8 @@ export const toggleWishlistedCourse = (courseId: string): boolean => {
   if (!courseId) return false;
   
   try {
-    const courseUUID = generatePersistentUUID(courseId, 'course');
-    if (!isValidUUID(courseUUID)) return false;
+    const courseUUID = isValidUUID(courseId) ? courseId : generatePersistentUUID(courseId, 'course');
+    if (!courseUUID) return false;
     
     const wishlistedCourses = getWishlistedCourses();
     
@@ -234,8 +166,8 @@ export const isWishlistedCourse = (courseId: string): boolean => {
   if (!courseId) return false;
   
   try {
-    const courseUUID = generatePersistentUUID(courseId, 'course');
-    if (!isValidUUID(courseUUID)) return false;
+    const courseUUID = isValidUUID(courseId) ? courseId : generatePersistentUUID(courseId, 'course');
+    if (!courseUUID) return false;
     
     return getWishlistedCourses().includes(courseUUID);
   } catch (error) {

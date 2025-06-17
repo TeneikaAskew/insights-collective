@@ -43,8 +43,8 @@ const CourseDetail = () => {
       }
 
       try {
-        const courseUUID = generatePersistentUUID(courseId, 'course');
-        if (!isValidUUID(courseUUID)) {
+        // Use courseId directly if it's a valid UUID, otherwise validate
+        if (!isValidUUID(courseId)) {
           throw new Error("Invalid course ID format");
         }
         
@@ -52,14 +52,14 @@ const CourseDetail = () => {
           .from('courses')
           .select(`
             *,
-            instructor:instructor_id(
+            instructor:profiles!instructor_id(
               id,
               first_name,
               last_name,
               avatar_url
             )
           `)
-          .eq('id', courseUUID)
+          .eq('id', courseId)
           .single();
 
         if (courseError) throw courseError;
@@ -68,7 +68,7 @@ const CourseDetail = () => {
         const { data: modulesData, error: modulesError } = await supabase
           .from('modules')
           .select('*')
-          .eq('course_id', courseUUID)
+          .eq('course_id', courseId)
           .order('week', { ascending: true });
 
         if (modulesError) throw modulesError;
@@ -117,9 +117,8 @@ const CourseDetail = () => {
     if (isAuthenticated && user && courseId) {
       const checkEnrollment = async () => {
         try {
-          const courseUUID = generatePersistentUUID(courseId, 'course');
-          if (!isValidUUID(courseUUID)) {
-            console.error(`Invalid course UUID: ${courseUUID} for course ID: ${courseId}`);
+          if (!isValidUUID(courseId)) {
+            console.error(`Invalid course ID: ${courseId}`);
             return;
           }
           
@@ -127,7 +126,7 @@ const CourseDetail = () => {
             .from('enrollments')
             .select('id')
             .eq('user_id', user.id)
-            .eq('course_id', courseUUID)
+            .eq('course_id', courseId)
             .maybeSingle();
             
           if (!error && data) {
@@ -140,9 +139,8 @@ const CourseDetail = () => {
 
       const checkWishlist = async () => {
         try {
-          const courseUUID = generatePersistentUUID(courseId, 'course');
-          if (!isValidUUID(courseUUID)) {
-            console.error(`Invalid course UUID: ${courseUUID} for course ID: ${courseId}`);
+          if (!isValidUUID(courseId)) {
+            console.error(`Invalid course ID: ${courseId}`);
             return;
           }
           
@@ -150,7 +148,7 @@ const CourseDetail = () => {
             .from('course_wishlists')
             .select('id')
             .eq('user_id', user.id)
-            .eq('course_id', courseUUID)
+            .eq('course_id', courseId)
             .maybeSingle();
             
           if (!error && data) {
@@ -201,9 +199,8 @@ const CourseDetail = () => {
     setEnrolling(true);
     
     try {
-      const courseUUID = generatePersistentUUID(courseId, 'course');
-      if (!isValidUUID(courseUUID)) {
-        throw new Error(`Invalid course UUID format for course ID: ${courseId}`);
+      if (!isValidUUID(courseId)) {
+        throw new Error(`Invalid course ID format: ${courseId}`);
       }
       
       addEnrolledCourse(courseId);
@@ -212,7 +209,7 @@ const CourseDetail = () => {
       if (isAuthenticated && user) {
         const { error } = await supabase.from('enrollments').insert({
           user_id: user.id,
-          course_id: courseUUID,
+          course_id: courseId,
           completion_status: 0
         });
         
@@ -250,9 +247,8 @@ const CourseDetail = () => {
     setAddingToWishlist(true);
     
     try {
-      const courseUUID = generatePersistentUUID(courseId, 'course');
-      if (!isValidUUID(courseUUID)) {
-        throw new Error(`Invalid course UUID format for course ID: ${courseId}`);
+      if (!isValidUUID(courseId)) {
+        throw new Error(`Invalid course ID format: ${courseId}`);
       }
       
       const newWishlistStatus = toggleWishlistedCourse(courseId);
@@ -262,14 +258,14 @@ const CourseDetail = () => {
         if (newWishlistStatus) {
           const { error } = await supabase.from('course_wishlists').insert({
             user_id: user.id,
-            course_id: courseUUID
+            course_id: courseId
           });
           
           if (error) throw error;
         } else {
           const { error } = await supabase.from('course_wishlists').delete()
             .eq('user_id', user.id)
-            .eq('course_id', courseUUID);
+            .eq('course_id', courseId);
             
           if (error) throw error;
         }
