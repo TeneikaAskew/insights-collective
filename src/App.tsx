@@ -176,12 +176,12 @@ function App() {
                   {/* Course & Learning Routes - FIXED: Removed problematic redirect */}
                   <Route path="/courses" element={<CourseList />} />
                   <Route path="/course-list" element={<CourseList />} />
-                  <Route path="/courses/:id" element={<CourseDetail />} />
+                  <Route path="/courses/:courseId" element={<CourseDetail />} />
                   <Route path="/course-management" element={<CourseManagement />} />
                   <Route path="/course-manage-materials" element={<CourseManageMaterials />} />
-                  <Route path="/assignment/:id" element={<AssignmentDetail />} />
-                  <Route path="/lesson/:id" element={<LessonDetail />} />
-                  <Route path="/module/:id" element={<ModuleDetail />} />
+                  <Route path="/courses/:courseId/modules/:moduleId/assignments/:assignmentId" element={<AssignmentDetail />} />
+                  <Route path="/courses/:courseId/modules/:moduleId/lessons/:lessonId" element={<LessonDetail />} />
+                  <Route path="/courses/:courseId/modules/:moduleId" element={<ModuleDetail />} />
 
                   {/* Interview Preparation Routes */}
                   <Route path="/interview-prep" element={<InterviewPrep />} />
