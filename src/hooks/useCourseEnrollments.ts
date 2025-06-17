@@ -21,11 +21,12 @@ export function useCourseEnrollments(courseId?: string) {
     setError(null);
 
     try {
-      const { data, error } = await supabase
+      // Fetch enrollments with user profiles
+      const { data: enrollmentData, error: enrollmentError } = await supabase
         .from('enrollments')
         .select(`
           *,
-          user:profiles(
+          user:profiles!enrollments_user_id_fkey(
             id,
             first_name,
             last_name,
@@ -35,32 +36,47 @@ export function useCourseEnrollments(courseId?: string) {
         .eq('course_id', courseId)
         .order('enrolled_at', { ascending: false });
 
-      if (error) throw error;
+      if (enrollmentError) throw enrollmentError;
 
-      const transformedEnrollments: CourseEnrollment[] = (data || []).map(enrollment => ({
+      // Also fetch user emails from auth.users via profiles
+      const { data: profilesWithAuth, error: profilesError } = await supabase
+        .from('profiles')
+        .select(`
+          id,
+          first_name,
+          last_name,
+          avatar_url
+        `)
+        .in('id', (enrollmentData || []).map(e => e.user_id));
+
+      if (profilesError) {
+        console.warn('Could not fetch additional profile data:', profilesError);
+      }
+
+      const transformedEnrollments: CourseEnrollment[] = (enrollmentData || []).map(enrollment => ({
         ...enrollment,
         user: enrollment.user ? {
           id: enrollment.user.id,
           first_name: enrollment.user.first_name || '',
           last_name: enrollment.user.last_name || '',
           avatar_url: enrollment.user.avatar_url,
+          // Note: email is not available from profiles table for security reasons
+          email: undefined,
         } : undefined,
       }));
 
       setEnrollments(transformedEnrollments);
 
-      // Fetch course statistics
-      const { data: statsData, error: statsError } = await supabase
-        .rpc('get_course_stats', { course_id_param: courseId });
+      // Calculate basic stats from the data we have
+      const enrollmentCount = transformedEnrollments.length;
+      const completionRate = enrollmentCount > 0 
+        ? Math.round(transformedEnrollments.reduce((sum, e) => sum + (e.completion_status || 0), 0) / enrollmentCount)
+        : 0;
 
-      if (statsError) {
-        console.error('Error fetching course stats:', statsError);
-      } else if (statsData && statsData.length > 0) {
-        setStats({
-          enrollment_count: Number(statsData[0].enrollment_count) || 0,
-          completion_rate: Number(statsData[0].completion_rate) || 0,
-        });
-      }
+      setStats({
+        enrollment_count: enrollmentCount,
+        completion_rate: completionRate,
+      });
 
     } catch (err: any) {
       console.error('Error fetching enrollments:', err);

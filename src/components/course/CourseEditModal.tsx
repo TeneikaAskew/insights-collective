@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -7,7 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Course } from '@/types';
 import { CourseFormData } from '@/types/course';
-import { Upload } from 'lucide-react';
+import { Upload, Settings, ExternalLink } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { Link } from 'react-router-dom';
 
 interface CourseEditModalProps {
   isOpen: boolean;
@@ -28,6 +31,14 @@ interface CourseFormFields {
   enrollment_status: string;
   published: boolean;
   status: string;
+  instructor_id: string;
+}
+
+interface Instructor {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email?: string;
 }
 
 const CourseEditModal = ({ isOpen, onClose, onSave, course }: CourseEditModalProps) => {
@@ -42,10 +53,38 @@ const CourseEditModal = ({ isOpen, onClose, onSave, course }: CourseEditModalPro
     enrollment_status: 'open',
     published: false,
     status: 'draft',
+    instructor_id: '',
   });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [instructors, setInstructors] = useState<Instructor[]>([]);
+  const [loadingInstructors, setLoadingInstructors] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch available instructors
+  useEffect(() => {
+    const fetchInstructors = async () => {
+      setLoadingInstructors(true);
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, first_name, last_name')
+          .or('role.eq.instructor,role.eq.admin,roles.cs.{instructor},roles.cs.{admin}')
+          .order('first_name');
+
+        if (error) throw error;
+        setInstructors(data || []);
+      } catch (error) {
+        console.error('Error fetching instructors:', error);
+      } finally {
+        setLoadingInstructors(false);
+      }
+    };
+
+    if (isOpen) {
+      fetchInstructors();
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (course) {
@@ -57,12 +96,13 @@ const CourseEditModal = ({ isOpen, onClose, onSave, course }: CourseEditModalPro
         duration: course.duration || '',
         tags: course.tags || [],
         // Map frontend properties to database field names
-        image_url: course.imageUrl || '',
-        enrollment_status: course.enrollmentStatus || 'open',
+        image_url: course.imageUrl || course.image_url || '',
+        enrollment_status: course.enrollmentStatus || course.enrollment_status || 'open',
         published: course.published || false,
-        status: 'draft', // Default status since Course type doesn't have this property
+        status: course.status || 'draft',
+        instructor_id: course.instructor_id || course.instructor?.id || '',
       });
-      setImagePreview(course.imageUrl || null);
+      setImagePreview(course.imageUrl || course.image_url || null);
     }
   }, [course]);
 
@@ -106,6 +146,7 @@ const CourseEditModal = ({ isOpen, onClose, onSave, course }: CourseEditModalPro
       enrollment_status: formData.enrollment_status as 'open' | 'closed' | 'waitlist' || 'open',
       published: formData.published,
       status: formData.status as 'draft' | 'published' | 'archived' || 'draft',
+      instructor_id: formData.instructor_id,
     };
     
     onSave(courseData);
@@ -113,9 +154,22 @@ const CourseEditModal = ({ isOpen, onClose, onSave, course }: CourseEditModalPro
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{course?.id ? 'Edit Course' : 'Create New Course'}</DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle>{course?.id ? 'Edit Course' : 'Create New Course'}</DialogTitle>
+            {course?.id && (
+              <div className="flex gap-2">
+                <Button asChild variant="outline" size="sm">
+                  <Link to={`/course-manage-materials?courseId=${course.id}`} target="_blank">
+                    <Settings className="h-4 w-4 mr-1" />
+                    Manage Materials
+                    <ExternalLink className="h-3 w-3 ml-1" />
+                  </Link>
+                </Button>
+              </div>
+            )}
+          </div>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
@@ -175,6 +229,53 @@ const CourseEditModal = ({ isOpen, onClose, onSave, course }: CourseEditModalPro
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="instructor">Instructor</Label>
+              <Select
+                value={formData.instructor_id || ''}
+                onValueChange={(value) => handleSelectChange('instructor_id', value)}
+              >
+                <SelectTrigger id="instructor">
+                  <SelectValue placeholder={loadingInstructors ? "Loading instructors..." : "Select an instructor"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {instructors.map((instructor) => (
+                    <SelectItem key={instructor.id} value={instructor.id}>
+                      {`${instructor.first_name || ''} ${instructor.last_name || ''}`.trim() || 'Unnamed Instructor'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="duration">Duration</Label>
+              <Input
+                id="duration"
+                name="duration"
+                value={formData.duration || ''}
+                onChange={handleChange}
+                placeholder="e.g., 8 weeks, 40 hours"
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="enrollment_status">Enrollment Status</Label>
+              <Select
+                value={formData.enrollment_status || 'open'}
+                onValueChange={(value) => handleSelectChange('enrollment_status', value)}
+              >
+                <SelectTrigger id="enrollment_status">
+                  <SelectValue placeholder="Select enrollment status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="open">Open</SelectItem>
+                  <SelectItem value="closed">Closed</SelectItem>
+                  <SelectItem value="waitlist">Waitlist</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             
             {/* Image upload field */}
             <div className="grid gap-2">
@@ -227,8 +328,6 @@ const CourseEditModal = ({ isOpen, onClose, onSave, course }: CourseEditModalPro
                 </p>
               </div>
             </div>
-            
-            {/* Add more fields as needed */}
           </div>
           
           <DialogFooter>
