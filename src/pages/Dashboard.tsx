@@ -12,7 +12,7 @@ import { BookOpen, Bell, Calendar, ArrowRight, Clock } from 'lucide-react';
 import { mockService } from '@/lib/mockData';
 import { useToast } from '@/hooks/use-toast';
 import { Course } from '@/types';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Link } from 'react-router-dom';
 
 const Dashboard = () => {
   const { user, isAuthenticated } = useAuth();
@@ -283,8 +283,8 @@ const Dashboard = () => {
           <TabsContent value="courses" className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold">My Courses</h2>
-              <Button variant="outline" size="sm" onClick={() => window.location.href = '/courses'}>
-                Browse Courses
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/courses">Browse Courses</Link>
               </Button>
             </div>
             
@@ -312,8 +312,8 @@ const Dashboard = () => {
               <Card>
                 <CardContent className="py-10 text-center">
                   <p className="text-muted-foreground mb-4">You haven't enrolled in any courses yet.</p>
-                  <Button onClick={() => window.location.href = '/courses'}>
-                    Browse Courses
+                  <Button asChild>
+                    <Link to="/courses">Browse Courses</Link>
                   </Button>
                 </CardContent>
               </Card>

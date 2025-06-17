@@ -173,8 +173,8 @@ function App() {
                   {/* Profile & User Routes */}
                   <Route path="/profile" element={<Profile />} />
 
-                  {/* Course & Learning Routes */}
-                  <Route path="/courses" element={<Navigate to="/dashboard" replace />} />
+                  {/* Course & Learning Routes - FIXED: Removed problematic redirect */}
+                  <Route path="/courses" element={<CourseList />} />
                   <Route path="/course-list" element={<CourseList />} />
                   <Route path="/courses/:id" element={<CourseDetail />} />
                   <Route path="/course-management" element={<CourseManagement />} />
@@ -197,6 +197,7 @@ function App() {
                   <Route path="/career-agent" element={<CareerAgent />} />
                   <Route path="/career-pathway" element={<CareerPathway />} />
                   <Route path="/assistants" element={<Assistants />} />
+                  <Route path="/assistant/:id" element={<AssistantInterface />} />
                   <Route path="/assistant-interface" element={<AssistantInterface />} />
                   <Route path="/explore-data-careers" element={<ExploreDataCareers />} />
                   <Route path="/resume" element={<Resume />} />
