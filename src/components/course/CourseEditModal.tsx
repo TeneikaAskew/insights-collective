@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -108,7 +107,7 @@ const CourseEditModal = ({ isOpen, onClose, onSave, course }: CourseEditModalPro
         enrollment_status: course.enrollmentStatus || course.enrollment_status || 'open',
         published: course.published || false,
         status: course.status || 'draft',
-        instructor_id: course.instructor_id || '',
+        instructor_id: course.instructor?.id || '',
       });
       setImagePreview(course.imageUrl || course.image_url || null);
     }
