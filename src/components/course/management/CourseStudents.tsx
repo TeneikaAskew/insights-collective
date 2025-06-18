@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,7 +22,6 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 interface Student {
   enrollment_id: string;
   id: string;
-  email?: string;
   first_name: string;
   last_name: string;
   avatar_url?: string;
@@ -81,8 +79,7 @@ export default function CourseStudents({ courseId }: CourseStudentsProps) {
         .select(`
           id,
           created_at,
-          progress,
-          last_activity,
+          completion_status,
           user_id,
           profiles:user_id (
             id,
@@ -114,7 +111,6 @@ export default function CourseStudents({ courseId }: CourseStudentsProps) {
       const transformedData: Student[] = enrollmentData.map((enrollment) => ({
         enrollment_id: enrollment.id,
         id: enrollment.profiles?.id || enrollment.user_id,
-        email: undefined, // Email not available in profiles table
         first_name: enrollment.profiles?.first_name || '',
         last_name: enrollment.profiles?.last_name || '',
         avatar_url: enrollment.profiles?.avatar_url || undefined,
@@ -145,7 +141,7 @@ export default function CourseStudents({ courseId }: CourseStudentsProps) {
       const fullName = `${student.first_name} ${student.last_name}`.toLowerCase();
       const query = searchQuery.toLowerCase();
       
-      return fullName.includes(query) || (student.email && student.email.toLowerCase().includes(query));
+      return fullName.includes(query) || student.id.toLowerCase().includes(query);
     });
     
     setFilteredStudents(filtered);
@@ -221,7 +217,6 @@ export default function CourseStudents({ courseId }: CourseStudentsProps) {
       const newStudent: Student = {
         enrollment_id: enrollmentData.id,
         id: user.id,
-        email: user.email,
         first_name: profileData?.first_name || '',
         last_name: profileData?.last_name || '',
         avatar_url: profileData?.avatar_url,
@@ -283,12 +278,11 @@ export default function CourseStudents({ courseId }: CourseStudentsProps) {
   const exportStudentList = () => {
     // Generate CSV data
     const csvContent = [
-      ['ID', 'First Name', 'Last Name', 'Email', 'Enrolled Date', 'Progress'],
+      ['ID', 'First Name', 'Last Name', 'Enrolled Date', 'Progress'],
       ...students.map(student => [
         student.id,
         student.first_name,
         student.last_name,
-        student.email || 'N/A',
         new Date(student.enrolled_at).toLocaleDateString(),
         `${student.progress || 0}%`
       ])
