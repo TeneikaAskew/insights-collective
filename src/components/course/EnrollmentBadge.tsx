@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Pencil } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { getMappedCourseUuid, isValidUUID } from '@/utils/idUtils';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useCoursePermissions } from '@/hooks/useCoursePermissions';
@@ -29,28 +28,23 @@ const EnrollmentBadge = ({ courseId, status }: EnrollmentBadgeProps) => {
         return;
       }
       
-      const courseUUID = getMappedCourseUuid(courseId);
-      
-      if (!isValidUUID(courseUUID)) {
-        setIsEnrolled(false);
-        setLoading(false);
-        console.error(`Invalid course UUID: ${courseUUID} for course ID: ${courseId}`);
-        return;
-      }
-      
       try {
+        console.log('Checking enrollment for user:', user.id, 'course:', courseId);
+        
         const { data, error } = await supabase
           .from('enrollments')
           .select('id')
           .eq('user_id', user.id)
-          .eq('course_id', courseUUID)
+          .eq('course_id', courseId)
           .maybeSingle();
         
         if (error) {
           console.error('Error checking enrollment:', error);
           setIsEnrolled(false);
         } else {
-          setIsEnrolled(!!data);
+          const enrolled = !!data;
+          console.log('Enrollment check result:', enrolled, 'Data:', data);
+          setIsEnrolled(enrolled);
         }
       } catch (error) {
         console.error('Error checking enrollment:', error);
@@ -79,6 +73,10 @@ const EnrollmentBadge = ({ courseId, status }: EnrollmentBadgeProps) => {
     navigate(`/courses/${courseId}/materials`);
   };
   
+  const handleManageCourse = () => {
+    navigate(`/course-management?courseId=${courseId}`);
+  };
+  
   if (!isEnrolled && !isInstructor) {
     return null;
   }
@@ -98,8 +96,8 @@ const EnrollmentBadge = ({ courseId, status }: EnrollmentBadgeProps) => {
                   <Pencil className="h-4 w-4 mr-1" />
                   Edit Course
                 </Button>
-                <Button variant="outline" size="sm" onClick={handleManageMaterials}>
-                  Manage Materials
+                <Button variant="outline" size="sm" onClick={handleManageCourse}>
+                  Manage Course
                 </Button>
               </>
             )}

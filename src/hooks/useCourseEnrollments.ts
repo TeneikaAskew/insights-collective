@@ -21,11 +21,13 @@ export function useCourseEnrollments(courseId?: string) {
     setError(null);
 
     try {
+      console.log('Fetching enrollments for course:', courseId);
+
       const { data, error } = await supabase
         .from('enrollments')
         .select(`
           *,
-          user:profiles(
+          profiles:user_id(
             id,
             first_name,
             last_name,
@@ -35,18 +37,28 @@ export function useCourseEnrollments(courseId?: string) {
         .eq('course_id', courseId)
         .order('enrolled_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching enrollments:', error);
+        throw error;
+      }
+
+      console.log('Raw enrollment data:', data);
 
       const transformedEnrollments: CourseEnrollment[] = (data || []).map(enrollment => ({
-        ...enrollment,
-        user: enrollment.user ? {
-          id: enrollment.user.id,
-          first_name: enrollment.user.first_name || '',
-          last_name: enrollment.user.last_name || '',
-          avatar_url: enrollment.user.avatar_url,
+        id: enrollment.id,
+        user_id: enrollment.user_id,
+        course_id: enrollment.course_id,
+        enrolled_at: enrollment.enrolled_at,
+        completion_status: enrollment.completion_status || 0,
+        user: enrollment.profiles ? {
+          id: enrollment.profiles.id,
+          first_name: enrollment.profiles.first_name || '',
+          last_name: enrollment.profiles.last_name || '',
+          avatar_url: enrollment.profiles.avatar_url,
         } : undefined,
       }));
 
+      console.log('Transformed enrollments:', transformedEnrollments);
       setEnrollments(transformedEnrollments);
 
       // Fetch course statistics
@@ -59,6 +71,15 @@ export function useCourseEnrollments(courseId?: string) {
         setStats({
           enrollment_count: Number(statsData[0].enrollment_count) || 0,
           completion_rate: Number(statsData[0].completion_rate) || 0,
+        });
+        console.log('Course stats:', statsData[0]);
+      } else {
+        // Fallback stats calculation
+        setStats({
+          enrollment_count: transformedEnrollments.length,
+          completion_rate: transformedEnrollments.length > 0 
+            ? transformedEnrollments.reduce((acc, e) => acc + (e.completion_status || 0), 0) / transformedEnrollments.length 
+            : 0,
         });
       }
 
