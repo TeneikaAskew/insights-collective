@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -33,7 +34,7 @@ interface Student {
 interface EnrollmentData {
   id: string;
   created_at: string;
-  progress?: number;
+  completion_status?: number;
   last_activity?: string;
   user_id: string;
   profiles: {
@@ -115,7 +116,7 @@ export default function CourseStudents({ courseId }: CourseStudentsProps) {
         last_name: enrollment.profiles?.last_name || '',
         avatar_url: enrollment.profiles?.avatar_url || undefined,
         enrolled_at: enrollment.created_at,
-        progress: enrollment.progress || 0,
+        progress: enrollment.completion_status || 0,
         last_activity: enrollment.last_activity,
       }));
 

@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -107,7 +106,7 @@ const CourseEditModal = ({ isOpen, onClose, onSave, course }: CourseEditModalPro
         image_url: course.imageUrl || '',
         enrollment_status: course.enrollmentStatus || 'open',
         published: course.published || false,
-        status: course.status || 'draft',
+        status: (course as any).status || 'draft', // Safe type assertion since we know the course has status
         instructor_id: course.instructor?.id || '',
       });
       setImagePreview(course.imageUrl || null);
