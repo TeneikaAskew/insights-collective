@@ -5,7 +5,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Course } from '@/types';
 import { CourseFormData } from '@/types/course';
@@ -37,7 +36,6 @@ interface CourseFormFields {
   tags: string[];
   image_url: string;
   enrollment_status: string;
-  published: boolean;
   status: string;
   instructor_id: string;
 }
@@ -52,7 +50,6 @@ const CourseEditModal = ({ isOpen, onClose, onSave, course }: CourseEditModalPro
     duration: '',
     tags: [],
     enrollment_status: 'open',
-    published: false,
     status: 'draft',
     instructor_id: '',
   });
@@ -115,7 +112,6 @@ const CourseEditModal = ({ isOpen, onClose, onSave, course }: CourseEditModalPro
         tags: course.tags || [],
         image_url: course.imageUrl || course.image_url || '',
         enrollment_status: course.enrollmentStatus || course.enrollment_status || 'open',
-        published: course.published || false,
         status: course.status || 'draft',
         instructor_id: course.instructor_id || '',
       });
@@ -133,7 +129,6 @@ const CourseEditModal = ({ isOpen, onClose, onSave, course }: CourseEditModalPro
         duration: '',
         tags: [],
         enrollment_status: 'open',
-        published: false,
         status: 'draft',
         instructor_id: '',
       });
@@ -211,8 +206,8 @@ const CourseEditModal = ({ isOpen, onClose, onSave, course }: CourseEditModalPro
       tags: formData.tags,
       image_url: imagePreview || formData.image_url,
       enrollment_status: formData.enrollment_status as 'open' | 'closed' | 'waitlist' || 'open',
-      published: formData.published,
       status: formData.status as 'draft' | 'published' | 'archived' || 'draft',
+      published: formData.status === 'published',
       instructor_id: formData.instructor_id,
     };
     
@@ -436,7 +431,7 @@ const CourseEditModal = ({ isOpen, onClose, onSave, course }: CourseEditModalPro
               </div>
             </div>
 
-            {/* Course Settings */}
+            {/* Course Settings - SIMPLIFIED: Remove Published toggle, keep only status dropdown */}
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Course Settings</h3>
               <div className="grid gap-4">
@@ -472,15 +467,6 @@ const CourseEditModal = ({ isOpen, onClose, onSave, course }: CourseEditModalPro
                       <SelectItem value="archived">Archived</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="published"
-                    checked={formData.published || false}
-                    onCheckedChange={(checked) => handleSwitchChange('published', checked)}
-                  />
-                  <Label htmlFor="published">Published</Label>
                 </div>
               </div>
             </div>
