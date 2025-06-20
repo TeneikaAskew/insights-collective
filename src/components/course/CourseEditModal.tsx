@@ -69,13 +69,20 @@ const CourseEditModal = ({ isOpen, onClose, onSave, course }: CourseEditModalPro
     const fetchInstructors = async () => {
       setLoadingInstructors(true);
       try {
+        console.log('Fetching instructors...');
+        
         const { data, error } = await supabase
           .from('profiles')
           .select('id, first_name, last_name')
           .or('role.eq.instructor,role.eq.admin')
           .order('first_name');
 
-        if (error) throw error;
+        if (error) {
+          console.error('Error fetching instructors:', error);
+          throw error;
+        }
+        
+        console.log('Fetched instructors:', data);
         setInstructors(data || []);
       } catch (error) {
         console.error('Error fetching instructors:', error);
@@ -94,8 +101,11 @@ const CourseEditModal = ({ isOpen, onClose, onSave, course }: CourseEditModalPro
     }
   }, [isOpen, toast]);
 
+  // Populate form data when course prop changes
   useEffect(() => {
     if (course) {
+      console.log('Setting form data from course:', course);
+      
       setFormData({
         title: course.title || '',
         description: course.description || '',
@@ -103,13 +113,32 @@ const CourseEditModal = ({ isOpen, onClose, onSave, course }: CourseEditModalPro
         level: course.level || 'Beginner',
         duration: course.duration || '',
         tags: course.tags || [],
-        image_url: course.imageUrl || '',
-        enrollment_status: course.enrollmentStatus || 'open',
+        image_url: course.imageUrl || course.image_url || '',
+        enrollment_status: course.enrollmentStatus || course.enrollment_status || 'open',
         published: course.published || false,
-        status: (course as any).status || 'draft', // Safe type assertion since we know the course has status
-        instructor_id: course.instructor?.id || '',
+        status: course.status || 'draft',
+        // Fix: Use instructor_id directly from course, not nested instructor object
+        instructor_id: course.instructor_id || '',
       });
-      setImagePreview(course.imageUrl || null);
+      
+      console.log('Form instructor_id set to:', course.instructor_id);
+      setImagePreview(course.imageUrl || course.image_url || null);
+    } else {
+      // Reset form for new course
+      setFormData({
+        title: '',
+        description: '',
+        category: '',
+        level: 'Beginner',
+        image_url: '',
+        duration: '',
+        tags: [],
+        enrollment_status: 'open',
+        published: false,
+        status: 'draft',
+        instructor_id: '',
+      });
+      setImagePreview(null);
     }
   }, [course]);
 
@@ -119,6 +148,7 @@ const CourseEditModal = ({ isOpen, onClose, onSave, course }: CourseEditModalPro
   };
 
   const handleSelectChange = (name: string, value: string) => {
+    console.log(`Setting ${name} to:`, value);
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
@@ -171,6 +201,8 @@ const CourseEditModal = ({ isOpen, onClose, onSave, course }: CourseEditModalPro
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    console.log('Submitting form data:', formData);
+    
     const courseData: Partial<CourseFormData> = {
       title: formData.title,
       description: formData.description,
@@ -185,6 +217,7 @@ const CourseEditModal = ({ isOpen, onClose, onSave, course }: CourseEditModalPro
       instructor_id: formData.instructor_id,
     };
     
+    console.log('Calling onSave with:', courseData);
     onSave(courseData);
   };
 
@@ -311,6 +344,11 @@ const CourseEditModal = ({ isOpen, onClose, onSave, course }: CourseEditModalPro
                   </SelectContent>
                 </Select>
               </div>
+              {formData.instructor_id && (
+                <div className="text-sm text-muted-foreground">
+                  Current instructor ID: {formData.instructor_id}
+                </div>
+              )}
             </div>
 
             {/* Course Image */}

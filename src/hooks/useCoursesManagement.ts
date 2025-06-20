@@ -17,6 +17,8 @@ export function useCoursesManagement() {
     setError(null);
     
     try {
+      console.log('Fetching courses...');
+      
       const { data, error } = await supabase
         .from('courses')
         .select(`
@@ -30,7 +32,12 @@ export function useCoursesManagement() {
         `)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching courses:', error);
+        throw error;
+      }
+
+      console.log('Raw courses data:', data);
 
       // Transform data to match frontend interface
       const transformedCourses: Course[] = (data || []).map(course => ({
@@ -49,6 +56,7 @@ export function useCoursesManagement() {
         } : undefined,
       }));
 
+      console.log('Transformed courses:', transformedCourses);
       setCourses(transformedCourses);
     } catch (err: any) {
       console.error('Error fetching courses:', err);
@@ -63,53 +71,11 @@ export function useCoursesManagement() {
     }
   };
 
-  const createCourse = async (courseData: CourseFormData): Promise<Course | null> => {
+  const saveCourse = async (courseData: Partial<CourseFormData>, courseId?: string) => {
     try {
-      const { data, error } = await supabase
-        .from('courses')
-        .insert({
-          ...courseData,
-          instructor_id: user?.id,
-          status: 'draft',
-          published: false,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      const newCourse: Course = {
-        ...data,
-        imageUrl: data.image_url,
-        enrollmentStatus: data.enrollment_status,
-        enrollmentCount: 0,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at,
-      };
-
-      setCourses(prev => [newCourse, ...prev]);
+      console.log('Saving course data:', courseData);
       
-      toast({
-        title: 'Success',
-        description: 'Course created successfully',
-      });
-
-      return newCourse;
-    } catch (err: any) {
-      console.error('Error creating course:', err);
-      toast({
-        title: 'Error',
-        description: err.message || 'Failed to create course',
-        variant: 'destructive',
-      });
-      return null;
-    }
-  };
-
-  const updateCourse = async (courseId: string, courseData: Partial<CourseFormData>): Promise<boolean> => {
-    try {
-      // Clean the data to only include database fields
-      const cleanedData: Partial<CourseFormData> = {
+      const dbCourseData = {
         title: courseData.title,
         description: courseData.description,
         category: courseData.category,
@@ -120,56 +86,64 @@ export function useCoursesManagement() {
         enrollment_status: courseData.enrollment_status,
         published: courseData.published,
         status: courseData.status,
-        instructor_id: courseData.instructor_id,
+        instructor_id: courseData.instructor_id || null,
       };
 
-      // Remove undefined values
-      Object.keys(cleanedData).forEach(key => {
-        if (cleanedData[key as keyof CourseFormData] === undefined) {
-          delete cleanedData[key as keyof CourseFormData];
+      console.log('Database course data:', dbCourseData);
+
+      let result;
+      if (courseId) {
+        // Update existing course
+        const { data, error } = await supabase
+          .from('courses')
+          .update(dbCourseData)
+          .eq('id', courseId)
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Error updating course:', error);
+          throw error;
         }
-      });
+        result = data;
+        console.log('Course updated successfully:', result);
+      } else {
+        // Create new course
+        const { data, error } = await supabase
+          .from('courses')
+          .insert(dbCourseData)
+          .select()
+          .single();
 
-      const { data, error } = await supabase
-        .from('courses')
-        .update(cleanedData)
-        .eq('id', courseId)
-        .select()
-        .single();
+        if (error) {
+          console.error('Error creating course:', error);
+          throw error;
+        }
+        result = data;
+        console.log('Course created successfully:', result);
+      }
 
-      if (error) throw error;
-
-      const updatedCourse: Course = {
-        ...data,
-        imageUrl: data.image_url,
-        enrollmentStatus: data.enrollment_status,
-        enrollmentCount: data.enrollment_count || 0,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at,
-      };
-
-      setCourses(prev => prev.map(course => 
-        course.id === courseId ? updatedCourse : course
-      ));
+      // Refresh courses list
+      await fetchCourses();
 
       toast({
         title: 'Success',
-        description: 'Course updated successfully',
+        description: courseId ? 'Course updated successfully' : 'Course created successfully',
       });
 
-      return true;
+      return result;
     } catch (err: any) {
-      console.error('Error updating course:', err);
+      console.error('Error saving course:', err);
       toast({
         title: 'Error',
-        description: err.message || 'Failed to update course',
+        description: err.message || 'Failed to save course',
         variant: 'destructive',
       });
-      return false;
+      throw err;
     }
   };
 
-  const deleteCourse = async (courseId: string): Promise<boolean> => {
+  const deleteCourse = async (courseId: string) => {
     try {
       const { error } = await supabase
         .from('courses')
@@ -178,14 +152,13 @@ export function useCoursesManagement() {
 
       if (error) throw error;
 
-      setCourses(prev => prev.filter(course => course.id !== courseId));
+      // Refresh courses list
+      await fetchCourses();
 
       toast({
         title: 'Success',
         description: 'Course deleted successfully',
       });
-
-      return true;
     } catch (err: any) {
       console.error('Error deleting course:', err);
       toast({
@@ -193,16 +166,8 @@ export function useCoursesManagement() {
         description: err.message || 'Failed to delete course',
         variant: 'destructive',
       });
-      return false;
+      throw err;
     }
-  };
-
-  const publishCourse = async (courseId: string): Promise<boolean> => {
-    return updateCourse(courseId, { published: true, status: 'published' });
-  };
-
-  const unpublishCourse = async (courseId: string): Promise<boolean> => {
-    return updateCourse(courseId, { published: false, status: 'draft' });
   };
 
   useEffect(() => {
@@ -213,11 +178,8 @@ export function useCoursesManagement() {
     courses,
     loading,
     error,
-    createCourse,
-    updateCourse,
+    saveCourse,
     deleteCourse,
-    publishCourse,
-    unpublishCourse,
     refetch: fetchCourses,
   };
 }

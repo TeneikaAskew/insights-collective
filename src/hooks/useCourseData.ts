@@ -22,24 +22,28 @@ export function useCourseData(courseId?: string) {
       setError(null);
       
       try {
-        // Fetch course details with a revised query
-        // Modified query to use proper join syntax
+        console.log('Fetching course data for ID:', courseId);
+        
+        // Fetch course details with instructor information
         const { data, error: courseError } = await supabase
           .from('courses')
           .select(`
             *,
-            instructor:profiles(id, first_name, last_name, avatar_url)
+            instructor:profiles!courses_instructor_id_fkey(id, first_name, last_name, avatar_url)
           `)
           .eq('id', courseId)
           .single();
         
         if (courseError) {
+          console.error('Course fetch error:', courseError);
           throw courseError;
         }
 
         if (!data) {
           throw new Error('Course not found');
         }
+
+        console.log('Raw course data from database:', data);
 
         // Transform database fields to frontend model
         const transformedCourse: Course = {
@@ -50,12 +54,19 @@ export function useCourseData(courseId?: string) {
           level: data.level || '',
           thumbnail: data.thumbnail || data.image_url || '',
           imageUrl: data.image_url || '',
+          image_url: data.image_url || '', // Keep both for compatibility
           enrollmentStatus: data.enrollment_status || 'open',
+          enrollment_status: data.enrollment_status || 'open', // Keep both for compatibility
           duration: data.duration || '',
           tags: data.tags || [],
           published: data.published || false,
+          status: data.status || 'draft',
           createdAt: data.created_at,
           updatedAt: data.updated_at,
+          created_at: data.created_at,
+          updated_at: data.updated_at,
+          // Use instructor_id directly from database
+          instructor_id: data.instructor_id,
           instructor: data.instructor ? {
             id: data.instructor.id,
             name: `${data.instructor.first_name || ''} ${data.instructor.last_name || ''}`.trim(),
@@ -65,6 +76,8 @@ export function useCourseData(courseId?: string) {
           } : undefined,
         };
 
+        console.log('Transformed course data:', transformedCourse);
+
         // Fetch enrollment count
         const { count, error: countError } = await supabase
           .from('enrollments')
@@ -73,6 +86,7 @@ export function useCourseData(courseId?: string) {
 
         if (!countError) {
           transformedCourse.enrollmentCount = count || 0;
+          transformedCourse.enrollment_count = count || 0;
         }
 
         // Set the course data
