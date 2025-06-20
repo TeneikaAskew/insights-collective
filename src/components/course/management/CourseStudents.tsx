@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,27 +22,13 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 
 interface Student {
   enrollment_id: string;
-  id: string;
+  user_id: string;
   first_name: string;
   last_name: string;
   avatar_url?: string;
   enrolled_at: string;
   progress?: number;
   last_activity?: string;
-}
-
-interface EnrollmentData {
-  id: string;
-  created_at: string;
-  completion_status?: number;
-  last_activity?: string;
-  user_id: string;
-  profiles: {
-    id: string;
-    first_name: string | null;
-    last_name: string | null;
-    avatar_url: string | null;
-  } | null;
 }
 
 interface CourseStudentsProps {
@@ -73,31 +60,20 @@ export default function CourseStudents({ courseId }: CourseStudentsProps) {
     try {
       console.log('Fetching students for course:', courseId);
       
-      // Get all enrollments for this course with user profile data
-      const { data, error } = await supabase
+      // First get enrollments
+      const { data: enrollments, error: enrollmentError } = await supabase
         .from('enrollments')
-        .select(`
-          id,
-          created_at,
-          completion_status,
-          user_id,
-          profiles:user_id (
-            id,
-            first_name,
-            last_name,
-            avatar_url
-          )
-        `)
+        .select('id, user_id, enrolled_at, completion_status')
         .eq('course_id', courseId);
       
-      if (error) {
-        console.error('Error fetching enrollments:', error);
-        throw error;
+      if (enrollmentError) {
+        console.error('Error fetching enrollments:', enrollmentError);
+        throw enrollmentError;
       }
 
-      console.log('Raw enrollment data:', data);
+      console.log('Raw enrollment data:', enrollments);
 
-      if (!data || data.length === 0) {
+      if (!enrollments || enrollments.length === 0) {
         console.log('No enrollments found for course:', courseId);
         setStudents([]);
         setFilteredStudents([]);
@@ -105,19 +81,33 @@ export default function CourseStudents({ courseId }: CourseStudentsProps) {
         return;
       }
 
-      const enrollmentData = data as unknown as EnrollmentData[];
+      // Get profiles for enrolled users
+      const userIds = enrollments.map(e => e.user_id);
+      const { data: profiles, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, avatar_url')
+        .in('id', userIds);
       
+      if (profileError) {
+        console.error('Error fetching profiles:', profileError);
+      }
+
+      console.log('Profile data:', profiles);
+
       // Transform data into the Student format
-      const transformedData: Student[] = enrollmentData.map((enrollment) => ({
-        enrollment_id: enrollment.id,
-        id: enrollment.profiles?.id || enrollment.user_id,
-        first_name: enrollment.profiles?.first_name || '',
-        last_name: enrollment.profiles?.last_name || '',
-        avatar_url: enrollment.profiles?.avatar_url || undefined,
-        enrolled_at: enrollment.created_at,
-        progress: enrollment.completion_status || 0,
-        last_activity: enrollment.last_activity,
-      }));
+      const transformedData: Student[] = enrollments.map((enrollment) => {
+        const profile = profiles?.find(p => p.id === enrollment.user_id);
+        return {
+          enrollment_id: enrollment.id,
+          user_id: enrollment.user_id,
+          first_name: profile?.first_name || '',
+          last_name: profile?.last_name || '',
+          avatar_url: profile?.avatar_url || undefined,
+          enrolled_at: enrollment.enrolled_at,
+          progress: enrollment.completion_status || 0,
+          last_activity: undefined, // Not available in current schema
+        };
+      });
 
       console.log('Transformed student data:', transformedData);
       setStudents(transformedData);
@@ -141,7 +131,7 @@ export default function CourseStudents({ courseId }: CourseStudentsProps) {
       const fullName = `${student.first_name} ${student.last_name}`.toLowerCase();
       const query = searchQuery.toLowerCase();
       
-      return fullName.includes(query) || student.id.toLowerCase().includes(query);
+      return fullName.includes(query) || student.user_id.toLowerCase().includes(query);
     });
     
     setFilteredStudents(filtered);
@@ -152,8 +142,7 @@ export default function CourseStudents({ courseId }: CourseStudentsProps) {
     
     setAddingStudent(true);
     try {
-      // Try to find user by email using a more direct approach
-      // First, we'll try to use the user_id lookup function if available
+      // Try to find user by email using the RPC function
       const { data: userId, error: userIdError } = await supabase
         .rpc('get_user_id', { email: studentEmail.trim() });
       
@@ -212,11 +201,11 @@ export default function CourseStudents({ courseId }: CourseStudentsProps) {
       // Add to the students list
       const newStudent: Student = {
         enrollment_id: enrollmentData.id,
-        id: userId,
+        user_id: userId,
         first_name: profileData?.first_name || '',
         last_name: profileData?.last_name || '',
         avatar_url: profileData?.avatar_url,
-        enrolled_at: enrollmentData.created_at,
+        enrolled_at: enrollmentData.enrolled_at,
         progress: 0,
       };
       
@@ -274,9 +263,9 @@ export default function CourseStudents({ courseId }: CourseStudentsProps) {
   const exportStudentList = () => {
     // Generate CSV data
     const csvContent = [
-      ['ID', 'First Name', 'Last Name', 'Enrolled Date', 'Progress'],
+      ['User ID', 'First Name', 'Last Name', 'Enrolled Date', 'Progress'],
       ...students.map(student => [
-        student.id,
+        student.user_id,
         student.first_name,
         student.last_name,
         new Date(student.enrolled_at).toLocaleDateString(),
@@ -394,7 +383,7 @@ export default function CourseStudents({ courseId }: CourseStudentsProps) {
                             />
                           ) : (
                             <AvatarFallback className="bg-primary/10 text-primary">
-                              {student.first_name?.charAt(0) || student.id.charAt(0).toUpperCase()}
+                              {student.first_name?.charAt(0) || student.user_id.charAt(0).toUpperCase()}
                             </AvatarFallback>
                           )}
                         </Avatar>
@@ -407,7 +396,7 @@ export default function CourseStudents({ courseId }: CourseStudentsProps) {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell>{student.id}</TableCell>
+                    <TableCell>{student.user_id}</TableCell>
                     <TableCell>{new Date(student.enrolled_at).toLocaleDateString()}</TableCell>
                     <TableCell>
                       <div className="flex items-center">
@@ -434,7 +423,7 @@ export default function CourseStudents({ courseId }: CourseStudentsProps) {
                         className="text-red-500 hover:text-red-600"
                         onClick={() => handleRemoveStudent(
                           student.enrollment_id, 
-                          `${student.first_name} ${student.last_name}`.trim() || student.id
+                          `${student.first_name} ${student.last_name}`.trim() || student.user_id
                         )}
                       >
                         <X className="h-4 w-4" />

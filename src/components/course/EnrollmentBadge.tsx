@@ -31,6 +31,7 @@ const EnrollmentBadge = ({ courseId, status }: EnrollmentBadgeProps) => {
       try {
         console.log('Checking enrollment for user:', user.id, 'course:', courseId);
         
+        // Use the same query pattern as the admin panel
         const { data, error } = await supabase
           .from('enrollments')
           .select('id')

@@ -23,40 +23,60 @@ export function useCourseEnrollments(courseId?: string) {
     try {
       console.log('Fetching enrollments for course:', courseId);
 
-      const { data, error } = await supabase
+      // First get enrollments
+      const { data: enrollments, error: enrollmentError } = await supabase
         .from('enrollments')
-        .select(`
-          *,
-          profiles:user_id(
-            id,
-            first_name,
-            last_name,
-            avatar_url
-          )
-        `)
+        .select('id, user_id, course_id, enrolled_at, completion_status')
         .eq('course_id', courseId)
         .order('enrolled_at', { ascending: false });
 
-      if (error) {
-        console.error('Error fetching enrollments:', error);
-        throw error;
+      if (enrollmentError) {
+        console.error('Error fetching enrollments:', enrollmentError);
+        throw enrollmentError;
       }
 
-      console.log('Raw enrollment data:', data);
+      console.log('Raw enrollment data:', enrollments);
 
-      const transformedEnrollments: CourseEnrollment[] = (data || []).map(enrollment => ({
-        id: enrollment.id,
-        user_id: enrollment.user_id,
-        course_id: enrollment.course_id,
-        enrolled_at: enrollment.enrolled_at,
-        completion_status: enrollment.completion_status || 0,
-        user: enrollment.profiles ? {
-          id: enrollment.profiles.id,
-          first_name: enrollment.profiles.first_name || '',
-          last_name: enrollment.profiles.last_name || '',
-          avatar_url: enrollment.profiles.avatar_url,
-        } : undefined,
-      }));
+      if (!enrollments || enrollments.length === 0) {
+        console.log('No enrollments found for course:', courseId);
+        setEnrollments([]);
+        setStats({
+          enrollment_count: 0,
+          completion_rate: 0,
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Get profiles for enrolled users
+      const userIds = enrollments.map(e => e.user_id);
+      const { data: profiles, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, avatar_url')
+        .in('id', userIds);
+      
+      if (profileError) {
+        console.error('Error fetching profiles:', profileError);
+      }
+
+      console.log('Profile data:', profiles);
+
+      const transformedEnrollments: CourseEnrollment[] = enrollments.map(enrollment => {
+        const profile = profiles?.find(p => p.id === enrollment.user_id);
+        return {
+          id: enrollment.id,
+          user_id: enrollment.user_id,
+          course_id: enrollment.course_id,
+          enrolled_at: enrollment.enrolled_at,
+          completion_status: enrollment.completion_status || 0,
+          user: profile ? {
+            id: profile.id,
+            first_name: profile.first_name || '',
+            last_name: profile.last_name || '',
+            avatar_url: profile.avatar_url,
+          } : undefined,
+        };
+      });
 
       console.log('Transformed enrollments:', transformedEnrollments);
       setEnrollments(transformedEnrollments);
