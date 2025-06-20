@@ -152,20 +152,16 @@ export default function CourseStudents({ courseId }: CourseStudentsProps) {
     
     setAddingStudent(true);
     try {
-      // First find the user by checking auth.users table via a secure method
-      const { data: { users }, error: usersError } = await supabase.auth.admin.listUsers();
+      // Try to find user by email using a more direct approach
+      // First, we'll try to use the user_id lookup function if available
+      const { data: userId, error: userIdError } = await supabase
+        .rpc('get_user_id', { email: studentEmail.trim() });
       
-      if (usersError) {
-        console.error('Error fetching users:', usersError);
-        throw usersError;
-      }
-      
-      const user = users?.find(u => u.email === studentEmail.trim());
-      
-      if (!user) {
+      if (userIdError || !userId) {
+        console.error('Error finding user:', userIdError);
         toast({
           title: 'User Not Found',
-          description: 'No user found with that email address',
+          description: 'No user found with that email address. The user must have an account in the system.',
           variant: 'destructive',
         });
         return;
@@ -176,7 +172,7 @@ export default function CourseStudents({ courseId }: CourseStudentsProps) {
         .from('enrollments')
         .select('id')
         .eq('course_id', courseId)
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .maybeSingle();
       
       if (checkError) throw checkError;
@@ -195,7 +191,7 @@ export default function CourseStudents({ courseId }: CourseStudentsProps) {
         .from('enrollments')
         .insert({
           course_id: courseId,
-          user_id: user.id,
+          user_id: userId,
         })
         .select()
         .single();
@@ -206,7 +202,7 @@ export default function CourseStudents({ courseId }: CourseStudentsProps) {
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('id, first_name, last_name, avatar_url')
-        .eq('id', user.id)
+        .eq('id', userId)
         .single();
       
       if (profileError) {
@@ -216,7 +212,7 @@ export default function CourseStudents({ courseId }: CourseStudentsProps) {
       // Add to the students list
       const newStudent: Student = {
         enrollment_id: enrollmentData.id,
-        id: user.id,
+        id: userId,
         first_name: profileData?.first_name || '',
         last_name: profileData?.last_name || '',
         avatar_url: profileData?.avatar_url,
@@ -237,7 +233,7 @@ export default function CourseStudents({ courseId }: CourseStudentsProps) {
       console.error('Error adding student:', error);
       toast({
         title: 'Error',
-        description: 'Failed to enroll student. You may need admin privileges for this action.',
+        description: 'Failed to enroll student. Please make sure the email is correct and the user exists in the system.',
         variant: 'destructive',
       });
     } finally {
