@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -38,6 +39,7 @@ export default function AdminCourses() {
   const {
     courses,
     loading: coursesLoading,
+    saveCourse,
     createCourse,
     updateCourse,
     deleteCourse,
@@ -74,18 +76,17 @@ export default function AdminCourses() {
   };
 
   const handleSaveCourse = async (courseData: any) => {
-    let success = false;
-    
-    if (courseToEdit) {
-      success = await updateCourse(courseToEdit.id, courseData);
-    } else {
-      const newCourse = await createCourse(courseData);
-      success = !!newCourse;
-    }
-
-    if (success) {
+    try {
+      if (courseToEdit) {
+        await updateCourse(courseToEdit.id, courseData);
+      } else {
+        await createCourse(courseData);
+      }
+      
       setIsModalOpen(false);
       setCourseToEdit(null);
+    } catch (error) {
+      // Error handling is done in the hook
     }
   };
 

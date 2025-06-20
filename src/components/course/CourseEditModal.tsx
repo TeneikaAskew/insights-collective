@@ -117,7 +117,6 @@ const CourseEditModal = ({ isOpen, onClose, onSave, course }: CourseEditModalPro
         enrollment_status: course.enrollmentStatus || course.enrollment_status || 'open',
         published: course.published || false,
         status: course.status || 'draft',
-        // Fix: Use instructor_id directly from course, not nested instructor object
         instructor_id: course.instructor_id || '',
       });
       

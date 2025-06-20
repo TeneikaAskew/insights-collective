@@ -54,9 +54,9 @@ export function useCourseData(courseId?: string) {
           level: data.level || '',
           thumbnail: data.thumbnail || data.image_url || '',
           imageUrl: data.image_url || '',
-          image_url: data.image_url || '', // Keep both for compatibility
+          image_url: data.image_url || '',
           enrollmentStatus: data.enrollment_status || 'open',
-          enrollment_status: data.enrollment_status || 'open', // Keep both for compatibility
+          enrollment_status: data.enrollment_status || 'open',
           duration: data.duration || '',
           tags: data.tags || [],
           published: data.published || false,
@@ -65,7 +65,6 @@ export function useCourseData(courseId?: string) {
           updatedAt: data.updated_at,
           created_at: data.created_at,
           updated_at: data.updated_at,
-          // Use instructor_id directly from database
           instructor_id: data.instructor_id,
           instructor: data.instructor ? {
             id: data.instructor.id,

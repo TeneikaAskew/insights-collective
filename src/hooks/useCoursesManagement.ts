@@ -143,6 +143,14 @@ export function useCoursesManagement() {
     }
   };
 
+  const createCourse = async (courseData: Partial<CourseFormData>) => {
+    return await saveCourse(courseData);
+  };
+
+  const updateCourse = async (courseId: string, courseData: Partial<CourseFormData>) => {
+    return await saveCourse(courseData, courseId);
+  };
+
   const deleteCourse = async (courseId: string) => {
     try {
       const { error } = await supabase
@@ -159,6 +167,8 @@ export function useCoursesManagement() {
         title: 'Success',
         description: 'Course deleted successfully',
       });
+
+      return true;
     } catch (err: any) {
       console.error('Error deleting course:', err);
       toast({
@@ -166,7 +176,63 @@ export function useCoursesManagement() {
         description: err.message || 'Failed to delete course',
         variant: 'destructive',
       });
-      throw err;
+      return false;
+    }
+  };
+
+  const publishCourse = async (courseId: string) => {
+    try {
+      const { error } = await supabase
+        .from('courses')
+        .update({ published: true })
+        .eq('id', courseId);
+
+      if (error) throw error;
+
+      await fetchCourses();
+      
+      toast({
+        title: 'Success',
+        description: 'Course published successfully',
+      });
+
+      return true;
+    } catch (err: any) {
+      console.error('Error publishing course:', err);
+      toast({
+        title: 'Error',
+        description: err.message || 'Failed to publish course',
+        variant: 'destructive',
+      });
+      return false;
+    }
+  };
+
+  const unpublishCourse = async (courseId: string) => {
+    try {
+      const { error } = await supabase
+        .from('courses')
+        .update({ published: false })
+        .eq('id', courseId);
+
+      if (error) throw error;
+
+      await fetchCourses();
+      
+      toast({
+        title: 'Success',
+        description: 'Course unpublished successfully',
+      });
+
+      return true;
+    } catch (err: any) {
+      console.error('Error unpublishing course:', err);
+      toast({
+        title: 'Error',
+        description: err.message || 'Failed to unpublish course',
+        variant: 'destructive',
+      });
+      return false;
     }
   };
 
@@ -179,7 +245,11 @@ export function useCoursesManagement() {
     loading,
     error,
     saveCourse,
+    createCourse,
+    updateCourse,
     deleteCourse,
+    publishCourse,
+    unpublishCourse,
     refetch: fetchCourses,
   };
 }
