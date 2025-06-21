@@ -230,6 +230,7 @@ export default function CourseDetails({ course }: CourseDetailsProps) {
                   onChange={handleChange} 
                   placeholder="e.g., python, data analysis, visualization"
                 />
+                <p className="text-xs text-muted-foreground">These tags will appear in the Course Overview section</p>
               </div>
               
               <div className="flex items-center space-x-2 pt-2">

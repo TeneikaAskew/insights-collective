@@ -8,13 +8,14 @@ import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { BookOpen, Clock, Users, Star, Calendar, GraduationCap, ChevronLeft, Share, MessageSquare } from 'lucide-react';
+import { BookOpen, Clock, Users, Star, Calendar, GraduationCap, ChevronLeft, Share, MessageSquare, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { isEnrolledInCourse, addEnrolledCourse, isWishlistedCourse, toggleWishlistedCourse, generatePersistentUUID, isValidUUID } from '@/utils/idUtils';
 import { Course } from '@/types';
 import { useForums } from '@/hooks/useForums';
+import { useCoursePermissions } from '@/hooks/useCoursePermissions';
 
 const CourseDetail = () => {
   const { courseId } = useParams<{ courseId: string }>();
@@ -33,6 +34,7 @@ const CourseDetail = () => {
   // Always call useForums with courseId (which might be undefined)
   // The hook itself will handle the case when courseId is undefined
   const { forums, isLoadingForums } = useForums(courseId);
+  const { canEdit, isAdmin, isInstructor } = useCoursePermissions(courseId);
   
   useEffect(() => {
     const fetchCourseData = async () => {
@@ -405,7 +407,17 @@ const CourseDetail = () => {
               
               <TabsContent value="modules" className="space-y-6 mt-6">
                 <div>
-                  <h2 className="text-2xl font-bold mb-2">Course Modules</h2>
+                  <div className="flex justify-between items-center mb-2">
+                    <h2 className="text-2xl font-bold">Course Modules</h2>
+                    {canEdit && (
+                      <Button variant="outline" asChild>
+                        <Link to={`/course/${courseId}/management`}>
+                          <Edit className="h-4 w-4 mr-2" />
+                          Edit Course
+                        </Link>
+                      </Button>
+                    )}
+                  </div>
                   <p className="text-muted-foreground mb-6">
                     This course contains {modules.length} modules organized by week.
                   </p>
@@ -494,40 +506,39 @@ const CourseDetail = () => {
               <TabsContent value="overview" className="mt-6">
                 <Card>
                   <CardContent className="p-6">
-                    <h2 className="text-2xl font-bold mb-4">Course Overview</h2>
+                    <div className="flex justify-between items-center mb-4">
+                      <h2 className="text-2xl font-bold">Course Overview</h2>
+                      {canEdit && (
+                        <Button variant="outline" asChild>
+                          <Link to={`/course/${courseId}/management`}>
+                            <Edit className="h-4 w-4 mr-2" />
+                            Edit Overview
+                          </Link>
+                        </Button>
+                      )}
+                    </div>
                     
                     <div className="space-y-6">
                       <div>
-                        <h3 className="text-lg font-semibold mb-2">What You'll Learn</h3>
-                        <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                          <li className="flex items-start">
-                            <span className="mr-2">•</span>
-                            <span>Understand core concepts in {course.category}</span>
-                          </li>
-                          <li className="flex items-start">
-                            <span className="mr-2">•</span>
-                            <span>Build real-world projects using industry best practices</span>
-                          </li>
-                          <li className="flex items-start">
-                            <span className="mr-2">•</span>
-                            <span>Master {course.tags?.join(", ") || "key techniques"}</span>
-                          </li>
-                          <li className="flex items-start">
-                            <span className="mr-2">•</span>
-                            <span>Develop problem-solving skills through hands-on exercises</span>
-                          </li>
-                        </ul>
-                      </div>
-                      
-                      <div>
-                        <h3 className="text-lg font-semibold mb-2">Prerequisites</h3>
-                        <p>Basic understanding of computing concepts. No prior experience in {course.category} is required for this {course.level.toLowerCase()} level course.</p>
+                        <h3 className="text-lg font-semibold mb-2">Course Description</h3>
+                        <p className="text-muted-foreground">{course.description}</p>
                       </div>
                       
                       <div>
                         <h3 className="text-lg font-semibold mb-2">Course Structure</h3>
-                        <p>This course is structured in {modules.length} weekly modules, each containing video lessons, reading materials, quizzes, and assignments to reinforce your learning.</p>
+                        <p>This course is structured in {modules.length} weekly modules, each containing lessons, activities, and assessments to reinforce your learning.</p>
                       </div>
+                      
+                      {course.tags && course.tags.length > 0 && (
+                        <div>
+                          <h3 className="text-lg font-semibold mb-2">Topics Covered</h3>
+                          <div className="flex flex-wrap gap-2">
+                            {course.tags.map(tag => (
+                              <Badge key={tag} variant="outline">{tag}</Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -536,40 +547,44 @@ const CourseDetail = () => {
               <TabsContent value="materials" className="mt-6">
                 <Card>
                   <CardContent className="p-6">
-                    <h2 className="text-2xl font-bold mb-4">Course Materials</h2>
+                    <div className="flex justify-between items-center mb-4">
+                      <h2 className="text-2xl font-bold">Course Materials</h2>
+                      {canEdit && (
+                        <Button variant="outline" asChild>
+                          <Link to={`/course/${courseId}/manage-materials`}>
+                            <Edit className="h-4 w-4 mr-2" />
+                            Manage Materials
+                          </Link>
+                        </Button>
+                      )}
+                    </div>
                     <p className="text-muted-foreground mb-6">
-                      Access course resources, textbooks, and supplementary materials.
+                      Access course resources and supplementary materials for each module.
                     </p>
                     
-                    <div className="space-y-6">
-                      <div>
-                        <h3 className="text-lg font-semibold mb-2">Required Materials</h3>
-                        <ul className="space-y-2">
-                          <li className="flex items-center p-3 bg-amber-100 dark:bg-amber-900/20 rounded-lg">
-                            <BookOpen className="h-5 w-5 mr-3 text-amber-600 dark:text-amber-400" />
-                            <span>Main course textbook (provided as PDF)</span>
-                          </li>
-                          <li className="flex items-center p-3 bg-amber-50 dark:bg-amber-900/10 rounded-lg">
-                            <BookOpen className="h-5 w-5 mr-3 text-amber-600 dark:text-amber-400" />
-                            <span>Exercise workbook</span>
-                          </li>
-                        </ul>
+                    {modules.length > 0 ? (
+                      <div className="space-y-4">
+                        {modules.map(module => (
+                          <Card key={module.id}>
+                            <CardContent className="p-4">
+                              <h3 className="font-semibold mb-2">Week {module.week}: {module.title}</h3>
+                              <p className="text-sm text-muted-foreground">{module.description}</p>
+                              <Button variant="outline" size="sm" className="mt-2" asChild>
+                                <Link to={`/courses/${courseId}/modules/${module.id}`}>
+                                  View Materials
+                                </Link>
+                              </Button>
+                            </CardContent>
+                          </Card>
+                        ))}
                       </div>
-                      
-                      <div>
-                        <h3 className="text-lg font-semibold mb-2">Recommended Resources</h3>
-                        <ul className="space-y-2">
-                          <li className="flex items-center p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
-                            <BookOpen className="h-5 w-5 mr-3 text-gray-600 dark:text-gray-400" />
-                            <span>Supplementary reading materials</span>
-                          </li>
-                          <li className="flex items-center p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
-                            <BookOpen className="h-5 w-5 mr-3 text-gray-600 dark:text-gray-400" />
-                            <span>Community forum resources</span>
-                          </li>
-                        </ul>
+                    ) : (
+                      <div className="text-center p-8 border rounded-lg bg-muted/20">
+                        <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                        <h3 className="text-lg font-semibold mb-2">No Materials Yet</h3>
+                        <p className="text-muted-foreground">Course materials will be added as modules are created.</p>
                       </div>
-                    </div>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>
