@@ -8,7 +8,7 @@ import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { BookOpen, Clock, Users, Star, Calendar, GraduationCap, ChevronLeft, Share, MessageSquare, Edit } from 'lucide-react';
+import { BookOpen, Clock, Users, Star, Calendar, ChevronLeft, Share, MessageSquare, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -401,7 +401,6 @@ const CourseDetail = () => {
                 <TabsTrigger value="modules">Modules</TabsTrigger>
                 <TabsTrigger value="forums">Forums</TabsTrigger>
                 <TabsTrigger value="overview">Course Overview</TabsTrigger>
-                <TabsTrigger value="discussions">Discussions</TabsTrigger>
               </TabsList>
               
               <TabsContent value="modules" className="space-y-6 mt-6">
@@ -543,20 +542,6 @@ const CourseDetail = () => {
                 </Card>
               </TabsContent>
               
-              <TabsContent value="discussions" className="mt-6">
-                <Card>
-                  <CardContent className="p-6 text-center">
-                    <GraduationCap className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <h2 className="text-2xl font-bold mb-2">Course Discussions</h2>
-                    <p className="text-muted-foreground mb-6">
-                      Enroll in the course to join discussions with instructors and other students.
-                    </p>
-                    <Button onClick={handleEnroll} disabled={isEnrolled || enrolling}>
-                      {enrolling ? "Enrolling..." : isEnrolled ? "Already Enrolled" : "Enroll Now"}
-                    </Button>
-                  </CardContent>
-                </Card>
-              </TabsContent>
             </Tabs>
           </div>
           

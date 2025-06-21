@@ -1,8 +1,6 @@
-
-import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Pencil, FileText, Users } from 'lucide-react';
+import { Users } from 'lucide-react';
 import { useCoursePermissions } from '@/hooks/useCoursePermissions';
 
 interface CourseInstructorAccessProps {
@@ -24,16 +22,6 @@ const CourseInstructorAccess = ({ courseId }: CourseInstructorAccessProps) => {
   
   return (
     <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2">
-      <Button 
-        variant="outline" 
-        size="sm" 
-        onClick={() => navigate(`/course/${courseId}/manage-materials`)}
-        className="flex items-center"
-      >
-        <FileText className="h-4 w-4 mr-2" />
-        Manage Materials
-      </Button>
-
       {isAdmin && (
         <Button 
           variant="outline" 
