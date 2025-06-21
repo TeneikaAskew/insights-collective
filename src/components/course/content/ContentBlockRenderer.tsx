@@ -262,52 +262,41 @@ const ContentBlockRenderer: React.FC<ContentBlockRendererProps> = ({
   };
 
   const getEmbedUrl = (url: string): string | null => {
-    console.log('🎥 getEmbedUrl called with:', { url, type: typeof url, length: url?.length });
-    
     if (!url || typeof url !== 'string') {
-      console.log('❌ Invalid input - url is not a string:', url);
       return null;
     }
     
     // Clean the URL by removing leading/trailing whitespace
     const cleanUrl = url.trim();
-    console.log('🧹 Cleaned URL:', cleanUrl);
     
     // YouTube - multiple formats supported
-    // 1. Standard: https://www.youtube.com/watch?v=VIDEO_ID
-    // 2. Short: https://youtu.be/VIDEO_ID
-    // 3. With parameters: https://www.youtube.com/watch?v=VIDEO_ID&other=params
     const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})(?:\S+)?/;
     const youtubeMatch = cleanUrl.match(youtubeRegex);
-    console.log('🔍 YouTube regex match:', youtubeMatch);
     
     if (youtubeMatch && youtubeMatch[1]) {
-      const embedUrl = `https://www.youtube.com/embed/${youtubeMatch[1]}`;
-      console.log('✅ YouTube embed URL generated:', embedUrl);
-      return embedUrl;
+      return `https://www.youtube.com/embed/${youtubeMatch[1]}`;
     }
 
     // Vimeo
     const vimeoRegex = /(?:https?:\/\/)?(?:www\.)?vimeo\.com\/(\d+)(?:\S+)?/;
     const vimeoMatch = cleanUrl.match(vimeoRegex);
-    console.log('🔍 Vimeo regex match:', vimeoMatch);
     
     if (vimeoMatch && vimeoMatch[1]) {
-      const embedUrl = `https://player.vimeo.com/video/${vimeoMatch[1]}`;
-      console.log('✅ Vimeo embed URL generated:', embedUrl);
-      return embedUrl;
+      return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
     }
 
     // Direct video URLs (for uploaded content)
     const directVideoMatch = cleanUrl.match(/\.(mp4|webm|ogg|avi|mov)(\?.*)?$/i);
-    console.log('🔍 Direct video match:', directVideoMatch);
     
     if (directVideoMatch) {
-      console.log('✅ Direct video URL found:', cleanUrl);
       return cleanUrl;
     }
 
-    console.log('❌ No matches found for URL:', cleanUrl);
+    // If it's already an embed URL, return as is
+    if (cleanUrl.includes('youtube.com/embed/') || cleanUrl.includes('player.vimeo.com/video/')) {
+      return cleanUrl;
+    }
+
     return null;
   };
 

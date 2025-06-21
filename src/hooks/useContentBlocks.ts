@@ -43,8 +43,15 @@ export function useContentBlocks(moduleId?: string, lessonId?: string) {
       return;
     }
 
+    if (lessonId && !isValidUUID(lessonId)) {
+      console.error(`Invalid lesson UUID format: ${lessonId}`);
+      setError('Invalid lesson ID format');
+      setLoading(false);
+      return;
+    }
+
     fetchContentBlocks();
-  }, [moduleId]);
+  }, [moduleId, lessonId]);
 
   const fetchContentBlocks = async () => {
     if (!moduleId) return;
@@ -53,11 +60,19 @@ export function useContentBlocks(moduleId?: string, lessonId?: string) {
       setLoading(true);
       setError(null);
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('content_blocks')
         .select('*')
-        .eq('module_id', moduleId)
-        .order('position', { ascending: true });
+        .eq('module_id', moduleId);
+
+      // Filter by lesson_id if provided, or show only module-level content if no lesson selected
+      if (lessonId) {
+        query = query.eq('lesson_id', lessonId);
+      } else {
+        query = query.is('lesson_id', null);
+      }
+
+      const { data, error } = await query.order('position', { ascending: true });
 
       if (error) throw error;
       setBlocks(data || []);
@@ -93,6 +108,7 @@ export function useContentBlocks(moduleId?: string, lessonId?: string) {
         .insert({
           ...blockData,
           module_id: moduleId,
+          lesson_id: lessonId || null,
           created_by: user.id
         })
         .select()

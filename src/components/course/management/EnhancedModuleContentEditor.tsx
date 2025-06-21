@@ -162,12 +162,17 @@ const EnhancedModuleContentEditor: React.FC<EnhancedModuleContentEditorProps> = 
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h3 className="text-lg font-medium">Module Content</h3>
-          <p className="text-sm text-gray-600">
-            Create rich, interactive content blocks for your students
+          <h3 className="text-lg font-medium">
+            {lessonId ? 'Lesson Content' : 'Module Content'}
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            {lessonId 
+              ? 'Create content blocks for this specific lesson'
+              : 'Create content blocks at the module level or organize into lessons'
+            }
           </p>
         </div>
-        <Button onClick={handleAddBlock}>
+        <Button onClick={handleAddBlock} className="shrink-0">
           <Plus className="h-4 w-4 mr-2" />
           Add Content Block
         </Button>
@@ -187,15 +192,15 @@ const EnhancedModuleContentEditor: React.FC<EnhancedModuleContentEditorProps> = 
           <CardContent className="flex flex-col items-center justify-center py-12">
             <div className="text-center space-y-4">
               <div className="text-4xl">📚</div>
-              <h3 className="text-lg font-medium">No content blocks yet</h3>
-              <p className="text-gray-600 max-w-md">
-                Start building your module by adding content blocks. You can add text, images, 
-                videos, quizzes, and more to create an engaging learning experience.
+              <h3 className="text-lg font-medium">
+                {lessonId ? 'No lesson content yet' : 'No content blocks yet'}
+              </h3>
+              <p className="text-muted-foreground max-w-md">
+                {lessonId 
+                  ? 'Start building this lesson by adding content blocks like text, images, videos, and quizzes.'
+                  : 'Start building your module by adding content blocks. You can add text, images, videos, quizzes, and more to create an engaging learning experience.'
+                }
               </p>
-              <Button onClick={handleAddBlock}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Your First Content Block
-              </Button>
             </div>
           </CardContent>
         </Card>

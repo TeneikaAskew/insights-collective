@@ -238,13 +238,13 @@ const LessonManagerWithMigration = ({ moduleId }: LessonManagerWithMigrationProp
                     </Button>
                     <Button variant="outline" size="sm" onClick={() => startEditLesson(selectedLesson)}>
                       <Pencil className="h-4 w-4 mr-2" />
-                      Edit Lesson
+                      Edit Lesson Info
                     </Button>
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
-                <EnhancedModuleContentEditor lessonId={selectedLesson.id} />
+                <EnhancedModuleContentEditor moduleId={moduleId} lessonId={selectedLesson.id} />
               </CardContent>
             </Card>
           ) : (
