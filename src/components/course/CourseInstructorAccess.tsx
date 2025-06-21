@@ -27,17 +27,7 @@ const CourseInstructorAccess = ({ courseId }: CourseInstructorAccessProps) => {
       <Button 
         variant="outline" 
         size="sm" 
-        onClick={() => navigate(`/admin/courses/${courseId}/edit`)}
-        className="flex items-center"
-      >
-        <Pencil className="h-4 w-4 mr-2" />
-        Edit Course
-      </Button>
-      
-      <Button 
-        variant="outline" 
-        size="sm" 
-        onClick={() => navigate(`/courses/${courseId}/materials`)}
+        onClick={() => navigate(`/course/${courseId}/manage-materials`)}
         className="flex items-center"
       >
         <FileText className="h-4 w-4 mr-2" />

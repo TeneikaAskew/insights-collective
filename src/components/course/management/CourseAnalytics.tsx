@@ -32,14 +32,36 @@ export default function CourseAnalytics({ courseId }: CourseAnalyticsProps) {
     setLoading(true);
     
     try {
-      // In a real implementation, we would fetch real analytics data from the database
-      // For this demo, we'll generate sample data
-      
-      // Mock data generation based on timeRange
       const days = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : 90;
-      const enrollmentTrend = generateEnrollmentTrend(days);
-      const contentEngagement = generateContentEngagement();
-      const completionRate = generateCompletionRate();
+      
+      // Fetch real enrollment data
+      const { data: enrollments, error: enrollmentError } = await supabase
+        .from('enrollments')
+        .select('enrolled_at')
+        .eq('course_id', courseId)
+        .gte('enrolled_at', new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString());
+      
+      if (enrollmentError) throw enrollmentError;
+      
+      // Fetch content engagement data
+      const { data: contentProgress, error: progressError } = await supabase
+        .from('content_progress')
+        .select('content_block_id, completed, time_spent, content_blocks!inner(block_type)')
+        .eq('content_blocks.module_id', courseId);
+      
+      if (progressError) throw progressError;
+      
+      // Fetch completion rates
+      const { data: courseEnrollments, error: completionError } = await supabase
+        .from('enrollments')
+        .select('completion_status')
+        .eq('course_id', courseId);
+      
+      if (completionError) throw completionError;
+      
+      const enrollmentTrend = processEnrollmentTrend(enrollments || [], days);
+      const contentEngagement = processContentEngagement(contentProgress || []);
+      const completionRate = processCompletionRate(courseEnrollments || []);
       const modulePopularity = await fetchModulePopularity();
       
       setAnalyticsData({
@@ -56,55 +78,78 @@ export default function CourseAnalytics({ courseId }: CourseAnalyticsProps) {
     }
   };
 
-  const generateEnrollmentTrend = (days: number) => {
+  const processEnrollmentTrend = (enrollments: any[], days: number) => {
     const data = [];
     const now = new Date();
     
     for (let i = days; i >= 0; i--) {
       const date = new Date(now);
       date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split('T')[0];
+      
+      const dayEnrollments = enrollments.filter(enrollment => 
+        enrollment.enrolled_at.split('T')[0] === dateStr
+      ).length;
       
       data.push({
-        date: date.toISOString().split('T')[0],
-        enrollments: Math.floor(Math.random() * 5) + (days - i) / 5, // Random with slight uptrend
+        date: dateStr,
+        enrollments: dayEnrollments,
       });
     }
     
     return data;
   };
 
-  const generateContentEngagement = () => {
-    return [
-      { name: 'Videos', value: Math.floor(Math.random() * 80) + 20 },
-      { name: 'Texts', value: Math.floor(Math.random() * 60) + 30 },
-      { name: 'Quizzes', value: Math.floor(Math.random() * 40) + 20 },
-      { name: 'Assignments', value: Math.floor(Math.random() * 30) + 10 },
-      { name: 'Downloads', value: Math.floor(Math.random() * 20) + 5 },
-    ];
+  const processContentEngagement = (contentProgress: any[]) => {
+    const typeCount: { [key: string]: number } = {};
+    
+    contentProgress.forEach(progress => {
+      const blockType = progress.content_blocks?.block_type || 'other';
+      typeCount[blockType] = (typeCount[blockType] || 0) + 1;
+    });
+    
+    return Object.entries(typeCount).map(([name, value]) => ({
+      name: name.charAt(0).toUpperCase() + name.slice(1),
+      value
+    }));
   };
 
-  const generateCompletionRate = () => {
+  const processCompletionRate = (enrollments: any[]) => {
+    const completed = enrollments.filter(e => e.completion_status >= 100).length;
+    const inProgress = enrollments.filter(e => e.completion_status > 0 && e.completion_status < 100).length;
+    const notStarted = enrollments.filter(e => e.completion_status === 0).length;
+    
     return [
-      { name: 'Completed', value: Math.floor(Math.random() * 40) + 20 },
-      { name: 'In Progress', value: Math.floor(Math.random() * 30) + 30 },
-      { name: 'Not Started', value: Math.floor(Math.random() * 20) + 10 },
+      { name: 'Completed', value: completed },
+      { name: 'In Progress', value: inProgress },
+      { name: 'Not Started', value: notStarted },
     ];
   };
 
   const fetchModulePopularity = async () => {
     try {
-      // In a real implementation, this would fetch actual module data with view counts
-      const { data, error } = await supabase
+      const { data: modules, error: modulesError } = await supabase
         .from('modules')
         .select('id, title')
         .eq('course_id', courseId);
         
-      if (error) throw error;
+      if (modulesError) throw modulesError;
       
-      return data?.map(module => ({
-        name: module.title,
-        views: Math.floor(Math.random() * 100) + 20,
-      })) || [];
+      const moduleViews = await Promise.all(
+        (modules || []).map(async (module) => {
+          const { data: progressData, error } = await supabase
+            .from('content_progress')
+            .select('id, content_blocks!inner(module_id)')
+            .eq('content_blocks.module_id', module.id);
+          
+          return {
+            name: module.title,
+            views: progressData?.length || 0,
+          };
+        })
+      );
+      
+      return moduleViews;
     } catch (error) {
       console.error('Error fetching module data:', error);
       return [];
@@ -164,7 +209,8 @@ export default function CourseAnalytics({ courseId }: CourseAnalyticsProps) {
             <div className="flex items-center">
               <CalendarDays className="h-6 w-6 text-muted-foreground mr-3" />
               <div className="text-3xl font-bold">
-                {Math.floor(Math.random() * 120) + 30} min
+                {analyticsData.enrollmentTrend.length > 0 ? 
+                  Math.round(analyticsData.enrollmentTrend.reduce((sum: number, item: any) => sum + item.enrollments, 0) * 2.5) : 0} min
               </div>
             </div>
           </CardContent>
