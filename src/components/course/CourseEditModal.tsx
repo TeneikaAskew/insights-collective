@@ -327,7 +327,15 @@ const CourseEditModal = ({ isOpen, onClose, onSave, course }: CourseEditModalPro
                   disabled={loadingInstructors}
                 >
                   <SelectTrigger id="instructor">
-                    <SelectValue placeholder={loadingInstructors ? "Loading instructors..." : "Select an instructor"} />
+                    <SelectValue 
+                      placeholder={loadingInstructors ? "Loading instructors..." : "Select an instructor"}
+                    >
+                      {formData.instructor_id && !loadingInstructors ? (
+                        instructors.find(inst => inst.id === formData.instructor_id)?.first_name + ' ' +
+                        instructors.find(inst => inst.id === formData.instructor_id)?.last_name || 
+                        'Select an instructor'
+                      ) : null}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {instructors.map((instructor) => (
