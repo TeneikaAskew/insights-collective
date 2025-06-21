@@ -84,12 +84,12 @@ const LessonContentEditor: React.FC<LessonContentEditorProps> = ({
   lessonTitle,
   onBack
 }) => {
-  const { blocks, loading, addBlock, updateBlock, deleteBlock, reorderBlocks } = useContentBlocks();
+  const { blocks, loading, addBlock, updateBlock, deleteBlock, reorderBlocks } = useContentBlocks(undefined, lessonId);
   const [showEditor, setShowEditor] = useState(false);
   const [editingBlock, setEditingBlock] = useState<ContentBlock | null>(null);
 
-  // Filter blocks for this lesson
-  const lessonBlocks = blocks.filter(block => block.lesson_id === lessonId);
+  // All blocks are already filtered for this lesson by the hook
+  const lessonBlocks = blocks;
 
   const sensors = useSensors(
     useSensor(PointerSensor),
