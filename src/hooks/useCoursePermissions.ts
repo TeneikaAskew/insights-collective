@@ -76,16 +76,11 @@ export function useCoursePermissions(courseId?: string) {
         const finalAdminAccess = hasAdminAccess || isAdminFromProfile;
         
         console.log('Setting permissions - Admin (RPC):', hasAdminAccess, 'Admin (Profile):', isAdminFromProfile, 'Final Admin:', finalAdminAccess, 'Instructor:', isCourseInstructor);
+        console.log('About to set state - canEdit will be:', finalAdminAccess || isCourseInstructor);
         
-        // Temporary admin bypass for user 47cf8181-c9a4-4cb9-8aa4-d6967e128c36
-        const isKnownAdmin = user.id === '47cf8181-c9a4-4cb9-8aa4-d6967e128c36';
-        const finalCanEdit = finalAdminAccess || isCourseInstructor || isKnownAdmin;
-        
-        console.log('Final canEdit decision:', finalCanEdit, 'isKnownAdmin:', isKnownAdmin);
-        
-        setIsAdmin(finalAdminAccess || isKnownAdmin || false);
+        setIsAdmin(finalAdminAccess);
         setIsInstructor(isCourseInstructor || false);
-        setCanEdit(finalCanEdit || false);
+        setCanEdit(finalAdminAccess || isCourseInstructor);
         
         // Log security event for tracking
         if (hasAdminAccess || isCourseInstructor) {

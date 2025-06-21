@@ -178,7 +178,7 @@ function App() {
                   <Route path="/course-list" element={<CourseList />} />
                   <Route path="/courses/:courseId" element={<CourseDetail />} />
                   <Route path="/course-management" element={<CourseManagement />} />
-                  <Route path="/course-manage-materials" element={<CourseManageMaterials />} />
+                  <Route path="/course/:courseId/manage-materials" element={<CourseManageMaterials />} />
                   <Route path="/courses/:courseId/modules/:moduleId/assignments/:assignmentId" element={<AssignmentDetail />} />
                   <Route path="/courses/:courseId/modules/:moduleId/lessons/:lessonId" element={<LessonDetail />} />
                   <Route path="/courses/:courseId/modules/:moduleId" element={<ModuleDetail />} />
