@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
@@ -26,9 +27,16 @@ const ModuleDetail = () => {
   const [modules, setModules] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Use content blocks and progress tracking hooks
+  // Use content blocks and progress tracking hooks - ALWAYS call these first
   const { blocks: contentBlocks, loading: contentLoading } = useContentBlocks(moduleId);
   const { moduleProgress, getContentProgress, markContentComplete } = useProgressTracking(undefined, moduleId);
+
+  // Set active content to first block if none selected and blocks exist
+  useEffect(() => {
+    if (!activeContent && contentBlocks.length > 0) {
+      setActiveContent(contentBlocks[0].id);
+    }
+  }, [contentBlocks, activeContent]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -86,37 +94,6 @@ const ModuleDetail = () => {
     fetchData();
   }, [courseId, moduleId, toast]);
   
-  if (loading) {
-    return (
-      <AppLayout>
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-        </div>
-      </AppLayout>
-    );
-  }
-
-  if (!course || !module) {
-    return (
-      <AppLayout>
-        <div className="text-center py-12">
-          <h1 className="text-3xl font-bold mb-4">Module Not Found</h1>
-          <p className="text-muted-foreground mb-6">The module you're looking for doesn't exist or has been removed.</p>
-          <Button asChild>
-            <Link to={`/courses/${courseId}`}>Back to Course</Link>
-          </Button>
-        </div>
-      </AppLayout>
-    );
-  }
-  
-  // Set active content to first block if none selected and blocks exist
-  useEffect(() => {
-    if (!activeContent && contentBlocks.length > 0) {
-      setActiveContent(contentBlocks[0].id);
-    }
-  }, [contentBlocks, activeContent]);
-  
   const handleMarkComplete = async (contentBlockId: string) => {
     const success = await markContentComplete(contentBlockId);
     if (success) {
@@ -164,6 +141,31 @@ const ModuleDetail = () => {
   const textBlocks = contentBlocks.filter(block => ['text', 'image', 'video', 'file', 'quote', 'code', 'embed'].includes(block.block_type));
   const assignmentBlocks = contentBlocks.filter(block => block.block_type === 'assignment');
   const quizBlocks = contentBlocks.filter(block => block.block_type === 'quiz');
+  
+  // Conditional rendering after all hooks have been called
+  if (loading) {
+    return (
+      <AppLayout>
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (!course || !module) {
+    return (
+      <AppLayout>
+        <div className="text-center py-12">
+          <h1 className="text-3xl font-bold mb-4">Module Not Found</h1>
+          <p className="text-muted-foreground mb-6">The module you're looking for doesn't exist or has been removed.</p>
+          <Button asChild>
+            <Link to={`/courses/${courseId}`}>Back to Course</Link>
+          </Button>
+        </div>
+      </AppLayout>
+    );
+  }
   
   return (
     <AppLayout>
@@ -222,82 +224,48 @@ const ModuleDetail = () => {
                   </div>
                 ) : textBlocks.length > 0 ? (
                   <div className="space-y-6">
-                    {/* Active Content Display */}
-                    {activeContent && getActiveContent() && (
-                      <div className="space-y-4">
-                        <ContentBlockRenderer
-                          block={getActiveContent()!}
-                          showControls={false}
-                        />
-                        
-                        <div className="flex justify-between items-center">
-                          <div>
-                            {textBlocks.findIndex(block => block.id === activeContent) > 0 && (
-                              <Button 
-                                variant="outline" 
-                                onClick={() => setActiveContent(textBlocks[textBlocks.findIndex(block => block.id === activeContent) - 1].id)}
-                              >
-                                Previous
-                              </Button>
-                            )}
-                          </div>
-                          <div className="space-x-2">
-                            {textBlocks.findIndex(block => block.id === activeContent) < textBlocks.length - 1 && (
-                              <Button 
-                                onClick={() => setActiveContent(textBlocks[textBlocks.findIndex(block => block.id === activeContent) + 1].id)}
-                              >
-                                Next
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Content Block List */}
-                    <div>
-                      <h3 className="text-lg font-semibold mb-4">All Content</h3>
-                      <div className="space-y-3">
-                        {textBlocks.map((block, index) => {
-                          const progress = getContentProgress(block.id);
-                          return (
-                            <Card 
-                              key={block.id} 
-                              className={`cursor-pointer hover:shadow-md transition-all duration-200 ${activeContent === block.id ? 'ring-2 ring-primary' : ''}`}
-                              onClick={() => setActiveContent(block.id)}
-                            >
-                              <CardContent className="p-4 flex justify-between items-center">
-                                <div className="flex items-center gap-3">
-                                  <div className="flex items-center justify-center w-10 h-10 rounded-full bg-secondary text-foreground">
-                                    <span className="text-sm font-medium">{index + 1}</span>
-                                  </div>
-                                  <div>
-                                    <h4 className="font-medium">{block.title || `${block.block_type} Content`}</h4>
-                                     <div className="flex items-center text-sm text-muted-foreground">
-                                       <span className="capitalize">{block.block_type}</span>
-                                       {block.metadata?.duration && (
-                                         <>
-                                           <Clock className="h-3 w-3 ml-2 mr-1" />
-                                           <span>{block.metadata.duration} min</span>
-                                         </>
-                                       )}
-                                     </div>
-                                  </div>
+                    {/* All Content Display - Show all blocks */}
+                    <div className="space-y-6">
+                      {textBlocks.map((block, index) => {
+                        const progress = getContentProgress(block.id);
+                        return (
+                          <div key={block.id} className="space-y-4">
+                            <ContentBlockRenderer
+                              block={block}
+                              showControls={false}
+                            />
+                            
+                            <div className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
+                              <div className="flex items-center gap-3">
+                                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-secondary text-foreground">
+                                  <span className="text-sm font-medium">{index + 1}</span>
                                 </div>
-                                
-                                {progress?.completed ? (
-                                  <Badge className="bg-green-500 text-white hover:bg-green-600">
-                                    <CheckCircle2 className="h-3 w-3 mr-1" />
-                                    Completed
-                                  </Badge>
-                                ) : (
-                                  <Badge variant="outline">Not Completed</Badge>
-                                )}
-                              </CardContent>
-                            </Card>
-                          );
-                        })}
-                      </div>
+                                <div>
+                                  <h4 className="font-medium">{block.title || `${block.block_type} Content`}</h4>
+                                   <div className="flex items-center text-sm text-muted-foreground">
+                                     <span className="capitalize">{block.block_type}</span>
+                                     {block.metadata?.duration && (
+                                       <>
+                                         <Clock className="h-3 w-3 ml-2 mr-1" />
+                                         <span>{block.metadata.duration} min</span>
+                                       </>
+                                     )}
+                                   </div>
+                                </div>
+                              </div>
+                              
+                              {progress?.completed ? (
+                                <Badge className="bg-green-500 text-white hover:bg-green-600">
+                                  <CheckCircle2 className="h-3 w-3 mr-1" />
+                                  Completed
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline">Not Completed</Badge>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 ) : (
