@@ -617,6 +617,44 @@ export type Database = {
         }
         Relationships: []
       }
+      certificates: {
+        Row: {
+          certificate_data: Json
+          certificate_type: string
+          course_id: string
+          id: string
+          issued_at: string | null
+          user_id: string
+          verification_code: string
+        }
+        Insert: {
+          certificate_data?: Json
+          certificate_type?: string
+          course_id: string
+          id?: string
+          issued_at?: string | null
+          user_id: string
+          verification_code: string
+        }
+        Update: {
+          certificate_data?: Json
+          certificate_type?: string
+          course_id?: string
+          id?: string
+          issued_at?: string | null
+          user_id?: string
+          verification_code?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "certificates_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       code_attempts: {
         Row: {
           ai_review: Json | null
@@ -1992,6 +2030,47 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: true
             referencedRelation: "portfolio_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quiz_attempts: {
+        Row: {
+          answers: Json
+          completed_at: string | null
+          created_at: string | null
+          id: string
+          quiz_id: string
+          score: number
+          time_taken: number | null
+          user_id: string
+        }
+        Insert: {
+          answers?: Json
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          quiz_id: string
+          score: number
+          time_taken?: number | null
+          user_id: string
+        }
+        Update: {
+          answers?: Json
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          quiz_id?: string
+          score?: number
+          time_taken?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_attempts_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
             referencedColumns: ["id"]
           },
         ]
