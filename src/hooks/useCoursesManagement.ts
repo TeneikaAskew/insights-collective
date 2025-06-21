@@ -19,7 +19,8 @@ export function useCoursesManagement() {
     try {
       console.log('Fetching courses...');
       
-      const { data, error } = await supabase
+      // First, fetch courses with instructor data
+      const { data: coursesData, error: coursesError } = await supabase
         .from('courses')
         .select(`
           *,
@@ -32,19 +33,38 @@ export function useCoursesManagement() {
         `)
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Error fetching courses:', error);
-        throw error;
+      if (coursesError) {
+        console.error('Error fetching courses:', coursesError);
+        throw coursesError;
       }
 
-      console.log('Raw courses data:', data);
+      console.log('Raw courses data:', coursesData);
+
+      // Fetch enrollment counts for all courses
+      const courseIds = coursesData?.map(course => course.id) || [];
+      let enrollmentCounts: Record<string, number> = {};
+      
+      if (courseIds.length > 0) {
+        const { data: enrollmentData, error: enrollmentError } = await supabase
+          .from('enrollments')
+          .select('course_id')
+          .in('course_id', courseIds);
+
+        if (!enrollmentError && enrollmentData) {
+          // Count enrollments per course
+          enrollmentCounts = enrollmentData.reduce((acc, enrollment) => {
+            acc[enrollment.course_id] = (acc[enrollment.course_id] || 0) + 1;
+            return acc;
+          }, {} as Record<string, number>);
+        }
+      }
 
       // Transform data to match frontend interface
-      const transformedCourses: Course[] = (data || []).map(course => ({
+      const transformedCourses: Course[] = (coursesData || []).map(course => ({
         ...course,
         imageUrl: course.image_url,
         enrollmentStatus: course.enrollment_status,
-        enrollmentCount: course.enrollment_count || 0,
+        enrollmentCount: enrollmentCounts[course.id] || 0,
         createdAt: course.created_at,
         updatedAt: course.updated_at,
         instructor: course.instructor ? {
@@ -56,7 +76,7 @@ export function useCoursesManagement() {
         } : undefined,
       }));
 
-      console.log('Transformed courses:', transformedCourses);
+      console.log('Transformed courses with enrollment counts:', transformedCourses);
       setCourses(transformedCourses);
     } catch (err: any) {
       console.error('Error fetching courses:', err);
