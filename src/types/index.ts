@@ -15,6 +15,8 @@ export interface Course {
   tags: string[];
   createdAt: string;
   updatedAt: string;
+  status?: 'draft' | 'published' | 'archived';
+  instructor_id?: string;
   
   // Adding missing properties used across the application
   instructor?: {

@@ -54,17 +54,13 @@ export function useCourseData(courseId?: string) {
           level: data.level || '',
           thumbnail: data.thumbnail || data.image_url || '',
           imageUrl: data.image_url || '',
-          image_url: data.image_url || '',
           enrollmentStatus: data.enrollment_status || 'open',
-          enrollment_status: data.enrollment_status || 'open',
           duration: data.duration || '',
           tags: data.tags || [],
           published: data.published || false,
           status: data.status || 'draft',
           createdAt: data.created_at,
           updatedAt: data.updated_at,
-          created_at: data.created_at,
-          updated_at: data.updated_at,
           instructor_id: data.instructor_id,
           instructor: data.instructor ? {
             id: data.instructor.id,
@@ -85,7 +81,6 @@ export function useCourseData(courseId?: string) {
 
         if (!countError) {
           transformedCourse.enrollmentCount = count || 0;
-          transformedCourse.enrollment_count = count || 0;
         }
 
         // Set the course data

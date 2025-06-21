@@ -110,14 +110,14 @@ const CourseEditModal = ({ isOpen, onClose, onSave, course }: CourseEditModalPro
         level: course.level || 'Beginner',
         duration: course.duration || '',
         tags: course.tags || [],
-        image_url: course.imageUrl || course.image_url || '',
-        enrollment_status: course.enrollmentStatus || course.enrollment_status || 'open',
+        image_url: course.imageUrl || '',
+        enrollment_status: course.enrollmentStatus || 'open',
         status: course.status || 'draft',
         instructor_id: course.instructor_id || '',
       });
       
       console.log('Form instructor_id set to:', course.instructor_id);
-      setImagePreview(course.imageUrl || course.image_url || null);
+      setImagePreview(course.imageUrl || null);
     } else {
       // Reset form for new course
       setFormData({

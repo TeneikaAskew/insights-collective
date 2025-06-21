@@ -17,6 +17,7 @@ export const mockCourses: Course[] = [
     duration: '8 weeks',
     level: 'Beginner',
     enrollmentStatus: 'Open',
+    status: 'published',
     createdAt: '2023-01-15T00:00:00Z',
     updatedAt: '2023-03-20T00:00:00Z'
   },
@@ -34,6 +35,7 @@ export const mockCourses: Course[] = [
     duration: '10 weeks',
     level: 'Advanced',
     enrollmentStatus: 'Open',
+    status: 'published',
     createdAt: '2023-02-10T00:00:00Z',
     updatedAt: '2023-04-05T00:00:00Z'
   },
@@ -51,6 +53,7 @@ export const mockCourses: Course[] = [
     duration: '6 weeks',
     level: 'Intermediate',
     enrollmentStatus: 'Open',
+    status: 'published',
     createdAt: '2023-03-05T00:00:00Z',
     updatedAt: '2023-04-20T00:00:00Z'
   },
@@ -68,6 +71,7 @@ export const mockCourses: Course[] = [
     duration: '4 weeks',
     level: 'Beginner',
     enrollmentStatus: 'Open',
+    status: 'draft',
     createdAt: '2023-04-10T00:00:00Z',
     updatedAt: '2023-05-15T00:00:00Z'
   },
@@ -85,6 +89,7 @@ export const mockCourses: Course[] = [
     duration: '8 weeks',
     level: 'Advanced',
     enrollmentStatus: 'Open',
+    status: 'published',
     createdAt: '2023-05-20T00:00:00Z',
     updatedAt: '2023-06-25T00:00:00Z'
   },
@@ -102,6 +107,7 @@ export const mockCourses: Course[] = [
     duration: '6 weeks',
     level: 'Intermediate',
     enrollmentStatus: 'Open',
+    status: 'draft',
     createdAt: '2023-01-15T00:00:00Z',
     updatedAt: '2023-02-20T00:00:00Z'
   }
