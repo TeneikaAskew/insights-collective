@@ -261,16 +261,16 @@ export default function AdminCourses() {
                                 )}
                               </TableCell>
                               <TableCell>
-                                <div className="flex gap-2">
-                                  <Badge variant={course.published ? "default" : "secondary"}>
-                                    {course.published ? "Published" : "Draft"}
-                                  </Badge>
-                                  {course.status && (
-                                    <Badge variant="outline" className="capitalize">
-                                      {course.status}
-                                    </Badge>
-                                  )}
-                                </div>
+                                <Badge 
+                                  variant={
+                                    course.status === 'published' ? "default" : 
+                                    course.status === 'draft' ? "secondary" : 
+                                    "outline"
+                                  }
+                                  className="capitalize"
+                                >
+                                  {course.status || 'Draft'}
+                                </Badge>
                               </TableCell>
                               <TableCell className="text-right">
                                 <DropdownMenu>
