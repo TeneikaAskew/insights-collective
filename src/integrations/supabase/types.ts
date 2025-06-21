@@ -743,6 +743,7 @@ export type Database = {
           file_url: string | null
           id: string
           is_interactive: boolean | null
+          lesson_id: string | null
           metadata: Json | null
           module_id: string
           position: number
@@ -763,6 +764,7 @@ export type Database = {
           file_url?: string | null
           id?: string
           is_interactive?: boolean | null
+          lesson_id?: string | null
           metadata?: Json | null
           module_id: string
           position?: number
@@ -783,6 +785,7 @@ export type Database = {
           file_url?: string | null
           id?: string
           is_interactive?: boolean | null
+          lesson_id?: string | null
           metadata?: Json | null
           module_id?: string
           position?: number
@@ -791,6 +794,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "content_blocks_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "content_blocks_module_id_fkey"
             columns: ["module_id"]
@@ -1350,12 +1360,60 @@ export type Database = {
         }
         Relationships: []
       }
+      lesson_progress: {
+        Row: {
+          completed: boolean | null
+          completed_at: string | null
+          completion_percentage: number | null
+          id: string
+          last_accessed_at: string | null
+          lesson_id: string
+          started_at: string | null
+          time_spent: number | null
+          user_id: string
+        }
+        Insert: {
+          completed?: boolean | null
+          completed_at?: string | null
+          completion_percentage?: number | null
+          id?: string
+          last_accessed_at?: string | null
+          lesson_id: string
+          started_at?: string | null
+          time_spent?: number | null
+          user_id: string
+        }
+        Update: {
+          completed?: boolean | null
+          completed_at?: string | null
+          completion_percentage?: number | null
+          id?: string
+          last_accessed_at?: string | null
+          lesson_id?: string
+          started_at?: string | null
+          time_spent?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lesson_progress_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lessons: {
         Row: {
+          completion_criteria: Json | null
+          completion_required: boolean | null
           content: string
+          content_blocks_count: number | null
           created_at: string | null
           description: string
           duration: string | null
+          estimated_duration: number | null
           id: string
           module_id: string | null
           order_num: number
@@ -1363,10 +1421,14 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          completion_criteria?: Json | null
+          completion_required?: boolean | null
           content: string
+          content_blocks_count?: number | null
           created_at?: string | null
           description: string
           duration?: string | null
+          estimated_duration?: number | null
           id?: string
           module_id?: string | null
           order_num: number
@@ -1374,10 +1436,14 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          completion_criteria?: Json | null
+          completion_required?: boolean | null
           content?: string
+          content_blocks_count?: number | null
           created_at?: string | null
           description?: string
           duration?: string | null
+          estimated_duration?: number | null
           id?: string
           module_id?: string | null
           order_num?: number
@@ -2752,6 +2818,15 @@ export type Database = {
       }
     }
     Functions: {
+      calculate_lesson_completion: {
+        Args: { lesson_id_param: string; user_id_param: string }
+        Returns: {
+          completed: boolean
+          completion_percentage: number
+          total_blocks: number
+          completed_blocks: number
+        }[]
+      }
       delete_all_user_resumes: {
         Args: { user_id_param: string }
         Returns: undefined

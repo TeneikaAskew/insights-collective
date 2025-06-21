@@ -6,7 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import EnhancedModuleContentEditor from '@/components/course/management/EnhancedModuleContentEditor';
+import LessonManager from '@/components/course/management/LessonManager';
 import AppLayout from '@/components/layout/AppLayout';
 import { Plus, ChevronLeft, Trash2, Pencil } from 'lucide-react';
 import { useCoursePermissions } from '@/hooks/useCoursePermissions';
@@ -485,7 +485,7 @@ const CourseManageMaterials = () => {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <EnhancedModuleContentEditor moduleId={selectedModule.id} />
+                  <LessonManager moduleId={selectedModule.id} onLessonSelect={() => {}} selectedLesson={null} />
                 </CardContent>
               </Card>
             ) : (
