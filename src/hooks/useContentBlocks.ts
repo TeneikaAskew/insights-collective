@@ -8,6 +8,7 @@ import { isValidUUID } from '@/utils/idUtils';
 export interface ContentBlock {
   id: string;
   module_id: string;
+  lesson_id?: string;
   block_type: string;
   title?: string;
   content: string;
@@ -23,7 +24,7 @@ export interface ContentBlock {
   updated_at: string;
 }
 
-export function useContentBlocks(moduleId?: string) {
+export function useContentBlocks(moduleId?: string, lessonId?: string) {
   const [blocks, setBlocks] = useState<ContentBlock[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,33 +32,30 @@ export function useContentBlocks(moduleId?: string) {
   const { user } = useAuth();
 
   useEffect(() => {
-    if (!moduleId) {
+    // Fetch blocks based on lesson or module
+    if (lessonId || moduleId) {
+      fetchContentBlocks();
+    } else {
       setLoading(false);
-      return;
     }
-
-    if (!isValidUUID(moduleId)) {
-      console.error(`Invalid module UUID format: ${moduleId}`);
-      setError('Invalid module ID format');
-      setLoading(false);
-      return;
-    }
-
-    fetchContentBlocks();
-  }, [moduleId]);
+  }, [moduleId, lessonId]);
 
   const fetchContentBlocks = async () => {
-    if (!moduleId) return;
-
     try {
       setLoading(true);
       setError(null);
 
-      const { data, error } = await supabase
-        .from('content_blocks')
-        .select('*')
-        .eq('module_id', moduleId)
-        .order('position', { ascending: true });
+      let query = supabase.from('content_blocks').select('*');
+      
+      if (lessonId && isValidUUID(lessonId)) {
+        query = query.eq('lesson_id', lessonId);
+      } else if (moduleId && isValidUUID(moduleId)) {
+        query = query.eq('module_id', moduleId);
+      } else {
+        throw new Error('Invalid module or lesson ID format');
+      }
+
+      const { data, error } = await query.order('position', { ascending: true });
 
       if (error) throw error;
       setBlocks(data || []);
@@ -75,24 +73,13 @@ export function useContentBlocks(moduleId?: string) {
   };
 
   const addBlock = async (blockData: Omit<ContentBlock, 'id' | 'created_at' | 'updated_at' | 'created_by'>): Promise<ContentBlock | null> => {
-    if (!user || !moduleId) return null;
-
-    if (!isValidUUID(moduleId)) {
-      console.error(`Invalid module UUID format: ${moduleId}`);
-      toast({
-        title: 'Error',
-        description: 'Invalid module ID format',
-        variant: 'destructive',
-      });
-      return null;
-    }
+    if (!user) return null;
 
     try {
       const { data, error } = await supabase
         .from('content_blocks')
         .insert({
           ...blockData,
-          module_id: moduleId,
           created_by: user.id
         })
         .select()
@@ -199,7 +186,6 @@ export function useContentBlocks(moduleId?: string) {
 
   const reorderBlocks = async (reorderedBlocks: ContentBlock[]): Promise<boolean> => {
     try {
-      // Update positions in the database
       const updates = reorderedBlocks.map((block, index) => ({
         id: block.id,
         position: index
