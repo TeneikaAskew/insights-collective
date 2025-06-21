@@ -24,7 +24,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Plus, BookOpen, Clock, Pencil, Trash2, AlertTriangle } from 'lucide-react';
+import { Plus, BookOpen, Clock, Pencil, Trash2 } from 'lucide-react';
 import EnhancedModuleContentEditor from './EnhancedModuleContentEditor';
 
 interface LessonManagerWithMigrationProps {
@@ -37,8 +37,6 @@ const LessonManagerWithMigration = ({ moduleId }: LessonManagerWithMigrationProp
   const [selectedLesson, setSelectedLesson] = useState<any>(null);
   const [addLessonOpen, setAddLessonOpen] = useState(false);
   const [editLessonOpen, setEditLessonOpen] = useState(false);
-  const [orphanedBlocks, setOrphanedBlocks] = useState<any[]>([]);
-  const [showMigration, setShowMigration] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -49,60 +47,7 @@ const LessonManagerWithMigration = ({ moduleId }: LessonManagerWithMigrationProp
     completion_required: true
   });
 
-  useEffect(() => {
-    checkForOrphanedBlocks();
-  }, [moduleId, lessons]);
-
-  const checkForOrphanedBlocks = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('content_blocks')
-        .select('*')
-        .eq('module_id', moduleId)
-        .is('lesson_id', null);
-
-      if (error) throw error;
-      
-      if (data && data.length > 0) {
-        setOrphanedBlocks(data);
-        setShowMigration(true);
-      } else {
-        setOrphanedBlocks([]);
-        setShowMigration(false);
-      }
-    } catch (error) {
-      console.error('Error checking orphaned blocks:', error);
-    }
-  };
-
-  const migrateContentToLesson = async (lessonId: string) => {
-    try {
-      const { error } = await supabase
-        .from('content_blocks')
-        .update({ lesson_id: lessonId })
-        .eq('module_id', moduleId)
-        .is('lesson_id', null);
-
-      if (error) throw error;
-
-      toast({
-        title: 'Success',
-        description: `${orphanedBlocks.length} content blocks migrated to lesson`,
-      });
-
-      checkForOrphanedBlocks();
-      refetch();
-    } catch (error) {
-      console.error('Error migrating content:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to migrate content blocks',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const createLessonWithMigration = async () => {
+  const createLesson = async () => {
     if (!formData.title) return;
 
     try {
@@ -111,10 +56,6 @@ const LessonManagerWithMigration = ({ moduleId }: LessonManagerWithMigrationProp
         completion_criteria: { type: 'all_blocks' },
         module_id: moduleId
       });
-
-      if (newLesson && orphanedBlocks.length > 0) {
-        await migrateContentToLesson(newLesson.id);
-      }
 
       resetForm();
       setAddLessonOpen(false);
@@ -160,7 +101,6 @@ const LessonManagerWithMigration = ({ moduleId }: LessonManagerWithMigrationProp
       const success = await deleteLesson(lessonId);
       if (success && selectedLesson?.id === lessonId) {
         setSelectedLesson(null);
-        checkForOrphanedBlocks();
       }
     } catch (error) {
       console.error('Error deleting lesson:', error);
@@ -196,32 +136,6 @@ const LessonManagerWithMigration = ({ moduleId }: LessonManagerWithMigrationProp
 
   return (
     <div className="space-y-6">
-      {/* Migration Alert */}
-      {showMigration && orphanedBlocks.length > 0 && (
-        <Card className="border-yellow-200 bg-yellow-50">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-yellow-600" />
-              <CardTitle className="text-yellow-800">Content Migration Required</CardTitle>
-            </div>
-            <CardDescription className="text-yellow-700">
-              You have {orphanedBlocks.length} existing content blocks that need to be organized into lessons.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex gap-3">
-              <Button 
-                variant="outline" 
-                className="border-yellow-300"
-                onClick={() => setAddLessonOpen(true)}
-              >
-                Create Lesson & Migrate Content
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       <Tabs defaultValue={lessons.length > 0 ? "lessons" : "direct"} className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="lessons">Lesson Structure</TabsTrigger>
@@ -375,11 +289,6 @@ const LessonManagerWithMigration = ({ moduleId }: LessonManagerWithMigrationProp
             <DialogTitle>Add New Lesson</DialogTitle>
             <DialogDescription>
               Create a new lesson for this module.
-              {orphanedBlocks.length > 0 && (
-                <span className="block mt-2 text-yellow-700 bg-yellow-50 p-2 rounded text-sm">
-                  This will also migrate {orphanedBlocks.length} existing content blocks into this lesson.
-                </span>
-              )}
             </DialogDescription>
           </DialogHeader>
           
@@ -434,8 +343,8 @@ const LessonManagerWithMigration = ({ moduleId }: LessonManagerWithMigrationProp
             <Button variant="outline" onClick={() => setAddLessonOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={createLessonWithMigration}>
-              {orphanedBlocks.length > 0 ? 'Create Lesson & Migrate Content' : 'Create Lesson'}
+            <Button onClick={createLesson}>
+              Create Lesson
             </Button>
           </DialogFooter>
         </DialogContent>
