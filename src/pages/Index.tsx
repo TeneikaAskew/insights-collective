@@ -11,7 +11,7 @@ import LearningJourney from '@/components/home/LearningJourney';
 import AnalyticsDashboard from '@/components/home/AnalyticsDashboard';
 import { useInView } from 'react-intersection-observer';
 import { useEffect } from 'react';
-import { mockService } from '@/lib/mock';
+import { useCoursesManagement } from '@/hooks/useCoursesManagement';
 import PersonalizedPathway from '@/components/home/PersonalizedPathway';
 import InteractiveShowcase from '@/components/home/InteractiveShowcase';
 import CommunityShowcase from '@/components/home/CommunityShowcase';
@@ -22,8 +22,9 @@ import OnboardingGuide from '@/components/onboarding/OnboardingGuide';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 
 const Index = () => {
-  const featuredCourses = mockService.getAllCourses().slice(0, 3);
-  const upcomingEvents = mockService.getEvents().slice(0, 3);
+  const { courses } = useCoursesManagement();
+  const featuredCourses = courses.filter(course => course.published).slice(0, 3);
+  const upcomingEvents = []; // TODO: Replace with real events data when available
   const { isFirstVisit, completedTours, dismissedTours, startTour, isOnboardingActive, currentTour } = useOnboarding();
   
   // Auto-start home tour for returning users who haven't completed it or dismissed it
@@ -50,7 +51,7 @@ const Index = () => {
     { id: 'features', Component: FeaturesSection, threshold: 0.3 },
     { id: 'blueprint', Component: BlueprintBanner, threshold: 0.3 },
     { id: 'journey', Component: LearningJourney, threshold: 0.2 },
-    { id: 'courses', Component: () => <FeaturedCourses courses={featuredCourses} />, threshold: 0.2 },
+    { id: 'courses', Component: () => <FeaturedCourses courses={featuredCourses as any} />, threshold: 0.2 },
     { id: 'tools', Component: ExploreTools, threshold: 0.3 },
     { id: 'analytics', Component: AnalyticsDashboard, threshold: 0.2 },
     { id: 'communityShowcase', Component: CommunityShowcase, threshold: 0.2 },

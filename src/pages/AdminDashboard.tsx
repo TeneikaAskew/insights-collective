@@ -14,7 +14,7 @@ import {
   X, Download, FileEdit, UserPlus, TrendingUp, Clock, UserCheck,
   Calendar, BarChart, PieChart
 } from 'lucide-react';
-import { mockService } from '@/lib/mockData';
+import { useCoursesManagement } from '@/hooks/useCoursesManagement';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { 
   Line, LineChart, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, 
@@ -629,12 +629,9 @@ const AdminDashboard = () => {
   
   if (!user || user.role !== 'admin') return null;
   
-  const allCourses = mockService.getAllCourses();
-  const allUsers = [
-    mockService.getUserById('user1'),
-    mockService.getUserById('user2'),
-    mockService.getUserById('user3')
-  ].filter(Boolean);
+  const { courses } = useCoursesManagement();
+  const allCourses = courses;
+  const allUsers = []; // TODO: Replace with real users data when available
   
   // Function to handle notifications for various actions
   const handleAction = (action: string, itemType: string) => {
@@ -920,8 +917,8 @@ const AdminDashboard = () => {
                           <td className="p-4">{course.enrollmentCount} students</td>
                           <td className="p-4">
                             <Badge variant={
-                              course.enrollmentStatus === 'Open' ? 'default' :
-                              course.enrollmentStatus === 'In Progress' ? 'secondary' : 'outline'
+                              course.enrollmentStatus === 'open' ? 'default' :
+                              course.enrollmentStatus === 'closed' ? 'secondary' : 'outline'
                             }>
                               {course.enrollmentStatus}
                             </Badge>

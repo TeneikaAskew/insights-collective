@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { mockService } from '@/lib/mock';
+import { useCoursesManagement } from '@/hooks/useCoursesManagement';
 import { allAssistants } from '@/data/assistantData';
 
 type SearchResult = {
@@ -19,6 +19,7 @@ const SiteSearch = () => {
   const [results, setResults] = useState<SearchResult[]>([]);
   const searchRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const { courses } = useCoursesManagement();
 
   // Search across multiple data sources - memoized for performance
   const getSearchResults = (query: string): SearchResult[] => {
@@ -28,7 +29,6 @@ const SiteSearch = () => {
     const results: SearchResult[] = [];
     
     // Search courses
-    const courses = mockService.getAllCourses();
     courses.forEach(course => {
       if (
         course.title.toLowerCase().includes(searchLower) ||
@@ -44,8 +44,8 @@ const SiteSearch = () => {
       }
     });
 
-    // Search events
-    const events = mockService.getEvents();
+    // Search events - TODO: Replace with real events data when available
+    const events: any[] = [];
     events.forEach(event => {
       if (
         event.title.toLowerCase().includes(searchLower) ||

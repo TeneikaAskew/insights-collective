@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { BookOpen, Bell, Calendar, ArrowRight, Clock } from 'lucide-react';
-import { mockService } from '@/lib/mockData';
+import { useCoursesManagement } from '@/hooks/useCoursesManagement';
 import { useToast } from '@/hooks/use-toast';
 import { Course } from '@/types';
 import { Navigate, Link } from 'react-router-dom';
@@ -163,7 +163,7 @@ const Dashboard = () => {
     fetchInstructorCourses();
   }, [user, toast]);
   
-  const notifications = user ? mockService.getUserNotifications(user.id) : [];
+  const notifications = []; // TODO: Replace with real notifications data when available
   
   const upcomingDeadlines = [
     {
