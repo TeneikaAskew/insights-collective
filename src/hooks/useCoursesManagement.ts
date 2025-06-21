@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -19,7 +18,7 @@ export function useCoursesManagement() {
     try {
       console.log('Fetching courses...');
       
-      // First, fetch courses with instructor data
+      // Fetch courses with instructor data - now using new RLS policies
       const { data: coursesData, error: coursesError } = await supabase
         .from('courses')
         .select(`
@@ -113,7 +112,13 @@ export function useCoursesManagement() {
 
       let result;
       if (courseId) {
-        // Update existing course
+        // Log audit event for course update
+        const { data: oldData } = await supabase
+          .from('courses')
+          .select('*')
+          .eq('id', courseId)
+          .single();
+
         const { data, error } = await supabase
           .from('courses')
           .update(dbCourseData)
@@ -126,6 +131,19 @@ export function useCoursesManagement() {
           throw error;
         }
         result = data;
+        
+        // Log the update action
+        if (user) {
+          await supabase.rpc('log_audit_event', {
+            p_user_id: user.id,
+            p_action: 'course_updated',
+            p_table_name: 'courses',
+            p_record_id: courseId,
+            p_old_values: oldData,
+            p_new_values: result
+          });
+        }
+        
         console.log('Course updated successfully:', result);
       } else {
         // Create new course
@@ -140,6 +158,18 @@ export function useCoursesManagement() {
           throw error;
         }
         result = data;
+        
+        // Log the creation action
+        if (user) {
+          await supabase.rpc('log_audit_event', {
+            p_user_id: user.id,
+            p_action: 'course_created',
+            p_table_name: 'courses',
+            p_record_id: result.id,
+            p_new_values: result
+          });
+        }
+        
         console.log('Course created successfully:', result);
       }
 
@@ -154,6 +184,21 @@ export function useCoursesManagement() {
       return result;
     } catch (err: any) {
       console.error('Error saving course:', err);
+      
+      // Log security event for failed operations
+      if (user) {
+        await supabase.rpc('log_security_event', {
+          p_user_id: user.id,
+          p_event_type: 'course_save_failed',
+          p_severity: 'error',
+          p_description: `Failed to ${courseId ? 'update' : 'create'} course`,
+          p_metadata: {
+            course_id: courseId,
+            error: err.message
+          }
+        });
+      }
+      
       toast({
         title: 'Error',
         description: err.message || 'Failed to save course',
@@ -179,6 +224,16 @@ export function useCoursesManagement() {
         .eq('id', courseId);
 
       if (error) throw error;
+
+      // Log the deletion action
+      if (user) {
+        await supabase.rpc('log_audit_event', {
+          p_user_id: user.id,
+          p_action: 'course_deleted',
+          p_table_name: 'courses',
+          p_record_id: courseId
+        });
+      }
 
       // Refresh courses list
       await fetchCourses();
@@ -209,6 +264,16 @@ export function useCoursesManagement() {
 
       if (error) throw error;
 
+      // Log the publish action
+      if (user) {
+        await supabase.rpc('log_audit_event', {
+          p_user_id: user.id,
+          p_action: 'course_published',
+          p_table_name: 'courses',
+          p_record_id: courseId
+        });
+      }
+
       await fetchCourses();
       
       toast({
@@ -236,6 +301,16 @@ export function useCoursesManagement() {
         .eq('id', courseId);
 
       if (error) throw error;
+
+      // Log the unpublish action
+      if (user) {
+        await supabase.rpc('log_audit_event', {
+          p_user_id: user.id,
+          p_action: 'course_unpublished',
+          p_table_name: 'courses',
+          p_record_id: courseId
+        });
+      }
 
       await fetchCourses();
       

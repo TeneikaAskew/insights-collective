@@ -33,62 +33,60 @@ export function useCoursePermissions(courseId?: string) {
       setError(null);
       
       try {
-        // Check if user is admin or instructor
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('roles')
-          .eq('id', user.id)
-          .maybeSingle();
+        // Use the new security definer functions for consistent role checking
+        const { data: hasAdminAccess, error: adminError } = await supabase
+          .rpc('has_admin_access', { user_id_param: user.id });
         
-        if (profileError) throw profileError;
-        
-        const isUserAdmin = profile?.roles?.includes('admin');
-        const isUserInstructor = profile?.roles?.includes('instructor');
-        setIsAdmin(isUserAdmin);
-        setIsInstructor(isUserInstructor);
-        
-        // Grant access to admins and instructors
-        if (isUserAdmin || isUserInstructor) {
-          setCanEdit(true);
-          setLoading(false);
-          return;
+        if (adminError) {
+          console.error('Error checking admin access:', adminError);
+          throw adminError;
         }
         
-        // Check if user is the course instructor
-        const { data: course, error: courseError } = await supabase
-          .from('courses')
-          .select('instructor_id')
-          .eq('id', courseId)
-          .maybeSingle();
+        const { data: isCourseInstructor, error: instructorError } = await supabase
+          .rpc('is_course_instructor', { 
+            user_id_param: user.id, 
+            course_id_param: courseId 
+          });
         
-        if (courseError) {
-          console.error('Error fetching course:', courseError);
-          // Don't throw, try to continue checking assignments
+        if (instructorError) {
+          console.error('Error checking instructor access:', instructorError);
+          throw instructorError;
         }
         
-        if (course?.instructor_id === user.id) {
-          setCanEdit(true);
-          setIsInstructor(true);
-          setLoading(false);
-          return;
+        setIsAdmin(hasAdminAccess || false);
+        setIsInstructor(isCourseInstructor || false);
+        setCanEdit(hasAdminAccess || isCourseInstructor || false);
+        
+        // Log security event for tracking
+        if (hasAdminAccess || isCourseInstructor) {
+          await supabase.rpc('log_security_event', {
+            p_user_id: user.id,
+            p_event_type: 'course_access_granted',
+            p_severity: 'info',
+            p_description: `User accessed course management for course ${courseId}`,
+            p_metadata: {
+              course_id: courseId,
+              access_type: hasAdminAccess ? 'admin' : 'instructor'
+            }
+          });
         }
         
-        // Check if user has an assignment to the course
-        const { data: assignments, error: assignmentsError } = await supabase
-          .from('course_assignments')
-          .select('role')
-          .eq('course_id', courseId)
-          .eq('user_id', user.id);
-        
-        if (assignmentsError) throw assignmentsError;
-        
-        const hasAssignment = assignments && assignments.length > 0;
-        setIsInstructor(hasAssignment);
-        setCanEdit(hasAssignment);
       } catch (error: any) {
         console.error('Error checking course permissions:', error);
         setError(error.message || 'Error checking course permissions');
         setCanEdit(false);
+        
+        // Log security event for failed access attempts
+        await supabase.rpc('log_security_event', {
+          p_user_id: user.id,
+          p_event_type: 'course_access_denied',
+          p_severity: 'warning',
+          p_description: `Failed to check course permissions for course ${courseId}`,
+          p_metadata: {
+            course_id: courseId,
+            error: error.message
+          }
+        });
       } finally {
         setLoading(false);
       }

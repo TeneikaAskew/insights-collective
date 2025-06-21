@@ -3,7 +3,8 @@ import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { validateSessionIntegrity } from '@/utils/securityUtils';
+import { validateSessionIntegrity, logSecurityEvent } from '@/utils/securityUtils';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -11,12 +12,50 @@ interface ProtectedRouteProps {
 }
 
 /**
- * Enhanced ProtectedRoute with improved security validation
+ * Enhanced ProtectedRoute with improved security validation using new database functions
  */
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireAdmin = false }) => {
   const { isAuthenticated, user, session, storeRedirectPath } = useAuth();
   const location = useLocation();
   const { toast } = useToast();
+  const [hasAdminAccess, setHasAdminAccess] = React.useState<boolean | null>(null);
+
+  // Check admin access if required
+  React.useEffect(() => {
+    const checkAdminAccess = async () => {
+      if (!requireAdmin || !user?.id) {
+        setHasAdminAccess(true);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .rpc('has_admin_access', { user_id_param: user.id });
+        
+        if (error) {
+          console.error('Error checking admin access in ProtectedRoute:', error);
+          await logSecurityEvent(user.id, 'protected_route_admin_check_failed', 'error', 'Failed to verify admin access in ProtectedRoute', { error: error.message, path: location.pathname });
+          setHasAdminAccess(false);
+          return;
+        }
+        
+        setHasAdminAccess(data || false);
+        
+        // Log access attempt
+        await logSecurityEvent(user.id, 'protected_route_access', 'info', `Protected route access: ${data ? 'granted' : 'denied'}`, { path: location.pathname, requireAdmin });
+        
+      } catch (error) {
+        console.error('Exception in ProtectedRoute admin check:', error);
+        setHasAdminAccess(false);
+      }
+    };
+
+    if (isAuthenticated && user) {
+      checkAdminAccess();
+    } else {
+      setHasAdminAccess(!requireAdmin);
+    }
+  }, [isAuthenticated, user, requireAdmin, location.pathname]);
 
   React.useEffect(() => {
     // Validate and store redirect path securely
@@ -30,7 +69,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireAdmin 
     }
   }, [isAuthenticated, location.pathname, location.search, storeRedirectPath]);
 
-  if (isAuthenticated === undefined) {
+  if (isAuthenticated === undefined || (requireAdmin && hasAdminAccess === null)) {
     return null;
   }
 
@@ -49,18 +88,21 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireAdmin 
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // Enhanced admin access validation
-  if (requireAdmin) {
-    const hasAdminRole = user?.roles?.includes('admin');
-    if (!hasAdminRole) {
-      console.warn('[ProtectedRoute] Non-admin user attempted protected access:', user?.id);
-      toast({
-        title: 'Access Denied',
-        description: 'You do not have permission to access this page.',
-        variant: 'destructive',
-      });
-      return <Navigate to="/dashboard" replace />;
+  // Enhanced admin access validation using new security function
+  if (requireAdmin && !hasAdminAccess) {
+    console.warn('[ProtectedRoute] Non-admin user attempted protected access:', user?.id);
+    
+    // Log security event for unauthorized access attempt
+    if (user?.id) {
+      logSecurityEvent(user.id, 'unauthorized_protected_access', 'warning', 'Non-admin user attempted to access admin-protected route', { path: location.pathname });
     }
+    
+    toast({
+      title: 'Access Denied',
+      description: 'You do not have permission to access this page.',
+      variant: 'destructive',
+    });
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <>{children}</>;
