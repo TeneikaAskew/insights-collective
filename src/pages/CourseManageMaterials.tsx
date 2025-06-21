@@ -6,7 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import EnhancedModuleContentEditor from '@/components/course/management/EnhancedModuleContentEditor';
+import LessonManagerWithMigration from '@/components/course/management/LessonManagerWithMigration';
 import AppLayout from '@/components/layout/AppLayout';
 import { Plus, ChevronLeft, Trash2, Pencil } from 'lucide-react';
 import { useCoursePermissions } from '@/hooks/useCoursePermissions';
@@ -281,7 +281,7 @@ const CourseManageMaterials = () => {
             </Button>
             <div>
               <h1 className="text-2xl font-bold">Course Content Studio</h1>
-              <p className="text-gray-600">Create professional course materials with rich content blocks</p>
+              <p className="text-gray-600">Create structured course content with modules, lessons, and content blocks</p>
             </div>
           </div>
           
@@ -357,7 +357,7 @@ const CourseManageMaterials = () => {
             <Card>
               <CardHeader>
                 <CardTitle>Course Modules</CardTitle>
-                <CardDescription>Select a module to manage its content</CardDescription>
+                <CardDescription>Select a module to manage its lessons and content</CardDescription>
               </CardHeader>
               <CardContent>
                 {modules.length === 0 ? (
@@ -485,7 +485,7 @@ const CourseManageMaterials = () => {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <EnhancedModuleContentEditor moduleId={selectedModule.id} />
+                  <LessonManagerWithMigration moduleId={selectedModule.id} />
                 </CardContent>
               </Card>
             ) : (
@@ -494,8 +494,8 @@ const CourseManageMaterials = () => {
                   <div className="text-6xl mb-4">🎯</div>
                   <h3 className="text-lg font-medium mb-2">No Module Selected</h3>
                   <p className="text-gray-600 mb-6 max-w-md">
-                    Select a module from the sidebar to start creating professional course content with 
-                    rich text, images, videos, quizzes, and more.
+                    Select a module from the sidebar to start organizing your content into lessons or 
+                    continue using the direct content creation mode.
                   </p>
                   <Button onClick={() => setAddModuleOpen(true)}>
                     <Plus className="h-4 w-4 mr-2" />

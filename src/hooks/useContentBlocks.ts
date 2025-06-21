@@ -23,7 +23,7 @@ export interface ContentBlock {
   updated_at: string;
 }
 
-export function useContentBlocks(moduleId?: string) {
+export function useContentBlocks(moduleId?: string, lessonId?: string) {
   const [blocks, setBlocks] = useState<ContentBlock[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
