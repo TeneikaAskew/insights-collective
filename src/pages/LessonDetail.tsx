@@ -1,36 +1,11 @@
 import { useParams, Link } from 'react-router-dom';
-import { useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import AppLayout from '@/components/layout/AppLayout';
-import { useLessonProgress } from '@/hooks/useLessonProgress';
-import { useContentBlocks } from '@/hooks/useContentBlocks';
+import { mockService } from '@/lib/mockData';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle, ChevronLeft, Clock, Book } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import ContentBlockRenderer from '@/components/course/content/ContentBlockRenderer';
-
-interface Lesson {
-  id: string;
-  module_id: string;
-  title: string;
-  description: string;
-  content: string;
-  order_num: number;
-  duration?: string;
-  estimated_duration?: number;
-}
-
-interface Module {
-  id: string;
-  title: string;
-}
-
-interface Course {
-  id: string;
-  title: string;
-}
 
 const LessonDetail = () => {
   const { courseId, moduleId, lessonId } = useParams<{ 
@@ -39,79 +14,11 @@ const LessonDetail = () => {
     lessonId: string; 
   }>();
   const { toast } = useToast();
-  const { progress, markAsComplete } = useLessonProgress(lessonId);
-  const { blocks } = useContentBlocks(undefined, lessonId);
   
-  const [course, setCourse] = useState<Course | null>(null);
-  const [module, setModule] = useState<Module | null>(null);
-  const [lesson, setLesson] = useState<Lesson | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!courseId || !moduleId || !lessonId) return;
-
-      try {
-        setLoading(true);
-        
-        // Fetch course
-        const { data: courseData, error: courseError } = await supabase
-          .from('courses')
-          .select('id, title')
-          .eq('id', courseId)
-          .single();
-
-        if (courseError) throw courseError;
-
-        // Fetch module
-        const { data: moduleData, error: moduleError } = await supabase
-          .from('modules')
-          .select('id, title')
-          .eq('id', moduleId)
-          .single();
-
-        if (moduleError) throw moduleError;
-
-        // Fetch lesson
-        const { data: lessonData, error: lessonError } = await supabase
-          .from('lessons')
-          .select('*')
-          .eq('id', lessonId)
-          .single();
-
-        if (lessonError) throw lessonError;
-
-        setCourse(courseData);
-        setModule(moduleData);
-        setLesson(lessonData);
-      } catch (error) {
-        console.error('Error fetching data:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load lesson details',
-          variant: 'destructive',
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [courseId, moduleId, lessonId]);
+  const course = mockService.getCourseById(courseId || '');
+  const module = mockService.getModuleById(moduleId || '');
+  const lesson = module?.lessons.find(l => l.id === lessonId);
   
-  if (loading) {
-    return (
-      <AppLayout>
-        <div className="container mx-auto p-6">
-          <div className="animate-pulse space-y-4">
-            <div className="h-8 bg-muted rounded w-1/3"></div>
-            <div className="h-32 bg-muted rounded"></div>
-          </div>
-        </div>
-      </AppLayout>
-    );
-  }
-
   if (!course || !module || !lesson) {
     return (
       <AppLayout>
@@ -119,21 +26,18 @@ const LessonDetail = () => {
           <h1 className="text-3xl font-bold mb-4">Lesson Not Found</h1>
           <p className="text-muted-foreground mb-6">The lesson you're looking for doesn't exist or has been removed.</p>
           <Button asChild>
-            <Link to={`/courses/${courseId}`}>Back to Course</Link>
+            <Link to={`/courses/${courseId}/modules/${moduleId}`}>Back to Module</Link>
           </Button>
         </div>
       </AppLayout>
     );
   }
   
-  const handleMarkComplete = async () => {
-    const success = await markAsComplete();
-    if (success) {
-      toast({
-        title: "Lesson marked as complete",
-        description: "Your progress has been updated",
-      });
-    }
+  const handleMarkComplete = () => {
+    toast({
+      title: "Lesson marked as complete",
+      description: "Your progress has been updated",
+    });
   };
   
   return (
@@ -141,9 +45,9 @@ const LessonDetail = () => {
       <div className="space-y-6">
         <div className="flex items-center mb-4">
           <Button variant="ghost" size="sm" className="mr-2" asChild>
-            <Link to={`/courses/${courseId}`}>
+            <Link to={`/courses/${courseId}/modules/${moduleId}`}>
               <ChevronLeft className="h-4 w-4 mr-1" />
-              Back to Course
+              Back to Module
             </Link>
           </Button>
         </div>
@@ -164,57 +68,37 @@ const LessonDetail = () => {
           </CardHeader>
           
           <CardContent>
-            <div className="prose max-w-none mb-6">
-              <h3 className="text-lg font-semibold mb-2">Lesson Overview</h3>
-              <p className="mb-4">{lesson.description}</p>
-              
-              {lesson.content && (
-                <div className="bg-muted/50 rounded-lg p-4 mb-6">
-                  <p>{lesson.content}</p>
-                </div>
-              )}
+            <div className="aspect-video bg-secondary rounded-lg mb-6 flex items-center justify-center">
+              <div className="text-center p-4">
+                <Clock className="h-16 w-16 mx-auto mb-2 opacity-50" />
+                <p className="text-lg font-medium">Video Player</p>
+                <p className="text-sm opacity-70 mt-1">Lesson content would be displayed here</p>
+              </div>
             </div>
             
-            <div className="space-y-6">
-              <h3 className="text-lg font-semibold">Lesson Content</h3>
-              {blocks.length === 0 ? (
-                <div className="text-center p-8 text-muted-foreground">
-                  <Book className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No content blocks available for this lesson.</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {blocks.map((block) => (
-                    <ContentBlockRenderer key={block.id} block={block} />
-                  ))}
-                </div>
-              )}
+            <div className="prose max-w-none">
+              <h3 className="text-lg font-semibold mb-2">Lesson Description</h3>
+              <p className="mb-4">{lesson.description}</p>
+              
+              <h3 className="text-lg font-semibold mb-2">Lesson Content</h3>
+              <p>{lesson.content}</p>
             </div>
           </CardContent>
           
           <CardFooter className="justify-between">
             <div className="flex items-center gap-2">
-              {progress?.completed ? (
+              {lesson.completed ? (
                 <Badge className="bg-green-500 text-white">
                   <CheckCircle className="h-3 w-3 mr-1" />
                   Completed
                 </Badge>
               ) : (
-                <Badge variant="outline">
-                  {progress?.completion_percentage || 0}% Complete
-                </Badge>
-              )}
-              
-              {lesson.duration && (
-                <Badge variant="secondary">
-                  <Clock className="h-3 w-3 mr-1" />
-                  {lesson.duration}
-                </Badge>
+                <Badge variant="outline">Not Completed</Badge>
               )}
             </div>
             
             <div className="space-x-2">
-              {!progress?.completed && (
+              {!lesson.completed && (
                 <Button onClick={handleMarkComplete}>
                   <CheckCircle className="h-4 w-4 mr-2" />
                   Mark as Complete
