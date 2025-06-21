@@ -1,5 +1,6 @@
 
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,7 +32,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { useCoursesManagement } from '@/hooks/useCoursesManagement';
 import { useCourseEnrollments } from '@/hooks/useCourseEnrollments';
-import CourseEditModal from '@/components/course/CourseEditModal';
+
 import { Course } from '@/types/course';
 import { Spinner } from '@/components/ui/spinner';
 
@@ -50,14 +51,12 @@ export default function AdminCourses() {
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [courseToEdit, setCourseToEdit] = useState<Course | null>(null);
   const [activeTab, setActiveTab] = useState('courses');
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleEditCourse = (course: Course) => {
-    setCourseToEdit(course);
-    setIsModalOpen(true);
+    navigate(`/course/${course.id}/management`);
   };
 
   const handleDeleteCourse = async (course: Course) => {
@@ -70,25 +69,31 @@ export default function AdminCourses() {
     }
   };
 
-  const handleAddCourse = () => {
-    setCourseToEdit(null);
-    setIsModalOpen(true);
-  };
-
-  const handleSaveCourse = async (courseData: any) => {
+  const handleAddCourse = async () => {
     try {
-      if (courseToEdit) {
-        await updateCourse(courseToEdit.id, courseData);
-      } else {
-        await createCourse(courseData);
-      }
+      const newCourse = await createCourse({
+        title: 'New Course',
+        description: 'Course description',
+        category: 'Data Science',
+        level: 'Beginner',
+        duration: '',
+        enrollment_status: 'open',
+        status: 'draft',
+        published: false,
+      });
       
-      setIsModalOpen(false);
-      setCourseToEdit(null);
+      if (newCourse?.id) {
+        navigate(`/course/${newCourse.id}/management`);
+      }
     } catch (error) {
-      // Error handling is done in the hook
+      toast({
+        title: 'Error',
+        description: 'Failed to create new course',
+        variant: 'destructive',
+      });
     }
   };
+
 
   const handleTogglePublish = async (course: Course) => {
     if (course.published) {
@@ -146,15 +151,6 @@ export default function AdminCourses() {
           </Button>
         </div>
 
-        <CourseEditModal 
-          isOpen={isModalOpen}
-          onClose={() => {
-            setIsModalOpen(false);
-            setCourseToEdit(null);
-          }}
-          onSave={handleSaveCourse}
-          course={courseToEdit}
-        />
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="mb-6">
