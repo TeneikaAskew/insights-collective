@@ -33,19 +33,22 @@ export function useCoursePermissions(courseId?: string) {
       setError(null);
       
       try {
-        // Check if user is admin
+        // Check if user is admin or instructor
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('roles')
           .eq('id', user.id)
-          .single();
+          .maybeSingle();
         
         if (profileError) throw profileError;
         
         const isUserAdmin = profile?.roles?.includes('admin');
+        const isUserInstructor = profile?.roles?.includes('instructor');
         setIsAdmin(isUserAdmin);
+        setIsInstructor(isUserInstructor);
         
-        if (isUserAdmin) {
+        // Grant access to admins and instructors
+        if (isUserAdmin || isUserInstructor) {
           setCanEdit(true);
           setLoading(false);
           return;
