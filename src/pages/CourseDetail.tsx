@@ -401,7 +401,6 @@ const CourseDetail = () => {
                 <TabsTrigger value="modules">Modules</TabsTrigger>
                 <TabsTrigger value="forums">Forums</TabsTrigger>
                 <TabsTrigger value="overview">Course Overview</TabsTrigger>
-                <TabsTrigger value="materials">Materials</TabsTrigger>
                 <TabsTrigger value="discussions">Discussions</TabsTrigger>
               </TabsList>
               
@@ -540,51 +539,6 @@ const CourseDetail = () => {
                         </div>
                       )}
                     </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-              
-              <TabsContent value="materials" className="mt-6">
-                <Card>
-                  <CardContent className="p-6">
-                    <div className="flex justify-between items-center mb-4">
-                      <h2 className="text-2xl font-bold">Course Materials</h2>
-                      {canEdit && (
-                        <Button variant="outline" asChild>
-                          <Link to={`/course/${courseId}/manage-materials`}>
-                            <Edit className="h-4 w-4 mr-2" />
-                            Manage Materials
-                          </Link>
-                        </Button>
-                      )}
-                    </div>
-                    <p className="text-muted-foreground mb-6">
-                      Access course resources and supplementary materials for each module.
-                    </p>
-                    
-                    {modules.length > 0 ? (
-                      <div className="space-y-4">
-                        {modules.map(module => (
-                          <Card key={module.id}>
-                            <CardContent className="p-4">
-                              <h3 className="font-semibold mb-2">Week {module.week}: {module.title}</h3>
-                              <p className="text-sm text-muted-foreground">{module.description}</p>
-                              <Button variant="outline" size="sm" className="mt-2" asChild>
-                                <Link to={`/courses/${courseId}/modules/${module.id}`}>
-                                  View Materials
-                                </Link>
-                              </Button>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center p-8 border rounded-lg bg-muted/20">
-                        <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                        <h3 className="text-lg font-semibold mb-2">No Materials Yet</h3>
-                        <p className="text-muted-foreground">Course materials will be added as modules are created.</p>
-                      </div>
-                    )}
                   </CardContent>
                 </Card>
               </TabsContent>
