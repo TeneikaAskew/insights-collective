@@ -691,6 +691,118 @@ export type Database = {
         }
         Relationships: []
       }
+      content_blocks: {
+        Row: {
+          block_type: string
+          completion_required: boolean | null
+          content: string | null
+          created_at: string | null
+          created_by: string
+          duration: number | null
+          file_path: string | null
+          file_size: number | null
+          file_type: string | null
+          file_url: string | null
+          id: string
+          is_interactive: boolean | null
+          metadata: Json | null
+          module_id: string
+          position: number
+          thumbnail_url: string | null
+          title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          block_type?: string
+          completion_required?: boolean | null
+          content?: string | null
+          created_at?: string | null
+          created_by: string
+          duration?: number | null
+          file_path?: string | null
+          file_size?: number | null
+          file_type?: string | null
+          file_url?: string | null
+          id?: string
+          is_interactive?: boolean | null
+          metadata?: Json | null
+          module_id: string
+          position?: number
+          thumbnail_url?: string | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          block_type?: string
+          completion_required?: boolean | null
+          content?: string | null
+          created_at?: string | null
+          created_by?: string
+          duration?: number | null
+          file_path?: string | null
+          file_size?: number | null
+          file_type?: string | null
+          file_url?: string | null
+          id?: string
+          is_interactive?: boolean | null
+          metadata?: Json | null
+          module_id?: string
+          position?: number
+          thumbnail_url?: string | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_blocks_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_progress: {
+        Row: {
+          completed: boolean | null
+          completed_at: string | null
+          completion_percentage: number | null
+          content_block_id: string
+          id: string
+          last_accessed_at: string | null
+          time_spent: number | null
+          user_id: string
+        }
+        Insert: {
+          completed?: boolean | null
+          completed_at?: string | null
+          completion_percentage?: number | null
+          content_block_id: string
+          id?: string
+          last_accessed_at?: string | null
+          time_spent?: number | null
+          user_id: string
+        }
+        Update: {
+          completed?: boolean | null
+          completed_at?: string | null
+          completion_percentage?: number | null
+          content_block_id?: string
+          id?: string
+          last_accessed_at?: string | null
+          time_spent?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_progress_content_block_id_fkey"
+            columns: ["content_block_id"]
+            isOneToOne: false
+            referencedRelation: "content_blocks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversation_participants: {
         Row: {
           added_at: string | null
@@ -1396,31 +1508,58 @@ export type Database = {
       }
       module_content: {
         Row: {
+          block_type: string | null
+          completion_required: boolean | null
           content: string
           created_at: string | null
+          duration: number | null
+          file_path: string | null
+          file_size: number | null
+          file_type: string | null
           id: string
+          is_interactive: boolean | null
+          metadata: Json | null
           module_id: string | null
           position: number
+          thumbnail_url: string | null
           type: Database["public"]["Enums"]["module_content_type"]
           updated_at: string | null
           uploaded_by: string
         }
         Insert: {
+          block_type?: string | null
+          completion_required?: boolean | null
           content: string
           created_at?: string | null
+          duration?: number | null
+          file_path?: string | null
+          file_size?: number | null
+          file_type?: string | null
           id?: string
+          is_interactive?: boolean | null
+          metadata?: Json | null
           module_id?: string | null
           position?: number
+          thumbnail_url?: string | null
           type: Database["public"]["Enums"]["module_content_type"]
           updated_at?: string | null
           uploaded_by: string
         }
         Update: {
+          block_type?: string | null
+          completion_required?: boolean | null
           content?: string
           created_at?: string | null
+          duration?: number | null
+          file_path?: string | null
+          file_size?: number | null
+          file_type?: string | null
           id?: string
+          is_interactive?: boolean | null
+          metadata?: Json | null
           module_id?: string | null
           position?: number
+          thumbnail_url?: string | null
           type?: Database["public"]["Enums"]["module_content_type"]
           updated_at?: string | null
           uploaded_by?: string
@@ -1853,6 +1992,100 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: true
             referencedRelation: "portfolio_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quiz_questions: {
+        Row: {
+          correct_answer: Json | null
+          created_at: string | null
+          explanation: string | null
+          id: string
+          options: Json | null
+          points: number | null
+          position: number
+          question_text: string
+          question_type: string
+          quiz_id: string
+        }
+        Insert: {
+          correct_answer?: Json | null
+          created_at?: string | null
+          explanation?: string | null
+          id?: string
+          options?: Json | null
+          points?: number | null
+          position?: number
+          question_text: string
+          question_type?: string
+          quiz_id: string
+        }
+        Update: {
+          correct_answer?: Json | null
+          created_at?: string | null
+          explanation?: string | null
+          id?: string
+          options?: Json | null
+          points?: number | null
+          position?: number
+          question_text?: string
+          question_type?: string
+          quiz_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_questions_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quizzes: {
+        Row: {
+          attempts_allowed: number | null
+          content_block_id: string
+          created_at: string | null
+          description: string | null
+          id: string
+          passing_score: number | null
+          randomize_questions: boolean | null
+          time_limit: number | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          attempts_allowed?: number | null
+          content_block_id: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          passing_score?: number | null
+          randomize_questions?: boolean | null
+          time_limit?: number | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          attempts_allowed?: number | null
+          content_block_id?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          passing_score?: number | null
+          randomize_questions?: boolean | null
+          time_limit?: number | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quizzes_content_block_id_fkey"
+            columns: ["content_block_id"]
+            isOneToOne: false
+            referencedRelation: "content_blocks"
             referencedColumns: ["id"]
           },
         ]

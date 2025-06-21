@@ -1,311 +1,153 @@
 
-import React, { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { 
-  Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, 
-  Heading1, Heading2, List, ListOrdered, Link as LinkIcon, Image, Code
-} from 'lucide-react';
-import { Input } from '@/components/ui/input';
+import React, { useState } from 'react';
 import { Textarea } from '@/components/ui/textarea';
-import { DialogTrigger, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { 
+  Bold, 
+  Italic, 
+  Underline, 
+  List, 
+  ListOrdered, 
+  Link, 
+  Quote,
+  Code,
+  Heading1,
+  Heading2,
+  Heading3
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface RichTextEditorProps {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
-  minHeight?: string;
 }
 
 const RichTextEditor: React.FC<RichTextEditorProps> = ({
   value,
   onChange,
-  placeholder = 'Enter content here...',
-  className = '',
-  minHeight = '200px'
+  placeholder = "Start typing...",
+  className
 }) => {
-  const [htmlValue, setHtmlValue] = useState(value);
-  const [currentTab, setCurrentTab] = useState<string>('visual');
-  const [linkUrl, setLinkUrl] = useState('');
-  const [linkText, setLinkText] = useState('');
-  const [imageUrl, setImageUrl] = useState('');
-  const [imageAlt, setImageAlt] = useState('');
-  const [editorRef, setEditorRef] = useState<HTMLDivElement | null>(null);
-  
-  useEffect(() => {
-    // Initialize editor content
-    if (currentTab === 'visual' && editorRef) {
-      editorRef.innerHTML = value;
-    } else if (currentTab === 'html') {
-      setHtmlValue(value);
-    }
-  }, [currentTab, value, editorRef]);
-  
-  const handleEditorChange = () => {
-    if (editorRef && currentTab === 'visual') {
-      const content = editorRef.innerHTML;
-      onChange(content);
-    }
+  const [isPreview, setIsPreview] = useState(false);
+
+  const insertFormat = (before: string, after: string = '') => {
+    const textarea = document.querySelector('textarea[data-rich-text]') as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = value.substring(start, end);
+    
+    const newText = value.substring(0, start) + 
+                   before + selectedText + after + 
+                   value.substring(end);
+    
+    onChange(newText);
+    
+    // Restore cursor position
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(
+        start + before.length, 
+        start + before.length + selectedText.length
+      );
+    }, 0);
   };
-  
-  const handleCodeChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setHtmlValue(e.target.value);
-    onChange(e.target.value);
+
+  const formatButtons = [
+    { icon: Bold, action: () => insertFormat('**', '**'), title: 'Bold' },
+    { icon: Italic, action: () => insertFormat('*', '*'), title: 'Italic' },
+    { icon: Underline, action: () => insertFormat('<u>', '</u>'), title: 'Underline' },
+    { icon: Heading1, action: () => insertFormat('# '), title: 'Heading 1' },
+    { icon: Heading2, action: () => insertFormat('## '), title: 'Heading 2' },
+    { icon: Heading3, action: () => insertFormat('### '), title: 'Heading 3' },
+    { icon: List, action: () => insertFormat('- '), title: 'Bullet List' },
+    { icon: ListOrdered, action: () => insertFormat('1. '), title: 'Numbered List' },
+    { icon: Quote, action: () => insertFormat('> '), title: 'Quote' },
+    { icon: Code, action: () => insertFormat('`', '`'), title: 'Inline Code' },
+    { icon: Link, action: () => insertFormat('[', '](url)'), title: 'Link' },
+  ];
+
+  const renderPreview = (markdown: string) => {
+    // Simple markdown to HTML converter
+    let html = markdown
+      .replace(/^# (.*$)/gim, '<h1 class="text-2xl font-bold mb-2">$1</h1>')
+      .replace(/^## (.*$)/gim, '<h2 class="text-xl font-semibold mb-2">$1</h2>')
+      .replace(/^### (.*$)/gim, '<h3 class="text-lg font-medium mb-2">$1</h3>')
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      .replace(/<u>(.*?)<\/u>/g, '<u>$1</u>')
+      .replace(/`(.*?)`/g, '<code class="bg-gray-100 px-1 rounded">$1</code>')
+      .replace(/^> (.*$)/gim, '<blockquote class="border-l-4 border-gray-300 pl-4 italic">$1</blockquote>')
+      .replace(/^- (.*$)/gim, '<li class="ml-4">• $1</li>')
+      .replace(/^\d+\. (.*$)/gim, '<li class="ml-4">$1</li>')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 hover:underline" target="_blank">$1</a>')
+      .replace(/\n/g, '<br>');
+
+    return html;
   };
-  
-  const execCommand = (command: string, value: string = '') => {
-    if (!editorRef) return;
-    // Focus the editor to ensure commands work
-    editorRef.focus();
-    document.execCommand(command, false, value);
-    handleEditorChange();
-  };
-  
-  const insertLink = () => {
-    if (linkUrl && editorRef) {
-      const textToUse = linkText || linkUrl;
-      const linkHtml = `<a href="${linkUrl}" target="_blank" rel="noopener noreferrer">${textToUse}</a>`;
-      document.execCommand('insertHTML', false, linkHtml);
-      setLinkUrl('');
-      setLinkText('');
-      handleEditorChange();
-    }
-  };
-  
-  const insertImage = () => {
-    if (imageUrl && editorRef) {
-      const imgHtml = `<img src="${imageUrl}" alt="${imageAlt}" class="max-w-full h-auto" />`;
-      document.execCommand('insertHTML', false, imgHtml);
-      setImageUrl('');
-      setImageAlt('');
-      handleEditorChange();
-    }
-  };
-  
+
   return (
-    <div className={`border rounded-md overflow-hidden ${className}`}>
-      <Tabs defaultValue="visual" onValueChange={setCurrentTab} className="w-full">
-        <div className="border-b px-3 py-1.5 flex justify-between items-center">
-          <TabsList className="bg-transparent p-0">
-            <TabsTrigger value="visual" className="px-3 py-1.5 data-[state=active]:bg-muted">Visual</TabsTrigger>
-            <TabsTrigger value="html" className="px-3 py-1.5 data-[state=active]:bg-muted">HTML</TabsTrigger>
-          </TabsList>
-          
-          {currentTab === 'visual' && (
-            <div className="flex flex-wrap gap-1">
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-8 w-8" 
-                onClick={() => execCommand('bold')}
+    <div className={cn("border rounded-lg", className)}>
+      <div className="flex items-center justify-between p-2 border-b bg-gray-50">
+        <div className="flex flex-wrap gap-1">
+          {formatButtons.map((button, index) => {
+            const Icon = button.icon;
+            return (
+              <Button
+                key={index}
+                variant="ghost"
+                size="sm"
+                onClick={button.action}
+                title={button.title}
+                type="button"
               >
-                <Bold className="h-4 w-4" />
+                <Icon className="h-4 w-4" />
               </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-8 w-8"
-                onClick={() => execCommand('italic')}
-              >
-                <Italic className="h-4 w-4" />
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-8 w-8"
-                onClick={() => execCommand('underline')}
-              >
-                <Underline className="h-4 w-4" />
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-8 w-8"
-                onClick={() => execCommand('justifyLeft')}
-              >
-                <AlignLeft className="h-4 w-4" />
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-8 w-8"
-                onClick={() => execCommand('justifyCenter')}
-              >
-                <AlignCenter className="h-4 w-4" />
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-8 w-8"
-                onClick={() => execCommand('justifyRight')}
-              >
-                <AlignRight className="h-4 w-4" />
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-8 w-8"
-                onClick={() => execCommand('formatBlock', '<h2>')}
-              >
-                <Heading1 className="h-4 w-4" />
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-8 w-8"
-                onClick={() => execCommand('formatBlock', '<h3>')}
-              >
-                <Heading2 className="h-4 w-4" />
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-8 w-8"
-                onClick={() => execCommand('insertUnorderedList')}
-              >
-                <List className="h-4 w-4" />
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-8 w-8"
-                onClick={() => execCommand('insertOrderedList')}
-              >
-                <ListOrdered className="h-4 w-4" />
-              </Button>
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-8 w-8"
-                  >
-                    <LinkIcon className="h-4 w-4" />
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>Insert Link</DialogTitle>
-                  </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <label htmlFor="url" className="text-right text-sm font-medium">URL</label>
-                      <Input
-                        id="url"
-                        placeholder="https://example.com"
-                        value={linkUrl}
-                        onChange={(e) => setLinkUrl(e.target.value)}
-                        className="col-span-3"
-                      />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <label htmlFor="text" className="text-right text-sm font-medium">Text</label>
-                      <Input
-                        id="text"
-                        placeholder="Link text"
-                        value={linkText}
-                        onChange={(e) => setLinkText(e.target.value)}
-                        className="col-span-3"
-                      />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button onClick={insertLink}>Insert Link</Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-              
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-8 w-8"
-                  >
-                    <Image className="h-4 w-4" />
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>Insert Image</DialogTitle>
-                  </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <label htmlFor="image-url" className="text-right text-sm font-medium">Image URL</label>
-                      <Input
-                        id="image-url"
-                        placeholder="https://example.com/image.jpg"
-                        value={imageUrl}
-                        onChange={(e) => setImageUrl(e.target.value)}
-                        className="col-span-3"
-                      />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <label htmlFor="alt-text" className="text-right text-sm font-medium">Alt Text</label>
-                      <Input
-                        id="alt-text"
-                        placeholder="Image description"
-                        value={imageAlt}
-                        onChange={(e) => setImageAlt(e.target.value)}
-                        className="col-span-3"
-                      />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button onClick={insertImage}>Insert Image</Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-              
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-8 w-8"
-                onClick={() => execCommand('formatBlock', '<pre>')}
-              >
-                <Code className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
+            );
+          })}
         </div>
-        
-        <TabsContent value="visual" className="mt-0 p-0">
-          <div
-            ref={setEditorRef}
-            contentEditable
-            className="p-3 focus:outline-none min-h-[200px]"
-            style={{ minHeight }}
-            onInput={handleEditorChange}
-            dangerouslySetInnerHTML={{ __html: value }}
-            // Remove the placeholder property and implement a custom placeholder solution
-            data-placeholder={placeholder}
+        <div className="flex gap-1">
+          <Button
+            variant={!isPreview ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setIsPreview(false)}
+            type="button"
+          >
+            Edit
+          </Button>
+          <Button
+            variant={isPreview ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setIsPreview(true)}
+            type="button"
+          >
+            Preview
+          </Button>
+        </div>
+      </div>
+      
+      <div className="p-4">
+        {isPreview ? (
+          <div 
+            className="prose prose-sm max-w-none min-h-[200px]"
+            dangerouslySetInnerHTML={{ __html: renderPreview(value) }}
           />
-        </TabsContent>
-        
-        <TabsContent value="html" className="mt-0 p-0">
+        ) : (
           <Textarea
-            value={htmlValue}
-            onChange={handleCodeChange}
+            data-rich-text
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
             placeholder={placeholder}
-            className="border-0 focus-visible:ring-0 resize-none min-h-[200px]"
-            style={{ minHeight }}
+            className="border-0 resize-none focus:ring-0 min-h-[200px]"
+            rows={8}
           />
-        </TabsContent>
-      </Tabs>
+        )}
+      </div>
     </div>
   );
 };
-
-// Add CSS for the custom placeholder
-const style = document.createElement('style');
-style.innerHTML = `
-  [contenteditable]:empty:before {
-    content: attr(data-placeholder);
-    color: #9ca3af;
-    pointer-events: none;
-  }
-`;
-document.head.appendChild(style);
 
 export default RichTextEditor;

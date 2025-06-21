@@ -1,15 +1,14 @@
+
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
-import ModuleContentEditor from '@/components/course/management/ModuleContentEditor';
+import EnhancedModuleContentEditor from '@/components/course/management/EnhancedModuleContentEditor';
 import AppLayout from '@/components/layout/AppLayout';
-import { Plus, ChevronLeft, Trash2, Save, Pencil } from 'lucide-react';
+import { Plus, ChevronLeft, Trash2, Pencil } from 'lucide-react';
 import { useCoursePermissions } from '@/hooks/useCoursePermissions';
 import {
   Dialog,
@@ -24,7 +23,6 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -44,7 +42,6 @@ const CourseManageMaterials = () => {
   const [course, setCourse] = useState<any>(null);
   const [modules, setModules] = useState<any[]>([]);
   const [selectedModule, setSelectedModule] = useState<any>(null);
-  const [moduleContents, setModuleContents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [addModuleOpen, setAddModuleOpen] = useState(false);
   const [editModuleOpen, setEditModuleOpen] = useState(false);
@@ -122,32 +119,6 @@ const CourseManageMaterials = () => {
       setLoading(false);
     }
   };
-  
-  useEffect(() => {
-    const fetchModuleContents = async () => {
-      if (!selectedModule) return;
-      
-      try {
-        const { data, error } = await supabase
-          .from('module_content')
-          .select('*')
-          .eq('module_id', selectedModule.id)
-          .order('position', { ascending: true });
-        
-        if (error) throw error;
-        setModuleContents(data || []);
-      } catch (error) {
-        console.error('Error fetching module contents:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load module contents',
-          variant: 'destructive',
-        });
-      }
-    };
-    
-    fetchModuleContents();
-  }, [selectedModule, toast]);
   
   const handleAddModule = async () => {
     if (!newModuleTitle || !courseId) return;
@@ -233,16 +204,24 @@ const CourseManageMaterials = () => {
   const handleDeleteModule = async (moduleId: string) => {
     if (!moduleId) return;
     
-    if (!confirm('Are you sure you want to delete this module? This will also delete all module content.')) {
+    if (!confirm('Are you sure you want to delete this module? This will also delete all content blocks within it.')) {
       return;
     }
     
     try {
+      // Delete content blocks first
+      await supabase
+        .from('content_blocks')
+        .delete()
+        .eq('module_id', moduleId);
+      
+      // Delete old module content
       await supabase
         .from('module_content')
         .delete()
         .eq('module_id', moduleId);
       
+      // Delete the module
       const { error } = await supabase
         .from('modules')
         .delete()
@@ -268,105 +247,6 @@ const CourseManageMaterials = () => {
         description: 'Failed to delete module',
         variant: 'destructive',
       });
-    }
-  };
-  
-  const handleAddContent = async (content: any) => {
-    if (!selectedModule) return;
-    
-    try {
-      const { data: userData } = await supabase.auth.getUser();
-      
-      const newContent = {
-        ...content,
-        module_id: selectedModule.id,
-        uploaded_by: userData.user?.id,
-        position: moduleContents.length
-      };
-      
-      const { data, error } = await supabase
-        .from('module_content')
-        .insert(newContent)
-        .select()
-        .single();
-      
-      if (error) throw error;
-      
-      setModuleContents([...moduleContents, data]);
-      
-      toast({
-        title: 'Success',
-        description: 'Content added successfully',
-      });
-      
-      return data;
-    } catch (error) {
-      console.error('Error adding content:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to add content',
-        variant: 'destructive',
-      });
-      throw error;
-    }
-  };
-  
-  const handleUpdateContent = async (contentId: string, updatedContent: any) => {
-    try {
-      const { data, error } = await supabase
-        .from('module_content')
-        .update(updatedContent)
-        .eq('id', contentId)
-        .select();
-      
-      if (error) throw error;
-      
-      setModuleContents(moduleContents.map(content => 
-        content.id === contentId ? { ...content, ...updatedContent } : content
-      ));
-      
-      toast({
-        title: 'Success',
-        description: 'Content updated successfully',
-      });
-      
-      return data ? data[0] : null;
-    } catch (error) {
-      console.error('Error updating content:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to update content',
-        variant: 'destructive',
-      });
-      throw error;
-    }
-  };
-  
-  const handleDeleteContent = async (contentId: string) => {
-    try {
-      const { error } = await supabase
-        .from('module_content')
-        .delete()
-        .eq('id', contentId);
-      
-      if (error) throw error;
-      
-      setModuleContents(moduleContents.filter(content => content.id !== contentId));
-      
-      toast({
-        title: 'Success',
-        description: 'Content deleted successfully',
-      });
-      
-      return true;
-    } catch (error) {
-      console.error('Error deleting content:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to delete content',
-        variant: 'destructive',
-      });
-      return false;
     }
   };
   
@@ -399,7 +279,10 @@ const CourseManageMaterials = () => {
               <ChevronLeft className="h-4 w-4 mr-2" />
               Back to Course
             </Button>
-            <h1 className="text-2xl font-bold">Manage Course Materials</h1>
+            <div>
+              <h1 className="text-2xl font-bold">Course Content Studio</h1>
+              <p className="text-gray-600">Create professional course materials with rich content blocks</p>
+            </div>
           </div>
           
           <Dialog open={addModuleOpen} onOpenChange={setAddModuleOpen}>
@@ -463,39 +346,44 @@ const CourseManageMaterials = () => {
         </div>
         
         {course && (
-          <div className="mb-6 bg-amber-50 p-4 rounded-md">
-            <h2 className="text-xl font-semibold">{course.title}</h2>
-            <p className="text-gray-600">{course.description}</p>
+          <div className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6">
+            <h2 className="text-xl font-semibold text-blue-900">{course.title}</h2>
+            <p className="text-blue-700 mt-1">{course.description}</p>
           </div>
         )}
         
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="md:col-span-1">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <div className="lg:col-span-1">
             <Card>
               <CardHeader>
-                <CardTitle>Modules</CardTitle>
+                <CardTitle>Course Modules</CardTitle>
                 <CardDescription>Select a module to manage its content</CardDescription>
               </CardHeader>
               <CardContent>
                 {modules.length === 0 ? (
                   <div className="text-center p-4 text-gray-500">
-                    No modules yet. Add your first module to get started.
+                    <div className="text-4xl mb-3">📚</div>
+                    <p className="text-sm">No modules yet.</p>
+                    <p className="text-xs text-gray-400 mt-1">Add your first module to get started.</p>
                   </div>
                 ) : (
                   <Accordion type="single" collapsible className="w-full">
                     {modules.map((module) => (
                       <AccordionItem key={module.id} value={module.id}>
                         <AccordionTrigger
-                          className={`hover:bg-gray-50 p-2 rounded ${
-                            selectedModule?.id === module.id ? 'bg-amber-50 text-amber-800' : ''
+                          className={`hover:bg-gray-50 p-2 rounded text-left ${
+                            selectedModule?.id === module.id ? 'bg-blue-50 text-blue-800' : ''
                           }`}
                           onClick={() => setSelectedModule(module)}
                         >
-                          Week {module.week}: {module.title}
+                          <div className="flex-1">
+                            <div className="font-medium">Week {module.week}</div>
+                            <div className="text-sm font-normal">{module.title}</div>
+                          </div>
                         </AccordionTrigger>
                         <AccordionContent className="p-2">
-                          <p className="text-sm text-gray-600 mb-2">{module.description}</p>
-                          <div className="flex space-x-2 mt-2">
+                          <p className="text-sm text-gray-600 mb-3">{module.description}</p>
+                          <div className="flex space-x-2">
                             <Button 
                               variant="outline" 
                               size="sm"
@@ -529,7 +417,7 @@ const CourseManageMaterials = () => {
             </Card>
           </div>
           
-          <div className="md:col-span-3">
+          <div className="lg:col-span-3">
             {selectedModule ? (
               <Card>
                 <CardHeader>
@@ -597,25 +485,21 @@ const CourseManageMaterials = () => {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <ModuleContentEditor 
-                    moduleId={selectedModule.id}
-                    contents={moduleContents}
-                    onAddContent={handleAddContent}
-                    onUpdateContent={handleUpdateContent}
-                    onDeleteContent={handleDeleteContent}
-                  />
+                  <EnhancedModuleContentEditor moduleId={selectedModule.id} />
                 </CardContent>
               </Card>
             ) : (
-              <div className="flex items-center justify-center h-full border rounded-md p-8 bg-gray-50">
+              <div className="flex items-center justify-center h-96 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50">
                 <div className="text-center">
+                  <div className="text-6xl mb-4">🎯</div>
                   <h3 className="text-lg font-medium mb-2">No Module Selected</h3>
-                  <p className="text-gray-600 mb-4">
-                    Select a module from the list or create a new one to get started.
+                  <p className="text-gray-600 mb-6 max-w-md">
+                    Select a module from the sidebar to start creating professional course content with 
+                    rich text, images, videos, quizzes, and more.
                   </p>
                   <Button onClick={() => setAddModuleOpen(true)}>
                     <Plus className="h-4 w-4 mr-2" />
-                    Add New Module
+                    Create Your First Module
                   </Button>
                 </div>
               </div>
