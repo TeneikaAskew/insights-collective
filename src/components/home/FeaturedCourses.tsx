@@ -102,7 +102,7 @@ const FeaturedCourses = ({ courses }: FeaturedCoursesProps) => {
                     />
                     
                     {/* Hot badge */}
-                    {course.rating >= 4.5 && (
+                    {course.rating && course.rating >= 4.5 && (
                       <div className="absolute top-3 right-3 bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs font-bold px-2.5 py-1.5 rounded-full shadow-lg flex items-center">
                         <Sparkles className="h-3 w-3 mr-1" />
                         Top Rated
@@ -125,10 +125,12 @@ const FeaturedCourses = ({ courses }: FeaturedCoursesProps) => {
                       <Badge className={`font-medium px-2.5 py-1 ${getCategoryColor(course.category)}`}>
                         {getCategoryLabel(course.category)}
                       </Badge>
-                      <div className="flex items-center text-amber-500">
-                        <Star className="h-4 w-4 fill-current mr-1" />
-                        <span className="text-sm font-medium">{course.rating.toFixed(1)}</span>
-                      </div>
+                      {course.rating && (
+                        <div className="flex items-center text-amber-500">
+                          <Star className="h-4 w-4 fill-current mr-1" />
+                          <span className="text-sm font-medium">{course.rating.toFixed(1)}</span>
+                        </div>
+                      )}
                     </div>
                     
                     <h3 className="text-xl font-semibold mb-3 line-clamp-1 group-hover:text-primary transition-colors duration-300">{course.title}</h3>
