@@ -86,13 +86,15 @@ const SortableBlock: React.FC<SortableBlockProps> = ({ block, onEdit, onDelete }
 };
 
 interface EnhancedModuleContentEditorProps {
-  moduleId: string;
+  moduleId?: string;
+  lessonId?: string;
 }
 
 const EnhancedModuleContentEditor: React.FC<EnhancedModuleContentEditorProps> = ({
-  moduleId
+  moduleId,
+  lessonId
 }) => {
-  const { blocks, loading, addBlock, updateBlock, deleteBlock, reorderBlocks } = useContentBlocks(moduleId);
+  const { blocks, loading, addBlock, updateBlock, deleteBlock, reorderBlocks } = useContentBlocks(moduleId, lessonId);
   const [showEditor, setShowEditor] = useState(false);
   const [editingBlock, setEditingBlock] = useState<ContentBlock | null>(null);
 

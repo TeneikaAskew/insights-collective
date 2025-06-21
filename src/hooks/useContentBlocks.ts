@@ -8,6 +8,7 @@ import { isValidUUID } from '@/utils/idUtils';
 export interface ContentBlock {
   id: string;
   module_id: string;
+  lesson_id?: string;
   block_type: string;
   title?: string;
   content: string;
@@ -23,7 +24,7 @@ export interface ContentBlock {
   updated_at: string;
 }
 
-export function useContentBlocks(moduleId?: string) {
+export function useContentBlocks(moduleId?: string, lessonId?: string) {
   const [blocks, setBlocks] = useState<ContentBlock[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,33 +32,38 @@ export function useContentBlocks(moduleId?: string) {
   const { user } = useAuth();
 
   useEffect(() => {
-    if (!moduleId) {
+    if (!moduleId && !lessonId) {
       setLoading(false);
       return;
     }
 
-    if (!isValidUUID(moduleId)) {
-      console.error(`Invalid module UUID format: ${moduleId}`);
-      setError('Invalid module ID format');
+    const targetId = lessonId || moduleId;
+    if (!isValidUUID(targetId!)) {
+      console.error(`Invalid UUID format: ${targetId}`);
+      setError('Invalid ID format');
       setLoading(false);
       return;
     }
 
     fetchContentBlocks();
-  }, [moduleId]);
+  }, [moduleId, lessonId]);
 
   const fetchContentBlocks = async () => {
-    if (!moduleId) return;
+    if (!moduleId && !lessonId) return;
 
     try {
       setLoading(true);
       setError(null);
 
-      const { data, error } = await supabase
-        .from('content_blocks')
-        .select('*')
-        .eq('module_id', moduleId)
-        .order('position', { ascending: true });
+      let query = supabase.from('content_blocks').select('*');
+      
+      if (lessonId) {
+        query = query.eq('lesson_id', lessonId);
+      } else {
+        query = query.eq('module_id', moduleId);
+      }
+
+      const { data, error } = await query.order('position', { ascending: true });
 
       if (error) throw error;
       setBlocks(data || []);
@@ -75,26 +81,29 @@ export function useContentBlocks(moduleId?: string) {
   };
 
   const addBlock = async (blockData: Omit<ContentBlock, 'id' | 'created_at' | 'updated_at' | 'created_by'>): Promise<ContentBlock | null> => {
-    if (!user || !moduleId) return null;
+    if (!user || (!moduleId && !lessonId)) return null;
 
-    if (!isValidUUID(moduleId)) {
-      console.error(`Invalid module UUID format: ${moduleId}`);
+    const targetId = lessonId || moduleId;
+    if (!isValidUUID(targetId!)) {
+      console.error(`Invalid UUID format: ${targetId}`);
       toast({
         title: 'Error',
-        description: 'Invalid module ID format',
+        description: 'Invalid ID format',
         variant: 'destructive',
       });
       return null;
     }
 
     try {
+      const insertData = {
+        ...blockData,
+        created_by: user.id,
+        ...(lessonId ? { lesson_id: lessonId } : { module_id: moduleId })
+      };
+
       const { data, error } = await supabase
         .from('content_blocks')
-        .insert({
-          ...blockData,
-          module_id: moduleId,
-          created_by: user.id
-        })
+        .insert(insertData)
         .select()
         .single();
 
