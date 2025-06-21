@@ -11,17 +11,24 @@ import { Textarea } from '@/components/ui/textarea';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { CheckCircle, ChevronLeft, Clock, FileText, Upload, Book, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useContentBlocks } from '@/hooks/useContentBlocks';
+import { useProgressTracking } from '@/hooks/useProgressTracking';
+import ContentBlockRenderer from '@/components/course/content/ContentBlockRenderer';
 
 const ModuleDetail = () => {
   const { courseId, moduleId } = useParams<{ courseId: string; moduleId: string }>();
   const { toast } = useToast();
-  const [activeLesson, setActiveLesson] = useState<string | null>(null);
+  const [activeContent, setActiveContent] = useState<string | null>(null);
   const [assignmentSubmission, setAssignmentSubmission] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [course, setCourse] = useState<any>(null);
   const [module, setModule] = useState<any>(null);
   const [modules, setModules] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Use content blocks and progress tracking hooks
+  const { blocks: contentBlocks, loading: contentLoading } = useContentBlocks(moduleId);
+  const { moduleProgress, getContentProgress, markContentComplete } = useProgressTracking(undefined, moduleId);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -62,9 +69,6 @@ const ModuleDetail = () => {
         setModules(modulesData || []);
         setModule({
           ...moduleData,
-          lessons: [], // Mock data for now
-          assignments: [], // Mock data for now
-          quizzes: [], // Mock data for now
           completionStatus: 0
         });
       } catch (error) {
@@ -106,15 +110,19 @@ const ModuleDetail = () => {
     );
   }
   
-  if (!activeLesson && module.lessons.length > 0) {
-    setActiveLesson(module.lessons[0].id);
+  // Set active content to first block if none selected and blocks exist
+  if (!activeContent && contentBlocks.length > 0) {
+    setActiveContent(contentBlocks[0].id);
   }
   
-  const handleMarkComplete = (lessonId: string) => {
-    toast({
-      title: "Lesson marked as complete",
-      description: "Your progress has been updated",
-    });
+  const handleMarkComplete = async (contentBlockId: string) => {
+    const success = await markContentComplete(contentBlockId);
+    if (success) {
+      toast({
+        title: "Content marked as complete",
+        description: "Your progress has been updated",
+      });
+    }
   };
   
   const handleSubmitAssignment = (assignmentId: string) => {
@@ -146,9 +154,14 @@ const ModuleDetail = () => {
     });
   };
   
-  const getActiveLesson = () => {
-    return module.lessons.find(lesson => lesson.id === activeLesson);
+  const getActiveContent = () => {
+    return contentBlocks.find(block => block.id === activeContent);
   };
+
+  // Get content blocks by type
+  const textBlocks = contentBlocks.filter(block => ['text', 'image', 'video', 'file', 'quote', 'code', 'embed'].includes(block.block_type));
+  const assignmentBlocks = contentBlocks.filter(block => block.block_type === 'assignment');
+  const quizBlocks = contentBlocks.filter(block => block.block_type === 'quiz');
   
   return (
     <AppLayout>
@@ -176,202 +189,144 @@ const ModuleDetail = () => {
                 <div className="mb-6">
                   <div className="flex justify-between text-sm mb-2">
                     <span>Module Progress</span>
-                    <span>{module.completionStatus}%</span>
+                    <span>{moduleProgress?.completion_percentage || 0}%</span>
                   </div>
-                  <Progress value={module.completionStatus} className="h-2" />
+                  <Progress value={moduleProgress?.completion_percentage || 0} className="h-2" />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {moduleProgress?.completed_blocks || 0} of {moduleProgress?.total_blocks || 0} content blocks completed
+                  </p>
                 </div>
               </CardContent>
             </Card>
             
-            <Tabs defaultValue="lessons">
+            <Tabs defaultValue="content">
               <TabsList>
-                <TabsTrigger value="lessons">Lessons</TabsTrigger>
-                <TabsTrigger value="assignments">Assignments</TabsTrigger>
-                <TabsTrigger value="quizzes">Quizzes</TabsTrigger>
-                <TabsTrigger value="resources">Resources</TabsTrigger>
+                <TabsTrigger value="content">Content</TabsTrigger>
+                <TabsTrigger value="assignments">Assignments ({assignmentBlocks.length})</TabsTrigger>
+                <TabsTrigger value="quizzes">Quizzes ({quizBlocks.length})</TabsTrigger>
+                <TabsTrigger value="overview">Overview</TabsTrigger>
               </TabsList>
               
-              <TabsContent value="lessons" className="space-y-6 mt-6">
-                {activeLesson && getActiveLesson() ? (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-xl">{getActiveLesson()?.title}</CardTitle>
-                      <div className="flex items-center text-sm text-muted-foreground">
-                        <Clock className="h-4 w-4 mr-1" />
-                        <span>{getActiveLesson()?.duration}</span>
+              <TabsContent value="content" className="space-y-6 mt-6">
+                {contentLoading ? (
+                  <div className="space-y-4">
+                    <Card className="p-6">
+                      <div className="animate-pulse space-y-4">
+                        <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                        <div className="h-2 bg-gray-200 rounded"></div>
+                        <div className="h-4 bg-gray-200 rounded w-1/2"></div>
                       </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="aspect-video bg-black rounded-lg mb-6 flex items-center justify-center text-white">
-                        <div className="text-center p-4">
-                          <Clock className="h-16 w-16 mx-auto mb-2 opacity-50" />
-                          <p>Video player would be embedded here</p>
-                          <p className="text-sm opacity-70 mt-1">Lesson: {getActiveLesson()?.title}</p>
+                    </Card>
+                  </div>
+                ) : textBlocks.length > 0 ? (
+                  <div className="space-y-6">
+                    {/* Active Content Display */}
+                    {activeContent && getActiveContent() && (
+                      <div className="space-y-4">
+                        <ContentBlockRenderer
+                          block={getActiveContent()!}
+                          showControls={false}
+                        />
+                        
+                        <div className="flex justify-between items-center">
+                          <div>
+                            {textBlocks.findIndex(block => block.id === activeContent) > 0 && (
+                              <Button 
+                                variant="outline" 
+                                onClick={() => setActiveContent(textBlocks[textBlocks.findIndex(block => block.id === activeContent) - 1].id)}
+                              >
+                                Previous
+                              </Button>
+                            )}
+                          </div>
+                          <div className="space-x-2">
+                            {!getContentProgress(activeContent)?.completed && (
+                              <Button onClick={() => handleMarkComplete(activeContent)}>
+                                <CheckCircle className="h-4 w-4 mr-2" />
+                                Mark as Complete
+                              </Button>
+                            )}
+                            
+                            {textBlocks.findIndex(block => block.id === activeContent) < textBlocks.length - 1 && (
+                              <Button 
+                                onClick={() => setActiveContent(textBlocks[textBlocks.findIndex(block => block.id === activeContent) + 1].id)}
+                              >
+                                Next
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      
-                      <div className="prose max-w-none">
-                        <h3 className="text-lg font-semibold mb-2">Lesson Description</h3>
-                        <p>{getActiveLesson()?.description}</p>
-                        
-                        <h3 className="text-lg font-semibold mt-6 mb-2">Lesson Content</h3>
-                        <p>{getActiveLesson()?.content}</p>
+                    )}
+                    
+                    {/* Content Block List */}
+                    <div>
+                      <h3 className="text-lg font-semibold mb-4">All Content</h3>
+                      <div className="space-y-3">
+                        {textBlocks.map((block, index) => {
+                          const progress = getContentProgress(block.id);
+                          return (
+                            <Card 
+                              key={block.id} 
+                              className={`cursor-pointer hover:shadow-md transition-all duration-200 ${activeContent === block.id ? 'ring-2 ring-primary' : ''}`}
+                              onClick={() => setActiveContent(block.id)}
+                            >
+                              <CardContent className="p-4 flex justify-between items-center">
+                                <div className="flex items-center gap-3">
+                                  <div className="flex items-center justify-center w-10 h-10 rounded-full bg-secondary text-foreground">
+                                    <span className="text-sm font-medium">{index + 1}</span>
+                                  </div>
+                                  <div>
+                                    <h4 className="font-medium">{block.title || `${block.block_type} Content`}</h4>
+                                     <div className="flex items-center text-sm text-muted-foreground">
+                                       <span className="capitalize">{block.block_type}</span>
+                                       {block.metadata?.duration && (
+                                         <>
+                                           <Clock className="h-3 w-3 ml-2 mr-1" />
+                                           <span>{block.metadata.duration} min</span>
+                                         </>
+                                       )}
+                                     </div>
+                                  </div>
+                                </div>
+                                
+                                {progress?.completed ? (
+                                  <Badge className="bg-green-500 text-white hover:bg-green-600">
+                                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                                    Completed
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline">Not Completed</Badge>
+                                )}
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
                       </div>
-                    </CardContent>
-                    <CardFooter className="justify-between">
-                      <div>
-                        {module.lessons.indexOf(getActiveLesson()!) > 0 && (
-                          <Button 
-                            variant="outline" 
-                            onClick={() => setActiveLesson(module.lessons[module.lessons.indexOf(getActiveLesson()!) - 1].id)}
-                          >
-                            Previous Lesson
-                          </Button>
-                        )}
-                      </div>
-                      <div className="space-x-2">
-                        {!getActiveLesson()?.completed && (
-                          <Button onClick={() => handleMarkComplete(getActiveLesson()!.id)}>
-                            <CheckCircle className="h-4 w-4 mr-2" />
-                            Mark as Complete
-                          </Button>
-                        )}
-                        
-                        {module.lessons.indexOf(getActiveLesson()!) < module.lessons.length - 1 && (
-                          <Button 
-                            variant={getActiveLesson()?.completed ? "default" : "secondary"}
-                            onClick={() => setActiveLesson(module.lessons[module.lessons.indexOf(getActiveLesson()!) + 1].id)}
-                          >
-                            Next Lesson
-                          </Button>
-                        )}
-                      </div>
-                    </CardFooter>
-                  </Card>
+                    </div>
+                  </div>
                 ) : (
                   <Card>
                     <CardContent className="py-10 text-center">
-                      <p className="text-muted-foreground">No lessons available in this module.</p>
+                      <p className="text-muted-foreground">No content available in this module.</p>
                     </CardContent>
                   </Card>
                 )}
-                
-                <div>
-                  <h3 className="text-lg font-semibold mb-4">All Lessons</h3>
-                  <div className="space-y-3">
-                     {module.lessons.map((lesson) => (
-                       <Link key={lesson.id} to={`/courses/${courseId}/modules/${moduleId}/lessons/${lesson.id}`}>
-                         <Card className="cursor-pointer hover:shadow-md transition-all duration-200">
-                        <CardContent className="p-4 flex justify-between items-center">
-                          <div className="flex items-center gap-3">
-                            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-secondary text-foreground">
-                              <Book className="h-5 w-5" />
-                            </div>
-                            <div>
-                              <h4 className="font-medium">{lesson.title}</h4>
-                              <div className="flex items-center text-sm text-muted-foreground">
-                                <Clock className="h-3 w-3 mr-1" />
-                                <span>{lesson.duration}</span>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          {lesson.completed ? (
-                            <Badge className="bg-green-500 text-white hover:bg-green-600">
-                              <CheckCircle2 className="h-3 w-3 mr-1" />
-                              Completed
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline">Not Completed</Badge>
-                          )}
-                         </CardContent>
-                       </Card>
-                       </Link>
-                     ))}
-                  </div>
-                </div>
               </TabsContent>
               
               <TabsContent value="assignments" className="mt-6">
                 <div>
                   <h3 className="text-lg font-semibold mb-4">Module Assignments</h3>
                   
-                  {module.assignments.length > 0 ? (
+                  {assignmentBlocks.length > 0 ? (
                     <div className="space-y-6">
-                     {module.assignments.map((assignment) => (
-                       <Link key={assignment.id} to={`/courses/${courseId}/modules/${moduleId}/assignments/${assignment.id}`}>
-                         <Card className="cursor-pointer hover:shadow-md transition-all duration-200">
-                          <CardHeader>
-                            <div className="flex items-center justify-between">
-                              <CardTitle className="text-xl">{assignment.title}</CardTitle>
-                              <Badge variant={
-                                assignment.status === 'Graded' ? 'default' :
-                                assignment.status === 'Submitted' ? 'secondary' :
-                                assignment.status === 'In Progress' ? 'outline' : 'outline'
-                              }>
-                                {assignment.status}
-                              </Badge>
-                            </div>
-                          </CardHeader>
-                          <CardContent className="space-y-4">
-                            <div>
-                              <h4 className="font-medium mb-1">Assignment Description</h4>
-                              <p className="text-muted-foreground">{assignment.description}</p>
-                            </div>
-                            
-                            <div className="flex items-center justify-between text-sm">
-                              <div className="flex items-center">
-                                <Clock className="h-4 w-4 mr-1" />
-                                <span>Due: {new Date(assignment.dueDate || '').toLocaleDateString()}</span>
-                              </div>
-                              <div>
-                                <span>Points: {assignment.points}</span>
-                              </div>
-                            </div>
-                            
-                            {assignment.status === 'Graded' || assignment.status === 'Submitted' ? (
-                              <div className="bg-secondary p-4 rounded-lg">
-                                <h4 className="font-medium mb-2">Your Submission</h4>
-                                <p className="text-sm">{assignment.submission?.content}</p>
-                                
-                                {assignment.status === 'Graded' && (
-                                  <div className="mt-4 pt-4 border-t">
-                                    <div className="flex justify-between mb-2">
-                                      <h4 className="font-medium">Feedback</h4>
-                                      <span className="font-medium">{assignment.submission?.grade} / {assignment.points}</span>
-                                    </div>
-                                    <p className="text-sm">{assignment.submission?.feedback}</p>
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <div className="space-y-3">
-                                <Textarea 
-                                  placeholder="Enter your submission here..." 
-                                  className="min-h-[150px]"
-                                  value={assignmentSubmission}
-                                  onChange={(e) => setAssignmentSubmission(e.target.value)}
-                                />
-                                
-                                <div className="flex items-center gap-2">
-                                  <Button variant="outline" className="flex-1">
-                                    <Upload className="h-4 w-4 mr-2" />
-                                    Attach Files
-                                  </Button>
-                                  <Button 
-                                    className="flex-1"
-                                    onClick={() => handleSubmitAssignment(assignment.id)}
-                                    disabled={submitting}
-                                  >
-                                    {submitting ? "Submitting..." : "Submit Assignment"}
-                                  </Button>
-                                </div>
-                              </div>
-                            )}
-                           </CardContent>
-                         </Card>
-                       </Link>
-                       ))}
+                      {assignmentBlocks.map((assignment) => (
+                        <ContentBlockRenderer
+                          key={assignment.id}
+                          block={assignment}
+                          showControls={false}
+                        />
+                      ))}
                     </div>
                   ) : (
                     <Card>
@@ -387,64 +342,14 @@ const ModuleDetail = () => {
                 <div>
                   <h3 className="text-lg font-semibold mb-4">Module Quizzes</h3>
                   
-                  {module.quizzes.length > 0 ? (
+                  {quizBlocks.length > 0 ? (
                     <div className="space-y-6">
-                      {module.quizzes.map((quiz) => (
-                        <Card key={quiz.id}>
-                          <CardHeader>
-                            <div className="flex items-center justify-between">
-                              <CardTitle className="text-xl">{quiz.title}</CardTitle>
-                              <Badge variant={
-                                quiz.status === 'Completed' ? 'default' :
-                                quiz.status === 'In Progress' ? 'secondary' : 'outline'
-                              }>
-                                {quiz.status}
-                              </Badge>
-                            </div>
-                          </CardHeader>
-                          <CardContent className="space-y-4">
-                            <p className="text-muted-foreground">{quiz.description}</p>
-                            
-                            <div className="grid grid-cols-2 gap-4 text-sm">
-                              <div className="flex items-center">
-                                <Clock className="h-4 w-4 mr-1" />
-                                <span>Time Limit: {quiz.timeLimit} minutes</span>
-                              </div>
-                              <div className="flex items-center">
-                                <FileText className="h-4 w-4 mr-1" />
-                                <span>Questions: {quiz.questions.length}</span>
-                              </div>
-                              <div className="flex items-center">
-                                <Clock className="h-4 w-4 mr-1" />
-                                <span>Due: {new Date(quiz.dueDate || '').toLocaleDateString()}</span>
-                              </div>
-                              <div className="flex items-center">
-                                <FileText className="h-4 w-4 mr-1" />
-                                <span>Total Points: {quiz.questions.reduce((sum, q) => sum + (q.points || 0), 0)}</span>
-                              </div>
-                            </div>
-                            
-                            {quiz.status === 'Completed' ? (
-                              <div className="bg-secondary p-4 rounded-lg">
-                                <div className="flex justify-between mb-2">
-                                  <h4 className="font-medium">Your Score</h4>
-                                  <span className="font-medium">{quiz.score} / {quiz.questions.reduce((sum, q) => sum + (q.points || 0), 0)}</span>
-                                </div>
-                                <p className="text-sm">You've completed this quiz. You can review your answers by clicking the button below.</p>
-                                <Button variant="outline" className="mt-4 w-full">
-                                  Review Quiz
-                                </Button>
-                              </div>
-                            ) : (
-                              <Button 
-                                className="w-full"
-                                onClick={() => handleTakeQuiz(quiz.id)}
-                              >
-                                {quiz.status === 'In Progress' ? "Continue Quiz" : "Start Quiz"}
-                              </Button>
-                            )}
-                          </CardContent>
-                        </Card>
+                      {quizBlocks.map((quiz) => (
+                        <ContentBlockRenderer
+                          key={quiz.id}
+                          block={quiz}
+                          showControls={false}
+                        />
                       ))}
                     </div>
                   ) : (
@@ -457,69 +362,41 @@ const ModuleDetail = () => {
                 </div>
               </TabsContent>
               
-              <TabsContent value="resources" className="mt-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-xl">Module Resources</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <Accordion type="single" collapsible className="w-full">
-                      <AccordionItem value="item-1">
-                        <AccordionTrigger>Lecture Materials</AccordionTrigger>
-                        <AccordionContent>
-                          <ul className="space-y-2">
-                            <li className="flex items-center p-2 rounded-md hover:bg-secondary">
-                              <FileText className="h-4 w-4 mr-2 text-primary" />
-                              <span className="flex-1">Lecture 1 - Introduction Slides</span>
-                              <Badge variant="outline">PDF</Badge>
-                            </li>
-                            <li className="flex items-center p-2 rounded-md hover:bg-secondary">
-                              <FileText className="h-4 w-4 mr-2 text-primary" />
-                              <span className="flex-1">Lecture 2 - Core Concepts</span>
-                              <Badge variant="outline">PDF</Badge>
-                            </li>
-                          </ul>
-                        </AccordionContent>
-                      </AccordionItem>
+              <TabsContent value="overview" className="mt-6">
+                <div className="space-y-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Module Overview</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-blue-600">{textBlocks.length}</div>
+                          <div className="text-sm text-muted-foreground">Content Blocks</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-orange-600">{assignmentBlocks.length}</div>
+                          <div className="text-sm text-muted-foreground">Assignments</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-green-600">{quizBlocks.length}</div>
+                          <div className="text-sm text-muted-foreground">Quizzes</div>
+                        </div>
+                      </div>
                       
-                      <AccordionItem value="item-2">
-                        <AccordionTrigger>Exercise Files</AccordionTrigger>
-                        <AccordionContent>
-                          <ul className="space-y-2">
-                            <li className="flex items-center p-2 rounded-md hover:bg-secondary">
-                              <FileText className="h-4 w-4 mr-2 text-primary" />
-                              <span className="flex-1">Exercise 1 - Starter Files</span>
-                              <Badge variant="outline">ZIP</Badge>
-                            </li>
-                            <li className="flex items-center p-2 rounded-md hover:bg-secondary">
-                              <FileText className="h-4 w-4 mr-2 text-primary" />
-                              <span className="flex-1">Exercise 1 - Solution</span>
-                              <Badge variant="outline">ZIP</Badge>
-                            </li>
-                          </ul>
-                        </AccordionContent>
-                      </AccordionItem>
-                      
-                      <AccordionItem value="item-3">
-                        <AccordionTrigger>Supplementary Reading</AccordionTrigger>
-                        <AccordionContent>
-                          <ul className="space-y-2">
-                            <li className="flex items-center p-2 rounded-md hover:bg-secondary">
-                              <FileText className="h-4 w-4 mr-2 text-primary" />
-                              <span className="flex-1">Research Paper - Advanced Techniques</span>
-                              <Badge variant="outline">PDF</Badge>
-                            </li>
-                            <li className="flex items-center p-2 rounded-md hover:bg-secondary">
-                              <FileText className="h-4 w-4 mr-2 text-primary" />
-                              <span className="flex-1">Industry Case Study</span>
-                              <Badge variant="outline">PDF</Badge>
-                            </li>
-                          </ul>
-                        </AccordionContent>
-                      </AccordionItem>
-                    </Accordion>
-                  </CardContent>
-                </Card>
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span>Progress</span>
+                          <span>{moduleProgress?.completion_percentage || 0}%</span>
+                        </div>
+                        <Progress value={moduleProgress?.completion_percentage || 0} />
+                        <p className="text-xs text-muted-foreground">
+                          {moduleProgress?.completed_blocks || 0} of {moduleProgress?.total_blocks || 0} items completed
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
               </TabsContent>
             </Tabs>
           </div>
@@ -533,23 +410,27 @@ const ModuleDetail = () => {
                 <div>
                   <div className="flex justify-between text-sm mb-2">
                     <span>Completion</span>
-                    <span>{module.completionStatus}%</span>
+                    <span>{moduleProgress?.completion_percentage || 0}%</span>
                   </div>
-                  <Progress value={module.completionStatus} className="h-2" />
+                  <Progress value={moduleProgress?.completion_percentage || 0} className="h-2" />
                 </div>
                 
                 <div className="space-y-3">
                   <div className="flex justify-between items-center text-sm">
-                    <span>Lessons</span>
-                    <span>{module.lessons.filter(l => l.completed).length} / {module.lessons.length}</span>
+                    <span>Content</span>
+                    <span>{textBlocks.length}</span>
                   </div>
                   <div className="flex justify-between items-center text-sm">
                     <span>Assignments</span>
-                    <span>{module.assignments.filter(a => a.status === 'Graded' || a.status === 'Submitted').length} / {module.assignments.length}</span>
+                    <span>{assignmentBlocks.length}</span>
                   </div>
                   <div className="flex justify-between items-center text-sm">
                     <span>Quizzes</span>
-                    <span>{module.quizzes.filter(q => q.status === 'Completed').length} / {module.quizzes.length}</span>
+                    <span>{quizBlocks.length}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span>Completed</span>
+                    <span>{moduleProgress?.completed_blocks || 0} / {moduleProgress?.total_blocks || 0}</span>
                   </div>
                 </div>
               </CardContent>
