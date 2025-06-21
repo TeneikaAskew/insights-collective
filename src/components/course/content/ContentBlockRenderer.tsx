@@ -242,7 +242,14 @@ const ContentBlockRenderer: React.FC<ContentBlockRendererProps> = ({
                   </div>
                 </div>
               </div>
-              <Button variant="outline" size="sm">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => {
+                  // This would open QuizTaker component
+                  console.log('Starting quiz for block:', block.id);
+                }}
+              >
                 Start Quiz
               </Button>
             </div>
