@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -41,6 +42,7 @@ interface CourseFormFields {
 }
 
 const CourseEditModal = ({ isOpen, onClose, onSave, course }: CourseEditModalProps) => {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState<Partial<CourseFormFields>>({
     title: '',
     description: '',
@@ -187,8 +189,8 @@ const CourseEditModal = ({ isOpen, onClose, onSave, course }: CourseEditModalPro
 
   const handleOpenMaterials = () => {
     if (course?.id) {
-      const url = `/course-management?courseId=${course.id}&tab=content`;
-      window.open(url, '_blank');
+      onClose(); // Close the modal first
+      navigate(`/course/${course.id}/manage-materials`);
     }
   };
 
@@ -231,7 +233,6 @@ const CourseEditModal = ({ isOpen, onClose, onSave, course }: CourseEditModalPro
               >
                 <Settings className="h-4 w-4" />
                 Edit Materials
-                <ExternalLink className="h-3 w-3" />
               </Button>
             )}
           </DialogTitle>
