@@ -34,8 +34,12 @@ export function useCoursePermissions(courseId?: string) {
       
       try {
         // Use the new security definer functions for consistent role checking
+        console.log('Checking permissions for user:', user.id, 'course:', courseId);
+        
         const { data: hasAdminAccess, error: adminError } = await supabase
           .rpc('has_admin_access', { user_id_param: user.id });
+        
+        console.log('Admin access check result:', hasAdminAccess, 'error:', adminError);
         
         if (adminError) {
           console.error('Error checking admin access:', adminError);
@@ -48,10 +52,14 @@ export function useCoursePermissions(courseId?: string) {
             course_id_param: courseId 
           });
         
+        console.log('Instructor access check result:', isCourseInstructor, 'error:', instructorError);
+        
         if (instructorError) {
           console.error('Error checking instructor access:', instructorError);
           throw instructorError;
         }
+        
+        console.log('Setting permissions - Admin:', hasAdminAccess, 'Instructor:', isCourseInstructor);
         
         setIsAdmin(hasAdminAccess || false);
         setIsInstructor(isCourseInstructor || false);
