@@ -13,7 +13,10 @@ export function useCoursePermissions(courseId?: string) {
   const [error, setError] = useState<string | null>(null);
   
   useEffect(() => {
+    console.log('useCoursePermissions effect triggered - user:', user?.id, 'courseId:', courseId);
+    
     if (!user || !courseId) {
+      console.log('Missing user or courseId, setting canEdit to false');
       setCanEdit(false);
       setLoading(false);
       return;
@@ -33,6 +36,15 @@ export function useCoursePermissions(courseId?: string) {
       setError(null);
       
       try {
+        // First, let's check user profile directly as a fallback
+        const { data: userProfile, error: profileError } = await supabase
+          .from('profiles')
+          .select('role, roles')
+          .eq('id', user.id)
+          .single();
+        
+        console.log('User profile data:', userProfile, 'error:', profileError);
+        
         // Use the new security definer functions for consistent role checking
         console.log('Checking permissions for user:', user.id, 'course:', courseId);
         
@@ -59,11 +71,15 @@ export function useCoursePermissions(courseId?: string) {
           throw instructorError;
         }
         
-        console.log('Setting permissions - Admin:', hasAdminAccess, 'Instructor:', isCourseInstructor);
+        // Fallback check using profile data directly
+        const isAdminFromProfile = userProfile?.role === 'admin' || userProfile?.roles?.includes('admin');
+        const finalAdminAccess = hasAdminAccess || isAdminFromProfile;
         
-        setIsAdmin(hasAdminAccess || false);
+        console.log('Setting permissions - Admin (RPC):', hasAdminAccess, 'Admin (Profile):', isAdminFromProfile, 'Final Admin:', finalAdminAccess, 'Instructor:', isCourseInstructor);
+        
+        setIsAdmin(finalAdminAccess || false);
         setIsInstructor(isCourseInstructor || false);
-        setCanEdit(hasAdminAccess || isCourseInstructor || false);
+        setCanEdit(finalAdminAccess || isCourseInstructor || false);
         
         // Log security event for tracking
         if (hasAdminAccess || isCourseInstructor) {
