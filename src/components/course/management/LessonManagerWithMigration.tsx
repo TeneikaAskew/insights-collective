@@ -8,7 +8,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
@@ -136,151 +135,131 @@ const LessonManagerWithMigration = ({ moduleId }: LessonManagerWithMigrationProp
 
   return (
     <div className="space-y-6">
-      <Tabs defaultValue={lessons.length > 0 ? "lessons" : "direct"} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="lessons">Lesson Structure</TabsTrigger>
-          <TabsTrigger value="direct">Direct Content Creation</TabsTrigger>
-        </TabsList>
+      <div className="flex justify-between items-center">
+        <div>
+          <h3 className="text-lg font-semibold">Course Lessons</h3>
+          <p className="text-sm text-muted-foreground">Organize content into structured learning modules</p>
+        </div>
         
-        <TabsContent value="lessons" className="space-y-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h3 className="text-lg font-semibold">Course Lessons</h3>
-              <p className="text-sm text-muted-foreground">Organize content into structured learning modules</p>
-            </div>
-            
-            <Button onClick={() => { resetForm(); setAddLessonOpen(true); }}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Lesson
-            </Button>
-          </div>
+        <Button onClick={() => { resetForm(); setAddLessonOpen(true); }}>
+          <Plus className="h-4 w-4 mr-2" />
+          Add Lesson
+        </Button>
+      </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-1">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Lessons</CardTitle>
-                  <CardDescription>Select a lesson to manage its content</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {lessons.length === 0 ? (
-                    <div className="text-center p-4 text-muted-foreground">
-                      <BookOpen className="h-8 w-8 mx-auto mb-3 opacity-50" />
-                      <p className="text-sm">No lessons yet.</p>
-                      <p className="text-xs mt-1">Create your first lesson to get started.</p>
-                    </div>
-                  ) : (
-                    <Accordion type="single" collapsible className="w-full">
-                      {lessons.map((lesson) => (
-                        <AccordionItem key={lesson.id} value={lesson.id}>
-                          <AccordionTrigger
-                            className={`hover:bg-muted/50 p-2 rounded text-left ${
-                              selectedLesson?.id === lesson.id ? 'bg-primary/10 text-primary' : ''
-                            }`}
-                            onClick={() => setSelectedLesson(lesson)}
-                          >
-                            <div className="flex-1">
-                              <div className="font-medium">Lesson {lesson.order_num}</div>
-                              <div className="text-sm font-normal truncate">{lesson.title}</div>
-                              <div className="flex items-center gap-2 mt-1">
-                                <Badge variant="secondary" className="text-xs">
-                                  {lesson.content_blocks_count || 0} blocks
-                                </Badge>
-                                {lesson.duration && (
-                                  <Badge variant="outline" className="text-xs">
-                                    <Clock className="h-3 w-3 mr-1" />
-                                    {lesson.duration}
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                          </AccordionTrigger>
-                          <AccordionContent className="p-2">
-                            <p className="text-sm text-muted-foreground mb-3">{lesson.description}</p>
-                            <div className="flex space-x-2">
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  startEditLesson(lesson);
-                                }}
-                              >
-                                <Pencil className="h-3 w-3 mr-1" />
-                                Edit
-                              </Button>
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeleteLesson(lesson.id);
-                                }}
-                                className="text-destructive hover:bg-destructive/10"
-                              >
-                                <Trash2 className="h-3 w-3 mr-1" />
-                                Delete
-                              </Button>
-                            </div>
-                          </AccordionContent>
-                        </AccordionItem>
-                      ))}
-                    </Accordion>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-            
-            <div className="lg:col-span-2">
-              {selectedLesson ? (
-                <Card>
-                  <CardHeader>
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <CardTitle>Lesson {selectedLesson.order_num}: {selectedLesson.title}</CardTitle>
-                        <CardDescription>{selectedLesson.description}</CardDescription>
-                      </div>
-                      <Button variant="outline" size="sm" onClick={() => startEditLesson(selectedLesson)}>
-                        <Pencil className="h-4 w-4 mr-2" />
-                        Edit Lesson
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    {/* Use the existing content editor for lesson content */}
-                    <EnhancedModuleContentEditor lessonId={selectedLesson.id} />
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="flex items-center justify-center h-96 border-2 border-dashed border-border rounded-lg bg-muted/20">
-                  <div className="text-center">
-                    <BookOpen className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                    <h3 className="text-lg font-medium mb-2">No Lesson Selected</h3>
-                    <p className="text-muted-foreground mb-6 max-w-md">
-                      Select a lesson from the sidebar to manage its content blocks using the same powerful editor.
-                    </p>
-                    <Button onClick={() => setAddLessonOpen(true)}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Create Your First Lesson
-                    </Button>
-                  </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-1">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Lessons</CardTitle>
+              <CardDescription>Select a lesson to manage its content</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {lessons.length === 0 ? (
+                <div className="text-center p-4 text-muted-foreground">
+                  <BookOpen className="h-8 w-8 mx-auto mb-3 opacity-50" />
+                  <p className="text-sm">No lessons yet.</p>
+                  <p className="text-xs mt-1">Create your first lesson to get started.</p>
                 </div>
+              ) : (
+                <Accordion type="single" collapsible className="w-full">
+                  {lessons.map((lesson) => (
+                    <AccordionItem key={lesson.id} value={lesson.id}>
+                      <AccordionTrigger
+                        className={`hover:bg-muted/50 p-2 rounded text-left ${
+                          selectedLesson?.id === lesson.id ? 'bg-primary/10 text-primary' : ''
+                        }`}
+                        onClick={() => setSelectedLesson(lesson)}
+                      >
+                        <div className="flex-1">
+                          <div className="font-medium">Lesson {lesson.order_num}</div>
+                          <div className="text-sm font-normal truncate">{lesson.title}</div>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Badge variant="secondary" className="text-xs">
+                              {lesson.content_blocks_count || 0} blocks
+                            </Badge>
+                            {lesson.duration && (
+                              <Badge variant="outline" className="text-xs">
+                                <Clock className="h-3 w-3 mr-1" />
+                                {lesson.duration}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="p-2">
+                        <p className="text-sm text-muted-foreground mb-3">{lesson.description}</p>
+                        <div className="flex space-x-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              startEditLesson(lesson);
+                            }}
+                          >
+                            <Pencil className="h-3 w-3 mr-1" />
+                            Edit
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteLesson(lesson.id);
+                            }}
+                            className="text-destructive hover:bg-destructive/10"
+                          >
+                            <Trash2 className="h-3 w-3 mr-1" />
+                            Delete
+                          </Button>
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
               )}
+            </CardContent>
+          </Card>
+        </div>
+        
+        <div className="lg:col-span-2">
+          {selectedLesson ? (
+            <Card>
+              <CardHeader>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <CardTitle>Lesson {selectedLesson.order_num}: {selectedLesson.title}</CardTitle>
+                    <CardDescription>{selectedLesson.description}</CardDescription>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => startEditLesson(selectedLesson)}>
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Edit Lesson
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {/* Use the existing content editor for lesson content */}
+                <EnhancedModuleContentEditor lessonId={selectedLesson.id} />
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="flex items-center justify-center h-96 border-2 border-dashed border-border rounded-lg bg-muted/20">
+              <div className="text-center">
+                <BookOpen className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                <h3 className="text-lg font-medium mb-2">No Lesson Selected</h3>
+                <p className="text-muted-foreground mb-6 max-w-md">
+                  Select a lesson from the sidebar to start adding content blocks and building your lesson.
+                </p>
+                <Button onClick={() => setAddLessonOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Your First Lesson
+                </Button>
+              </div>
             </div>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="direct" className="space-y-4">
-          <div className="mb-4">
-            <h3 className="text-lg font-semibold">Direct Content Creation</h3>
-            <p className="text-sm text-muted-foreground">
-              Use the original content editor directly at module level (legacy mode)
-            </p>
-          </div>
-          {/* Keep the original content editor available for direct module content */}
-          <EnhancedModuleContentEditor moduleId={moduleId} />
-        </TabsContent>
-      </Tabs>
+          )}
+        </div>
+      </div>
 
       {/* Add Lesson Dialog */}
       <Dialog open={addLessonOpen} onOpenChange={setAddLessonOpen}>
