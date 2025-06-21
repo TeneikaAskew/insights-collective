@@ -59,7 +59,7 @@ const ContentBlockRenderer: React.FC<ContentBlockRendererProps> = ({
       case 'text':
         return (
           <div 
-            className="prose prose-sm max-w-none"
+            className="prose prose-sm max-w-none prose-headings:text-foreground prose-p:text-foreground prose-strong:text-foreground prose-em:text-foreground prose-code:text-foreground prose-blockquote:text-foreground prose-li:text-foreground prose-a:text-primary"
             dangerouslySetInnerHTML={{ __html: block.content }}
           />
         );

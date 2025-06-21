@@ -111,9 +111,11 @@ const ModuleDetail = () => {
   }
   
   // Set active content to first block if none selected and blocks exist
-  if (!activeContent && contentBlocks.length > 0) {
-    setActiveContent(contentBlocks[0].id);
-  }
+  useEffect(() => {
+    if (!activeContent && contentBlocks.length > 0) {
+      setActiveContent(contentBlocks[0].id);
+    }
+  }, [contentBlocks, activeContent]);
   
   const handleMarkComplete = async (contentBlockId: string) => {
     const success = await markContentComplete(contentBlockId);
@@ -240,13 +242,6 @@ const ModuleDetail = () => {
                             )}
                           </div>
                           <div className="space-x-2">
-                            {!getContentProgress(activeContent)?.completed && (
-                              <Button onClick={() => handleMarkComplete(activeContent)}>
-                                <CheckCircle className="h-4 w-4 mr-2" />
-                                Mark as Complete
-                              </Button>
-                            )}
-                            
                             {textBlocks.findIndex(block => block.id === activeContent) < textBlocks.length - 1 && (
                               <Button 
                                 onClick={() => setActiveContent(textBlocks[textBlocks.findIndex(block => block.id === activeContent) + 1].id)}
