@@ -36,13 +36,13 @@ export function useCoursePermissions(courseId?: string) {
         // Check if user is admin
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .select('role')
+          .select('roles')
           .eq('id', user.id)
           .single();
         
         if (profileError) throw profileError;
         
-        const isUserAdmin = profile?.role === 'admin';
+        const isUserAdmin = profile?.roles?.includes('admin');
         setIsAdmin(isUserAdmin);
         
         if (isUserAdmin) {
