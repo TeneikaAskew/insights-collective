@@ -262,16 +262,31 @@ const ContentBlockRenderer: React.FC<ContentBlockRendererProps> = ({
   };
 
   const getEmbedUrl = (url: string): string | null => {
-    // YouTube
-    const youtubeMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/);
-    if (youtubeMatch) {
+    if (!url || typeof url !== 'string') return null;
+    
+    // Clean the URL by removing leading/trailing whitespace
+    const cleanUrl = url.trim();
+    
+    // YouTube - multiple formats supported
+    // 1. Standard: https://www.youtube.com/watch?v=VIDEO_ID
+    // 2. Short: https://youtu.be/VIDEO_ID
+    // 3. With parameters: https://www.youtube.com/watch?v=VIDEO_ID&other=params
+    const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})(?:\S+)?/;
+    const youtubeMatch = cleanUrl.match(youtubeRegex);
+    if (youtubeMatch && youtubeMatch[1]) {
       return `https://www.youtube.com/embed/${youtubeMatch[1]}`;
     }
 
     // Vimeo
-    const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
-    if (vimeoMatch) {
+    const vimeoRegex = /(?:https?:\/\/)?(?:www\.)?vimeo\.com\/(\d+)(?:\S+)?/;
+    const vimeoMatch = cleanUrl.match(vimeoRegex);
+    if (vimeoMatch && vimeoMatch[1]) {
       return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
+    }
+
+    // Direct video URLs (for uploaded content)
+    if (cleanUrl.match(/\.(mp4|webm|ogg|avi|mov)(\?.*)?$/i)) {
+      return cleanUrl;
     }
 
     return null;
