@@ -34,41 +34,63 @@ export default function CourseAnalytics({ courseId }: CourseAnalyticsProps) {
     try {
       const days = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : 90;
       
-      // Fetch real enrollment data
-      const { data: enrollments, error: enrollmentError } = await supabase
+      // Fetch all enrollments for this course
+      const { data: allEnrollments, error: allEnrollmentError } = await supabase
         .from('enrollments')
-        .select('enrolled_at')
-        .eq('course_id', courseId)
-        .gte('enrolled_at', new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString());
-      
-      if (enrollmentError) throw enrollmentError;
-      
-      // Fetch content engagement data
-      const { data: contentProgress, error: progressError } = await supabase
-        .from('content_progress')
-        .select('content_block_id, completed, time_spent, content_blocks!inner(block_type)')
-        .eq('content_blocks.module_id', courseId);
-      
-      if (progressError) throw progressError;
-      
-      // Fetch completion rates
-      const { data: courseEnrollments, error: completionError } = await supabase
-        .from('enrollments')
-        .select('completion_status')
+        .select('enrolled_at, completion_status')
         .eq('course_id', courseId);
       
-      if (completionError) throw completionError;
+      if (allEnrollmentError) throw allEnrollmentError;
       
-      const enrollmentTrend = processEnrollmentTrend(enrollments || [], days);
-      const contentEngagement = processContentEngagement(contentProgress || []);
-      const completionRate = processCompletionRate(courseEnrollments || []);
+      // Filter enrollments by date range for trend
+      const recentEnrollments = (allEnrollments || []).filter(enrollment => 
+        new Date(enrollment.enrolled_at) >= new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+      );
+      
+      // Get modules for this course first
+      const { data: modules, error: modulesError } = await supabase
+        .from('modules')
+        .select('id')
+        .eq('course_id', courseId);
+      
+      if (modulesError) throw modulesError;
+      
+      const moduleIds = modules?.map(m => m.id) || [];
+      
+      // Fetch content engagement data through proper joins
+      let contentProgress: any[] = [];
+      if (moduleIds.length > 0) {
+        const { data: progressData, error: progressError } = await supabase
+          .from('content_progress')
+          .select(`
+            content_block_id, 
+            completed, 
+            time_spent,
+            user_id,
+            content_blocks!inner(
+              block_type,
+              module_id
+            )
+          `)
+          .in('content_blocks.module_id', moduleIds);
+        
+        if (progressError) throw progressError;
+        contentProgress = progressData || [];
+      }
+      
+      const enrollmentTrend = processEnrollmentTrend(recentEnrollments, days);
+      const contentEngagement = processContentEngagement(contentProgress);
+      const completionRate = processCompletionRate(allEnrollments || []);
       const modulePopularity = await fetchModulePopularity();
+      const avgTimeInCourse = calculateAverageTimeInCourse(contentProgress);
       
       setAnalyticsData({
         enrollmentTrend,
         contentEngagement,
         completionRate,
         modulePopularity,
+        totalEnrollments: allEnrollments?.length || 0,
+        avgTimeInCourse,
       });
       
     } catch (error) {
@@ -81,6 +103,7 @@ export default function CourseAnalytics({ courseId }: CourseAnalyticsProps) {
   const processEnrollmentTrend = (enrollments: any[], days: number) => {
     const data = [];
     const now = new Date();
+    let cumulativeEnrollments = 0;
     
     for (let i = days; i >= 0; i--) {
       const date = new Date(now);
@@ -91,13 +114,29 @@ export default function CourseAnalytics({ courseId }: CourseAnalyticsProps) {
         enrollment.enrolled_at.split('T')[0] === dateStr
       ).length;
       
+      cumulativeEnrollments += dayEnrollments;
+      
       data.push({
         date: dateStr,
         enrollments: dayEnrollments,
+        cumulativeEnrollments,
       });
     }
     
     return data;
+  };
+
+  const calculateAverageTimeInCourse = (contentProgress: any[]) => {
+    if (contentProgress.length === 0) return 0;
+    
+    const totalTimeSpent = contentProgress.reduce((sum, progress) => 
+      sum + (progress.time_spent || 0), 0
+    );
+    
+    // Get unique users
+    const uniqueUsers = new Set(contentProgress.map(p => p.user_id)).size;
+    
+    return uniqueUsers > 0 ? Math.round(totalTimeSpent / uniqueUsers) : 0;
   };
 
   const processContentEngagement = (contentProgress: any[]) => {
@@ -115,9 +154,17 @@ export default function CourseAnalytics({ courseId }: CourseAnalyticsProps) {
   };
 
   const processCompletionRate = (enrollments: any[]) => {
-    const completed = enrollments.filter(e => e.completion_status >= 100).length;
-    const inProgress = enrollments.filter(e => e.completion_status > 0 && e.completion_status < 100).length;
-    const notStarted = enrollments.filter(e => e.completion_status === 0).length;
+    if (enrollments.length === 0) {
+      return [
+        { name: 'Completed', value: 0 },
+        { name: 'In Progress', value: 0 },
+        { name: 'Not Started', value: 0 },
+      ];
+    }
+    
+    const completed = enrollments.filter(e => (e.completion_status || 0) >= 100).length;
+    const inProgress = enrollments.filter(e => (e.completion_status || 0) > 0 && (e.completion_status || 0) < 100).length;
+    const notStarted = enrollments.filter(e => (e.completion_status || 0) === 0).length;
     
     return [
       { name: 'Completed', value: completed },
@@ -193,7 +240,7 @@ export default function CourseAnalytics({ courseId }: CourseAnalyticsProps) {
             <div className="flex items-center">
               <Users className="h-6 w-6 text-muted-foreground mr-3" />
               <div className="text-3xl font-bold">
-                {analyticsData.enrollmentTrend.reduce((sum: number, item: any) => sum + item.enrollments, 0).toFixed(0)}
+                {analyticsData.totalEnrollments || 0}
               </div>
             </div>
           </CardContent>
@@ -209,8 +256,7 @@ export default function CourseAnalytics({ courseId }: CourseAnalyticsProps) {
             <div className="flex items-center">
               <CalendarDays className="h-6 w-6 text-muted-foreground mr-3" />
               <div className="text-3xl font-bold">
-                {analyticsData.enrollmentTrend.length > 0 ? 
-                  Math.round(analyticsData.enrollmentTrend.reduce((sum: number, item: any) => sum + item.enrollments, 0) * 2.5) : 0} min
+                {analyticsData.avgTimeInCourse || 0} min
               </div>
             </div>
           </CardContent>
@@ -226,8 +272,11 @@ export default function CourseAnalytics({ courseId }: CourseAnalyticsProps) {
             <div className="flex items-center">
               <BookOpen className="h-6 w-6 text-muted-foreground mr-3" />
               <div className="text-3xl font-bold">
-                {Math.floor(analyticsData.completionRate[0]?.value / 
-                  analyticsData.completionRate.reduce((sum: number, item: any) => sum + item.value, 0) * 100)}%
+                {(() => {
+                  const totalUsers = analyticsData.completionRate.reduce((sum: number, item: any) => sum + item.value, 0);
+                  const completedUsers = analyticsData.completionRate.find((item: any) => item.name === 'Completed')?.value || 0;
+                  return totalUsers > 0 ? Math.round((completedUsers / totalUsers) * 100) : 0;
+                })()}%
               </div>
             </div>
           </CardContent>
@@ -268,10 +317,17 @@ export default function CourseAnalytics({ courseId }: CourseAnalyticsProps) {
                     <Legend />
                     <Line
                       type="monotone"
-                      dataKey="enrollments"
-                      name="Enrollments"
+                      dataKey="cumulativeEnrollments"
+                      name="Total Enrollments"
                       stroke="#8884d8"
                       activeDot={{ r: 8 }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="enrollments"
+                      name="Daily Enrollments"
+                      stroke="#82ca9d"
+                      activeDot={{ r: 6 }}
                     />
                   </LineChart>
                 </ResponsiveContainer>
