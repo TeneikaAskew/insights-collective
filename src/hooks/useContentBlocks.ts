@@ -7,7 +7,7 @@ import { isValidUUID } from '@/utils/idUtils';
 
 export interface ContentBlock {
   id: string;
-  module_id?: string;
+  module_id: string;
   lesson_id?: string;
   block_type: string;
   title?: string;
@@ -32,35 +32,27 @@ export function useContentBlocks(moduleId?: string, lessonId?: string) {
   const { user } = useAuth();
 
   useEffect(() => {
-    if (!moduleId && !lessonId) {
+    // Fetch blocks based on lesson or module
+    if (lessonId || moduleId) {
+      fetchContentBlocks();
+    } else {
       setLoading(false);
-      return;
     }
-
-    const targetId = lessonId || moduleId;
-    if (targetId && !isValidUUID(targetId)) {
-      console.error(`Invalid UUID format: ${targetId}`);
-      setError('Invalid ID format');
-      setLoading(false);
-      return;
-    }
-
-    fetchContentBlocks();
   }, [moduleId, lessonId]);
 
   const fetchContentBlocks = async () => {
-    if (!moduleId && !lessonId) return;
-
     try {
       setLoading(true);
       setError(null);
 
       let query = supabase.from('content_blocks').select('*');
       
-      if (lessonId) {
+      if (lessonId && isValidUUID(lessonId)) {
         query = query.eq('lesson_id', lessonId);
-      } else if (moduleId) {
+      } else if (moduleId && isValidUUID(moduleId)) {
         query = query.eq('module_id', moduleId);
+      } else {
+        throw new Error('Invalid module or lesson ID format');
       }
 
       const { data, error } = await query.order('position', { ascending: true });
@@ -81,35 +73,15 @@ export function useContentBlocks(moduleId?: string, lessonId?: string) {
   };
 
   const addBlock = async (blockData: Omit<ContentBlock, 'id' | 'created_at' | 'updated_at' | 'created_by'>): Promise<ContentBlock | null> => {
-    if (!user || (!moduleId && !lessonId)) return null;
-
-    const targetId = lessonId || moduleId;
-    if (targetId && !isValidUUID(targetId)) {
-      console.error(`Invalid UUID format: ${targetId}`);
-      toast({
-        title: 'Error',
-        description: 'Invalid ID format',
-        variant: 'destructive',
-      });
-      return null;
-    }
+    if (!user) return null;
 
     try {
-      const insertData = {
-        ...blockData,
-        created_by: user.id
-      };
-
-      // Set the appropriate foreign key
-      if (lessonId) {
-        insertData.lesson_id = lessonId;
-      } else if (moduleId) {
-        insertData.module_id = moduleId;
-      }
-
       const { data, error } = await supabase
         .from('content_blocks')
-        .insert(insertData)
+        .insert({
+          ...blockData,
+          created_by: user.id
+        })
         .select()
         .single();
 
@@ -214,7 +186,6 @@ export function useContentBlocks(moduleId?: string, lessonId?: string) {
 
   const reorderBlocks = async (reorderedBlocks: ContentBlock[]): Promise<boolean> => {
     try {
-      // Update positions in the database
       const updates = reorderedBlocks.map((block, index) => ({
         id: block.id,
         position: index

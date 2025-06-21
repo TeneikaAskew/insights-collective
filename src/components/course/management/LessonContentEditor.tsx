@@ -1,14 +1,9 @@
-// ABOUTME: Component for editing content blocks within a lesson with drag and drop functionality
-// ABOUTME: Provides lesson-level completion tracking and content block management
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Plus, GripVertical, CheckCircle } from 'lucide-react';
+import { Plus, GripVertical, ArrowLeft } from 'lucide-react';
 import { useContentBlocks, ContentBlock } from '@/hooks/useContentBlocks';
-import { useLessonProgress } from '@/hooks/useLessonProgress';
-import { Lesson } from '@/hooks/useLessons';
 import ContentBlockEditor from '../content/ContentBlockEditor';
 import ContentBlockRenderer from '../content/ContentBlockRenderer';
 import {
@@ -30,21 +25,6 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
-
-interface LessonContentEditorProps {
-  lesson: Lesson;
-}
 
 interface SortableBlockProps {
   block: ContentBlock;
@@ -70,32 +50,46 @@ const SortableBlock: React.FC<SortableBlockProps> = ({ block, onEdit, onDelete }
 
   return (
     <div ref={setNodeRef} style={style} className="relative group">
-      <div className="absolute left-2 top-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="absolute left-2 top-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
         <Button
           variant="ghost"
           size="sm"
-          className="h-6 w-6 p-0 cursor-grab active:cursor-grabbing"
+          className="cursor-grab active:cursor-grabbing"
           {...attributes}
           {...listeners}
         >
           <GripVertical className="h-4 w-4" />
         </Button>
       </div>
-      <ContentBlockRenderer
-        block={block}
-        onEdit={() => onEdit(block)}
-        onDelete={() => onDelete(block.id)}
-        showControls={true}
-      />
+      <div className="pl-10">
+        <ContentBlockRenderer
+          block={block}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          showControls={true}
+        />
+      </div>
     </div>
   );
 };
 
-const LessonContentEditor: React.FC<LessonContentEditorProps> = ({ lesson }) => {
-  const { blocks, loading, addBlock, updateBlock, deleteBlock, reorderBlocks } = useContentBlocks(undefined, lesson.id);
-  const { progress, markLessonComplete, calculateLessonCompletion } = useLessonProgress(lesson.id);
+interface LessonContentEditorProps {
+  lessonId: string;
+  lessonTitle: string;
+  onBack: () => void;
+}
+
+const LessonContentEditor: React.FC<LessonContentEditorProps> = ({
+  lessonId,
+  lessonTitle,
+  onBack
+}) => {
+  const { blocks, loading, addBlock, updateBlock, deleteBlock, reorderBlocks } = useContentBlocks();
+  const [showEditor, setShowEditor] = useState(false);
   const [editingBlock, setEditingBlock] = useState<ContentBlock | null>(null);
-  const [showAddBlock, setShowAddBlock] = useState(false);
+
+  // Filter blocks for this lesson
+  const lessonBlocks = blocks.filter(block => block.lesson_id === lessonId);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -107,163 +101,134 @@ const LessonContentEditor: React.FC<LessonContentEditorProps> = ({ lesson }) => 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
-    if (over && active.id !== over.id) {
-      const oldIndex = blocks.findIndex((block) => block.id === active.id);
-      const newIndex = blocks.findIndex((block) => block.id === over.id);
+    if (active.id !== over?.id) {
+      const activeIndex = lessonBlocks.findIndex((block) => block.id === active.id);
+      const overIndex = lessonBlocks.findIndex((block) => block.id === over?.id);
 
-      const reorderedBlocks = arrayMove(blocks, oldIndex, newIndex);
+      const reorderedBlocks = arrayMove(lessonBlocks, activeIndex, overIndex);
       reorderBlocks(reorderedBlocks);
     }
   };
 
-  const handleAddBlock = async (blockData: Omit<ContentBlock, 'id' | 'created_at' | 'updated_at' | 'created_by'>) => {
-    const result = await addBlock({
-      ...blockData,
-      position: blocks.length
-    });
-    if (result) {
-      setShowAddBlock(false);
-    }
+  const handleAddBlock = () => {
+    setEditingBlock(null);
+    setShowEditor(true);
   };
 
-  const handleUpdateBlock = async (blockData: any) => {
-    if (!editingBlock) return;
-    
-    const result = await updateBlock(editingBlock.id, blockData);
-    if (result) {
-      setEditingBlock(null);
+  const handleEditBlock = (block: ContentBlock) => {
+    setEditingBlock(block);
+    setShowEditor(true);
+  };
+
+  const handleSaveBlock = async (blockData: Omit<ContentBlock, 'id' | 'created_at' | 'updated_at' | 'created_by'>) => {
+    const blockWithLesson = {
+      ...blockData,
+      lesson_id: lessonId,
+      module_id: '', // This will be ignored since we're using lesson_id now
+    };
+
+    if (editingBlock) {
+      await updateBlock(editingBlock.id, blockWithLesson);
+    } else {
+      await addBlock(blockWithLesson);
     }
+    setShowEditor(false);
+    setEditingBlock(null);
   };
 
   const handleDeleteBlock = async (blockId: string) => {
-    const success = await deleteBlock(blockId);
-    if (success && editingBlock?.id === blockId) {
-      setEditingBlock(null);
-    }
+    await deleteBlock(blockId);
   };
 
-  const handleMarkLessonComplete = async () => {
-    const completion = await calculateLessonCompletion();
-    if (completion && completion.completed) {
-      await markLessonComplete();
-    } else {
-      // Show warning that not all content is completed
-      alert('Please complete all content blocks before marking this lesson as complete.');
-    }
+  const handleCancelEdit = () => {
+    setShowEditor(false);
+    setEditingBlock(null);
   };
 
   if (loading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Loading...</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="animate-pulse space-y-4">
-            <div className="h-32 bg-muted rounded"></div>
-            <div className="h-32 bg-muted rounded"></div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        <div className="animate-pulse space-y-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-32 bg-gray-200 rounded-lg"></div>
+          ))}
+        </div>
+      </div>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex justify-between items-center">
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <Button variant="ghost" size="sm" onClick={onBack}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Lessons
+          </Button>
           <div>
-            <CardTitle className="flex items-center gap-2">
-              {lesson.title}
-              {progress?.completed && (
-                <CheckCircle className="h-5 w-5 text-green-600" />
-              )}
-            </CardTitle>
-            <p className="text-sm text-muted-foreground mt-1">{lesson.description}</p>
-            {progress && (
-              <div className="flex items-center gap-2 mt-2">
-                <div className="flex-1 bg-muted rounded-full h-2 max-w-xs">
-                  <div 
-                    className="bg-primary h-2 rounded-full transition-all"
-                    style={{ width: `${progress.completion_percentage}%` }}
-                  />
-                </div>
-                <Badge variant="outline">
-                  {progress.completion_percentage}% Complete
-                </Badge>
-              </div>
-            )}
-          </div>
-          <div className="flex gap-2">
-            {!progress?.completed && blocks.length > 0 && (
-              <Button onClick={handleMarkLessonComplete} variant="outline">
-                <CheckCircle className="h-4 w-4 mr-2" />
-                Mark Complete
-              </Button>
-            )}
-            <Button onClick={() => setShowAddBlock(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Content
-            </Button>
+            <h3 className="text-lg font-medium">{lessonTitle}</h3>
+            <p className="text-sm text-gray-600">
+              Create content blocks for this lesson
+            </p>
           </div>
         </div>
-      </CardHeader>
-      <CardContent>
-        {blocks.length === 0 ? (
-          <div className="text-center p-8 text-muted-foreground">
-            <div className="text-4xl mb-3">📝</div>
-            <p className="text-sm">No content blocks yet.</p>
-            <p className="text-xs mt-1">Add your first content block to get started.</p>
-            <Button className="mt-4" onClick={() => setShowAddBlock(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Content Block
-            </Button>
-          </div>
-        ) : (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext items={blocks.map(b => b.id)} strategy={verticalListSortingStrategy}>
-              <div className="space-y-4">
-                {blocks.map((block) => (
-                  <SortableBlock
-                    key={block.id}
-                    block={block}
-                    onEdit={setEditingBlock}
-                    onDelete={handleDeleteBlock}
-                  />
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
-        )}
+        <Button onClick={handleAddBlock}>
+          <Plus className="h-4 w-4 mr-2" />
+          Add Content Block
+        </Button>
+      </div>
 
-        {/* Add Block Dialog */}
-        {showAddBlock && (
-          <div className="mt-4">
-            <ContentBlockEditor
-              position={blocks.length}
-              onSave={handleAddBlock}
-              onCancel={() => setShowAddBlock(false)}
-            />
-          </div>
-        )}
+      {showEditor && (
+        <ContentBlockEditor
+          block={editingBlock || undefined}
+          position={lessonBlocks.length}
+          onSave={handleSaveBlock}
+          onCancel={handleCancelEdit}
+        />
+      )}
 
-        {/* Edit Block Dialog */}
-        {editingBlock && (
-          <div className="mt-4">
-            <ContentBlockEditor
-              block={editingBlock}
-              position={editingBlock.position}
-              onSave={handleUpdateBlock}
-              onCancel={() => setEditingBlock(null)}
-            />
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      {lessonBlocks.length === 0 && !showEditor ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <div className="text-center space-y-4">
+              <div className="text-4xl">📚</div>
+              <h3 className="text-lg font-medium">No content blocks yet</h3>
+              <p className="text-gray-600 max-w-md">
+                Start building this lesson by adding content blocks. You can add text, images, 
+                videos, quizzes, and more to create an engaging learning experience.
+              </p>
+              <Button onClick={handleAddBlock}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Your First Content Block
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext items={lessonBlocks.map(b => b.id)} strategy={verticalListSortingStrategy}>
+            <div className="space-y-4">
+              {lessonBlocks.map((block) => (
+                <SortableBlock
+                  key={block.id}
+                  block={block}
+                  onEdit={handleEditBlock}
+                  onDelete={(blockId) => {
+                    if (window.confirm('Are you sure you want to delete this content block? This action cannot be undone.')) {
+                      handleDeleteBlock(blockId);
+                    }
+                  }}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+      )}
+    </div>
   );
 };
 

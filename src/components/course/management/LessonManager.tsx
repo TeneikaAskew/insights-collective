@@ -1,17 +1,13 @@
-// ABOUTME: Component for managing lessons within a module, including add/edit/delete operations
-// ABOUTME: Provides lesson selection and CRUD interface for lesson management
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Pencil, Trash2, CheckCircle, Clock } from 'lucide-react';
+import { Plus, Edit, Trash2, FolderOpen, Clock } from 'lucide-react';
 import { useLessons, Lesson } from '@/hooks/useLessons';
-import { useLessonProgress } from '@/hooks/useLessonProgress';
-import { useAuth } from '@/contexts/AuthContext';
 import {
   Dialog,
   DialogContent,
@@ -21,306 +17,299 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 interface LessonManagerProps {
   moduleId: string;
-  onLessonSelect: (lesson: Lesson | null) => void;
-  selectedLesson: Lesson | null;
+  moduleName: string;
+  onEditLesson: (lessonId: string, lessonTitle: string) => void;
 }
 
 const LessonManager: React.FC<LessonManagerProps> = ({
   moduleId,
-  onLessonSelect,
-  selectedLesson
+  moduleName,
+  onEditLesson
 }) => {
   const { lessons, loading, addLesson, updateLesson, deleteLesson } = useLessons(moduleId);
-  const { user } = useAuth();
-  const [addDialogOpen, setAddDialogOpen] = useState(false);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [newLessonData, setNewLessonData] = useState({
-    title: '',
-    description: '',
-    content: '',
-    duration: '',
-    completion_required: true
-  });
+  const [addLessonOpen, setAddLessonOpen] = useState(false);
+  const [editLessonOpen, setEditLessonOpen] = useState(false);
+  const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
+  const [newLessonTitle, setNewLessonTitle] = useState('');
+  const [newLessonDescription, setNewLessonDescription] = useState('');
+  const [newLessonContent, setNewLessonContent] = useState('');
+  const [newLessonDuration, setNewLessonDuration] = useState('');
 
   const handleAddLesson = async () => {
-    if (!newLessonData.title) return;
+    if (!newLessonTitle) return;
 
-    const lessonData = {
-      ...newLessonData,
-      module_id: moduleId,
-      order_num: lessons.length + 1,
+    const orderNum = lessons.length + 1;
+    
+    await addLesson({
+      title: newLessonTitle,
+      description: newLessonDescription || `Lesson ${orderNum}`,
+      content: newLessonContent || '',
+      duration: newLessonDuration || '30 minutes',
+      order_num: orderNum,
+      estimated_duration: 30, // Default 30 minutes
+      completion_required: true,
       completion_criteria: { type: 'all_blocks' },
-      content_blocks_count: 0,
-      estimated_duration: 0
-    };
+      module_id: moduleId
+    });
 
-    const result = await addLesson(lessonData);
-    if (result) {
-      setNewLessonData({
-        title: '',
-        description: '',
-        content: '',
-        duration: '',
-        completion_required: true
-      });
-      setAddDialogOpen(false);
-    }
+    setNewLessonTitle('');
+    setNewLessonDescription('');
+    setNewLessonContent('');
+    setNewLessonDuration('');
+    setAddLessonOpen(false);
   };
 
   const handleEditLesson = async () => {
-    if (!selectedLesson || !newLessonData.title) return;
+    if (!editingLesson || !newLessonTitle) return;
 
-    const result = await updateLesson(selectedLesson.id, newLessonData);
-    if (result) {
-      setEditDialogOpen(false);
-      onLessonSelect(result);
-    }
+    await updateLesson(editingLesson.id, {
+      title: newLessonTitle,
+      description: newLessonDescription,
+      content: newLessonContent,
+      duration: newLessonDuration,
+    });
+
+    setEditLessonOpen(false);
+    setEditingLesson(null);
+    setNewLessonTitle('');
+    setNewLessonDescription('');
+    setNewLessonContent('');
+    setNewLessonDuration('');
   };
 
   const handleDeleteLesson = async (lessonId: string) => {
-    if (!confirm('Are you sure you want to delete this lesson? This will also delete all content blocks within it.')) {
-      return;
-    }
-
-    const result = await deleteLesson(lessonId);
-    if (result && selectedLesson?.id === lessonId) {
-      onLessonSelect(null);
+    if (window.confirm('Are you sure you want to delete this lesson? This will also delete all content blocks within it.')) {
+      await deleteLesson(lessonId);
     }
   };
 
-  const startEditLesson = (lesson: Lesson) => {
-    setNewLessonData({
-      title: lesson.title,
-      description: lesson.description,
-      content: lesson.content,
-      duration: lesson.duration || '',
-      completion_required: lesson.completion_required
-    });
-    setEditDialogOpen(true);
+  const openEditDialog = (lesson: Lesson) => {
+    setEditingLesson(lesson);
+    setNewLessonTitle(lesson.title);
+    setNewLessonDescription(lesson.description);
+    setNewLessonContent(lesson.content);
+    setNewLessonDuration(lesson.duration || '');
+    setEditLessonOpen(true);
   };
 
   if (loading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Lessons</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="animate-pulse space-y-2">
-            <div className="h-16 bg-muted rounded"></div>
-            <div className="h-16 bg-muted rounded"></div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        <div className="animate-pulse space-y-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-24 bg-gray-200 rounded-lg"></div>
+          ))}
+        </div>
+      </div>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex justify-between items-center">
-          <div>
-            <CardTitle>Lessons</CardTitle>
-            <CardDescription>Manage lessons for this module</CardDescription>
-          </div>
-          <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Lesson
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add New Lesson</DialogTitle>
-                <DialogDescription>
-                  Create a new lesson for this module.
-                </DialogDescription>
-              </DialogHeader>
-              
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="lesson-title">Lesson Title</Label>
-                  <Input
-                    id="lesson-title"
-                    value={newLessonData.title}
-                    onChange={(e) => setNewLessonData(prev => ({ ...prev, title: e.target.value }))}
-                    placeholder="Enter lesson title"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="lesson-description">Description</Label>
-                  <Textarea
-                    id="lesson-description"
-                    value={newLessonData.description}
-                    onChange={(e) => setNewLessonData(prev => ({ ...prev, description: e.target.value }))}
-                    placeholder="Enter lesson description"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="lesson-duration">Duration (optional)</Label>
-                  <Input
-                    id="lesson-duration"
-                    value={newLessonData.duration}
-                    onChange={(e) => setNewLessonData(prev => ({ ...prev, duration: e.target.value }))}
-                    placeholder="e.g. 30 minutes"
-                  />
-                </div>
-              </div>
-              
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setAddDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleAddLesson}>
-                  Add Lesson
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h3 className="text-lg font-medium">{moduleName} - Lessons</h3>
+          <p className="text-sm text-gray-600">
+            Manage lessons and their content for this module
+          </p>
         </div>
-      </CardHeader>
-      <CardContent>
-        {lessons.length === 0 ? (
-          <div className="text-center p-4 text-muted-foreground">
-            <div className="text-4xl mb-3">📖</div>
-            <p className="text-sm">No lessons yet.</p>
-            <p className="text-xs mt-1">Add your first lesson to get started.</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {lessons.map((lesson) => (
-              <LessonCard
-                key={lesson.id}
-                lesson={lesson}
-                isSelected={selectedLesson?.id === lesson.id}
-                onSelect={() => onLessonSelect(lesson)}
-                onEdit={() => startEditLesson(lesson)}
-                onDelete={() => handleDeleteLesson(lesson.id)}
-              />
-            ))}
-          </div>
-        )}
-      </CardContent>
+        
+        <Dialog open={addLessonOpen} onOpenChange={setAddLessonOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Lesson
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add New Lesson</DialogTitle>
+              <DialogDescription>
+                Create a new lesson for this module.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="title">Lesson Title</Label>
+                <Input
+                  id="title"
+                  value={newLessonTitle}
+                  onChange={(e) => setNewLessonTitle(e.target.value)}
+                  placeholder="Enter lesson title"
+                />
+              </div>
+              <div>
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  value={newLessonDescription}
+                  onChange={(e) => setNewLessonDescription(e.target.value)}
+                  placeholder="Enter lesson description"
+                />
+              </div>
+              <div>
+                <Label htmlFor="duration">Duration</Label>
+                <Input
+                  id="duration"
+                  value={newLessonDuration}
+                  onChange={(e) => setNewLessonDuration(e.target.value)}
+                  placeholder="e.g., 30 minutes"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setAddLessonOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleAddLesson}>Add Lesson</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
 
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+      {lessons.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <div className="text-center space-y-4">
+              <div className="text-4xl">📖</div>
+              <h3 className="text-lg font-medium">No lessons yet</h3>
+              <p className="text-gray-600 max-w-md">
+                Start building your module by adding lessons. Each lesson can contain multiple content blocks.
+              </p>
+              <Button onClick={() => setAddLessonOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Your First Lesson
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Accordion type="single" collapsible className="space-y-4">
+          {lessons.map((lesson, index) => (
+            <AccordionItem key={lesson.id} value={lesson.id}>
+              <Card>
+                <AccordionTrigger className="hover:no-underline">
+                  <CardHeader className="flex-row items-center justify-between space-y-0 pb-2 w-full">
+                    <div className="flex items-center space-x-4">
+                      <Badge variant="outline">{index + 1}</Badge>
+                      <div className="text-left">
+                        <CardTitle className="text-base">{lesson.title}</CardTitle>
+                        <p className="text-sm text-gray-600">{lesson.description}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2 text-sm text-gray-500">
+                      <Clock className="h-4 w-4" />
+                      <span>{lesson.duration}</span>
+                      <Badge variant="secondary">
+                        {lesson.content_blocks_count || 0} blocks
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <CardContent className="pt-0">
+                    <div className="flex justify-between items-center">
+                      <div className="text-sm text-gray-600">
+                        {lesson.content || 'No content description available.'}
+                      </div>
+                      <div className="flex space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onEditLesson(lesson.id, lesson.title)}
+                        >
+                          <FolderOpen className="h-4 w-4 mr-1" />
+                          Edit Content
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openEditDialog(lesson)}
+                        >
+                          <Edit className="h-4 w-4 mr-1" />
+                          Edit Details
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeleteLesson(lesson.id)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </AccordionContent>
+              </Card>
+            </AccordionItem>
+          ))}
+        </Accordion>
+      )}
+
+      <Dialog open={editLessonOpen} onOpenChange={setEditLessonOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Lesson</DialogTitle>
             <DialogDescription>
-              Update lesson details
+              Update the lesson details.
             </DialogDescription>
           </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-lesson-title">Lesson Title</Label>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="edit-title">Lesson Title</Label>
               <Input
-                id="edit-lesson-title"
-                value={newLessonData.title}
-                onChange={(e) => setNewLessonData(prev => ({ ...prev, title: e.target.value }))}
+                id="edit-title"
+                value={newLessonTitle}
+                onChange={(e) => setNewLessonTitle(e.target.value)}
+                placeholder="Enter lesson title"
               />
             </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="edit-lesson-description">Description</Label>
+            <div>
+              <Label htmlFor="edit-description">Description</Label>
               <Textarea
-                id="edit-lesson-description"
-                value={newLessonData.description}
-                onChange={(e) => setNewLessonData(prev => ({ ...prev, description: e.target.value }))}
+                id="edit-description"
+                value={newLessonDescription}
+                onChange={(e) => setNewLessonDescription(e.target.value)}
+                placeholder="Enter lesson description"
               />
             </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="edit-lesson-duration">Duration (optional)</Label>
+            <div>
+              <Label htmlFor="edit-content">Content</Label>
+              <Textarea
+                id="edit-content"
+                value={newLessonContent}
+                onChange={(e) => setNewLessonContent(e.target.value)}
+                placeholder="Enter lesson content overview"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-duration">Duration</Label>
               <Input
-                id="edit-lesson-duration"
-                value={newLessonData.duration}
-                onChange={(e) => setNewLessonData(prev => ({ ...prev, duration: e.target.value }))}
-                placeholder="e.g. 30 minutes"
+                id="edit-duration"
+                value={newLessonDuration}
+                onChange={(e) => setNewLessonDuration(e.target.value)}
+                placeholder="e.g., 30 minutes"
               />
             </div>
           </div>
-          
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setEditLessonOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleEditLesson}>
-              Update Lesson
-            </Button>
+            <Button onClick={handleEditLesson}>Save Changes</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Card>
-  );
-};
-
-interface LessonCardProps {
-  lesson: Lesson;
-  isSelected: boolean;
-  onSelect: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
-}
-
-const LessonCard: React.FC<LessonCardProps> = ({
-  lesson,
-  isSelected,
-  onSelect,
-  onEdit,
-  onDelete
-}) => {
-  const { progress } = useLessonProgress(lesson.id);
-
-  return (
-    <div
-      className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-        isSelected ? 'bg-primary/5 border-primary' : 'bg-card hover:bg-muted/50'
-      }`}
-      onClick={onSelect}
-    >
-      <div className="flex justify-between items-start">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <h4 className="font-medium">{lesson.title}</h4>
-            {progress?.completed && (
-              <CheckCircle className="h-4 w-4 text-green-600" />
-            )}
-            {lesson.duration && (
-              <Badge variant="outline" className="text-xs">
-                <Clock className="h-3 w-3 mr-1" />
-                {lesson.duration}
-              </Badge>
-            )}
-          </div>
-          <p className="text-sm text-muted-foreground mb-2">{lesson.description}</p>
-          {progress && (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <div className="flex-1 bg-muted rounded-full h-1">
-                <div 
-                  className="bg-primary h-1 rounded-full transition-all"
-                  style={{ width: `${progress.completion_percentage}%` }}
-                />
-              </div>
-              <span>{progress.completion_percentage}%</span>
-            </div>
-          )}
-        </div>
-        <div className="flex space-x-1 ml-2">
-          <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onEdit(); }}>
-            <Pencil className="h-3 w-3" />
-          </Button>
-          <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onDelete(); }}>
-            <Trash2 className="h-3 w-3" />
-          </Button>
-        </div>
-      </div>
     </div>
   );
 };

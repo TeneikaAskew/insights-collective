@@ -1,5 +1,3 @@
-// ABOUTME: Hook for managing lessons within modules, including CRUD operations
-// ABOUTME: Provides lesson data, loading states, and functions for lesson management
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,13 +10,13 @@ export interface Lesson {
   module_id: string;
   title: string;
   description: string;
-  order_num: number;
   content: string;
   duration?: string;
-  estimated_duration?: number;
-  content_blocks_count?: number;
+  order_num: number;
+  estimated_duration: number;
   completion_required: boolean;
   completion_criteria: Record<string, any>;
+  content_blocks_count: number;
   created_at: string;
   updated_at: string;
 }
@@ -74,18 +72,8 @@ export function useLessons(moduleId?: string) {
     }
   };
 
-  const addLesson = async (lessonData: Omit<Lesson, 'id' | 'created_at' | 'updated_at'>): Promise<Lesson | null> => {
+  const addLesson = async (lessonData: Omit<Lesson, 'id' | 'created_at' | 'updated_at' | 'content_blocks_count'>): Promise<Lesson | null> => {
     if (!user || !moduleId) return null;
-
-    if (!isValidUUID(moduleId)) {
-      console.error(`Invalid module UUID format: ${moduleId}`);
-      toast({
-        title: 'Error',
-        description: 'Invalid module ID format',
-        variant: 'destructive',
-      });
-      return null;
-    }
 
     try {
       const { data, error } = await supabase
@@ -118,7 +106,7 @@ export function useLessons(moduleId?: string) {
     }
   };
 
-  const updateLesson = async (id: string, updates: Partial<Omit<Lesson, 'id' | 'created_at' | 'updated_at'>>): Promise<Lesson | null> => {
+  const updateLesson = async (id: string, updates: Partial<Omit<Lesson, 'id' | 'created_at' | 'updated_at' | 'content_blocks_count'>>): Promise<Lesson | null> => {
     if (!isValidUUID(id)) {
       console.error(`Invalid lesson UUID format: ${id}`);
       toast({
@@ -196,46 +184,6 @@ export function useLessons(moduleId?: string) {
     }
   };
 
-  const reorderLessons = async (reorderedLessons: Lesson[]): Promise<boolean> => {
-    try {
-      const updates = reorderedLessons.map((lesson, index) => ({
-        id: lesson.id,
-        order_num: index + 1
-      }));
-
-      for (const update of updates) {
-        if (!isValidUUID(update.id)) {
-          console.error(`Invalid lesson UUID format: ${update.id}`);
-          continue;
-        }
-
-        const { error } = await supabase
-          .from('lessons')
-          .update({ order_num: update.order_num })
-          .eq('id', update.id);
-
-        if (error) throw error;
-      }
-
-      setLessons(reorderedLessons);
-      
-      toast({
-        title: 'Success',
-        description: 'Lessons reordered successfully',
-      });
-
-      return true;
-    } catch (error: any) {
-      console.error('Error reordering lessons:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to reorder lessons',
-        variant: 'destructive',
-      });
-      return false;
-    }
-  };
-
   return {
     lessons,
     loading,
@@ -243,7 +191,6 @@ export function useLessons(moduleId?: string) {
     addLesson,
     updateLesson,
     deleteLesson,
-    reorderLessons,
     refetch: fetchLessons
   };
 }

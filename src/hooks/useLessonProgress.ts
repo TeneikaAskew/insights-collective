@@ -1,11 +1,8 @@
-// ABOUTME: Hook for tracking lesson completion progress for users
-// ABOUTME: Provides lesson progress data and functions to mark lessons as complete
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { isValidUUID } from '@/utils/idUtils';
 
 export interface LessonProgress {
   id: string;
@@ -22,180 +19,92 @@ export interface LessonProgress {
 export function useLessonProgress(lessonId?: string) {
   const [progress, setProgress] = useState<LessonProgress | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const { toast } = useToast();
   const { user } = useAuth();
+  const { toast } = useToast();
 
   useEffect(() => {
-    if (!lessonId || !user) {
-      setLoading(false);
-      return;
+    if (user && lessonId) {
+      fetchProgress();
     }
-
-    if (!isValidUUID(lessonId)) {
-      console.error(`Invalid lesson UUID format: ${lessonId}`);
-      setError('Invalid lesson ID format');
-      setLoading(false);
-      return;
-    }
-
-    fetchProgress();
-  }, [lessonId, user]);
+  }, [user, lessonId]);
 
   const fetchProgress = async () => {
-    if (!lessonId || !user) return;
+    if (!user || !lessonId) return;
 
     try {
       setLoading(true);
-      setError(null);
 
       const { data, error } = await supabase
         .from('lesson_progress')
         .select('*')
-        .eq('lesson_id', lessonId)
         .eq('user_id', user.id)
+        .eq('lesson_id', lessonId)
         .maybeSingle();
 
       if (error) throw error;
       setProgress(data);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching lesson progress:', error);
-      setError(error.message || 'Failed to load lesson progress');
     } finally {
       setLoading(false);
     }
   };
 
-  const markLessonComplete = async (): Promise<boolean> => {
-    if (!lessonId || !user) return false;
-
-    try {
-      const progressData = {
-        user_id: user.id,
-        lesson_id: lessonId,
-        completed: true,
-        completion_percentage: 100,
-        completed_at: new Date().toISOString(),
-        last_accessed_at: new Date().toISOString()
-      };
-
-      if (progress) {
-        // Update existing progress
-        const { data, error } = await supabase
-          .from('lesson_progress')
-          .update({
-            completed: true,
-            completion_percentage: 100,
-            completed_at: new Date().toISOString(),
-            last_accessed_at: new Date().toISOString()
-          })
-          .eq('id', progress.id)
-          .select()
-          .single();
-
-        if (error) throw error;
-        setProgress(data);
-      } else {
-        // Create new progress record
-        const { data, error } = await supabase
-          .from('lesson_progress')
-          .insert(progressData)
-          .select()
-          .single();
-
-        if (error) throw error;
-        setProgress(data);
-      }
-
-      toast({
-        title: 'Success',
-        description: 'Lesson marked as complete',
-      });
-
-      return true;
-    } catch (error: any) {
-      console.error('Error marking lesson complete:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to mark lesson complete',
-        variant: 'destructive',
-      });
-      return false;
-    }
-  };
-
-  const updateProgress = async (percentage: number, timeSpent?: number): Promise<boolean> => {
-    if (!lessonId || !user) return false;
+  const updateProgress = async (
+    completed: boolean,
+    completionPercentage: number = 0,
+    timeSpent: number = 0
+  ): Promise<boolean> => {
+    if (!user || !lessonId) return false;
 
     try {
       const updateData = {
-        completion_percentage: Math.min(100, Math.max(0, percentage)),
+        user_id: user.id,
+        lesson_id: lessonId,
+        completed,
+        completion_percentage: completionPercentage,
+        time_spent: timeSpent,
         last_accessed_at: new Date().toISOString(),
-        ...(timeSpent && { time_spent: timeSpent })
+        ...(completed && { completed_at: new Date().toISOString() })
       };
 
-      if (progress) {
-        const { data, error } = await supabase
-          .from('lesson_progress')
-          .update(updateData)
-          .eq('id', progress.id)
-          .select()
-          .single();
+      const { data, error } = await supabase
+        .from('lesson_progress')
+        .upsert(updateData, { 
+          onConflict: 'user_id,lesson_id' 
+        })
+        .select()
+        .single();
 
-        if (error) throw error;
-        setProgress(data);
-      } else {
-        const { data, error } = await supabase
-          .from('lesson_progress')
-          .insert({
-            user_id: user.id,
-            lesson_id: lessonId,
-            ...updateData
-          })
-          .select()
-          .single();
+      if (error) throw error;
 
-        if (error) throw error;
-        setProgress(data);
-      }
-
+      setProgress(data);
       return true;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error updating lesson progress:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update progress',
+        variant: 'destructive'
+      });
       return false;
     }
   };
 
-  const calculateLessonCompletion = async (): Promise<{
-    completed: boolean;
-    completion_percentage: number;
-    total_blocks: number;
-    completed_blocks: number;
-  } | null> => {
-    if (!lessonId || !user) return null;
+  const markComplete = async () => {
+    return updateProgress(true, 100);
+  };
 
-    try {
-      const { data, error } = await supabase
-        .rpc('calculate_lesson_completion', {
-          lesson_id_param: lessonId,
-          user_id_param: user.id
-        });
-
-      if (error) throw error;
-      return data?.[0] || null;
-    } catch (error: any) {
-      console.error('Error calculating lesson completion:', error);
-      return null;
-    }
+  const markIncomplete = async () => {
+    return updateProgress(false, 0);
   };
 
   return {
     progress,
     loading,
-    error,
-    markLessonComplete,
     updateProgress,
-    calculateLessonCompletion,
+    markComplete,
+    markIncomplete,
     refetch: fetchProgress
   };
 }
