@@ -399,8 +399,8 @@ const CourseDetail = () => {
             <Tabs defaultValue="modules">
               <TabsList>
                 <TabsTrigger value="modules">Modules</TabsTrigger>
-                <TabsTrigger value="forums">Forums</TabsTrigger>
                 <TabsTrigger value="overview">Course Overview</TabsTrigger>
+                <TabsTrigger value="forums">Forums</TabsTrigger>
               </TabsList>
               
               <TabsContent value="modules" className="space-y-6 mt-6">

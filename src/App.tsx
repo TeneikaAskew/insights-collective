@@ -208,6 +208,7 @@ function App() {
                   <Route path="/forum" element={<Forum />} />
                   <Route path="/forums" element={<Forum />} />
                   <Route path="/forum/:forumId" element={<ForumDetail />} />
+                  <Route path="/courses/:courseId/forums" element={<Forum />} />
                   <Route path="/courses/:courseId/forums/:forumId" element={<ForumDetail />} />
                   <Route path="/thread/:threadId" element={<ThreadDetail />} />
                   <Route path="/courses/:courseId/forums/:forumId/threads/:threadId" element={<ThreadDetail />} />
