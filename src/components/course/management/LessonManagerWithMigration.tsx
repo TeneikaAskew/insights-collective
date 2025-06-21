@@ -232,31 +232,33 @@ const LessonManagerWithMigration = ({ moduleId }: LessonManagerWithMigrationProp
                     <CardTitle>Lesson {selectedLesson.order_num}: {selectedLesson.title}</CardTitle>
                     <CardDescription>{selectedLesson.description}</CardDescription>
                   </div>
-                  <Button variant="outline" size="sm" onClick={() => startEditLesson(selectedLesson)}>
-                    <Pencil className="h-4 w-4 mr-2" />
-                    Edit Lesson
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setSelectedLesson(null)}>
+                      Back to Module Content
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => startEditLesson(selectedLesson)}>
+                      <Pencil className="h-4 w-4 mr-2" />
+                      Edit Lesson
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
-                {/* Use the existing content editor for lesson content */}
                 <EnhancedModuleContentEditor lessonId={selectedLesson.id} />
               </CardContent>
             </Card>
           ) : (
-            <div className="flex items-center justify-center h-96 border-2 border-dashed border-border rounded-lg bg-muted/20">
-              <div className="text-center">
-                <BookOpen className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="text-lg font-medium mb-2">No Lesson Selected</h3>
-                <p className="text-muted-foreground mb-6 max-w-md">
-                  Select a lesson from the sidebar to start adding content blocks and building your lesson.
-                </p>
-                <Button onClick={() => setAddLessonOpen(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Your First Lesson
-                </Button>
-              </div>
-            </div>
+            <Card>
+              <CardHeader>
+                <CardTitle>Module Content</CardTitle>
+                <CardDescription>
+                  Create content directly at the module level, or organize it into structured lessons using the sidebar
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <EnhancedModuleContentEditor moduleId={moduleId} />
+              </CardContent>
+            </Card>
           )}
         </div>
       </div>
