@@ -69,11 +69,32 @@ const CourseDetail = () => {
 
         const { data: modulesData, error: modulesError } = await supabase
           .from('modules')
-          .select('*')
+          .select(`
+            *,
+            content_blocks(block_type)
+          `)
           .eq('course_id', courseId)
           .order('week', { ascending: true });
 
         if (modulesError) throw modulesError;
+
+        // Process modules to include content block counts
+        const processedModules = (modulesData || []).map(module => {
+          const contentBlocks = module.content_blocks || [];
+          const textBlocks = contentBlocks.filter(block => 
+            ['text', 'image', 'video', 'file', 'quote', 'code', 'embed'].includes(block.block_type)
+          );
+          const assignmentBlocks = contentBlocks.filter(block => block.block_type === 'assignment');
+          const quizBlocks = contentBlocks.filter(block => block.block_type === 'quiz');
+          
+          return {
+            ...module,
+            lessons: textBlocks,
+            assignments: assignmentBlocks,
+            quizzes: quizBlocks,
+            completionStatus: 0 // Will be updated with actual progress data later
+          };
+        });
 
         const formattedCourse = {
           ...courseData,
@@ -85,7 +106,7 @@ const CourseDetail = () => {
             avatar: courseData.instructor?.avatar_url || '',
           },
           enrollmentCount: 0,
-          modules: modulesData || [],
+          modules: processedModules,
           rating: 4.5,
           createdAt: courseData.created_at,
           updatedAt: courseData.updated_at,
@@ -93,7 +114,7 @@ const CourseDetail = () => {
         };
 
         setCourse(formattedCourse);
-        setModules(modulesData || []);
+        setModules(processedModules);
         setLoading(false);
       } catch (error: any) {
         console.error('Error fetching course data:', error);
