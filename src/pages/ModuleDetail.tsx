@@ -12,7 +12,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { CheckCircle, ChevronLeft, Clock, FileText, Upload, Book, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useContentBlocks } from '@/hooks/useContentBlocks';
-import { useProgressTracking } from '@/hooks/useProgressTracking';
+
 import ContentBlockRenderer from '@/components/course/content/ContentBlockRenderer';
 import StudentContentRenderer from '@/components/course/content/StudentContentRenderer';
 
@@ -27,9 +27,8 @@ const ModuleDetail = () => {
   const [modules, setModules] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Use content blocks and progress tracking hooks - ALWAYS call these first
+  // Use content blocks hook
   const { blocks: contentBlocks, loading: contentLoading } = useContentBlocks(moduleId);
-  const { moduleProgress, getContentProgress, markContentComplete } = useProgressTracking(undefined, moduleId);
 
   // Set active content to first block if none selected and blocks exist
   useEffect(() => {
@@ -94,15 +93,6 @@ const ModuleDetail = () => {
     fetchData();
   }, [courseId, moduleId, toast]);
   
-  const handleMarkComplete = async (contentBlockId: string) => {
-    const success = await markContentComplete(contentBlockId);
-    if (success) {
-      toast({
-        title: "Content marked as complete",
-        description: "Your progress has been updated",
-      });
-    }
-  };
   
   const handleSubmitAssignment = (assignmentId: string) => {
     if (!assignmentSubmission.trim()) {
@@ -190,16 +180,6 @@ const ModuleDetail = () => {
                   <p className="text-muted-foreground">{module.description}</p>
                 </div>
                 
-                <div className="mb-6">
-                  <div className="flex justify-between text-sm mb-2">
-                    <span>Module Progress</span>
-                    <span>{moduleProgress?.completion_percentage || 0}%</span>
-                  </div>
-                  <Progress value={moduleProgress?.completion_percentage || 0} className="h-2" />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {moduleProgress?.completed_blocks || 0} of {moduleProgress?.total_blocks || 0} content blocks completed
-                  </p>
-                </div>
               </CardContent>
             </Card>
             
@@ -311,16 +291,6 @@ const ModuleDetail = () => {
                         </div>
                       </div>
                       
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span>Progress</span>
-                          <span>{moduleProgress?.completion_percentage || 0}%</span>
-                        </div>
-                        <Progress value={moduleProgress?.completion_percentage || 0} />
-                        <p className="text-xs text-muted-foreground">
-                          {moduleProgress?.completed_blocks || 0} of {moduleProgress?.total_blocks || 0} items completed
-                        </p>
-                      </div>
                     </CardContent>
                   </Card>
                 </div>
@@ -331,17 +301,9 @@ const ModuleDetail = () => {
           <div className="space-y-6">
             <Card className="sticky top-6">
               <CardHeader>
-                <CardTitle className="text-lg">Module Progress</CardTitle>
+                <CardTitle className="text-lg">Module Overview</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-6">
-                <div>
-                  <div className="flex justify-between text-sm mb-2">
-                    <span>Completion</span>
-                    <span>{moduleProgress?.completion_percentage || 0}%</span>
-                  </div>
-                  <Progress value={moduleProgress?.completion_percentage || 0} className="h-2" />
-                </div>
-                
+              <CardContent className="space-y-3">
                 <div className="space-y-3">
                   <div className="flex justify-between items-center text-sm">
                     <span>Content</span>
@@ -354,10 +316,6 @@ const ModuleDetail = () => {
                   <div className="flex justify-between items-center text-sm">
                     <span>Quizzes</span>
                     <span>{quizBlocks.length}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span>Completed</span>
-                    <span>{moduleProgress?.completed_blocks || 0} / {moduleProgress?.total_blocks || 0}</span>
                   </div>
                 </div>
               </CardContent>
