@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useLessons } from '@/hooks/useLessons';
 import { useToast } from '@/hooks/use-toast';
@@ -71,7 +70,6 @@ const LessonManagerWithMigration = ({ moduleId }: LessonManagerWithMigrationProp
         completion_required: formData.completion_required,
         order_num: formData.order_num,
         completion_criteria: { type: 'all_blocks' },
-        content_blocks_count: 0,
         module_id: moduleId
       });
 
