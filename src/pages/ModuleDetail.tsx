@@ -12,9 +12,11 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { CheckCircle, ChevronLeft, Clock, FileText, Upload, Book, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useContentBlocks } from '@/hooks/useContentBlocks';
+import { useModuleProgress } from '@/hooks/useModuleProgress';
 
 import ContentBlockRenderer from '@/components/course/content/ContentBlockRenderer';
 import StudentContentRenderer from '@/components/course/content/StudentContentRenderer';
+import { ModuleCompletionCard } from '@/components/course/ModuleCompletionCard';
 
 const ModuleDetail = () => {
   const { courseId, moduleId } = useParams<{ courseId: string; moduleId: string }>();
@@ -27,8 +29,16 @@ const ModuleDetail = () => {
   const [modules, setModules] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Use content blocks hook
+  // Use content blocks and module progress hooks
   const { blocks: contentBlocks, loading: contentLoading } = useContentBlocks(moduleId);
+  const { 
+    moduleProgress, 
+    assignmentProgress, 
+    quizProgress, 
+    loading: progressLoading, 
+    markModuleComplete, 
+    submitAssignment 
+  } = useModuleProgress(moduleId);
 
   // Set active content to first block if none selected and blocks exist
   useEffect(() => {
@@ -94,7 +104,7 @@ const ModuleDetail = () => {
   }, [courseId, moduleId, toast]);
   
   
-  const handleSubmitAssignment = (assignmentId: string) => {
+  const handleSubmitAssignment = async (assignmentId: string) => {
     if (!assignmentSubmission.trim()) {
       toast({
         title: "Error",
@@ -106,14 +116,20 @@ const ModuleDetail = () => {
     
     setSubmitting(true);
     
-    setTimeout(() => {
-      setSubmitting(false);
+    const success = await submitAssignment(assignmentId, {
+      submission_text: assignmentSubmission,
+      submitted_at: new Date().toISOString()
+    });
+    
+    if (success) {
       setAssignmentSubmission('');
-      toast({
-        title: "Assignment submitted",
-        description: "Your submission has been received successfully",
-      });
-    }, 1000);
+    }
+    
+    setSubmitting(false);
+  };
+
+  const handleMarkModuleComplete = async () => {
+    await markModuleComplete();
   };
   
   const handleTakeQuiz = (quizId: string) => {
@@ -299,34 +315,28 @@ const ModuleDetail = () => {
           </div>
           
           <div className="space-y-6">
-            <Card className="sticky top-6">
+            <ModuleCompletionCard
+              moduleProgress={moduleProgress}
+              assignmentProgress={assignmentProgress}
+              quizProgress={quizProgress}
+              assignmentCount={assignmentBlocks.length}
+              quizCount={quizBlocks.length}
+              onMarkComplete={handleMarkModuleComplete}
+              loading={progressLoading}
+            />
+            
+            <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Module Overview</CardTitle>
+                <CardTitle className="text-lg">Quick Navigation</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center text-sm">
-                    <span>Content</span>
-                    <span>{textBlocks.length}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span>Assignments</span>
-                    <span>{assignmentBlocks.length}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span>Quizzes</span>
-                    <span>{quizBlocks.length}</span>
-                  </div>
-                </div>
-              </CardContent>
-              <CardFooter>
                 <Button variant="outline" className="w-full" asChild>
                   <Link to={`/courses/${courseId}`}>
                     <ChevronLeft className="h-4 w-4 mr-2" />
                     Back to Course
                   </Link>
                 </Button>
-              </CardFooter>
+              </CardContent>
             </Card>
             
             <Card>

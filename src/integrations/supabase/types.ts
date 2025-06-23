@@ -172,6 +172,45 @@ export type Database = {
         }
         Relationships: []
       }
+      assignment_progress: {
+        Row: {
+          completed: boolean | null
+          content_block_id: string
+          created_at: string | null
+          feedback: string | null
+          grade: number | null
+          id: string
+          submission_data: Json | null
+          submitted_at: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          completed?: boolean | null
+          content_block_id: string
+          created_at?: string | null
+          feedback?: string | null
+          grade?: number | null
+          id?: string
+          submission_data?: Json | null
+          submitted_at?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          completed?: boolean | null
+          content_block_id?: string
+          created_at?: string | null
+          feedback?: string | null
+          grade?: number | null
+          id?: string
+          submission_data?: Json | null
+          submitted_at?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       assistant_conversations: {
         Row: {
           created_at: string | null
@@ -1677,6 +1716,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      module_progress: {
+        Row: {
+          completed: boolean | null
+          completed_at: string | null
+          completion_percentage: number | null
+          id: string
+          last_accessed_at: string | null
+          module_id: string
+          started_at: string | null
+          time_spent: number | null
+          user_id: string
+        }
+        Insert: {
+          completed?: boolean | null
+          completed_at?: string | null
+          completion_percentage?: number | null
+          id?: string
+          last_accessed_at?: string | null
+          module_id: string
+          started_at?: string | null
+          time_spent?: number | null
+          user_id: string
+        }
+        Update: {
+          completed?: boolean | null
+          completed_at?: string | null
+          completion_percentage?: number | null
+          id?: string
+          last_accessed_at?: string | null
+          module_id?: string
+          started_at?: string | null
+          time_spent?: number | null
+          user_id?: string
+        }
+        Relationships: []
       }
       modules: {
         Row: {
