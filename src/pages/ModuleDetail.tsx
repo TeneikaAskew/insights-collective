@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
@@ -15,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useContentBlocks } from '@/hooks/useContentBlocks';
 import { useProgressTracking } from '@/hooks/useProgressTracking';
 import ContentBlockRenderer from '@/components/course/content/ContentBlockRenderer';
+import StudentContentRenderer from '@/components/course/content/StudentContentRenderer';
 
 const ModuleDetail = () => {
   const { courseId, moduleId } = useParams<{ courseId: string; moduleId: string }>();
@@ -223,50 +223,14 @@ const ModuleDetail = () => {
                     </Card>
                   </div>
                 ) : textBlocks.length > 0 ? (
-                  <div className="space-y-6">
-                    {/* All Content Display - Show all blocks */}
-                    <div className="space-y-6">
-                      {textBlocks.map((block, index) => {
-                        const progress = getContentProgress(block.id);
-                        return (
-                          <div key={block.id} className="space-y-4">
-                            <ContentBlockRenderer
-                              block={block}
-                              showControls={false}
-                            />
-                            
-                            <div className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
-                              <div className="flex items-center gap-3">
-                                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-secondary text-foreground">
-                                  <span className="text-sm font-medium">{index + 1}</span>
-                                </div>
-                                <div>
-                                  <h4 className="font-medium">{block.title || `${block.block_type} Content`}</h4>
-                                   <div className="flex items-center text-sm text-muted-foreground">
-                                     <span className="capitalize">{block.block_type}</span>
-                                     {block.metadata?.duration && (
-                                       <>
-                                         <Clock className="h-3 w-3 ml-2 mr-1" />
-                                         <span>{block.metadata.duration} min</span>
-                                       </>
-                                     )}
-                                   </div>
-                                </div>
-                              </div>
-                              
-                              {progress?.completed ? (
-                                <Badge className="bg-green-500 text-white hover:bg-green-600">
-                                  <CheckCircle2 className="h-3 w-3 mr-1" />
-                                  Completed
-                                </Badge>
-                              ) : (
-                                <Badge variant="outline">Not Completed</Badge>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                  <div className="max-w-4xl mx-auto">
+                    {/* Seamless Content Display */}
+                    {textBlocks.map((block) => (
+                      <StudentContentRenderer
+                        key={block.id}
+                        block={block}
+                      />
+                    ))}
                   </div>
                 ) : (
                   <Card>
