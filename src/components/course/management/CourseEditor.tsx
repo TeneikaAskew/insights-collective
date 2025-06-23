@@ -20,7 +20,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { AlertCircle, Save, Trash2, Plus, ArrowLeft, Upload } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
-import ModuleManager from './ModuleManager';
+import CourseModuleManager from './CourseModuleManager';
 import AppLayout from '@/components/layout/AppLayout';
 import { useUsers } from '@/hooks/useUsers';
 
@@ -602,7 +602,7 @@ const CourseEditor = () => {
           
           <TabsContent value="modules" className="pt-4">
             {!isNewCourse ? (
-              <ModuleManager courseId={courseId} />
+              <CourseModuleManager courseId={courseId} />
             ) : (
               <Card>
                 <CardHeader>

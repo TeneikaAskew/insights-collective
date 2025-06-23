@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,7 +7,7 @@ import { useCoursePermissions } from '@/hooks/useCoursePermissions';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AppLayout from '@/components/layout/AppLayout';
-import ModuleManager from '@/components/course/management/ModuleManager';
+import CourseModuleManager from '@/components/course/management/CourseModuleManager';
 import { ArrowLeft, Save, Plus, Trash, File } from 'lucide-react';
 import { CourseDetailsForm } from '@/components/course/CourseDetailsForm';
 import {
@@ -445,7 +444,7 @@ const AdminCourseEdit = () => {
                       Manage Materials
                     </Button>
                   </div>
-                  {courseId && <ModuleManager courseId={courseId} />}
+                  {courseId && <CourseModuleManager courseId={courseId} />}
                 </TabsContent>
               )}
 
