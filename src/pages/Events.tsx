@@ -59,18 +59,11 @@ export default function Events() {
           description: 'You have been unregistered from this event.',
         });
       } else {
-        const result = await registerMutation.mutateAsync(eventId);
-        if (result.action === 'already_registered') {
-          toast({
-            title: 'Already Registered',
-            description: 'You are already registered for this event.',
-          });
-        } else {
-          toast({
-            title: 'Registration Successful',
-            description: 'You have been registered for this event.',
-          });
-        }
+        await registerMutation.mutateAsync(eventId);
+        toast({
+          title: 'Registration Successful',
+          description: 'You have been registered for this event.',
+        });
       }
     } catch (error) {
       toast({

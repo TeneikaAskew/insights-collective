@@ -79,18 +79,7 @@ export const useRegisterForEvent = () => {
     mutationFn: async (eventId: string) => {
       if (!user) throw new Error('Must be logged in to register');
       
-      // Check if already registered
-      const { data: existing } = await supabase
-        .from('event_registrations')
-        .select('id')
-        .eq('event_id', eventId)
-        .eq('user_id', user.id)
-        .maybeSingle();
-      
-      if (existing) {
-        // User is already registered, do nothing or throw a descriptive error
-        return { action: 'already_registered', data: existing };
-      }
+      console.log('Attempting to register user:', user.id, 'for event:', eventId);
       
       const { data, error } = await supabase
         .from('event_registrations')
@@ -101,8 +90,23 @@ export const useRegisterForEvent = () => {
         .select()
         .single();
       
-      if (error) throw error;
-      return { action: 'registered', data };
+      console.log('Registration result:', { data, error });
+      
+      if (error) {
+        console.error('Registration error:', error);
+        // If it's a duplicate key error, treat it as success since user is already registered
+        if (error.code === '23505') {
+          console.log('User already registered, treating as success');
+          // Force refresh queries to show current state
+          queryClient.invalidateQueries({ queryKey: ['event-registrations'] });
+          queryClient.invalidateQueries({ queryKey: ['user-registrations'] });
+          queryClient.invalidateQueries({ queryKey: ['event-registration-count'] });
+          queryClient.invalidateQueries({ queryKey: ['is-registered'] });
+          return { message: 'Already registered' };
+        }
+        throw error;
+      }
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['event-registrations'] });
@@ -121,13 +125,20 @@ export const useUnregisterFromEvent = () => {
     mutationFn: async (eventId: string) => {
       if (!user) throw new Error('Must be logged in to unregister');
       
-      const { error } = await supabase
+      console.log('Attempting to unregister user:', user.id, 'from event:', eventId);
+      
+      const { error, count } = await supabase
         .from('event_registrations')
-        .delete()
+        .delete({ count: 'exact' })
         .eq('event_id', eventId)
         .eq('user_id', user.id);
       
-      if (error) throw error;
+      console.log('Unregistration result:', { error, count });
+      
+      if (error) {
+        console.error('Unregistration error:', error);
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['event-registrations'] });
