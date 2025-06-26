@@ -51,6 +51,7 @@ import Resume from '@/pages/Resume';
 
 // Events & Social Pages
 import Events from '@/pages/Events';
+import EventDetail from '@/pages/EventDetail';
 import Messages from '@/pages/Messages';
 import Forum from '@/pages/ForumList';
 import ForumDetail from '@/pages/ForumDetail';
@@ -204,6 +205,7 @@ function App() {
 
                   {/* Events & Social Routes */}
                   <Route path="/events" element={<Events />} />
+                  <Route path="/events/:eventId" element={<EventDetail />} />
                   <Route path="/messages" element={<Messages />} />
                   <Route path="/forum" element={<Forum />} />
                   <Route path="/forums" element={<Forum />} />
