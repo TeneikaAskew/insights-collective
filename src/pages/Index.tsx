@@ -21,11 +21,12 @@ import WelcomeModal from '@/components/onboarding/WelcomeModal';
 import OnboardingGuide from '@/components/onboarding/OnboardingGuide';
 import OnboardingTrigger from '@/components/onboarding/OnboardingTrigger';
 import { useOnboarding } from '@/contexts/OnboardingContext';
+import { useUpcomingEvents } from '@/hooks/useEvents';
 
 const Index = () => {
   const { courses } = useCoursesManagement();
   const featuredCourses = courses.filter(course => course.published).slice(0, 3);
-  const upcomingEvents = []; // TODO: Replace with real events data when available
+  const { data: upcomingEvents = [], isLoading: eventsLoading } = useUpcomingEvents(3);
   const { isFirstVisit, completedTours, dismissedTours, startTour, isOnboardingActive, currentTour } = useOnboarding();
   
   // Remove auto-start functionality to prevent conflicts

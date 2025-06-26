@@ -10,6 +10,7 @@ import { NoEventsMessage } from '@/components/events/NoEventsMessage';
 import { useAuth } from '@/contexts/AuthContext';
 import { getRegisteredEvents, registerForEvent, isRegisteredForEvent } from '@/utils/idUtils';
 import { supabase } from '@/integrations/supabase/client';
+import { useEvents } from '@/hooks/useEvents';
 
 // Mock events data
 const mockEvents = [
@@ -96,13 +97,24 @@ const mockEvents = [
 ];
 
 export default function Events() {
-  const [events, setEvents] = useState(mockEvents);
+  const { data: eventsData = [], isLoading: eventsLoading } = useEvents();
+  const [events, setEvents] = useState(eventsData);
   const [searchQuery, setSearchQuery] = useState('');
   const [formatFilter, setFormatFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
   const [registeredEvents, setRegisteredEvents] = useState<string[]>([]);
   const { toast } = useToast();
   const { isAuthenticated, user } = useAuth();
+  
+  // Update events when data changes
+  useEffect(() => {
+    if (eventsData && eventsData.length > 0) {
+      setEvents(eventsData);
+    } else {
+      // Fall back to mock data if no events in database
+      setEvents(mockEvents);
+    }
+  }, [eventsData]);
   
   // Load user's registered events from localStorage on component mount
   useEffect(() => {

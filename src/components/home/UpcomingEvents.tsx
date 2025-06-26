@@ -8,9 +8,14 @@ type Event = {
   id: string;
   title: string;
   description: string;
-  category: string;
-  location: string;
+  type: string;
+  location: string | null;
   date: string;
+  start_time?: string | null;
+  end_time?: string | null;
+  format?: string;
+  capacity?: number | null;
+  calendly_link?: string | null;
 };
 
 type UpcomingEventsProps = {
@@ -18,31 +23,43 @@ type UpcomingEventsProps = {
 };
 
 const UpcomingEvents = ({ events }: UpcomingEventsProps) => {
+  // If no events, don't render the section
+  if (!events || events.length === 0) {
+    return null;
+  }
   // Get event type icon
-  const getEventIcon = (category: string) => {
-    switch (category.toLowerCase()) {
+  const getEventIcon = (type: string) => {
+    switch (type.toLowerCase()) {
       case 'workshop':
         return Users;
       case 'webinar':
         return Video;
       case 'conference':
         return Users;
+      case 'meetup':
+        return Users;
+      case 'hackathon':
+        return Users;
       default:
         return Calendar;
     }
   };
   
-  // Get category badge style
-  const getCategoryStyle = (category: string): string => {
-    switch (category.toLowerCase()) {
+  // Get type badge style
+  const getTypeStyle = (type: string): string => {
+    switch (type.toLowerCase()) {
       case 'workshop':
         return 'bg-blue-100 text-blue-600 border-blue-200';
       case 'webinar':
         return 'bg-purple-100 text-purple-600 border-purple-200';
       case 'conference':
         return 'bg-amber-100 text-amber-600 border-amber-200';
-      default:
+      case 'meetup':
         return 'bg-green-100 text-green-600 border-green-200';
+      case 'hackathon':
+        return 'bg-orange-100 text-orange-600 border-orange-200';
+      default:
+        return 'bg-gray-100 text-gray-600 border-gray-200';
     }
   };
   
@@ -75,7 +92,7 @@ const UpcomingEvents = ({ events }: UpcomingEventsProps) => {
         
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
           {events.map((event) => {
-            const EventIcon = getEventIcon(event.category);
+            const EventIcon = getEventIcon(event.type);
             const dateObj = formatEventDate(event.date);
             
             return (
@@ -90,9 +107,9 @@ const UpcomingEvents = ({ events }: UpcomingEventsProps) => {
                       <p className="text-sm uppercase text-gray-500">{dateObj.month}</p>
                     </div>
                     
-                    <Badge variant="outline" className={`${getCategoryStyle(event.category)} h-fit font-medium flex items-center`}>
+                    <Badge variant="outline" className={`${getTypeStyle(event.type)} h-fit font-medium flex items-center`}>
                       <EventIcon className="h-3 w-3 mr-1" />
-                      {event.category}
+                      {event.type}
                     </Badge>
                   </div>
                   
@@ -108,12 +125,14 @@ const UpcomingEvents = ({ events }: UpcomingEventsProps) => {
                   <div className="flex flex-col space-y-2 mb-4">
                     <div className="flex items-center text-sm text-muted-foreground">
                       <Clock className="h-4 w-4 mr-2 text-muted-foreground/70" /> 
-                      <span>{dateObj.time}</span>
+                      <span>{event.start_time || dateObj.time}</span>
                     </div>
-                    <div className="flex items-center text-sm text-muted-foreground">
-                      <MapPin className="h-4 w-4 mr-2 text-muted-foreground/70" /> 
-                      <span>{event.location}</span>
-                    </div>
+                    {event.location && (
+                      <div className="flex items-center text-sm text-muted-foreground">
+                        <MapPin className="h-4 w-4 mr-2 text-muted-foreground/70" /> 
+                        <span>{event.location}</span>
+                      </div>
+                    )}
                   </div>
                   
                   <div className="flex justify-between items-center">
