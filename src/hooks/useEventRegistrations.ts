@@ -94,6 +94,11 @@ export const useRegisterForEvent = () => {
       
       if (error) {
         console.error('Registration error:', error);
+        // If it's a duplicate key error, treat it as success since user is already registered
+        if (error.code === '23505') {
+          console.log('User already registered, treating as success');
+          return { message: 'Already registered' };
+        }
         throw error;
       }
       return data;
