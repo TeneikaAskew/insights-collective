@@ -3,17 +3,7 @@ import { useState, useEffect } from 'react';
 import { useToast } from './use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { isValidUUID } from '@/utils/idUtils';
-
-type ModuleContent = {
-  id: string;
-  module_id: string;
-  type: 'text' | 'video' | 'image';
-  content: string;
-  position: number;
-  uploaded_by: string;
-  created_at: string;
-  updated_at: string;
-};
+import { ModuleContent, ModuleContentInput } from '@/types/moduleContent';
 
 export function useModuleContent(moduleId?: string) {
   const [contents, setContents] = useState<ModuleContent[]>([]);
@@ -64,7 +54,7 @@ export function useModuleContent(moduleId?: string) {
     fetchModuleContent();
   }, [moduleId, toast]);
   
-  const addContent = async (newContent: Omit<ModuleContent, 'id' | 'created_at' | 'updated_at'>) => {
+  const addContent = async (newContent: ModuleContentInput) => {
     // Validate module_id UUID format
     if (!newContent.module_id || !isValidUUID(newContent.module_id)) {
       console.error(`Invalid module UUID format: ${newContent.module_id}`);
@@ -104,7 +94,7 @@ export function useModuleContent(moduleId?: string) {
     }
   };
   
-  const updateContent = async (id: string, updates: Partial<Omit<ModuleContent, 'id' | 'created_at' | 'updated_at'>>) => {
+  const updateContent = async (id: string, updates: Partial<ModuleContentInput>) => {
     // Validate content id UUID format
     if (!id || !isValidUUID(id)) {
       console.error(`Invalid content UUID format: ${id}`);

@@ -3,22 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { isValidUUID } from '@/utils/idUtils';
-
-export interface Lesson {
-  id: string;
-  module_id: string;
-  title: string;
-  description: string;
-  order_num: number;
-  content: string;
-  duration?: string;
-  estimated_duration?: number;
-  completion_required: boolean;
-  completion_criteria: Record<string, any>;
-  content_blocks_count: number;
-  created_at: string;
-  updated_at: string;
-}
+import { Lesson, LessonInput } from '@/types/lesson';
 
 export function useLessons(moduleId?: string) {
   const [lessons, setLessons] = useState<Lesson[]>([]);
@@ -71,7 +56,7 @@ export function useLessons(moduleId?: string) {
     }
   };
 
-  const addLesson = async (lessonData: Omit<Lesson, 'id' | 'created_at' | 'updated_at' | 'content_blocks_count'>): Promise<Lesson | null> => {
+  const addLesson = async (lessonData: LessonInput): Promise<Lesson | null> => {
     if (!user || !moduleId) return null;
 
     try {
@@ -106,7 +91,7 @@ export function useLessons(moduleId?: string) {
     }
   };
 
-  const updateLesson = async (id: string, updates: Partial<Omit<Lesson, 'id' | 'created_at' | 'updated_at'>>): Promise<Lesson | null> => {
+  const updateLesson = async (id: string, updates: Partial<LessonInput>): Promise<Lesson | null> => {
     if (!isValidUUID(id)) {
       console.error(`Invalid lesson UUID format: ${id}`);
       toast({

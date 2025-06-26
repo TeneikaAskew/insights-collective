@@ -3,7 +3,8 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus, GripVertical } from 'lucide-react';
-import { useContentBlocks, ContentBlock } from '@/hooks/useContentBlocks';
+import { useContentBlocks } from '@/hooks/useContentBlocks';
+import { ContentBlock, ContentBlockInput } from '@/types/moduleContent';
 import ContentBlockEditor from '../content/ContentBlockEditor';
 import ContentBlockRenderer from '../content/ContentBlockRenderer';
 import {
@@ -127,7 +128,7 @@ const EnhancedModuleContentEditor: React.FC<EnhancedModuleContentEditorProps> = 
     setShowEditor(true);
   };
 
-  const handleSaveBlock = async (blockData: Omit<ContentBlock, 'id' | 'created_at' | 'updated_at' | 'created_by'>) => {
+  const handleSaveBlock = async (blockData: ContentBlockInput) => {
     if (editingBlock) {
       await updateBlock(editingBlock.id, blockData);
     } else {
