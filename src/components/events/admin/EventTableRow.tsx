@@ -65,10 +65,10 @@ export function EventTableRow({
       </TableCell>
       <TableCell>
         <div className="flex flex-col gap-1">
-          <Badge variant="outline" className="capitalize bg-insightBlue/10 text-insightBlue">
+          <Badge variant="outline" className="capitalize bg-primary/10 text-primary">
             {event.type}
           </Badge>
-          <Badge variant="secondary" className="capitalize bg-aquaTeal/10 text-aquaTeal">
+          <Badge variant="secondary" className="capitalize bg-accent/10 text-accent-foreground">
             {event.format}
           </Badge>
         </div>

@@ -1,5 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { eventService } from '@/services/eventService';
 
 export interface Event {
   id: string;
@@ -133,5 +134,74 @@ export const useEvent = (eventId: string) => {
       return data as Event;
     },
     enabled: !!eventId,
+  });
+};
+
+// Mutation hooks for event operations
+export const useCreateEvent = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (eventData: Omit<Event, 'id' | 'created_at' | 'updated_at'>) => {
+      console.log('Creating event with data:', eventData);
+      
+      // Validate required fields
+      if (!eventData.title || !eventData.description || !eventData.date || !eventData.type || !eventData.format) {
+        throw new Error('Missing required fields: title, description, date, type, and format are required');
+      }
+      
+      const result = await eventService.createEvent(eventData);
+      console.log('Event created successfully:', result);
+      return result;
+    },
+    onSuccess: () => {
+      console.log('Invalidating events cache after successful creation');
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+    },
+    onError: (error) => {
+      console.error('Error creating event:', error);
+    },
+  });
+};
+
+export const useUpdateEvent = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: Partial<Event> & { id: string }) => {
+      console.log('Updating event:', id, 'with data:', updates);
+      
+      const result = await eventService.updateEvent(id, updates);
+      console.log('Event updated successfully:', result);
+      return result;
+    },
+    onSuccess: (_, variables) => {
+      console.log('Invalidating events cache after successful update');
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+      queryClient.invalidateQueries({ queryKey: ['events', variables.id] });
+    },
+    onError: (error) => {
+      console.error('Error updating event:', error);
+    },
+  });
+};
+
+export const useDeleteEvent = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (eventId: string) => {
+      console.log('Deleting event:', eventId);
+      
+      await eventService.deleteEvent(eventId);
+      console.log('Event deleted successfully');
+    },
+    onSuccess: () => {
+      console.log('Invalidating events cache after successful deletion');
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+    },
+    onError: (error) => {
+      console.error('Error deleting event:', error);
+    },
   });
 };

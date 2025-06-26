@@ -5,13 +5,14 @@ import { EventFormFields, eventTypes, eventFormats } from '@/components/events/m
 import { useEventForm } from '@/components/events/hooks/useEventForm';
 
 interface AddEventModalProps {
+  open: boolean;
   onAddEvent: (event: any) => void;
   editEvent?: any;
   onClose: () => void;
   children?: React.ReactNode;
 }
 
-export function AddEventModal({ onAddEvent, editEvent, onClose, children }: AddEventModalProps) {
+export function AddEventModal({ open, onAddEvent, editEvent, onClose, children }: AddEventModalProps) {
   const {
     formState,
     handlers,
@@ -21,7 +22,21 @@ export function AddEventModal({ onAddEvent, editEvent, onClose, children }: AddE
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formState.title || !formState.type || !formState.eventFormat || !formState.date) {
+    console.log('Form submission started');
+    console.log('Form state:', formState);
+    
+    // Validate required fields based on Supabase schema
+    const errors: string[] = [];
+    
+    if (!formState.title) errors.push('Title is required');
+    if (!formState.description) errors.push('Description is required');
+    if (!formState.type) errors.push('Event type is required');
+    if (!formState.eventFormat) errors.push('Event format is required');
+    if (!formState.date) errors.push('Date is required');
+    
+    if (errors.length > 0) {
+      console.error('Validation errors:', errors);
+      alert('Please fill in all required fields:\n' + errors.join('\n'));
       return;
     }
     
@@ -49,11 +64,12 @@ export function AddEventModal({ onAddEvent, editEvent, onClose, children }: AddE
       eventData.id = editEvent.id;
     }
     
+    console.log('Submitting event data:', eventData);
     onAddEvent(eventData);
   };
   
   return (
-    <Dialog open={true} onOpenChange={() => onClose()}>
+    <Dialog open={open} onOpenChange={() => onClose()}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>{editEvent ? 'Edit Event' : 'Add New Event'}</DialogTitle>
@@ -98,7 +114,7 @@ export function AddEventModal({ onAddEvent, editEvent, onClose, children }: AddE
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit">
+            <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground">
               {editEvent ? 'Update Event' : 'Create Event'}
             </Button>
           </DialogFooter>

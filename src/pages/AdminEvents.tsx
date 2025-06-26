@@ -161,7 +161,7 @@ export default function AdminEvents() {
           </div>
           <Button 
             onClick={() => { setEventToEdit(null); setIsModalOpen(true); }} 
-            className="bg-insightBlue hover:bg-insightBlue/90 text-white"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground"
             disabled={eventsLoading}
           >
             {eventsLoading ? (
@@ -173,18 +173,20 @@ export default function AdminEvents() {
           </Button>
         </div>
 
-        {isModalOpen && (
-          <AddEventModal 
-            onAddEvent={handleAddEvent} 
-            editEvent={eventToEdit} 
-            onClose={() => setIsModalOpen(false)}
-          />
-        )}
+        <AddEventModal 
+          open={isModalOpen}
+          onAddEvent={handleAddEvent} 
+          editEvent={eventToEdit} 
+          onClose={() => { 
+            setIsModalOpen(false); 
+            setEventToEdit(null);
+          }}
+        />
 
         <Tabs defaultValue="events" className="space-y-8">
           <TabsList>
-            <TabsTrigger value="events" className="data-[state=active]:bg-insightBlue data-[state=active]:text-white">Events</TabsTrigger>
-            <TabsTrigger value="registrations" className="data-[state=active]:bg-insightBlue data-[state=active]:text-white">Registrations</TabsTrigger>
+            <TabsTrigger value="events" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Events</TabsTrigger>
+            <TabsTrigger value="registrations" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Registrations</TabsTrigger>
           </TabsList>
 
           <TabsContent value="events" className="space-y-6">
@@ -218,13 +220,13 @@ export default function AdminEvents() {
                     <TabsList>
                       <TabsTrigger 
                         value="upcoming"
-                        className="data-[state=active]:bg-insightBlue data-[state=active]:text-white"
+                        className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
                       >
                         Upcoming Events ({upcomingEvents.length})
                       </TabsTrigger>
                       <TabsTrigger 
                         value="past"
-                        className="data-[state=active]:bg-insightBlue data-[state=active]:text-white"
+                        className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
                       >
                         Past Events ({pastEvents.length})
                       </TabsTrigger>

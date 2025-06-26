@@ -107,7 +107,7 @@ export function EventFormFields({
       {/* Title field */}
       <div className="grid grid-cols-4 items-center gap-4">
         <Label htmlFor="title" className="text-right">
-          Title
+          Title <span className="text-red-500">*</span>
         </Label>
         <Input
           id="title"
@@ -115,13 +115,14 @@ export function EventFormFields({
           onChange={(e) => setTitle(e.target.value)}
           className="col-span-3"
           placeholder="Event title"
+          required
         />
       </div>
       
       {/* Description field */}
       <div className="grid grid-cols-4 items-center gap-4">
         <Label htmlFor="description" className="text-right">
-          Description
+          Description <span className="text-red-500">*</span>
         </Label>
         <Textarea
           id="description"
@@ -129,15 +130,16 @@ export function EventFormFields({
           onChange={(e) => setDescription(e.target.value)}
           className="col-span-3"
           placeholder="Event description"
+          required
         />
       </div>
       
       {/* Event Type field */}
       <div className="grid grid-cols-4 items-center gap-4">
         <Label htmlFor="type" className="text-right">
-          Event Type
+          Event Type <span className="text-red-500">*</span>
         </Label>
-        <Select value={type} onValueChange={setType}>
+        <Select value={type} onValueChange={setType} required>
           <SelectTrigger id="type" className="col-span-3">
             <SelectValue placeholder="Select event type" />
           </SelectTrigger>
@@ -154,9 +156,9 @@ export function EventFormFields({
       {/* Format field */}
       <div className="grid grid-cols-4 items-center gap-4">
         <Label htmlFor="format" className="text-right">
-          Format
+          Format <span className="text-red-500">*</span>
         </Label>
-        <Select value={eventFormat} onValueChange={setEventFormat}>
+        <Select value={eventFormat} onValueChange={setEventFormat} required>
           <SelectTrigger id="format" className="col-span-3">
             <SelectValue placeholder="Select format" />
           </SelectTrigger>
@@ -204,7 +206,7 @@ export function EventFormFields({
       
       {/* Date field */}
       <div className="grid grid-cols-4 items-center gap-4">
-        <Label className="text-right">Date</Label>
+        <Label className="text-right">Date <span className="text-red-500">*</span></Label>
         <div className="col-span-3">
           <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
             <PopoverTrigger asChild>
