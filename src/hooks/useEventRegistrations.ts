@@ -85,10 +85,11 @@ export const useRegisterForEvent = () => {
         .select('id')
         .eq('event_id', eventId)
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
       
       if (existing) {
-        throw new Error('Already registered for this event');
+        // User is already registered, do nothing or throw a descriptive error
+        return { action: 'already_registered', data: existing };
       }
       
       const { data, error } = await supabase
@@ -101,11 +102,13 @@ export const useRegisterForEvent = () => {
         .single();
       
       if (error) throw error;
-      return data;
+      return { action: 'registered', data };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['event-registrations'] });
       queryClient.invalidateQueries({ queryKey: ['user-registrations'] });
+      queryClient.invalidateQueries({ queryKey: ['event-registration-count'] });
+      queryClient.invalidateQueries({ queryKey: ['is-registered'] });
     }
   });
 };
@@ -129,6 +132,8 @@ export const useUnregisterFromEvent = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['event-registrations'] });
       queryClient.invalidateQueries({ queryKey: ['user-registrations'] });
+      queryClient.invalidateQueries({ queryKey: ['event-registration-count'] });
+      queryClient.invalidateQueries({ queryKey: ['is-registered'] });
     }
   });
 };
