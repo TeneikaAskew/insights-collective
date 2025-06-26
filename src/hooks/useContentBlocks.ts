@@ -4,24 +4,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { isValidUUID } from '@/utils/idUtils';
+import { ContentBlock, ContentBlockInput } from '@/types/moduleContent';
 
-export interface ContentBlock {
-  id: string;
-  module_id: string;
-  block_type: string;
-  title?: string;
-  content: string;
-  metadata: Record<string, any>;
-  file_url?: string;
-  file_type?: string;
-  file_size?: number;
-  position: number;
-  is_interactive: boolean;
-  completion_required: boolean;
-  created_by: string;
-  created_at: string;
-  updated_at: string;
-}
+export type { ContentBlock, ContentBlockInput };
 
 export function useContentBlocks(moduleId?: string, lessonId?: string) {
   const [blocks, setBlocks] = useState<ContentBlock[]>([]);
@@ -89,7 +74,7 @@ export function useContentBlocks(moduleId?: string, lessonId?: string) {
     }
   };
 
-  const addBlock = async (blockData: Omit<ContentBlock, 'id' | 'created_at' | 'updated_at' | 'created_by'>): Promise<ContentBlock | null> => {
+  const addBlock = async (blockData: ContentBlockInput): Promise<ContentBlock | null> => {
     if (!user || !moduleId) return null;
 
     if (!isValidUUID(moduleId)) {
@@ -135,7 +120,7 @@ export function useContentBlocks(moduleId?: string, lessonId?: string) {
     }
   };
 
-  const updateBlock = async (id: string, updates: Partial<Omit<ContentBlock, 'id' | 'created_at' | 'updated_at' | 'created_by'>>): Promise<ContentBlock | null> => {
+  const updateBlock = async (id: string, updates: Partial<ContentBlockInput>): Promise<ContentBlock | null> => {
     if (!isValidUUID(id)) {
       console.error(`Invalid block UUID format: ${id}`);
       toast({

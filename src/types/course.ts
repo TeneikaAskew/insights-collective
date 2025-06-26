@@ -78,3 +78,13 @@ export interface CourseStats {
   enrollment_count: number;
   completion_rate: number;
 }
+
+export interface Module {
+  id: string;
+  course_id: string;
+  title: string;
+  description: string;
+  week: number;
+  created_at: string;
+  updated_at: string;
+}

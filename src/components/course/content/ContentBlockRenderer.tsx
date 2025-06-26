@@ -15,7 +15,7 @@ import {
   Info,
   AlertTriangle
 } from 'lucide-react';
-import { ContentBlock } from '@/hooks/useContentBlocks';
+import { ContentBlock } from '@/types/moduleContent';
 import { cn } from '@/lib/utils';
 
 interface ContentBlockRendererProps {
