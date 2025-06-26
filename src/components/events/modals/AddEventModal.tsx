@@ -28,9 +28,8 @@ export function AddEventModal({ onAddEvent, editEvent, onClose, children }: AddE
     // Create a formatted date string
     const dateString = formState.date.toISOString().split('T')[0];
     
-    // Build the event object
-    const eventData = {
-      id: editEvent?.id || Date.now().toString(),
+    // Build the event object - remove ID for new events (let database auto-generate)
+    const eventData: any = {
       title: formState.title,
       description: formState.description,
       type: formState.type,
@@ -38,13 +37,17 @@ export function AddEventModal({ onAddEvent, editEvent, onClose, children }: AddE
       location: (formState.eventFormat === 'in-person' || formState.eventFormat === 'hybrid') ? formState.location : null,
       link: (formState.eventFormat === 'virtual' || formState.eventFormat === 'hybrid') ? formState.link : null,
       date: dateString,
-      startTime: formState.startTime,
-      endTime: formState.endTime || null,
+      start_time: formState.startTime,
+      end_time: formState.endTime || null,
       image: formState.image || formState.imagePreview || 'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=MnwxfDB8MXxyYW5kb218MHx8fHx8fHx8MTY4MTY5ODY2OA&ixlib=rb-4.0.3&q=80&utm_campaign=api-credit&utm_medium=referral&utm_source=unsplash_source&w=1080',
       capacity: formState.capacity ? parseInt(formState.capacity) : null,
-      registrations: editEvent?.registrations || 0,
-      calendlyLink: formState.calendlyLink,
+      calendly_link: formState.calendlyLink,
     };
+    
+    // Add ID only for edits
+    if (editEvent?.id) {
+      eventData.id = editEvent.id;
+    }
     
     onAddEvent(eventData);
   };

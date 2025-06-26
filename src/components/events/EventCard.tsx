@@ -1,4 +1,4 @@
-import { Calendar, Clock, MapPin, Link, Users } from 'lucide-react';
+import { Calendar, Clock, MapPin, Link, Users, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,13 +24,15 @@ interface EventCardProps {
     registrations: number;
     calendlyLink?: string;
   };
-  onRegister?: (eventId: string, userData?: any) => void;
+  onRegister?: (eventId: string) => void;
   isRegistered?: boolean; // Add isRegistered prop
+  isRegistering?: boolean;
 }
 export function EventCard({
   event,
   onRegister,
-  isRegistered = false
+  isRegistered = false,
+  isRegistering = false
 }: EventCardProps) {
   const {
     isAuthenticated,
@@ -64,27 +66,14 @@ export function EventCard({
       return;
     }
 
-    // If user is logged in, register them for the event
-    onRegister?.(event.id, {
-      name: user?.name,
-      email: user?.email
-    });
-    toast({
-      title: 'Registration Successful',
-      description: 'You have been registered for this event.',
-      variant: "default"
-    });
-
-    // Redirect to Calendly if available
-    if (event.calendlyLink) {
-      window.open(event.calendlyLink, '_blank');
-    }
+    // If user is logged in, handle registration (toggle)
+    onRegister?.(event.id);
   };
   const isAtCapacity = event.capacity !== null && event.registrations >= event.capacity;
   return <Card className="h-full flex flex-col">
       <div className="relative w-full pt-[50%] overflow-hidden">
         <img src={event.image || "https://via.placeholder.com/600x300?text=Event"} alt={event.title} className="absolute inset-0 w-full h-full object-cover" />
-        <Badge className="absolute top-2 right-2 text-white bg-insightsCollective-energeticAmber">{event.type}</Badge>
+        <Badge className="absolute top-2 right-2 text-white bg-energeticAmber">{event.type}</Badge>
         {isRegistered && <Badge className="absolute top-2 left-2 bg-green-500 text-white">Registered</Badge>}
       </div>
       <CardHeader>
@@ -116,9 +105,37 @@ export function EventCard({
         <p className="text-muted-foreground line-clamp-3">{event.description}</p>
       </CardContent>
       <CardFooter>
-        {isRegistered ? <Button disabled className="w-full bg-green-600 cursor-default">Already Registered</Button> : isAtCapacity ? <Button disabled className="w-full">Event Full</Button> : <Button onClick={handleRegister} className="w-full text-white bg-insightsCollective-insightBlue">
-            Register
-          </Button>}
+        {onRegister ? (
+          isRegistered ? (
+            <Button 
+              onClick={handleRegister} 
+              disabled={isRegistering}
+              className="w-full bg-red-600 hover:bg-red-700 text-white"
+            >
+              {isRegistering ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing...</>
+              ) : (
+                'Cancel Registration'
+              )}
+            </Button>
+          ) : isAtCapacity ? (
+            <Button disabled className="w-full">Event Full</Button>
+          ) : (
+            <Button 
+              onClick={handleRegister} 
+              disabled={isRegistering}
+              className="w-full text-white bg-insightBlue hover:bg-insightBlue/90"
+            >
+              {isRegistering ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing...</>
+              ) : (
+                'Register'
+              )}
+            </Button>
+          )
+        ) : (
+          <Button disabled className="w-full">Registration Closed</Button>
+        )}
       </CardFooter>
     </Card>;
 }

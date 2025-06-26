@@ -4,7 +4,8 @@
       "Bash(mkdir:*)",
       "Bash(grep:*)",
       "Bash(rm:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(npm run lint)"
     ],
     "deny": []
   }

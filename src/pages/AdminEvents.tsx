@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { AddEventModal } from '@/components/events/modals/AddEventModal';
@@ -10,148 +9,107 @@ import { useToast } from '@/hooks/use-toast';
 import { EventsTable } from '@/components/events/admin/EventsTable';
 import { EventsFilterBar } from '@/components/events/admin/EventsFilterBar';
 import { EventsRegistrationsTable } from '@/components/events/admin/EventsRegistrationsTable';
-import { Plus } from 'lucide-react';
+import { Plus, Loader2 } from 'lucide-react';
+import { useEvents, useCreateEvent, useUpdateEvent, useDeleteEvent } from '@/hooks/useEvents';
+import { useEventRegistrations } from '@/hooks/useEventRegistrations';
+import { Skeleton } from '@/components/ui/skeleton';
 
-const mockEvents = [
-  {
-    id: '1',
-    title: 'Data Science Workshop',
-    description: 'Learn the fundamentals of data science, from data preprocessing to model deployment.',
-    type: 'workshop',
-    format: 'in-person',
-    location: 'San Francisco Tech Hub',
-    link: null,
-    date: '2025-05-15',
-    startTime: '09:00',
-    endTime: '17:00',
-    image: 'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=MnwxfDB8MXxyYW5kb218MHx8fHx8fHx8MTY4MTY5ODY2OA&ixlib=rb-4.0.3&q=80&utm_campaign=api-credit&utm_medium=referral&utm_source=unsplash_source&w=1080',
-    capacity: 50,
-    registrations: 32,
-    calendlyLink: 'https://calendly.com/insightscollective/data-science-workshop',
-  },
-  {
-    id: '2',
-    title: 'Machine Learning Conference 2025',
-    description: 'Join leading experts in machine learning for talks, workshops, and networking opportunities.',
-    type: 'conference',
-    format: 'hybrid',
-    location: 'New York Convention Center',
-    link: 'https://example.com/ml-conference',
-    date: '2025-06-10',
-    startTime: '08:30',
-    endTime: '18:00',
-    image: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=MnwxfDB8MXxyYW5kb218MHx8fHx8fHx8MTY4MTY5ODc2OQ&ixlib=rb-4.0.3&q=80&utm_campaign=api-credit&utm_medium=referral&utm_source=unsplash_source&w=1080',
-    capacity: 300,
-    registrations: 178,
-    calendlyLink: 'https://calendly.com/insightscollective/ml-conference',
-  },
-  {
-    id: '3',
-    title: 'Python for Data Analysis Webinar',
-    description: 'A comprehensive online workshop covering pandas, numpy, and data visualization with Python.',
-    type: 'webinar',
-    format: 'virtual',
-    location: null,
-    link: 'https://example.com/python-webinar',
-    date: '2025-05-20',
-    startTime: '14:00',
-    endTime: '16:00',
-    image: 'https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=MnwxfDB8MXxyYW5kb218MHx8fHx8fHx8MTY4MTY5ODcwNw&ixlib=rb-4.0.3&q=80&utm_campaign=api-credit&utm_medium=referral&utm_source=unsplash_source&w=1080',
-    capacity: null,
-    registrations: 215,
-    calendlyLink: 'https://calendly.com/insightscollective/python-webinar',
-  },
-  {
-    id: '4',
-    title: 'AI Ethics Meetup',
-    description: 'A discussion group focused on ethical considerations in artificial intelligence development and deployment.',
-    type: 'meetup',
-    format: 'in-person',
-    location: 'Boston Innovation Hub',
-    link: null,
-    date: '2025-05-25',
-    startTime: '18:00',
-    endTime: '20:00',
-    image: 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=MnwxfDB8MXxyYW5kb218MHx8fHx8fHx8MTY4MTY5ODg3Ng&ixlib=rb-4.0.3&q=80&utm_campaign=api-credit&utm_medium=referral&utm_source=unsplash_source&w=1080',
-    capacity: 30,
-    registrations: 24,
-    calendlyLink: 'https://calendly.com/insightscollective/ai-ethics-meetup',
-  },
-  {
-    id: '5',
-    title: 'Data Visualization Hackathon',
-    description: '48-hour competition to create the most innovative and informative data visualizations from public datasets.',
-    type: 'hackathon',
-    format: 'hybrid',
-    location: 'Seattle Tech Campus',
-    link: 'https://example.com/dataviz-hackathon',
-    date: '2025-07-15',
-    startTime: '09:00',
-    endTime: null,
-    image: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=MnwxfDB8MXxyYW5kb218MHx8fHx8fHx8MTY4MTY5ODc2OQ&ixlib=rb-4.0.3&q=80&utm_campaign=api-credit&utm_medium=referral&utm_source=unsplash_source&w=1080',
-    capacity: 100,
-    registrations: 72,
-    calendlyLink: 'https://calendly.com/insightscollective/data-visualization-hackathon',
-  },
-];
-
-const mockAttendees = [
-  { id: '1', eventId: '1', name: 'John Doe', email: 'john.doe@example.com', registrationDate: '2025-04-01' },
-  { id: '2', eventId: '1', name: 'Jane Smith', email: 'jane.smith@example.com', registrationDate: '2025-04-02' },
-  { id: '3', eventId: '2', name: 'Alice Johnson', email: 'alice@example.com', registrationDate: '2025-04-01' },
-  { id: '4', eventId: '2', name: 'Bob Brown', email: 'bob@example.com', registrationDate: '2025-04-03' },
-  { id: '5', eventId: '3', name: 'Carol White', email: 'carol@example.com', registrationDate: '2025-04-02' },
-  { id: '6', eventId: '3', name: 'Dave Green', email: 'dave@example.com', registrationDate: '2025-04-04' },
-  { id: '7', eventId: '4', name: 'Eve Black', email: 'eve@example.com', registrationDate: '2025-04-05' },
-  { id: '8', eventId: '5', name: 'Frank Yellow', email: 'frank@example.com', registrationDate: '2025-04-06' },
-];
+// Define Event type
+interface Event {
+  id: string;
+  title: string;
+  description: string;
+  type: string;
+  format: string;
+  location?: string | null;
+  link?: string | null;
+  date: string;
+  start_time?: string | null;
+  end_time?: string | null;
+  image?: string | null;
+  capacity?: number | null;
+  calendly_link?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
 
 export default function AdminEvents() {
-  const [events, setEvents] = useState(mockEvents);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [formatFilter, setFormatFilter] = useState('all');
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
-  const [attendees, setAttendees] = useState(mockAttendees);
-  const [eventToEdit, setEventToEdit] = useState<any>(null);
+  const [eventToEdit, setEventToEdit] = useState<Event | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   
   const { toast } = useToast();
+  
+  // Fetch events from Supabase
+  const { data: events = [], isLoading: eventsLoading } = useEvents();
+  const { data: registrations = [], isLoading: registrationsLoading } = useEventRegistrations();
+  const createEvent = useCreateEvent();
+  const updateEvent = useUpdateEvent();
+  const deleteEvent = useDeleteEvent();
+  
+  // Transform registrations data for the table
+  const attendees = registrations.map(reg => ({
+    id: reg.id,
+    eventId: reg.event_id,
+    name: reg.profiles?.full_name || 'Unknown',
+    email: reg.profiles?.email || 'No email',
+    registrationDate: new Date(reg.registered_at).toISOString().split('T')[0]
+  }));
 
-  const handleAddEvent = (newEvent: any) => {
-    const isEditing = events.some(e => e.id === newEvent.id);
-    
-    if (isEditing) {
-      setEvents(events.map(event => 
-        event.id === newEvent.id ? newEvent : event
-      ));
+  const handleAddEvent = async (newEvent: Omit<Event, 'id' | 'created_at' | 'updated_at'> & { id?: string }) => {
+    try {
+      const isEditing = eventToEdit !== null;
+      
+      if (isEditing && newEvent.id) {
+        await updateEvent.mutateAsync({
+          id: newEvent.id,
+          ...newEvent
+        });
+        toast({
+          title: 'Event Updated',
+          description: 'The event has been successfully updated.',
+        });
+      } else {
+        const { id, ...eventData } = newEvent;
+        await createEvent.mutateAsync(eventData);
+        toast({
+          title: 'Event Added',
+          description: 'The event has been successfully added to the calendar.',
+        });
+      }
+      setEventToEdit(null);
+      setIsModalOpen(false);
+    } catch (error) {
       toast({
-        title: 'Event Updated',
-        description: 'The event has been successfully updated.',
-      });
-    } else {
-      setEvents([...events, newEvent]);
-      toast({
-        title: 'Event Added',
-        description: 'The event has been successfully added to the calendar.',
+        title: 'Error',
+        description: eventToEdit ? 'Failed to update event' : 'Failed to create event',
+        variant: 'destructive',
       });
     }
-    setEventToEdit(null);
-    setIsModalOpen(false);
   };
 
-  const handleEditEvent = (event: any) => {
+  const handleEditEvent = (event: Event) => {
     setEventToEdit(event);
     setIsModalOpen(true);
   };
 
-  const handleDeleteEvent = (id: string) => {
-    setEvents(events.filter(event => event.id !== id));
-    setAttendees(attendees.filter(attendee => attendee.eventId !== id));
-    toast({
-      title: 'Event Deleted',
-      description: 'The event has been successfully removed from the calendar.',
-    });
+  const handleDeleteEvent = async (id: string) => {
+    try {
+      await deleteEvent.mutateAsync(id);
+      toast({
+        title: 'Event Deleted',
+        description: 'The event has been successfully removed from the calendar.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to delete event',
+        variant: 'destructive',
+      });
+    }
   };
 
   const filteredEvents = events.filter((event) => {
@@ -164,10 +122,22 @@ export default function AdminEvents() {
     
     return matchesSearch && matchesType && matchesFormat;
   });
+  
+  // Add registration counts to events
+  const eventsWithCounts = filteredEvents.map(event => {
+    const registrationCount = registrations.filter(reg => reg.event_id === event.id).length;
+    return {
+      ...event,
+      registrations: registrationCount,
+      startTime: event.start_time,
+      endTime: event.end_time,
+      calendlyLink: event.calendly_link
+    };
+  });
 
   const today = new Date().toISOString().split('T')[0];
-  const upcomingEvents = filteredEvents.filter(event => event.date >= today);
-  const pastEvents = filteredEvents.filter(event => event.date < today);
+  const upcomingEvents = eventsWithCounts.filter(event => event.date >= today);
+  const pastEvents = eventsWithCounts.filter(event => event.date < today);
 
   const filteredAttendees = attendees.filter(attendee => 
     selectedEvent ? attendee.eventId === selectedEvent : true
@@ -189,8 +159,17 @@ export default function AdminEvents() {
               Create, update, and track events and registrations.
             </p>
           </div>
-          <Button onClick={() => { setEventToEdit(null); setIsModalOpen(true); }} className="bg-insightBlue hover:bg-insightBlue/90 text-white">
-            <Plus className="mr-2 h-4 w-4" /> Add Event
+          <Button 
+            onClick={() => { setEventToEdit(null); setIsModalOpen(true); }} 
+            className="bg-insightBlue hover:bg-insightBlue/90 text-white"
+            disabled={eventsLoading}
+          >
+            {eventsLoading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Plus className="mr-2 h-4 w-4" />
+            )} 
+            Add Event
           </Button>
         </div>
 
@@ -203,9 +182,9 @@ export default function AdminEvents() {
         )}
 
         <Tabs defaultValue="events" className="space-y-8">
-          <TabsList className="bg-aquaTeal/10">
-            <TabsTrigger value="events" className="data-[state=active]:bg-energeticAmber data-[state=active]:text-white">Events</TabsTrigger>
-            <TabsTrigger value="registrations" className="data-[state=active]:bg-energeticAmber data-[state=active]:text-white">Registrations</TabsTrigger>
+          <TabsList>
+            <TabsTrigger value="events" className="data-[state=active]:bg-insightBlue data-[state=active]:text-white">Events</TabsTrigger>
+            <TabsTrigger value="registrations" className="data-[state=active]:bg-insightBlue data-[state=active]:text-white">Registrations</TabsTrigger>
           </TabsList>
 
           <TabsContent value="events" className="space-y-6">
@@ -217,6 +196,13 @@ export default function AdminEvents() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
+                {eventsLoading ? (
+                  <div className="space-y-4">
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-20 w-full" />
+                    <Skeleton className="h-20 w-full" />
+                  </div>
+                ) : (
                 <div className="space-y-4">
                   <EventsFilterBar 
                     searchQuery={searchQuery}
@@ -229,7 +215,7 @@ export default function AdminEvents() {
                   />
 
                   <Tabs defaultValue="upcoming" className="space-y-4">
-                    <TabsList className="bg-aquaTeal/10">
+                    <TabsList>
                       <TabsTrigger 
                         value="upcoming"
                         className="data-[state=active]:bg-insightBlue data-[state=active]:text-white"
@@ -264,6 +250,7 @@ export default function AdminEvents() {
                     </TabsContent>
                   </Tabs>
                 </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -294,10 +281,17 @@ export default function AdminEvents() {
                 </div>
               </CardHeader>
               <CardContent>
-                <EventsRegistrationsTable 
-                  attendees={filteredAttendees} 
-                  events={events} 
-                />
+                {registrationsLoading ? (
+                  <div className="space-y-4">
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-20 w-full" />
+                  </div>
+                ) : (
+                  <EventsRegistrationsTable 
+                    attendees={filteredAttendees} 
+                    events={events} 
+                  />
+                )}
               </CardContent>
             </Card>
           </TabsContent>

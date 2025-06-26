@@ -21,11 +21,12 @@ interface Event {
 interface EventsListProps {
   events: Event[];
   isPast?: boolean;
-  onRegister?: (eventId: string, userData?: any) => void;
+  onRegister?: (eventId: string) => void;
   registeredEvents?: string[]; // Add registered events array
+  isRegistering?: boolean;
 }
 
-export function EventsList({ events, isPast = false, onRegister, registeredEvents = [] }: EventsListProps) {
+export function EventsList({ events, isPast = false, onRegister, registeredEvents = [], isRegistering = false }: EventsListProps) {
   if (events.length === 0) {
     return (
       <div className="text-center py-12">
@@ -44,7 +45,8 @@ export function EventsList({ events, isPast = false, onRegister, registeredEvent
           <EventCard 
             event={event} 
             onRegister={!isPast ? onRegister : undefined} 
-            isRegistered={registeredEvents.includes(event.id)} 
+            isRegistered={registeredEvents.includes(event.id)}
+            isRegistering={isRegistering}
           />
         </div>
       ))}
