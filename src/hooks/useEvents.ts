@@ -66,6 +66,55 @@ export const useUpcomingEvents = (limit?: number) => {
   });
 };
 
+export const useRecentEvents = (limit?: number) => {
+  return useQuery({
+    queryKey: ['events', 'recent', limit],
+    queryFn: async () => {
+      // Get events from the last 3 months and upcoming
+      const threeMonthsAgo = new Date();
+      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+      const threeMonthsAgoStr = threeMonthsAgo.toISOString().split('T')[0];
+      
+      let query = supabase
+        .from('events')
+        .select('*')
+        .gte('date', threeMonthsAgoStr)
+        .order('date', { ascending: false });
+
+      if (limit) {
+        query = query.limit(limit);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('Error fetching recent events:', error);
+        throw error;
+      }
+
+      // Sort to show upcoming events first, then recent past events
+      const today = new Date().toISOString().split('T')[0];
+      const sorted = (data as Event[]).sort((a, b) => {
+        const aIsUpcoming = a.date >= today;
+        const bIsUpcoming = b.date >= today;
+        
+        if (aIsUpcoming && !bIsUpcoming) return -1;
+        if (!aIsUpcoming && bIsUpcoming) return 1;
+        
+        // If both are upcoming, sort by date ascending
+        if (aIsUpcoming && bIsUpcoming) {
+          return a.date.localeCompare(b.date);
+        }
+        
+        // If both are past, sort by date descending (most recent first)
+        return b.date.localeCompare(a.date);
+      });
+
+      return sorted;
+    },
+  });
+};
+
 export const useEvent = (eventId: string) => {
   return useQuery({
     queryKey: ['events', eventId],

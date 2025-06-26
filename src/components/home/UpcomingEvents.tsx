@@ -82,7 +82,7 @@ const UpcomingEvents = ({ events }: UpcomingEventsProps) => {
     <section className="py-20 bg-gray-50 dark:bg-gray-800/50">
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-bold font-display">Upcoming Events</h2>
+          <h2 className="text-3xl md:text-4xl font-bold font-display">Events & Workshops</h2>
           <Button variant="ghost" asChild className="group">
             <Link to="/events" className="flex items-center">
               View All <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform duration-300" />
@@ -94,12 +94,21 @@ const UpcomingEvents = ({ events }: UpcomingEventsProps) => {
           {events.map((event) => {
             const EventIcon = getEventIcon(event.type);
             const dateObj = formatEventDate(event.date);
+            const today = new Date().toISOString().split('T')[0];
+            const isPastEvent = event.date < today;
             
             return (
               <div 
                 key={event.id} 
-                className="rounded-xl overflow-hidden border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-md hover:shadow-xl transition-all duration-300 group"
+                className="rounded-xl overflow-hidden border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-md hover:shadow-xl transition-all duration-300 group relative"
               >
+                {isPastEvent && (
+                  <div className="absolute top-4 left-4 z-10">
+                    <Badge variant="secondary" className="bg-gray-100 text-gray-600">
+                      Past Event
+                    </Badge>
+                  </div>
+                )}
                 <div className="aspect-video relative bg-gradient-to-br from-primary/5 to-accent/5">
                   <div className="absolute inset-0 flex justify-between p-4">
                     <div className="flex flex-col justify-center items-center bg-white dark:bg-gray-800 rounded-xl p-3 shadow-md border border-gray-100 dark:border-gray-700 w-20 h-20">
