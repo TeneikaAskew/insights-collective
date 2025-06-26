@@ -20,4 +20,11 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    rollupOptions: {
+      external: (id) => {
+        return id.includes('__tests__') || id.includes('.test.') || id.includes('.spec.');
+      }
+    }
+  }
 }));
