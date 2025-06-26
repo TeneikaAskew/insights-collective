@@ -78,27 +78,35 @@ export function EventCard({
       </div>
       <CardHeader>
         <CardTitle className="line-clamp-2">{event.title}</CardTitle>
-        <CardDescription>
-          <div className="flex items-center gap-1 mt-1">
+        <CardDescription className="space-y-1">
+          <span className="flex items-center gap-1">
             <Calendar className="h-4 w-4" />
             <span>{formatDate(event.date)}</span>
-          </div>
-          {event.startTime && <div className="flex items-center gap-1 mt-1">
+          </span>
+          {event.startTime && (
+            <span className="flex items-center gap-1">
               <Clock className="h-4 w-4" />
               <span>{event.startTime}{event.endTime ? ` - ${event.endTime}` : ''}</span>
-            </div>}
-          {event.location && <div className="flex items-center gap-1 mt-1">
+            </span>
+          )}
+          {event.location && (
+            <span className="flex items-center gap-1">
               <MapPin className="h-4 w-4" />
               <span>{event.location}</span>
-            </div>}
-          {event.link && <div className="flex items-center gap-1 mt-1">
+            </span>
+          )}
+          {event.link && (
+            <span className="flex items-center gap-1">
               <Link className="h-4 w-4" />
               <span className="truncate">Virtual Event</span>
-            </div>}
-          {event.capacity && <div className="flex items-center gap-1 mt-1">
+            </span>
+          )}
+          {event.capacity && (
+            <span className="flex items-center gap-1">
               <Users className="h-4 w-4" />
               <span>{event.registrations} / {event.capacity} registered</span>
-            </div>}
+            </span>
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex-grow">
