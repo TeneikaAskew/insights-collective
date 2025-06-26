@@ -25,6 +25,7 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ tourId }) => {
   const [targetElement, setTargetElement] = useState<HTMLElement | null>(null);
   const [overlayPosition, setOverlayPosition] = useState({ top: 0, left: 0 });
   const [elementNotFound, setElementNotFound] = useState(false);
+  const [, forceUpdate] = useState({});
 
   const tour = onboardingTours[tourId];
   const currentStepData = tour?.steps[currentStep];
@@ -32,7 +33,8 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ tourId }) => {
   useEffect(() => {
     if (currentStepData?.target && isOnboardingActive && currentTour === tourId) {
       let retryCount = 0;
-      const maxRetries = 5;
+      const maxRetries = 10;
+      let timeoutId: NodeJS.Timeout;
       
       const findElement = () => {
         const element = document.querySelector(currentStepData.target) as HTMLElement;
@@ -41,34 +43,45 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ tourId }) => {
           setTargetElement(element);
           setElementNotFound(false);
           
-          // Scroll element into view
-          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Check if element is visible
+          const rect = element.getBoundingClientRect();
+          const isVisible = rect.width > 0 && rect.height > 0;
           
-          // Position overlay after scroll
-          setTimeout(() => {
-            try {
-              const rect = element.getBoundingClientRect();
-              const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-              const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
-              
-              setOverlayPosition({
-                top: rect.top + scrollTop,
-                left: rect.left + scrollLeft,
-              });
-              
-              // Execute step action if exists
-              if (currentStepData.action) {
-                currentStepData.action();
-              }
-            } catch (error) {
-              console.error('Onboarding: Error positioning element', error);
+          if (!isVisible) {
+            // Element exists but not visible, retry
+            retryCount++;
+            if (retryCount < maxRetries) {
+              timeoutId = setTimeout(findElement, 500);
+              return;
             }
-          }, 800);
+          }
+          
+          // Scroll element into view with better positioning
+          const scrollPadding = 100; // Extra padding for tooltip
+          const elementTop = rect.top + window.pageYOffset;
+          const elementMiddle = elementTop + rect.height / 2;
+          const viewportMiddle = window.innerHeight / 2;
+          
+          // Calculate scroll position to center element
+          const scrollTo = elementMiddle - viewportMiddle;
+          
+          window.scrollTo({
+            top: Math.max(0, scrollTo),
+            behavior: 'smooth'
+          });
+          
+          // Execute step action after scroll completes
+          setTimeout(() => {
+            if (currentStepData.action) {
+              currentStepData.action();
+            }
+          }, 500);
         } else {
           retryCount++;
           if (retryCount < maxRetries) {
-            // Retry after a delay
-            setTimeout(findElement, 500);
+            // Retry with exponential backoff
+            const delay = Math.min(500 * Math.pow(1.5, retryCount), 2000);
+            timeoutId = setTimeout(findElement, delay);
           } else {
             console.warn(`Onboarding: Element not found after ${maxRetries} attempts: "${currentStepData.target}"`);
             setElementNotFound(true);
@@ -78,12 +91,37 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ tourId }) => {
       };
       
       // Initial delay to allow DOM to render
-      setTimeout(findElement, 200);
+      timeoutId = setTimeout(findElement, 100);
+      
+      // Cleanup function
+      return () => {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+      };
     } else {
       setTargetElement(null);
       setElementNotFound(false);
     }
   }, [currentStep, currentStepData, isOnboardingActive, currentTour, tourId]);
+
+  // Handle window resize to update positions
+  useEffect(() => {
+    if (!targetElement || !isOnboardingActive) return;
+
+    const handleResize = () => {
+      // Force re-render to recalculate positions
+      forceUpdate({});
+    };
+
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('scroll', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('scroll', handleResize);
+    };
+  }, [targetElement, isOnboardingActive]);
 
   const handleNext = () => {
     if (!tour) return;
@@ -117,54 +155,75 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ tourId }) => {
     }
 
     const rect = targetElement.getBoundingClientRect();
-    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-    const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
     const viewportHeight = window.innerHeight;
     const viewportWidth = window.innerWidth;
+    const tooltipWidth = 400; // Approximate tooltip width
+    const tooltipHeight = 200; // Approximate tooltip height
+    const padding = 20;
     
-    let position: any = {};
+    let position: any = {
+      position: 'fixed' as const
+    };
 
+    // Calculate base position based on target position preference
     switch (currentStepData.position) {
       case 'top':
-        position = {
-          top: rect.top + scrollTop - 20,
-          left: rect.left + scrollLeft + rect.width / 2,
-          transform: 'translate(-50%, -100%)',
-        };
+        position.top = rect.top - tooltipHeight - padding;
+        position.left = rect.left + rect.width / 2;
+        position.transform = 'translateX(-50%)';
         break;
       case 'bottom':
-        position = {
-          top: rect.bottom + scrollTop + 20,
-          left: rect.left + scrollLeft + rect.width / 2,
-          transform: 'translate(-50%, 0)',
-        };
+        position.top = rect.bottom + padding;
+        position.left = rect.left + rect.width / 2;
+        position.transform = 'translateX(-50%)';
         break;
       case 'left':
-        position = {
-          top: rect.top + scrollTop + rect.height / 2,
-          left: rect.left + scrollLeft - 20,
-          transform: 'translate(-100%, -50%)',
-        };
+        position.top = rect.top + rect.height / 2;
+        position.left = rect.left - tooltipWidth - padding;
+        position.transform = 'translateY(-50%)';
         break;
       case 'right':
-        position = {
-          top: rect.top + scrollTop + rect.height / 2,
-          left: rect.right + scrollLeft + 20,
-          transform: 'translate(0, -50%)',
-        };
+        position.top = rect.top + rect.height / 2;
+        position.left = rect.right + padding;
+        position.transform = 'translateY(-50%)';
         break;
       default:
-        position = {
-          top: rect.top + scrollTop + rect.height + 20,
-          left: rect.left + scrollLeft + rect.width / 2,
-          transform: 'translate(-50%, 0)',
-        };
+        position.top = rect.bottom + padding;
+        position.left = rect.left + rect.width / 2;
+        position.transform = 'translateX(-50%)';
     }
 
-    // Keep tooltip within viewport bounds
-    if (position.left < 0) position.left = 20;
-    if (position.left > viewportWidth - 400) position.left = viewportWidth - 420;
-    if (position.top < 0) position.top = 20;
+    // Adjust position to keep tooltip within viewport
+    // Check vertical bounds
+    if (position.top < padding) {
+      // If tooltip would go above viewport, position it below target
+      position.top = rect.bottom + padding;
+      if (currentStepData.position === 'top') {
+        // Override the original position preference
+        position.top = Math.min(rect.bottom + padding, viewportHeight - tooltipHeight - padding);
+      }
+    } else if (position.top + tooltipHeight > viewportHeight - padding) {
+      // If tooltip would go below viewport, position it above target
+      position.top = Math.max(padding, rect.top - tooltipHeight - padding);
+    }
+
+    // Check horizontal bounds
+    if (currentStepData.position === 'left' || currentStepData.position === 'right') {
+      // For left/right positioned tooltips
+      if (position.left < padding) {
+        position.left = rect.right + padding;
+      } else if (position.left + tooltipWidth > viewportWidth - padding) {
+        position.left = rect.left - tooltipWidth - padding;
+      }
+    } else {
+      // For top/bottom positioned tooltips (centered horizontally)
+      const centerX = position.left - tooltipWidth / 2;
+      if (centerX < padding) {
+        position.left = padding + tooltipWidth / 2;
+      } else if (centerX + tooltipWidth > viewportWidth - padding) {
+        position.left = viewportWidth - padding - tooltipWidth / 2;
+      }
+    }
 
     return position;
   };
@@ -191,8 +250,8 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ tourId }) => {
           animate={{ opacity: 1 }}
           className="fixed z-[1001] pointer-events-none"
           style={{
-            top: overlayPosition.top - 8,
-            left: overlayPosition.left - 8,
+            top: targetElement.getBoundingClientRect().top - 8,
+            left: targetElement.getBoundingClientRect().left - 8,
             width: targetElement.offsetWidth + 16,
             height: targetElement.offsetHeight + 16,
             border: '3px solid #3b82f6',

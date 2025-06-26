@@ -19,6 +19,7 @@ import FeaturesSection from '@/components/home/FeaturesSection';
 import ExploreTools from '@/components/home/ExploreTools';
 import WelcomeModal from '@/components/onboarding/WelcomeModal';
 import OnboardingGuide from '@/components/onboarding/OnboardingGuide';
+import OnboardingTrigger from '@/components/onboarding/OnboardingTrigger';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 
 const Index = () => {
@@ -27,20 +28,8 @@ const Index = () => {
   const upcomingEvents = []; // TODO: Replace with real events data when available
   const { isFirstVisit, completedTours, dismissedTours, startTour, isOnboardingActive, currentTour } = useOnboarding();
   
-  // Auto-start home tour for returning users who haven't completed it or dismissed it
-  useEffect(() => {
-    const homeTourId = 'home';
-    const hasNotCompletedTour = !completedTours.includes(homeTourId);
-    const hasNotDismissedTour = !dismissedTours.includes(homeTourId);
-    
-    // Only auto-start if not first visit, tour not completed/dismissed, AND no tour is currently active
-    if (!isFirstVisit && hasNotCompletedTour && hasNotDismissedTour && !isOnboardingActive) {
-      const timer = setTimeout(() => {
-        startTour(homeTourId);
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [isFirstVisit, completedTours, dismissedTours, startTour, isOnboardingActive]);
+  // Remove auto-start functionality to prevent conflicts
+  // Users can manually trigger tours if needed
 
   // Create sections array with reordered sections - career quiz before personalized pathway
   const sections = [
@@ -91,6 +80,13 @@ const Index = () => {
     <div className="min-h-screen flex flex-col overflow-x-hidden">
       <WelcomeModal />
       <OnboardingGuide tourId="home" />
+      
+      {/* Onboarding trigger button */}
+      {!isFirstVisit && !isOnboardingActive && (
+        <div className="fixed bottom-4 right-4 z-50">
+          <OnboardingTrigger tourId="home" variant="button" />
+        </div>
+      )}
       
       {sectionRefs.map(({ id, ref, inView, Component }) => {
         // Force visibility during active tour to ensure all sections are visible
