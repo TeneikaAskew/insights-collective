@@ -77,27 +77,8 @@ export const useRegisterForEvent = () => {
   
   return useMutation({
     mutationFn: async (eventId: string) => {
-      console.log('Registration mutation started for event:', eventId);
       if (!user) throw new Error('Must be logged in to register');
       
-      // Check if already registered
-      console.log('Checking existing registration...');
-      const { data: existing } = await supabase
-        .from('event_registrations')
-        .select('id')
-        .eq('event_id', eventId)
-        .eq('user_id', user.id)
-        .maybeSingle();
-      
-      console.log('Existing registration:', existing);
-      
-      if (existing) {
-        // User is already registered, do nothing or throw a descriptive error
-        console.log('User already registered');
-        return { action: 'already_registered', data: existing };
-      }
-      
-      console.log('Creating new registration...');
       const { data, error } = await supabase
         .from('event_registrations')
         .insert({
@@ -107,9 +88,8 @@ export const useRegisterForEvent = () => {
         .select()
         .single();
       
-      console.log('Registration result:', { data, error });
       if (error) throw error;
-      return { action: 'registered', data };
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['event-registrations'] });

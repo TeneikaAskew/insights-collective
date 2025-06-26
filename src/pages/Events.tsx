@@ -41,10 +41,6 @@ export default function Events() {
   const registeredEventIds = userRegistrations.map(reg => reg.event_id);
   
   const handleRegister = async (eventId: string) => {
-    console.log('handleRegister called for event:', eventId);
-    console.log('User authenticated:', !!user);
-    console.log('Currently registered events:', registeredEventIds);
-    
     if (!user) {
       toast({
         title: 'Login Required',
@@ -57,30 +53,19 @@ export default function Events() {
     try {
       // Check if already registered
       if (registeredEventIds.includes(eventId)) {
-        console.log('Unregistering from event...');
         await unregisterMutation.mutateAsync(eventId);
         toast({
           title: 'Registration Cancelled',
           description: 'You have been unregistered from this event.',
         });
       } else {
-        console.log('Registering for event...');
-        const result = await registerMutation.mutateAsync(eventId);
-        console.log('Registration result:', result);
-        if (result.action === 'already_registered') {
-          toast({
-            title: 'Already Registered',
-            description: 'You are already registered for this event.',
-          });
-        } else {
-          toast({
-            title: 'Registration Successful',
-            description: 'You have been registered for this event.',
-          });
-        }
+        await registerMutation.mutateAsync(eventId);
+        toast({
+          title: 'Registration Successful',
+          description: 'You have been registered for this event.',
+        });
       }
     } catch (error) {
-      console.error('Registration error:', error);
       toast({
         title: 'Error',
         description: error instanceof Error ? error.message : 'Failed to update registration.',
