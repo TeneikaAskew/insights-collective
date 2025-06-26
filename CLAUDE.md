@@ -13,6 +13,13 @@ npm run preview   # Preview production build locally
 npm run lint      # Run ESLint for code quality checks
 ```
 
+**Testing**
+```bash
+npm run test          # Run all tests in watch mode
+npm run test:ui       # Run tests with Vitest UI
+npm run test:coverage # Run tests with coverage report
+```
+
 **Supabase Local Development** (if needed)
 ```bash
 supabase start    # Start local Supabase instance
@@ -127,5 +134,36 @@ import { Button } from "@/components/ui/button"
 1. The project is a Lovable.dev application (AI-assisted development platform)
 2. Component tagging is enabled in development mode for Lovable integration
 3. ESLint is configured but with relaxed rules (unused vars allowed)
-4. No test framework is currently configured
+4. Vitest is configured for unit testing with React Testing Library
 5. The application requires Supabase environment variables to function properly
+
+### Testing Architecture
+
+**Test Organization**
+- Unit tests are colocated with source files in `__tests__` directories
+- Test utilities and mocks are in `/src/test/`
+- Coverage reports exclude test files, config files, and main.tsx
+
+**Test Stack**
+- **Framework**: Vitest (Vite-native test runner)
+- **React Testing**: @testing-library/react for component testing
+- **Mocking**: Vitest vi.mock() and custom Supabase mocks
+- **Coverage**: Vitest with v8 provider
+
+**Key Test Patterns**
+1. **Component Tests**: Use custom render function with all providers
+2. **Hook Tests**: Use renderHook with proper wrappers
+3. **Service Tests**: Mock Supabase client responses
+4. **Authentication Tests**: Mock auth states and user profiles
+
+**Running Tests**
+```bash
+# Run specific test file
+npm run test src/components/auth/__tests__/Login.test.tsx
+
+# Run tests matching pattern
+npm run test -- --grep "authentication"
+
+# Run tests in CI mode (no watch)
+npm run test -- --run
+```
