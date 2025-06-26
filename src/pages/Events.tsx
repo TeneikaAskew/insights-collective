@@ -33,7 +33,8 @@ export default function Events() {
     ...event,
     startTime: event.start_time,
     endTime: event.end_time,
-    calendlyLink: event.calendly_link
+    calendlyLink: event.calendly_link,
+    registrations: 0 // This will be updated with actual registration count from the hook
   }));
   
   // Get registered event IDs for the current user

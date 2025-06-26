@@ -63,6 +63,7 @@ export const AdminDashboardActions = () => {
           
           {isEventModalOpen && (
             <AddEventModal 
+              open={isEventModalOpen}
               onAddEvent={handleAddEvent} 
               onClose={() => setIsEventModalOpen(false)}
             />

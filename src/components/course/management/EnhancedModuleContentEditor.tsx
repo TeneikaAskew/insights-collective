@@ -128,7 +128,13 @@ const EnhancedModuleContentEditor: React.FC<EnhancedModuleContentEditorProps> = 
     setShowEditor(true);
   };
 
-  const handleSaveBlock = async (blockData: ContentBlockInput) => {
+  const handleSaveBlock = async (block: Omit<ContentBlock, "id">) => {
+    const blockData: ContentBlockInput = {
+      ...block,
+      module_id: moduleId || editingBlock?.module_id || '',
+      lesson_id: lessonId || block.lesson_id || null
+    };
+    
     if (editingBlock) {
       await updateBlock(editingBlock.id, blockData);
     } else {

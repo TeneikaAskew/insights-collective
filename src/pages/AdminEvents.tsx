@@ -74,7 +74,17 @@ export default function AdminEvents() {
         });
       } else {
         const { id, ...eventData } = newEvent;
-        await createEvent.mutateAsync(eventData);
+        const finalEventData = {
+          ...eventData,
+          link: eventData.link || null,
+          image: eventData.image || null,
+          start_time: eventData.start_time || null,
+          end_time: eventData.end_time || null,
+          location: eventData.location || null,
+          capacity: eventData.capacity || null,
+          calendly_link: eventData.calendly_link || null
+        };
+        await createEvent.mutateAsync(finalEventData);
         toast({
           title: 'Event Added',
           description: 'The event has been successfully added to the calendar.',
