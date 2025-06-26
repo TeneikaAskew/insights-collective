@@ -1,8 +1,8 @@
-
 import { Link } from 'react-router-dom';
-import { ArrowRight, Calendar, MapPin, Users, Video, Clock, ExternalLink } from 'lucide-react';
+import { ArrowRight, Calendar, MapPin, Users, Video, Clock, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { motion } from 'framer-motion';
 
 type Event = {
   id: string;
@@ -16,6 +16,7 @@ type Event = {
   format?: string;
   capacity?: number | null;
   calendly_link?: string | null;
+  image?: string | null;
 };
 
 type UpcomingEventsProps = {
@@ -27,62 +28,103 @@ const UpcomingEvents = ({ events }: UpcomingEventsProps) => {
   if (!events || events.length === 0) {
     return null;
   }
-  // Get event type icon
-  const getEventIcon = (type: string) => {
+
+  // Get event type badge color
+  const getTypeColor = (type: string): string => {
     switch (type.toLowerCase()) {
       case 'workshop':
-        return Users;
+        return 'bg-blue-100 text-blue-600';
       case 'webinar':
-        return Video;
+        return 'bg-purple-100 text-purple-600';
       case 'conference':
-        return Users;
+        return 'bg-amber-100 text-amber-600';
       case 'meetup':
-        return Users;
+        return 'bg-green-100 text-green-600';
       case 'hackathon':
-        return Users;
+        return 'bg-orange-100 text-orange-600';
+      case 'panel':
+        return 'bg-pink-100 text-pink-600';
       default:
-        return Calendar;
+        return 'bg-gray-100 text-gray-600';
     }
   };
-  
-  // Get type badge style
-  const getTypeStyle = (type: string): string => {
-    switch (type.toLowerCase()) {
-      case 'workshop':
+
+  // Get format badge style
+  const getFormatStyle = (format?: string): string => {
+    switch (format?.toLowerCase()) {
+      case 'virtual':
+      case 'online':
         return 'bg-blue-100 text-blue-600 border-blue-200';
-      case 'webinar':
-        return 'bg-purple-100 text-purple-600 border-purple-200';
-      case 'conference':
-        return 'bg-amber-100 text-amber-600 border-amber-200';
-      case 'meetup':
+      case 'in-person':
         return 'bg-green-100 text-green-600 border-green-200';
-      case 'hackathon':
-        return 'bg-orange-100 text-orange-600 border-orange-200';
+      case 'hybrid':
+        return 'bg-purple-100 text-purple-600 border-purple-200';
       default:
         return 'bg-gray-100 text-gray-600 border-gray-200';
     }
   };
-  
+
   // Format date nicely
   const formatEventDate = (dateString: string) => {
     const date = new Date(dateString);
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    
     return {
       day: date.getDate(),
-      month: date.toLocaleString('default', { month: 'short' }),
-      time: date.toLocaleString('default', { hour: '2-digit', minute: '2-digit' }),
-      fullDate: date.toLocaleDateString('default', { 
-        weekday: 'short', 
+      month: monthNames[date.getMonth()],
+      year: date.getFullYear(),
+      fullDate: date.toLocaleDateString('en-US', { 
+        weekday: 'long', 
+        year: 'numeric',
         month: 'long', 
         day: 'numeric' 
       })
     };
   };
 
+  // Format time
+  const formatTime = (timeString?: string | null) => {
+    if (!timeString) return null;
+    try {
+      const [hours, minutes] = timeString.split(':');
+      const hour = parseInt(hours);
+      const ampm = hour >= 12 ? 'PM' : 'AM';
+      const displayHour = hour % 12 || 12;
+      return `${displayHour}:${minutes} ${ampm}`;
+    } catch {
+      return timeString;
+    }
+  };
+
+  // Check if event is past
+  const isPastEvent = (dateString: string) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const eventDate = new Date(dateString);
+    eventDate.setHours(0, 0, 0, 0);
+    return eventDate < today;
+  };
+
+  // Get default image based on event type
+  const getDefaultImage = (type: string): string => {
+    const images = {
+      workshop: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&h=450&fit=crop',
+      webinar: 'https://images.unsplash.com/photo-1587825140708-dfaf72ae4b04?w=800&h=450&fit=crop',
+      conference: 'https://images.unsplash.com/photo-1505373877841-8d25f7d46678?w=800&h=450&fit=crop',
+      meetup: 'https://images.unsplash.com/photo-1515169067868-5387ec356754?w=800&h=450&fit=crop',
+      hackathon: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=800&h=450&fit=crop',
+      panel: 'https://images.unsplash.com/photo-1591115765373-5207764f72e7?w=800&h=450&fit=crop',
+    };
+    return images[type.toLowerCase()] || images.conference;
+  };
+
   return (
-    <section className="py-20 bg-gray-50 dark:bg-gray-800/50">
+    <section className="py-20 bg-white dark:bg-gray-900">
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-bold font-display">Events & Workshops</h2>
+          <h2 className="text-3xl md:text-4xl font-bold font-display bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
+            Events & Workshops
+          </h2>
           <Button variant="ghost" asChild className="group">
             <Link to="/events" className="flex items-center">
               View All <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform duration-300" />
@@ -91,72 +133,105 @@ const UpcomingEvents = ({ events }: UpcomingEventsProps) => {
         </div>
         
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {events.map((event) => {
-            const EventIcon = getEventIcon(event.type);
+          {events.map((event, index) => {
             const dateObj = formatEventDate(event.date);
-            const today = new Date().toISOString().split('T')[0];
-            const isPastEvent = event.date < today;
+            const isPast = isPastEvent(event.date);
+            const timeFormatted = formatTime(event.start_time);
             
             return (
-              <div 
-                key={event.id} 
-                className="rounded-xl overflow-hidden border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-md hover:shadow-xl transition-all duration-300 group relative"
+              <motion.div
+                key={event.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
               >
-                {isPastEvent && (
-                  <div className="absolute top-4 left-4 z-10">
-                    <Badge variant="secondary" className="bg-gray-100 text-gray-600">
-                      Past Event
-                    </Badge>
-                  </div>
-                )}
-                <div className="aspect-video relative bg-gradient-to-br from-primary/5 to-accent/5">
-                  <div className="absolute inset-0 flex justify-between p-4">
-                    <div className="flex flex-col justify-center items-center bg-white dark:bg-gray-800 rounded-xl p-3 shadow-md border border-gray-100 dark:border-gray-700 w-20 h-20">
-                      <p className="text-2xl font-bold text-primary">{dateObj.day}</p>
-                      <p className="text-sm uppercase text-gray-500">{dateObj.month}</p>
+                <Link to={`/events/${event.id}`} className="block group">
+                  <div className="rounded-xl overflow-hidden border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-800 shadow-md hover:shadow-xl transition-all duration-300 h-full flex flex-col">
+                    <div className="aspect-video overflow-hidden relative">
+                      <img 
+                        src={event.image || getDefaultImage(event.type)} 
+                        alt={event.title} 
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
+                      />
+                      
+                      {/* Date overlay */}
+                      <div className="absolute top-3 left-3 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm rounded-lg p-2.5 text-center shadow-lg">
+                        <div className="text-2xl font-bold text-primary">{dateObj.day}</div>
+                        <div className="text-xs uppercase text-gray-600 dark:text-gray-400">{dateObj.month}</div>
+                      </div>
+                      
+                      {/* Past event badge */}
+                      {isPast && (
+                        <div className="absolute top-3 right-3 bg-gray-900/80 text-white text-xs font-bold px-2.5 py-1.5 rounded-full shadow-lg">
+                          Past Event
+                        </div>
+                      )}
+                      
+                      {/* Popular badge for high capacity events */}
+                      {!isPast && event.capacity && event.capacity >= 100 && (
+                        <div className="absolute top-3 right-3 bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs font-bold px-2.5 py-1.5 rounded-full shadow-lg flex items-center">
+                          <Sparkles className="h-3 w-3 mr-1" />
+                          Popular
+                        </div>
+                      )}
                     </div>
                     
-                    <Badge variant="outline" className={`${getTypeStyle(event.type)} h-fit font-medium flex items-center`}>
-                      <EventIcon className="h-3 w-3 mr-1" />
-                      {event.type}
-                    </Badge>
-                  </div>
-                  
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <Calendar className="text-primary/20 h-20 w-20" />
-                  </div>
-                </div>
-                
-                <div className="p-6">
-                  <h3 className="text-xl font-semibold mb-3 group-hover:text-primary transition-colors duration-300">{event.title}</h3>
-                  <p className="text-muted-foreground mb-4 line-clamp-2">{event.description}</p>
-                  
-                  <div className="flex flex-col space-y-2 mb-4">
-                    <div className="flex items-center text-sm text-muted-foreground">
-                      <Clock className="h-4 w-4 mr-2 text-muted-foreground/70" /> 
-                      <span>{event.start_time || dateObj.time}</span>
-                    </div>
-                    {event.location && (
-                      <div className="flex items-center text-sm text-muted-foreground">
-                        <MapPin className="h-4 w-4 mr-2 text-muted-foreground/70" /> 
-                        <span>{event.location}</span>
+                    <div className="p-6 flex-grow flex flex-col">
+                      <div className="flex items-center justify-between mb-3">
+                        <Badge className={`font-medium px-2.5 py-1 ${getTypeColor(event.type)}`}>
+                          {event.type.charAt(0).toUpperCase() + event.type.slice(1)}
+                        </Badge>
+                        {event.format && (
+                          <Badge variant="outline" className={`${getFormatStyle(event.format)} font-medium text-xs`}>
+                            {event.format}
+                          </Badge>
+                        )}
                       </div>
-                    )}
+                      
+                      <h3 className="text-xl font-semibold mb-3 line-clamp-1 group-hover:text-primary transition-colors duration-300">
+                        {event.title}
+                      </h3>
+                      <p className="text-muted-foreground mb-4 line-clamp-2">{event.description}</p>
+                      
+                      <div className="mt-auto space-y-2">
+                        {timeFormatted && (
+                          <div className="flex items-center text-sm text-muted-foreground">
+                            <Clock className="h-4 w-4 mr-2 flex-shrink-0" />
+                            <span>{timeFormatted}</span>
+                          </div>
+                        )}
+                        {event.location && (
+                          <div className="flex items-center text-sm text-muted-foreground">
+                            <MapPin className="h-4 w-4 mr-2 flex-shrink-0" />
+                            <span className="line-clamp-1">{event.location}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center text-muted-foreground text-sm">
+                          {event.capacity && (
+                            <>
+                              <Users className="h-4 w-4 mr-1" />
+                              <span>{event.capacity} spots</span>
+                            </>
+                          )}
+                        </div>
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          className="text-primary hover:text-primary hover:bg-primary/10 -mr-2 px-2 py-1 h-7"
+                        >
+                          <span className="mr-1">{isPast ? 'View' : 'Register'}</span>
+                          <ArrowRight className="h-3 w-3 group-hover:translate-x-1 transition-transform duration-300" />
+                        </Button>
+                      </div>
+                    </div>
                   </div>
-                  
-                  <div className="flex justify-between items-center">
-                    <Link 
-                      to={`/events/${event.id}`}
-                      className="text-primary text-sm font-medium hover:underline flex items-center group-hover:translate-x-1 transition-transform duration-300"
-                    >
-                      Event details <ExternalLink className="ml-1 h-3 w-3" />
-                    </Link>
-                    <Button size="sm" asChild>
-                      <Link to={`/events/${event.id}`}>Register</Link>
-                    </Button>
-                  </div>
-                </div>
-              </div>
+                </Link>
+              </motion.div>
             );
           })}
         </div>
