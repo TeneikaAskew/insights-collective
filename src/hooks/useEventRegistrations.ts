@@ -79,6 +79,8 @@ export const useRegisterForEvent = () => {
     mutationFn: async (eventId: string) => {
       if (!user) throw new Error('Must be logged in to register');
       
+      console.log('Attempting to register user:', user.id, 'for event:', eventId);
+      
       const { data, error } = await supabase
         .from('event_registrations')
         .insert({
@@ -88,7 +90,12 @@ export const useRegisterForEvent = () => {
         .select()
         .single();
       
-      if (error) throw error;
+      console.log('Registration result:', { data, error });
+      
+      if (error) {
+        console.error('Registration error:', error);
+        throw error;
+      }
       return data;
     },
     onSuccess: () => {
@@ -108,13 +115,20 @@ export const useUnregisterFromEvent = () => {
     mutationFn: async (eventId: string) => {
       if (!user) throw new Error('Must be logged in to unregister');
       
-      const { error } = await supabase
+      console.log('Attempting to unregister user:', user.id, 'from event:', eventId);
+      
+      const { error, count } = await supabase
         .from('event_registrations')
-        .delete()
+        .delete({ count: 'exact' })
         .eq('event_id', eventId)
         .eq('user_id', user.id);
       
-      if (error) throw error;
+      console.log('Unregistration result:', { error, count });
+      
+      if (error) {
+        console.error('Unregistration error:', error);
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['event-registrations'] });
