@@ -97,6 +97,11 @@ export const useRegisterForEvent = () => {
         // If it's a duplicate key error, treat it as success since user is already registered
         if (error.code === '23505') {
           console.log('User already registered, treating as success');
+          // Force refresh queries to show current state
+          queryClient.invalidateQueries({ queryKey: ['event-registrations'] });
+          queryClient.invalidateQueries({ queryKey: ['user-registrations'] });
+          queryClient.invalidateQueries({ queryKey: ['event-registration-count'] });
+          queryClient.invalidateQueries({ queryKey: ['is-registered'] });
           return { message: 'Already registered' };
         }
         throw error;
