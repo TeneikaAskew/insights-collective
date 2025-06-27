@@ -20,7 +20,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 export default function Events() {
   const { data: eventsData = [], isLoading: eventsLoading } = useEvents();
   const { user } = useAuth();
-  const { data: userRegistrations = [] } = useUserRegistrations();
+  const { data: userRegistrations = [], isLoading: userRegistrationsLoading } = useUserRegistrations();
   const { data: allRegistrations = [] } = useEventRegistrations();
   const registerMutation = useRegisterForEvent();
   const unregisterMutation = useUnregisterFromEvent();
@@ -42,8 +42,14 @@ export default function Events() {
     };
   });
   
-  // Get registered event IDs for the current user
-  const registeredEventIds = userRegistrations.map(reg => reg.event_id);
+  // Get registered event IDs for the current user, filtering out any null values
+  const registeredEventIds = userRegistrations
+    .map(reg => reg.event_id)
+    .filter(id => id !== null && id !== undefined) as string[];
+  
+  // Debug logging
+  console.log('User registrations:', userRegistrations);
+  console.log('Registered event IDs:', registeredEventIds);
   
   const handleRegister = async (eventId: string) => {
     if (!user) {
@@ -107,7 +113,8 @@ export default function Events() {
   
   const isSearching = searchQuery !== '' || typeFilter !== 'all' || formatFilter !== 'all';
   
-  if (eventsLoading) {
+  // Show loading state if either events or user registrations are loading
+  if (eventsLoading || (user && userRegistrationsLoading)) {
     return (
       <AppLayout>
         <div className="space-y-8">

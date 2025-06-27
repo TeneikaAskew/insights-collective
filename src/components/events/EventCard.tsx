@@ -42,6 +42,9 @@ export function EventCard({
     toast
   } = useToast();
   const navigate = useNavigate();
+  
+  // Debug logging
+  console.log(`Event ${event.id} - isRegistered: ${isRegistered}`);
   const formatDate = (dateString: string) => {
     try {
       const date = new Date(dateString);
