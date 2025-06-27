@@ -11,7 +11,8 @@
       "Bash(npm install:*)",
       "Bash(npm ci:*)",
       "Bash(node:*)",
-      "Bash(touch:*)"
+      "Bash(touch:*)",
+      "Bash(git add:*)"
     ],
     "deny": []
   }
