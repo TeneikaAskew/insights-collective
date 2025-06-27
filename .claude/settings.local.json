@@ -12,7 +12,12 @@
       "Bash(npm ci:*)",
       "Bash(node:*)",
       "Bash(touch:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(mv:*)",
+      "Bash(git commit:*)",
+      "Bash(git rm:*)",
+      "Bash(git config:*)",
+      "Bash(git push:*)"
     ],
     "deny": []
   }

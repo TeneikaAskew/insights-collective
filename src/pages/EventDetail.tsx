@@ -78,6 +78,26 @@ export default function EventDetail() {
     }
   };
 
+  const handleCancelRegistration = async () => {
+    if (!user || !id) {
+      return;
+    }
+
+    try {
+      await unregisterMutation.mutateAsync(id);
+      toast({
+        title: 'Registration Cancelled',
+        description: 'Your registration has been cancelled.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to cancel registration.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { 
@@ -267,12 +287,23 @@ export default function EventDetail() {
               <CardContent className="space-y-4">
                 {!isPast && (
                   isRegistered ? (
-                    <Button 
-                      disabled
-                      className="w-full bg-gray-100 text-gray-600"
-                    >
-                      Already Registered
-                    </Button>
+                    <>
+                      <Button 
+                        disabled
+                        className="w-full bg-gray-100 text-gray-600"
+                      >
+                        Already Registered
+                      </Button>
+                      <Button 
+                        onClick={handleCancelRegistration}
+                        disabled={isRegistering}
+                        variant="destructive"
+                        className="w-full"
+                      >
+                        {isRegistering && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                        Cancel Registration
+                      </Button>
+                    </>
                   ) : (
                     <Button 
                       onClick={handleRegister}
