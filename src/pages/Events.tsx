@@ -56,31 +56,27 @@ export default function Events() {
     }
     
     try {
-      // Check if already registered
+      // Don't allow registration if already registered
       if (registeredEventIds.includes(eventId)) {
-        await unregisterMutation.mutateAsync(eventId);
+        return;
+      }
+      
+      const result = await registerMutation.mutateAsync(eventId);
+      if (result.already_registered) {
         toast({
-          title: 'Registration Cancelled',
-          description: 'You have been unregistered from this event.',
+          title: 'Already Registered',
+          description: 'You are already registered for this event.',
         });
       } else {
-        const result = await registerMutation.mutateAsync(eventId);
-        if (result.already_registered) {
-          toast({
-            title: 'Already Registered',
-            description: 'You are already registered for this event.',
-          });
-        } else {
-          toast({
-            title: 'Registration Successful',
-            description: 'You have been registered for this event.',
-          });
-        }
+        toast({
+          title: 'Registration Successful',
+          description: 'You have been registered for this event.',
+        });
       }
     } catch (error) {
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to update registration.',
+        description: error instanceof Error ? error.message : 'Failed to register for event.',
         variant: 'destructive',
       });
     }
@@ -160,7 +156,7 @@ export default function Events() {
                 events={upcomingEvents} 
                 onRegister={handleRegister} 
                 registeredEvents={registeredEventIds}
-                isRegistering={registerMutation.isPending || unregisterMutation.isPending}
+                isRegistering={registerMutation.isPending}
               />
             ) : (
               <NoEventsMessage isSearching={isSearching} />

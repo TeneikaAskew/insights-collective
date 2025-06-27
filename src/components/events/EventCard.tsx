@@ -116,15 +116,10 @@ export function EventCard({
         {onRegister ? (
           isRegistered ? (
             <Button 
-              onClick={handleRegister} 
-              disabled={isRegistering}
-              className="w-full bg-red-600 hover:bg-red-700 text-white"
+              disabled
+              className="w-full bg-gray-100 text-gray-600 cursor-not-allowed"
             >
-              {isRegistering ? (
-                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing...</>
-              ) : (
-                'Cancel Registration'
-              )}
+              Already Registered
             </Button>
           ) : isAtCapacity ? (
             <Button disabled className="w-full">Event Full</Button>
