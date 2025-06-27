@@ -149,6 +149,7 @@ export const useRegisterForEvent = () => {
     onSuccess: async () => {
       // Invalidate and refetch all related queries
       await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['events-with-registrations'] }),
         queryClient.invalidateQueries({ queryKey: ['event-registrations'] }),
         queryClient.invalidateQueries({ queryKey: ['user-registrations'] }),
         queryClient.invalidateQueries({ queryKey: ['event-registration-count'] }),
@@ -182,6 +183,7 @@ export const useUnregisterFromEvent = () => {
       }
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['events-with-registrations'] });
       queryClient.invalidateQueries({ queryKey: ['event-registrations'] });
       queryClient.invalidateQueries({ queryKey: ['user-registrations'] });
       queryClient.invalidateQueries({ queryKey: ['event-registration-count'] });

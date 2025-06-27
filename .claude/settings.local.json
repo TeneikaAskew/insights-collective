@@ -10,7 +10,8 @@
       "Bash(npm install)",
       "Bash(npm install:*)",
       "Bash(npm ci:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(touch:*)"
     ],
     "deny": []
   }

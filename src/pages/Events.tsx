@@ -8,48 +8,27 @@ import { EventsFilter } from '@/components/events/EventsFilter';
 import { EventsList } from '@/components/events/EventsList';
 import { NoEventsMessage } from '@/components/events/NoEventsMessage';
 import { useAuth } from '@/contexts/AuthContext';
-import { useEvents } from '@/hooks/useEvents';
+import { useEventsWithRegistrations } from '@/hooks/useEventsWithRegistrations';
 import { 
-  useUserRegistrations, 
   useRegisterForEvent, 
-  useUnregisterFromEvent,
-  useEventRegistrations
+  useUnregisterFromEvent
 } from '@/hooks/useEventRegistrations';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function Events() {
-  const { data: eventsData = [], isLoading: eventsLoading } = useEvents();
   const { user } = useAuth();
-  const { data: userRegistrations = [], isLoading: userRegistrationsLoading } = useUserRegistrations();
-  const { data: allRegistrations = [] } = useEventRegistrations();
+  const { data, isLoading } = useEventsWithRegistrations();
   const registerMutation = useRegisterForEvent();
   const unregisterMutation = useUnregisterFromEvent();
+  
+  // Extract data from the combined query
+  const events = data?.events || [];
+  const registeredEventIds = data?.registeredEventIds || [];
   
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [formatFilter, setFormatFilter] = useState('all');
   const { toast } = useToast();
-  
-  // Transform events data with registration counts
-  const events = eventsData.map(event => {
-    const registrationCount = allRegistrations.filter(reg => reg.event_id === event.id).length;
-    return {
-      ...event,
-      startTime: event.start_time,
-      endTime: event.end_time,
-      calendlyLink: event.calendly_link,
-      registrations: registrationCount
-    };
-  });
-  
-  // Get registered event IDs for the current user, filtering out any null values
-  const registeredEventIds = userRegistrations
-    .map(reg => reg.event_id)
-    .filter(id => id !== null && id !== undefined) as string[];
-  
-  // Debug logging
-  console.log('User registrations:', userRegistrations);
-  console.log('Registered event IDs:', registeredEventIds);
   
   const handleRegister = async (eventId: string) => {
     if (!user) {
@@ -113,8 +92,8 @@ export default function Events() {
   
   const isSearching = searchQuery !== '' || typeFilter !== 'all' || formatFilter !== 'all';
   
-  // Show loading state if either events or user registrations are loading
-  if (eventsLoading || (user && userRegistrationsLoading)) {
+  // Show loading state while data is being fetched
+  if (isLoading) {
     return (
       <AppLayout>
         <div className="space-y-8">

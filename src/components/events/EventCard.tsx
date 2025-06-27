@@ -42,9 +42,6 @@ export function EventCard({
     toast
   } = useToast();
   const navigate = useNavigate();
-  
-  // Debug logging
-  console.log(`Event ${event.id} - isRegistered: ${isRegistered}`);
   const formatDate = (dateString: string) => {
     try {
       const date = new Date(dateString);
@@ -53,7 +50,9 @@ export function EventCard({
       return dateString;
     }
   };
-  const handleRegister = () => {
+  const handleRegister = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click when clicking button
+    
     if (!isAuthenticated) {
       // Redirect to login page if not authenticated
       toast({
@@ -72,8 +71,15 @@ export function EventCard({
     // If user is logged in, handle registration (toggle)
     onRegister?.(event.id);
   };
+  
+  const handleCardClick = () => {
+    navigate(`/events/${event.id}`);
+  };
   const isAtCapacity = event.capacity !== null && event.registrations >= event.capacity;
-  return <Card className="h-full flex flex-col">
+  return <Card 
+    className="h-full flex flex-col cursor-pointer hover:shadow-lg transition-shadow duration-200"
+    onClick={handleCardClick}
+  >
       <div className="relative w-full pt-[50%] overflow-hidden">
         <img src={event.image || "https://via.placeholder.com/600x300?text=Event"} alt={event.title} className="absolute inset-0 w-full h-full object-cover" />
         <Badge className="absolute top-2 right-2 text-white bg-energeticAmber">{event.type}</Badge>
@@ -121,11 +127,12 @@ export function EventCard({
             <Button 
               disabled
               className="w-full bg-gray-100 text-gray-600 cursor-not-allowed"
+              onClick={(e) => e.stopPropagation()}
             >
               Already Registered
             </Button>
           ) : isAtCapacity ? (
-            <Button disabled className="w-full">Event Full</Button>
+            <Button disabled className="w-full" onClick={(e) => e.stopPropagation()}>Event Full</Button>
           ) : (
             <Button 
               onClick={handleRegister} 
@@ -140,7 +147,7 @@ export function EventCard({
             </Button>
           )
         ) : (
-          <Button disabled className="w-full">Registration Closed</Button>
+          <Button disabled className="w-full" onClick={(e) => e.stopPropagation()}>Registration Closed</Button>
         )}
       </CardFooter>
     </Card>;

@@ -1,23 +1,40 @@
-import { useParams } from 'react-router-dom';
-import { useEvent } from '@/hooks/useEvents';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { useEventRegistrationCount, useIsRegisteredForEvent, useRegisterForEvent, useUnregisterFromEvent } from '@/hooks/useEventRegistrations';
 import AppLayout from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Calendar, Clock, MapPin, Users, Video, ExternalLink, Loader2 } from 'lucide-react';
+import { Calendar, Clock, MapPin, Users, Video, ExternalLink, Loader2, ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
 export default function EventDetail() {
-  const { eventId } = useParams<{ eventId: string }>();
+  const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   
-  const { data: event, isLoading } = useEvent(eventId!);
-  const { data: registrationCount = 0 } = useEventRegistrationCount(eventId!);
-  const { data: isRegistered = false } = useIsRegisteredForEvent(eventId!);
+  // Fetch event details
+  const { data: event, isLoading } = useQuery({
+    queryKey: ['event', id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('events')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (error) throw error;
+      return data;
+    }
+  });
+  
+  const { data: registrationCount = 0 } = useEventRegistrationCount(id!);
+  const { data: isRegistered = false } = useIsRegisteredForEvent(id!);
   const registerMutation = useRegisterForEvent();
   const unregisterMutation = useUnregisterFromEvent();
 
@@ -28,18 +45,25 @@ export default function EventDetail() {
         description: 'Please login to register for events.',
         variant: 'destructive',
       });
+      navigate('/login', {
+        state: { redirectTo: `/events/${id}` }
+      });
       return;
     }
 
     try {
+      // Don't allow registration if already registered
       if (isRegistered) {
-        await unregisterMutation.mutateAsync(eventId!);
+        return;
+      }
+      
+      const result = await registerMutation.mutateAsync(id!);
+      if (result.already_registered) {
         toast({
-          title: 'Registration Cancelled',
-          description: 'You have been unregistered from this event.',
+          title: 'Already Registered',
+          description: 'You are already registered for this event.',
         });
       } else {
-        await registerMutation.mutateAsync(eventId!);
         toast({
           title: 'Registration Successful',
           description: 'You have been registered for this event.',
@@ -48,7 +72,7 @@ export default function EventDetail() {
     } catch (error) {
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to update registration.',
+        description: error instanceof Error ? error.message : 'Failed to register for event.',
         variant: 'destructive',
       });
     }
@@ -156,6 +180,16 @@ export default function EventDetail() {
   return (
     <AppLayout>
       <div className="container mx-auto px-4 py-8">
+        {/* Back button */}
+        <Button
+          variant="ghost"
+          onClick={() => navigate('/events')}
+          className="mb-6"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Events
+        </Button>
+        
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Main Content */}
           <div className="lg:col-span-2">
@@ -232,15 +266,23 @@ export default function EventDetail() {
               </CardHeader>
               <CardContent className="space-y-4">
                 {!isPast && (
-                  <Button 
-                    onClick={handleRegister}
-                    disabled={isRegistering}
-                    className="w-full"
-                    variant={isRegistered ? "outline" : "default"}
-                  >
-                    {isRegistering && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                    {isRegistered ? 'Cancel Registration' : 'Register for Event'}
-                  </Button>
+                  isRegistered ? (
+                    <Button 
+                      disabled
+                      className="w-full bg-gray-100 text-gray-600"
+                    >
+                      Already Registered
+                    </Button>
+                  ) : (
+                    <Button 
+                      onClick={handleRegister}
+                      disabled={isRegistering}
+                      className="w-full text-white bg-insightBlue hover:bg-insightBlue/90"
+                    >
+                      {isRegistering && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                      Register for Event
+                    </Button>
+                  )
                 )}
                 
                 {event.calendly_link && !isPast && (

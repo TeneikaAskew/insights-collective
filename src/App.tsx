@@ -205,7 +205,7 @@ function App() {
 
                   {/* Events & Social Routes */}
                   <Route path="/events" element={<Events />} />
-                  <Route path="/events/:eventId" element={<EventDetail />} />
+                  <Route path="/events/:id" element={<EventDetail />} />
                   <Route path="/messages" element={<Messages />} />
                   <Route path="/forum" element={<Forum />} />
                   <Route path="/forums" element={<Forum />} />
