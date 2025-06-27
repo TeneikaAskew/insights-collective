@@ -81,6 +81,25 @@ export const useRegisterForEvent = () => {
       
       console.log('Attempting to register user:', user.id, 'for event:', eventId);
       
+      // First check if user is already registered
+      const { data: existing, error: checkError } = await supabase
+        .from('event_registrations')
+        .select('id')
+        .eq('event_id', eventId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+      
+      if (checkError) {
+        console.error('Error checking registration:', checkError);
+        throw checkError;
+      }
+      
+      if (existing) {
+        console.log('User already registered for this event');
+        return { already_registered: true, data: existing };
+      }
+      
+      // Now insert the registration
       const { data, error } = await supabase
         .from('event_registrations')
         .insert({
@@ -94,19 +113,10 @@ export const useRegisterForEvent = () => {
       
       if (error) {
         console.error('Registration error:', error);
-        // If it's a duplicate key error, treat it as success since user is already registered
-        if (error.code === '23505') {
-          console.log('User already registered, treating as success');
-          // Force refresh queries to show current state
-          queryClient.invalidateQueries({ queryKey: ['event-registrations'] });
-          queryClient.invalidateQueries({ queryKey: ['user-registrations'] });
-          queryClient.invalidateQueries({ queryKey: ['event-registration-count'] });
-          queryClient.invalidateQueries({ queryKey: ['is-registered'] });
-          return { message: 'Already registered' };
-        }
         throw error;
       }
-      return data;
+      
+      return { already_registered: false, data };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['event-registrations'] });

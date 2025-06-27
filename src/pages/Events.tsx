@@ -12,7 +12,8 @@ import { useEvents } from '@/hooks/useEvents';
 import { 
   useUserRegistrations, 
   useRegisterForEvent, 
-  useUnregisterFromEvent 
+  useUnregisterFromEvent,
+  useEventRegistrations
 } from '@/hooks/useEventRegistrations';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -20,6 +21,7 @@ export default function Events() {
   const { data: eventsData = [], isLoading: eventsLoading } = useEvents();
   const { user } = useAuth();
   const { data: userRegistrations = [] } = useUserRegistrations();
+  const { data: allRegistrations = [] } = useEventRegistrations();
   const registerMutation = useRegisterForEvent();
   const unregisterMutation = useUnregisterFromEvent();
   
@@ -28,14 +30,17 @@ export default function Events() {
   const [formatFilter, setFormatFilter] = useState('all');
   const { toast } = useToast();
   
-  // Transform events data
-  const events = eventsData.map(event => ({
-    ...event,
-    startTime: event.start_time,
-    endTime: event.end_time,
-    calendlyLink: event.calendly_link,
-    registrations: 0 // This will be updated with actual registration count from the hook
-  }));
+  // Transform events data with registration counts
+  const events = eventsData.map(event => {
+    const registrationCount = allRegistrations.filter(reg => reg.event_id === event.id).length;
+    return {
+      ...event,
+      startTime: event.start_time,
+      endTime: event.end_time,
+      calendlyLink: event.calendly_link,
+      registrations: registrationCount
+    };
+  });
   
   // Get registered event IDs for the current user
   const registeredEventIds = userRegistrations.map(reg => reg.event_id);
@@ -59,11 +64,18 @@ export default function Events() {
           description: 'You have been unregistered from this event.',
         });
       } else {
-        await registerMutation.mutateAsync(eventId);
-        toast({
-          title: 'Registration Successful',
-          description: 'You have been registered for this event.',
-        });
+        const result = await registerMutation.mutateAsync(eventId);
+        if (result.already_registered) {
+          toast({
+            title: 'Already Registered',
+            description: 'You are already registered for this event.',
+          });
+        } else {
+          toast({
+            title: 'Registration Successful',
+            description: 'You have been registered for this event.',
+          });
+        }
       }
     } catch (error) {
       toast({
