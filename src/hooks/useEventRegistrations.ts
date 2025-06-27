@@ -41,7 +41,29 @@ export const useUserRegistrations = () => {
   return useQuery({
     queryKey: ['user-registrations', user?.id],
     enabled: !!user,
+    staleTime: 0, // Always fetch fresh data
     queryFn: async () => {
+      console.log('Fetching registrations for user:', user?.id);
+      
+      // First, try a simple query without joins
+      const { data: simpleData, error: simpleError } = await supabase
+        .from('event_registrations')
+        .select('*')
+        .eq('user_id', user!.id);
+      
+      console.log('Simple query result:', { simpleData, simpleError });
+      
+      // For now, return the simple data to debug the issue
+      if (simpleError) {
+        console.error('Error fetching user registrations (simple):', simpleError);
+        throw simpleError;
+      }
+      
+      // Return the simple data for now
+      return simpleData || [];
+      
+      // TODO: Re-enable the join query once we figure out why it's not working
+      /*
       const { data, error } = await supabase
         .from('event_registrations')
         .select(`
@@ -65,8 +87,14 @@ export const useUserRegistrations = () => {
         .eq('user_id', user!.id)
         .order('registered_at', { ascending: false });
       
-      if (error) throw error;
+      console.log('Join query result:', { data, error });
+      
+      if (error) {
+        console.error('Error fetching user registrations:', error);
+        throw error;
+      }
       return data || [];
+      */
     }
   });
 };
@@ -118,11 +146,14 @@ export const useRegisterForEvent = () => {
       
       return { already_registered: false, data };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['event-registrations'] });
-      queryClient.invalidateQueries({ queryKey: ['user-registrations'] });
-      queryClient.invalidateQueries({ queryKey: ['event-registration-count'] });
-      queryClient.invalidateQueries({ queryKey: ['is-registered'] });
+    onSuccess: async () => {
+      // Invalidate and refetch all related queries
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['event-registrations'] }),
+        queryClient.invalidateQueries({ queryKey: ['user-registrations'] }),
+        queryClient.invalidateQueries({ queryKey: ['event-registration-count'] }),
+        queryClient.invalidateQueries({ queryKey: ['is-registered'] })
+      ]);
     }
   });
 };
