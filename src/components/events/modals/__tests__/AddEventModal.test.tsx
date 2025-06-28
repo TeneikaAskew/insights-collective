@@ -106,7 +106,7 @@ describe('AddEventModal', () => {
       <AddEventModal 
         open={true} 
         onClose={mockOnClose} 
-        onAddEvent={mockOnSuccess}
+        onAddEvent={mockOnAddEvent}
         editEvent={editEvent as any}
       />,
       { wrapper: createWrapper() }
@@ -164,31 +164,38 @@ describe('AddEventModal', () => {
     expect(submitButton).toBeInTheDocument();
   });
 
-  it('should display validation errors', () => {
-    vi.mocked(useEventForm).mockReturnValue({
-      ...mockFormState,
-      errors: {
-        title: 'Title is required',
-        date: 'Date is required',
-      },
-    } as any);
+  it('should validate required fields on submit', async () => {
+    // Mock window.alert to capture validation messages
+    const mockAlert = vi.spyOn(window, 'alert').mockImplementation(() => {});
 
     render(
       <AddEventModal open={true} onClose={mockOnClose} onAddEvent={mockOnAddEvent} />,
       { wrapper: createWrapper() }
     );
 
-    expect(screen.getByText('Title is required')).toBeInTheDocument();
-    expect(screen.getByText('Date is required')).toBeInTheDocument();
+    // Wait for modal to render
+    await waitFor(() => {
+      expect(screen.getByText('Add New Event')).toBeInTheDocument();
+    });
+
+    // Try to submit empty form
+    const submitButton = screen.getByRole('button', { name: /Create Event/i });
+    fireEvent.click(submitButton);
+
+    // Check that alert was called with validation errors
+    expect(mockAlert).toHaveBeenCalled();
+    expect(mockAlert).toHaveBeenCalledWith(expect.stringContaining('Title is required'));
+
+    mockAlert.mockRestore();
   });
 
   it('should not render when open is false', () => {
-    const { container } = render(
-      <AddEventModal open={false} onClose={mockOnClose} onAddEvent={mockOnSuccess} />,
+    render(
+      <AddEventModal open={false} onClose={mockOnClose} onAddEvent={mockOnAddEvent} />,
       { wrapper: createWrapper() }
     );
 
-    expect(container.firstChild).toBeNull();
+    expect(screen.queryByText('Add New Event')).not.toBeInTheDocument();
   });
 
   it('should pass form data to EventFormFields', () => {

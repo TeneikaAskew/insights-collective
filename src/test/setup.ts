@@ -55,7 +55,7 @@ global.localStorage = localStorageMock as any;
 // Mock fetch
 global.fetch = vi.fn();
 
-// Mock useAuth module globally
+// Mock useAuth module globally with all exports
 vi.mock('@/hooks/useAuth', () => {
   const mockAuthProvider = {
     session: null,
@@ -78,5 +78,46 @@ vi.mock('@/hooks/useAuth', () => {
   return {
     useAuthProvider: vi.fn(() => mockAuthProvider),
     useAuth: vi.fn(() => mockAuthProvider),
+    default: vi.fn(() => mockAuthProvider),
   };
 });
+
+// Mock AuthContext module globally
+vi.mock('@/contexts/AuthContext', () => {
+  const React = require('react');
+  return {
+    AuthContext: React.createContext(null),
+    AuthProvider: ({ children }: { children: React.ReactNode }) => children,
+    useAuth: vi.fn(() => ({
+      user: null,
+      session: null,
+      loading: false,
+      error: null,
+      login: vi.fn(),
+      register: vi.fn(),
+      logout: vi.fn(),
+      googleSignIn: vi.fn(),
+      githubSignIn: vi.fn(),
+      twitterSignIn: vi.fn(),
+      isAuthenticated: false,
+      isAdmin: false,
+      isAdminAuthenticated: false,
+      storeRedirectPath: vi.fn(),
+      handleRedirectAfterLogin: vi.fn(),
+    })),
+  };
+});
+
+// Mock eventService module globally
+vi.mock('@/services/eventService', () => ({
+  createEvent: vi.fn().mockResolvedValue({ id: '1', title: 'Test Event' }),
+  updateEvent: vi.fn().mockResolvedValue({ id: '1', title: 'Updated Event' }),
+  deleteEvent: vi.fn().mockResolvedValue(true),
+  getEvents: vi.fn().mockResolvedValue([]),
+  getEventById: vi.fn().mockResolvedValue(null),
+  registerForEvent: vi.fn().mockResolvedValue(true),
+  unregisterFromEvent: vi.fn().mockResolvedValue(true),
+  getEventRegistrations: vi.fn().mockResolvedValue([]),
+  isUserRegisteredForEvent: vi.fn().mockResolvedValue(false),
+  getEventRegistrationCount: vi.fn().mockResolvedValue(0),
+}));
