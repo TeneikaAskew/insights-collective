@@ -20,7 +20,11 @@
       "Bash(git push:*)",
       "Bash(git checkout:*)",
       "Bash(npm i:*)",
-      "Bash(npm --version)"
+      "Bash(npm --version)",
+      "Bash(find:*)",
+      "Bash(npm view:*)",
+      "Bash(npm ls:*)",
+      "Bash(true)"
     ],
     "deny": []
   }
