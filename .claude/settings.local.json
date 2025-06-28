@@ -26,7 +26,8 @@
       "Bash(npm ls:*)",
       "Bash(true)",
       "Bash(npm run test:*)",
-      "Bash(npx vitest run:*)"
+      "Bash(npx vitest run:*)",
+      "Bash(git merge:*)"
     ],
     "deny": []
   }
