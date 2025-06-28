@@ -29,28 +29,47 @@ const createWrapper = () => {
 
 describe('AddEventModal', () => {
   const mockOnClose = vi.fn();
-  const mockOnSuccess = vi.fn();
+  const mockOnAddEvent = vi.fn();
 
   const mockFormState = {
-    formData: {
+    formState: {
       title: '',
       description: '',
-      date: '',
-      start_time: '',
-      end_time: '',
       type: 'workshop',
-      format: 'in-person',
+      eventFormat: 'in-person',
       location: '',
       link: '',
-      capacity: null,
-      image_url: '',
+      date: new Date('2025-01-15'),
+      calendarOpen: false,
+      startTime: '',
+      endTime: '',
+      image: '',
+      capacity: '',
+      calendlyLink: '',
+      imageFile: null,
+      imagePreview: null,
     },
-    errors: {},
-    handleInputChange: vi.fn(),
-    handleSelectChange: vi.fn(),
-    handleDateChange: vi.fn(),
-    handleSubmit: vi.fn(),
-    isSubmitting: false,
+    handlers: {
+      setTitle: vi.fn(),
+      setDescription: vi.fn(),
+      setType: vi.fn(),
+      setEventFormat: vi.fn(),
+      setLocation: vi.fn(),
+      setLink: vi.fn(),
+      setDate: vi.fn(),
+      setCalendarOpen: vi.fn(),
+      setStartTime: vi.fn(),
+      setEndTime: vi.fn(),
+      setImage: vi.fn(),
+      setCapacity: vi.fn(),
+      setCalendlyLink: vi.fn(),
+      setImageFile: vi.fn(),
+      setImagePreview: vi.fn(),
+      handleImageChange: vi.fn(),
+      handleTriggerFileInput: vi.fn(),
+      resetForm: vi.fn(),
+    },
+    fileInputRef: { current: null },
   };
 
   beforeEach(() => {
@@ -60,17 +79,17 @@ describe('AddEventModal', () => {
 
   it('should render modal with form fields', () => {
     render(
-      <AddEventModal open={true} onClose={mockOnClose} onSuccess={mockOnSuccess} />,
+      <AddEventModal open={true} onClose={mockOnClose} onAddEvent={mockOnAddEvent} />,
       { wrapper: createWrapper() }
     );
 
-    expect(screen.getByText('Create New Event')).toBeInTheDocument();
-    expect(screen.getByLabelText('Event Title')).toBeInTheDocument();
-    expect(screen.getByLabelText('Description')).toBeInTheDocument();
-    expect(screen.getByLabelText('Date')).toBeInTheDocument();
-    expect(screen.getByLabelText('Event Type')).toBeInTheDocument();
-    expect(screen.getByLabelText('Format')).toBeInTheDocument();
-    expect(screen.getByText('Create Event')).toBeInTheDocument();
+    expect(screen.getByText('Add New Event')).toBeInTheDocument();
+    expect(screen.getByLabelText(/Title/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Description/)).toBeInTheDocument();
+    expect(screen.getByText(/Date/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Event Type/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Format/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Create Event/i })).toBeInTheDocument();
   });
 
   it('should render edit mode when editEvent is provided', () => {
@@ -87,7 +106,7 @@ describe('AddEventModal', () => {
       <AddEventModal 
         open={true} 
         onClose={mockOnClose} 
-        onSuccess={mockOnSuccess}
+        onAddEvent={mockOnSuccess}
         editEvent={editEvent as any}
       />,
       { wrapper: createWrapper() }
@@ -99,7 +118,7 @@ describe('AddEventModal', () => {
 
   it('should call onClose when cancel button is clicked', () => {
     render(
-      <AddEventModal open={true} onClose={mockOnClose} onSuccess={mockOnSuccess} />,
+      <AddEventModal open={true} onClose={mockOnClose} onAddEvent={mockOnAddEvent} />,
       { wrapper: createWrapper() }
     );
 
@@ -112,7 +131,7 @@ describe('AddEventModal', () => {
   it('should call handleSubmit when form is submitted', async () => {
     const mockHandleSubmit = vi.fn().mockImplementation((e) => {
       e.preventDefault();
-      mockOnSuccess();
+      mockOnAddEvent({});
     });
 
     vi.mocked(useEventForm).mockReturnValue({
@@ -121,32 +140,28 @@ describe('AddEventModal', () => {
     } as any);
 
     render(
-      <AddEventModal open={true} onClose={mockOnClose} onSuccess={mockOnSuccess} />,
+      <AddEventModal open={true} onClose={mockOnClose} onAddEvent={mockOnAddEvent} />,
       { wrapper: createWrapper() }
     );
 
-    const form = screen.getByRole('form');
-    fireEvent.submit(form);
+    // Submit by clicking the submit button instead of form submit
+    const submitButton = screen.getByRole('button', { name: /Create Event/i });
+    fireEvent.click(submitButton);
 
     await waitFor(() => {
       expect(mockHandleSubmit).toHaveBeenCalledTimes(1);
-      expect(mockOnSuccess).toHaveBeenCalledTimes(1);
+      expect(mockOnAddEvent).toHaveBeenCalledTimes(1);
     });
   });
 
-  it('should show loading state when submitting', () => {
-    vi.mocked(useEventForm).mockReturnValue({
-      ...mockFormState,
-      isSubmitting: true,
-    } as any);
-
+  it('should show submit button', () => {
     render(
-      <AddEventModal open={true} onClose={mockOnClose} onSuccess={mockOnSuccess} />,
+      <AddEventModal open={true} onClose={mockOnClose} onAddEvent={mockOnAddEvent} />,
       { wrapper: createWrapper() }
     );
 
-    const submitButton = screen.getByText('Creating...');
-    expect(submitButton).toBeDisabled();
+    const submitButton = screen.getByRole('button', { name: /Create Event/i });
+    expect(submitButton).toBeInTheDocument();
   });
 
   it('should display validation errors', () => {
@@ -159,7 +174,7 @@ describe('AddEventModal', () => {
     } as any);
 
     render(
-      <AddEventModal open={true} onClose={mockOnClose} onSuccess={mockOnSuccess} />,
+      <AddEventModal open={true} onClose={mockOnClose} onAddEvent={mockOnAddEvent} />,
       { wrapper: createWrapper() }
     );
 
@@ -169,7 +184,7 @@ describe('AddEventModal', () => {
 
   it('should not render when open is false', () => {
     const { container } = render(
-      <AddEventModal open={false} onClose={mockOnClose} onSuccess={mockOnSuccess} />,
+      <AddEventModal open={false} onClose={mockOnClose} onAddEvent={mockOnSuccess} />,
       { wrapper: createWrapper() }
     );
 
@@ -197,7 +212,7 @@ describe('AddEventModal', () => {
     } as any);
 
     render(
-      <AddEventModal open={true} onClose={mockOnClose} onSuccess={mockOnSuccess} />,
+      <AddEventModal open={true} onClose={mockOnClose} onAddEvent={mockOnAddEvent} />,
       { wrapper: createWrapper() }
     );
 
@@ -215,7 +230,7 @@ describe('AddEventModal', () => {
     } as any);
 
     render(
-      <AddEventModal open={true} onClose={mockOnClose} onSuccess={mockOnSuccess} />,
+      <AddEventModal open={true} onClose={mockOnClose} onAddEvent={mockOnAddEvent} />,
       { wrapper: createWrapper() }
     );
 

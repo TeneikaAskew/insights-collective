@@ -54,3 +54,29 @@ global.localStorage = localStorageMock as any;
 
 // Mock fetch
 global.fetch = vi.fn();
+
+// Mock useAuth module globally
+vi.mock('@/hooks/useAuth', () => {
+  const mockAuthProvider = {
+    session: null,
+    user: null,
+    loading: false,
+    error: null,
+    login: vi.fn(),
+    register: vi.fn(),
+    logout: vi.fn(),
+    googleSignIn: vi.fn(),
+    githubSignIn: vi.fn(),
+    twitterSignIn: vi.fn(),
+    isAuthenticated: false,
+    isAdmin: false,
+    isAdminAuthenticated: false,
+    storeRedirectPath: vi.fn(),
+    handleRedirectAfterLogin: vi.fn(),
+  };
+  
+  return {
+    useAuthProvider: vi.fn(() => mockAuthProvider),
+    useAuth: vi.fn(() => mockAuthProvider),
+  };
+});

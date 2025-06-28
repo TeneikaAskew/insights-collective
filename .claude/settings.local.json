@@ -24,7 +24,9 @@
       "Bash(find:*)",
       "Bash(npm view:*)",
       "Bash(npm ls:*)",
-      "Bash(true)"
+      "Bash(true)",
+      "Bash(npm run test:*)",
+      "Bash(npx vitest run:*)"
     ],
     "deny": []
   }

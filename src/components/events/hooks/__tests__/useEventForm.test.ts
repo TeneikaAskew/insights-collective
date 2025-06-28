@@ -1,39 +1,35 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useEventForm } from '../useEventForm';
-import * as eventService from '@/services/eventService';
-import { useToast } from '@/hooks/use-toast';
-
-vi.mock('@/services/eventService');
-vi.mock('@/hooks/use-toast');
 
 describe('useEventForm', () => {
-  const mockToast = vi.fn();
-
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useToast).mockReturnValue({ toast: mockToast } as any);
   });
 
   describe('initialization', () => {
     it('should initialize with empty form data when no editEvent provided', () => {
       const { result } = renderHook(() => useEventForm());
 
-      expect(result.current.formData).toEqual({
+      expect(result.current.formState).toEqual({
         title: '',
         description: '',
-        date: '',
-        start_time: '',
-        end_time: '',
-        type: 'workshop',
-        format: 'in-person',
+        type: '',
+        eventFormat: '',
         location: '',
         link: '',
-        capacity: null,
-        image_url: '',
+        date: undefined,
+        calendarOpen: false,
+        startTime: '',
+        endTime: '',
+        image: '',
+        capacity: '',
+        calendlyLink: '',
+        imageFile: null,
+        imagePreview: null,
       });
-      expect(result.current.errors).toEqual({});
-      expect(result.current.isSubmitting).toBe(false);
+      expect(result.current.handlers).toBeDefined();
+      expect(result.current.fileInputRef).toBeDefined();
     });
 
     it('should initialize with editEvent data when provided', () => {
@@ -42,345 +38,213 @@ describe('useEventForm', () => {
         title: 'Existing Event',
         description: 'Existing Description',
         date: '2025-01-15',
-        start_time: '14:00',
-        end_time: '16:00',
+        startTime: '14:00',
+        endTime: '16:00',
         type: 'webinar',
         format: 'virtual',
         location: null,
         link: 'https://zoom.us/meeting/123',
         capacity: 100,
-        image_url: 'https://example.com/image.jpg',
+        image: 'https://example.com/image.jpg',
+        calendlyLink: 'https://calendly.com/event',
       };
 
-      const { result } = renderHook(() => useEventForm(editEvent as any));
+      const { result } = renderHook(() => useEventForm(editEvent));
 
-      expect(result.current.formData).toEqual({
-        title: 'Existing Event',
-        description: 'Existing Description',
-        date: '2025-01-15',
-        start_time: '14:00',
-        end_time: '16:00',
-        type: 'webinar',
-        format: 'virtual',
-        location: '',
-        link: 'https://zoom.us/meeting/123',
-        capacity: 100,
-        image_url: 'https://example.com/image.jpg',
-      });
+      expect(result.current.formState.title).toBe('Existing Event');
+      expect(result.current.formState.description).toBe('Existing Description');
+      expect(result.current.formState.type).toBe('webinar');
+      expect(result.current.formState.eventFormat).toBe('virtual');
+      expect(result.current.formState.link).toBe('https://zoom.us/meeting/123');
+      expect(result.current.formState.capacity).toBe('100');
+      expect(result.current.formState.imagePreview).toBe('https://example.com/image.jpg');
     });
   });
 
-  describe('handleInputChange', () => {
-    it('should update form data for text inputs', () => {
+  describe('handlers', () => {
+    it('should update title when setTitle is called', () => {
       const { result } = renderHook(() => useEventForm());
 
       act(() => {
-        result.current.handleInputChange({
-          target: { name: 'title', value: 'New Event Title' },
-        } as any);
+        result.current.handlers.setTitle('New Event Title');
       });
 
-      expect(result.current.formData.title).toBe('New Event Title');
+      expect(result.current.formState.title).toBe('New Event Title');
     });
 
-    it('should update form data for number inputs', () => {
+    it('should update description when setDescription is called', () => {
       const { result } = renderHook(() => useEventForm());
 
       act(() => {
-        result.current.handleInputChange({
-          target: { name: 'capacity', value: '50', type: 'number' },
-        } as any);
+        result.current.handlers.setDescription('New Description');
       });
 
-      expect(result.current.formData.capacity).toBe(50);
+      expect(result.current.formState.description).toBe('New Description');
     });
 
-    it('should handle empty number input', () => {
+    it('should update type when setType is called', () => {
       const { result } = renderHook(() => useEventForm());
 
       act(() => {
-        result.current.handleInputChange({
-          target: { name: 'capacity', value: '', type: 'number' },
-        } as any);
+        result.current.handlers.setType('webinar');
       });
 
-      expect(result.current.formData.capacity).toBe(null);
+      expect(result.current.formState.type).toBe('webinar');
     });
 
-    it('should clear field error when updating', () => {
-      const { result } = renderHook(() => useEventForm());
-
-      // Set initial error
-      act(() => {
-        result.current.errors.title = 'Title is required';
-      });
-
-      // Update the field
-      act(() => {
-        result.current.handleInputChange({
-          target: { name: 'title', value: 'New Title' },
-        } as any);
-      });
-
-      expect(result.current.errors.title).toBeUndefined();
-    });
-  });
-
-  describe('handleSelectChange', () => {
-    it('should update select field values', () => {
+    it('should update eventFormat when setEventFormat is called', () => {
       const { result } = renderHook(() => useEventForm());
 
       act(() => {
-        result.current.handleSelectChange('type', 'webinar');
+        result.current.handlers.setEventFormat('virtual');
       });
 
-      expect(result.current.formData.type).toBe('webinar');
+      expect(result.current.formState.eventFormat).toBe('virtual');
     });
 
-    it('should clear field error when updating select', () => {
-      const { result } = renderHook(() => useEventForm());
-
-      // Set initial error
-      act(() => {
-        result.current.errors.type = 'Type is required';
-      });
-
-      // Update the field
-      act(() => {
-        result.current.handleSelectChange('type', 'webinar');
-      });
-
-      expect(result.current.errors.type).toBeUndefined();
-    });
-  });
-
-  describe('handleDateChange', () => {
-    it('should update date field', () => {
+    it('should update date when setDate is called', () => {
       const { result } = renderHook(() => useEventForm());
       const testDate = new Date('2025-01-15');
 
       act(() => {
-        result.current.handleDateChange(testDate);
+        result.current.handlers.setDate(testDate);
       });
 
-      expect(result.current.formData.date).toBe('2025-01-15');
+      expect(result.current.formState.date).toEqual(testDate);
     });
 
-    it('should handle null date', () => {
+    it('should handle image file change', () => {
       const { result } = renderHook(() => useEventForm());
+      const mockFile = new File(['test'], 'test.jpg', { type: 'image/jpeg' });
+      
+      // Mock URL.createObjectURL
+      global.URL.createObjectURL = vi.fn(() => 'blob:test-url');
 
       act(() => {
-        result.current.handleDateChange(null as any);
+        result.current.handlers.handleImageChange({
+          target: { files: [mockFile] },
+        } as any);
       });
 
-      expect(result.current.formData.date).toBe('');
+      expect(result.current.formState.imageFile).toBe(mockFile);
+      expect(result.current.formState.imagePreview).toBe('blob:test-url');
+      expect(result.current.formState.image).toBe('');
     });
 
-    it('should clear date error when updating', () => {
+    it('should reset form when resetForm is called', () => {
       const { result } = renderHook(() => useEventForm());
 
-      // Set initial error
+      // Set some values first
       act(() => {
-        result.current.errors.date = 'Date is required';
+        result.current.handlers.setTitle('Test Event');
+        result.current.handlers.setDescription('Test Description');
+        result.current.handlers.setType('workshop');
       });
 
-      // Update the date
+      // Reset the form
       act(() => {
-        result.current.handleDateChange(new Date('2025-01-15'));
+        result.current.handlers.resetForm();
       });
 
-      expect(result.current.errors.date).toBeUndefined();
+      expect(result.current.formState.title).toBe('');
+      expect(result.current.formState.description).toBe('');
+      expect(result.current.formState.type).toBe('');
+    });
+
+    it('should trigger file input when handleTriggerFileInput is called', () => {
+      const { result } = renderHook(() => useEventForm());
+      
+      // Create a mock click function
+      const mockClick = vi.fn();
+      result.current.fileInputRef.current = { click: mockClick } as any;
+
+      act(() => {
+        result.current.handlers.handleTriggerFileInput();
+      });
+
+      expect(mockClick).toHaveBeenCalled();
     });
   });
 
-  describe('validation', () => {
-    it('should validate required fields', async () => {
+  describe('calendar state', () => {
+    it('should toggle calendar open state', () => {
       const { result } = renderHook(() => useEventForm());
 
-      const preventDefault = vi.fn();
-      await act(async () => {
-        await result.current.handleSubmit({ preventDefault } as any);
-      });
-
-      expect(result.current.errors).toEqual({
-        title: 'Title is required',
-        description: 'Description is required',
-        date: 'Date is required',
-      });
-      expect(preventDefault).toHaveBeenCalled();
-    });
-
-    it('should validate location for in-person events', async () => {
-      const { result } = renderHook(() => useEventForm());
+      expect(result.current.formState.calendarOpen).toBe(false);
 
       act(() => {
-        result.current.formData.title = 'Test Event';
-        result.current.formData.description = 'Test Description';
-        result.current.formData.date = '2025-01-15';
-        result.current.formData.format = 'in-person';
-        result.current.formData.location = '';
+        result.current.handlers.setCalendarOpen(true);
       });
 
-      const preventDefault = vi.fn();
-      await act(async () => {
-        await result.current.handleSubmit({ preventDefault } as any);
-      });
-
-      expect(result.current.errors.location).toBe('Location is required for in-person events');
-    });
-
-    it('should validate link for virtual events', async () => {
-      const { result } = renderHook(() => useEventForm());
+      expect(result.current.formState.calendarOpen).toBe(true);
 
       act(() => {
-        result.current.formData.title = 'Test Event';
-        result.current.formData.description = 'Test Description';
-        result.current.formData.date = '2025-01-15';
-        result.current.formData.format = 'virtual';
-        result.current.formData.link = '';
+        result.current.handlers.setCalendarOpen(false);
       });
 
-      const preventDefault = vi.fn();
-      await act(async () => {
-        await result.current.handleSubmit({ preventDefault } as any);
-      });
-
-      expect(result.current.errors.link).toBe('Meeting link is required for virtual events');
+      expect(result.current.formState.calendarOpen).toBe(false);
     });
   });
 
-  describe('form submission', () => {
-    it('should create new event when form is valid', async () => {
-      const { result } = renderHook(() => useEventForm());
-      const mockOnSuccess = vi.fn();
-
-      vi.mocked(eventService.createEvent).mockResolvedValue({
-        id: '1',
-        title: 'New Event',
-      } as any);
-
-      act(() => {
-        result.current.formData.title = 'New Event';
-        result.current.formData.description = 'New Description';
-        result.current.formData.date = '2025-01-15';
-        result.current.formData.format = 'in-person';
-        result.current.formData.location = 'Conference Room';
-      });
-
-      const preventDefault = vi.fn();
-      await act(async () => {
-        await result.current.handleSubmit({ preventDefault } as any, mockOnSuccess);
-      });
-
-      expect(eventService.createEvent).toHaveBeenCalledWith({
-        title: 'New Event',
-        description: 'New Description',
-        date: '2025-01-15',
-        start_time: '',
-        end_time: '',
-        type: 'workshop',
-        format: 'in-person',
-        location: 'Conference Room',
-        link: '',
-        capacity: null,
-        image_url: '',
-      });
-
-      expect(mockToast).toHaveBeenCalledWith({
-        title: 'Event created successfully',
-      });
-      expect(mockOnSuccess).toHaveBeenCalled();
-    });
-
-    it('should update existing event when editEvent is provided', async () => {
-      const editEvent = {
-        id: '1',
-        title: 'Existing Event',
-        description: 'Existing Description',
-        date: '2025-01-15',
-        type: 'workshop',
-        format: 'in-person',
-      };
-
-      const { result } = renderHook(() => useEventForm(editEvent as any));
-      const mockOnSuccess = vi.fn();
-
-      vi.mocked(eventService.updateEvent).mockResolvedValue({
-        id: '1',
-        title: 'Updated Event',
-      } as any);
-
-      act(() => {
-        result.current.formData.title = 'Updated Event';
-      });
-
-      const preventDefault = vi.fn();
-      await act(async () => {
-        await result.current.handleSubmit({ preventDefault } as any, mockOnSuccess);
-      });
-
-      expect(eventService.updateEvent).toHaveBeenCalledWith('1', expect.objectContaining({
-        title: 'Updated Event',
-      }));
-
-      expect(mockToast).toHaveBeenCalledWith({
-        title: 'Event updated successfully',
-      });
-      expect(mockOnSuccess).toHaveBeenCalled();
-    });
-
-    it('should handle submission errors', async () => {
+  describe('time fields', () => {
+    it('should update start and end times', () => {
       const { result } = renderHook(() => useEventForm());
 
-      vi.mocked(eventService.createEvent).mockRejectedValue(new Error('Creation failed'));
-
       act(() => {
-        result.current.formData.title = 'New Event';
-        result.current.formData.description = 'New Description';
-        result.current.formData.date = '2025-01-15';
-        result.current.formData.format = 'virtual';
-        result.current.formData.link = 'https://zoom.us/meeting/123';
+        result.current.handlers.setStartTime('14:00');
+        result.current.handlers.setEndTime('16:00');
       });
 
-      const preventDefault = vi.fn();
-      await act(async () => {
-        await result.current.handleSubmit({ preventDefault } as any);
-      });
-
-      expect(mockToast).toHaveBeenCalledWith({
-        title: 'Error saving event',
-        description: 'Creation failed',
-        variant: 'destructive',
-      });
+      expect(result.current.formState.startTime).toBe('14:00');
+      expect(result.current.formState.endTime).toBe('16:00');
     });
+  });
 
-    it('should set isSubmitting during submission', async () => {
+  describe('location and link fields', () => {
+    it('should update location for in-person events', () => {
       const { result } = renderHook(() => useEventForm());
 
-      vi.mocked(eventService.createEvent).mockImplementation(() => 
-        new Promise(resolve => setTimeout(() => resolve({} as any), 100))
-      );
+      act(() => {
+        result.current.handlers.setEventFormat('in-person');
+        result.current.handlers.setLocation('Conference Room A');
+      });
+
+      expect(result.current.formState.location).toBe('Conference Room A');
+    });
+
+    it('should update link for virtual events', () => {
+      const { result } = renderHook(() => useEventForm());
 
       act(() => {
-        result.current.formData.title = 'New Event';
-        result.current.formData.description = 'New Description';
-        result.current.formData.date = '2025-01-15';
-        result.current.formData.format = 'virtual';
-        result.current.formData.link = 'https://zoom.us/meeting/123';
+        result.current.handlers.setEventFormat('virtual');
+        result.current.handlers.setLink('https://zoom.us/meeting/123');
       });
 
-      const preventDefault = vi.fn();
-      const submitPromise = act(async () => {
-        await result.current.handleSubmit({ preventDefault } as any);
+      expect(result.current.formState.link).toBe('https://zoom.us/meeting/123');
+    });
+  });
+
+  describe('capacity', () => {
+    it('should update capacity', () => {
+      const { result } = renderHook(() => useEventForm());
+
+      act(() => {
+        result.current.handlers.setCapacity('50');
       });
 
-      // Check isSubmitting is true during submission
-      expect(result.current.isSubmitting).toBe(true);
+      expect(result.current.formState.capacity).toBe('50');
+    });
+  });
 
-      await submitPromise;
+  describe('calendly link', () => {
+    it('should update calendly link', () => {
+      const { result } = renderHook(() => useEventForm());
 
-      // Check isSubmitting is false after submission
-      expect(result.current.isSubmitting).toBe(false);
+      act(() => {
+        result.current.handlers.setCalendlyLink('https://calendly.com/event/123');
+      });
+
+      expect(result.current.formState.calendlyLink).toBe('https://calendly.com/event/123');
     });
   });
 });

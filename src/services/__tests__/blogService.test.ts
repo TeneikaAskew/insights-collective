@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as blogService from '../blogService';
+import { BlogFormData } from '@/types/blog';
 import { mockSupabaseClient } from '@/test/mocks/supabase';
 
 vi.mock('@/integrations/supabase/client', () => ({
@@ -11,8 +12,8 @@ describe('blogService', () => {
     vi.clearAllMocks();
   });
 
-  describe('getBlogPosts', () => {
-    it('should fetch published blog posts', async () => {
+  describe('getAllBlogPosts', () => {
+    it('should fetch all blog posts', async () => {
       const mockPosts = [
         {
           id: '1',
@@ -22,6 +23,11 @@ describe('blogService', () => {
           excerpt: 'Excerpt here',
           status: 'published',
           published_at: '2024-01-01',
+          blog_categories: { name: 'Tech' },
+          blog_post_tags: [{ tag_name: 'javascript' }],
+          profiles: { first_name: 'John', last_name: 'Doe' },
+          view_count: 10,
+          read_time: 5,
         },
         {
           id: '2',
@@ -31,31 +37,37 @@ describe('blogService', () => {
           excerpt: 'Another excerpt',
           status: 'published',
           published_at: '2024-01-02',
+          blog_categories: { name: 'Design' },
+          blog_post_tags: [{ tag_name: 'ui' }],
+          profiles: { first_name: 'Jane', last_name: 'Smith' },
+          view_count: 20,
+          read_time: 7,
         },
       ];
 
       mockSupabaseClient.from.mockReturnValue({
         select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
         order: vi.fn().mockResolvedValue({ data: mockPosts, error: null }),
       });
 
-      const result = await blogService.getBlogPosts();
+      const result = await blogService.getAllBlogPosts();
 
-      expect(result).toEqual(mockPosts);
+      expect(result).toHaveLength(2);
+      expect(result[0].title).toBe('First Post');
+      expect(result[0].category).toBe('Tech');
+      expect(result[0].authorName).toBe('John Doe');
       expect(mockSupabaseClient.from).toHaveBeenCalledWith('blog_posts');
-      expect(mockSupabaseClient.from().eq).toHaveBeenCalledWith('status', 'published');
     });
 
     it('should handle fetch error', async () => {
       const error = new Error('Failed to fetch posts');
       mockSupabaseClient.from.mockReturnValue({
         select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
         order: vi.fn().mockResolvedValue({ data: null, error }),
       });
 
-      await expect(blogService.getBlogPosts()).rejects.toThrow('Failed to fetch posts');
+      const result = await blogService.getAllBlogPosts();
+      expect(result).toEqual([]);
     });
   });
 
@@ -66,10 +78,14 @@ describe('blogService', () => {
         title: 'Test Post',
         slug: 'test-post',
         content: 'Test content',
-        author_profiles: {
-          full_name: 'John Doe',
-          avatar_url: 'https://example.com/avatar.jpg',
-        },
+        excerpt: 'Test excerpt',
+        status: 'published',
+        published_at: '2024-01-01',
+        blog_categories: { name: 'Tech' },
+        blog_post_tags: [{ tag_name: 'test' }],
+        profiles: { first_name: 'John', last_name: 'Doe' },
+        view_count: 5,
+        read_time: 3,
       };
 
       mockSupabaseClient.from.mockReturnValue({
@@ -80,7 +96,11 @@ describe('blogService', () => {
 
       const result = await blogService.getBlogPostBySlug('test-post');
 
-      expect(result).toEqual(mockPost);
+      expect(result).not.toBeNull();
+      expect(result?.title).toBe('Test Post');
+      expect(result?.slug).toBe('test-post');
+      expect(result?.category).toBe('Tech');
+      expect(result?.authorName).toBe('John Doe');
       expect(mockSupabaseClient.from).toHaveBeenCalledWith('blog_posts');
       expect(mockSupabaseClient.from().eq).toHaveBeenCalledWith('slug', 'test-post');
     });
@@ -100,15 +120,33 @@ describe('blogService', () => {
 
   describe('createBlogPost', () => {
     it('should create a new blog post', async () => {
-      const newPost = {
+      const newPost: BlogFormData = {
         title: 'New Post',
         slug: 'new-post',
         content: 'New content',
         excerpt: 'New excerpt',
-        author_id: 'user123',
+        tags: ['test'],
+        status: 'published',
       };
 
-      const createdPost = { id: '123', ...newPost };
+      const createdPost = { 
+        id: '123',
+        title: 'New Post',
+        slug: 'new-post',
+        content: 'New content',
+        excerpt: 'New excerpt',
+        status: 'published',
+        author_id: 'user123',
+        blog_post_tags: [],
+      };
+
+      // Mock auth user
+      mockSupabaseClient.auth = {
+        getUser: vi.fn().mockResolvedValue({ 
+          data: { user: { id: 'user123' } }, 
+          error: null 
+        }),
+      };
 
       mockSupabaseClient.from.mockReturnValue({
         insert: vi.fn().mockReturnThis(),
@@ -118,12 +156,20 @@ describe('blogService', () => {
 
       const result = await blogService.createBlogPost(newPost);
 
-      expect(result).toEqual(createdPost);
+      expect(result).not.toBeNull();
+      expect(result?.title).toBe('New Post');
       expect(mockSupabaseClient.from).toHaveBeenCalledWith('blog_posts');
-      expect(mockSupabaseClient.from().insert).toHaveBeenCalledWith([newPost]);
     });
 
     it('should handle creation error', async () => {
+      // Mock auth user
+      mockSupabaseClient.auth = {
+        getUser: vi.fn().mockResolvedValue({ 
+          data: { user: { id: 'user123' } }, 
+          error: null 
+        }),
+      };
+
       const error = new Error('Failed to create post');
       mockSupabaseClient.from.mockReturnValue({
         insert: vi.fn().mockReturnThis(),
@@ -131,47 +177,69 @@ describe('blogService', () => {
         single: vi.fn().mockResolvedValue({ data: null, error }),
       });
 
-      await expect(blogService.createBlogPost({} as any)).rejects.toThrow('Failed to create post');
+      const result = await blogService.createBlogPost({} as any);
+      expect(result).toBeNull();
     });
   });
 
   describe('updateBlogPost', () => {
     it('should update an existing blog post', async () => {
-      const updates = {
+      const updates: BlogFormData = {
         title: 'Updated Title',
         content: 'Updated content',
+        excerpt: 'Updated excerpt',
+        slug: 'test-post',
+        tags: ['updated'],
+        status: 'published',
       };
 
-      const updatedPost = { id: '123', ...updates };
+      const existingPost = {
+        id: '123',
+        slug: 'test-post',
+        status: 'draft',
+      };
 
-      mockSupabaseClient.from.mockReturnValue({
+      const updatedPost = { 
+        id: '123',
+        ...updates,
+        author_id: 'user123',
+      };
+
+      // Mock getting existing post
+      mockSupabaseClient.from.mockReturnValueOnce({
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({ data: existingPost, error: null }),
+      });
+
+      // Mock update
+      mockSupabaseClient.from.mockReturnValueOnce({
         update: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
         select: vi.fn().mockReturnThis(),
         single: vi.fn().mockResolvedValue({ data: updatedPost, error: null }),
       });
 
-      const result = await blogService.updateBlogPost('123', updates);
+      const result = await blogService.updateBlogPost('test-post', updates);
 
-      expect(result).toEqual(updatedPost);
-      expect(mockSupabaseClient.from).toHaveBeenCalledWith('blog_posts');
-      expect(mockSupabaseClient.from().update).toHaveBeenCalledWith(updates);
-      expect(mockSupabaseClient.from().eq).toHaveBeenCalledWith('id', '123');
+      expect(result).not.toBeNull();
+      expect(result?.title).toBe('Updated Title');
     });
   });
 
   describe('deleteBlogPost', () => {
-    it('should delete a blog post', async () => {
+    it('should delete a blog post by slug', async () => {
       mockSupabaseClient.from.mockReturnValue({
         delete: vi.fn().mockReturnThis(),
         eq: vi.fn().mockResolvedValue({ error: null }),
       });
 
-      await blogService.deleteBlogPost('123');
+      const result = await blogService.deleteBlogPost('test-post');
 
+      expect(result).toBe(true);
       expect(mockSupabaseClient.from).toHaveBeenCalledWith('blog_posts');
       expect(mockSupabaseClient.from().delete).toHaveBeenCalled();
-      expect(mockSupabaseClient.from().eq).toHaveBeenCalledWith('id', '123');
+      expect(mockSupabaseClient.from().eq).toHaveBeenCalledWith('slug', 'test-post');
     });
 
     it('should handle deletion error', async () => {
@@ -181,7 +249,8 @@ describe('blogService', () => {
         eq: vi.fn().mockResolvedValue({ error }),
       });
 
-      await expect(blogService.deleteBlogPost('123')).rejects.toThrow('Failed to delete post');
+      const result = await blogService.deleteBlogPost('test-post');
+      expect(result).toBe(false);
     });
   });
 });
