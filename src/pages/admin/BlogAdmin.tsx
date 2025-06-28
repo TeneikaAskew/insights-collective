@@ -2,8 +2,9 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
-import { BlogManagement } from '@/components/admin/blog/BlogManagement';
-import BlogPostEditor from '@/components/admin/blog/BlogPostEditor';
+import { BlogManagementV2 } from '@/components/admin/blog/BlogManagementV2';
+import NewBlogPost from '@/pages/admin/blog/NewBlogPost';
+import EditBlogPost from '@/pages/admin/blog/EditBlogPost';
 import AdminGuard from '@/components/admin/AdminGuard';
 
 export default function BlogAdmin() {
@@ -11,9 +12,9 @@ export default function BlogAdmin() {
     <AdminGuard>
       <AppLayout>
         <Routes>
-          <Route index element={<BlogManagement />} />
-          <Route path="new" element={<BlogPostEditor />} />
-          <Route path="edit/:slug" element={<BlogPostEditor />} />
+          <Route index element={<BlogManagementV2 />} />
+          <Route path="new" element={<NewBlogPost />} />
+          <Route path="edit/:id" element={<EditBlogPost />} />
         </Routes>
       </AppLayout>
     </AdminGuard>

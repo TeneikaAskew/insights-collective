@@ -1,0 +1,16 @@
+import { useParams } from 'react-router-dom';
+import { BlogPostFormV2 } from '@/components/blog/BlogPostFormV2';
+
+export default function EditBlogPost() {
+  const { id } = useParams<{ id: string }>();
+
+  if (!id) {
+    return <div>Post ID not found</div>;
+  }
+
+  return (
+    <div className="container max-w-7xl mx-auto p-6">
+      <BlogPostFormV2 postId={id} />
+    </div>
+  );
+}
