@@ -38,14 +38,12 @@ const DataBlueprintSeries = () => {
             excerpt,
             slug,
             published_at,
-            blog_categories!inner(name)
+            blog_categories(name)
           `)
           .eq('status', 'published')
           .order('published_at', { ascending: false });
 
         if (error) throw error;
-
-        console.log('Blog posts data:', data); // Debug log
 
         const entries: BlueprintEntry[] = (data || []).map((post, index) => ({
           id: index + 1, // Use index + 1 for the number display
@@ -56,7 +54,6 @@ const DataBlueprintSeries = () => {
           publishedAt: new Date(post.published_at).toISOString().split('T')[0]
         }));
 
-        console.log('Processed entries:', entries); // Debug log
         setBlueprintEntries(entries);
       } catch (error) {
         console.error('Error loading blog posts:', error);
