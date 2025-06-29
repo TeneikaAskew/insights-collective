@@ -145,9 +145,9 @@ const AppSidebar = () => {
     active: location.pathname === '/admin/forms'
   }, {
     title: "Manage Blog",
-    url: "/admin/blog-posts",
+    url: "/admin/blog",
     icon: Newspaper,
-    active: location.pathname === '/admin/blog-posts'
+    active: location.pathname.startsWith('/admin/blog')
   }, {
     title: "Manage Events",
     url: "/admin/events",
