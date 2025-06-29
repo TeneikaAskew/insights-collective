@@ -91,11 +91,6 @@ const AppSidebar = () => {
     icon: MessageSquare,
     active: location.pathname.startsWith('/messages')
   }, {
-    title: "Blog",
-    url: "/blog",
-    icon: Newspaper,
-    active: location.pathname.startsWith('/blog')
-  }, {
     title: "Teneika's LinkedIn",
     url: "/teneika-linkedin",
     icon: Briefcase,
