@@ -59,6 +59,7 @@ interface BlogPost {
   id: string;
   title: string;
   slug: string;
+  content?: string;
   excerpt?: string;
   status: 'draft' | 'published' | 'scheduled';
   author_id: string;
@@ -215,7 +216,7 @@ export function BlogManagementV2() {
         .from('blog_posts')
         .insert({
           title: `${post.title} (Copy)`,
-          content: post.content,
+          content: post.content || '',
           excerpt: post.excerpt,
           status: 'draft',
           author_id: userData.user.id,

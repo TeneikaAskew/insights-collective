@@ -10,8 +10,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 interface StatusDropdownProps {
-  status: 'draft' | 'published' | 'archived';
-  onStatusChange: (status: 'draft' | 'published' | 'archived') => void;
+  status: 'draft' | 'published' | 'scheduled';
+  onStatusChange: (status: 'draft' | 'published' | 'scheduled') => void;
 }
 
 export function StatusDropdown({ status, onStatusChange }: StatusDropdownProps) {
@@ -19,8 +19,8 @@ export function StatusDropdown({ status, onStatusChange }: StatusDropdownProps) 
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="outline" className="gap-2">
-          {status === 'published' ? 'Published' : 
-           status === 'draft' ? 'Draft' : 'Archived'}
+        {status === 'published' ? 'Published' : 
+           status === 'draft' ? 'Draft' : 'Scheduled'}
           <ChevronDown className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
@@ -31,8 +31,8 @@ export function StatusDropdown({ status, onStatusChange }: StatusDropdownProps) 
         <DropdownMenuItem onClick={() => onStatusChange('draft')}>
           Save as Draft
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onStatusChange('archived')}>
-          Archive
+        <DropdownMenuItem onClick={() => onStatusChange('scheduled')}>
+          Schedule
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

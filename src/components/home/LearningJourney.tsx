@@ -90,7 +90,7 @@ const LearningJourney = () => {
     visible: {
       y: 0,
       opacity: 1,
-      transition: { type: 'spring', stiffness: 50 }
+      transition: { type: "spring" as const, stiffness: 50 }
     }
   };
 

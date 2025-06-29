@@ -199,9 +199,9 @@ export function BlogPostFormV2({ postId }: BlogPostFormV2Props) {
         published_at: data.status === 'published' ? new Date().toISOString() : null,
       };
 
-      let postId = postId;
+      let resultPostId = postId;
 
-      if (postId) {
+      if (resultPostId) {
         // Update existing post
         const { error } = await supabase
           .from('blog_posts')
@@ -363,8 +363,8 @@ export function BlogPostFormV2({ postId }: BlogPostFormV2Props) {
               Preview
             </Button>
             <StatusDropdown
-              value={form.watch('status')}
-              onChange={(value) => form.setValue('status', value)}
+              status={form.watch('status')}
+              onStatusChange={(value) => form.setValue('status', value)}
             />
             <Button type="submit" disabled={saving}>
               {saving ? (
@@ -535,8 +535,8 @@ export function BlogPostFormV2({ postId }: BlogPostFormV2Props) {
                       <FormLabel>Tags</FormLabel>
                       <FormControl>
                         <TagInput
-                          value={field.value}
-                          onChange={field.onChange}
+                          tags={field.value}
+                          onTagsChange={field.onChange}
                         />
                       </FormControl>
                       <FormDescription>

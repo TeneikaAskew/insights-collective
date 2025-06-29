@@ -55,8 +55,8 @@ export function FormTabs({
         </Button>
 
         <StatusDropdown 
-          status={status as 'draft' | 'published' | 'archived'}
-          onStatusChange={(newStatus) => form.setValue('status', newStatus)}
+          status={status as 'draft' | 'published' | 'scheduled'}
+          onStatusChange={(newStatus) => form.setValue('status', newStatus as 'draft' | 'published' | 'archived')}
         />
       </div>
 
