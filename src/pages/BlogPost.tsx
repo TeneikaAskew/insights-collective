@@ -31,13 +31,14 @@ export default function BlogPostPage() {
     try {
       const postData = await getBlogPostBySlug(postSlug);
       if (!postData) {
-        navigate('/blog');
+        setPost(null);
+        setLoading(false);
         return;
       }
       setPost(postData);
     } catch (error) {
       console.error('Error loading blog post:', error);
-      navigate('/blog');
+      setPost(null);
     } finally {
       setLoading(false);
     }
@@ -121,8 +122,8 @@ export default function BlogPostPage() {
       <AppLayout>
         <div className="container mx-auto py-8 px-4 text-center">
           <h1 className="text-2xl font-bold mb-4">Blog post not found</h1>
-          <Link to="/blog">
-            <Button>Back to Blog</Button>
+          <Link to="/data-blueprint-series">
+            <Button>Back to Data Blueprint Series</Button>
           </Link>
         </div>
       </AppLayout>
@@ -134,10 +135,10 @@ export default function BlogPostPage() {
       <div className="container mx-auto py-8 px-4 max-w-4xl">
         {/* Navigation */}
         <div className="mb-6">
-          <Link to="/blog">
+          <Link to="/data-blueprint-series">
             <Button variant="ghost" className="pl-0">
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Blog
+              Back to Data Blueprint Series
             </Button>
           </Link>
         </div>
@@ -251,7 +252,7 @@ export default function BlogPostPage() {
               <p className="text-gray-600 mb-4">
                 Explore more insights from the Data Blueprint Series
               </p>
-              <Link to="/blog">
+              <Link to="/data-blueprint-series">
                 <Button className="bg-[#9b87f5] hover:bg-[#8B5CF6]">
                   View All Articles
                 </Button>

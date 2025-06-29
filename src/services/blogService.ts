@@ -55,7 +55,8 @@ export const getBlogPostBySlug = async (slug: string): Promise<BlogPost | null> 
         profiles!blog_posts_author_id_fkey(first_name, last_name)
       `)
       .eq('slug', slug)
-      .single();
+      .eq('status', 'published')
+      .maybeSingle();
 
     if (error) throw error;
     if (!data) return null;
