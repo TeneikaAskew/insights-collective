@@ -65,9 +65,7 @@ import { usePortfolioPages } from '@/hooks/usePortfolioPages';
 import { Spinner } from '@/components/ui/spinner';
 
 // Blog & Content Pages
-import Blog from '@/pages/Blog';
 import BlogPost from '@/pages/BlogPost';
-import BlogList from '@/pages/BlogList';
 import DataBlueprintSeries from '@/pages/DataBlueprintSeries';
 import CreateBlogPost from '@/pages/CreateBlogPost';
 import EditBlogPost from '@/pages/EditBlogPost';
