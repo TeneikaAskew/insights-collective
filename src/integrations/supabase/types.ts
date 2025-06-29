@@ -2916,6 +2916,10 @@ export type Database = {
           completed_blocks: number
         }[]
       }
+      clean_old_security_events: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       delete_all_user_resumes: {
         Args: { user_id_param: string }
         Returns: undefined
