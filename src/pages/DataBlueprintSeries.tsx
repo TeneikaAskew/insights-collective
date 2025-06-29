@@ -28,7 +28,7 @@ const DataBlueprintSeries = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadBlueprintSeries = async () => {
+    const loadAllBlogPosts = async () => {
       try {
         const { data, error } = await supabase
           .from('blog_posts')
@@ -41,9 +41,8 @@ const DataBlueprintSeries = () => {
             blog_post_tags(tag_name),
             blog_categories!blog_posts_category_id_fkey(name)
           `)
-          .eq('blog_categories.slug', 'data-blueprint-series')
           .eq('status', 'published')
-          .order('published_at', { ascending: true });
+          .order('published_at', { ascending: false });
 
         if (error) throw error;
 
@@ -51,14 +50,14 @@ const DataBlueprintSeries = () => {
           id: index + 1, // Use index + 1 for the number display
           title: post.title,
           description: post.excerpt || '',
-          tag: getTagFromBlogTags(post.blog_post_tags?.map((tag: any) => tag.tag_name) || []),
+          tag: (post.blog_categories as any)?.name || 'General',
           slug: post.slug,
           publishedAt: new Date(post.published_at).toISOString().split('T')[0]
         }));
 
         setBlueprintEntries(entries);
       } catch (error) {
-        console.error('Error loading Data Blueprint Series:', error);
+        console.error('Error loading blog posts:', error);
         // Fallback to empty array - the page will still show with other content
         setBlueprintEntries([]);
       } finally {
@@ -66,7 +65,7 @@ const DataBlueprintSeries = () => {
       }
     };
 
-    loadBlueprintSeries();
+    loadAllBlogPosts();
   }, []);
 
   return (
@@ -93,11 +92,11 @@ const DataBlueprintSeries = () => {
           </div>
         </div>
 
-        {/* Featured Entries Section */}
+        {/* All Blog Posts Section */}
         <div className="mb-16">
           <div className="flex items-center mb-6">
             <BookOpen className="h-6 w-6 mr-2 text-primary" />
-            <h2 className="text-2xl font-bold">Featured Entries</h2>
+            <h2 className="text-2xl font-bold">All Blog Posts</h2>
           </div>
           
           {loading ? (

@@ -243,9 +243,9 @@ function App() {
                   <Route path="/portfolio/:customUrl" element={<PublicPortfolioWrapper />} />
 
                   {/* Blog & Content Routes */}
-                  <Route path="/blog" element={<Blog />} />
+                  <Route path="/blog" element={<Navigate to="/data-blueprint-series" replace />} />
                   <Route path="/blog/:slug" element={<BlogPost />} />
-                  <Route path="/blog-list" element={<BlogList />} />
+                  <Route path="/blog-list" element={<Navigate to="/data-blueprint-series" replace />} />
                   <Route path="/data-blueprint-series" element={<DataBlueprintSeries />} />
                   <Route path="/create-blog-post" element={<CreateBlogPost />} />
                   <Route path="/edit-blog-post/:slug" element={<EditBlogPost />} />
