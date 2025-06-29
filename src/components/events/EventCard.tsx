@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
+import { sanitizeUserInput } from '@/config/security';
 interface EventCardProps {
   event: {
     id: string;
@@ -47,7 +48,7 @@ export function EventCard({
       const date = new Date(dateString);
       return format(date, 'MMMM d, yyyy');
     } catch (error) {
-      return dateString;
+      return sanitizeUserInput(dateString, 50); // Sanitize fallback
     }
   };
   const handleRegister = (e: React.MouseEvent) => {
@@ -86,7 +87,7 @@ export function EventCard({
         {isRegistered && <Badge className="absolute top-2 left-2 bg-green-500 text-white">Registered</Badge>}
       </div>
       <CardHeader>
-        <CardTitle className="line-clamp-2">{event.title}</CardTitle>
+        <CardTitle className="line-clamp-2">{sanitizeUserInput(event.title, 200)}</CardTitle>
         <CardDescription className="space-y-1">
           <span className="flex items-center gap-1">
             <Calendar className="h-4 w-4" />
@@ -119,7 +120,7 @@ export function EventCard({
         </CardDescription>
       </CardHeader>
       <CardContent className="flex-grow">
-        <p className="text-muted-foreground line-clamp-3">{event.description}</p>
+        <p className="text-muted-foreground line-clamp-3">{sanitizeUserInput(event.description, 500)}</p>
       </CardContent>
       <CardFooter>
         {onRegister ? (

@@ -107,6 +107,8 @@ import NotFound from '@/pages/NotFound';
 // Components
 import ProtectedRoute from '@/components/ProtectedRoute';
 import PageVisibilityGuard from '@/components/PageVisibilityGuard';
+import { SecurityHeaders } from '@/components/security/SecurityHeaders';
+import { useSecureSession } from '@/hooks/useSecureSession';
 
 import '@/App.css';
 
@@ -149,6 +151,12 @@ function PublicPortfolioWrapper() {
   return <PublicPortfolioView />;
 }
 
+// Security Component to monitor sessions
+function SecurityManager() {
+  useSecureSession(); // Initialize secure session monitoring
+  return null;
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -156,6 +164,8 @@ function App() {
         <AuthProvider>
           <PageVisibilityProvider>
             <OnboardingProvider>
+              <SecurityHeaders />
+              <SecurityManager />
               <div className="min-h-screen bg-gray-50">
                 <Routes>
                   {/* Home & Core Routes */}
