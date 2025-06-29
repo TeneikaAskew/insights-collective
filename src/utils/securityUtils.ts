@@ -5,16 +5,42 @@
 
 import { supabase } from '@/integrations/supabase/client';
 
-// Input sanitization
+// Enhanced input sanitization with comprehensive XSS protection
 export const sanitizeInput = (input: string): string => {
   if (!input) return '';
   
-  // Remove potential XSS patterns
+  // Remove potential XSS patterns and dangerous content
   return input
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
+    .replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, '')
+    .replace(/<embed\b[^<]*(?:(?!<\/embed>)<[^<]*)*<\/embed>/gi, '')
     .replace(/javascript:/gi, '')
+    .replace(/data:text\/html/gi, '')
+    .replace(/vbscript:/gi, '')
     .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '')
+    .replace(/expression\s*\(/gi, '')
+    .replace(/eval\s*\(/gi, '')
+    .replace(/setTimeout\s*\(/gi, '')
+    .replace(/setInterval\s*\(/gi, '')
     .trim();
+};
+
+// Sanitize HTML content for rich text editor
+export const sanitizeHtmlContent = (html: string): string => {
+  if (!html) return '';
+  
+  // Allow basic formatting but remove dangerous elements
+  return html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
+    .replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, '')
+    .replace(/<embed\b[^<]*(?:(?!<\/embed>)<[^<]*)*<\/embed>/gi, '')
+    .replace(/<form\b[^<]*(?:(?!<\/form>)<[^<]*)*<\/form>/gi, '')
+    .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '')
+    .replace(/javascript:/gi, '')
+    .replace(/data:text\/html/gi, '')
+    .replace(/vbscript:/gi, '');
 };
 
 // Validate email format
@@ -46,26 +72,53 @@ export const isValidRedirectUrl = (url: string, allowedDomains: string[]): boole
   }
 };
 
-// Rate limiting helper
+// Enhanced rate limiting with IP tracking
 export const createRateLimiter = (maxAttempts: number, windowMs: number) => {
-  const attempts = new Map<string, { count: number; resetTime: number }>();
+  const attempts = new Map<string, { count: number; resetTime: number; lastAttempt: number }>();
   
-  return (identifier: string): boolean => {
+  return (identifier: string): { allowed: boolean; resetTime?: number } => {
     const now = Date.now();
     const record = attempts.get(identifier);
     
     if (!record || now > record.resetTime) {
-      attempts.set(identifier, { count: 1, resetTime: now + windowMs });
-      return true;
+      attempts.set(identifier, { count: 1, resetTime: now + windowMs, lastAttempt: now });
+      return { allowed: true };
+    }
+    
+    // Progressive backoff for repeated attempts
+    const timeSinceLastAttempt = now - record.lastAttempt;
+    const minInterval = Math.min(1000 * Math.pow(2, record.count - 1), 30000); // Max 30 seconds
+    
+    if (timeSinceLastAttempt < minInterval) {
+      return { allowed: false, resetTime: record.lastAttempt + minInterval };
     }
     
     if (record.count >= maxAttempts) {
-      return false;
+      return { allowed: false, resetTime: record.resetTime };
     }
     
     record.count++;
-    return true;
+    record.lastAttempt = now;
+    return { allowed: true };
   };
+};
+
+// Validate form field configurations to prevent injection
+export const validateFormFieldConfig = (fieldConfig: any): boolean => {
+  if (!fieldConfig || typeof fieldConfig !== 'object') return false;
+  
+  // Check for dangerous field types or configurations
+  const dangerousPatterns = [
+    /script/i,
+    /javascript/i,
+    /eval/i,
+    /expression/i,
+    /vbscript/i,
+    /data:text\/html/i
+  ];
+  
+  const configString = JSON.stringify(fieldConfig);
+  return !dangerousPatterns.some(pattern => pattern.test(configString));
 };
 
 // Session integrity validation

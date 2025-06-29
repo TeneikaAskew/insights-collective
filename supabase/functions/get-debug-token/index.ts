@@ -42,14 +42,29 @@ serve(async (req) => {
       );
     }
 
-    // Get the user's profile to check their role
+    // Get the user's profile to check their roles (updated for new roles array)
     const { data: profile, error: profileError } = await supabaseClient
       .from("profiles")
-      .select("role")
+      .select("roles")
       .eq("id", user.id)
       .single();
 
-    if (profileError || !profile || profile.role !== "admin") {
+    // Check if user has admin role in the roles array
+    const hasAdminRole = profile?.roles?.includes('admin') || false;
+    
+    if (profileError || !profile || !hasAdminRole) {
+      // Log security event for unauthorized access attempt
+      await supabaseClient.rpc('log_security_event', {
+        p_user_id: user.id,
+        p_event_type: 'unauthorized_debug_token_access',
+        p_severity: 'warning',
+        p_description: 'Non-admin user attempted to access debug token',
+        p_metadata: { 
+          user_agent: req.headers.get("User-Agent"),
+          ip: req.headers.get("X-Forwarded-For") || req.headers.get("X-Real-IP")
+        }
+      });
+      
       return new Response(
         JSON.stringify({ error: "Unauthorized. Admin access required." }),
         {
@@ -58,6 +73,18 @@ serve(async (req) => {
         }
       );
     }
+
+    // Log successful admin access
+    await supabaseClient.rpc('log_security_event', {
+      p_user_id: user.id,
+      p_event_type: 'debug_token_access',
+      p_severity: 'info',
+      p_description: 'Admin user accessed debug token',
+      p_metadata: { 
+        user_agent: req.headers.get("User-Agent"),
+        ip: req.headers.get("X-Forwarded-For") || req.headers.get("X-Real-IP")
+      }
+    });
 
     // Retrieve the debug token from environment variables
     const debugToken = Deno.env.get("DEBUGGING_TOKEN");

@@ -46,6 +46,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useState } from 'react';
 import { MediaLibraryDialog } from '../media/MediaLibraryDialog';
+import { sanitizeHtmlContent, isValidUrl } from '@/utils/securityUtils';
 
 interface BlogEditorProps {
   content: string;
@@ -84,7 +85,9 @@ export function BlogEditor({ content, onChange, placeholder }: BlogEditorProps) 
     ],
     content,
     onUpdate: ({ editor }) => {
-      onChange(editor.getHTML());
+      const html = editor.getHTML();
+      const sanitizedHtml = sanitizeHtmlContent(html);
+      onChange(sanitizedHtml);
     },
     editorProps: {
       attributes: {
@@ -98,14 +101,14 @@ export function BlogEditor({ content, onChange, placeholder }: BlogEditorProps) 
   }
 
   const addLink = () => {
-    if (linkUrl) {
+    if (linkUrl && isValidUrl(linkUrl)) {
       editor.chain().focus().setLink({ href: linkUrl }).run();
       setLinkUrl('');
     }
   };
 
   const addImage = () => {
-    if (imageUrl) {
+    if (imageUrl && isValidUrl(imageUrl)) {
       editor.chain().focus().setImage({ src: imageUrl }).run();
       setImageUrl('');
     }
