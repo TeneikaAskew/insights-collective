@@ -200,14 +200,14 @@ export default function BlogPostPage() {
                 <Share2 className="h-4 w-4 mr-2" />
                 Share
               </Button>
-              {isAdmin && (
-                <Link to={`/admin/blog/edit/${post.slug}`}>
-                  <Button variant="outline" size="sm">
-                    <Edit className="h-4 w-4 mr-2" />
-                    Edit Post
-                  </Button>
-                </Link>
-              )}
+               {isAdmin && (
+                 <Link to={`/admin/blog/edit/${post.id}`}>
+                   <Button variant="outline" size="sm">
+                     <Edit className="h-4 w-4 mr-2" />
+                     Edit Post
+                   </Button>
+                 </Link>
+               )}
             </div>
 
             <Separator />
