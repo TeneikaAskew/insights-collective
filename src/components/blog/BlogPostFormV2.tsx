@@ -38,6 +38,7 @@ import { BlogEditor } from './editor/BlogEditor';
 import { SEOMetadataEditor } from './seo/SEOMetadataEditor';
 import { TagInput } from './form/TagInput';
 import { StatusDropdown } from './form/StatusDropdown';
+import { BlogPostAnalytics } from './analytics/BlogPostAnalytics';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const blogPostSchema = z.object({
@@ -120,41 +121,38 @@ export function BlogPostFormV2({ postId }: BlogPostFormV2Props) {
     
     setLoading(true);
     try {
-      const { data: post, error } = await supabase
+      // Get the blog post
+      const { data: post, error: postError } = await supabase
         .from('blog_posts')
-        .select(`
-          *,
-          blog_post_tags (
-            tag_id,
-            blog_tags (
-              id,
-              name,
-              slug
-            )
-          )
-        `)
+        .select('*')
         .eq('id', postId)
         .single();
 
-      if (error) throw error;
+      if (postError) throw postError;
       if (!post) throw new Error('Post not found');
 
-      // Set form values
+      // Get tags for this post
+      const { data: tags } = await supabase
+        .from('blog_post_tags')
+        .select('tag_name')
+        .eq('blog_post_id', postId);
+
+      // Set form values with proper field mapping
       form.reset({
         title: post.title,
         excerpt: post.excerpt || '',
         content: post.content,
         status: post.status,
         category_id: post.category_id || undefined,
-        tags: post.blog_post_tags?.map((pt: any) => pt.blog_tags.name) || [],
-        meta_title: post.meta_title || '',
-        meta_description: post.meta_description || '',
-        meta_keywords: post.meta_keywords || '',
-        og_image: post.og_image || '',
-        custom_slug: post.custom_slug || '',
-        scheduled_at: post.scheduled_at ? new Date(post.scheduled_at) : undefined,
-        is_featured: post.is_featured || false,
-        allow_comments: post.allow_comments ?? true,
+        tags: tags?.map(t => t.tag_name) || [],
+        meta_title: post.seo_title || '',
+        meta_description: post.seo_description || '',
+        meta_keywords: '',
+        og_image: post.image_url || '',
+        custom_slug: post.slug || '',
+        scheduled_at: post.published_at ? new Date(post.published_at) : undefined,
+        is_featured: post.featured || false,
+        allow_comments: true,
       });
 
       setLastSaved(new Date(post.updated_at));
@@ -178,24 +176,24 @@ export function BlogPostFormV2({ postId }: BlogPostFormV2Props) {
 
       // Calculate reading time
       const words = data.content.split(/\s+/).filter(word => word.length > 0).length;
-      const reading_time = Math.ceil(words / 200);
+      const read_time = Math.ceil(words / 200);
 
-      // Prepare post data
+      // Generate slug if not provided
+      const slug = data.custom_slug || data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+
+      // Prepare post data with correct field names
       const postData = {
         title: data.title,
         excerpt: data.excerpt || null,
         content: data.content,
         status: data.status,
         category_id: data.category_id || null,
-        reading_time,
-        meta_title: data.meta_title || null,
-        meta_description: data.meta_description || null,
-        meta_keywords: data.meta_keywords || null,
-        og_image: data.og_image || null,
-        custom_slug: data.custom_slug || null,
-        scheduled_at: data.scheduled_at?.toISOString() || null,
-        is_featured: data.is_featured,
-        allow_comments: data.allow_comments,
+        read_time,
+        seo_title: data.meta_title || null,
+        seo_description: data.meta_description || null,
+        image_url: data.og_image || null,
+        slug: slug,
+        featured: data.is_featured,
         published_at: data.status === 'published' ? new Date().toISOString() : null,
       };
 
@@ -224,82 +222,36 @@ export function BlogPostFormV2({ postId }: BlogPostFormV2Props) {
           .single();
 
         if (error) throw error;
-        postId = newPost.id;
+        resultPostId = newPost.id;
       }
 
-      // Handle tags
-      if (postId && data.tags.length > 0) {
+      // Handle tags - simple approach using existing blog_post_tags table
+      if (resultPostId && data.tags.length > 0) {
         // First, remove all existing tags
         await supabase
           .from('blog_post_tags')
           .delete()
-          .eq('blog_post_id', postId);
+          .eq('blog_post_id', resultPostId);
 
         // Then add new tags
-        const tagPromises = data.tags.map(async (tagName) => {
-          // Check if tag exists
-          let { data: tag } = await supabase
-            .from('blog_tags')
-            .select('id')
-            .eq('name', tagName)
-            .single();
-
-          // Create tag if it doesn't exist
-          if (!tag) {
-            const slug = tagName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-            const { data: newTag } = await supabase
-              .from('blog_tags')
-              .insert({ name: tagName, slug })
-              .select()
-              .single();
-            tag = newTag;
-          }
-
-          // Link tag to post
-          if (tag) {
-            await supabase
-              .from('blog_post_tags')
-              .insert({
-                blog_post_id: postId,
-                tag_id: tag.id,
-              });
-          }
-        });
-
-        await Promise.all(tagPromises);
-      }
-
-      // Create version history entry
-      if (postId) {
-        const { data: versions } = await supabase
-          .from('blog_post_versions')
-          .select('version_number')
-          .eq('blog_post_id', postId)
-          .order('version_number', { ascending: false })
-          .limit(1);
-
-        const nextVersion = versions && versions.length > 0 ? versions[0].version_number + 1 : 1;
+        const tagInserts = data.tags.map(tagName => ({
+          blog_post_id: resultPostId,
+          tag_name: tagName
+        }));
 
         await supabase
-          .from('blog_post_versions')
-          .insert({
-            blog_post_id: postId,
-            title: data.title,
-            content: data.content,
-            excerpt: data.excerpt || null,
-            version_number: nextVersion,
-            created_by: userData.user.id,
-          });
+          .from('blog_post_tags')
+          .insert(tagInserts);
       }
 
       setLastSaved(new Date());
       toast({
         title: 'Success',
-        description: postId ? 'Blog post updated successfully' : 'Blog post created successfully',
+        description: resultPostId === postId ? 'Blog post updated successfully' : 'Blog post created successfully',
       });
 
-      if (!postId && postId) {
-        navigate(`/admin/blog/edit/${postId}`);
+      if (!postId && resultPostId) {
+        navigate(`/admin/blog/edit/${resultPostId}`);
       }
     } catch (error) {
       console.error('Error saving post:', error);
@@ -641,15 +593,10 @@ export function BlogPostFormV2({ postId }: BlogPostFormV2Props) {
 
           <TabsContent value="analytics">
             {postId ? (
-              <div className="py-6">
-                <Alert>
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    Analytics will be available after the post is published.
-                    You can view detailed analytics in the Analytics tab once your post starts receiving traffic.
-                  </AlertDescription>
-                </Alert>
-              </div>
+              <BlogPostAnalytics 
+                postId={postId} 
+                postSlug={form.watch('custom_slug') || form.watch('title').toLowerCase().replace(/[^a-z0-9]+/g, '-')}
+              />
             ) : (
               <div className="py-6">
                 <Alert>
