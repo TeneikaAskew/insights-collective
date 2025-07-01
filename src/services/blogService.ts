@@ -48,54 +48,75 @@ export const getBlogPostBySlug = async (slug: string): Promise<BlogPost | null> 
   try {
     console.log('Fetching blog post with slug:', slug);
     
-    const { data, error } = await supabase
+    // First get the blog post
+    const { data: postData, error: postError } = await supabase
       .from('blog_posts')
-      .select(`
-        *,
-        blog_categories(name),
-        profiles(first_name, last_name)
-      `)
+      .select('*')
       .eq('slug', slug)
       .eq('status', 'published')
       .maybeSingle();
 
-    console.log('Query result:', { data, error });
+    console.log('Post query result:', { postData, postError });
 
-    if (error) {
-      console.error('Database error:', error);
-      throw error;
+    if (postError) {
+      console.error('Database error:', postError);
+      throw postError;
     }
     
-    if (!data) {
+    if (!postData) {
       console.log('No data found for slug:', slug);
       return null;
     }
 
-    // Get tags separately
+    // Get category name
+    let categoryName = 'Uncategorized';
+    if (postData.category_id) {
+      const { data: categoryData } = await supabase
+        .from('blog_categories')
+        .select('name')
+        .eq('id', postData.category_id)
+        .maybeSingle();
+      categoryName = categoryData?.name || 'Uncategorized';
+    }
+
+    // Get author name
+    let authorName = 'Unknown Author';
+    if (postData.author_id) {
+      const { data: authorData } = await supabase
+        .from('profiles')
+        .select('first_name, last_name')
+        .eq('id', postData.author_id)
+        .maybeSingle();
+      if (authorData) {
+        authorName = `${authorData.first_name} ${authorData.last_name}`.trim();
+      }
+    }
+
+    // Get tags
     const { data: tags } = await supabase
       .from('blog_post_tags')
       .select('tag_name')
-      .eq('blog_post_id', data.id);
+      .eq('blog_post_id', postData.id);
 
     const post: BlogPost = {
-      id: data.id,
-      title: data.title,
-      content: data.content,
-      excerpt: data.excerpt,
-      slug: data.slug,
-      publishedAt: data.published_at || data.created_at,
-      updatedAt: data.updated_at,
-      authorId: data.author_id,
-      authorName: data.profiles ? `${data.profiles.first_name} ${data.profiles.last_name}`.trim() : 'Unknown Author',
-      imageUrl: data.image_url,
+      id: postData.id,
+      title: postData.title,
+      content: postData.content,
+      excerpt: postData.excerpt,
+      slug: postData.slug,
+      publishedAt: postData.published_at || postData.created_at,
+      updatedAt: postData.updated_at,
+      authorId: postData.author_id,
+      authorName: authorName,
+      imageUrl: postData.image_url,
       tags: tags?.map(tag => tag.tag_name) || [],
-      category: data.blog_categories?.name || 'Uncategorized',
-      status: data.status as 'draft' | 'published' | 'archived',
-      featured: data.featured,
-      seoTitle: data.seo_title,
-      seoDescription: data.seo_description,
-      views: data.view_count,
-      readTime: data.read_time
+      category: categoryName,
+      status: postData.status as 'draft' | 'published' | 'archived',
+      featured: postData.featured,
+      seoTitle: postData.seo_title,
+      seoDescription: postData.seo_description,
+      views: postData.view_count,
+      readTime: postData.read_time
     };
 
     console.log('Constructed post object:', post);
