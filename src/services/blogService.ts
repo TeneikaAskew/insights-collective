@@ -46,20 +46,36 @@ export const getAllBlogPosts = async (): Promise<BlogPost[]> => {
 // Get blog post by slug with real data
 export const getBlogPostBySlug = async (slug: string): Promise<BlogPost | null> => {
   try {
+    console.log('Fetching blog post with slug:', slug);
+    
     const { data, error } = await supabase
       .from('blog_posts')
       .select(`
         *,
-        blog_categories(name),
-        blog_post_tags(tag_name),
-        profiles(first_name, last_name)
+        blog_categories!inner(name),
+        profiles!inner(first_name, last_name)
       `)
       .eq('slug', slug)
       .eq('status', 'published')
       .maybeSingle();
 
-    if (error) throw error;
-    if (!data) return null;
+    console.log('Query result:', { data, error });
+
+    if (error) {
+      console.error('Database error:', error);
+      throw error;
+    }
+    
+    if (!data) {
+      console.log('No data found for slug:', slug);
+      return null;
+    }
+
+    // Get tags separately
+    const { data: tags } = await supabase
+      .from('blog_post_tags')
+      .select('tag_name')
+      .eq('blog_post_id', data.id);
 
     const post: BlogPost = {
       id: data.id,
@@ -72,7 +88,7 @@ export const getBlogPostBySlug = async (slug: string): Promise<BlogPost | null> 
       authorId: data.author_id,
       authorName: data.profiles ? `${data.profiles.first_name} ${data.profiles.last_name}`.trim() : 'Unknown Author',
       imageUrl: data.image_url,
-      tags: data.blog_post_tags?.map((tag: any) => tag.tag_name) || [],
+      tags: tags?.map(tag => tag.tag_name) || [],
       category: data.blog_categories?.name || 'Uncategorized',
       status: data.status as 'draft' | 'published' | 'archived',
       featured: data.featured,
@@ -81,6 +97,8 @@ export const getBlogPostBySlug = async (slug: string): Promise<BlogPost | null> 
       views: data.view_count,
       readTime: data.read_time
     };
+
+    console.log('Constructed post object:', post);
 
     // Record a view for this post
     recordBlogPostView(post.id, post.slug);
