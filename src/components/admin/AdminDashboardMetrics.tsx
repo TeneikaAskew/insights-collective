@@ -63,12 +63,12 @@ export const AdminDashboardMetrics = () => {
         linkText="View enrollments"
       />
       <MetricCard
-        title="Certificates Issued"
-        value="857"
-        description="Completion certificates"
+        title="System Analytics"
+        value="24/7"
+        description="Platform monitoring"
         icon={<Award className="h-4 w-4 text-primary" />}
-        linkTo="/admin/certificates"
-        linkText="View certificates"
+        linkTo="/admin/activity"
+        linkText="View analytics"
       />
     </div>
   );

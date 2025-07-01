@@ -32,6 +32,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { useCoursesManagement } from '@/hooks/useCoursesManagement';
 import { useCourseEnrollments } from '@/hooks/useCourseEnrollments';
+import { IssueCertificatesModal } from '@/components/admin/IssueCertificatesModal';
 
 import { Course } from '@/types/course';
 import { Spinner } from '@/components/ui/spinner';
@@ -158,6 +159,10 @@ export default function AdminCourses() {
             <TabsTrigger value="enrollments">
               <Users className="mr-2 h-4 w-4" />
               Enrollments
+            </TabsTrigger>
+            <TabsTrigger value="certificates">
+              <BadgeIcon className="mr-2 h-4 w-4" />
+              Certificates
             </TabsTrigger>
           </TabsList>
 
@@ -350,6 +355,10 @@ export default function AdminCourses() {
           <TabsContent value="enrollments">
             <EnrollmentsTab courses={courses} />
           </TabsContent>
+
+          <TabsContent value="certificates">
+            <CertificatesTab courses={courses} />
+          </TabsContent>
         </Tabs>
       </div>
     </AppLayout>
@@ -485,6 +494,211 @@ function EnrollmentsTab({ courses }: { courses: Course[] }) {
               </Table>
             </div>
           )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Certificates tab component
+function CertificatesTab({ courses }: { courses: Course[] }) {
+  const [selectedCourseId, setSelectedCourseId] = useState<string>(courses[0]?.id || '');
+  const [searchTerm, setSearchTerm] = useState('');
+  const { toast } = useToast();
+
+  // Mock certificates data - in real implementation, this would come from Supabase
+  const mockCertificates = [
+    {
+      id: 'cert-1',
+      user_name: 'John Doe',
+      user_email: 'john.doe@example.com',
+      course_title: courses.find(c => c.id === selectedCourseId)?.title || 'Course',
+      issued_at: '2025-01-01',
+      verification_code: 'CERT-2025-001',
+      certificate_type: 'completion'
+    },
+    {
+      id: 'cert-2',
+      user_name: 'Jane Smith',
+      user_email: 'jane.smith@example.com',
+      course_title: courses.find(c => c.id === selectedCourseId)?.title || 'Course',
+      issued_at: '2024-12-15',
+      verification_code: 'CERT-2024-045',
+      certificate_type: 'achievement'
+    }
+  ];
+
+  const filteredCertificates = mockCertificates.filter(cert =>
+    cert.user_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    cert.user_email.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleIssueCertificates = (courseId: string, userIds: string[]) => {
+    toast({
+      title: 'Certificates Issued',
+      description: `Successfully issued ${userIds.length} certificates for the selected course.`,
+    });
+  };
+
+  const handleDownloadCertificate = (certificate: any) => {
+    toast({
+      title: 'Certificate Downloaded',
+      description: `Certificate for ${certificate.user_name} has been downloaded.`,
+    });
+  };
+
+  const handleRevokeCertificate = (certificate: any) => {
+    toast({
+      title: 'Certificate Revoked',
+      description: `Certificate for ${certificate.user_name} has been revoked.`,
+      variant: 'destructive',
+    });
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <BadgeIcon className="h-5 w-5" />
+          Course Certificates
+        </CardTitle>
+        <CardDescription>
+          Manage and issue certificates for course completions.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+            <Select value={selectedCourseId} onValueChange={setSelectedCourseId}>
+              <SelectTrigger className="w-full md:w-[300px]">
+                <SelectValue placeholder="Select a course" />
+              </SelectTrigger>
+              <SelectContent>
+                {courses.map(course => (
+                  <SelectItem key={course.id} value={course.id}>
+                    {course.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Search certificates..."
+                className="pl-8"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+
+            <IssueCertificatesModal onIssueCertificates={handleIssueCertificates}>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Issue Certificates
+              </Button>
+            </IssueCertificatesModal>
+          </div>
+
+          {/* Statistics Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-2xl font-bold">{filteredCertificates.length}</div>
+                <p className="text-xs text-muted-foreground">Total Certificates</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-2xl font-bold">
+                  {filteredCertificates.filter(c => c.certificate_type === 'completion').length}
+                </div>
+                <p className="text-xs text-muted-foreground">Completion Certificates</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-2xl font-bold">
+                  {filteredCertificates.filter(c => c.certificate_type === 'achievement').length}
+                </div>
+                <p className="text-xs text-muted-foreground">Achievement Certificates</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Certificates Table */}
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Student</TableHead>
+                  <TableHead>Course</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Issue Date</TableHead>
+                  <TableHead>Verification Code</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredCertificates.length > 0 ? (
+                  filteredCertificates.map((certificate) => (
+                    <TableRow key={certificate.id}>
+                      <TableCell className="font-medium">
+                        <div className="flex flex-col">
+                          <span>{certificate.user_name}</span>
+                          <span className="text-sm text-muted-foreground">
+                            {certificate.user_email}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>{certificate.course_title}</TableCell>
+                      <TableCell>
+                        <Badge variant={
+                          certificate.certificate_type === 'achievement' ? 'default' : 'secondary'
+                        }>
+                          {certificate.certificate_type}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {new Date(certificate.issued_at).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
+                        <code className="bg-muted px-2 py-1 rounded text-xs">
+                          {certificate.verification_code}
+                        </code>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDownloadCertificate(certificate)}
+                          >
+                            <Download className="h-4 w-4 mr-2" />
+                            Download
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRevokeCertificate(certificate)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-24 text-center">
+                      No certificates found for this course.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       </CardContent>
     </Card>
