@@ -29,8 +29,11 @@ export default function BlogPostPage() {
 
   const loadBlogPost = async (postSlug: string) => {
     try {
+      console.log('Loading blog post with slug:', postSlug);
       const postData = await getBlogPostBySlug(postSlug);
+      console.log('Retrieved blog post data:', postData);
       if (!postData) {
+        console.log('No post data found for slug:', postSlug);
         setPost(null);
         setLoading(false);
         return;
