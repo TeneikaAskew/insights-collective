@@ -123,41 +123,71 @@ export function BlogManagementV2() {
   const loadPosts = async () => {
     setLoading(true);
     try {
-      let query = supabase
+      // Get blog posts with separate queries to avoid relationship issues
+      const { data: postsData, error: postsError } = await supabase
         .from('blog_posts')
-        .select(`
-          *,
-          author:profiles!author_id (
-            email,
-            full_name
-          ),
-          category:blog_categories (
-            name
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
+      if (postsError) throw postsError;
+
+      // Get all categories
+      const { data: categoriesData } = await supabase
+        .from('blog_categories')
+        .select('id, name');
+
+      // Get all authors
+      const { data: authorsData } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, email');
+
+      // Combine the data
+      const enrichedPosts = (postsData || []).map(post => ({
+        id: post.id,
+        title: post.title,
+        slug: post.slug,
+        content: post.content,
+        excerpt: post.excerpt,
+        status: post.status,
+        author_id: post.author_id,
+        category_id: post.category_id,
+        views_count: post.view_count || 0,
+        likes_count: 0, // This field doesn't exist yet
+        reading_time: post.read_time,
+        is_featured: post.featured,
+        published_at: post.published_at,
+        scheduled_at: null, // This field doesn't exist yet
+        created_at: post.created_at,
+        updated_at: post.updated_at,
+        author: {
+          email: authorsData?.find(a => a.id === post.author_id)?.email || '',
+          full_name: authorsData?.find(a => a.id === post.author_id) 
+            ? `${authorsData.find(a => a.id === post.author_id)?.first_name || ''} ${authorsData.find(a => a.id === post.author_id)?.last_name || ''}`.trim()
+            : ''
+        },
+        category: categoriesData?.find(c => c.id === post.category_id) 
+          ? { name: categoriesData.find(c => c.id === post.category_id)?.name || '' }
+          : undefined
+      }));
+
+      // Apply filters
+      let filteredPosts = enrichedPosts;
       if (statusFilter !== 'all') {
-        query = query.eq('status', statusFilter);
+        filteredPosts = filteredPosts.filter(p => p.status === statusFilter);
       }
-
       if (categoryFilter !== 'all') {
-        query = query.eq('category_id', categoryFilter);
+        filteredPosts = filteredPosts.filter(p => p.category_id === categoryFilter);
       }
 
-      const { data, error } = await query;
+      setPosts(filteredPosts);
 
-      if (error) throw error;
-
-      setPosts(data || []);
-
-      // Calculate stats
-      const totalPosts = data?.length || 0;
-      const publishedPosts = data?.filter(p => p.status === 'published').length || 0;
-      const draftPosts = data?.filter(p => p.status === 'draft').length || 0;
-      const scheduledPosts = data?.filter(p => p.status === 'scheduled').length || 0;
-      const totalViews = data?.reduce((sum, p) => sum + (p.views_count || 0), 0) || 0;
-      const totalLikes = data?.reduce((sum, p) => sum + (p.likes_count || 0), 0) || 0;
+      // Calculate stats from all posts (not just filtered)
+      const totalPosts = enrichedPosts.length;
+      const publishedPosts = enrichedPosts.filter(p => p.status === 'published').length;
+      const draftPosts = enrichedPosts.filter(p => p.status === 'draft').length;
+      const scheduledPosts = enrichedPosts.filter(p => p.status === 'scheduled').length;
+      const totalViews = enrichedPosts.reduce((sum, p) => sum + (p.views_count || 0), 0);
+      const totalLikes = enrichedPosts.reduce((sum, p) => sum + (p.likes_count || 0), 0);
 
       setStats({
         totalPosts,
@@ -221,9 +251,8 @@ export function BlogManagementV2() {
           status: 'draft',
           author_id: userData.user.id,
           category_id: post.category_id,
-          reading_time: post.reading_time,
-          is_featured: false,
-          allow_comments: true,
+          read_time: post.reading_time,
+          featured: false,
         });
 
       if (error) throw error;
