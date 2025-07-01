@@ -229,7 +229,7 @@ export default function BlogPostPage() {
                 {post.tags.map(tag => (
                   <Link 
                     key={tag} 
-                    to={`/blog?tag=${encodeURIComponent(tag)}`}
+                    to={`/data-blueprint-series?tag=${encodeURIComponent(tag)}`}
                   >
                     <Badge 
                       variant="secondary" 

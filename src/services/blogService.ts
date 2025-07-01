@@ -50,9 +50,9 @@ export const getBlogPostBySlug = async (slug: string): Promise<BlogPost | null> 
       .from('blog_posts')
       .select(`
         *,
-        blog_categories!blog_posts_category_id_fkey(name),
+        blog_categories(name),
         blog_post_tags(tag_name),
-        profiles!blog_posts_author_id_fkey(first_name, last_name)
+        profiles(first_name, last_name)
       `)
       .eq('slug', slug)
       .eq('status', 'published')
