@@ -35,6 +35,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { BlogCategoriesManager } from '@/components/blog/categories/BlogCategoriesManager';
 import { BlogAnalyticsDashboard } from '@/components/blog/analytics/BlogAnalyticsDashboard';
+import { BlogSettings } from './BlogSettings';
 import { 
   DropdownMenu,
   DropdownMenuContent,
@@ -562,19 +563,7 @@ export function BlogManagementV2() {
         </TabsContent>
 
         <TabsContent value="settings">
-          <Card>
-            <CardHeader>
-              <CardTitle>Blog Settings</CardTitle>
-              <CardDescription>
-                Configure your blog preferences and settings
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">
-                Blog settings coming soon...
-              </p>
-            </CardContent>
-          </Card>
+          <BlogSettings />
         </TabsContent>
       </Tabs>
 
