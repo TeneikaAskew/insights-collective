@@ -63,6 +63,7 @@ import { EnhancedPortfolioEditor } from '@/components/portfolio/EnhancedPortfoli
 import { PublicPortfolioView } from '@/components/portfolio/PublicPortfolioView';
 import { usePortfolioPages } from '@/hooks/usePortfolioPages';
 import { Spinner } from '@/components/ui/spinner';
+import { GoogleAnalytics, SEOMetaTags } from '@/components/common/GoogleAnalytics';
 
 // Blog & Content Pages
 import BlogPost from '@/pages/BlogPost';
@@ -283,6 +284,8 @@ function App() {
                 </Routes>
                 <Toaster />
                 <WelcomeModal />
+                <GoogleAnalytics />
+                <SEOMetaTags />
               </div>
             </OnboardingProvider>
           </PageVisibilityProvider>

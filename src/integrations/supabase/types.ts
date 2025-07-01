@@ -518,6 +518,102 @@ export type Database = {
           },
         ]
       }
+      blog_settings: {
+        Row: {
+          allow_comments: boolean | null
+          auto_generate_excerpts: boolean | null
+          blog_description: string | null
+          blog_title: string
+          blog_url: string | null
+          created_at: string | null
+          default_meta_description: string | null
+          default_meta_keywords: string | null
+          default_meta_title: string | null
+          default_post_status: string | null
+          email_notifications: boolean | null
+          enable_analytics: boolean | null
+          google_analytics_id: string | null
+          google_tag_manager_id: string | null
+          id: string
+          moderate_comments: boolean | null
+          notification_email: string | null
+          posts_per_page: number | null
+          series_description: string | null
+          series_featured: boolean | null
+          series_title: string | null
+          series_url: string | null
+          site_favicon_url: string | null
+          site_logo_url: string | null
+          site_meta_description: string | null
+          site_meta_keywords: string | null
+          site_meta_title: string | null
+          social_sharing: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          allow_comments?: boolean | null
+          auto_generate_excerpts?: boolean | null
+          blog_description?: string | null
+          blog_title?: string
+          blog_url?: string | null
+          created_at?: string | null
+          default_meta_description?: string | null
+          default_meta_keywords?: string | null
+          default_meta_title?: string | null
+          default_post_status?: string | null
+          email_notifications?: boolean | null
+          enable_analytics?: boolean | null
+          google_analytics_id?: string | null
+          google_tag_manager_id?: string | null
+          id?: string
+          moderate_comments?: boolean | null
+          notification_email?: string | null
+          posts_per_page?: number | null
+          series_description?: string | null
+          series_featured?: boolean | null
+          series_title?: string | null
+          series_url?: string | null
+          site_favicon_url?: string | null
+          site_logo_url?: string | null
+          site_meta_description?: string | null
+          site_meta_keywords?: string | null
+          site_meta_title?: string | null
+          social_sharing?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          allow_comments?: boolean | null
+          auto_generate_excerpts?: boolean | null
+          blog_description?: string | null
+          blog_title?: string
+          blog_url?: string | null
+          created_at?: string | null
+          default_meta_description?: string | null
+          default_meta_keywords?: string | null
+          default_meta_title?: string | null
+          default_post_status?: string | null
+          email_notifications?: boolean | null
+          enable_analytics?: boolean | null
+          google_analytics_id?: string | null
+          google_tag_manager_id?: string | null
+          id?: string
+          moderate_comments?: boolean | null
+          notification_email?: string | null
+          posts_per_page?: number | null
+          series_description?: string | null
+          series_featured?: boolean | null
+          series_title?: string | null
+          series_url?: string | null
+          site_favicon_url?: string | null
+          site_logo_url?: string | null
+          site_meta_description?: string | null
+          site_meta_keywords?: string | null
+          site_meta_title?: string | null
+          social_sharing?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       career_pathway_answers: {
         Row: {
           answer: string

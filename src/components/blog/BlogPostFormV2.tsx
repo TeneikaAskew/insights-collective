@@ -40,6 +40,7 @@ import { TagInput } from './form/TagInput';
 import { StatusDropdown } from './form/StatusDropdown';
 import { BlogPostAnalytics } from './analytics/BlogPostAnalytics';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { generateExcerpt } from '@/utils/excerptGenerator';
 
 const blogPostSchema = z.object({
   title: z.string().min(1, 'Title is required').max(255),
@@ -74,6 +75,7 @@ export function BlogPostFormV2({ postId }: BlogPostFormV2Props) {
   const [readingTime, setReadingTime] = useState(0);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [activeTab, setActiveTab] = useState('content');
+  const [blogSettings, setBlogSettings] = useState<any>(null);
 
   const form = useForm<BlogPostFormData>({
     resolver: zodResolver(blogPostSchema),
@@ -90,6 +92,7 @@ export function BlogPostFormV2({ postId }: BlogPostFormV2Props) {
 
   useEffect(() => {
     loadCategories();
+    loadBlogSettings();
     if (postId) {
       loadPost();
     }
@@ -113,6 +116,23 @@ export function BlogPostFormV2({ postId }: BlogPostFormV2Props) {
       setCategories(data || []);
     } catch (error) {
       console.error('Error loading categories:', error);
+    }
+  };
+
+  const loadBlogSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('blog_settings')
+        .select('*')
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        throw error;
+      }
+
+      setBlogSettings(data);
+    } catch (error) {
+      console.error('Error loading blog settings:', error);
     }
   };
 
@@ -181,10 +201,16 @@ export function BlogPostFormV2({ postId }: BlogPostFormV2Props) {
       // Generate slug if not provided
       const slug = data.custom_slug || data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
+      // Auto-generate excerpt if enabled and no excerpt provided
+      let finalExcerpt = data.excerpt;
+      if (!finalExcerpt && blogSettings?.auto_generate_excerpts && data.content) {
+        finalExcerpt = generateExcerpt(data.content, 160, true);
+      }
+
       // Prepare post data with correct field names
       const postData = {
         title: data.title,
-        excerpt: data.excerpt || null,
+        excerpt: finalExcerpt || null,
         content: data.content,
         status: data.status,
         category_id: data.category_id || null,

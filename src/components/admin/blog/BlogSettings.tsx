@@ -37,10 +37,23 @@ const blogSettingsSchema = z.object({
   blog_description: z.string().max(500, 'Description must be under 500 characters'),
   blog_url: z.string().url('Must be a valid URL').optional().or(z.literal('')),
   
+  // Data Blueprint Series Integration
+  series_title: z.string().min(1, 'Series title is required'),
+  series_description: z.string().max(500, 'Series description must be under 500 characters'),
+  series_url: z.string().min(1, 'Series URL is required'),
+  series_featured: z.boolean(),
+  
   // SEO Defaults
   default_meta_title: z.string().max(60, 'Meta title should be under 60 characters').optional(),
   default_meta_description: z.string().max(160, 'Meta description should be under 160 characters').optional(),
   default_meta_keywords: z.string().optional(),
+  
+  // Site-wide SEO
+  site_meta_title: z.string().max(60, 'Site meta title should be under 60 characters').optional(),
+  site_meta_description: z.string().max(160, 'Site meta description should be under 160 characters').optional(),
+  site_meta_keywords: z.string().optional(),
+  site_favicon_url: z.string().url('Must be a valid URL').optional().or(z.literal('')),
+  site_logo_url: z.string().url('Must be a valid URL').optional().or(z.literal('')),
   
   // Comments & Social
   allow_comments: z.boolean(),
@@ -49,6 +62,7 @@ const blogSettingsSchema = z.object({
   
   // Analytics
   google_analytics_id: z.string().optional(),
+  google_tag_manager_id: z.string().optional(),
   enable_analytics: z.boolean(),
   
   // Email Notifications
@@ -74,13 +88,23 @@ export function BlogSettings() {
       blog_title: '',
       blog_description: '',
       blog_url: '',
+      series_title: 'The Data Blueprint Series',
+      series_description: 'A 10-Part Guide to Breaking In, Leveling Up, and Leading in Data Careers',
+      series_url: '/data-blueprint-series',
+      series_featured: true,
       default_meta_title: '',
       default_meta_description: '',
       default_meta_keywords: '',
+      site_meta_title: '',
+      site_meta_description: '',
+      site_meta_keywords: '',
+      site_favicon_url: '',
+      site_logo_url: '',
       allow_comments: true,
       moderate_comments: true,
       social_sharing: true,
       google_analytics_id: '',
+      google_tag_manager_id: '',
       enable_analytics: true,
       email_notifications: true,
       notification_email: '',
@@ -97,15 +121,52 @@ export function BlogSettings() {
   const loadSettings = async () => {
     setLoading(true);
     try {
-      // For now, we'll store settings in a simple way
-      // In a real implementation, you might want a dedicated settings table
-      const settings = localStorage.getItem('blog_settings');
-      if (settings) {
-        const parsedSettings = JSON.parse(settings);
-        form.reset(parsedSettings);
+      const { data, error } = await supabase
+        .from('blog_settings')
+        .select('*')
+        .single();
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+        throw error;
+      }
+
+      if (data) {
+        form.reset({
+          blog_title: data.blog_title || '',
+          blog_description: data.blog_description || '',
+          blog_url: data.blog_url || '',
+          series_title: data.series_title || 'The Data Blueprint Series',
+          series_description: data.series_description || 'A 10-Part Guide to Breaking In, Leveling Up, and Leading in Data Careers',
+          series_url: data.series_url || '/data-blueprint-series',
+          series_featured: data.series_featured ?? true,
+          default_meta_title: data.default_meta_title || '',
+          default_meta_description: data.default_meta_description || '',
+          default_meta_keywords: data.default_meta_keywords || '',
+          site_meta_title: data.site_meta_title || '',
+          site_meta_description: data.site_meta_description || '',
+          site_meta_keywords: data.site_meta_keywords || '',
+          site_favicon_url: data.site_favicon_url || '',
+          site_logo_url: data.site_logo_url || '',
+          allow_comments: data.allow_comments ?? true,
+          moderate_comments: data.moderate_comments ?? true,
+          social_sharing: data.social_sharing ?? true,
+          google_analytics_id: data.google_analytics_id || '',
+          google_tag_manager_id: data.google_tag_manager_id || '',
+          enable_analytics: data.enable_analytics ?? true,
+          email_notifications: data.email_notifications ?? true,
+          notification_email: data.notification_email || '',
+          default_post_status: data.default_post_status || 'draft',
+          auto_generate_excerpts: data.auto_generate_excerpts ?? true,
+          posts_per_page: data.posts_per_page || 10,
+        });
       }
     } catch (error) {
       console.error('Error loading settings:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load blog settings. Using defaults.',
+        variant: 'destructive',
+      });
     } finally {
       setLoading(false);
     }
@@ -114,9 +175,28 @@ export function BlogSettings() {
   const onSubmit = async (data: BlogSettingsFormData) => {
     setSaving(true);
     try {
-      // Store settings in localStorage for now
-      // In a real implementation, you'd save to a database
-      localStorage.setItem('blog_settings', JSON.stringify(data));
+      // First, check if settings exist
+      const { data: existingSettings } = await supabase
+        .from('blog_settings')
+        .select('id')
+        .single();
+
+      if (existingSettings) {
+        // Update existing settings
+        const { error } = await supabase
+          .from('blog_settings')
+          .update(data)
+          .eq('id', existingSettings.id);
+
+        if (error) throw error;
+      } else {
+        // Insert new settings
+        const { error } = await supabase
+          .from('blog_settings')
+          .insert([data]);
+
+        if (error) throw error;
+      }
       
       toast({
         title: 'Settings saved',
@@ -292,12 +372,85 @@ export function BlogSettings() {
                       <FormMessage />
                     </FormItem>
                   )}
-                />
-              </CardContent>
-            </Card>
-          </TabsContent>
+                 />
+               </CardContent>
+             </Card>
 
-          <TabsContent value="seo" className="space-y-6">
+             <Card>
+               <CardHeader>
+                 <CardTitle>Data Blueprint Series Integration</CardTitle>
+                 <CardDescription>Configure the Data Blueprint Series feature</CardDescription>
+               </CardHeader>
+               <CardContent className="space-y-4">
+                 <FormField
+                   control={form.control}
+                   name="series_title"
+                   render={({ field }) => (
+                     <FormItem>
+                       <FormLabel>Series Title</FormLabel>
+                       <FormControl>
+                         <Input placeholder="The Data Blueprint Series" {...field} />
+                       </FormControl>
+                       <FormDescription>Title for the Data Blueprint Series</FormDescription>
+                       <FormMessage />
+                     </FormItem>
+                   )}
+                 />
+
+                 <FormField
+                   control={form.control}
+                   name="series_description"
+                   render={({ field }) => (
+                     <FormItem>
+                       <FormLabel>Series Description</FormLabel>
+                       <FormControl>
+                         <Textarea 
+                           placeholder="A comprehensive guide to data careers..."
+                           className="min-h-[100px]"
+                           {...field} 
+                         />
+                       </FormControl>
+                       <FormDescription>Description for the Data Blueprint Series</FormDescription>
+                       <FormMessage />
+                     </FormItem>
+                   )}
+                 />
+
+                 <FormField
+                   control={form.control}
+                   name="series_url"
+                   render={({ field }) => (
+                     <FormItem>
+                       <FormLabel>Series URL Path</FormLabel>
+                       <FormControl>
+                         <Input placeholder="/data-blueprint-series" {...field} />
+                       </FormControl>
+                       <FormDescription>URL path for the Data Blueprint Series page</FormDescription>
+                       <FormMessage />
+                     </FormItem>
+                   )}
+                 />
+
+                 <FormField
+                   control={form.control}
+                   name="series_featured"
+                   render={({ field }) => (
+                     <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                       <div className="space-y-0.5">
+                         <FormLabel>Feature Series</FormLabel>
+                         <FormDescription>Display the series prominently on the homepage</FormDescription>
+                       </div>
+                       <FormControl>
+                         <Switch checked={field.value} onCheckedChange={field.onChange} />
+                       </FormControl>
+                     </FormItem>
+                   )}
+                 />
+               </CardContent>
+             </Card>
+           </TabsContent>
+
+           <TabsContent value="seo" className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>SEO Defaults</CardTitle>
@@ -350,12 +503,98 @@ export function BlogSettings() {
                       <FormMessage />
                     </FormItem>
                   )}
-                />
-              </CardContent>
-            </Card>
-          </TabsContent>
+                 />
+               </CardContent>
+             </Card>
 
-          <TabsContent value="social" className="space-y-6">
+             <Card>
+               <CardHeader>
+                 <CardTitle>Site-wide SEO</CardTitle>
+                 <CardDescription>Global SEO settings for your entire site</CardDescription>
+               </CardHeader>
+               <CardContent className="space-y-4">
+                 <FormField
+                   control={form.control}
+                   name="site_meta_title"
+                   render={({ field }) => (
+                     <FormItem>
+                       <FormLabel>Site Meta Title</FormLabel>
+                       <FormControl>
+                         <Input placeholder="Data Career Platform - Your Learning Hub" {...field} />
+                       </FormControl>
+                       <FormDescription>Global title for your site (used on homepage and fallback)</FormDescription>
+                       <FormMessage />
+                     </FormItem>
+                   )}
+                 />
+
+                 <FormField
+                   control={form.control}
+                   name="site_meta_description"
+                   render={({ field }) => (
+                     <FormItem>
+                       <FormLabel>Site Meta Description</FormLabel>
+                       <FormControl>
+                         <Textarea 
+                           placeholder="Your comprehensive platform for data career development..."
+                           {...field} 
+                         />
+                       </FormControl>
+                       <FormDescription>Global description for your site</FormDescription>
+                       <FormMessage />
+                     </FormItem>
+                   )}
+                 />
+
+                 <FormField
+                   control={form.control}
+                   name="site_meta_keywords"
+                   render={({ field }) => (
+                     <FormItem>
+                       <FormLabel>Site Keywords</FormLabel>
+                       <FormControl>
+                         <Input placeholder="data science, analytics, career development" {...field} />
+                       </FormControl>
+                       <FormDescription>Comma-separated keywords for your entire site</FormDescription>
+                       <FormMessage />
+                     </FormItem>
+                   )}
+                 />
+
+                 <FormField
+                   control={form.control}
+                   name="site_favicon_url"
+                   render={({ field }) => (
+                     <FormItem>
+                       <FormLabel>Favicon URL</FormLabel>
+                       <FormControl>
+                         <Input placeholder="https://example.com/favicon.ico" {...field} />
+                       </FormControl>
+                       <FormDescription>URL to your site's favicon</FormDescription>
+                       <FormMessage />
+                     </FormItem>
+                   )}
+                 />
+
+                 <FormField
+                   control={form.control}
+                   name="site_logo_url"
+                   render={({ field }) => (
+                     <FormItem>
+                       <FormLabel>Site Logo URL</FormLabel>
+                       <FormControl>
+                         <Input placeholder="https://example.com/logo.png" {...field} />
+                       </FormControl>
+                       <FormDescription>URL to your site's logo</FormDescription>
+                       <FormMessage />
+                     </FormItem>
+                   )}
+                 />
+               </CardContent>
+             </Card>
+           </TabsContent>
+
+           <TabsContent value="social" className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>Social & Comments</CardTitle>
@@ -438,27 +677,42 @@ export function BlogSettings() {
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="google_analytics_id"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Google Analytics ID</FormLabel>
-                      <FormControl>
-                        <Input placeholder="G-XXXXXXXXXX" {...field} />
-                      </FormControl>
-                      <FormDescription>Your Google Analytics measurement ID</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                 <FormField
+                   control={form.control}
+                   name="google_analytics_id"
+                   render={({ field }) => (
+                     <FormItem>
+                       <FormLabel>Google Analytics ID</FormLabel>
+                       <FormControl>
+                         <Input placeholder="G-XXXXXXXXXX" {...field} />
+                       </FormControl>
+                       <FormDescription>Your Google Analytics measurement ID</FormDescription>
+                       <FormMessage />
+                     </FormItem>
+                   )}
+                 />
 
-                <Alert>
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    Blog analytics are currently tracked internally. Google Analytics integration coming soon.
-                  </AlertDescription>
-                </Alert>
+                 <FormField
+                   control={form.control}
+                   name="google_tag_manager_id"
+                   render={({ field }) => (
+                     <FormItem>
+                       <FormLabel>Google Tag Manager ID</FormLabel>
+                       <FormControl>
+                         <Input placeholder="GTM-XXXXXXX" {...field} />
+                       </FormControl>
+                       <FormDescription>Your Google Tag Manager container ID</FormDescription>
+                       <FormMessage />
+                     </FormItem>
+                   )}
+                 />
+
+                 <Alert>
+                   <AlertCircle className="h-4 w-4" />
+                   <AlertDescription>
+                     Google Analytics and Tag Manager integration is now active. Configure your IDs above to start tracking.
+                   </AlertDescription>
+                 </Alert>
               </CardContent>
             </Card>
           </TabsContent>
