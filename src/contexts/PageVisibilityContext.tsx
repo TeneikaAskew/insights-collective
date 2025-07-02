@@ -1,6 +1,8 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface OnlineUser {
   id: string;
@@ -61,11 +63,17 @@ interface PageVisibilityProviderProps {
 
 export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ children }) => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
   const [currentUserPresence, setCurrentUserPresence] = useState<CurrentUserPresence | null>(null);
   const [pageVisibility, setPageVisibility] = useState<PageVisibilityEntry[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
+
+  // Fetch page visibility data on mount
+  useEffect(() => {
+    fetchPageVisibilityData();
+  }, []);
 
   // Set current user presence when user changes
   useEffect(() => {
@@ -77,6 +85,37 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
       });
     }
   }, [user]);
+
+  const fetchPageVisibilityData = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('page_visibility')
+        .select('*')
+        .order('page_path');
+
+      if (error) {
+        console.error('Error fetching page visibility data:', error);
+        toast({
+          title: 'Error loading page visibility',
+          description: error.message,
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      setPageVisibility(data || []);
+    } catch (error) {
+      console.error('Error fetching page visibility data:', error);
+      toast({
+        title: 'Error loading page visibility',
+        description: 'Failed to load page visibility settings',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const isPageVisible = (path: string): boolean => {
     console.log(`[PageVisibilityProvider] Checking visibility for path: ${path}`);
@@ -97,17 +136,60 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
   };
 
   const updatePageVisibility = async (pageId: string, updates: Partial<PageVisibilityEntry>) => {
-    console.log(`[PageVisibilityProvider] Updating page visibility for ${pageId}:`, updates);
-    // Implementation would go here for actual database updates
+    try {
+      const { error } = await supabase
+        .from('page_visibility')
+        .update(updates)
+        .eq('id', pageId);
+
+      if (error) {
+        console.error('Error updating page visibility:', error);
+        toast({
+          title: 'Error updating page visibility',
+          description: error.message,
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Update local state
+      setPageVisibility(prev => 
+        prev.map(page => 
+          page.id === pageId ? { ...page, ...updates } : page
+        )
+      );
+
+      toast({
+        title: 'Page visibility updated',
+        description: 'Page visibility settings have been saved successfully.',
+      });
+    } catch (error) {
+      console.error('Error updating page visibility:', error);
+      toast({
+        title: 'Error updating page visibility',
+        description: 'Failed to update page visibility settings',
+        variant: 'destructive',
+      });
+    }
   };
 
   const syncAvailablePages = async () => {
     setIsSyncing(true);
     try {
-      console.log(`[PageVisibilityProvider] Syncing available pages`);
-      // Implementation would go here for actual page syncing
+      // Re-fetch the current page visibility data
+      await fetchPageVisibilityData();
+      
+      toast({
+        title: 'Pages synced',
+        description: 'Page visibility data has been refreshed successfully.',
+      });
     } catch (error) {
       console.error('[PageVisibilityProvider] Error syncing pages:', error);
+      toast({
+        title: 'Error syncing pages',
+        description: 'Failed to sync page visibility data',
+        variant: 'destructive',
+      });
     } finally {
       setIsSyncing(false);
     }
