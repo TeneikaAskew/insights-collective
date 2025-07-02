@@ -89,7 +89,8 @@ const AdminUsers = () => {
     
     // Check if user has the role for the current tab
     const userRoles = user.roles || ['student'];
-    return matchesSearch && userRoles.includes(activeTab);
+    const hasRole = userRoles.includes(activeTab) || user.role === activeTab;
+    return matchesSearch && hasRole;
   });
   
   const handleOpenUserDetails = (user: UserData) => {
@@ -221,9 +222,9 @@ const AdminUsers = () => {
 
   // Get counts for each tab
   const allUsersCount = users.length;
-  const studentsCount = users.filter(u => (u.roles || ['student']).includes('student')).length;
-  const instructorsCount = users.filter(u => (u.roles || []).includes('instructor')).length;
-  const adminsCount = users.filter(u => (u.roles || []).includes('admin')).length;
+  const studentsCount = users.filter(u => (u.roles || ['student']).includes('student') || u.role === 'student').length;
+  const instructorsCount = users.filter(u => (u.roles || []).includes('instructor') || u.role === 'instructor').length;
+  const adminsCount = users.filter(u => (u.roles || []).includes('admin') || u.role === 'admin').length;
 
   console.log('[AdminUsers] Rendering with users:', users.length, 'loading:', loading, 'error:', error);
   
