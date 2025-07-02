@@ -895,9 +895,13 @@ const AdminDashboard = () => {
                         <tr key={course.id} className="border-b hover:bg-secondary/50">
                           <td className="p-4">
                             <div className="flex items-center gap-3">
-                              <div className="w-12 h-12 rounded-md overflow-hidden">
-                                <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover" />
-                              </div>
+                               <div className="w-12 h-12 rounded-md overflow-hidden bg-secondary flex items-center justify-center">
+                                 {course.imageUrl ? (
+                                   <img src={course.imageUrl} alt={course.title} className="w-full h-full object-cover" />
+                                 ) : (
+                                   <BookOpen className="h-6 w-6 text-muted-foreground" />
+                                 )}
+                               </div>
                               <div>
                                 <p className="font-medium">{course.title}</p>
                                 <p className="text-xs text-muted-foreground">{course.category}</p>
@@ -905,13 +909,19 @@ const AdminDashboard = () => {
                             </div>
                           </td>
                           <td className="p-4">
-                            <div className="flex items-center gap-2">
-                              <Avatar className="h-8 w-8">
-                                <AvatarImage src={course.instructor.avatar} />
-                                <AvatarFallback>{course.instructor.name.charAt(0)}</AvatarFallback>
-                              </Avatar>
-                              <span>{course.instructor.name}</span>
-                            </div>
+                             <div className="flex items-center gap-2">
+                               {course.instructor ? (
+                                 <>
+                                   <Avatar className="h-8 w-8">
+                                     <AvatarImage src={course.instructor.avatar} />
+                                     <AvatarFallback>{course.instructor.name?.charAt(0) || 'I'}</AvatarFallback>
+                                   </Avatar>
+                                   <span>{course.instructor.name}</span>
+                                 </>
+                               ) : (
+                                 <span className="text-muted-foreground">Unassigned</span>
+                               )}
+                             </div>
                           </td>
                           <td className="p-4">{course.enrollmentCount} students</td>
                           <td className="p-4">
