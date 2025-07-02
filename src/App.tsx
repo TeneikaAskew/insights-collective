@@ -93,7 +93,7 @@ import AdminEvents from '@/pages/AdminEvents';
 import AdminForms from '@/pages/AdminForms';
 import AdminUsers from '@/pages/AdminUsers';
 import BlogAdmin from '@/pages/admin/BlogAdmin';
-import PageVisibility from '@/pages/admin/PageVisibility';
+import AdminPageVisibility from '@/pages/AdminPageVisibility';
 import FormManagement from '@/pages/admin/FormManagement';
 import UnifiedFormManagement from '@/pages/admin/UnifiedFormManagement';
 import LocalStorageDebug from '@/pages/admin/LocalStorageDebug';
@@ -270,7 +270,7 @@ function App() {
                   <Route path="/admin/events" element={<AdminEvents />} />
                   <Route path="/admin/forms" element={<AdminForms />} />
                   <Route path="/admin/users" element={<AdminUsers />} />
-                  <Route path="/admin/page-visibility" element={<PageVisibility />} />
+                  <Route path="/admin/page-visibility" element={<AdminPageVisibility />} />
                   <Route path="/admin/form-management" element={<FormManagement />} />
                   <Route path="/admin/unified-form-management" element={<UnifiedFormManagement />} />
                   <Route path="/admin/local-storage-debug" element={<LocalStorageDebug />} />

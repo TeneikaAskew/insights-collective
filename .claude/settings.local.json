@@ -27,7 +27,25 @@
       "Bash(true)",
       "Bash(npm run test:*)",
       "Bash(npx vitest run:*)",
-      "Bash(git merge:*)"
+      "Bash(git merge:*)",
+      "Bash(src/components/assistants/__tests__/AssistantChat.test.tsx )",
+      "Bash(src/components/course/management/__tests__/CourseManagementDashboard.test.tsx )",
+      "Bash(src/components/events/__tests__/EventCard.test.tsx )",
+      "Bash(src/components/events/__tests__/EventsFilter.test.tsx )",
+      "Bash(src/components/events/__tests__/EventsList.test.tsx )",
+      "Bash(src/components/events/hooks/__tests__/useEventForm.test.ts )",
+      "Bash(src/components/events/modals/__tests__/AddEventModal.test.tsx )",
+      "Bash(src/components/portfolio/__tests__/PortfolioEditor.test.tsx )",
+      "Bash(src/components/resume/__tests__/ResumeAnalysisDisplay.test.tsx )",
+      "Bash(src/contexts/__tests__/AuthContext.test.tsx )",
+      "Bash(src/hooks/__tests__/useAuth.test.tsx )",
+      "Bash(src/hooks/__tests__/useCourseData.test.tsx )",
+      "Bash(src/hooks/__tests__/useEventRegistrations.test.tsx )",
+      "Bash(src/hooks/__tests__/useEvents.test.tsx )",
+      "Bash(src/pages/__tests__/Events.test.tsx )",
+      "Bash(src/pages/__tests__/Login.test.tsx )",
+      "Bash(src/services/__tests__/blogService.test.ts )",
+      "Bash(src/services/__tests__/eventService.test.ts)"
     ],
     "deny": []
   }
