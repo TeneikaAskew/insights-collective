@@ -441,15 +441,15 @@ export default function JobDescription() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="pt-6 bg-white">
-                    <ul className="space-y-4">
+                    <div className="space-y-4 text-left">
                       {studyGuide.technical_checklist.map((item, index) => (
-                        <li key={index} className="p-4 bg-gradient-to-r from-gray-100/50 to-white/80 rounded-lg border border-border/30 hover:shadow-md transition-all">
-                          <div className="flex items-center justify-between mb-2">
-                            <div>
-                              <p className="font-medium text-foreground">{item.skill}</p>
+                        <div key={index} className="p-4 bg-gradient-to-r from-gray-100/50 to-white/80 rounded-lg border border-border/30 hover:shadow-md transition-all">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex-1 text-left">
+                              <p className="font-medium text-foreground mb-2">{item.skill}</p>
                               <Badge 
                                 variant="outline" 
-                                className={`mt-1 ${
+                                className={`${
                                   item.importance === 'high' 
                                     ? 'bg-destructive/10 text-destructive/90 border-destructive/20' 
                                     : item.importance === 'medium'
@@ -461,15 +461,32 @@ export default function JobDescription() {
                               </Badge>
                             </div>
                             {item.resources && item.resources.length > 0 && (
-                              <Button variant="ghost" size="sm" className="text-gray-500 hover:text-gray-700 hover:bg-gray-100/50">
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="text-primary/70 hover:text-primary hover:bg-primary/10"
+                                onClick={() => {
+                                  const resourcesList = item.resources?.join('\n') || '';
+                                  toast({
+                                    title: `Resources for ${item.skill}`,
+                                    description: resourcesList || 'No specific resources available yet',
+                                  });
+                                }}
+                              >
                                 View Resources
                               </Button>
                             )}
                           </div>
-                          <Progress value={0} className="h-2 bg-gray-200" indicatorClassName="bg-gray-500" />
-                        </li>
+                          <div className="text-left">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-sm text-muted-foreground">Progress</span>
+                              <span className="text-sm text-muted-foreground">0%</span>
+                            </div>
+                            <Progress value={0} className="h-2 bg-gray-200" indicatorClassName="bg-primary" />
+                          </div>
+                        </div>
                       ))}
-                    </ul>
+                    </div>
                   </CardContent>
                 </Card>
               </div>
