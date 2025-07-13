@@ -64,7 +64,7 @@ const AdminUsers = () => {
     } else {
       console.log('[AdminUsers] User not loaded yet, waiting...');
     }
-  }, [user, fetchUsers]);
+  }, [user]);
 
   useEffect(() => {
     console.log('[AdminUsers] Users state updated:', users);

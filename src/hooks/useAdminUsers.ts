@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -30,7 +30,7 @@ export function useAdminUsers() {
   const { toast } = useToast();
   const { user, session } = useAuth();
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     console.log('[useAdminUsers] Starting fetchUsers...');
     setLoading(true);
     setError(null);
@@ -156,7 +156,7 @@ export function useAdminUsers() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, session, toast]);
 
   const updateUserRole = async (userId: string, roles: string[]) => {
     try {
