@@ -351,7 +351,7 @@ const CareerPathway: React.FC = () => {
                     <CardHeader className="bg-primary/5 pb-2">
                       <CardTitle className="flex items-center gap-2">
                         <TrendingUp className="h-5 w-5 text-primary" />
-                        Path to <p className="text-2xl font-bold">{data?.report?.recommendedRoles?.[0]?.title || 'Data Analyst'}</p>
+                        Path to <span className="text-2xl font-bold">{data?.report?.recommendedRoles?.[0]?.title || "Data Analyst"}</span>
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="p-6 pt-4">
