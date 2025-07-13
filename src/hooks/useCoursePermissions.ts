@@ -39,7 +39,7 @@ export function useCoursePermissions(courseId?: string) {
         // First, let's check user profile directly as a fallback
         const { data: userProfile, error: profileError } = await supabase
           .from('profiles')
-          .select('role, roles')
+          .select('roles')
           .eq('id', user.id)
           .single();
         
@@ -72,7 +72,7 @@ export function useCoursePermissions(courseId?: string) {
         }
         
         // Fallback check using profile data directly
-        const isAdminFromProfile = userProfile?.role === 'admin' || userProfile?.roles?.includes('admin');
+        const isAdminFromProfile = userProfile?.roles?.includes('admin');
         const finalAdminAccess = hasAdminAccess || isAdminFromProfile;
         
         console.log('Setting permissions - Admin (RPC):', hasAdminAccess, 'Admin (Profile):', isAdminFromProfile, 'Final Admin:', finalAdminAccess, 'Instructor:', isCourseInstructor);

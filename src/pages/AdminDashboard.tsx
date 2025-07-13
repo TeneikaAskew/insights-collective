@@ -610,7 +610,7 @@ const AdminDashboard = () => {
       return;
     }
     
-    if (user && user.role !== 'admin') {
+    if (user && (!user.roles || !user.roles.includes('admin'))) {
       navigate('/dashboard');
     }
     
@@ -628,7 +628,7 @@ const AdminDashboard = () => {
     }
   }, [isAuthenticated, user, navigate, location]);
   
-  if (!user || user.role !== 'admin') return null;
+  if (!user || !user.roles || !user.roles.includes('admin')) return null;
   
   const { courses } = useCoursesManagement();
   const allCourses = courses;

@@ -26,7 +26,7 @@ export function useUsers() {
         
         const { data, error } = await supabase
           .from('profiles')
-          .select('id, first_name, last_name, avatar_url, role, bio, roles')
+          .select('id, first_name, last_name, avatar_url, bio, roles')
           .or(`first_name.ilike.%${searchQuery}%,last_name.ilike.%${searchQuery}%`)
           .limit(50);
 
@@ -40,7 +40,6 @@ export function useUsers() {
           first_name: user.first_name || '',
           last_name: user.last_name || '',
           avatar_url: user.avatar_url,
-          role: user.role || 'student',
           bio: user.bio || '',
           roles: user.roles || ['student']
         }));

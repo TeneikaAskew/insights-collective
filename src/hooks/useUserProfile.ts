@@ -60,7 +60,6 @@ export function useUserProfile(user: User | null) {
         console.log('[useUserProfile] Raw profile data:', profile);
         console.log('[useUserProfile] Enriched profile data:', enrichedProfile);
         console.log('[useUserProfile] Profile roles:', enrichedProfile?.roles);
-        console.log('[useUserProfile] Profile role field:', enrichedProfile?.role);
         
         // Generate a display name from first_name and last_name
         const displayName = enrichedProfile?.first_name && enrichedProfile?.last_name 
