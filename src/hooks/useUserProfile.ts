@@ -56,13 +56,19 @@ export function useUserProfile(user: User | null) {
         // Enrich profile with consistent role information
         const enrichedProfile = enrichProfileWithRoles(profile);
         
+        console.log('[useUserProfile] Profile fetched for user:', user.id);
+        console.log('[useUserProfile] Raw profile data:', profile);
+        console.log('[useUserProfile] Enriched profile data:', enrichedProfile);
+        console.log('[useUserProfile] Profile roles:', enrichedProfile?.roles);
+        console.log('[useUserProfile] Profile role field:', enrichedProfile?.role);
+        
         // Generate a display name from first_name and last_name
         const displayName = enrichedProfile?.first_name && enrichedProfile?.last_name 
           ? `${enrichedProfile.first_name} ${enrichedProfile.last_name}`.trim()
           : enrichedProfile?.first_name || user.email?.split('@')[0] || 'User';
 
         // Combine auth user data with profile data
-        setEnrichedUser({
+        const finalEnrichedUser = {
           ...user,
           ...enrichedProfile,
           // Ensure avatar and name are properly set
@@ -70,7 +76,12 @@ export function useUserProfile(user: User | null) {
           avatar_url: enrichedProfile?.avatar_url,
           name: displayName,
           roles: enrichedProfile?.roles || ['student']
-        });
+        };
+        
+        console.log('[useUserProfile] Final enriched user:', finalEnrichedUser);
+        console.log('[useUserProfile] Final user roles:', finalEnrichedUser.roles);
+        
+        setEnrichedUser(finalEnrichedUser);
       } catch (err) {
         console.error('Error loading user profile:', err);
         setError(err as Error);
