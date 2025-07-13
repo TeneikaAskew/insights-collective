@@ -427,23 +427,23 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
                       </div>
                     </AccordionTrigger>
                     <AccordionContent>
-                      <div className="space-y-4 pl-8 pt-2">
+                      <div className="space-y-4 pl-8 pt-2 text-left">
                         {Array.isArray(timeframeData.skills) && timeframeData.skills.length > 0 ? (
                           timeframeData.skills.map((skillItem, idx) => (
-                            <div key={`skill-${timeframeKey}-${idx}`} className="space-y-2 pb-4 border-b border-border/30 last:border-b-0">
+                            <div key={`skill-${timeframeKey}-${idx}`} className="space-y-2 pb-4 border-b border-border/30 last:border-b-0 text-left">
                               <div>
-                                <h4 className="font-semibold text-primary/90">{skillItem.name}</h4>
+                                <h4 className="font-semibold text-primary/90 text-left">{skillItem.name}</h4>
                                 {Array.isArray(skillItem.courses) && skillItem.courses.map((course, courseIdx) => (
-                                  <div key={courseIdx} className="mt-1">
-                                    <p className="text-sm">{course.title}</p>
-                                    <p className="text-xs text-muted-foreground">{course.provider}</p>
+                                  <div key={courseIdx} className="mt-1 text-left">
+                                    <p className="text-sm text-left">{course.title}</p>
+                                    <p className="text-xs text-muted-foreground text-left">{course.provider}</p>
                                   </div>
                                 ))}
                               </div>
                             </div>
                           ))
                         ) : (
-                          <p className="text-muted-foreground">No skills defined for this timeframe.</p>
+                          <p className="text-muted-foreground text-left">No skills defined for this timeframe.</p>
                         )}
                       </div>
                     </AccordionContent>
@@ -458,16 +458,16 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
                       </div>
                     </AccordionTrigger>
                     <AccordionContent>
-                      <div className="space-y-4 pl-8 pt-2">
+                      <div className="space-y-4 pl-8 pt-2 text-left">
                         {Array.isArray(timeframeData.projects) && timeframeData.projects.length > 0 ? (
                           timeframeData.projects.map((project, idx) => {
                             const { isLoading, isAdded } = getButtonState('project', project, timeframeLabels[timeframeKey]);
                             
                             return (
-                              <div key={`project-${timeframeKey}-${idx}`} className="flex justify-between items-start pb-4 border-b border-border/30 last:border-b-0">
-                                <div>
-                                  <h4 className="font-semibold">{project.title}</h4>
-                                  <p className="text-sm text-muted-foreground">{project.description}</p>
+                              <div key={`project-${timeframeKey}-${idx}`} className="flex justify-between items-start pb-4 border-b border-border/30 last:border-b-0 text-left">
+                                <div className="text-left">
+                                  <h4 className="font-semibold text-left">{project.title}</h4>
+                                  <p className="text-sm text-muted-foreground text-left">{project.description}</p>
                                 </div>
                                 <Button
                                   variant={isAdded ? "secondary" : "outline"}
@@ -493,7 +493,7 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
                             );
                           })
                         ) : (
-                          <p className="text-muted-foreground">No projects defined for this timeframe.</p>
+                          <p className="text-muted-foreground text-left">No projects defined for this timeframe.</p>
                         )}
                       </div>
                     </AccordionContent>
@@ -508,18 +508,18 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
                       </div>
                     </AccordionTrigger>
                     <AccordionContent>
-                      <div className="space-y-4 pl-8 pt-2">
+                      <div className="space-y-4 pl-8 pt-2 text-left">
                         {Array.isArray(timeframeData.content) && timeframeData.content.length > 0 ? (
                           timeframeData.content.map((contentItem, idx) => {
                             const { isLoading, isAdded } = getButtonState('content', contentItem, timeframeLabels[timeframeKey]);
                             
                             return (
-                              <div key={`content-${timeframeKey}-${idx}`} className="flex justify-between items-start pb-4 border-b border-border/30 last:border-b-0">
-                                <div>
-                                  <h4 className="font-semibold">{contentItem.platform}</h4>
-                                  <ul className="list-disc pl-5 mt-2">
+                              <div key={`content-${timeframeKey}-${idx}`} className="flex justify-between items-start pb-4 border-b border-border/30 last:border-b-0 text-left">
+                                <div className="text-left">
+                                  <h4 className="font-semibold text-left">{contentItem.platform}</h4>
+                                  <ul className="list-disc pl-5 mt-2 text-left">
                                     {contentItem.topics.map((topic, topicIdx) => (
-                                      <li key={topicIdx} className="text-sm">{topic}</li>
+                                      <li key={topicIdx} className="text-sm text-left">{topic}</li>
                                     ))}
                                   </ul>
                                 </div>
@@ -547,7 +547,7 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
                             );
                           })
                         ) : (
-                          <p className="text-muted-foreground">No content sharing goals defined for this timeframe.</p>
+                          <p className="text-muted-foreground text-left">No content sharing goals defined for this timeframe.</p>
                         )}
                       </div>
                     </AccordionContent>
@@ -562,14 +562,14 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
                       </div>
                     </AccordionTrigger>
                     <AccordionContent>
-                      <div className="space-y-4 pl-8 pt-2">
+                      <div className="space-y-4 pl-8 pt-2 text-left">
                         {Array.isArray(timeframeData.milestones) && timeframeData.milestones.length > 0 ? (
                           timeframeData.milestones.map((milestone, idx) => {
                             const { isLoading, isAdded } = getButtonState('milestone', milestone, timeframeLabels[timeframeKey]);
                             
                             return (
-                              <div key={`milestone-${timeframeKey}-${idx}`} className="flex justify-between items-start pb-4 border-b border-border/30 last:border-b-0">
-                                <p className="text-sm">{milestone}</p>
+                              <div key={`milestone-${timeframeKey}-${idx}`} className="flex justify-between items-start pb-4 border-b border-border/30 last:border-b-0 text-left">
+                                <p className="text-sm text-left">{milestone}</p>
                                 <Button
                                   variant={isAdded ? "secondary" : "outline"}
                                   size="sm"
@@ -594,7 +594,7 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
                             );
                           })
                         ) : (
-                          <p className="text-muted-foreground">No milestones defined for this timeframe.</p>
+                          <p className="text-muted-foreground text-left">No milestones defined for this timeframe.</p>
                         )}
                       </div>
                     </AccordionContent>
