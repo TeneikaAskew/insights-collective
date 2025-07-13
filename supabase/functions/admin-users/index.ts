@@ -204,6 +204,17 @@ serve(async (req) => {
             roles = ['student'];
           }
 
+          // CRITICAL FIX: Merge the individual role field into the roles array if it's not already there
+          // This handles the case where role='instructor' but roles=['student']
+          if (profile.role && !roles.includes(profile.role)) {
+            roles.push(profile.role);
+          }
+
+          // Ensure student role is always present
+          if (!roles.includes('student')) {
+            roles.push('student');
+          }
+
           const transformedUser = {
             ...authUser,
             ...profile,
