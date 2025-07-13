@@ -327,16 +327,16 @@ const CareerPathway: React.FC = () => {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="p-6 pt-4">
-                      <ul className="list-disc ml-6">
+                      <ul className="list-disc ml-6 text-left">
                         {(data.report.potentialRoles as Array<any>).map((role, idx) => {
                           if (role && typeof role === 'object' && 'title' in role && 'description' in role) {
                             return (
-                              <li key={idx} className="mb-2">
+                              <li key={idx} className="mb-2 text-left">
                                 <span className="font-medium">{role.title}</span>: {role.description}
                               </li>
                             );
                           } else if (role !== null && role !== undefined) {
-                            return <li key={idx} className="mb-2">{String(role)}</li>;
+                            return <li key={idx} className="mb-2 text-left">{String(role)}</li>;
                           }
                           return null;
                         })}
@@ -355,11 +355,11 @@ const CareerPathway: React.FC = () => {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="p-6 pt-4">
-                      <ol className="list-decimal ml-6">
+                      <ol className="list-decimal ml-6 text-left">
                         {(data.report.futureCareerPath && data.report.futureCareerPath.length > 0
                           ? data.report.futureCareerPath
                           : data.report.careerPathSteps || []).map((step: any, idx: number) => (
-                            <li key={idx} className="mb-2">
+                            <li key={idx} className="mb-2 text-left">
                               <span className="font-medium">{step.step || step.title}</span>: {step.action || step.description} <span className="text-gray-500">({step.timeline || step.timeframe})</span>
                             </li>
                         ))}
@@ -378,9 +378,9 @@ const CareerPathway: React.FC = () => {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="p-6 pt-4">
-                      <ul className="list-disc ml-6">
+                      <ul className="list-disc ml-6 text-left">
                         {data.report.keyTakeaways.map((takeaway, idx) => (
-                          <li key={idx}>{takeaway}</li>
+                          <li key={idx} className="text-left">{takeaway}</li>
                         ))}
                       </ul>
                     </CardContent>
