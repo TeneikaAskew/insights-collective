@@ -621,27 +621,27 @@ const CareerPathway: React.FC = () => {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="p-6">
-                      <p className="text-gray-700">
+                      <p className="text-gray-700 text-left">
                         Your next career steps should build upon your current foundation while steering towards your aspirational role. 
                         Initially, advancing from your current position to {data.report.careerPathSteps[0].title} can help bridge the gap 
                         between your current expertise and desired career path.
                       </p>
                       <div className="mt-4 space-y-3">
-                        <div className="flex items-start gap-2">
+                        <div className="flex items-start gap-2 text-left">
                           <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" />
-                          <p>Complete the recommended skill courses to strengthen your technical foundation</p>
+                          <p className="text-left">Complete the recommended skill courses to strengthen your technical foundation</p>
                         </div>
-                        <div className="flex items-start gap-2">
+                        <div className="flex items-start gap-2 text-left">
                           <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" />
-                          <p>Build projects showcasing the skills relevant to your target role</p>
+                          <p className="text-left">Build projects showcasing the skills relevant to your target role</p>
                         </div>
-                        <div className="flex items-start gap-2">
+                        <div className="flex items-start gap-2 text-left">
                           <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" />
-                          <p>Network with professionals in your desired field to gain insights and connections</p>
+                          <p className="text-left">Network with professionals in your desired field to gain insights and connections</p>
                         </div>
-                        <div className="flex items-start gap-2">
+                        <div className="flex items-start gap-2 text-left">
                           <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" />
-                          <p>Update your resume and LinkedIn profile to highlight relevant experience</p>
+                          <p className="text-left">Update your resume and LinkedIn profile to highlight relevant experience</p>
                         </div>
                       </div>
                     </CardContent>
