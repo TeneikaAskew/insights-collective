@@ -1,33 +1,25 @@
-
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { isAdmin } from '@/utils/profileUtils';
-import { createRateLimiter, validateSessionIntegrity } from '@/utils/securityUtils';
 
 interface AdminUserResponse {
   id: string;
-  email: string;
-  phone?: string;
-  created_at: string;
-  last_sign_in_at?: string;
   first_name: string;
   last_name: string;
   avatar_url?: string;
   bio?: string;
   roles: string[];
+  created_at: string;
 }
-
-// Create rate limiter for admin operations (5 requests per minute)
-const adminRateLimiter = createRateLimiter(5, 60000);
 
 export function useAdminUsers() {
   const [users, setUsers] = useState<AdminUserResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
-  const { user, session } = useAuth();
+  const { user } = useAuth();
 
   const fetchUsers = useCallback(async () => {
     console.log('[useAdminUsers] Starting fetchUsers...');
@@ -35,83 +27,47 @@ export function useAdminUsers() {
     setError(null);
     
     try {
-      // Enhanced admin privilege checking
+      // Check admin privileges
       if (!isAdmin(user?.roles)) {
         throw new Error("Admin privileges required");
       }
 
-      // Rate limiting check
-      const userIdentifier = user?.id || 'anonymous';
-      if (!adminRateLimiter(userIdentifier)) {
-        throw new Error("Too many requests. Please wait before trying again.");
-      }
-
-      // Enhanced session validation
-      if (!session || !validateSessionIntegrity(session)) {
-        throw new Error('Invalid or expired session');
-      }
-
-      console.log('[useAdminUsers] Enhanced security checks passed, calling admin-users edge function...');
+      console.log('[useAdminUsers] Fetching users from profiles table...');
       
-      // Call the edge function with enhanced error handling
-      const { data, error: functionError } = await supabase.functions.invoke('admin-users', {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`
-        },
-        body: { action: 'listUsers' }
-      });
+      // Query profiles table directly
+      const { data, error: queryError } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, avatar_url, bio, roles, created_at')
+        .order('created_at', { ascending: false });
 
-      if (functionError) {
-        console.error('[useAdminUsers] Edge function error:', functionError);
-        throw new Error(functionError.message || 'Failed to fetch users');
+      if (queryError) {
+        console.error('[useAdminUsers] Query error:', queryError);
+        throw new Error(queryError.message || 'Failed to fetch users');
       }
 
-      if (!data || !data.users) {
-        console.error('[useAdminUsers] No users data received from edge function');
-        throw new Error('No users data received');
-      }
+      console.log('[useAdminUsers] Raw users from query:', data?.length || 0);
 
-      console.log('[useAdminUsers] Raw users from edge function:', data.users.length);
-
-      // Enhanced data transformation with validation
-      const transformedUsers = data.users.map((user: any) => {
-        // Validate and sanitize user data
-        if (!user.id || !user.email) {
-          console.warn('[useAdminUsers] Invalid user data detected:', user);
-          throw new Error('Invalid user data received');
+      // Transform and validate data
+      const transformedUsers = (data || []).map((profile: any) => {
+        // Ensure roles is always an array with at least 'student'
+        let roles = profile.roles || ['student'];
+        if (!Array.isArray(roles)) {
+          roles = ['student'];
         }
-
-        // Ensure roles is always an array and handle PostgreSQL array format
-        let roles = user.roles || ['student'];
-        
-        // Handle PostgreSQL array format like "{admin,student}"
-        if (typeof roles === 'string') {
-          if (roles.startsWith('{') && roles.endsWith('}')) {
-            roles = roles.slice(1, -1).split(',').filter((role: string) => role.trim());
-          } else {
-            roles = [roles];
-          }
-        }
-        
-        // Clean and validate roles array
-        roles = roles.filter((role: string) => role && typeof role === 'string' && role.trim() !== '');
         
         // Ensure student role is always included
         if (!roles.includes('student')) {
-          roles.push('student');
+          roles = [...roles, 'student'];
         }
 
         return {
-          id: user.id,
-          email: user.email || '',
-          phone: user.phone || '',
-          created_at: user.created_at,
-          last_sign_in_at: user.last_sign_in_at,
-          first_name: user.first_name || '',
-          last_name: user.last_name || '',
-          avatar_url: user.avatar_url,
-          bio: user.bio,
-          roles: roles
+          id: profile.id,
+          first_name: profile.first_name || '',
+          last_name: profile.last_name || '',
+          avatar_url: profile.avatar_url,
+          bio: profile.bio || '',
+          roles: roles,
+          created_at: profile.created_at
         };
       });
 
@@ -127,15 +83,6 @@ export function useAdminUsers() {
       if (err.message?.includes('Admin privileges required')) {
         errorMessage = 'Admin access required';
         toastDescription = 'You need admin privileges to access user management.';
-      } else if (err.message?.includes('Too many requests')) {
-        errorMessage = 'Rate limit exceeded';
-        toastDescription = 'Too many requests. Please wait before trying again.';
-      } else if (err.message?.includes('session')) {
-        errorMessage = 'Session invalid';
-        toastDescription = 'Your session is invalid. Please log in again.';
-      } else if (err.message?.includes('User profile not found')) {
-        errorMessage = 'Profile not found';
-        toastDescription = 'Your user profile was not found. Please contact support.';
       }
       
       setError(errorMessage);
@@ -148,47 +95,29 @@ export function useAdminUsers() {
     } finally {
       setLoading(false);
     }
-  }, [user, session, toast]);
+  }, [user, toast]);
 
   const updateUserRole = async (userId: string, roles: string[]) => {
     try {
-      console.log('[useAdminUsers] Updating user role:', userId, roles);
+      console.log('[useAdminUsers] Updating user roles:', userId, roles);
       
-      // Enhanced validation
       if (!userId || !Array.isArray(roles)) {
         throw new Error('Invalid parameters provided');
       }
 
-      // Rate limiting check
-      const userIdentifier = user?.id || 'anonymous';
-      if (!adminRateLimiter(userIdentifier)) {
-        throw new Error("Too many requests. Please wait before trying again.");
-      }
-
-      // Enhanced session validation
-      if (!session || !validateSessionIntegrity(session)) {
-        throw new Error('Invalid or expired session');
-      }
-      
       // Ensure student role is always included
       const updatedRoles = [...roles];
       if (!updatedRoles.includes('student')) {
         updatedRoles.push('student');
       }
 
-      // Call the edge function to update user roles
-      const { data, error } = await supabase.functions.invoke('admin-users', {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`
-        },
-        body: { 
-          action: 'updateUserRole',
-          userId,
-          data: { roles: updatedRoles }
-        }
-      });
+      // Update roles directly in profiles table
+      const { error } = await supabase
+        .from('profiles')
+        .update({ roles: updatedRoles })
+        .eq('id', userId);
 
-      if (error) throw new Error(error.message || 'Failed to update user role');
+      if (error) throw new Error(error.message || 'Failed to update user roles');
       
       // Update local state
       setUsers(prevUsers => 
@@ -201,15 +130,15 @@ export function useAdminUsers() {
       
       toast({
         title: 'Success',
-        description: 'User role updated successfully.',
+        description: 'User roles updated successfully.',
       });
       
       return { success: true };
     } catch (err: any) {
-      console.error('[useAdminUsers] Error updating user role:', err);
+      console.error('[useAdminUsers] Error updating user roles:', err);
       toast({
         title: 'Error',
-        description: err.message || 'Failed to update user role. Please try again.',
+        description: err.message || 'Failed to update user roles. Please try again.',
         variant: 'destructive',
       });
       return { success: false, error: err.message };

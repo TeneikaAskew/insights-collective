@@ -22,15 +22,12 @@ import { useAuth } from '@/contexts/AuthContext';
 
 interface UserData {
   id: string;
-  email: string;
-  name?: string;
   first_name?: string;
   last_name?: string;
   avatar_url?: string;
-  role?: string;
+  bio?: string;
   roles?: string[];
   created_at?: string;
-  last_sign_in_at?: string;
 }
 
 const AdminUsers = () => {
@@ -89,12 +86,10 @@ const AdminUsers = () => {
     }
   };
   
-  // Improved filtering logic that checks if user has any of the roles for the current tab
+  // Simplified filtering logic that only searches by name
   const filteredUsers = users.filter(user => {
     const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
-    const matchesSearch = 
-      fullName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      user.email?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = fullName.toLowerCase().includes(searchTerm.toLowerCase());
     
     if (activeTab === 'all') return matchesSearch;
     
@@ -146,13 +141,12 @@ const AdminUsers = () => {
   const handleExportUsers = () => {
     try {
       // Create CSV string
-      const headers = "ID,Name,Email,Roles,Created At,Last Sign In\n";
+      const headers = "ID,Name,Roles,Created At\n";
       const csvData = filteredUsers.map(user => {
         const name = `${user.first_name || ''} ${user.last_name || ''}`.trim();
         const roles = (user.roles || ['student']).join(';');
         const createdAt = user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A';
-        const lastSignIn = user.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleDateString() : 'N/A';
-        return `"${user.id}","${name}","${user.email}","${roles}","${createdAt}","${lastSignIn}"`;
+        return `"${user.id}","${name}","${roles}","${createdAt}"`;
       }).join('\n');
       
       const csvContent = `data:text/csv;charset=utf-8,${headers}${csvData}`;
@@ -237,7 +231,6 @@ const AdminUsers = () => {
     if (index < 5) { // Only log first 5 users to avoid spam
       console.log(`User ${index + 1}:`, {
         name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
-        email: user.email,
         roles: user.roles,
         id: user.id
       });
@@ -453,9 +446,9 @@ const AdminUsers = () => {
                 </div>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right font-medium">Email:</Label>
+                <Label className="text-right font-medium">Bio:</Label>
                 <div className="col-span-3">
-                  {selectedUser.email || 'No email'}
+                  {selectedUser.bio || 'No bio provided'}
                 </div>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
@@ -475,9 +468,9 @@ const AdminUsers = () => {
                 </div>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right font-medium">Last Sign In:</Label>
-                <div className="col-span-3">
-                  {selectedUser.last_sign_in_at ? new Date(selectedUser.last_sign_in_at).toLocaleString() : 'Never'}
+                <Label className="text-right font-medium">ID:</Label>
+                <div className="col-span-3 text-sm text-muted-foreground">
+                  {selectedUser.id}
                 </div>
               </div>
             </div>
