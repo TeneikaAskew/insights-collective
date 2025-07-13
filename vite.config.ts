@@ -21,6 +21,7 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
+    sourcemap: true,
     rollupOptions: {
       external: (id) => {
         return id.includes('__tests__') || id.includes('.test.') || id.includes('.spec.');
