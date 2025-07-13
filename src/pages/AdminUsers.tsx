@@ -42,7 +42,8 @@ const AdminUsers = () => {
   const [activeTab, setActiveTab] = useState('all');
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const { toast } = useToast();
-  const { user } = useAuth();
+  const authContext = useAuth();
+  const user = authContext?.user;
   
   const { 
     users, 
