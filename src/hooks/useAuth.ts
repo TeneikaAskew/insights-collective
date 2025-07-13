@@ -46,6 +46,11 @@ export const useAuthProvider = () => {
   const isAdmin = enrichedUser?.roles?.includes('admin') || false;
   const isAdminAuthenticated = enrichedUser?.roles?.includes('admin');
 
+  console.log('[useAuth] Current enrichedUser:', enrichedUser);
+  console.log('[useAuth] enrichedUser roles:', enrichedUser?.roles);
+  console.log('[useAuth] isAdmin result:', isAdmin);
+  console.log('[useAuth] isAdminAuthenticated result:', isAdminAuthenticated);
+
   // Use redirect hook instead of local state
   const storeRedirectPath = redirect.storeRedirectPath;
   const handleRedirectAfterLogin = useCallback(() => {

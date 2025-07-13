@@ -32,12 +32,18 @@ export function useAdminUsers() {
 
   const fetchUsers = async () => {
     console.log('[useAdminUsers] Starting fetchUsers...');
+    console.log('[useAdminUsers] Current user object:', user);
+    console.log('[useAdminUsers] User roles:', user?.roles);
+    console.log('[useAdminUsers] User role field:', user?.role);
+    console.log('[useAdminUsers] isAdmin check result:', isAdmin(user?.roles));
+    
     setLoading(true);
     setError(null);
     
     try {
       // Enhanced admin privilege checking
       if (!isAdmin(user?.roles)) {
+        console.error('[useAdminUsers] Admin check failed! User roles:', user?.roles);
         throw new Error("Admin privileges required");
       }
 
