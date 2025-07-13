@@ -598,8 +598,9 @@ const CareerPathway: React.FC = () => {
                                 <div className="flex flex-wrap gap-2">
                                   {step.focusAreas.split(',').map((area, i) => {
                                     const cleanedArea = area.trim().replace(/\b(and|or|the|a|an|in|on|at|to|for|of|with|by)\b/gi, '').replace(/\s+/g, ' ').trim();
-                                    return cleanedArea ? (
-                                      <Badge key={i} variant="secondary" className="text-xs">{cleanedArea}</Badge>
+                                    const capitalizedArea = cleanedArea.replace(/\b\w/g, l => l.toUpperCase());
+                                    return capitalizedArea ? (
+                                      <Badge key={i} variant="secondary" className="text-xs">{capitalizedArea}</Badge>
                                     ) : null;
                                   }).filter(Boolean)}
                                 </div>
