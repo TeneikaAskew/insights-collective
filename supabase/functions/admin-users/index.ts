@@ -175,6 +175,17 @@ serve(async (req) => {
         const users = authUsers.users.map((authUser) => {
           const profile = profiles?.find((p) => p.id === authUser.id) || {}
           
+          // Debug specific user data
+          if (authUser.email === 'robert.martinez@example.com' || authUser.email === 'jennifer.thompson@example.com' || authUser.user_metadata?.display_name?.includes('Nikki')) {
+            console.log('[admin-users] Debug user transformation:', {
+              email: authUser.email,
+              auth_role: authUser.role,
+              profile_role: profile.role,
+              profile_roles: profile.roles,
+              profile_roles_type: typeof profile.roles
+            });
+          }
+          
           // Ensure roles is always an array and handle PostgreSQL array format
           let roles = profile.roles || ['student'];
           
@@ -193,16 +204,34 @@ serve(async (req) => {
             roles = ['student'];
           }
 
-          return {
+          const transformedUser = {
             ...authUser,
             ...profile,
             providers: authUser.app_metadata?.providers || ['email'],
             role: profile.role || getHighestRole(roles),
             roles: roles
+          };
+
+          // Debug the final transformed user for specific cases
+          if (authUser.email === 'robert.martinez@example.com' || authUser.email === 'jennifer.thompson@example.com' || authUser.user_metadata?.display_name?.includes('Nikki')) {
+            console.log('[admin-users] Final transformed user:', {
+              email: transformedUser.email,
+              final_role: transformedUser.role,
+              final_roles: transformedUser.roles,
+              first_name: transformedUser.first_name,
+              last_name: transformedUser.last_name
+            });
           }
+
+          return transformedUser;
         })
 
         console.log('[admin-users] Merged users prepared:', users.length);
+        console.log('[admin-users] Sample roles distribution:', {
+          admins: users.filter(u => u.role === 'admin' || (u.roles && u.roles.includes('admin'))).length,
+          instructors: users.filter(u => u.role === 'instructor' || (u.roles && u.roles.includes('instructor'))).length,
+          students: users.filter(u => u.role === 'student' || (u.roles && u.roles.includes('student'))).length
+        });
 
         return new Response(JSON.stringify({ users }), {
           status: 200,

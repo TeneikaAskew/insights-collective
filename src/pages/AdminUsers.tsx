@@ -220,11 +220,58 @@ const AdminUsers = () => {
     });
   };
 
-  // Get counts for each tab
+  // Debug user data to understand the issue
+  console.log('[AdminUsers] Raw user data for debugging:');
+  users.forEach((user, index) => {
+    if (index < 5) { // Only log first 5 users to avoid spam
+      console.log(`User ${index + 1}:`, {
+        name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
+        email: user.email,
+        role: user.role,
+        roles: user.roles,
+        id: user.id
+      });
+    }
+  });
+
+  // Get counts for each tab with detailed debugging
   const allUsersCount = users.length;
-  const studentsCount = users.filter(u => (u.roles || ['student']).includes('student') || u.role === 'student').length;
-  const instructorsCount = users.filter(u => (u.roles || []).includes('instructor') || u.role === 'instructor').length;
-  const adminsCount = users.filter(u => (u.roles || []).includes('admin') || u.role === 'admin').length;
+  
+  const studentsCount = users.filter(u => {
+    const hasStudentRole = (u.roles || ['student']).includes('student') || u.role === 'student';
+    return hasStudentRole;
+  }).length;
+  
+  const instructorsCount = users.filter(u => {
+    const hasInstructorRole = (u.roles || []).includes('instructor') || u.role === 'instructor';
+    if (hasInstructorRole) {
+      console.log('[AdminUsers] Found instructor:', {
+        name: `${u.first_name || ''} ${u.last_name || ''}`.trim(),
+        role: u.role,
+        roles: u.roles
+      });
+    }
+    return hasInstructorRole;
+  }).length;
+  
+  const adminsCount = users.filter(u => {
+    const hasAdminRole = (u.roles || []).includes('admin') || u.role === 'admin';
+    if (hasAdminRole) {
+      console.log('[AdminUsers] Found admin:', {
+        name: `${u.first_name || ''} ${u.last_name || ''}`.trim(),
+        role: u.role,
+        roles: u.roles
+      });
+    }
+    return hasAdminRole;
+  }).length;
+
+  console.log('[AdminUsers] Tab counts:', {
+    all: allUsersCount,
+    students: studentsCount,
+    instructors: instructorsCount,
+    admins: adminsCount
+  });
 
   console.log('[AdminUsers] Rendering with users:', users.length, 'loading:', loading, 'error:', error);
   
