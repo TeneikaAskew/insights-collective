@@ -16,7 +16,6 @@ interface AdminUserResponse {
   last_name: string;
   avatar_url?: string;
   bio?: string;
-  role: string;
   roles: string[];
 }
 
@@ -97,12 +96,6 @@ export function useAdminUsers() {
         // Clean and validate roles array
         roles = roles.filter((role: string) => role && typeof role === 'string' && role.trim() !== '');
         
-        // CRITICAL FIX: Add the individual role field to roles array if it's not already there
-        // This handles the database inconsistency where role='instructor' but roles=['student']
-        if (user.role && !roles.includes(user.role)) {
-          roles.push(user.role);
-        }
-        
         // Ensure student role is always included
         if (!roles.includes('student')) {
           roles.push('student');
@@ -118,7 +111,6 @@ export function useAdminUsers() {
           last_name: user.last_name || '',
           avatar_url: user.avatar_url,
           bio: user.bio,
-          role: getHighestRole(roles),
           roles: roles
         };
       });
@@ -183,9 +175,6 @@ export function useAdminUsers() {
       if (!updatedRoles.includes('student')) {
         updatedRoles.push('student');
       }
-      
-      // Determine the highest role for the role field
-      const highestRole = getHighestRole(updatedRoles);
 
       // Call the edge function to update user roles
       const { data, error } = await supabase.functions.invoke('admin-users', {
@@ -205,7 +194,7 @@ export function useAdminUsers() {
       setUsers(prevUsers => 
         prevUsers.map(user => 
           user.id === userId 
-            ? { ...user, roles: updatedRoles, role: highestRole } 
+            ? { ...user, roles: updatedRoles } 
             : user
         )
       );
@@ -225,13 +214,6 @@ export function useAdminUsers() {
       });
       return { success: false, error: err.message };
     }
-  };
-
-  // Helper function to determine highest role
-  const getHighestRole = (roles: string[] = ['student']): string => {
-    if (roles.includes('admin')) return 'admin';
-    if (roles.includes('instructor')) return 'instructor';
-    return 'student';
   };
 
   return { 

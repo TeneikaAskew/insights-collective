@@ -94,7 +94,7 @@ serve(async (req) => {
     console.log('[admin-users] Checking user profile for admin role...');
     const { data: profileData, error: profileError } = await supabaseClient
       .from('profiles')
-      .select('role, roles')
+      .select('roles')
       .eq('id', user.id)
       .maybeSingle()
 
@@ -117,9 +117,8 @@ serve(async (req) => {
       })
     }
 
-    // Check both role and roles array for admin access
-    // Handle both array and non-array roles
-    let userRoles = profileData?.roles || [];
+    // Check roles array for admin access
+    let userRoles = profileData?.roles || ['student'];
     if (typeof userRoles === 'string') {
       // Handle PostgreSQL array format like "{admin,student}"
       if (userRoles.startsWith('{') && userRoles.endsWith('}')) {
@@ -129,28 +128,24 @@ serve(async (req) => {
       }
     }
     
-    const isAdmin = profileData?.role === 'admin' || userRoles.includes('admin');
+    const isAdmin = userRoles.includes('admin');
     
     console.log('[admin-users] User ID from token:', user.id);
-    console.log('[admin-users] User role field:', profileData?.role);
     console.log('[admin-users] User roles array raw:', profileData?.roles);
     console.log('[admin-users] User roles array processed:', userRoles);
     console.log('[admin-users] User roles array type:', typeof userRoles);
     console.log('[admin-users] Is admin result:', isAdmin);
-    console.log('[admin-users] Admin check: role === admin?', profileData?.role === 'admin');
     console.log('[admin-users] Admin check: roles includes admin?', userRoles.includes('admin'));
     
     if (!isAdmin) {
-      console.error('[admin-users] User lacks admin privileges. Role:', profileData?.role, 'Roles:', userRoles);
+      console.error('[admin-users] User lacks admin privileges. Roles:', userRoles);
       return new Response(JSON.stringify({ 
         error: 'Admin privileges required', 
-        userRole: profileData?.role,
         userRoles: userRoles,
         userId: user.id,
         debugInfo: {
           originalRoles: profileData?.roles,
-          processedRoles: userRoles,
-          roleField: profileData?.role
+          processedRoles: userRoles
         }
       }), {
         status: 403,
@@ -199,7 +194,6 @@ serve(async (req) => {
             console.log('[admin-users] Debug user transformation:', {
               email: authUser.email,
               auth_role: authUser.role,
-              profile_role: profile.role,
               profile_roles: profile.roles,
               profile_roles_type: typeof profile.roles
             });
@@ -223,12 +217,6 @@ serve(async (req) => {
             roles = ['student'];
           }
 
-          // CRITICAL FIX: Merge the individual role field into the roles array if it's not already there
-          // This handles the case where role='instructor' but roles=['student']
-          if (profile.role && !roles.includes(profile.role)) {
-            roles.push(profile.role);
-          }
-
           // Ensure student role is always present
           if (!roles.includes('student')) {
             roles.push('student');
@@ -238,7 +226,6 @@ serve(async (req) => {
             ...authUser,
             ...profile,
             providers: authUser.app_metadata?.providers || ['email'],
-            role: profile.role || getHighestRole(roles),
             roles: roles
           };
 
@@ -246,7 +233,6 @@ serve(async (req) => {
           if (authUser.email === 'robert.martinez@example.com' || authUser.email === 'jennifer.thompson@example.com' || authUser.user_metadata?.display_name?.includes('Nikki')) {
             console.log('[admin-users] Final transformed user:', {
               email: transformedUser.email,
-              final_role: transformedUser.role,
               final_roles: transformedUser.roles,
               first_name: transformedUser.first_name,
               last_name: transformedUser.last_name
@@ -258,9 +244,9 @@ serve(async (req) => {
 
         console.log('[admin-users] Merged users prepared:', users.length);
         console.log('[admin-users] Sample roles distribution:', {
-          admins: users.filter(u => u.role === 'admin' || (u.roles && u.roles.includes('admin'))).length,
-          instructors: users.filter(u => u.role === 'instructor' || (u.roles && u.roles.includes('instructor'))).length,
-          students: users.filter(u => u.role === 'student' || (u.roles && u.roles.includes('student'))).length
+          admins: users.filter(u => u.roles && u.roles.includes('admin')).length,
+          instructors: users.filter(u => u.roles && u.roles.includes('instructor')).length,
+          students: users.filter(u => u.roles && u.roles.includes('student')).length
         });
 
         return new Response(JSON.stringify({ users }), {
@@ -285,14 +271,10 @@ serve(async (req) => {
           updatedRoles.push('student');
         }
 
-        // Determine the highest role for the role field
-        const highestRole = getHighestRole(updatedRoles)
-
-        // Update the user's profile
+        // Update the user's profile with only roles array
         const { data, error } = await supabaseAdmin
           .from('profiles')
           .update({ 
-            role: highestRole,
             roles: updatedRoles 
           })
           .eq('id', userId)
@@ -381,9 +363,4 @@ serve(async (req) => {
   }
 })
 
-// Helper function to determine highest role
-function getHighestRole(roles: string[] = ['student']): string {
-  if (roles.includes('admin')) return 'admin'
-  if (roles.includes('instructor')) return 'instructor'
-  return 'student'
-}
+// No longer needed - role field has been removed

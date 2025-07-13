@@ -2194,7 +2194,6 @@ export type Database = {
           last_name: string | null
           notification_settings: Json | null
           preferences: Json | null
-          role: string | null
           roles: string[] | null
           updated_at: string | null
         }
@@ -2207,7 +2206,6 @@ export type Database = {
           last_name?: string | null
           notification_settings?: Json | null
           preferences?: Json | null
-          role?: string | null
           roles?: string[] | null
           updated_at?: string | null
         }
@@ -2220,7 +2218,6 @@ export type Database = {
           last_name?: string | null
           notification_settings?: Json | null
           preferences?: Json | null
-          role?: string | null
           roles?: string[] | null
           updated_at?: string | null
         }

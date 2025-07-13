@@ -9,9 +9,8 @@ export const enrichProfileWithRoles = (profile: any): Profile => {
   
   console.log('[enrichProfileWithRoles] Input profile:', profile);
   console.log('[enrichProfileWithRoles] Profile roles raw:', profile.roles);
-  console.log('[enrichProfileWithRoles] Profile role field:', profile.role);
   
-  // Handle roles from the database - check both roles array AND role field
+  // Handle roles from the database - only use roles array now
   let roles = profile.roles || ['student'];
   
   // Handle PostgreSQL array format like "{admin,student}"
@@ -26,29 +25,14 @@ export const enrichProfileWithRoles = (profile: any): Profile => {
   // Clean and validate roles array
   roles = roles.filter((role: string) => role && typeof role === 'string' && role.trim() !== '');
   
-  // CRITICAL FIX: Add the individual role field to roles array if it's not already there
-  // This handles the database inconsistency where role='admin' but roles=['student']
-  if (profile.role && !roles.includes(profile.role)) {
-    console.log('[enrichProfileWithRoles] Adding missing role from role field:', profile.role);
-    roles.push(profile.role);
-  }
-  
   // Ensure student is always included
   if (!roles.includes('student')) {
     roles.push('student');
   }
   
-  // Determine the highest role for backwards compatibility
-  const getHighestRole = (roles: string[] = ['student']): string => {
-    if (roles.includes('admin')) return 'admin';
-    if (roles.includes('instructor')) return 'instructor';
-    return 'student';
-  };
-  
   const enrichedProfile = {
     ...profile,
     roles,
-    role: getHighestRole(roles), // Keep for backwards compatibility
     // Explicitly preserve the avatar_url to ensure it's not lost during transformation
     avatar_url: profile.avatar_url || null
   };

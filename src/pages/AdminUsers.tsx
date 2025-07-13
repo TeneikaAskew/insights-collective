@@ -100,7 +100,7 @@ const AdminUsers = () => {
     
     // Check if user has the role for the current tab
     const userRoles = user.roles || ['student'];
-    const hasRole = userRoles.includes(activeTab) || user.role === activeTab;
+    const hasRole = userRoles.includes(activeTab);
     return matchesSearch && hasRole;
   });
   
@@ -238,7 +238,6 @@ const AdminUsers = () => {
       console.log(`User ${index + 1}:`, {
         name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
         email: user.email,
-        role: user.role,
         roles: user.roles,
         id: user.id
       });
@@ -249,16 +248,15 @@ const AdminUsers = () => {
   const allUsersCount = users.length;
   
   const studentsCount = users.filter(u => {
-    const hasStudentRole = (u.roles || ['student']).includes('student') || u.role === 'student';
+    const hasStudentRole = (u.roles || ['student']).includes('student');
     return hasStudentRole;
   }).length;
   
   const instructorsCount = users.filter(u => {
-    const hasInstructorRole = (u.roles || []).includes('instructor') || u.role === 'instructor';
+    const hasInstructorRole = (u.roles || []).includes('instructor');
     if (hasInstructorRole) {
       console.log('[AdminUsers] Found instructor:', {
         name: `${u.first_name || ''} ${u.last_name || ''}`.trim(),
-        role: u.role,
         roles: u.roles
       });
     }
@@ -266,11 +264,10 @@ const AdminUsers = () => {
   }).length;
   
   const adminsCount = users.filter(u => {
-    const hasAdminRole = (u.roles || []).includes('admin') || u.role === 'admin';
+    const hasAdminRole = (u.roles || []).includes('admin');
     if (hasAdminRole) {
       console.log('[AdminUsers] Found admin:', {
         name: `${u.first_name || ''} ${u.last_name || ''}`.trim(),
-        role: u.role,
         roles: u.roles
       });
     }
