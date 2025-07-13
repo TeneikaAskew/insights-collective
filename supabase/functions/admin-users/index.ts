@@ -10,10 +10,13 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  console.log('[admin-users] === FUNCTION START ===');
   console.log('[admin-users] Request received:', req.method, req.url);
+  console.log('[admin-users] Timestamp:', new Date().toISOString());
   
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
+    console.log('[admin-users] CORS preflight request');
     return new Response(null, {
       status: 204,
       headers: corsHeaders,
@@ -118,21 +121,37 @@ serve(async (req) => {
     // Handle both array and non-array roles
     let userRoles = profileData?.roles || [];
     if (typeof userRoles === 'string') {
-      userRoles = [userRoles];
+      // Handle PostgreSQL array format like "{admin,student}"
+      if (userRoles.startsWith('{') && userRoles.endsWith('}')) {
+        userRoles = userRoles.slice(1, -1).split(',').map(role => role.trim());
+      } else {
+        userRoles = [userRoles];
+      }
     }
     
     const isAdmin = profileData?.role === 'admin' || userRoles.includes('admin');
     
+    console.log('[admin-users] User ID from token:', user.id);
     console.log('[admin-users] User role field:', profileData?.role);
-    console.log('[admin-users] User roles array:', userRoles);
-    console.log('[admin-users] Is admin:', isAdmin);
+    console.log('[admin-users] User roles array raw:', profileData?.roles);
+    console.log('[admin-users] User roles array processed:', userRoles);
+    console.log('[admin-users] User roles array type:', typeof userRoles);
+    console.log('[admin-users] Is admin result:', isAdmin);
+    console.log('[admin-users] Admin check: role === admin?', profileData?.role === 'admin');
+    console.log('[admin-users] Admin check: roles includes admin?', userRoles.includes('admin'));
     
     if (!isAdmin) {
       console.error('[admin-users] User lacks admin privileges. Role:', profileData?.role, 'Roles:', userRoles);
       return new Response(JSON.stringify({ 
         error: 'Admin privileges required', 
         userRole: profileData?.role,
-        userRoles: userRoles
+        userRoles: userRoles,
+        userId: user.id,
+        debugInfo: {
+          originalRoles: profileData?.roles,
+          processedRoles: userRoles,
+          roleField: profileData?.role
+        }
       }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
