@@ -11,6 +11,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Check, AlertCircle, Link as LinkIcon, RefreshCw, ExternalLink, ChevronLeft } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import AppLayout from '@/components/layout/AppLayout';
 import { LocalStorageUtils } from '@/utils/localStorageUtils';
 import { Link, useNavigate } from 'react-router-dom';
@@ -45,6 +46,7 @@ export default function JobDescription() {
   const [studyGuide, setStudyGuide] = useState<StudyGuide | null>(null);
   const [activeTab, setActiveTab] = useState('description');
   const [isLoading, setIsLoading] = useState(true);
+  const [checkedSkills, setCheckedSkills] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (user) {
@@ -173,13 +175,14 @@ export default function JobDescription() {
     }
   };
 
-  // Helper function to get the practice URL based on question type
-  const getPracticeUrl = (question: any) => {
-    if (question.type === 'behavioral') {
-      return `/interview-prep/star-practice?questionId=${question.id}`;
+  const handleSkillCheck = (skill: string, checked: boolean) => {
+    const newCheckedSkills = new Set(checkedSkills);
+    if (checked) {
+      newCheckedSkills.add(skill);
     } else {
-      return `/interview-prep/code-practice?questionId=${question.id}`;
+      newCheckedSkills.delete(skill);
     }
+    setCheckedSkills(newCheckedSkills);
   };
 
   if (isLoading) {
@@ -437,19 +440,32 @@ export default function JobDescription() {
                   <CardHeader className="bg-gradient-to-r from-card/80 to-card/90 border-b border-border/20">
                     <CardTitle className="text-foreground">Technical Skills Checklist</CardTitle>
                     <CardDescription>
-                      Track your preparation progress for required technical skills.
+                      Check off skills as you prepare and study for the interview.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="pt-6 bg-white">
-                    <div className="space-y-4 text-left">
+                    <div className="space-y-3 text-left">
                       {studyGuide.technical_checklist.map((item, index) => (
-                        <div key={index} className="p-4 bg-gradient-to-r from-gray-100/50 to-white/80 rounded-lg border border-border/30 hover:shadow-md transition-all">
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="flex-1 text-left">
-                              <p className="font-medium text-foreground mb-2">{item.skill}</p>
+                        <div key={index} className="flex items-center space-x-3 p-3 bg-gradient-to-r from-gray-50/80 to-white rounded-lg border border-border/20 hover:shadow-sm transition-all">
+                          <Checkbox
+                            id={`skill-${index}`}
+                            checked={checkedSkills.has(item.skill)}
+                            onCheckedChange={(checked) => handleSkillCheck(item.skill, checked as boolean)}
+                            className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                          />
+                          <div className="flex-1 text-left">
+                            <label 
+                              htmlFor={`skill-${index}`} 
+                              className={`font-medium cursor-pointer transition-colors ${
+                                checkedSkills.has(item.skill) ? 'text-muted-foreground line-through' : 'text-foreground'
+                              }`}
+                            >
+                              {item.skill}
+                            </label>
+                            <div className="mt-1">
                               <Badge 
                                 variant="outline" 
-                                className={`${
+                                className={`text-xs ${
                                   item.importance === 'high' 
                                     ? 'bg-destructive/10 text-destructive/90 border-destructive/20' 
                                     : item.importance === 'medium'
@@ -460,32 +476,16 @@ export default function JobDescription() {
                                 {item.importance} priority
                               </Badge>
                             </div>
-                            {item.resources && item.resources.length > 0 && (
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                className="text-primary/70 hover:text-primary hover:bg-primary/10"
-                                onClick={() => {
-                                  const resourcesList = item.resources?.join('\n') || '';
-                                  toast({
-                                    title: `Resources for ${item.skill}`,
-                                    description: resourcesList || 'No specific resources available yet',
-                                  });
-                                }}
-                              >
-                                View Resources
-                              </Button>
-                            )}
-                          </div>
-                          <div className="text-left">
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-sm text-muted-foreground">Progress</span>
-                              <span className="text-sm text-muted-foreground">0%</span>
-                            </div>
-                            <Progress value={0} className="h-2 bg-gray-200" indicatorClassName="bg-primary" />
                           </div>
                         </div>
                       ))}
+                      {studyGuide.technical_checklist.length > 0 && (
+                        <div className="pt-3 border-t border-border/20">
+                          <p className="text-sm text-muted-foreground text-center">
+                            {checkedSkills.size} of {studyGuide.technical_checklist.length} skills prepared
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
