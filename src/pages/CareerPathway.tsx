@@ -237,9 +237,6 @@ const CareerPathway: React.FC = () => {
       <div className="container mx-auto py-8 px-4 space-y-8 max-w-6xl">
         {/* Hero Section */}
         <motion.div initial="initial" animate="animate" variants={fadeInUp} className="text-center space-y-6 mb-12">
-          <div className="h-24 w-24 mx-auto bg-gradient-to-br from-blue-500 to-violet-600 rounded-full flex items-center justify-center mb-6">
-            <Users className="h-12 w-12 text-white" />
-          </div>
           <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-violet-600">
             Hey {userName}, here's your career insights.
           </h1>
@@ -320,40 +317,6 @@ const CareerPathway: React.FC = () => {
                     </CardContent>
                   </Card>
                 </div>
-                
-                {/* Key Skills Preview */}
-                <Card>
-                  <CardHeader className="bg-primary/5 pb-2">
-                    <CardTitle className="flex items-center gap-2">
-                      <CheckCircle className="h-5 w-5 text-primary" />
-                      Key Skills to Develop
-                    </CardTitle>
-                    <CardDescription>
-                      These skills will help you advance in your career journey
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-6 pt-4">
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      {isLoading ? <SkillsSkeleton /> : (data?.report?.skillsAndCourses || []).slice(0, 4).map((item, index) => <div key={index} className="flex items-start gap-3">
-                            <div className="bg-primary/10 p-2 rounded-full">
-                              <BookOpen className="h-4 w-4 text-primary" />
-                            </div>
-                            <div>
-                              <div className="font-medium">{item.skill}</div>
-                              <div className="flex items-center gap-2 mt-1">
-                                <Progress value={item.level === 'beginner' ? 30 : item.level === 'intermediate' ? 60 : 90} className="h-2" />
-                                <span className="text-xs text-muted-foreground">{item.level || 'intermediate'}</span>
-                              </div>
-                            </div>
-                          </div>)}
-                    </div>
-                    <Button variant="link" className="mt-4" onClick={() => setActiveTab('skills')}>
-                      View all recommended skills
-                      <ChevronRight className="ml-1 h-4 w-4" />
-                    </Button>
-                  </CardContent>
-                </Card>
-
                 {/* Potential Roles */}
                 {data?.report?.potentialRoles && data.report.potentialRoles.length > 0 && (
                   <Card className="overflow-hidden border-t-4 border-t-primary mt-8">
