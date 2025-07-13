@@ -18,6 +18,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAdminUsers } from '@/hooks/useAdminUsers';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface UserData {
   id: string;
@@ -41,6 +42,7 @@ const AdminUsers = () => {
   const [activeTab, setActiveTab] = useState('all');
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const { toast } = useToast();
+  const { user } = useAuth();
   
   const { 
     users, 
@@ -51,9 +53,17 @@ const AdminUsers = () => {
   } = useAdminUsers();
   
   useEffect(() => {
-    console.log('[AdminUsers] Component mounted, fetching users...');
-    fetchUsers();
-  }, []);
+    // Only fetch users when user is loaded and has admin privileges
+    if (user && user.roles && user.roles.includes('admin')) {
+      console.log('[AdminUsers] User is admin, fetching users...');
+      fetchUsers();
+    } else if (user && user.roles && !user.roles.includes('admin')) {
+      console.log('[AdminUsers] User is not admin, setting error...');
+      // setError('Admin access required');
+    } else {
+      console.log('[AdminUsers] User not loaded yet, waiting...');
+    }
+  }, [user, fetchUsers]);
 
   useEffect(() => {
     console.log('[AdminUsers] Users state updated:', users);
