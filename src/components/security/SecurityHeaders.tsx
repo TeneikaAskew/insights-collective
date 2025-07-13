@@ -1,3 +1,4 @@
+
 // Security headers component for CSP and other security measures
 import { useEffect } from 'react';
 
@@ -40,16 +41,19 @@ export const SecurityHeaders = () => {
       }
     });
 
+    // Check if we're in production mode (using import.meta.env instead of process.env)
+    const isProduction = import.meta.env.MODE === 'production';
+
     // Disable right-click context menu in production (optional security measure)
     const handleContextMenu = (e: MouseEvent) => {
-      if (process.env.NODE_ENV === 'production') {
+      if (isProduction) {
         e.preventDefault();
       }
     };
 
     // Disable F12 and other dev tools shortcuts in production
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (process.env.NODE_ENV === 'production') {
+      if (isProduction) {
         // Block F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U
         if (
           e.key === 'F12' ||
@@ -61,13 +65,13 @@ export const SecurityHeaders = () => {
       }
     };
 
-    if (process.env.NODE_ENV === 'production') {
+    if (isProduction) {
       document.addEventListener('contextmenu', handleContextMenu);
       document.addEventListener('keydown', handleKeyDown);
     }
 
     return () => {
-      if (process.env.NODE_ENV === 'production') {
+      if (isProduction) {
         document.removeEventListener('contextmenu', handleContextMenu);
         document.removeEventListener('keydown', handleKeyDown);
       }

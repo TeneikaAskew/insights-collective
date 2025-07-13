@@ -1,3 +1,4 @@
+
 // Security configuration and environment validation
 import { sanitizeInput } from '@/utils/securityUtils';
 
@@ -6,14 +7,14 @@ export const securityConfig = {
   // Supabase configuration with validation
   supabase: {
     url: (() => {
-      const url = process.env.SUPABASE_URL || "https://siuqvhscuiycvdrtiqsh.supabase.co";
+      const url = import.meta.env.VITE_SUPABASE_URL || "https://siuqvhscuiycvdrtiqsh.supabase.co";
       if (!url.startsWith('https://')) {
         throw new Error('Supabase URL must use HTTPS');
       }
       return url;
     })(),
     key: (() => {
-      const key = process.env.SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNpdXF2aHNjdWl5Y3ZkcnRpcXNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQyMDU0MTUsImV4cCI6MjA1OTc4MTQxNX0.CbAWzKbUfbqYKAZr93jAQm8z8chbNoTe0EnK-E_4u9w";
+      const key = import.meta.env.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNpdXF2aHNjdWl5Y3ZkcnRpcXNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQyMDU0MTUsImV4cCI6MjA1OTc4MTQxNX0.CbAWzKbUfbqYKAZr93jAQm8z8chbNoTe0EnK-E_4u9w";
       if (!key || key.length < 20) {
         throw new Error('Invalid Supabase anonymous key');
       }
