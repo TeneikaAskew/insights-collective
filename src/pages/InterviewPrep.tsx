@@ -304,17 +304,17 @@ export default function InterviewPrep() {
                     <CardTitle className="text-lg font-medium">Why This Matters</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="flex items-start space-x-2">
-                      <BarChart className="h-5 w-5 text-yellow-600 dark:text-yellow-400 shrink-0 mt-0.5" />
-                      <div>
+                    <div className="flex items-center space-x-3">
+                      <BarChart className="h-5 w-5 text-yellow-600 dark:text-yellow-400 shrink-0" />
+                      <div className="flex-1">
                         <p className="text-sm font-medium">89% of hiring managers</p>
                         <p className="text-xs text-muted-foreground">Say behavioral questions reveal more about candidates than technical questions</p>
                       </div>
                     </div>
                     
-                    <div className="flex items-start space-x-2">
-                      <Brain className="h-5 w-5 text-orange-600 dark:text-orange-400 shrink-0 mt-0.5" />
-                      <div>
+                    <div className="flex items-center space-x-3">
+                      <Brain className="h-5 w-5 text-orange-600 dark:text-orange-400 shrink-0" />
+                      <div className="flex-1">
                         <p className="text-sm font-medium">STAR method is proven</p>
                         <p className="text-xs text-muted-foreground">To help candidates deliver clear, concise, and compelling answers</p>
                       </div>
@@ -394,17 +394,17 @@ export default function InterviewPrep() {
                     <CardTitle className="text-lg font-medium">Why This Matters</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="flex items-start space-x-2">
-                      <BarChart className="h-5 w-5 text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
-                      <div>
+                    <div className="flex items-center space-x-3">
+                      <BarChart className="h-5 w-5 text-green-600 dark:text-green-400 shrink-0" />
+                      <div className="flex-1">
                         <p className="text-sm font-medium">94% of technical roles</p>
                         <p className="text-xs text-muted-foreground">Include at least one coding challenge in the interview process</p>
                       </div>
                     </div>
                     
-                    <div className="flex items-start space-x-2">
-                      <Brain className="h-5 w-5 text-teal-600 dark:text-teal-400 shrink-0 mt-0.5" />
-                      <div>
+                    <div className="flex items-center space-x-3">
+                      <Brain className="h-5 w-5 text-teal-600 dark:text-teal-400 shrink-0" />
+                      <div className="flex-1">
                         <p className="text-sm font-medium">Regular practice</p>
                         <p className="text-xs text-muted-foreground">Is the most reliable predictor of success in technical interviews</p>
                       </div>
@@ -484,17 +484,17 @@ export default function InterviewPrep() {
                     <CardTitle className="text-lg font-medium">Why This Matters</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="flex items-start space-x-2">
-                      <BarChart className="h-5 w-5 text-purple-600 dark:text-purple-400 shrink-0 mt-0.5" />
-                      <div>
+                    <div className="flex items-center space-x-3">
+                      <BarChart className="h-5 w-5 text-purple-600 dark:text-purple-400 shrink-0" />
+                      <div className="flex-1">
                         <p className="text-sm font-medium">65% improvement</p>
                         <p className="text-xs text-muted-foreground">In interview performance after just two mock interview sessions</p>
                       </div>
                     </div>
                     
-                    <div className="flex items-start space-x-2">
-                      <Brain className="h-5 w-5 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
-                      <div>
+                    <div className="flex items-center space-x-3">
+                      <Brain className="h-5 w-5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                      <div className="flex-1">
                         <p className="text-sm font-medium">Real-time pressure</p>
                         <p className="text-xs text-muted-foreground">Helps build the mental resilience needed for actual interviews</p>
                       </div>
