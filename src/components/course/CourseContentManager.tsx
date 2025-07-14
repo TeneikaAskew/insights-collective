@@ -635,13 +635,15 @@ export function CourseContentManager({ courseId, contentType }: CourseContentMan
                 if (contentBlockError) throw contentBlockError;
 
                 // Create quiz with content block ID
-                const { error: quizError } = await supabase
+                const { data: quizData, error: quizError } = await supabase
                   .from('quizzes')
                   .insert({
                     ...quiz,
                     course_id: courseId,
                     content_block_id: contentBlock.id
-                  });
+                  })
+                  .select()
+                  .single();
 
                 if (quizError) throw quizError;
 
@@ -649,7 +651,7 @@ export function CourseContentManager({ courseId, contentType }: CourseContentMan
                 if (questions.length > 0) {
                   const questionsToInsert = questions.map(q => ({
                     ...q,
-                    quiz_id: contentBlock.id, // Use content block ID as quiz reference
+                    quiz_id: quizData.id, // Use the actual quiz ID
                     id: undefined // Remove temp IDs
                   }));
 
