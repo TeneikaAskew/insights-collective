@@ -1,14 +1,16 @@
 // ABOUTME: Course edit page for instructors and admins to edit course content within course context
 // ABOUTME: Uses CourseLayout to maintain course context and provides editing interface
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { CourseLayout } from '@/components/course/CourseLayout';
 import { useCourseData } from '@/hooks/useCourseData';
 import { CourseDetailsForm } from '@/components/course/CourseDetailsForm';
+import { CourseContentManager } from '@/components/course/CourseContentManager';
 import { Spinner } from '@/components/ui/spinner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, BookOpen } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AlertCircle, BookOpen, BookOpenCheck, FileText, HelpCircle, Settings } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
@@ -19,6 +21,7 @@ function CourseEdit() {
   const { course, isLoading, error } = useCourseData(courseId);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('details');
 
   const handleSave = async (updatedCourse: any) => {
     if (!courseId) return;
@@ -72,23 +75,67 @@ function CourseEdit() {
 
   return (
     <CourseLayout>
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-2">
             <BookOpen className="h-5 w-5 text-primary" />
             <h1 className="text-2xl font-bold">Edit Course</h1>
           </div>
           <p className="text-muted-foreground">
-            Update course information, description, and settings.
+            Manage course content, modules, assignments, and settings.
           </p>
         </div>
 
         {course && (
-          <CourseDetailsForm 
-            course={course} 
-            onSave={handleSave}
-            loading={false}
-          />
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="details" className="flex items-center gap-2">
+                <Settings className="h-4 w-4" />
+                Details
+              </TabsTrigger>
+              <TabsTrigger value="content" className="flex items-center gap-2">
+                <BookOpenCheck className="h-4 w-4" />
+                Content
+              </TabsTrigger>
+              <TabsTrigger value="assignments" className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Assignments
+              </TabsTrigger>
+              <TabsTrigger value="quizzes" className="flex items-center gap-2">
+                <HelpCircle className="h-4 w-4" />
+                Quizzes
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="details" className="mt-6">
+              <CourseDetailsForm 
+                course={course} 
+                onSave={handleSave}
+                loading={false}
+              />
+            </TabsContent>
+
+            <TabsContent value="content" className="mt-6">
+              <CourseContentManager 
+                courseId={courseId!} 
+                contentType="modules"
+              />
+            </TabsContent>
+
+            <TabsContent value="assignments" className="mt-6">
+              <CourseContentManager 
+                courseId={courseId!} 
+                contentType="assignments"
+              />
+            </TabsContent>
+
+            <TabsContent value="quizzes" className="mt-6">
+              <CourseContentManager 
+                courseId={courseId!} 
+                contentType="quizzes"
+              />
+            </TabsContent>
+          </Tabs>
         )}
       </div>
     </CourseLayout>
