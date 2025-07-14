@@ -2,6 +2,7 @@ import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calenda
 import { useLocation, Link } from 'react-router-dom';
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarTrigger, SidebarFooter, SidebarRail } from '@/components/ui/sidebar';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePageVisibility } from '@/contexts/PageVisibilityContext';
 import { motion } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -13,6 +14,7 @@ const AppSidebar = () => {
     user,
     isAuthenticated
   } = useAuth();
+  const { isPageVisible } = usePageVisibility();
 
   // Define public menu items with corrected routes
   const publicMenuItems = [{
@@ -162,7 +164,12 @@ const AppSidebar = () => {
 
   const isAdmin = user?.roles?.includes('admin');
   const isInstructor = user?.roles?.includes('instructor');
-  const menuItems = [...publicMenuItems];
+  
+  // Filter menu items based on page visibility settings
+  const visiblePublicMenuItems = publicMenuItems.filter(item => isPageVisible(item.url));
+  const visibleAdminMenuItems = adminMenuItems.filter(item => isPageVisible(item.url));
+  
+  const menuItems = [...visiblePublicMenuItems];
 
   const menuItemVariants = {
     hidden: {
@@ -244,7 +251,7 @@ const AppSidebar = () => {
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {isAdmin && adminMenuItems.map(item => <SidebarMenuItem key={item.title}>
+                {isAdmin && visibleAdminMenuItems.map(item => <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild isActive={item.active} className={`transition-all duration-200 ${item.active ? 'bg-[#9b87f5]/10 text-[#9b87f5] font-medium' : 'text-gray-700 dark:text-gray-400 hover:text-[#9b87f5] hover:bg-[#9b87f5]/5'}`}>
                       <Link to={item.url} className="flex items-center space-x-2 rounded-md px-2 py-1.5">
                         <item.icon className={`h-3.5 w-3.5 flex-shrink-0 ${item.active ? 'text-[#9b87f5]' : 'text-gray-500'}`} />

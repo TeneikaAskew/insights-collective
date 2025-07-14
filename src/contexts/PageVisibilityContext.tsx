@@ -120,18 +120,35 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
   const isPageVisible = (path: string): boolean => {
     console.log(`[PageVisibilityProvider] Checking visibility for path: ${path}`);
     
-    // For now, make all pages visible by default
-    // This can be enhanced later with actual page visibility logic
-    const adminPaths = ['/admin'];
-    const isAdminPath = adminPaths.some(adminPath => path.startsWith(adminPath));
-    
-    if (isAdminPath) {
-      const hasAdminRole = user?.roles?.includes('admin');
-      console.log(`[PageVisibilityProvider] Admin path ${path}, user has admin role: ${hasAdminRole}`);
-      return hasAdminRole || false;
+    // Admin users can see all pages
+    if (user?.roles?.includes('admin')) {
+      console.log(`[PageVisibilityProvider] Admin user, showing all pages`);
+      return true;
     }
     
-    // All other pages are visible by default
+    // Find the page visibility entry for this path
+    const pageEntry = pageVisibility.find(page => page.page_path === path);
+    
+    if (!pageEntry) {
+      console.log(`[PageVisibilityProvider] No page entry found for ${path}, defaulting to visible`);
+      return true; // Default to visible if not in database
+    }
+    
+    // Check user roles and page visibility settings
+    const isInstructor = user?.roles?.includes('instructor');
+    const isRegularUser = !isInstructor && !user?.roles?.includes('admin');
+    
+    console.log(`[PageVisibilityProvider] Page ${path}, isInstructor: ${isInstructor}, isRegularUser: ${isRegularUser}`);
+    console.log(`[PageVisibilityProvider] Page settings - visible_to_users: ${pageEntry.visible_to_users}, visible_to_instructors: ${pageEntry.visible_to_instructors}`);
+    
+    // Determine visibility based on role
+    if (isInstructor) {
+      return pageEntry.visible_to_instructors;
+    } else if (isRegularUser) {
+      return pageEntry.visible_to_users;
+    }
+    
+    // Default to visible for any other case
     return true;
   };
 
