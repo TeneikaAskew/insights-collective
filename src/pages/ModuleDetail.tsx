@@ -11,7 +11,9 @@ import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/textarea';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { CheckCircle, ChevronLeft, Clock, FileText, Upload, Book, CheckCircle2 } from 'lucide-react';
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import { useContentBlocks } from '@/hooks/useContentBlocks';
 import { useModuleProgress } from '@/hooks/useModuleProgress';
 
@@ -22,6 +24,7 @@ import { ModuleCompletionCard } from '@/components/course/ModuleCompletionCard';
 const ModuleDetail = () => {
   const { courseId, moduleId } = useParams<{ courseId: string; moduleId: string }>();
   const { toast } = useToast();
+  const { isAuthenticated } = useAuth();
   const [activeContent, setActiveContent] = useState<string | null>(null);
   const [assignmentSubmission, setAssignmentSubmission] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -179,13 +182,25 @@ const ModuleDetail = () => {
       <div className="space-y-6">
         {/* Module Header with Breadcrumb */}
         <div className="bg-card border rounded-lg p-6">
-          <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-2">
-            <Link to="/enrolled-courses" className="hover:text-primary">Courses</Link>
-            <span>/</span>
-            <Link to={`/courses/${courseId}`} className="hover:text-primary">{course?.title}</Link>
-            <span>/</span>
-            <span className="text-primary font-medium">{module.title}</span>
-          </div>
+          <Breadcrumb className="mb-2">
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                  <Link to={isAuthenticated ? "/enrolled-courses" : "/courses"}>Courses</Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                  <Link to={`/courses/${courseId}`}>{course?.title}</Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>{module.title}</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
           
           <div className="flex justify-between items-start">
             <div>

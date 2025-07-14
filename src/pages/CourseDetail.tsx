@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { BookOpen, Clock, Users, Star, Calendar, ChevronLeft, Share, MessageSquare, Edit, Bell, FileText, BarChart3 } from 'lucide-react';
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -590,17 +591,27 @@ const CourseDetail = () => {
         <div className="bg-card border rounded-lg p-6">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-2">
-                <Link to="/enrolled-courses" className="hover:text-primary">Courses</Link>
-                <span>/</span>
-                <span className="text-primary font-medium">{course.title}</span>
-                {currentSection !== courseId && currentSection !== 'home' && (
-                  <>
-                    <span>/</span>
-                    <span className="capitalize">{currentSection}</span>
-                  </>
-                )}
-              </div>
+              <Breadcrumb className="mb-2">
+                <BreadcrumbList>
+                  <BreadcrumbItem>
+                    <BreadcrumbLink asChild>
+                      <Link to={isAuthenticated ? "/enrolled-courses" : "/courses"}>Courses</Link>
+                    </BreadcrumbLink>
+                  </BreadcrumbItem>
+                  <BreadcrumbSeparator />
+                  <BreadcrumbItem>
+                    <BreadcrumbPage>{course.title}</BreadcrumbPage>
+                  </BreadcrumbItem>
+                  {currentSection !== courseId && currentSection !== 'home' && (
+                    <>
+                      <BreadcrumbSeparator />
+                      <BreadcrumbItem>
+                        <BreadcrumbPage className="capitalize">{currentSection}</BreadcrumbPage>
+                      </BreadcrumbItem>
+                    </>
+                  )}
+                </BreadcrumbList>
+              </Breadcrumb>
               <h1 className="text-2xl font-bold mb-2">{course.title}</h1>
               <div className="flex items-center space-x-4 text-sm text-muted-foreground">
                 <span>{course.category}</span>

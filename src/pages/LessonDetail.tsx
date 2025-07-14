@@ -5,8 +5,10 @@ import { mockService } from '@/lib/mockData';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 import { CheckCircle, ChevronLeft, Clock, Book } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 const LessonDetail = () => {
   const { courseId, moduleId, lessonId } = useParams<{ 
@@ -15,6 +17,7 @@ const LessonDetail = () => {
     lessonId: string; 
   }>();
   const { toast } = useToast();
+  const { isAuthenticated } = useAuth();
   
   const course = mockService.getCourseById(courseId || '');
   const module = mockService.getModuleById(moduleId || '');
@@ -46,15 +49,31 @@ const LessonDetail = () => {
       <div className="space-y-6">
         {/* Lesson Header with Breadcrumb */}
         <div className="bg-card border rounded-lg p-6">
-          <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-2">
-            <Link to="/enrolled-courses" className="hover:text-primary">Courses</Link>
-            <span>/</span>
-            <Link to={`/courses/${courseId}`} className="hover:text-primary">{course?.title}</Link>
-            <span>/</span>
-            <Link to={`/courses/${courseId}/modules/${moduleId}`} className="hover:text-primary">{module?.title}</Link>
-            <span>/</span>
-            <span className="text-primary font-medium">{lesson.title}</span>
-          </div>
+          <Breadcrumb className="mb-2">
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                  <Link to={isAuthenticated ? "/enrolled-courses" : "/courses"}>Courses</Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                  <Link to={`/courses/${courseId}`}>{course?.title}</Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                  <Link to={`/courses/${courseId}/modules/${moduleId}`}>{module?.title}</Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>{lesson.title}</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
           
           <div className="flex justify-between items-start">
             <div>
