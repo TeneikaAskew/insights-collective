@@ -201,17 +201,17 @@ export default function InterviewPrep() {
                     <CardTitle className="text-lg font-medium">Why This Matters</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="flex items-start space-x-2">
-                      <BarChart className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
-                      <div>
+                    <div className="flex items-center space-x-3">
+                      <BarChart className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0" />
+                      <div className="flex-1">
                         <p className="text-sm font-medium">73% of successful candidates</p>
                         <p className="text-xs text-muted-foreground">Customize their preparation based on the specific job description</p>
                       </div>
                     </div>
                     
-                    <div className="flex items-start space-x-2">
-                      <Brain className="h-5 w-5 text-purple-600 dark:text-purple-400 shrink-0 mt-0.5" />
-                      <div>
+                    <div className="flex items-center space-x-3">
+                      <Brain className="h-5 w-5 text-purple-600 dark:text-purple-400 shrink-0" />
+                      <div className="flex-1">
                         <p className="text-sm font-medium">Targeted preparation</p>
                         <p className="text-xs text-muted-foreground">Focuses your study time on what matters most to hiring managers</p>
                       </div>
