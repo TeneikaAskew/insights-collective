@@ -194,15 +194,18 @@ const CourseDetail = () => {
   }, [isAuthenticated, user, courseId]);
 
   if (loading) {
-    return <AppLayout>
+    return (
+      <CourseLayout>
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
         </div>
-      </AppLayout>;
+      </CourseLayout>
+    );
   }
 
   if (error || !course) {
-    return <AppLayout>
+    return (
+      <CourseLayout>
         <div className="text-center py-12">
           <h1 className="text-3xl font-bold mb-4">Course Not Found</h1>
           <p className="text-muted-foreground mb-6">{error || "The course you're looking for doesn't exist or has been removed."}</p>
@@ -210,7 +213,8 @@ const CourseDetail = () => {
             <Link to="/courses">Browse Courses</Link>
           </Button>
         </div>
-      </AppLayout>;
+      </CourseLayout>
+    );
   }
 
   const handleEnroll = async () => {
@@ -611,6 +615,55 @@ const CourseDetail = () => {
   return (
     <CourseLayout>
       <div className="space-y-6">
+        {/* Course Header with Breadcrumb */}
+        <div className="bg-card border rounded-lg p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-2">
+                <Link to="/enrolled-courses" className="hover:text-primary">Courses</Link>
+                <span>/</span>
+                <span className="text-primary font-medium">{course.title}</span>
+                {currentSection !== courseId && currentSection !== 'home' && (
+                  <>
+                    <span>/</span>
+                    <span className="capitalize">{currentSection}</span>
+                  </>
+                )}
+              </div>
+              <h1 className="text-2xl font-bold mb-2">{course.title}</h1>
+              <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                <span>{course.category}</span>
+                <span>•</span>
+                <span>{course.level}</span>
+                <span>•</span>
+                <span>{course.enrollmentCount || 0} students enrolled</span>
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              {canEdit && (
+                <Button variant="outline" asChild>
+                  <Link to={`/courses/${courseId}/management`}>
+                    <Edit className="h-4 w-4 mr-2" />
+                    Edit Course
+                  </Link>
+                </Button>
+              )}
+            </div>
+          </div>
+          
+          {/* Progress Bar for enrolled students */}
+          {isEnrolled && (
+            <div className="mt-4">
+              <div className="flex justify-between text-sm mb-2">
+                <span>Course Progress</span>
+                <span>{Math.round(overallProgress)}%</span>
+              </div>
+              <Progress value={overallProgress} className="h-2" />
+            </div>
+          )}
+        </div>
+
         {renderContent()}
       </div>
     </CourseLayout>

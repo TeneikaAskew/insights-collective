@@ -177,13 +177,30 @@ const ModuleDetail = () => {
   return (
     <CourseLayout>
       <div className="space-y-6">
-        <div className="flex items-center mb-4">
-          <Button variant="ghost" size="sm" className="mr-2" asChild>
-            <Link to={`/courses/${courseId}`}>
-              <ChevronLeft className="h-4 w-4 mr-1" />
-              Back to Course
-            </Link>
-          </Button>
+        {/* Module Header with Breadcrumb */}
+        <div className="bg-card border rounded-lg p-6">
+          <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-2">
+            <Link to="/enrolled-courses" className="hover:text-primary">Courses</Link>
+            <span>/</span>
+            <Link to={`/courses/${courseId}`} className="hover:text-primary">{course?.title}</Link>
+            <span>/</span>
+            <span className="text-primary font-medium">{module.title}</span>
+          </div>
+          
+          <div className="flex justify-between items-start">
+            <div>
+              <h1 className="text-2xl font-bold mb-2">
+                Week {module.week}: {module.title}
+              </h1>
+              <p className="text-muted-foreground">{module.description}</p>
+            </div>
+            <div className="text-right">
+              <div className="text-sm text-muted-foreground mb-1">Progress</div>
+              <div className="font-semibold">{moduleProgress?.completion_percentage || 0}%</div>
+            </div>
+          </div>
+          
+          <Progress value={moduleProgress?.completion_percentage || 0} className="mt-4" />
         </div>
         
         <div className="grid gap-6 lg:grid-cols-4">

@@ -29,7 +29,7 @@ export function useCourseData(courseId?: string) {
           .from('courses')
           .select(`
             *,
-            instructor:profiles!courses_instructor_id_fkey(id, first_name, last_name, avatar_url)
+            instructor:profiles!instructor_id(id, first_name, last_name, avatar_url)
           `)
           .eq('id', courseId)
           .single();

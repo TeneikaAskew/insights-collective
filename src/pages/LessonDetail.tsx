@@ -44,28 +44,48 @@ const LessonDetail = () => {
   return (
     <CourseLayout>
       <div className="space-y-6">
-        <div className="flex items-center mb-4">
-          <Button variant="ghost" size="sm" className="mr-2" asChild>
-            <Link to={`/courses/${courseId}/modules/${moduleId}`}>
-              <ChevronLeft className="h-4 w-4 mr-1" />
-              Back to Module
-            </Link>
-          </Button>
+        {/* Lesson Header with Breadcrumb */}
+        <div className="bg-card border rounded-lg p-6">
+          <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-2">
+            <Link to="/enrolled-courses" className="hover:text-primary">Courses</Link>
+            <span>/</span>
+            <Link to={`/courses/${courseId}`} className="hover:text-primary">{course?.title}</Link>
+            <span>/</span>
+            <Link to={`/courses/${courseId}/modules/${moduleId}`} className="hover:text-primary">{module?.title}</Link>
+            <span>/</span>
+            <span className="text-primary font-medium">{lesson.title}</span>
+          </div>
+          
+          <div className="flex justify-between items-start">
+            <div>
+              <h1 className="text-2xl font-bold mb-2">{lesson.title}</h1>
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <div className="flex items-center">
+                  <Clock className="h-4 w-4 mr-1" />
+                  <span>{lesson.duration}</span>
+                </div>
+                <div className="flex items-center">
+                  <Book className="h-4 w-4 mr-1" />
+                  <span>{module.title}</span>
+                </div>
+              </div>
+            </div>
+            <div className="text-right">
+              {lesson.completed ? (
+                <Badge className="bg-green-500 text-white">
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  Completed
+                </Badge>
+              ) : (
+                <Badge variant="outline">Not Completed</Badge>
+              )}
+            </div>
+          </div>
         </div>
         
         <Card>
           <CardHeader>
-            <CardTitle className="text-2xl">{lesson.title}</CardTitle>
-            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-              <div className="flex items-center">
-                <Clock className="h-4 w-4 mr-1" />
-                <span>{lesson.duration}</span>
-              </div>
-              <div className="flex items-center">
-                <Book className="h-4 w-4 mr-1" />
-                <span>{module.title}</span>
-              </div>
-            </div>
+            <CardTitle className="text-xl">Lesson Content</CardTitle>
           </CardHeader>
           
           <CardContent>
@@ -86,18 +106,7 @@ const LessonDetail = () => {
             </div>
           </CardContent>
           
-          <CardFooter className="justify-between">
-            <div className="flex items-center gap-2">
-              {lesson.completed ? (
-                <Badge className="bg-green-500 text-white">
-                  <CheckCircle className="h-3 w-3 mr-1" />
-                  Completed
-                </Badge>
-              ) : (
-                <Badge variant="outline">Not Completed</Badge>
-              )}
-            </div>
-            
+          <CardFooter className="justify-end">
             <div className="space-x-2">
               {!lesson.completed && (
                 <Button onClick={handleMarkComplete}>
