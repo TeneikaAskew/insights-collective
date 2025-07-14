@@ -216,6 +216,53 @@ export type Database = {
         }
         Relationships: []
       }
+      assignments: {
+        Row: {
+          content: string | null
+          course_id: string
+          created_at: string
+          description: string | null
+          due_date: string | null
+          id: string
+          instructions: string | null
+          points: number | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          content?: string | null
+          course_id: string
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          instructions?: string | null
+          points?: number | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string | null
+          course_id?: string
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          instructions?: string | null
+          points?: number | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assignments_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assistant_conversations: {
         Row: {
           created_at: string | null
@@ -2403,6 +2450,7 @@ export type Database = {
         Row: {
           attempts_allowed: number | null
           content_block_id: string
+          course_id: string | null
           created_at: string | null
           description: string | null
           id: string
@@ -2415,6 +2463,7 @@ export type Database = {
         Insert: {
           attempts_allowed?: number | null
           content_block_id: string
+          course_id?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
@@ -2427,6 +2476,7 @@ export type Database = {
         Update: {
           attempts_allowed?: number | null
           content_block_id?: string
+          course_id?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
@@ -2442,6 +2492,13 @@ export type Database = {
             columns: ["content_block_id"]
             isOneToOne: false
             referencedRelation: "content_blocks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quizzes_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
             referencedColumns: ["id"]
           },
         ]

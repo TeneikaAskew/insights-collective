@@ -36,14 +36,14 @@
 
     --radius: 0.75rem;
 
-    --sidebar-background: 251 75% 75%; /* Softer Purple */
-    --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 37 91% 56%; /* Energetic Amber */
+    --sidebar-background: 0 0% 100%; /* White background for better contrast */
+    --sidebar-foreground: 0 0% 17%; /* Dark gray text */
+    --sidebar-primary: 217 88% 56%; /* Insight Blue */
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 164 61% 60%; /* Aqua Teal */
-    --sidebar-accent-foreground: 251 75% 75%; /* Softer Purple */
-    --sidebar-border: 222 34% 33%;
-    --sidebar-ring: 37 91% 56%; /* Energetic Amber */
+    --sidebar-accent-foreground: 0 0% 17%; /* Dark gray for better readability */
+    --sidebar-border: 214 31% 91%; /* Light border */
+    --sidebar-ring: 217 88% 56%; /* Insight Blue */
     
     /* Brand color variables */
     --insight-blue: 217 88% 56%; /* #1F75FE */

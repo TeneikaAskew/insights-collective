@@ -1,5 +1,5 @@
-// ABOUTME: Comprehensive course content manager for editing modules, assignments, and quizzes
-// ABOUTME: Provides tabbed interface for managing different types of course content with full CRUD operations
+// ABOUTME: Comprehensive course content manager for editing modules, assignments, and quizzes with rich text editing
+// ABOUTME: Provides tabbed interface for managing different types of course content with full CRUD operations and WYSIWYG editing
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,6 +15,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { ModernEditor } from '@/components/ui/modern-editor';
+import { QuizEditor } from './QuizEditor';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Plus, 
@@ -28,7 +30,10 @@ import {
   GripVertical,
   AlertCircle,
   Clock,
-  Users
+  Users,
+  Upload,
+  Video,
+  Link
 } from 'lucide-react';
 
 interface Module {
@@ -78,6 +83,7 @@ export function CourseContentManager({ courseId, contentType }: CourseContentMan
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<(Module | Assignment | Quiz) | null>(null);
   const [formData, setFormData] = useState<any>({});
+  const [quizEditorOpen, setQuizEditorOpen] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -225,13 +231,12 @@ export function CourseContentManager({ courseId, contentType }: CourseContentMan
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
+              <Label htmlFor="description">Module Content</Label>
+              <ModernEditor
                 value={formData.description || ''}
-                onChange={(e) => setFormData({...formData, description: e.target.value})}
-                placeholder="Describe what students will learn in this module..."
-                rows={3}
+                onChange={(value) => setFormData({...formData, description: value})}
+                placeholder="Describe what students will learn in this module. Use the rich text editor to format your content, add images, links, and videos..."
+                minHeight="300px"
               />
             </div>
           </>
@@ -287,13 +292,21 @@ export function CourseContentManager({ courseId, contentType }: CourseContentMan
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="description">Instructions</Label>
-              <Textarea
-                id="description"
+              <Label htmlFor="description">Assignment Instructions</Label>
+              <ModernEditor
                 value={formData.description || ''}
-                onChange={(e) => setFormData({...formData, description: e.target.value})}
-                placeholder="Provide detailed instructions for this assignment..."
-                rows={4}
+                onChange={(value) => setFormData({...formData, description: value})}
+                placeholder="Provide detailed instructions for this assignment. Use formatting, links, images, and embedded videos to make instructions clear..."
+                minHeight="400px"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="content">Additional Content</Label>
+              <ModernEditor
+                value={formData.content || ''}
+                onChange={(value) => setFormData({...formData, content: value})}
+                placeholder="Add supplementary materials, rubrics, examples, or additional resources..."
+                minHeight="300px"
               />
             </div>
           </>
@@ -343,13 +356,12 @@ export function CourseContentManager({ courseId, contentType }: CourseContentMan
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
+              <Label htmlFor="description">Quiz Description</Label>
+              <ModernEditor
                 value={formData.description || ''}
-                onChange={(e) => setFormData({...formData, description: e.target.value})}
-                placeholder="Describe what this quiz covers..."
-                rows={3}
+                onChange={(value) => setFormData({...formData, description: value})}
+                placeholder="Describe what this quiz covers, provide study tips, or include important notes..."
+                minHeight="250px"
               />
             </div>
           </>
@@ -473,9 +485,18 @@ export function CourseContentManager({ courseId, contentType }: CourseContentMan
                   <Button
                     variant="outline"
                     size="sm"
+                    onClick={() => setQuizEditorOpen(item.id)}
+                  >
+                    <Edit className="h-4 w-4" />
+                    Questions
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => openDialog(item)}
                   >
                     <Edit className="h-4 w-4" />
+                    Settings
                   </Button>
                   <Button
                     variant="outline"
@@ -579,6 +600,21 @@ export function CourseContentManager({ courseId, contentType }: CourseContentMan
             Create your first {contentType.slice(0, -1)} to get started with your course content.
           </p>
         </div>
+      )}
+
+      {/* Quiz Editor Dialog */}
+      {quizEditorOpen && (
+        <Dialog open={!!quizEditorOpen} onOpenChange={() => setQuizEditorOpen(null)}>
+          <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
+            <DialogHeader>
+              <DialogTitle>Quiz Editor</DialogTitle>
+            </DialogHeader>
+            <QuizEditor 
+              quizId={quizEditorOpen} 
+              onClose={() => setQuizEditorOpen(null)} 
+            />
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );
