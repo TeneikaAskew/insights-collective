@@ -84,13 +84,13 @@
     --input: 217.2 32.6% 17.5%;
     --ring: 37 91% 56%; /* Energetic Amber */
     
-    --sidebar-background: 222 24% 15%;
+    --sidebar-background: 222 100% 6%; /* Very dark purple/black */
     --sidebar-foreground: 210 40% 98%;
     --sidebar-primary: 37 91% 56%; /* Energetic Amber */
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 164 51% 40%; /* Darker Aqua Teal */
-    --sidebar-accent-foreground: 251 75% 75%; /* Softer Purple */
-    --sidebar-border: 222 10% 20%;
+    --sidebar-primary-foreground: 222 100% 6%; /* Dark background on amber */
+    --sidebar-accent: 222 100% 6%; /* Dark purple for selected states */
+    --sidebar-accent-foreground: 210 40% 98%; /* Light text on dark */
+    --sidebar-border: 222 50% 12%; /* Slightly lighter border */
     --sidebar-ring: 37 91% 56%; /* Energetic Amber */
   }
 }

@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { ModernEditor } from '@/components/ui/modern-editor';
 import { QuizEditor } from './QuizEditor';
+import { InteractiveQuizBuilder } from '../quiz/InteractiveQuizBuilder';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Plus, 
@@ -84,6 +85,7 @@ export function CourseContentManager({ courseId, contentType }: CourseContentMan
   const [editingItem, setEditingItem] = useState<(Module | Assignment | Quiz) | null>(null);
   const [formData, setFormData] = useState<any>({});
   const [quizEditorOpen, setQuizEditorOpen] = useState<string | null>(null);
+  const [quizBuilderOpen, setQuizBuilderOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -123,11 +125,18 @@ export function CourseContentManager({ courseId, contentType }: CourseContentMan
           description: `${contentType.slice(0, -1)} has been updated.`,
         });
       } else {
-        const { error } = await supabase
-          .from(contentType)
-          .insert({ ...formData, course_id: courseId });
-        
-        if (error) throw error;
+        if (contentType === 'quizzes') {
+          // For quizzes, open the interactive quiz builder instead
+          setDialogOpen(false);
+          setQuizBuilderOpen(true);
+          return;
+        } else {
+          const { error } = await supabase
+            .from(contentType)
+            .insert({ ...formData, course_id: courseId });
+          
+          if (error) throw error;
+        }
         
         toast({
           title: 'Created successfully',
@@ -173,9 +182,14 @@ export function CourseContentManager({ courseId, contentType }: CourseContentMan
   };
 
   const openDialog = (item?: any) => {
-    setEditingItem(item || null);
-    setFormData(item || getDefaultFormData());
-    setDialogOpen(true);
+    if (contentType === 'quizzes' && !item) {
+      // For new quizzes, open quiz builder
+      setQuizBuilderOpen(true);
+    } else {
+      setEditingItem(item || null);
+      setFormData(item || getDefaultFormData());
+      setDialogOpen(true);
+    }
   };
 
   const getDefaultFormData = () => {
@@ -183,9 +197,9 @@ export function CourseContentManager({ courseId, contentType }: CourseContentMan
       case 'modules':
         return { title: '', description: '', week: 1 };
       case 'assignments':
-        return { title: '', description: '', due_date: '', points: 100, submission_type: 'text' };
+        return { title: '', description: '', due_date: '', points: 100, instructions: '', content: '' };
       case 'quizzes':
-        return { title: '', description: '', time_limit: 60, total_points: 100, attempts_allowed: 1 };
+        return { title: '', description: '', time_limit: 60, attempts_allowed: 1, passing_score: 70, randomize_questions: false };
       default:
         return {};
     }
@@ -275,27 +289,10 @@ export function CourseContentManager({ courseId, contentType }: CourseContentMan
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="submission_type">Submission Type</Label>
-              <Select
-                value={formData.submission_type || 'text'}
-                onValueChange={(value) => setFormData({...formData, submission_type: value})}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="text">Text Entry</SelectItem>
-                  <SelectItem value="file">File Upload</SelectItem>
-                  <SelectItem value="url">Website URL</SelectItem>
-                  <SelectItem value="media">Media Recording</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="description">Assignment Instructions</Label>
+              <Label htmlFor="instructions">Assignment Instructions</Label>
               <ModernEditor
-                value={formData.description || ''}
-                onChange={(value) => setFormData({...formData, description: value})}
+                value={formData.instructions || ''}
+                onChange={(value) => setFormData({...formData, instructions: value})}
                 placeholder="Provide detailed instructions for this assignment. Use formatting, links, images, and embedded videos to make instructions clear..."
                 minHeight="400px"
               />
@@ -335,16 +332,6 @@ export function CourseContentManager({ courseId, contentType }: CourseContentMan
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="total_points">Total Points</Label>
-                <Input
-                  id="total_points"
-                  type="number"
-                  value={formData.total_points || 100}
-                  onChange={(e) => setFormData({...formData, total_points: parseInt(e.target.value)})}
-                  min="0"
-                />
-              </div>
-              <div className="space-y-2">
                 <Label htmlFor="attempts_allowed">Attempts Allowed</Label>
                 <Input
                   id="attempts_allowed"
@@ -354,6 +341,25 @@ export function CourseContentManager({ courseId, contentType }: CourseContentMan
                   min="1"
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="passing_score">Passing Score (%)</Label>
+                <Input
+                  id="passing_score"
+                  type="number"
+                  value={formData.passing_score || 70}
+                  onChange={(e) => setFormData({...formData, passing_score: parseInt(e.target.value)})}
+                  min="0"
+                  max="100"
+                />
+              </div>
+            </div>
+            <div className="flex items-center space-x-2 py-2">
+              <Switch
+                id="randomize_questions"
+                checked={formData.randomize_questions || false}
+                onCheckedChange={(checked) => setFormData({...formData, randomize_questions: checked})}
+              />
+              <Label htmlFor="randomize_questions">Randomize Question Order</Label>
             </div>
             <div className="space-y-2">
               <Label htmlFor="description">Quiz Description</Label>
@@ -600,6 +606,67 @@ export function CourseContentManager({ courseId, contentType }: CourseContentMan
             Create your first {contentType.slice(0, -1)} to get started with your course content.
           </p>
         </div>
+      )}
+
+      {/* Quiz Builder Dialog */}
+      {quizBuilderOpen && (
+        <Dialog open={quizBuilderOpen} onOpenChange={setQuizBuilderOpen}>
+          <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
+            <DialogHeader>
+              <DialogTitle>Create Interactive Quiz</DialogTitle>
+            </DialogHeader>
+            <InteractiveQuizBuilder
+              courseId={courseId}
+              onSave={async (quiz, questions) => {
+                // Create content block first
+                const { data: user } = await supabase.auth.getUser();
+                const { data: contentBlock, error: contentBlockError } = await supabase
+                  .from('content_blocks')
+                  .insert({
+                    title: quiz.title,
+                    block_type: 'quiz',
+                    module_id: null, // Will be set later when assigning to modules
+                    created_by: user.user?.id || '',
+                    position: 0
+                  })
+                  .select()
+                  .single();
+
+                if (contentBlockError) throw contentBlockError;
+
+                // Create quiz with content block ID
+                const { error: quizError } = await supabase
+                  .from('quizzes')
+                  .insert({
+                    ...quiz,
+                    course_id: courseId,
+                    content_block_id: contentBlock.id
+                  });
+
+                if (quizError) throw quizError;
+
+                // Create questions if quiz was created successfully
+                if (questions.length > 0) {
+                  const questionsToInsert = questions.map(q => ({
+                    ...q,
+                    quiz_id: contentBlock.id, // Use content block ID as quiz reference
+                    id: undefined // Remove temp IDs
+                  }));
+
+                  const { error: questionsError } = await supabase
+                    .from('quiz_questions')
+                    .insert(questionsToInsert);
+
+                  if (questionsError) throw questionsError;
+                }
+
+                setQuizBuilderOpen(false);
+                fetchItems();
+              }}
+              onCancel={() => setQuizBuilderOpen(false)}
+            />
+          </DialogContent>
+        </Dialog>
       )}
 
       {/* Quiz Editor Dialog */}
