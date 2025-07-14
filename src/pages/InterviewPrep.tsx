@@ -152,9 +152,9 @@ export default function InterviewPrep() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="prose max-w-none">
-                      <p>Our AI-powered job description analyzer helps you:</p>
-                      <ul className="space-y-2">
+                    <div className="text-left">
+                      <p className="mb-4">Our AI-powered job description analyzer helps you:</p>
+                      <ul className="space-y-2 list-none">
                         <li className="flex items-start">
                           <CheckCircle className="h-5 w-5 mr-2 text-green-500 shrink-0 mt-0.5" />
                           <span>Identify key technical and behavioral competencies employers are looking for</span>
@@ -242,9 +242,9 @@ export default function InterviewPrep() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="prose max-w-none">
-                      <p>Our STAR Method practice tool helps you:</p>
-                      <ul className="space-y-2">
+                    <div className="text-left">
+                      <p className="mb-4">Our STAR Method practice tool helps you:</p>
+                      <ul className="space-y-2 list-none">
                         <li className="flex items-start">
                           <CheckCircle className="h-5 w-5 mr-2 text-green-500 shrink-0 mt-0.5" />
                           <span>Structure your answers effectively with the proven STAR format</span>
@@ -345,9 +345,9 @@ export default function InterviewPrep() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="prose max-w-none">
-                      <p>Our code practice platform helps you:</p>
-                      <ul className="space-y-2">
+                    <div className="text-left">
+                      <p className="mb-4">Our code practice platform helps you:</p>
+                      <ul className="space-y-2 list-none">
                         <li className="flex items-start">
                           <CheckCircle className="h-5 w-5 mr-2 text-green-500 shrink-0 mt-0.5" />
                           <span>Solve common technical interview challenges in a realistic environment</span>
@@ -435,9 +435,9 @@ export default function InterviewPrep() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="prose max-w-none">
-                      <p>Our mock interview platform helps you:</p>
-                      <ul className="space-y-2">
+                    <div className="text-left">
+                      <p className="mb-4">Our mock interview platform helps you:</p>
+                      <ul className="space-y-2 list-none">
                         <li className="flex items-start">
                           <CheckCircle className="h-5 w-5 mr-2 text-green-500 shrink-0 mt-0.5" />
                           <span>Experience realistic interview conditions to reduce anxiety</span>
