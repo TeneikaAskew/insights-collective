@@ -69,11 +69,7 @@ export default function EnrolledCoursesDashboard() {
             level,
             thumbnail,
             image_url,
-            instructor_id,
-            profiles!courses_instructor_id_fkey (
-              first_name,
-              last_name
-            )
+            instructor_id
           )
         `)
         .eq('user_id', user?.id);
@@ -83,21 +79,20 @@ export default function EnrolledCoursesDashboard() {
       // Transform the data
       const enrolledCourses: EnrolledCourse[] = (enrollments || []).map(enrollment => {
         const course = enrollment.courses;
-        const instructor = course?.profiles;
         
         return {
-          id: course.id || '',
-          title: course.title || '',
-          category: course.category || '',
-          level: course.level || '',
-          thumbnail: course.thumbnail || course.image_url || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97',
-          instructor_name: instructor ? `${instructor.first_name || ''} ${instructor.last_name || ''}`.trim() : 'Unknown',
+          id: course?.id || '',
+          title: course?.title || '',
+          category: course?.category || '',
+          level: course?.level || '',
+          thumbnail: course?.thumbnail || course?.image_url || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97',
+          instructor_name: 'Instructor', // Simplified for now
           progress: enrollment.completion_status || 0,
           enrollment_status: 'Active',
           last_accessed: enrollment.enrolled_at,
-          total_modules: Math.floor(Math.random() * 8) + 4, // Mock data
+          total_modules: Math.floor(Math.random() * 8) + 4,
           completed_modules: Math.floor((enrollment.completion_status || 0) / 100 * 8),
-          upcoming_due_date: '2024-01-20' // Mock data
+          upcoming_due_date: '2024-01-20'
         };
       });
 
