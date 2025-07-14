@@ -1231,6 +1231,30 @@ export type Database = {
           },
         ]
       }
+      debug_token_attempts: {
+        Row: {
+          attempt_time: string
+          id: string
+          ip_address: unknown | null
+          success: boolean
+          user_id: string | null
+        }
+        Insert: {
+          attempt_time?: string
+          id?: string
+          ip_address?: unknown | null
+          success?: boolean
+          user_id?: string | null
+        }
+        Update: {
+          attempt_time?: string
+          id?: string
+          ip_address?: unknown | null
+          success?: boolean
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       enrollments: {
         Row: {
           completion_status: number | null
