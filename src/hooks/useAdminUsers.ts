@@ -105,28 +105,16 @@ export function useAdminUsers() {
         throw new Error('Invalid parameters provided');
       }
 
-      // Ensure student role is always included
-      const updatedRoles = [...roles];
-      if (!updatedRoles.includes('student')) {
-        updatedRoles.push('student');
-      }
-
-      // Update roles directly in profiles table
-      const { error } = await supabase
-        .from('profiles')
-        .update({ roles: updatedRoles })
-        .eq('id', userId);
+      // Use the secure admin-only function for role updates
+      const { error } = await supabase.rpc('update_user_roles', {
+        target_user_id: userId,
+        new_roles: roles
+      });
 
       if (error) throw new Error(error.message || 'Failed to update user roles');
       
-      // Update local state
-      setUsers(prevUsers => 
-        prevUsers.map(user => 
-          user.id === userId 
-            ? { ...user, roles: updatedRoles } 
-            : user
-        )
-      );
+      // Refresh the users list to get updated data
+      await fetchUsers();
       
       toast({
         title: 'Success',

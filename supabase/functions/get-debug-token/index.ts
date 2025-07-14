@@ -42,17 +42,40 @@ serve(async (req) => {
       );
     }
 
-    // Get the user's profile to check their roles (updated for new roles array)
-    const { data: profile, error: profileError } = await supabaseClient
-      .from("profiles")
-      .select("roles")
-      .eq("id", user.id)
-      .single();
+    // Check rate limiting first
+    const clientIP = req.headers.get("X-Forwarded-For") || req.headers.get("X-Real-IP") || "unknown";
+    const { data: rateLimitCheck, error: rateLimitError } = await supabaseClient
+      .rpc('check_debug_token_rate_limit', {
+        requesting_user_id: user.id,
+        requesting_ip: clientIP
+      });
 
-    // Check if user has admin role in the roles array
-    const hasAdminRole = profile?.roles?.includes('admin') || false;
+    if (rateLimitError || !rateLimitCheck) {
+      await supabaseClient.rpc('log_security_event', {
+        p_user_id: user.id,
+        p_event_type: 'debug_token_rate_limit_exceeded',
+        p_severity: 'warning',
+        p_description: 'Rate limit exceeded for debug token access',
+        p_metadata: { 
+          user_agent: req.headers.get("User-Agent"),
+          ip: clientIP
+        }
+      });
+      
+      return new Response(
+        JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
+        {
+          status: 429,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    // Check admin access using secure function
+    const { data: hasAdminAccess, error: adminCheckError } = await supabaseClient
+      .rpc('has_admin_access', { user_id_param: user.id });
     
-    if (profileError || !profile || !hasAdminRole) {
+    if (adminCheckError || !hasAdminAccess) {
       // Log security event for unauthorized access attempt
       await supabaseClient.rpc('log_security_event', {
         p_user_id: user.id,
