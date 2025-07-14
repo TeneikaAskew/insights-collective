@@ -208,12 +208,112 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
   const syncAvailablePages = async () => {
     setIsSyncing(true);
     try {
-      // Re-fetch the current page visibility data
+      // Define all available pages from the codebase
+      const availablePages = [
+        // Core Routes
+        { page_path: '/', page_name: 'Home' },
+        { page_path: '/dashboard', page_name: 'Dashboard' },
+        { page_path: '/user-dashboard', page_name: 'User Dashboard' },
+        { page_path: '/notifications', page_name: 'Notifications' },
+        { page_path: '/calendar', page_name: 'Calendar' },
+        
+        // Authentication Routes
+        { page_path: '/login', page_name: 'Login' },
+        { page_path: '/register', page_name: 'Register' },
+        { page_path: '/reset-password', page_name: 'Reset Password' },
+        { page_path: '/auth-callback', page_name: 'Auth Callback' },
+        
+        // Profile & User Routes
+        { page_path: '/profile', page_name: 'Profile' },
+        
+        // Course & Learning Routes
+        { page_path: '/courses', page_name: 'Courses' },
+        { page_path: '/course-list', page_name: 'Course List' },
+        
+        // Interview Preparation Routes
+        { page_path: '/interview-prep', page_name: 'Interview Prep' },
+        { page_path: '/interview-prep/code-practice', page_name: 'Interview Code Practice' },
+        { page_path: '/interview-prep/job-description', page_name: 'Job Description Analysis' },
+        { page_path: '/interview-prep/mock-interview-room', page_name: 'Mock Interview Room' },
+        { page_path: '/interview-prep/mock-interviews', page_name: 'Mock Interviews' },
+        { page_path: '/interview-prep/star-practice', page_name: 'STAR Practice' },
+        { page_path: '/mock-interviews', page_name: 'Mock Interviews' },
+        { page_path: '/code-practice', page_name: 'Code Practice' },
+        
+        // Career & AI Routes
+        { page_path: '/career-agent', page_name: 'Career Agent' },
+        { page_path: '/career-pathway', page_name: 'Career Pathway' },
+        { page_path: '/assistants', page_name: 'AI Assistants' },
+        { page_path: '/explore-data-careers', page_name: 'Explore Data Careers' },
+        { page_path: '/resume', page_name: 'Resume Analyzer' },
+        
+        // Events & Social Routes
+        { page_path: '/events', page_name: 'Events' },
+        { page_path: '/messages', page_name: 'Messages' },
+        { page_path: '/forum', page_name: 'Forum' },
+        { page_path: '/forums', page_name: 'Forums' },
+        
+        // Portfolio Routes
+        { page_path: '/portfolio-explorer', page_name: 'Portfolio Explorer' },
+        
+        // Blog & Content Routes
+        { page_path: '/data-blueprint-series', page_name: 'Data Blueprint Series' },
+        { page_path: '/create-blog-post', page_name: 'Create Blog Post' },
+        
+        // Resources & Tools Routes
+        { page_path: '/resources', page_name: 'Resources' },
+        { page_path: '/teneika-linkedin', page_name: "Teneika's LinkedIn" },
+        { page_path: '/teneika-tweets', page_name: "Teneika's Tweets" },
+        
+        // Survey & Forms Routes
+        { page_path: '/survey', page_name: 'AI & Automation Fellowship' },
+        { page_path: '/survey-confirmation', page_name: 'Survey Confirmation' },
+        
+        // Admin Routes
+        { page_path: '/admin', page_name: 'Admin Dashboard' },
+        { page_path: '/admin/activity', page_name: 'Admin Activity' },
+        { page_path: '/admin/blog-posts', page_name: 'Admin Blog Posts' },
+        { page_path: '/admin/courses', page_name: 'Admin Courses' },
+        { page_path: '/admin/events', page_name: 'Admin Events' },
+        { page_path: '/admin/forms', page_name: 'Admin Forms' },
+        { page_path: '/admin/users', page_name: 'Admin Users' },
+        { page_path: '/admin/page-visibility', page_name: 'Admin Page Visibility' },
+        { page_path: '/admin/form-management', page_name: 'Admin Form Management' },
+        { page_path: '/admin/unified-form-management', page_name: 'Admin Unified Form Management' },
+        { page_path: '/admin/local-storage-debug', page_name: 'Admin Debug Tools' },
+        
+        // Legal & Info Routes
+        { page_path: '/privacy-policy', page_name: 'Privacy Policy' },
+        { page_path: '/terms-of-service', page_name: 'Terms of Service' }
+      ];
+
+      console.log('Syncing pages to database:', availablePages);
+
+      // Upsert all pages into the database
+      for (const page of availablePages) {
+        const { error } = await supabase
+          .from('page_visibility')
+          .upsert({
+            page_path: page.page_path,
+            page_name: page.page_name,
+            visible_to_users: true, // Default to visible for new pages
+            visible_to_instructors: true
+          }, {
+            onConflict: 'page_path',
+            ignoreDuplicates: false
+          });
+
+        if (error) {
+          console.error(`Error upserting page ${page.page_path}:`, error);
+        }
+      }
+      
+      // Re-fetch the updated page visibility data
       await fetchPageVisibilityData();
       
       toast({
-        title: 'Pages synced',
-        description: 'Page visibility data has been refreshed successfully.',
+        title: 'Pages synced successfully',
+        description: `${availablePages.length} pages have been synchronized with the database.`,
       });
     } catch (error) {
       console.error('[PageVisibilityProvider] Error syncing pages:', error);
