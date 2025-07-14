@@ -301,7 +301,15 @@ const AdminPageVisibility = () => {
                             )}
                           </TableCell>
                           <TableCell className="font-mono text-xs">
-                            {page.page_path}
+                            <Button 
+                              variant="link" 
+                              className="p-0 h-auto font-mono text-xs text-blue-600 hover:text-blue-800"
+                              asChild
+                            >
+                              <a href={page.page_path} target="_blank" rel="noopener noreferrer">
+                                {page.page_path}
+                              </a>
+                            </Button>
                           </TableCell>
                           <TableCell className="text-center">
                             <div className="flex justify-center">

@@ -119,6 +119,8 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
 
   const isPageVisible = (path: string): boolean => {
     console.log(`[PageVisibilityProvider] Checking visibility for path: ${path}`);
+    console.log(`[PageVisibilityProvider] Current pageVisibility data:`, pageVisibility);
+    console.log(`[PageVisibilityProvider] User roles:`, user?.roles);
     
     // Admin users can see all pages
     if (user?.roles?.includes('admin')) {
@@ -128,6 +130,7 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
     
     // Find the page visibility entry for this path
     const pageEntry = pageVisibility.find(page => page.page_path === path);
+    console.log(`[PageVisibilityProvider] Found page entry for ${path}:`, pageEntry);
     
     if (!pageEntry) {
       console.log(`[PageVisibilityProvider] No page entry found for ${path}, defaulting to visible`);
@@ -143,12 +146,17 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
     
     // Determine visibility based on role
     if (isInstructor) {
-      return pageEntry.visible_to_instructors;
+      const visible = pageEntry.visible_to_instructors;
+      console.log(`[PageVisibilityProvider] Instructor visibility result for ${path}: ${visible}`);
+      return visible;
     } else if (isRegularUser) {
-      return pageEntry.visible_to_users;
+      const visible = pageEntry.visible_to_users;
+      console.log(`[PageVisibilityProvider] Regular user visibility result for ${path}: ${visible}`);
+      return visible;
     }
     
     // Default to visible for any other case
+    console.log(`[PageVisibilityProvider] Default visibility for ${path}: true`);
     return true;
   };
 
