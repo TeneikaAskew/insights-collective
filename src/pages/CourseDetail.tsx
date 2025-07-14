@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
+import { CourseLayout } from '@/components/course/CourseLayout';
 import ModuleCard from '@/components/common/ModuleCard';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -347,13 +348,13 @@ const CourseDetail = () => {
   const overallProgress = course.modules.reduce((sum, module) => sum + (module.completionStatus || 0), 0) / (course.modules.length || 1);
   
   return (
-    <AppLayout>
+    <CourseLayout>
       <div className="space-y-6">
         <div className="flex items-center mb-4">
           <Button variant="ghost" size="sm" className="mr-2" asChild>
-            <Link to="/courses">
+            <Link to="/enrolled-courses">
               <ChevronLeft className="h-4 w-4 mr-1" />
-              Back to Courses
+              Back to Enrolled Courses
             </Link>
           </Button>
         </div>
@@ -648,7 +649,7 @@ const CourseDetail = () => {
           </div>
         </div>
       </div>
-    </AppLayout>
+    </CourseLayout>
   );
 };
 

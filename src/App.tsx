@@ -32,9 +32,6 @@ const AssignmentDetail = lazy(() => import('@/pages/AssignmentDetail'));
 const LessonDetail = lazy(() => import('@/pages/LessonDetail'));
 const ModuleDetail = lazy(() => import('@/pages/ModuleDetail'));
 const EnrolledCoursesDashboard = lazy(() => import('@/pages/EnrolledCoursesDashboard'));
-const CourseHome = lazy(() => import('@/pages/course/CourseHome'));
-const CourseModules = lazy(() => import('@/pages/course/CourseModules'));
-const CourseAnnouncements = lazy(() => import('@/pages/course/CourseAnnouncements'));
 
 // Interview Preparation Pages
 const InterviewPrep = lazy(() => import('@/pages/InterviewPrep'));
@@ -190,15 +187,14 @@ function App() {
                      <Route path="/course-list" element={<CourseList />} />
                      <Route path="/enrolled-courses" element={<EnrolledCoursesDashboard />} />
                      <Route path="/courses/:courseId" element={<CourseDetail />} />
-                     <Route path="/course/:courseId" element={<CourseHome />} />
-                     <Route path="/course/:courseId/modules" element={<CourseModules />} />
-                     <Route path="/course/:courseId/announcements" element={<CourseAnnouncements />} />
-                     <Route path="/course/:courseId/assignments" element={<CourseDetail />} />
-                     <Route path="/course/:courseId/grades" element={<CourseDetail />} />
-                     <Route path="/course/:courseId/calendar" element={<CourseDetail />} />
-                     <Route path="/course/:courseId/people" element={<CourseDetail />} />
-                     <Route path="/course/:courseId/management" element={<CourseManagement />} />
-                     <Route path="/course/:courseId/manage-materials" element={<CourseManageMaterials />} />
+                     <Route path="/courses/:courseId/modules" element={<CourseDetail />} />
+                     <Route path="/courses/:courseId/announcements" element={<CourseDetail />} />
+                     <Route path="/courses/:courseId/assignments" element={<CourseDetail />} />
+                     <Route path="/courses/:courseId/grades" element={<CourseDetail />} />
+                     <Route path="/courses/:courseId/calendar" element={<CourseDetail />} />
+                     <Route path="/courses/:courseId/people" element={<CourseDetail />} />
+                     <Route path="/courses/:courseId/management" element={<CourseManagement />} />
+                     <Route path="/courses/:courseId/manage-materials" element={<CourseManageMaterials />} />
                      <Route path="/courses/:courseId/modules/:moduleId/assignments/:assignmentId" element={<AssignmentDetail />} />
                      <Route path="/courses/:courseId/modules/:moduleId/lessons/:lessonId" element={<LessonDetail />} />
                      <Route path="/courses/:courseId/modules/:moduleId" element={<ModuleDetail />} />

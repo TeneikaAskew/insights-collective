@@ -1,5 +1,6 @@
 import { useParams, Link } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
+import { CourseLayout } from '@/components/course/CourseLayout';
 import { mockService } from '@/lib/mockData';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -41,7 +42,7 @@ const LessonDetail = () => {
   };
   
   return (
-    <AppLayout>
+    <CourseLayout>
       <div className="space-y-6">
         <div className="flex items-center mb-4">
           <Button variant="ghost" size="sm" className="mr-2" asChild>
@@ -108,7 +109,7 @@ const LessonDetail = () => {
           </CardFooter>
         </Card>
       </div>
-    </AppLayout>
+    </CourseLayout>
   );
 };
 

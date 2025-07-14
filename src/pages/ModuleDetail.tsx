@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
+import { CourseLayout } from '@/components/course/CourseLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -174,7 +175,7 @@ const ModuleDetail = () => {
   }
   
   return (
-    <AppLayout>
+    <CourseLayout>
       <div className="space-y-6">
         <div className="flex items-center mb-4">
           <Button variant="ghost" size="sm" className="mr-2" asChild>
@@ -360,7 +361,7 @@ const ModuleDetail = () => {
           </div>
         </div>
       </div>
-    </AppLayout>
+    </CourseLayout>
   );
 };
 
