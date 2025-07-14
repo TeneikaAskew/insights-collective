@@ -42,10 +42,10 @@ export const usePageVisibility = () => {
   const context = useContext(PageVisibilityContext);
   if (context === undefined) {
     // Return default values when context is not available to prevent blocking
-    console.warn('[PageVisibilityContext] Context not found, returning default visibility');
+    console.warn('[PageVisibilityContext] Context not found, returning conservative defaults');
     return {
-      isPageVisible: () => true, // Default to visible
-      isLoading: false,
+      isPageVisible: () => false, // Default to hidden for safety
+      isLoading: true, // Indicate we're still loading
       onlineUsers: [] as OnlineUser[],
       currentUserPresence: null,
       pageVisibility: [] as PageVisibilityEntry[],
@@ -121,11 +121,18 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
     console.log(`[PageVisibilityProvider] Checking visibility for path: ${path}`);
     console.log(`[PageVisibilityProvider] Current pageVisibility data:`, pageVisibility);
     console.log(`[PageVisibilityProvider] User roles:`, user?.roles);
+    console.log(`[PageVisibilityProvider] isLoading:`, isLoading);
     
     // Admin users can see all pages
     if (user?.roles?.includes('admin')) {
       console.log(`[PageVisibilityProvider] Admin user, showing all pages`);
       return true;
+    }
+    
+    // If data is still loading, hide pages by default (except admin)
+    if (isLoading || pageVisibility.length === 0) {
+      console.log(`[PageVisibilityProvider] Data still loading or empty, hiding ${path} by default`);
+      return false;
     }
     
     // Find the page visibility entry for this path
@@ -134,7 +141,7 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
     
     if (!pageEntry) {
       console.log(`[PageVisibilityProvider] No page entry found for ${path}, defaulting to visible`);
-      return true; // Default to visible if not in database
+      return true; // Default to visible if not in database but data is loaded
     }
     
     // Check user roles and page visibility settings

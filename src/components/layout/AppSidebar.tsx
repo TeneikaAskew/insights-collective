@@ -14,7 +14,7 @@ const AppSidebar = () => {
     user,
     isAuthenticated
   } = useAuth();
-  const { isPageVisible } = usePageVisibility();
+  const { isPageVisible, isLoading: pageVisibilityLoading } = usePageVisibility();
 
   // Define public menu items with corrected routes
   const publicMenuItems = [{
@@ -166,8 +166,13 @@ const AppSidebar = () => {
   const isInstructor = user?.roles?.includes('instructor');
   
   // Filter menu items based on page visibility settings
-  const visiblePublicMenuItems = publicMenuItems.filter(item => isPageVisible(item.url));
-  const visibleAdminMenuItems = adminMenuItems.filter(item => isPageVisible(item.url));
+  // For admin users, show all items immediately. For others, wait for data to load.
+  const visiblePublicMenuItems = isAdmin || !pageVisibilityLoading 
+    ? publicMenuItems.filter(item => isPageVisible(item.url))
+    : [];
+  const visibleAdminMenuItems = isAdmin || !pageVisibilityLoading
+    ? adminMenuItems.filter(item => isPageVisible(item.url))
+    : [];
   
   const menuItems = [...visiblePublicMenuItems];
 
