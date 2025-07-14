@@ -17,6 +17,8 @@ import { isEnrolledInCourse, addEnrolledCourse, isWishlistedCourse, toggleWishli
 import { Course } from '@/types';
 import { useForums } from '@/hooks/useForums';
 import { useCoursePermissions } from '@/hooks/useCoursePermissions';
+import { EditCourseButton } from '@/components/course/EditCourseButton';
+import { CourseModulesList } from '@/components/course/CourseModulesList';
 
 const CourseDetail = () => {
   const { courseId } = useParams<{ courseId: string }>();
@@ -360,38 +362,7 @@ const CourseDetail = () => {
   const renderContent = () => {
     switch (currentSection) {
       case 'modules':
-        return (
-          <div className="space-y-6">
-            <div className="bg-card border rounded-lg p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-bold">Course Modules</h2>
-                {canEdit && (
-                  <Button variant="outline" asChild>
-                    <Link to={`/courses/${courseId}/management`}>
-                      <Edit className="h-4 w-4 mr-2" />
-                      Edit Course
-                    </Link>
-                  </Button>
-                )}
-              </div>
-              <p className="text-muted-foreground mb-6">
-                This course contains {modules.length} modules organized by week.
-              </p>
-              
-              {modules.length > 0 ? (
-                <div className="space-y-4">
-                  {modules.map(module => (
-                    <ModuleCard key={module.id} courseId={course.id} module={module} />
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center p-8 border rounded-lg bg-muted/20">
-                  <p>No modules available for this course yet.</p>
-                </div>
-              )}
-            </div>
-          </div>
-        );
+        return <CourseModulesList courseId={courseId} />;
       
       case 'announcements':
         return (
@@ -641,14 +612,7 @@ const CourseDetail = () => {
             </div>
             
             <div className="flex items-center space-x-2">
-              {canEdit && (
-                <Button variant="outline" asChild>
-                  <Link to={`/courses/${courseId}/management`}>
-                    <Edit className="h-4 w-4 mr-2" />
-                    Edit Course
-                  </Link>
-                </Button>
-              )}
+              <EditCourseButton courseId={courseId} />
             </div>
           </div>
           

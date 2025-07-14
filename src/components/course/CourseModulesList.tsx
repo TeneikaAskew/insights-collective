@@ -1,0 +1,207 @@
+// ABOUTME: Dedicated component for displaying course modules with proper loading and error states
+// ABOUTME: Replaces the inline module display to provide better user experience and code organization
+
+import React, { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Link } from 'react-router-dom';
+import { BookOpen, FileText, HelpCircle, Clock, ChevronRight, AlertCircle } from 'lucide-react';
+import { EditCourseButton } from '@/components/course/EditCourseButton';
+
+interface Module {
+  id: string;
+  title: string;
+  description: string;
+  week: number;
+  content_blocks: any[];
+  lessons: any[];
+  assignments: any[];
+  quizzes: any[];
+  completionStatus: number;
+}
+
+interface CourseModulesListProps {
+  courseId: string;
+}
+
+export function CourseModulesList({ courseId }: CourseModulesListProps) {
+  const [modules, setModules] = useState<Module[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchModules = async () => {
+      if (!courseId) return;
+      
+      try {
+        setLoading(true);
+        const { data: modulesData, error: modulesError } = await supabase
+          .from('modules')
+          .select(`
+            *,
+            content_blocks(
+              id,
+              title,
+              block_type,
+              position,
+              completion_required
+            )
+          `)
+          .eq('course_id', courseId)
+          .order('week', { ascending: true });
+
+        if (modulesError) throw modulesError;
+
+        // Process modules to categorize content blocks
+        const processedModules = (modulesData || []).map(module => {
+          const contentBlocks = module.content_blocks || [];
+          const textBlocks = contentBlocks.filter(block => 
+            ['text', 'image', 'video', 'file', 'quote', 'code', 'embed'].includes(block.block_type)
+          );
+          const assignmentBlocks = contentBlocks.filter(block => block.block_type === 'assignment');
+          const quizBlocks = contentBlocks.filter(block => block.block_type === 'quiz');
+          
+          return {
+            ...module,
+            lessons: textBlocks,
+            assignments: assignmentBlocks,
+            quizzes: quizBlocks,
+            completionStatus: 0 // TODO: Calculate actual completion status
+          };
+        });
+
+        setModules(processedModules);
+      } catch (error: any) {
+        console.error('Error fetching modules:', error);
+        setError(error.message || 'Failed to load modules');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchModules();
+  }, [courseId]);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center py-8">
+        <Spinner size="lg" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>
+          {error}
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-card border rounded-lg p-6">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-2xl font-bold">Course Modules</h2>
+          <EditCourseButton courseId={courseId} />
+        </div>
+        <p className="text-muted-foreground mb-6">
+          This course contains {modules.length} modules organized by week. Click on any module to view its content.
+        </p>
+        
+        {modules.length > 0 ? (
+          <div className="space-y-4">
+            {modules.map((module, index) => (
+              <Card key={module.id} className="hover:shadow-md transition-shadow">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-semibold">
+                        {module.week}
+                      </div>
+                      <div>
+                        <CardTitle className="text-lg">{module.title}</CardTitle>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Week {module.week}
+                        </p>
+                      </div>
+                    </div>
+                    <Badge variant="outline">
+                      {module.content_blocks?.length || 0} items
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    {module.description}
+                  </p>
+                  
+                  {/* Content summary */}
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    {module.lessons.length > 0 && (
+                      <div className="flex items-center gap-1 text-muted-foreground">
+                        <BookOpen className="h-3 w-3" />
+                        <span>{module.lessons.length} lessons</span>
+                      </div>
+                    )}
+                    {module.assignments.length > 0 && (
+                      <div className="flex items-center gap-1 text-muted-foreground">
+                        <FileText className="h-3 w-3" />
+                        <span>{module.assignments.length} assignments</span>
+                      </div>
+                    )}
+                    {module.quizzes.length > 0 && (
+                      <div className="flex items-center gap-1 text-muted-foreground">
+                        <HelpCircle className="h-3 w-3" />
+                        <span>{module.quizzes.length} quizzes</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Progress bar */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-xs">
+                      <span>Progress</span>
+                      <span>{Math.round(module.completionStatus)}%</span>
+                    </div>
+                    <Progress value={module.completionStatus} className="h-2" />
+                  </div>
+                  
+                  {/* Action button */}
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Clock className="h-3 w-3" />
+                      <span>Est. 2-3 hours</span>
+                    </div>
+                    <Button asChild size="sm">
+                      <Link to={`/courses/${courseId}/modules/${module.id}`}>
+                        View Module
+                        <ChevronRight className="h-4 w-4 ml-1" />
+                      </Link>
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center p-8 border rounded-lg bg-muted/20">
+            <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground">No modules available for this course yet.</p>
+            <p className="text-sm text-muted-foreground mt-2">
+              Check back later or contact your instructor for more information.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

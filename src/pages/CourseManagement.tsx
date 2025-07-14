@@ -25,7 +25,7 @@ export default function CourseManagement() {
   // Handle tab change to redirect to materials page when content tab is clicked
   const handleTabChange = (value: string) => {
     if (value === 'content') {
-      navigate(`/course/${courseId}/manage-materials`);
+      navigate(`/courses/${courseId}/manage-materials`);
       return;
     }
     setActiveTab(value);

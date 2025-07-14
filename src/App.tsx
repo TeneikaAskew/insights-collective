@@ -1,4 +1,3 @@
-
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -28,6 +27,7 @@ const CourseList = lazy(() => import('@/pages/CourseList'));
 const CourseDetail = lazy(() => import('@/pages/CourseDetail'));
 const CourseManagement = lazy(() => import('@/pages/CourseManagement'));
 const CourseManageMaterials = lazy(() => import('@/pages/CourseManageMaterials'));
+const CourseEdit = lazy(() => import('@/pages/CourseEdit'));
 const AssignmentDetail = lazy(() => import('@/pages/AssignmentDetail'));
 const LessonDetail = lazy(() => import('@/pages/LessonDetail'));
 const ModuleDetail = lazy(() => import('@/pages/ModuleDetail'));
@@ -193,6 +193,7 @@ function App() {
                      <Route path="/courses/:courseId/grades" element={<CourseDetail />} />
                      <Route path="/courses/:courseId/calendar" element={<CourseDetail />} />
                      <Route path="/courses/:courseId/people" element={<CourseDetail />} />
+                     <Route path="/courses/:courseId/edit" element={<CourseEdit />} />
                      <Route path="/courses/:courseId/management" element={<CourseManagement />} />
                      <Route path="/courses/:courseId/manage-materials" element={<CourseManageMaterials />} />
                      <Route path="/courses/:courseId/modules/:moduleId/assignments/:assignmentId" element={<AssignmentDetail />} />
