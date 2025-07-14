@@ -58,6 +58,11 @@ const AppSidebar = () => {
     active: location.pathname === '/portfolio-explorer',
     highlight: true
   }, {
+    title: "My Courses",
+    url: "/my-courses",
+    icon: GraduationCap,
+    active: location.pathname.startsWith('/my-courses')
+  }, {
     title: "Courses",
     url: "/courses",
     icon: BookOpen,

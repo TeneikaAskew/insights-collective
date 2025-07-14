@@ -25,6 +25,7 @@ const AuthCallback = lazy(() => import('@/pages/AuthCallback'));
 
 // Course & Learning Pages
 const CourseList = lazy(() => import('@/pages/CourseList'));
+const MyCourses = lazy(() => import('@/pages/MyCourses'));
 const CourseDetail = lazy(() => import('@/pages/CourseDetail'));
 const CourseManagement = lazy(() => import('@/pages/CourseManagement'));
 const CourseManageMaterials = lazy(() => import('@/pages/CourseManageMaterials'));
@@ -183,6 +184,7 @@ function App() {
 
                     {/* Course & Learning Routes - FIXED: Removed problematic redirect */}
                     <Route path="/courses" element={<CourseList />} />
+                    <Route path="/my-courses" element={<MyCourses />} />
                     <Route path="/course-list" element={<CourseList />} />
                     <Route path="/courses/:courseId" element={<CourseDetail />} />
                     <Route path="/course/:courseId/management" element={<CourseManagement />} />
