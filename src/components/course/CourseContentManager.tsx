@@ -18,6 +18,7 @@ import { Switch } from '@/components/ui/switch';
 import { ModernEditor } from '@/components/ui/modern-editor';
 import { QuizEditor } from './QuizEditor';
 import { InteractiveQuizBuilder } from '../quiz/InteractiveQuizBuilder';
+import LessonManagerWithMigration from './management/LessonManagerWithMigration';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Plus, 
@@ -74,10 +75,11 @@ interface Quiz {
 
 interface CourseContentManagerProps {
   courseId: string;
-  contentType: 'modules' | 'assignments' | 'quizzes';
+  contentType: 'modules' | 'assignments' | 'quizzes' | 'lessons';
+  moduleId?: string; // Required when contentType is 'lessons'
 }
 
-export function CourseContentManager({ courseId, contentType }: CourseContentManagerProps) {
+export function CourseContentManager({ courseId, contentType, moduleId }: CourseContentManagerProps) {
   const [items, setItems] = useState<(Module | Assignment | Quiz)[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -93,6 +95,12 @@ export function CourseContentManager({ courseId, contentType }: CourseContentMan
   }, [courseId, contentType]);
 
   const fetchItems = async () => {
+    if (contentType === 'lessons') {
+      // Lessons are handled by LessonManagerWithMigration component
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       const { data, error } = await supabase
@@ -200,6 +208,8 @@ export function CourseContentManager({ courseId, contentType }: CourseContentMan
         return { title: '', description: '', due_date: '', points: 100, instructions: '', content: '' };
       case 'quizzes':
         return { title: '', description: '', time_limit: 60, attempts_allowed: 1, passing_score: 70, randomize_questions: false };
+      case 'lessons':
+        return { title: '', description: '', content: '', duration: '', estimated_duration: 0, completion_required: true, order_num: 1 };
       default:
         return {};
     }
@@ -213,6 +223,8 @@ export function CourseContentManager({ courseId, contentType }: CourseContentMan
         return <FileText className="h-5 w-5" />;
       case 'quizzes':
         return <HelpCircle className="h-5 w-5" />;
+      case 'lessons':
+        return <BookOpen className="h-5 w-5" />;
       default:
         return <BookOpen className="h-5 w-5" />;
     }
@@ -551,6 +563,20 @@ export function CourseContentManager({ courseId, contentType }: CourseContentMan
         <AlertDescription>{error}</AlertDescription>
       </Alert>
     );
+  }
+
+  // Special handling for lessons - use the dedicated LessonManagerWithMigration component
+  if (contentType === 'lessons') {
+    if (!moduleId) {
+      return (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>Module ID is required for managing lessons.</AlertDescription>
+        </Alert>
+      );
+    }
+
+    return <LessonManagerWithMigration moduleId={moduleId} />;
   }
 
   return (

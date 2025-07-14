@@ -16,10 +16,13 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useContentBlocks } from '@/hooks/useContentBlocks';
 import { useModuleProgress } from '@/hooks/useModuleProgress';
+import { useLessons } from '@/hooks/useLessons';
+import { useLessonProgress } from '@/hooks/useLessonProgress';
 
 import ContentBlockRenderer from '@/components/course/content/ContentBlockRenderer';
 import StudentContentRenderer from '@/components/course/content/StudentContentRenderer';
 import { ModuleCompletionCard } from '@/components/course/ModuleCompletionCard';
+import { LessonAccordion } from '@/components/course/LessonAccordion';
 
 const ModuleDetail = () => {
   const { courseId, moduleId } = useParams<{ courseId: string; moduleId: string }>();
@@ -33,8 +36,9 @@ const ModuleDetail = () => {
   const [modules, setModules] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Use content blocks and module progress hooks
+  // Use content blocks, lessons, and progress hooks
   const { blocks: contentBlocks, loading: contentLoading } = useContentBlocks(moduleId);
+  const { lessons, loading: lessonsLoading } = useLessons(moduleId);
   const { 
     moduleProgress, 
     assignmentProgress, 
@@ -43,6 +47,9 @@ const ModuleDetail = () => {
     markModuleComplete, 
     submitAssignment 
   } = useModuleProgress(moduleId);
+
+  // Simple lesson progress state for now - can be enhanced later with proper hooks
+  const [lessonProgressData, setLessonProgressData] = useState<Record<string, any>>({});
 
   // Set active content to first block if none selected and blocks exist
   useEffect(() => {
@@ -152,6 +159,9 @@ const ModuleDetail = () => {
   const assignmentBlocks = contentBlocks.filter(block => block.block_type === 'assignment');
   const quizBlocks = contentBlocks.filter(block => block.block_type === 'quiz');
   
+  // Get module-level content blocks (not assigned to any lesson)
+  const moduleLevelBlocks = contentBlocks.filter(block => !block.lesson_id);
+  
   // Conditional rendering after all hooks have been called
   if (loading) {
     return (
@@ -232,16 +242,17 @@ const ModuleDetail = () => {
               </CardContent>
             </Card>
             
-            <Tabs defaultValue="content">
+            <Tabs defaultValue="lessons">
               <TabsList>
-                <TabsTrigger value="content">Content</TabsTrigger>
+                <TabsTrigger value="lessons">Lessons ({lessons.length})</TabsTrigger>
+                <TabsTrigger value="content">Module Content</TabsTrigger>
                 <TabsTrigger value="assignments">Assignments ({assignmentBlocks.length})</TabsTrigger>
                 <TabsTrigger value="quizzes">Quizzes ({quizBlocks.length})</TabsTrigger>
                 <TabsTrigger value="overview">Overview</TabsTrigger>
               </TabsList>
               
-              <TabsContent value="content" className="space-y-6 mt-6">
-                {contentLoading ? (
+              <TabsContent value="lessons" className="space-y-6 mt-6">
+                {lessonsLoading ? (
                   <div className="space-y-4">
                     <Card className="p-6">
                       <div className="animate-pulse space-y-4">
@@ -251,23 +262,55 @@ const ModuleDetail = () => {
                       </div>
                     </Card>
                   </div>
-                ) : textBlocks.length > 0 ? (
-                  <div className="max-w-4xl mx-auto">
-                    {/* Seamless Content Display */}
-                    {textBlocks.map((block) => (
-                      <StudentContentRenderer
-                        key={block.id}
-                        block={block}
-                      />
-                    ))}
-                  </div>
                 ) : (
-                  <Card>
-                    <CardContent className="py-10 text-center">
-                      <p className="text-muted-foreground">No content available in this module.</p>
-                    </CardContent>
-                  </Card>
+                  <LessonAccordion
+                    lessons={lessons}
+                    contentBlocks={contentBlocks}
+                    lessonProgress={lessonProgressData}
+                    courseId={courseId!}
+                    moduleId={moduleId!}
+                  />
                 )}
+              </TabsContent>
+
+              <TabsContent value="content" className="space-y-6 mt-6">
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">Module-Level Content</h3>
+                  <p className="text-sm text-muted-foreground mb-6">
+                    Content that applies to the entire module, not specific to any lesson.
+                  </p>
+                  
+                  {contentLoading ? (
+                    <div className="space-y-4">
+                      <Card className="p-6">
+                        <div className="animate-pulse space-y-4">
+                          <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                          <div className="h-2 bg-gray-200 rounded"></div>
+                          <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                        </div>
+                      </Card>
+                    </div>
+                  ) : moduleLevelBlocks.length > 0 ? (
+                    <div className="max-w-4xl mx-auto space-y-4">
+                      {moduleLevelBlocks
+                        .filter(block => ['text', 'image', 'video', 'file', 'quote', 'code', 'embed'].includes(block.block_type))
+                        .map((block) => (
+                          <StudentContentRenderer
+                            key={block.id}
+                            block={block}
+                          />
+                        ))}
+                    </div>
+                  ) : (
+                    <Card>
+                      <CardContent className="py-10 text-center">
+                        <p className="text-muted-foreground">
+                          No module-level content available. All content is organized within lessons.
+                        </p>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
               </TabsContent>
               
               <TabsContent value="assignments" className="mt-6">
@@ -324,21 +367,25 @@ const ModuleDetail = () => {
                     <CardHeader>
                       <CardTitle>Module Overview</CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="grid grid-cols-3 gap-4">
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-blue-600">{textBlocks.length}</div>
-                          <div className="text-sm text-muted-foreground">Content Blocks</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-orange-600">{assignmentBlocks.length}</div>
-                          <div className="text-sm text-muted-foreground">Assignments</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-green-600">{quizBlocks.length}</div>
-                          <div className="text-sm text-muted-foreground">Quizzes</div>
-                        </div>
-                      </div>
+                     <CardContent className="space-y-4">
+                       <div className="grid grid-cols-4 gap-4">
+                         <div className="text-center">
+                           <div className="text-2xl font-bold text-purple-600">{lessons.length}</div>
+                           <div className="text-sm text-muted-foreground">Lessons</div>
+                         </div>
+                         <div className="text-center">
+                           <div className="text-2xl font-bold text-blue-600">{textBlocks.length}</div>
+                           <div className="text-sm text-muted-foreground">Content Blocks</div>
+                         </div>
+                         <div className="text-center">
+                           <div className="text-2xl font-bold text-orange-600">{assignmentBlocks.length}</div>
+                           <div className="text-sm text-muted-foreground">Assignments</div>
+                         </div>
+                         <div className="text-center">
+                           <div className="text-2xl font-bold text-green-600">{quizBlocks.length}</div>
+                           <div className="text-sm text-muted-foreground">Quizzes</div>
+                         </div>
+                       </div>
                       
                     </CardContent>
                   </Card>
