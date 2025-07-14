@@ -50,7 +50,7 @@ export function CourseSidebar() {
   const { user } = useAuth();
   
   const currentPath = location.pathname;
-  const basePath = `/course/${courseId}`;
+  const basePath = `/courses/${courseId}`;
   
   const isActive = (itemUrl: string) => {
     const fullPath = `${basePath}${itemUrl}`;
@@ -81,9 +81,9 @@ export function CourseSidebar() {
       <SidebarHeader className="border-b">
         <div className="p-4">
           <Button variant="ghost" size="sm" asChild className="mb-4 w-full justify-start">
-            <Link to="/dashboard">
+            <Link to="/enrolled-courses">
               <ChevronLeft className="h-4 w-4 mr-2" />
-              {open && 'Back to Dashboard'}
+              {open && 'Back to Courses'}
             </Link>
           </Button>
           

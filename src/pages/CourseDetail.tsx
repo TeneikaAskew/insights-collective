@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
 import { CourseLayout } from '@/components/course/CourseLayout';
 import ModuleCard from '@/components/common/ModuleCard';
@@ -7,9 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { BookOpen, Clock, Users, Star, Calendar, ChevronLeft, Share, MessageSquare, Edit } from 'lucide-react';
+import { BookOpen, Clock, Users, Star, Calendar, ChevronLeft, Share, MessageSquare, Edit, Bell, FileText, BarChart3 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -20,6 +20,7 @@ import { useCoursePermissions } from '@/hooks/useCoursePermissions';
 
 const CourseDetail = () => {
   const { courseId } = useParams<{ courseId: string }>();
+  const location = useLocation();
   const [enrolling, setEnrolling] = useState(false);
   const [addingToWishlist, setAddingToWishlist] = useState(false);
   const [isEnrolled, setIsEnrolled] = useState(false);
@@ -31,6 +32,10 @@ const CourseDetail = () => {
   const { toast } = useToast();
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  
+  // Determine current section from URL
+  const currentSection = location.pathname.split('/').pop() || 'home';
+  const isMainCourse = currentSection === courseId;
   
   // Always call useForums with courseId (which might be undefined)
   // The hook itself will handle the case when courseId is undefined
@@ -347,56 +352,170 @@ const CourseDetail = () => {
 
   const overallProgress = course.modules.reduce((sum, module) => sum + (module.completionStatus || 0), 0) / (course.modules.length || 1);
   
-  return (
-    <CourseLayout>
-      <div className="space-y-6">
-        <div className="flex items-center mb-4">
-          <Button variant="ghost" size="sm" className="mr-2" asChild>
-            <Link to="/enrolled-courses">
-              <ChevronLeft className="h-4 w-4 mr-1" />
-              Back to Enrolled Courses
-            </Link>
-          </Button>
-        </div>
-        
-        <div className="grid gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-2 space-y-6">
-            <Card>
-              <div className="aspect-video w-full overflow-hidden">
+  // Render different content based on the current section
+  const renderContent = () => {
+    switch (currentSection) {
+      case 'modules':
+        return (
+          <div className="space-y-6">
+            <div className="bg-card border rounded-lg p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold">Course Modules</h2>
+                {canEdit && (
+                  <Button variant="outline" asChild>
+                    <Link to={`/courses/${courseId}/management`}>
+                      <Edit className="h-4 w-4 mr-2" />
+                      Edit Course
+                    </Link>
+                  </Button>
+                )}
+              </div>
+              <p className="text-muted-foreground mb-6">
+                This course contains {modules.length} modules organized by week.
+              </p>
+              
+              {modules.length > 0 ? (
+                <div className="space-y-4">
+                  {modules.map(module => (
+                    <ModuleCard key={module.id} courseId={course.id} module={module} />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center p-8 border rounded-lg bg-muted/20">
+                  <p>No modules available for this course yet.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      
+      case 'announcements':
+        return (
+          <div className="space-y-6">
+            <div className="bg-card border rounded-lg p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Bell className="h-5 w-5 text-primary" />
+                <h2 className="text-2xl font-bold">Announcements</h2>
+              </div>
+              <div className="text-center p-8 border rounded-lg bg-muted/20">
+                <p className="text-muted-foreground">No announcements yet.</p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Check back later for course updates and announcements.
+                </p>
+              </div>
+            </div>
+          </div>
+        );
+      
+      case 'assignments':
+        return (
+          <div className="space-y-6">
+            <div className="bg-card border rounded-lg p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <FileText className="h-5 w-5 text-primary" />
+                <h2 className="text-2xl font-bold">Assignments</h2>
+              </div>
+              <div className="text-center p-8 border rounded-lg bg-muted/20">
+                <p className="text-muted-foreground">No assignments yet.</p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Assignments will appear here once they're published.
+                </p>
+              </div>
+            </div>
+          </div>
+        );
+      
+      case 'grades':
+        return (
+          <div className="space-y-6">
+            <div className="bg-card border rounded-lg p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <BarChart3 className="h-5 w-5 text-primary" />
+                <h2 className="text-2xl font-bold">Grades</h2>
+              </div>
+              <div className="text-center p-8 border rounded-lg bg-muted/20">
+                <p className="text-muted-foreground">No grades available yet.</p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Your grades will appear here once assignments are completed and graded.
+                </p>
+              </div>
+            </div>
+          </div>
+        );
+      
+      case 'calendar':
+        return (
+          <div className="space-y-6">
+            <div className="bg-card border rounded-lg p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Calendar className="h-5 w-5 text-primary" />
+                <h2 className="text-2xl font-bold">Course Calendar</h2>
+              </div>
+              <div className="text-center p-8 border rounded-lg bg-muted/20">
+                <p className="text-muted-foreground">No calendar events yet.</p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Important dates and events will appear here.
+                </p>
+              </div>
+            </div>
+          </div>
+        );
+      
+      case 'people':
+        return (
+          <div className="space-y-6">
+            <div className="bg-card border rounded-lg p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Users className="h-5 w-5 text-primary" />
+                <h2 className="text-2xl font-bold">People</h2>
+              </div>
+              
+              <div className="mb-6">
+                <h3 className="font-semibold mb-3">Instructor</h3>
+                <div className="flex items-center space-x-3 p-3 border rounded-lg">
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage src={course.instructor.avatar} />
+                    <AvatarFallback>{course.instructor.name.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="font-medium">{course.instructor.name}</p>
+                    <p className="text-sm text-muted-foreground">Course Instructor</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="text-center p-8 border rounded-lg bg-muted/20">
+                <p className="text-muted-foreground">Student list not available.</p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Contact your instructor for more information about course participants.
+                </p>
+              </div>
+            </div>
+          </div>
+        );
+      
+      default:
+        // Home/Course Overview
+        return (
+          <div className="space-y-6">
+            {/* Course Header */}
+            <div className="bg-card border rounded-lg overflow-hidden">
+              <div className="aspect-[3/1] w-full overflow-hidden">
                 <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover" />
               </div>
-              <CardContent className="p-6">
+              <div className="p-6">
                 <div className="flex flex-wrap gap-2 mb-4">
-                  <Badge>{course.category}</Badge>
+                  <Badge variant="secondary">{course.category}</Badge>
                   <Badge variant="outline">{course.level}</Badge>
-                  <Badge variant={course.enrollmentStatus === 'Open' ? 'secondary' : course.enrollmentStatus === 'In Progress' ? 'default' : 'outline'}>
-                    {course.enrollmentStatus}
+                  <Badge variant="default">
+                    {course.enrollmentStatus || 'Active'}
                   </Badge>
                 </div>
                 
                 <h1 className="text-3xl font-bold mb-2">{course.title}</h1>
                 
-                <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground mb-4">
-                  <div className="flex items-center">
-                    <Clock className="h-4 w-4 mr-1" />
-                    <span>{course.duration}</span>
-                  </div>
-                  <div className="flex items-center">
-                    <Users className="h-4 w-4 mr-1" />
-                    <span>{course.enrollmentCount} students</span>
-                  </div>
-                  <div className="flex items-center">
-                    <Star className="h-4 w-4 mr-1 text-yellow-500" />
-                    <span>{course.rating.toFixed(1)} rating</span>
-                  </div>
-                  <div className="flex items-center">
-                    <Calendar className="h-4 w-4 mr-1" />
-                    <span>Last updated {new Date(course.updatedAt).toLocaleDateString()}</span>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-3 mb-6">
-                  <Avatar>
+                <div className="flex items-center gap-3 mb-4">
+                  <Avatar className="h-8 w-8">
                     <AvatarImage src={course.instructor.avatar} />
                     <AvatarFallback>{course.instructor.name.charAt(0)}</AvatarFallback>
                   </Avatar>
@@ -406,248 +525,93 @@ const CourseDetail = () => {
                   </div>
                 </div>
                 
-                <p className="text-lg mb-6">{course.description}</p>
+                <p className="text-lg mb-4">{course.description}</p>
                 
-                <div className="flex flex-wrap gap-3">
-                  {course.tags && course.tags.map(tag => (
-                    <Badge key={tag} variant="outline">
-                      {tag}
-                    </Badge>
-                  ))}
+                <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                  <div className="flex items-center">
+                    <Clock className="h-4 w-4 mr-1" />
+                    <span>{course.duration}</span>
+                  </div>
+                  <div className="flex items-center">
+                    <BookOpen className="h-4 w-4 mr-1" />
+                    <span>{modules.length} modules</span>
+                  </div>
+                  <div className="flex items-center">
+                    <Star className="h-4 w-4 mr-1 text-yellow-500" />
+                    <span>{course.rating.toFixed(1)} rating</span>
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
             
-            <Tabs defaultValue="modules">
-              <TabsList>
-                <TabsTrigger value="modules">Modules</TabsTrigger>
-                <TabsTrigger value="overview">Course Overview</TabsTrigger>
-                <TabsTrigger value="forums">Forums</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="modules" className="space-y-6 mt-6">
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <h2 className="text-2xl font-bold">Course Modules</h2>
-                    {canEdit && (
-                      <Button variant="outline" asChild>
-                        <Link to={`/course/${courseId}/management`}>
-                          <Edit className="h-4 w-4 mr-2" />
-                          Edit Course
-                        </Link>
-                      </Button>
-                    )}
-                  </div>
-                  <p className="text-muted-foreground mb-6">
-                    This course contains {modules.length} modules organized by week.
+            {/* Quick Actions */}
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <Card className="hover:shadow-md transition-shadow">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <BookOpen className="h-5 w-5 text-primary" />
+                    Course Modules
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Access all course content and lessons
                   </p>
-                  
-                  {modules.length > 0 ? (
-                    <div className="space-y-4">
-                      {modules.map(module => (
-                        <ModuleCard key={module.id} courseId={course.id} module={module} />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center p-8 border rounded-lg bg-muted/20">
-                      <p>No modules available for this course yet.</p>
-                    </div>
-                  )}
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="forums" className="space-y-6 mt-6">
-                <div>
-                  <div className="flex justify-between items-center mb-4">
-                    <div>
-                      <h2 className="text-2xl font-bold mb-2">Course Forums</h2>
-                      <p className="text-muted-foreground">
-                        Engage in discussions with fellow students and instructors.
-                      </p>
-                    </div>
-                    <Button asChild>
-                      <Link to={`/courses/${courseId}/forums`}>
-                        <MessageSquare className="h-4 w-4 mr-2" />
-                        View All Forums
-                      </Link>
-                    </Button>
-                  </div>
-                  
-                  {isLoadingForums ? (
-                    <div className="space-y-4">
-                      <Card className="p-8">
-                        <div className="animate-pulse flex space-x-4">
-                          <div className="flex-1 space-y-4 py-1">
-                            <div className="h-4 bg-muted rounded w-3/4"></div>
-                            <div className="h-4 bg-muted rounded"></div>
-                            <div className="h-4 bg-muted rounded w-5/6"></div>
-                          </div>
-                        </div>
-                      </Card>
-                    </div>
-                  ) : forums && forums.length > 0 ? (
-                    <div className="space-y-4">
-                      {forums.slice(0, 3).map(forum => (
-                        <Link key={forum.id} to={`/courses/${courseId}/forums/${forum.id}`}>
-                          <Card className="hover:bg-muted/50 transition-colors">
-                            <CardContent className="p-4">
-                              <h3 className="text-lg font-semibold mb-1">{forum.title}</h3>
-                              <p className="text-muted-foreground text-sm mb-2">{forum.description}</p>
-                              <div className="flex justify-end">
-                                <Button variant="outline" size="sm">
-                                  <MessageSquare className="h-4 w-4 mr-1" />
-                                  Browse Threads
-                                </Button>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        </Link>
-                      ))}
-                      {forums.length > 3 && (
-                        <div className="text-center mt-2">
-                          <Button variant="link" asChild>
-                            <Link to={`/courses/${courseId}/forums`}>
-                              View All {forums.length} Forums
-                            </Link>
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-center p-8 border rounded-lg bg-muted/20">
-                      <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                      <h3 className="text-lg font-semibold mb-2">No Forums Yet</h3>
-                      <p className="text-muted-foreground">Forums for this course will appear here once they're available.</p>
-                    </div>
-                  )}
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="overview" className="mt-6">
-                <Card>
-                  <CardContent className="p-6">
-                    <div className="flex justify-between items-center mb-4">
-                      <h2 className="text-2xl font-bold">Course Overview</h2>
-                      {canEdit && (
-                        <Button variant="outline" asChild>
-                          <Link to={`/course/${courseId}/management`}>
-                            <Edit className="h-4 w-4 mr-2" />
-                            Edit Overview
-                          </Link>
-                        </Button>
-                      )}
-                    </div>
-                    
-                    <div className="space-y-6">
-                      <div>
-                        <h3 className="text-lg font-semibold mb-2">Course Description</h3>
-                        <p className="text-muted-foreground">{course.description}</p>
-                      </div>
-                      
-                      <div>
-                        <h3 className="text-lg font-semibold mb-2">Course Structure</h3>
-                        <p>This course is structured in {modules.length} weekly modules, each containing lessons, activities, and assessments to reinforce your learning.</p>
-                      </div>
-                      
-                      {course.tags && course.tags.length > 0 && (
-                        <div>
-                          <h3 className="text-lg font-semibold mb-2">Topics Covered</h3>
-                          <div className="flex flex-wrap gap-2">
-                            {course.tags.map(tag => (
-                              <Badge key={tag} variant="outline">{tag}</Badge>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-              
-            </Tabs>
-          </div>
-          
-          <div className="space-y-6">
-            <Card className="sticky top-6">
-              <CardContent className="p-6 space-y-6">
-                <h2 className="text-xl font-bold">Course Progress</h2>
-                
-                <div>
-                  <div className="flex justify-between text-sm mb-2">
-                    <span>Overall Progress</span>
-                    <span>{Math.round(overallProgress)}%</span>
-                  </div>
-                  <Progress value={overallProgress} className="h-2" />
-                </div>
-                
-                <div className="flex flex-col gap-3">
-                  <Button size="lg" onClick={handleEnroll} disabled={enrolling || isEnrolled}>
-                    {enrolling ? "Enrolling..." : isEnrolled ? "Already Enrolled" : "Enroll in Course"}
+                  <Button asChild className="w-full">
+                    <Link to={`/courses/${courseId}/modules`}>
+                      View Modules
+                    </Link>
                   </Button>
-                  
-                  <Button variant="outline" size="lg" onClick={handleWishlist} disabled={addingToWishlist}>
-                    {addingToWishlist ? "Updating..." : isWishlisted ? "Remove from Wishlist" : "Add to Wishlist"}
+                </CardContent>
+              </Card>
+              
+              <Card className="hover:shadow-md transition-shadow">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-primary" />
+                    Assignments
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    View and submit assignments
+                  </p>
+                  <Button asChild variant="outline" className="w-full">
+                    <Link to={`/courses/${courseId}/assignments`}>
+                      View Assignments
+                    </Link>
                   </Button>
-                </div>
-                
-                <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg space-y-3">
-                  <h3 className="font-semibold">This Course Includes:</h3>
-                  <ul className="space-y-2 text-sm">
-                    <li className="flex items-center">
-                      <BookOpen className="h-4 w-4 mr-2 text-amber-600 dark:text-amber-400" />
-                      <span>{modules.length > 0 ? modules.reduce((sum, m) => sum + (m.lessons?.length || 0), 0) : 0} lessons</span>
-                    </li>
-                    <li className="flex items-center">
-                      <Clock className="h-4 w-4 mr-2 text-amber-600 dark:text-amber-400" />
-                      <span>{course.duration} of content</span>
-                    </li>
-                    <li className="flex items-center">
-                      <Users className="h-4 w-4 mr-2 text-amber-600 dark:text-amber-400" />
-                      <span>Access to student community</span>
-                    </li>
-                    <li className="flex items-center">
-                      <Star className="h-4 w-4 mr-2 text-amber-600 dark:text-amber-400" />
-                      <span>Course completion certificate</span>
-                    </li>
-                  </ul>
-                </div>
-                
-                <div>
-                  <h3 className="font-semibold mb-2">Share This Course:</h3>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => handleShare('facebook')}>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path>
-                      </svg>
-                    </Button>
-                    <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => handleShare('twitter')}>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z"></path>
-                      </svg>
-                    </Button>
-                    <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => handleShare('linkedin')}>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path>
-                        <rect x="2" y="9" width="4" height="12"></rect>
-                        <circle cx="4" cy="4" r="2"></circle>
-                      </svg>
-                    </Button>
-                    <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => handleShare('instagram')}>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
-                        <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
-                        <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
-                      </svg>
-                    </Button>
-                    <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => handleShare('copy')}>
-                      <Share className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+              
+              <Card className="hover:shadow-md transition-shadow">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5 text-primary" />
+                    Grades
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Check your progress and grades
+                  </p>
+                  <Button asChild variant="outline" className="w-full">
+                    <Link to={`/courses/${courseId}/grades`}>
+                      View Grades
+                    </Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
           </div>
-        </div>
+        );
+    }
+  };
+  
+  return (
+    <CourseLayout>
+      <div className="space-y-6">
+        {renderContent()}
       </div>
     </CourseLayout>
   );
