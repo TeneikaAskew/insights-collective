@@ -52,24 +52,28 @@ function CourseEdit() {
 
       console.log('Cleaned data for database:', cleanedData);
       
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('courses')
         .update(cleanedData)
-        .eq('id', courseId);
+        .eq('id', courseId)
+        .select('*')
+        .single();
 
       if (error) {
         console.error('Save error:', error);
         throw error;
       }
 
+      console.log('Course saved successfully, updated data:', data);
+
       toast({
         title: 'Course updated successfully',
         description: 'Your changes have been saved.',
       });
 
-      // Don't navigate away, just show success message
-      // User can manually navigate if needed
-      console.log('Course saved successfully');
+      // Refresh the page to show updated data
+      window.location.reload();
+
     } catch (error: any) {
       console.error('Error saving course:', error);
       toast({
