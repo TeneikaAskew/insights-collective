@@ -83,7 +83,12 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({ content }) => 
   };
 
   const parseContent = () => {
-    const lines = content.split('\n');
+    // First, handle video embeds in the entire content to support multiple videos and inline videos
+    const contentWithVideosProcessed = content.replace(/\[VIDEO:([^\]]+)\]/g, (match, videoUrl) => {
+      return `__VIDEO_PLACEHOLDER_${videoUrl}__`;
+    });
+
+    const lines = contentWithVideosProcessed.split('\n');
     const elements: React.ReactNode[] = [];
     let currentListItems: string[] = [];
     let currentOrderedItems: string[] = [];
@@ -124,19 +129,62 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({ content }) => 
         .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">$1</a>');
     };
 
+    const processLineForVideosAndContent = (line: string) => {
+      // Check if line contains video placeholders
+      const videoPlaceholderRegex = /__VIDEO_PLACEHOLDER_([^_]+)__/g;
+      const parts = line.split(videoPlaceholderRegex);
+      const lineElements: React.ReactNode[] = [];
+      let lineKey = 0;
+
+      for (let i = 0; i < parts.length; i++) {
+        if (i % 2 === 0) {
+          // Regular content
+          if (parts[i].trim()) {
+            lineElements.push(
+              <span key={lineKey++} dangerouslySetInnerHTML={{ __html: processInlineMarkdown(parts[i]) }} />
+            );
+          }
+        } else {
+          // Video URL
+          lineElements.push(
+            <div key={lineKey++}>
+              {renderVideoEmbed(parts[i])}
+            </div>
+          );
+        }
+      }
+
+      return lineElements;
+    };
+
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
 
-      // Handle video embeds
-      const videoMatch = line.match(/\[VIDEO:([^\]]+)\]/);
-      if (videoMatch) {
+      // Check if this line is just a video placeholder
+      const videoPlaceholderMatch = line.match(/^__VIDEO_PLACEHOLDER_([^_]+)__$/);
+      if (videoPlaceholderMatch) {
         flushList();
         flushOrderedList();
         elements.push(
           <div key={key++}>
-            {renderVideoEmbed(videoMatch[1])}
+            {renderVideoEmbed(videoPlaceholderMatch[1])}
           </div>
         );
+        continue;
+      }
+
+      // Check if line contains video placeholders mixed with other content
+      if (line.includes('__VIDEO_PLACEHOLDER_')) {
+        flushList();
+        flushOrderedList();
+        const lineElements = processLineForVideosAndContent(line);
+        if (lineElements.length > 0) {
+          elements.push(
+            <div key={key++} className="mb-4">
+              {lineElements}
+            </div>
+          );
+        }
         continue;
       }
 
