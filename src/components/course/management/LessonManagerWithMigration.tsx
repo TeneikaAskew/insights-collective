@@ -16,6 +16,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Plus, BookOpen, Edit, Trash2, Clock } from 'lucide-react';
+import { ModernEditor } from '@/components/ui/modern-editor';
 
 interface LessonManagerWithMigrationProps {
   moduleId: string;
@@ -207,12 +208,11 @@ const LessonManagerWithMigration = ({ moduleId }: LessonManagerWithMigrationProp
 
               <div className="space-y-2">
                 <Label htmlFor="lesson-content">Content</Label>
-                <Textarea
-                  id="lesson-content"
+                <ModernEditor
                   value={formData.content}
-                  onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
-                  placeholder="Enter lesson content"
-                  rows={3}
+                  onChange={(value) => setFormData(prev => ({ ...prev, content: value }))}
+                  placeholder="Write your lesson content here. Use the rich text editor to format your content, add images, links, and videos..."
+                  minHeight="200px"
                 />
               </div>
 
@@ -372,12 +372,11 @@ const LessonManagerWithMigration = ({ moduleId }: LessonManagerWithMigrationProp
 
             <div className="space-y-2">
               <Label htmlFor="edit-lesson-content">Content</Label>
-              <Textarea
-                id="edit-lesson-content"
+              <ModernEditor
                 value={formData.content}
-                onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
-                placeholder="Enter lesson content"
-                rows={3}
+                onChange={(value) => setFormData(prev => ({ ...prev, content: value }))}
+                placeholder="Write your lesson content here. Use the rich text editor to format your content, add images, links, and videos..."
+                minHeight="200px"
               />
             </div>
 

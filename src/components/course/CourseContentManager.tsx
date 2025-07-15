@@ -257,9 +257,9 @@ function LessonsManager({ courseId }: { courseId: string }) {
         </div>
       </div>
 
-      <div className="flex gap-4">
+      <div className="flex gap-6">
         {/* Module Selection Sidebar */}
-        <div className="w-64 space-y-2">
+        <div className="w-56 shrink-0 space-y-2">
           <div className="text-sm font-medium text-muted-foreground mb-2">
             Select Module
           </div>
@@ -268,14 +268,14 @@ function LessonsManager({ courseId }: { courseId: string }) {
               key={module.id}
               variant={selectedModuleId === module.id ? "default" : "outline"}
               onClick={() => setSelectedModuleId(module.id)}
-              className="w-full justify-start text-left h-auto py-3"
+              className="w-full justify-start text-left h-auto py-2 px-3"
             >
-              <div className="flex items-center gap-3 w-full">
-                <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-semibold shrink-0">
+              <div className="flex items-center gap-2 w-full">
+                <div className="flex items-center justify-center w-5 h-5 rounded-full bg-primary/10 text-primary text-xs font-semibold shrink-0">
                   {module.week}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="font-medium truncate">{module.title}</div>
+                  <div className="font-medium truncate text-sm">{module.title}</div>
                   <div className="text-xs text-muted-foreground">Week {module.week}</div>
                 </div>
               </div>
