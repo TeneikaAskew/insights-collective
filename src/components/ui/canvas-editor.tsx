@@ -158,34 +158,9 @@ export function CanvasEditor({
 
   const addVideo = () => {
     if (videoUrl) {
-      // Process video URL for embedding
-      let embedUrl = videoUrl;
-      
-      // YouTube URL processing
-      if (videoUrl.includes('youtube.com/watch?v=')) {
-        const videoId = videoUrl.split('v=')[1]?.split('&')[0];
-        embedUrl = `https://www.youtube.com/embed/${videoId}`;
-      } else if (videoUrl.includes('youtu.be/')) {
-        const videoId = videoUrl.split('youtu.be/')[1]?.split('?')[0];
-        embedUrl = `https://www.youtube.com/embed/${videoId}`;
-      } else if (videoUrl.includes('vimeo.com/')) {
-        const videoId = videoUrl.split('vimeo.com/')[1]?.split('?')[0];
-        embedUrl = `https://player.vimeo.com/video/${videoId}`;
-      }
-
-      // Insert video iframe
-      const videoHTML = `
-        <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; margin: 1rem 0;">
-          <iframe 
-            src="${embedUrl}" 
-            style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" 
-            frameborder="0" 
-            allowfullscreen>
-          </iframe>
-        </div>
-      `;
-      
-      editor.chain().focus().insertContent(videoHTML).run();
+      // Insert video using the format that MarkdownPreview expects
+      const videoPlaceholder = `[VIDEO:${videoUrl}]`;
+      editor.chain().focus().insertContent(videoPlaceholder).run();
       setVideoUrl('');
       setShowVideoDialog(false);
     }
