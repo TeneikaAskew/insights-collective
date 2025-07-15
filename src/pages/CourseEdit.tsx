@@ -29,9 +29,32 @@ function CourseEdit() {
     try {
       console.log('Saving course with data:', updatedCourse);
       
+      // Transform camelCase form data to snake_case database fields
+      // and filter out fields that shouldn't be updated
+      const courseData = {
+        title: updatedCourse.title,
+        description: updatedCourse.description,
+        category: updatedCourse.category,
+        level: updatedCourse.level,
+        duration: updatedCourse.duration,
+        thumbnail: updatedCourse.thumbnail,
+        image_url: updatedCourse.imageUrl,
+        enrollment_status: updatedCourse.enrollmentStatus,
+        tags: updatedCourse.tags,
+        published: updatedCourse.published,
+        status: updatedCourse.published ? 'published' : 'draft',
+      };
+
+      // Remove undefined fields
+      const cleanedData = Object.fromEntries(
+        Object.entries(courseData).filter(([_, value]) => value !== undefined)
+      );
+
+      console.log('Cleaned data for database:', cleanedData);
+      
       const { error } = await supabase
         .from('courses')
-        .update(updatedCourse)
+        .update(cleanedData)
         .eq('id', courseId);
 
       if (error) {
