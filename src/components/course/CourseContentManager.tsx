@@ -84,9 +84,14 @@ const RichTextRenderer: React.FC<{ content: string }> = ({ content }) => {
   const processContent = (text: string): string => {
     if (!text) return '';
     
-    // Enhanced YouTube detection and embedding
+    // Process video embeds from ModernEditor format [VIDEO:url]
+    let processedText = text.replace(/\[VIDEO:([^\]]+)\]/gim, (match, videoUrl) => {
+      return `<div class="aspect-video mb-4"><iframe src="${videoUrl}" class="w-full h-full rounded-lg" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`;
+    });
+    
+    // Enhanced YouTube detection and embedding for direct URLs
     const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})(?:\S+)?/g;
-    let processedText = text.replace(youtubeRegex, (match, videoId) => {
+    processedText = processedText.replace(youtubeRegex, (match, videoId) => {
       return `<div class="aspect-video mb-4"><iframe src="https://www.youtube.com/embed/${videoId}" class="w-full h-full rounded-lg" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`;
     });
 
