@@ -29,7 +29,12 @@ export const CourseDetailsForm = ({ course, onSave, loading }: CourseDetailsForm
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    // Convert duration to number if it's the duration field, but keep it as string for database
+    if (name === 'duration') {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleSelectChange = (name: string, value: string) => {

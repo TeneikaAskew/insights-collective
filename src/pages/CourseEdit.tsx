@@ -27,21 +27,28 @@ function CourseEdit() {
     if (!courseId) return;
 
     try {
+      console.log('Saving course with data:', updatedCourse);
+      
       const { error } = await supabase
         .from('courses')
         .update(updatedCourse)
         .eq('id', courseId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Save error:', error);
+        throw error;
+      }
 
       toast({
         title: 'Course updated successfully',
         description: 'Your changes have been saved.',
       });
 
-      // Navigate back to course home
-      navigate(`/courses/${courseId}`);
+      // Don't navigate away, just show success message
+      // User can manually navigate if needed
+      console.log('Course saved successfully');
     } catch (error: any) {
+      console.error('Error saving course:', error);
       toast({
         title: 'Error updating course',
         description: error.message,
@@ -118,7 +125,7 @@ function CourseEdit() {
             <TabsContent value="content" className="mt-6">
               <WeekBasedModuleManager 
                 courseId={courseId!} 
-                courseDuration={parseInt(course.duration || '1')}
+                courseDuration={parseInt(course.duration?.toString() || '1')}
               />
             </TabsContent>
 
