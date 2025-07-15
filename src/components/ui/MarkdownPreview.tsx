@@ -12,6 +12,11 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({ content }) => 
     
     const cleanUrl = url.trim();
     
+    // If it's already an embed URL, return as is
+    if (cleanUrl.includes('youtube.com/embed/') || cleanUrl.includes('player.vimeo.com/video/')) {
+      return cleanUrl;
+    }
+    
     // YouTube - multiple formats supported
     const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})(?:\S+)?/;
     const youtubeMatch = cleanUrl.match(youtubeRegex);
@@ -20,23 +25,39 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({ content }) => 
       return `https://www.youtube.com/embed/${youtubeMatch[1]}`;
     }
 
-    // Vimeo
-    const vimeoRegex = /(?:https?:\/\/)?(?:www\.)?vimeo\.com\/(\d+)(?:\S+)?/;
+    // Vimeo - multiple formats
+    const vimeoRegex = /(?:https?:\/\/)?(?:www\.)?(?:vimeo\.com\/(?:video\/)?|player\.vimeo\.com\/video\/)(\d+)(?:\S+)?/;
     const vimeoMatch = cleanUrl.match(vimeoRegex);
     
     if (vimeoMatch && vimeoMatch[1]) {
       return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
     }
 
+    // Dailymotion
+    const dailymotionRegex = /(?:https?:\/\/)?(?:www\.)?dailymotion\.com\/video\/([a-zA-Z0-9]+)/;
+    const dailymotionMatch = cleanUrl.match(dailymotionRegex);
+    
+    if (dailymotionMatch && dailymotionMatch[1]) {
+      return `https://www.dailymotion.com/embed/video/${dailymotionMatch[1]}`;
+    }
+
+    // Twitch
+    const twitchRegex = /(?:https?:\/\/)?(?:www\.)?twitch\.tv\/videos\/(\d+)/;
+    const twitchMatch = cleanUrl.match(twitchRegex);
+    
+    if (twitchMatch && twitchMatch[1]) {
+      return `https://player.twitch.tv/?video=${twitchMatch[1]}&parent=${window.location.hostname}`;
+    }
+
     // Direct video URLs (for uploaded content)
-    const directVideoMatch = cleanUrl.match(/\.(mp4|webm|ogg|avi|mov)(\?.*)?$/i);
+    const directVideoMatch = cleanUrl.match(/\.(mp4|webm|ogg|avi|mov|mkv|flv|wmv)(\?.*)?$/i);
     
     if (directVideoMatch) {
       return cleanUrl;
     }
 
-    // If it's already an embed URL, return as is
-    if (cleanUrl.includes('youtube.com/embed/') || cleanUrl.includes('player.vimeo.com/video/')) {
+    // Generic iframe-embeddable URLs (fallback)
+    if (cleanUrl.startsWith('http') && (cleanUrl.includes('embed') || cleanUrl.includes('player'))) {
       return cleanUrl;
     }
 
@@ -47,12 +68,13 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({ content }) => 
     const embedUrl = getEmbedUrl(videoUrl);
     if (embedUrl) {
       // Check if it's a direct video file
-      if (embedUrl.match(/\.(mp4|webm|ogg|avi|mov)(\?.*)?$/i)) {
+      if (embedUrl.match(/\.(mp4|webm|ogg|avi|mov|mkv|flv|wmv)(\?.*)?$/i)) {
         return (
           <div className="mb-4">
             <video 
               src={embedUrl} 
               controls 
+              preload="metadata"
               className="w-full rounded-lg"
               style={{ maxWidth: '100%', height: 'auto' }}
             >
@@ -66,9 +88,11 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({ content }) => 
           <div className="aspect-video mb-4">
             <iframe 
               src={embedUrl} 
-              className="w-full h-full rounded-lg" 
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+              className="w-full h-full rounded-lg border-0" 
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
               allowFullScreen
+              loading="lazy"
+              title="Video player"
             />
           </div>
         );
@@ -77,7 +101,7 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({ content }) => 
     return (
       <div className="p-4 bg-muted rounded-lg mb-4 text-center text-muted-foreground">
         <p>Invalid video URL: {videoUrl}</p>
-        <p className="text-sm">Supported formats: YouTube, Vimeo, MP4, WebM, OGG</p>
+        <p className="text-sm">Supported formats: YouTube, Vimeo, Dailymotion, Twitch, MP4, WebM, OGG, and more</p>
       </div>
     );
   };
