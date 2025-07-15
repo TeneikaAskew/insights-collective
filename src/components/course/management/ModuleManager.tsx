@@ -487,37 +487,28 @@ const ModuleManager = ({ courseId, moduleId, module, onUpdate }: ModuleManagerPr
           <DialogHeader>
             <DialogTitle>Edit Module</DialogTitle>
             <DialogDescription>
-              Update module information
+              Update module details.
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="module-title">Module Title</Label>
+              <Label htmlFor="edit-module-title">Module Title</Label>
               <Input
-                id="module-title"
+                id="edit-module-title"
                 value={moduleData.title}
                 onChange={(e) => setModuleData(prev => ({ ...prev, title: e.target.value }))}
+                placeholder="Enter module title"
               />
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="module-week">Week Number</Label>
-              <Input
-                id="module-week"
-                type="number"
-                min="1"
-                value={moduleData.week}
-                onChange={(e) => setModuleData(prev => ({ ...prev, week: parseInt(e.target.value) }))}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="module-description">Description</Label>
+              <Label htmlFor="edit-module-description">Description</Label>
               <Textarea
-                id="module-description"
+                id="edit-module-description"
                 value={moduleData.description}
                 onChange={(e) => setModuleData(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Enter module description"
                 rows={3}
               />
             </div>

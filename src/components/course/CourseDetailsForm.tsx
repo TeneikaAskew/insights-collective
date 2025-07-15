@@ -127,13 +127,16 @@ export const CourseDetailsForm = ({ course, onSave, loading }: CourseDetailsForm
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="duration">Duration</Label>
+              <Label htmlFor="duration">Duration (weeks)</Label>
               <Input
                 id="duration"
                 name="duration"
+                type="number"
+                min="1"
+                max="52"
                 value={formData.duration || ''}
                 onChange={handleChange}
-                placeholder="e.g., 8 weeks"
+                placeholder="e.g., 8"
               />
             </div>
           </div>

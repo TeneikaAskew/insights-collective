@@ -6,7 +6,7 @@ import { useParams } from 'react-router-dom';
 import { CourseLayout } from '@/components/course/CourseLayout';
 import { useCourseData } from '@/hooks/useCourseData';
 import { CourseDetailsForm } from '@/components/course/CourseDetailsForm';
-import { CourseContentManager } from '@/components/course/CourseContentManager';
+import WeekBasedModuleManager from '@/components/course/management/WeekBasedModuleManager';
 import { Spinner } from '@/components/ui/spinner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -116,24 +116,26 @@ function CourseEdit() {
             </TabsContent>
 
             <TabsContent value="content" className="mt-6">
-              <CourseContentManager 
+              <WeekBasedModuleManager 
                 courseId={courseId!} 
-                contentType="modules"
+                courseDuration={parseInt(course.duration || '1')}
               />
             </TabsContent>
 
             <TabsContent value="assignments" className="mt-6">
-              <CourseContentManager 
-                courseId={courseId!} 
-                contentType="assignments"
-              />
+              <div className="text-center py-12">
+                <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-medium mb-2">Assignments</h3>
+                <p className="text-muted-foreground">Assignment management coming soon</p>
+              </div>
             </TabsContent>
 
             <TabsContent value="quizzes" className="mt-6">
-              <CourseContentManager 
-                courseId={courseId!} 
-                contentType="quizzes"
-              />
+              <div className="text-center py-12">
+                <HelpCircle className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-medium mb-2">Quizzes</h3>
+                <p className="text-muted-foreground">Quiz management coming soon</p>
+              </div>
             </TabsContent>
           </Tabs>
         )}
