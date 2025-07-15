@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { ModernEditor } from '@/components/ui/modern-editor';
+import { CanvasEditor } from '@/components/ui/canvas-editor';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -228,8 +228,8 @@ export function InteractiveQuizBuilder({
       <div className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="question_text">Question Text</Label>
-          <ModernEditor
-            value={editingQuestion.question_text}
+          <CanvasEditor
+            content={editingQuestion.question_text}
             onChange={(value) => setEditingQuestion({...editingQuestion, question_text: value})}
             placeholder="Enter your question here..."
             minHeight="150px"
@@ -312,8 +312,8 @@ export function InteractiveQuizBuilder({
 
         <div className="space-y-2">
           <Label htmlFor="explanation">Explanation (optional)</Label>
-          <ModernEditor
-            value={editingQuestion.explanation || ''}
+          <CanvasEditor
+            content={editingQuestion.explanation || ''}
             onChange={(value) => setEditingQuestion({...editingQuestion, explanation: value})}
             placeholder="Provide an explanation for the correct answer..."
             minHeight="100px"
@@ -384,8 +384,8 @@ export function InteractiveQuizBuilder({
 
           <div className="space-y-2">
             <Label htmlFor="description">Quiz Description</Label>
-            <ModernEditor
-              value={quiz.description || ''}
+            <CanvasEditor
+              content={quiz.description || ''}
               onChange={(value) => setQuiz({...quiz, description: value})}
               placeholder="Describe what this quiz covers..."
               minHeight="100px"

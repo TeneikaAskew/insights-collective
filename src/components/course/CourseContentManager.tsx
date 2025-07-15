@@ -15,7 +15,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { ModernEditor } from '@/components/ui/modern-editor';
+import { CanvasEditor } from '@/components/ui/canvas-editor';
 import { QuizEditor } from './QuizEditor';
 import { InteractiveQuizBuilder } from '../quiz/InteractiveQuizBuilder';
 import LessonManagerWithMigration from './management/LessonManagerWithMigration';
@@ -525,8 +525,8 @@ function ModulesManager({ courseId }: { courseId: string }) {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="description">Module Content</Label>
-                <ModernEditor
-                  value={formData.description || ''}
+                <CanvasEditor
+                  content={formData.description || ''}
                   onChange={(value) => setFormData({...formData, description: value})}
                   placeholder="Describe what students will learn in this module. Use the rich text editor to format your content, add images, links, and videos..."
                   minHeight="300px"

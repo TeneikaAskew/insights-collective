@@ -9,7 +9,7 @@ import { UseFormReturn } from 'react-hook-form';
 import { BlogFormData } from '@/types/blog';
 import { TagInput } from './TagInput';
 import { ImageUploader } from './ImageUploader';
-import { ModernEditor } from '@/components/ui/modern-editor';
+import { CanvasEditor } from '@/components/ui/canvas-editor';
 import { getBlogCategories } from '@/services/blogService';
 
 interface BlogFormFieldsProps {
@@ -85,8 +85,8 @@ export function BlogFormFields({
           <FormItem>
             <FormLabel>Content</FormLabel>
             <FormControl>
-              <ModernEditor
-                value={field.value}
+              <CanvasEditor
+                content={field.value}
                 onChange={field.onChange}
                 placeholder="Start writing your blog post content..."
                 minHeight="500px"

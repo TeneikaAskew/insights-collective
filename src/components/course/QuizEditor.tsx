@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { ModernEditor } from '@/components/ui/modern-editor';
+import { CanvasEditor } from '@/components/ui/canvas-editor';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { 
@@ -199,8 +199,8 @@ export function QuizEditor({ quizId, onClose }: QuizEditorProps) {
     <div className="space-y-6">
       <div className="space-y-2">
         <Label htmlFor="question_text">Question</Label>
-        <ModernEditor
-          value={formData.question_text || ''}
+        <CanvasEditor
+          content={formData.question_text || ''}
           onChange={(value) => setFormData({ ...formData, question_text: value })}
           placeholder="Enter your question here. You can use formatting, images, and links..."
           minHeight="200px"
@@ -304,8 +304,8 @@ export function QuizEditor({ quizId, onClose }: QuizEditorProps) {
 
       <div className="space-y-2">
         <Label htmlFor="explanation">Explanation (Optional)</Label>
-        <ModernEditor
-          value={formData.explanation || ''}
+        <CanvasEditor
+          content={formData.explanation || ''}
           onChange={(value) => setFormData({ ...formData, explanation: value })}
           placeholder="Provide an explanation for the correct answer..."
           minHeight="150px"
