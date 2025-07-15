@@ -120,6 +120,37 @@ export const ModernEditor: React.FC<ModernEditorProps> = ({
     }
   }, [videoUrl, insertTextAtCursor]);
 
+  const getEmbedUrl = (url: string): string | null => {
+    if (!url || typeof url !== 'string') {
+      return null;
+    }
+    
+    const cleanUrl = url.trim();
+    
+    // YouTube - multiple formats supported
+    const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})(?:\S+)?/;
+    const youtubeMatch = cleanUrl.match(youtubeRegex);
+    
+    if (youtubeMatch && youtubeMatch[1]) {
+      return `https://www.youtube.com/embed/${youtubeMatch[1]}`;
+    }
+
+    // Vimeo
+    const vimeoRegex = /(?:https?:\/\/)?(?:www\.)?vimeo\.com\/(\d+)(?:\S+)?/;
+    const vimeoMatch = cleanUrl.match(vimeoRegex);
+    
+    if (vimeoMatch && vimeoMatch[1]) {
+      return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
+    }
+
+    // If it's already an embed URL, return as is
+    if (cleanUrl.includes('youtube.com/embed/') || cleanUrl.includes('player.vimeo.com/video/')) {
+      return cleanUrl;
+    }
+
+    return null;
+  };
+
   const renderPreview = useMemo(() => {
     // Simple markdown to HTML conversion for preview
     let html = value
@@ -131,12 +162,21 @@ export const ModernEditor: React.FC<ModernEditorProps> = ({
       .replace(/~~(.*)~~/gim, '<del>$1</del>')
       .replace(/`([^`]+)`/gim, '<code>$1</code>')
       .replace(/^\> (.*$)/gim, '<blockquote>$1</blockquote>')
-      .replace(/\[VIDEO:([^\]]+)\]/gim, '<div class="video-container my-4"><iframe src="$1" width="100%" height="315" frameborder="0" allowfullscreen></iframe></div>')
       .replace(/\[([^\]]+)\]\(([^)]+)\)/gim, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
       .replace(/!\[([^\]]*)\]\(([^)]+)\)/gim, '<img src="$2" alt="$1" class="max-w-full h-auto" />')
       .replace(/^\* (.*$)/gim, '<li>$1</li>')
-      .replace(/^(\d+)\. (.*$)/gim, '<li>$1. $2</li>')
-      .replace(/\n/gim, '<br />');
+      .replace(/^(\d+)\. (.*$)/gim, '<li>$1. $2</li>');
+
+    // Process video embeds with proper URL conversion
+    html = html.replace(/\[VIDEO:([^\]]+)\]/gim, (match, videoUrl) => {
+      const embedUrl = getEmbedUrl(videoUrl);
+      if (embedUrl) {
+        return `<div class="aspect-video my-4"><iframe src="${embedUrl}" class="w-full h-full rounded-lg" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`;
+      }
+      return `<div class="p-4 bg-gray-100 rounded-lg my-4 text-center text-gray-500">Invalid video URL: ${videoUrl}</div>`;
+    });
+
+    html = html.replace(/\n/gim, '<br />');
 
     // Wrap consecutive <li> tags with <ul> or <ol>
     html = html.replace(/(<li>.*?<\/li>)/gis, '<ul>$1</ul>');

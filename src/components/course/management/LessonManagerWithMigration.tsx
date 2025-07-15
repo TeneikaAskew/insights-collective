@@ -52,6 +52,8 @@ const LessonManagerWithMigration = ({ moduleId }: LessonManagerWithMigrationProp
   };
 
   const handleAddLesson = async () => {
+    console.log('handleAddLesson called with formData:', formData);
+    
     if (!formData.title.trim()) {
       toast({
         title: "Error",
@@ -62,6 +64,18 @@ const LessonManagerWithMigration = ({ moduleId }: LessonManagerWithMigrationProp
     }
 
     try {
+      console.log('Attempting to create lesson with data:', {
+        title: formData.title,
+        description: formData.description,
+        content: formData.content || '',
+        duration: formData.duration,
+        estimated_duration: formData.estimated_duration,
+        completion_required: formData.completion_required,
+        order_num: formData.order_num,
+        completion_criteria: { type: 'all_blocks' },
+        module_id: moduleId
+      });
+
       const newLesson = await addLesson({
         title: formData.title,
         description: formData.description,
@@ -74,13 +88,24 @@ const LessonManagerWithMigration = ({ moduleId }: LessonManagerWithMigrationProp
         module_id: moduleId
       });
 
+      console.log('Lesson created successfully:', newLesson);
+
       if (newLesson) {
+        toast({
+          title: "Success",
+          description: "Lesson created successfully",
+        });
         resetForm();
         setAddLessonOpen(false);
         refetch(); // Refresh the lessons list
       }
     } catch (error) {
       console.error('Error creating lesson:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create lesson. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
