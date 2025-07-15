@@ -75,9 +75,7 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({ content }) => 
         );
       }
     }
-    return (
-      <p className="text-gray-500 mb-8">Invalid video URL</p>
-    );
+    return <p className="text-gray-500 mb-8">Invalid video URL</p>;
   };
 
   const parseContent = () => {
