@@ -170,11 +170,7 @@ export function CourseContentManager({ courseId, contentType, moduleId }: Course
               <ModulesManager courseId={courseId} />
             )}
             {activeTab === 'lessons' && (
-              <div className="text-center p-8">
-                <p className="text-muted-foreground">
-                  Lessons are managed within individual modules. Navigate to a specific module to manage its lessons.
-                </p>
-              </div>
+              <LessonsManager courseId={courseId} />
             )}
           </div>
         </div>
@@ -184,6 +180,126 @@ export function CourseContentManager({ courseId, contentType, moduleId }: Course
   
   // For other content types, use the original component logic
   return <OriginalCourseContentManager courseId={courseId} contentType={contentType} moduleId={moduleId} />;
+}
+
+function LessonsManager({ courseId }: { courseId: string }) {
+  const [modules, setModules] = useState<Module[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    fetchModules();
+  }, [courseId]);
+
+  const fetchModules = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('modules')
+        .select('*')
+        .eq('course_id', courseId)
+        .order('week', { ascending: true });
+
+      if (error) throw error;
+      setModules(data || []);
+      if (data && data.length > 0 && !selectedModuleId) {
+        setSelectedModuleId(data[0].id);
+      }
+    } catch (error: any) {
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center py-8">
+        <Spinner size="lg" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    );
+  }
+
+  if (modules.length === 0) {
+    return (
+      <div className="text-center p-8 border rounded-lg bg-muted/20">
+        <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+        <h3 className="text-lg font-semibold mt-4">No modules found</h3>
+        <p className="text-muted-foreground mt-2">
+          Create modules first, then you can add lessons to them.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            <BookOpen className="h-5 w-5" />
+            Lessons by Module
+          </h3>
+          <p className="text-muted-foreground">
+            Select a module to manage its lessons. Create, edit, and organize lesson content.
+          </p>
+        </div>
+      </div>
+
+      <div className="flex gap-4">
+        {/* Module Selection Sidebar */}
+        <div className="w-64 space-y-2">
+          <div className="text-sm font-medium text-muted-foreground mb-2">
+            Select Module
+          </div>
+          {modules.map((module) => (
+            <Button
+              key={module.id}
+              variant={selectedModuleId === module.id ? "default" : "outline"}
+              onClick={() => setSelectedModuleId(module.id)}
+              className="w-full justify-start text-left h-auto py-3"
+            >
+              <div className="flex items-center gap-3 w-full">
+                <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-semibold shrink-0">
+                  {module.week}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium truncate">{module.title}</div>
+                  <div className="text-xs text-muted-foreground">Week {module.week}</div>
+                </div>
+              </div>
+            </Button>
+          ))}
+        </div>
+
+        {/* Lessons Manager for Selected Module */}
+        <div className="flex-1">
+          {selectedModuleId ? (
+            <LessonManagerWithMigration moduleId={selectedModuleId} />
+          ) : (
+            <div className="text-center p-8 border rounded-lg bg-muted/20">
+              <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold">Select a Module</h3>
+              <p className="text-muted-foreground mt-2">
+                Choose a module from the sidebar to manage its lessons.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function ModulesManager({ courseId }: { courseId: string }) {
