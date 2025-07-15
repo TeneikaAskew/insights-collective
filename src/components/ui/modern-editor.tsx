@@ -7,7 +7,7 @@ import {
   AlignLeft, AlignCenter, AlignRight, AlignJustify,
   List, ListOrdered, Quote, Link as LinkIcon, 
   Image, Heading1, Heading2, Heading3, Type,
-  Undo, Redo, Eye, EyeOff
+  Undo, Redo, Eye, EyeOff, Video
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -32,10 +32,12 @@ export const ModernEditor: React.FC<ModernEditorProps> = ({
   const [showPreview, setShowPreview] = useState(false);
   const [linkDialog, setLinkDialog] = useState(false);
   const [imageDialog, setImageDialog] = useState(false);
+  const [videoDialog, setVideoDialog] = useState(false);
   const [linkUrl, setLinkUrl] = useState('');
   const [linkText, setLinkText] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [imageAlt, setImageAlt] = useState('');
+  const [videoUrl, setVideoUrl] = useState('');
   const [textareaRef, setTextareaRef] = useState<HTMLTextAreaElement | null>(null);
 
   const insertTextAtCursor = useCallback((text: string) => {
@@ -95,6 +97,29 @@ export const ModernEditor: React.FC<ModernEditorProps> = ({
     }
   }, [imageUrl, imageAlt, insertTextAtCursor]);
 
+  const insertVideo = useCallback(() => {
+    if (videoUrl) {
+      // Convert YouTube URLs to proper embed format and create custom video markdown
+      let processedUrl = videoUrl;
+      
+      // Handle different YouTube URL formats
+      if (videoUrl.includes('youtube.com/watch?v=')) {
+        const videoId = videoUrl.split('v=')[1]?.split('&')[0];
+        processedUrl = `https://www.youtube.com/embed/${videoId}`;
+      } else if (videoUrl.includes('youtu.be/')) {
+        const videoId = videoUrl.split('youtu.be/')[1]?.split('?')[0];
+        processedUrl = `https://www.youtube.com/embed/${videoId}`;
+      } else if (videoUrl.includes('youtube.com/embed/')) {
+        processedUrl = videoUrl;
+      }
+      
+      const videoMarkdown = `[VIDEO:${processedUrl}]`;
+      insertTextAtCursor(videoMarkdown);
+      setVideoUrl('');
+      setVideoDialog(false);
+    }
+  }, [videoUrl, insertTextAtCursor]);
+
   const renderPreview = useMemo(() => {
     // Simple markdown to HTML conversion for preview
     let html = value
@@ -106,6 +131,7 @@ export const ModernEditor: React.FC<ModernEditorProps> = ({
       .replace(/~~(.*)~~/gim, '<del>$1</del>')
       .replace(/`([^`]+)`/gim, '<code>$1</code>')
       .replace(/^\> (.*$)/gim, '<blockquote>$1</blockquote>')
+      .replace(/\[VIDEO:([^\]]+)\]/gim, '<div class="video-container my-4"><iframe src="$1" width="100%" height="315" frameborder="0" allowfullscreen></iframe></div>')
       .replace(/\[([^\]]+)\]\(([^)]+)\)/gim, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
       .replace(/!\[([^\]]*)\]\(([^)]+)\)/gim, '<img src="$2" alt="$1" class="max-w-full h-auto" />')
       .replace(/^\* (.*$)/gim, '<li>$1</li>')
@@ -187,6 +213,11 @@ export const ModernEditor: React.FC<ModernEditorProps> = ({
       icon: Image,
       action: () => setImageDialog(true),
       title: 'Insert Image'
+    },
+    {
+      icon: Video,
+      action: () => setVideoDialog(true),
+      title: 'Insert Video'
     },
     null, // Separator
     {
@@ -317,6 +348,37 @@ export const ModernEditor: React.FC<ModernEditorProps> = ({
             </Button>
             <Button onClick={insertImage} disabled={!imageUrl}>
               Insert Image
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Video Dialog */}
+      <Dialog open={videoDialog} onOpenChange={setVideoDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Insert Video</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="video-url">Video URL</Label>
+              <Input
+                id="video-url"
+                placeholder="https://www.youtube.com/watch?v=... or https://youtu.be/..."
+                value={videoUrl}
+                onChange={(e) => setVideoUrl(e.target.value)}
+              />
+              <p className="text-sm text-muted-foreground mt-1">
+                Supports YouTube URLs in any format
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setVideoDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={insertVideo} disabled={!videoUrl}>
+              Insert Video
             </Button>
           </DialogFooter>
         </DialogContent>
