@@ -36,7 +36,7 @@ const CourseGradebook = () => {
         .eq('course_id', courseId);
       
       if (error) throw error;
-      return data?.map(enrollment => enrollment.user) || [];
+      return data?.map(enrollment => enrollment.user).filter(Boolean).flat() || [];
     },
     enabled: !!courseId && canEdit,
   });
@@ -96,11 +96,8 @@ const CourseGradebook = () => {
       graded_by: user.id,
     };
 
-    if (gradeData.itemType === 'assignment') {
-      grade.assignment_id = gradeData.itemId;
-    } else {
-      grade.quiz_id = gradeData.itemId;
-    }
+    // Note: assignment_id and quiz_id fields don't exist in current schema
+    // Consider adding them via migration if needed
 
     await upsertGradeMutation.mutateAsync(grade);
 

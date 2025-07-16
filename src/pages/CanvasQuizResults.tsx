@@ -298,7 +298,7 @@ export default function CanvasQuizResults() {
               </div>
               <div>
                 <span className="text-muted-foreground">Kept Score:</span>{' '}
-                {submission.kept_score} ({quiz.scoring_policy || 'highest'})
+                {submission.kept_score} ({(quiz as any).scoring_policy || 'highest'})
               </div>
             </div>
           </CardContent>
@@ -380,11 +380,11 @@ export default function CanvasQuizResults() {
                       )}
 
                       {/* Feedback */}
-                      {question.feedback && (
+                      {(question as any).feedback && (
                         <Alert>
                           <AlertCircle className="h-4 w-4" />
                           <AlertDescription>
-                            {question.feedback}
+                            {(question as any).feedback}
                           </AlertDescription>
                         </Alert>
                       )}

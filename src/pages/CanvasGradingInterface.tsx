@@ -42,6 +42,8 @@ interface GradingSubmission extends AssignmentSubmission {
     email: string;
     full_name: string;
   };
+  grader_comments?: string;
+  graded_at?: string;
 }
 
 function CanvasGradingInterface() {
@@ -162,7 +164,7 @@ function CanvasGradingInterface() {
           ? { ...sub, grade: gradeNum, grader_comments: feedback, workflow_state: 'graded' }
           : sub
       );
-      setSubmissions(updatedSubmissions);
+      setSubmissions(updatedSubmissions as GradingSubmission[]);
       setSelectedSubmission({
         ...selectedSubmission,
         grade: gradeNum,
@@ -472,4 +474,4 @@ function CanvasGradingInterface() {
   );
 }
 
-export default withCoursePermission(CanvasGradingInterface, ['instructor', 'admin']);
+export default withCoursePermission(CanvasGradingInterface, { requiredRoles: ['instructor', 'admin'] });
