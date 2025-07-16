@@ -216,6 +216,77 @@ export type Database = {
         }
         Relationships: []
       }
+      assignment_submissions: {
+        Row: {
+          assignment_id: string
+          attempt: number | null
+          body: string | null
+          created_at: string | null
+          excused: boolean | null
+          grade: number | null
+          graded_at: string | null
+          grader_comments: string | null
+          id: string
+          late: boolean | null
+          missing: boolean | null
+          score: number | null
+          submission_type: string | null
+          submitted_at: string | null
+          updated_at: string | null
+          url: string | null
+          user_id: string
+          workflow_state: string | null
+        }
+        Insert: {
+          assignment_id: string
+          attempt?: number | null
+          body?: string | null
+          created_at?: string | null
+          excused?: boolean | null
+          grade?: number | null
+          graded_at?: string | null
+          grader_comments?: string | null
+          id?: string
+          late?: boolean | null
+          missing?: boolean | null
+          score?: number | null
+          submission_type?: string | null
+          submitted_at?: string | null
+          updated_at?: string | null
+          url?: string | null
+          user_id: string
+          workflow_state?: string | null
+        }
+        Update: {
+          assignment_id?: string
+          attempt?: number | null
+          body?: string | null
+          created_at?: string | null
+          excused?: boolean | null
+          grade?: number | null
+          graded_at?: string | null
+          grader_comments?: string | null
+          id?: string
+          late?: boolean | null
+          missing?: boolean | null
+          score?: number | null
+          submission_type?: string | null
+          submitted_at?: string | null
+          updated_at?: string | null
+          url?: string | null
+          user_id?: string
+          workflow_state?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assignment_submissions_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assignments: {
         Row: {
           content: string | null
@@ -225,6 +296,8 @@ export type Database = {
           due_date: string | null
           id: string
           instructions: string | null
+          is_published: boolean | null
+          module_id: string | null
           points: number | null
           title: string
           updated_at: string
@@ -237,6 +310,8 @@ export type Database = {
           due_date?: string | null
           id?: string
           instructions?: string | null
+          is_published?: boolean | null
+          module_id?: string | null
           points?: number | null
           title: string
           updated_at?: string
@@ -249,6 +324,8 @@ export type Database = {
           due_date?: string | null
           id?: string
           instructions?: string | null
+          is_published?: boolean | null
+          module_id?: string | null
           points?: number | null
           title?: string
           updated_at?: string
@@ -259,6 +336,13 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assignments_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "modules"
             referencedColumns: ["id"]
           },
         ]
@@ -990,6 +1074,101 @@ export type Database = {
           },
           {
             foreignKeyName: "content_blocks_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_item_progressions: {
+        Row: {
+          content_item_id: string
+          created_at: string | null
+          id: string
+          updated_at: string | null
+          user_id: string
+          workflow_state: string | null
+        }
+        Insert: {
+          content_item_id: string
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id: string
+          workflow_state?: string | null
+        }
+        Update: {
+          content_item_id?: string
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id?: string
+          workflow_state?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_item_progressions_content_item_id_fkey"
+            columns: ["content_item_id"]
+            isOneToOne: false
+            referencedRelation: "content_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_items: {
+        Row: {
+          content: string | null
+          course_id: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          module_id: string | null
+          position: number
+          published: boolean | null
+          settings: Json | null
+          title: string
+          type: Database["public"]["Enums"]["content_item_type"]
+          updated_at: string | null
+        }
+        Insert: {
+          content?: string | null
+          course_id: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          module_id?: string | null
+          position?: number
+          published?: boolean | null
+          settings?: Json | null
+          title: string
+          type: Database["public"]["Enums"]["content_item_type"]
+          updated_at?: string | null
+        }
+        Update: {
+          content?: string | null
+          course_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          module_id?: string | null
+          position?: number
+          published?: boolean | null
+          settings?: Json | null
+          title?: string
+          type?: Database["public"]["Enums"]["content_item_type"]
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_items_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_items_module_id_fkey"
             columns: ["module_id"]
             isOneToOne: false
             referencedRelation: "modules"
@@ -1939,30 +2118,86 @@ export type Database = {
         }
         Relationships: []
       }
+      module_progressions: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          current_position: number | null
+          id: string
+          module_id: string
+          updated_at: string | null
+          user_id: string
+          workflow_state: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          current_position?: number | null
+          id?: string
+          module_id: string
+          updated_at?: string | null
+          user_id: string
+          workflow_state?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          current_position?: number | null
+          id?: string
+          module_id?: string
+          updated_at?: string | null
+          user_id?: string
+          workflow_state?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "module_progressions_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       modules: {
         Row: {
+          completion_requirements: Json | null
           course_id: string | null
           created_at: string | null
           description: string
           id: string
+          prerequisite_module_ids: string[] | null
+          publish_final_grade: boolean | null
+          published: boolean | null
+          requirements: Json | null
           title: string
           updated_at: string | null
           week: number
         }
         Insert: {
+          completion_requirements?: Json | null
           course_id?: string | null
           created_at?: string | null
           description: string
           id?: string
+          prerequisite_module_ids?: string[] | null
+          publish_final_grade?: boolean | null
+          published?: boolean | null
+          requirements?: Json | null
           title: string
           updated_at?: string | null
           week: number
         }
         Update: {
+          completion_requirements?: Json | null
           course_id?: string | null
           created_at?: string | null
           description?: string
           id?: string
+          prerequisite_module_ids?: string[] | null
+          publish_final_grade?: boolean | null
+          published?: boolean | null
+          requirements?: Json | null
           title?: string
           updated_at?: string | null
           week?: number
@@ -2404,6 +2639,7 @@ export type Database = {
           correct_answer: Json | null
           created_at: string | null
           explanation: string | null
+          feedback: string | null
           id: string
           options: Json | null
           points: number | null
@@ -2416,6 +2652,7 @@ export type Database = {
           correct_answer?: Json | null
           created_at?: string | null
           explanation?: string | null
+          feedback?: string | null
           id?: string
           options?: Json | null
           points?: number | null
@@ -2428,6 +2665,7 @@ export type Database = {
           correct_answer?: Json | null
           created_at?: string | null
           explanation?: string | null
+          feedback?: string | null
           id?: string
           options?: Json | null
           points?: number | null
@@ -2446,6 +2684,74 @@ export type Database = {
           },
         ]
       }
+      quiz_submissions: {
+        Row: {
+          attempt: number | null
+          created_at: string | null
+          end_at: string | null
+          extra_attempts: number | null
+          extra_time: number | null
+          finished_at: string | null
+          id: string
+          kept_score: number | null
+          manually_unlocked: boolean | null
+          quiz_id: string
+          score: number | null
+          started_at: string | null
+          submission_id: string | null
+          time_spent: number | null
+          updated_at: string | null
+          user_id: string
+          workflow_state: string | null
+        }
+        Insert: {
+          attempt?: number | null
+          created_at?: string | null
+          end_at?: string | null
+          extra_attempts?: number | null
+          extra_time?: number | null
+          finished_at?: string | null
+          id?: string
+          kept_score?: number | null
+          manually_unlocked?: boolean | null
+          quiz_id: string
+          score?: number | null
+          started_at?: string | null
+          submission_id?: string | null
+          time_spent?: number | null
+          updated_at?: string | null
+          user_id: string
+          workflow_state?: string | null
+        }
+        Update: {
+          attempt?: number | null
+          created_at?: string | null
+          end_at?: string | null
+          extra_attempts?: number | null
+          extra_time?: number | null
+          finished_at?: string | null
+          id?: string
+          kept_score?: number | null
+          manually_unlocked?: boolean | null
+          quiz_id?: string
+          score?: number | null
+          started_at?: string | null
+          submission_id?: string | null
+          time_spent?: number | null
+          updated_at?: string | null
+          user_id?: string
+          workflow_state?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_submissions_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quizzes: {
         Row: {
           attempts_allowed: number | null
@@ -2456,6 +2762,7 @@ export type Database = {
           id: string
           passing_score: number | null
           randomize_questions: boolean | null
+          scoring_policy: string | null
           time_limit: number | null
           title: string
           updated_at: string | null
@@ -2469,6 +2776,7 @@ export type Database = {
           id?: string
           passing_score?: number | null
           randomize_questions?: boolean | null
+          scoring_policy?: string | null
           time_limit?: number | null
           title: string
           updated_at?: string | null
@@ -2482,6 +2790,7 @@ export type Database = {
           id?: string
           passing_score?: number | null
           randomize_questions?: boolean | null
+          scoring_policy?: string | null
           time_limit?: number | null
           title?: string
           updated_at?: string | null
@@ -3220,6 +3529,13 @@ export type Database = {
       }
     }
     Enums: {
+      content_item_type:
+        | "page"
+        | "assignment"
+        | "quiz"
+        | "discussion"
+        | "external_url"
+        | "external_tool"
       content_type: "text" | "video" | "file" | "quiz" | "assignment"
       module_content_type: "text" | "video" | "image"
       user_role: "admin" | "instructor" | "user"
@@ -3350,6 +3666,14 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      content_item_type: [
+        "page",
+        "assignment",
+        "quiz",
+        "discussion",
+        "external_url",
+        "external_tool",
+      ],
       content_type: ["text", "video", "file", "quiz", "assignment"],
       module_content_type: ["text", "video", "image"],
       user_role: ["admin", "instructor", "user"],

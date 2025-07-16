@@ -36,7 +36,7 @@ const CourseGradebook = () => {
         .eq('course_id', courseId);
       
       if (error) throw error;
-      return data?.map(enrollment => enrollment.user).filter(Boolean) || [];
+      return data?.map(enrollment => enrollment.user).filter(Boolean).flat() || [];
     },
     enabled: !!courseId && canEdit,
   });

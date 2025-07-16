@@ -116,7 +116,7 @@ export const Gradebook: React.FC<GradebookProps> = ({
           pointsEarned: grade?.points_earned || submission?.grade,
           pointsPossible: assignment.points,
           percentage: grade?.percentage,
-          status: (submission?.status === 'draft' ? 'submitted' : submission?.status) || 'missing',
+          status: (submission?.status === 'draft' ? 'submitted' : submission?.status === 'returned' ? 'graded' : submission?.status) || 'missing',
           submissionId: submission?.id,
         };
       });
