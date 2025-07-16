@@ -64,9 +64,10 @@ export function CourseSidebar() {
   };
 
   const getNavClassName = (itemUrl: string) => {
-    return isActive(itemUrl) 
-      ? 'bg-primary/10 text-primary font-medium border-r-2 border-primary' 
-      : 'hover:bg-muted/50';
+    if (isActive(itemUrl)) {
+      return 'bg-primary/10 text-primary font-medium border-r-2 border-primary';
+    }
+    return 'hover:!bg-primary/10 hover:!text-primary transition-all duration-200';
   };
 
   // Filter nav items based on user role
@@ -119,13 +120,15 @@ export function CourseSidebar() {
             <SidebarMenu>
               {filteredNavItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
+                  <SidebarMenuButton 
+                    asChild
+                    className={`${getNavClassName(item.url)} group`}
+                  >
                     <Link 
-                      to={`${basePath}${item.url}`} 
-                      className={getNavClassName(item.url)}
+                      to={`${basePath}${item.url}`}
                     >
-                      <item.icon className="h-4 w-4" />
-                      {open && <span>{
+                      <item.icon className={`h-4 w-4 ${!isActive(item.url) ? 'group-hover:!text-primary' : ''}`} />
+                      {open && <span className={!isActive(item.url) ? 'group-hover:!text-primary' : ''}>{
                         (item.studentTitle && !isInstructor) ? item.studentTitle : item.title
                       }</span>}
                     </Link>
