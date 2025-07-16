@@ -30,8 +30,36 @@ export const sanitizeInput = (input: string): string => {
 export const sanitizeHtmlContent = (html: string): string => {
   if (!html) return '';
   
-  // Allow basic formatting but remove dangerous elements
-  return html
+  // First, preserve safe video embeds by temporarily replacing them
+  const videoEmbedPlaceholders: { placeholder: string; content: string }[] = [];
+  let placeholderIndex = 0;
+  
+  // Preserve YouTube and Vimeo embeds
+  html = html.replace(/<iframe\s+[^>]*src=["'](https:\/\/(?:www\.)?(?:youtube\.com\/embed\/|player\.vimeo\.com\/video\/)[^"']+)["'][^>]*><\/iframe>/gi, (match, src) => {
+    const placeholder = `__SAFE_VIDEO_EMBED_${placeholderIndex}__`;
+    videoEmbedPlaceholders.push({ placeholder, content: match });
+    placeholderIndex++;
+    return placeholder;
+  });
+  
+  // Preserve video-embed divs with iframes (from our canvas editor)
+  html = html.replace(/<div[^>]*class=["'][^"']*video-embed[^"']*["'][^>]*>[\s\S]*?<iframe\s+[^>]*src=["'](https:\/\/(?:www\.)?(?:youtube\.com\/embed\/|player\.vimeo\.com\/video\/)[^"']+)["'][^>]*>[\s\S]*?<\/iframe>[\s\S]*?<\/div>/gi, (match) => {
+    const placeholder = `__SAFE_VIDEO_EMBED_${placeholderIndex}__`;
+    videoEmbedPlaceholders.push({ placeholder, content: match });
+    placeholderIndex++;
+    return placeholder;
+  });
+  
+  // Also preserve divs with data-youtube-video attribute (from our TipTap extension)
+  html = html.replace(/<div[^>]*data-youtube-video[^>]*>[\s\S]*?<iframe\s+[^>]*src=["'](https:\/\/(?:www\.)?(?:youtube\.com\/embed\/|player\.vimeo\.com\/video\/)[^"']+)["'][^>]*>[\s\S]*?<\/iframe>[\s\S]*?<\/div>/gi, (match) => {
+    const placeholder = `__SAFE_VIDEO_EMBED_${placeholderIndex}__`;
+    videoEmbedPlaceholders.push({ placeholder, content: match });
+    placeholderIndex++;
+    return placeholder;
+  });
+  
+  // Remove dangerous elements (including non-whitelisted iframes)
+  html = html
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
     .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
     .replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, '')
@@ -41,6 +69,13 @@ export const sanitizeHtmlContent = (html: string): string => {
     .replace(/javascript:/gi, '')
     .replace(/data:text\/html/gi, '')
     .replace(/vbscript:/gi, '');
+  
+  // Restore safe video embeds
+  videoEmbedPlaceholders.forEach(({ placeholder, content }) => {
+    html = html.replace(placeholder, content);
+  });
+  
+  return html;
 };
 
 // Validate email format

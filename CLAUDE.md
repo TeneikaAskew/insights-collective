@@ -3,6 +3,10 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Common Commands
+```bash
+npm install # Install dependencies (including Vite)
+npm install vite --save-dev # If you still get the error, install Vite directly:
+
 
 **Development**
 ```bash

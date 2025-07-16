@@ -45,7 +45,11 @@
       "Bash(src/pages/__tests__/Events.test.tsx )",
       "Bash(src/pages/__tests__/Login.test.tsx )",
       "Bash(src/services/__tests__/blogService.test.ts )",
-      "Bash(src/services/__tests__/eventService.test.ts)"
+      "Bash(src/services/__tests__/eventService.test.ts)",
+      "WebFetch(domain:www.howtocanvas.com)",
+      "WebFetch(domain:www.howtocanvas.com)",
+      "WebFetch(domain:www.howtocanvas.com)",
+      "Bash(npx tsc:*)"
     ],
     "deny": []
   }
