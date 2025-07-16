@@ -121,8 +121,20 @@ const CanvasModuleDetail = () => {
 
       // Load content items
       const items = await CanvasContentService.getContentItems(moduleId);
+      
+      // Debug logging
+      console.log('User roles:', user?.roles);
+      console.log('All content items:', items.map(item => ({ id: item.id, title: item.title, published: item.published })));
+      
       // Filter out unpublished items for students
-      const visibleItems = items.filter(item => item.published || isInstructor);
+      const visibleItems = items.filter(item => {
+        const canSeeUnpublished = isInstructor;
+        const shouldShow = item.published || canSeeUnpublished;
+        console.log(`Item "${item.title}": published=${item.published}, canSeeUnpublished=${canSeeUnpublished}, shouldShow=${shouldShow}`);
+        return shouldShow;
+      });
+      
+      console.log('Visible items after filtering:', visibleItems.map(item => ({ id: item.id, title: item.title, published: item.published })));
       setContentItems(visibleItems);
 
       // Calculate progress based on actual completion
