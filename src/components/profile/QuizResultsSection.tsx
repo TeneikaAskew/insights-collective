@@ -200,34 +200,55 @@ const QuizResultsSection = () => {
         </div>
       ) : hasResults && quizResults ? (
         <div className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             {quizResults.map((result, index) => (
               <div 
                 key={result.track} 
-                className={`p-4 rounded-lg border ${
+                className={`relative p-3 sm:p-4 rounded-lg border min-h-[180px] flex flex-col ${
                   index === 0 ? 'border-primary/50 bg-primary/5' : 'border-muted'
                 }`}
               >
+                {/* Header with icon and title */}
                 <div className="flex items-center gap-2 mb-2">
                   {getTrackIcon(result.track)}
-                  <h3 className="font-medium">{result.track}</h3>
+                  <h3 className="font-medium text-sm sm:text-base truncate flex-1">{result.track}</h3>
+                  {/* Top Match badge - only show on larger screens */}
                   {index === 0 && (
-                    <span className="ml-auto text-xs bg-primary/20 text-primary font-medium px-2 py-1 rounded-full">
+                    <span className="hidden sm:inline-flex text-xs bg-primary/20 text-primary font-medium px-2 py-1 rounded-full whitespace-nowrap">
                       Top Match
                     </span>
                   )}
                 </div>
-                <div className="text-sm text-muted-foreground mb-1">
-                  Match Score: <span className="font-medium text-foreground">{result.score}%</span>
+
+                {/* Score and level info */}
+                <div className="flex-1 space-y-1 mb-3">
+                  <div className="text-sm text-muted-foreground">
+                    Match Score: <span className="font-medium text-foreground">{result.score}%</span>
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Level: <span className="font-medium text-foreground">{result.level}</span>
+                  </div>
                 </div>
-                <div className="text-sm text-muted-foreground mb-3">
-                  Level: <span className="font-medium text-foreground">{result.level}</span>
+
+                {/* Bottom section with button and mobile badge */}
+                <div className="mt-auto space-y-2">
+                  {/* Top Match badge - show at bottom on mobile */}
+                  {index === 0 && (
+                    <div className="sm:hidden flex justify-center">
+                      <span className="text-xs bg-primary/20 text-primary font-medium px-2 py-1 rounded-full">
+                        Top Match
+                      </span>
+                    </div>
+                  )}
+                  
+                  <Button variant="outline" size="sm" className="w-full justify-between text-xs sm:text-sm" asChild>
+                    <a href={`/explore-data-careers?role=${getCareerRoleId(result.track)}`}>
+                      <span className="hidden sm:inline">Explore Career</span>
+                      <span className="sm:hidden">Explore</span>
+                      <ArrowRight className="h-3 w-3 sm:h-3.5 sm:w-3.5 ml-1" />
+                    </a>
+                  </Button>
                 </div>
-                <Button variant="outline" size="sm" className="w-full justify-between" asChild>
-                  <a href={`/explore-data-careers?role=${getCareerRoleId(result.track)}`}>
-                    Explore Career <ArrowRight className="h-3.5 w-3.5" />
-                  </a>
-                </Button>
               </div>
             ))}
           </div>
