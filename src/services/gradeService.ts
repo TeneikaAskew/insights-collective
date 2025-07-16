@@ -1,0 +1,241 @@
+import { supabase } from '@/integrations/supabase/client';
+import { Grade } from '@/types/course';
+
+export const gradeService = {
+  // Get all grades for a course
+  async getGradesByCourse(courseId: string) {
+    const { data, error } = await supabase
+      .from('grades')
+      .select(`
+        *,
+        student:profiles!student_id(
+          id,
+          full_name,
+          email,
+          avatar_url
+        ),
+        assignment:assignments(
+          id,
+          title,
+          points,
+          module_id
+        ),
+        quiz:quizzes(
+          id,
+          title,
+          total_points,
+          module_id
+        )
+      `)
+      .eq('course_id', courseId);
+    
+    if (error) throw error;
+    return data;
+  },
+
+  // Get grades for a specific student in a course
+  async getStudentGrades(courseId: string, studentId: string) {
+    const { data, error } = await supabase
+      .from('grades')
+      .select(`
+        *,
+        assignment:assignments(
+          id,
+          title,
+          points,
+          due_date,
+          module:modules(id, title)
+        ),
+        quiz:quizzes(
+          id,
+          title,
+          total_points,
+          module:modules(id, title)
+        )
+      `)
+      .eq('course_id', courseId)
+      .eq('student_id', studentId)
+      .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    return data;
+  },
+
+  // Create or update a grade
+  async upsertGrade(grade: Partial<Grade>) {
+    const { data, error } = await supabase
+      .from('grades')
+      .upsert(grade, {
+        onConflict: 'course_id,student_id,assignment_id,quiz_id'
+      })
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  },
+
+  // Bulk update grades
+  async bulkUpdateGrades(grades: Partial<Grade>[]) {
+    const { data, error } = await supabase
+      .from('grades')
+      .upsert(grades, {
+        onConflict: 'course_id,student_id,assignment_id,quiz_id'
+      })
+      .select();
+    
+    if (error) throw error;
+    return data;
+  },
+
+  // Calculate course grade for a student
+  async calculateCourseGrade(courseId: string, studentId: string) {
+    const { data: grades, error } = await supabase
+      .from('grades')
+      .select('*')
+      .eq('course_id', courseId)
+      .eq('student_id', studentId);
+    
+    if (error) throw error;
+
+    // Calculate weighted average
+    let totalEarned = 0;
+    let totalPossible = 0;
+    let totalWeight = 0;
+
+    grades?.forEach(grade => {
+      if (grade.points_earned !== null && grade.points_possible !== null) {
+        const weight = grade.weight || 1;
+        totalEarned += (grade.points_earned / grade.points_possible) * weight;
+        totalWeight += weight;
+      }
+    });
+
+    const percentage = totalWeight > 0 ? (totalEarned / totalWeight) * 100 : 0;
+    
+    return {
+      percentage,
+      letterGrade: this.getLetterGrade(percentage),
+      totalEarned,
+      totalPossible,
+    };
+  },
+
+  // Get letter grade from percentage
+  getLetterGrade(percentage: number): string {
+    if (percentage >= 90) return 'A';
+    if (percentage >= 80) return 'B';
+    if (percentage >= 70) return 'C';
+    if (percentage >= 60) return 'D';
+    return 'F';
+  },
+
+  // Export grades to CSV
+  async exportGradesToCSV(courseId: string) {
+    const { data: grades, error } = await supabase
+      .from('grades')
+      .select(`
+        *,
+        student:profiles!student_id(
+          full_name,
+          email
+        ),
+        assignment:assignments(title),
+        quiz:quizzes(title)
+      `)
+      .eq('course_id', courseId);
+    
+    if (error) throw error;
+
+    // Convert to CSV format
+    const headers = ['Student Name', 'Email', 'Assignment/Quiz', 'Type', 'Points Earned', 'Points Possible', 'Percentage', 'Letter Grade'];
+    const rows = grades?.map(grade => [
+      grade.student.full_name,
+      grade.student.email,
+      grade.assignment?.title || grade.quiz?.title || '',
+      grade.grade_type,
+      grade.points_earned || '',
+      grade.points_possible || '',
+      grade.percentage || '',
+      grade.letter_grade || ''
+    ]);
+
+    const csv = [
+      headers.join(','),
+      ...(rows?.map(row => row.join(',')) || [])
+    ].join('\n');
+
+    return csv;
+  },
+
+  // Import grades from CSV
+  async importGradesFromCSV(courseId: string, csvData: string, graderId: string) {
+    // Parse CSV
+    const lines = csvData.split('\n');
+    const headers = lines[0].split(',');
+    
+    const grades: Partial<Grade>[] = [];
+    
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(',');
+      if (values.length !== headers.length) continue;
+      
+      // Map CSV data to grade object
+      // This is a simplified version - in production, you'd need more robust CSV parsing
+      const grade: Partial<Grade> = {
+        course_id: courseId,
+        // Additional mapping logic would go here
+        graded_by: graderId,
+      };
+      
+      grades.push(grade);
+    }
+
+    return this.bulkUpdateGrades(grades);
+  },
+
+  // Get grade statistics for a course
+  async getCourseStatistics(courseId: string) {
+    const { data: grades, error } = await supabase
+      .from('grades')
+      .select('percentage')
+      .eq('course_id', courseId)
+      .not('percentage', 'is', null);
+    
+    if (error) throw error;
+
+    if (!grades || grades.length === 0) {
+      return {
+        average: 0,
+        median: 0,
+        highest: 0,
+        lowest: 0,
+        standardDeviation: 0,
+      };
+    }
+
+    const percentages = grades.map(g => g.percentage!).sort((a, b) => a - b);
+    const sum = percentages.reduce((acc, val) => acc + val, 0);
+    const average = sum / percentages.length;
+    
+    // Calculate median
+    const median = percentages.length % 2 === 0
+      ? (percentages[percentages.length / 2 - 1] + percentages[percentages.length / 2]) / 2
+      : percentages[Math.floor(percentages.length / 2)];
+    
+    // Calculate standard deviation
+    const squaredDiffs = percentages.map(p => Math.pow(p - average, 2));
+    const avgSquaredDiff = squaredDiffs.reduce((acc, val) => acc + val, 0) / percentages.length;
+    const standardDeviation = Math.sqrt(avgSquaredDiff);
+
+    return {
+      average,
+      median,
+      highest: percentages[percentages.length - 1],
+      lowest: percentages[0],
+      standardDeviation,
+    };
+  },
+};
+
+export default gradeService;
