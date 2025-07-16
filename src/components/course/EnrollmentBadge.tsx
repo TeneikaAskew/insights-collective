@@ -76,19 +76,18 @@ const EnrollmentBadge = ({
   }
   return <div className="flex flex-col space-y-2">
       {isInstructor ? <>
-          <Badge className="self-start bg-amber-500 hover:bg-amber-600">Teaching</Badge>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={handleContinue}>
-              View Course
-            </Button>
-            {canEdit && <>
-                <Button variant="outline" size="sm" onClick={handleEdit}>
-                  <Pencil className="h-4 w-4 mr-1" />
-                  Edit Course
-                </Button>
-                
-              </>}
+          <div className="flex items-center gap-2">
+            <Badge className="bg-amber-500 hover:bg-amber-600">Teaching</Badge>
+            {canEdit && (
+              <Button variant="outline" size="sm" onClick={handleEdit}>
+                <Pencil className="h-4 w-4 mr-1" />
+                Edit Course
+              </Button>
+            )}
           </div>
+          <Button variant="outline" size="sm" onClick={handleContinue}>
+            View Course
+          </Button>
         </> : <>
           <Badge variant="secondary" className="self-start">Currently Enrolled</Badge>
           <Button variant="outline" size="sm" onClick={handleContinue}>
