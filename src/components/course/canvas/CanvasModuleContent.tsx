@@ -20,6 +20,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { UnifiedCanvasEditor } from '@/components/ui/unified-canvas-editor';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { DateTimePicker } from '@/components/ui/date-time-picker';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Plus,
   MoreVertical,
@@ -61,6 +65,16 @@ export function CanvasModuleContent({
   const [newItemType, setNewItemType] = useState<ContentItemType>('page');
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  // Assignment-specific state
+  const [assignmentSettings, setAssignmentSettings] = useState({
+    points_possible: 100,
+    due_at: '',
+    unlock_at: '',
+    lock_at: '',
+    submission_types: ['online_text_entry'],
+    allowed_attempts: 1,
+    grading_type: 'points'
+  });
   const { toast } = useToast();
 
   useEffect(() => {
@@ -94,12 +108,20 @@ export function CanvasModuleContent({
     }
 
     try {
+      const settings: any = {};
+      
+      // Add assignment-specific settings
+      if (newItemType === 'assignment') {
+        settings.assignment = assignmentSettings;
+      }
+
       const newItem = await CanvasContentService.createContentItem({
         course_id: courseId,
         module_id: moduleId,
         type: newItemType,
         title,
-        content
+        content,
+        settings
       });
 
       setContentItems([...contentItems, newItem]);
@@ -123,9 +145,16 @@ export function CanvasModuleContent({
     if (!editingItem) return;
 
     try {
+      const updates: any = { title, content };
+      
+      // Add assignment-specific updates
+      if (editingItem.type === 'assignment') {
+        updates.settings = { assignment: assignmentSettings };
+      }
+
       const updated = await CanvasContentService.updateContentItem(
         editingItem.id,
-        { title, content }
+        updates
       );
 
       setContentItems(contentItems.map(item => 
@@ -221,12 +250,36 @@ export function CanvasModuleContent({
     setTitle('');
     setContent('');
     setNewItemType('page');
+    setAssignmentSettings({
+      points_possible: 100,
+      due_at: '',
+      unlock_at: '',
+      lock_at: '',
+      submission_types: ['online_text_entry'],
+      allowed_attempts: 1,
+      grading_type: 'points'
+    });
   };
 
   const openEditDialog = (item: ContentItem) => {
     setEditingItem(item);
     setTitle(item.title);
     setContent(item.content || '');
+    setNewItemType(item.type);
+    
+    // Load assignment settings if editing an assignment
+    if (item.type === 'assignment' && item.assignment) {
+      setAssignmentSettings({
+        points_possible: item.assignment.points_possible || 100,
+        due_at: item.assignment.due_at || '',
+        unlock_at: item.assignment.unlock_at || '',
+        lock_at: item.assignment.lock_at || '',
+        submission_types: item.assignment.submission_types || ['online_text_entry'],
+        allowed_attempts: item.assignment.allowed_attempts || 1,
+        grading_type: item.assignment.grading_type || 'points'
+      });
+    }
+    
     setShowAddDialog(true);
   };
 
@@ -478,13 +531,177 @@ export function CanvasModuleContent({
               />
             </div>
 
-            {/* Type-specific fields would go here */}
-            {newItemType === 'assignment' && (
+            {/* Assignment Settings */}
+            {(newItemType === 'assignment' || editingItem?.type === 'assignment') && (
               <div className="border-t pt-4">
-                <h4 className="font-medium mb-2">Assignment Settings</h4>
-                <p className="text-sm text-muted-foreground">
-                  Assignment-specific settings like due dates, points, and submission types will be added here.
-                </p>
+                <h4 className="font-medium mb-4">Assignment Settings</h4>
+                <Tabs defaultValue="details" className="w-full">
+                  <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="details">Details</TabsTrigger>
+                    <TabsTrigger value="submission">Submission</TabsTrigger>
+                    <TabsTrigger value="availability">Availability</TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="details" className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="points">Points Possible</Label>
+                        <Input
+                          id="points"
+                          type="number"
+                          value={assignmentSettings.points_possible}
+                          onChange={(e) => setAssignmentSettings({
+                            ...assignmentSettings,
+                            points_possible: parseInt(e.target.value) || 0
+                          })}
+                          min="0"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="grading-type">Grading Type</Label>
+                        <Select
+                          value={assignmentSettings.grading_type}
+                          onValueChange={(value) => setAssignmentSettings({
+                            ...assignmentSettings,
+                            grading_type: value
+                          })}
+                        >
+                          <SelectTrigger id="grading-type">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="points">Points</SelectItem>
+                            <SelectItem value="percentage">Percentage</SelectItem>
+                            <SelectItem value="letter_grade">Letter Grade</SelectItem>
+                            <SelectItem value="pass_fail">Pass/Fail</SelectItem>
+                            <SelectItem value="not_graded">Not Graded</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </TabsContent>
+                  
+                  <TabsContent value="submission" className="space-y-4">
+                    <div>
+                      <Label>Submission Types</Label>
+                      <div className="space-y-2 mt-2">
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="text-entry"
+                            checked={assignmentSettings.submission_types.includes('online_text_entry')}
+                            onCheckedChange={(checked) => {
+                              const types = [...assignmentSettings.submission_types];
+                              if (checked) {
+                                if (!types.includes('online_text_entry')) types.push('online_text_entry');
+                              } else {
+                                const index = types.indexOf('online_text_entry');
+                                if (index > -1) types.splice(index, 1);
+                              }
+                              setAssignmentSettings({ ...assignmentSettings, submission_types: types });
+                            }}
+                          />
+                          <Label htmlFor="text-entry" className="font-normal">Text Entry</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="url"
+                            checked={assignmentSettings.submission_types.includes('online_url')}
+                            onCheckedChange={(checked) => {
+                              const types = [...assignmentSettings.submission_types];
+                              if (checked) {
+                                if (!types.includes('online_url')) types.push('online_url');
+                              } else {
+                                const index = types.indexOf('online_url');
+                                if (index > -1) types.splice(index, 1);
+                              }
+                              setAssignmentSettings({ ...assignmentSettings, submission_types: types });
+                            }}
+                          />
+                          <Label htmlFor="url" className="font-normal">Website URL</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="upload"
+                            checked={assignmentSettings.submission_types.includes('online_upload')}
+                            onCheckedChange={(checked) => {
+                              const types = [...assignmentSettings.submission_types];
+                              if (checked) {
+                                if (!types.includes('online_upload')) types.push('online_upload');
+                              } else {
+                                const index = types.indexOf('online_upload');
+                                if (index > -1) types.splice(index, 1);
+                              }
+                              setAssignmentSettings({ ...assignmentSettings, submission_types: types });
+                            }}
+                          />
+                          <Label htmlFor="upload" className="font-normal">File Upload</Label>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="attempts">Allowed Attempts</Label>
+                      <Input
+                        id="attempts"
+                        type="number"
+                        value={assignmentSettings.allowed_attempts}
+                        onChange={(e) => setAssignmentSettings({
+                          ...assignmentSettings,
+                          allowed_attempts: parseInt(e.target.value) || 1
+                        })}
+                        min="1"
+                        max="100"
+                      />
+                    </div>
+                  </TabsContent>
+                  
+                  <TabsContent value="availability" className="space-y-4">
+                    <div>
+                      <Label htmlFor="due-date">Due Date</Label>
+                      <Input
+                        id="due-date"
+                        type="datetime-local"
+                        value={assignmentSettings.due_at ? new Date(assignmentSettings.due_at).toISOString().slice(0, 16) : ''}
+                        onChange={(e) => setAssignmentSettings({
+                          ...assignmentSettings,
+                          due_at: e.target.value ? new Date(e.target.value).toISOString() : ''
+                        })}
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="unlock-date">Available From</Label>
+                      <Input
+                        id="unlock-date"
+                        type="datetime-local"
+                        value={assignmentSettings.unlock_at ? new Date(assignmentSettings.unlock_at).toISOString().slice(0, 16) : ''}
+                        onChange={(e) => setAssignmentSettings({
+                          ...assignmentSettings,
+                          unlock_at: e.target.value ? new Date(e.target.value).toISOString() : ''
+                        })}
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Students cannot submit before this date
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="lock-date">Available Until</Label>
+                      <Input
+                        id="lock-date"
+                        type="datetime-local"
+                        value={assignmentSettings.lock_at ? new Date(assignmentSettings.lock_at).toISOString().slice(0, 16) : ''}
+                        onChange={(e) => setAssignmentSettings({
+                          ...assignmentSettings,
+                          lock_at: e.target.value ? new Date(e.target.value).toISOString() : ''
+                        })}
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Students cannot submit after this date
+                      </p>
+                    </div>
+                  </TabsContent>
+                </Tabs>
               </div>
             )}
 

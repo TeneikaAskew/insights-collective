@@ -13,6 +13,7 @@ import { useStorageUpload } from '@/hooks/useStorageUpload';
 import { Plus, Trash2, Upload, Save } from 'lucide-react'; // Added Save import
 import { Progress } from '@/components/ui/progress';
 import AIContentGenerator from '@/components/ai/AIContentGenerator';
+import { VALID_CATEGORIES } from '@/constants/courseCategories';
 
 interface CourseDetailsFormProps {
   course: Partial<Course>;
@@ -106,10 +107,11 @@ export const CourseDetailsForm = ({ course, onSave, loading }: CourseDetailsForm
                   <SelectValue placeholder="Select a category" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Data Science">Data Science</SelectItem>
-                  <SelectItem value="Analytics & Business Intelligence">Analytics & BI</SelectItem>
-                  <SelectItem value="Data Engineering">Data Engineering</SelectItem>
-                  <SelectItem value="Machine Learning & Artificial Intelligence">ML/AI</SelectItem>
+                  {VALID_CATEGORIES.map(category => (
+                    <SelectItem key={category} value={category}>
+                      {category}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

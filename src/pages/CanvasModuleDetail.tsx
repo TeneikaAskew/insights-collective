@@ -145,20 +145,17 @@ const CanvasModuleDetail = () => {
       // Load content items
       const items = await CanvasContentService.getContentItems(moduleId);
       
-      // CRITICAL: Filter out content without published status and unpublished items
-      // RLS policies should already handle this, but we add an additional layer of security
+      // CRITICAL: Filter out unpublished content in the student/viewing context
+      // Only show published content to everyone, including instructors
+      // Unpublished content should only be visible in the editing interface
       const visibleItems = items.filter(item => {
-        // If content has no published status (null), no one should see it
+        // If content has no published status (null/undefined), hide from everyone
         if (item.published === null || item.published === undefined) {
           return false;
         }
         
-        // Admins and instructors can see unpublished content for editing purposes
-        if (isInstructor) {
-          return true;
-        }
-        
-        // Students can ONLY see explicitly published content items
+        // Only show explicitly published content in the viewing interface
+        // Instructors will see unpublished content in the edit mode only
         return item.published === true;
       });
       
