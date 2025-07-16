@@ -219,7 +219,7 @@ const CanvasModuleDetail = () => {
                     <div className="pt-4">
                       <Button 
                         className="w-full"
-                        onClick={() => navigate(`/courses/${courseId}/modules/${moduleId}/assignments/${selectedItem.id}`)}
+                        onClick={() => navigate(`/courses/${courseId}/modules/${moduleId}/assignments/${selectedItem.id}/submit`)}
                       >
                         Submit Assignment
                       </Button>
