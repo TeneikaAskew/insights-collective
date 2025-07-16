@@ -22,10 +22,11 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Plus, BookOpen, Clock, Settings, ChevronRight, Edit, Trash2 } from 'lucide-react';
+import { Plus, BookOpen, Clock, Settings, ChevronRight, Edit, Trash2, GripVertical } from 'lucide-react';
 import { UnifiedCanvasEditor } from '@/components/ui/unified-canvas-editor';
 import { CanvasModuleContent } from '../canvas/CanvasModuleContent';
 import { Module } from '@/types/canvas';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 
 interface CanvasModuleManagerProps {
   courseId: string;
@@ -58,6 +59,7 @@ export function CanvasModuleManager({ courseId, courseDuration }: CanvasModuleMa
         .from('modules')
         .select('*')
         .eq('course_id', courseId)
+        .order('position', { ascending: true })
         .order('week', { ascending: true });
 
       if (error) throw error;
@@ -169,6 +171,49 @@ export function CanvasModuleManager({ courseId, courseDuration }: CanvasModuleMa
     }
   };
 
+  const handleDragEnd = async (result: any) => {
+    if (!result.destination) return;
+
+    const items = Array.from(modules);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+
+    // Update local state immediately for responsive UI
+    setModules(items);
+
+    // Update positions in database
+    try {
+      const updates = items.map((module, index) => ({
+        id: module.id,
+        position: index,
+        week: index + 1 // Update week numbers based on position
+      }));
+
+      // Update each module's position
+      for (const update of updates) {
+        const { error } = await supabase
+          .from('modules')
+          .update({ position: update.position, week: update.week })
+          .eq('id', update.id);
+
+        if (error) throw error;
+      }
+
+      toast({
+        title: 'Modules reordered',
+        description: 'Module order has been updated successfully.'
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error reordering modules',
+        description: error.message,
+        variant: 'destructive'
+      });
+      // Reload to get correct order
+      loadModules();
+    }
+  };
+
   const openEditDialog = (module: Module) => {
     setEditingModule(module);
     setFormData({
@@ -223,57 +268,92 @@ export function CanvasModuleManager({ courseId, courseDuration }: CanvasModuleMa
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {modules.map((module) => (
-                <Card 
-                  key={module.id} 
-                  className={`cursor-pointer transition-all hover:shadow-md ${
-                    selectedModule?.id === module.id ? 'ring-2 ring-primary' : ''
-                  }`}
-                  onClick={() => setSelectedModule(module)}
-                >
-                  <CardHeader className="pb-3">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <Badge variant="secondary" className="mb-2">
-                          Week {module.week}
-                        </Badge>
-                        <CardTitle className="text-lg">{module.title}</CardTitle>
-                      </div>
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openEditDialog(module);
-                          }}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteModule(module.id);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  {module.description && (
-                    <CardContent>
-                      <p className="text-sm text-muted-foreground line-clamp-2">
-                        {module.description}
-                      </p>
-                    </CardContent>
-                  )}
-                </Card>
-              ))}
-            </div>
+            <DragDropContext onDragEnd={handleDragEnd}>
+              <Droppable droppableId="modules">
+                {(provided) => (
+                  <div 
+                    {...provided.droppableProps} 
+                    ref={provided.innerRef}
+                    className="space-y-3"
+                  >
+                    {modules.map((module, index) => (
+                      <Draggable 
+                        key={module.id} 
+                        draggableId={module.id} 
+                        index={index}
+                      >
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            className={snapshot.isDragging ? 'opacity-50' : ''}
+                          >
+                            <Card 
+                              className={`transition-all hover:shadow-md ${
+                                selectedModule?.id === module.id ? 'ring-2 ring-primary' : ''
+                              }`}
+                            >
+                              <CardHeader className="pb-3">
+                                <div className="flex items-center gap-3">
+                                  <div 
+                                    {...provided.dragHandleProps}
+                                    className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted rounded"
+                                    title="Drag to reorder"
+                                  >
+                                    <GripVertical className="h-5 w-5 text-muted-foreground" />
+                                  </div>
+                                  <div 
+                                    className="flex-1 cursor-pointer"
+                                    onClick={() => setSelectedModule(module)}
+                                  >
+                                    <div className="flex justify-between items-start">
+                                      <div>
+                                        <Badge variant="secondary" className="mb-2">
+                                          Week {module.week}
+                                        </Badge>
+                                        <CardTitle className="text-lg">{module.title}</CardTitle>
+                                      </div>
+                                      <div className="flex gap-1">
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            openEditDialog(module);
+                                          }}
+                                        >
+                                          <Edit className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDeleteModule(module.id);
+                                          }}
+                                        >
+                                          <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                                {module.description && (
+                                  <p className="text-sm text-muted-foreground line-clamp-2 mt-2 ml-8">
+                                    {module.description}
+                                  </p>
+                                )}
+                              </CardHeader>
+                            </Card>
+                          </div>
+                        )}
+                      </Draggable>
+                    ))}
+                    {provided.placeholder}
+                  </div>
+                )}
+              </Droppable>
+            </DragDropContext>
           )}
         </CardContent>
       </Card>
