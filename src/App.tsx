@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { OnboardingProvider } from '@/contexts/OnboardingContext';
@@ -130,6 +130,13 @@ const PageLoader = () => (
   </div>
 );
 
+// Course Redirect Component
+function CourseRedirect() {
+  const location = useLocation();
+  const redirectPath = location.pathname.replace('/course/', '/courses/');
+  return <Navigate to={redirectPath} replace />;
+}
+
 // Portfolio Editor Wrapper Component
 function PortfolioEditorWrapper() {
   const { pageId } = useParams<{ pageId: string }>();
@@ -196,6 +203,10 @@ function App() {
                      {/* Course & Learning Routes - Canvas/Blackboard Style */}
                      <Route path="/courses" element={<CourseList />} />
                      <Route path="/course-list" element={<CourseList />} />
+                     
+                     {/* Redirect singular /course to plural /courses */}
+                     <Route path="/course/:courseId" element={<CourseRedirect />} />
+                     <Route path="/course/:courseId/*" element={<CourseRedirect />} />
                      <Route path="/enrolled-courses" element={<EnrolledCoursesDashboard />} />
                      <Route path="/courses/:courseId" element={<CourseDetail />} />
                      <Route path="/courses/:courseId/modules" element={<CourseDetail />} />
