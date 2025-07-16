@@ -410,47 +410,33 @@ const CanvasModuleDetail = () => {
                 <div className="grid grid-cols-2 gap-2">
                   {(() => {
                     const prevModule = modules.find(m => m.week === module.week - 1);
-                    return (
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        disabled={!prevModule}
-                        asChild={!!prevModule}
-                      >
-                        {prevModule ? (
-                          <Link to={`/courses/${courseId}/modules/${prevModule.id}`}>
-                            <ChevronLeft className="h-3 w-3" />
-                            Prev
-                          </Link>
-                        ) : (
-                          <>
-                            <ChevronLeft className="h-3 w-3" />
-                            Prev
-                          </>
-                        )}
+                    return prevModule ? (
+                      <Button variant="outline" size="sm" asChild>
+                        <Link to={`/courses/${courseId}/modules/${prevModule.id}`}>
+                          <ChevronLeft className="h-3 w-3" />
+                          Prev
+                        </Link>
+                      </Button>
+                    ) : (
+                      <Button variant="outline" size="sm" disabled>
+                        <ChevronLeft className="h-3 w-3" />
+                        Prev
                       </Button>
                     );
                   })()}
                   {(() => {
                     const nextModule = modules.find(m => m.week === module.week + 1);
-                    return (
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        disabled={!nextModule}
-                        asChild={!!nextModule}
-                      >
-                        {nextModule ? (
-                          <Link to={`/courses/${courseId}/modules/${nextModule.id}`}>
-                            Next
-                            <ChevronRight className="h-3 w-3" />
-                          </Link>
-                        ) : (
-                          <>
-                            Next
-                            <ChevronRight className="h-3 w-3" />
-                          </>
-                        )}
+                    return nextModule ? (
+                      <Button variant="outline" size="sm" asChild>
+                        <Link to={`/courses/${courseId}/modules/${nextModule.id}`}>
+                          Next
+                          <ChevronRight className="h-3 w-3" />
+                        </Link>
+                      </Button>
+                    ) : (
+                      <Button variant="outline" size="sm" disabled>
+                        Next
+                        <ChevronRight className="h-3 w-3" />
                       </Button>
                     );
                   })()}
