@@ -63,10 +63,9 @@ export const assignmentService = {
       .from('assignments')
       .select(`
         *,
-        module:modules(id, title, order_index)
+        module:modules(id, title, position)
       `)
       .eq('course_id', courseId)
-      .order('module.order_index', { ascending: true })
       .order('due_date', { ascending: true });
     
     if (error) throw error;
