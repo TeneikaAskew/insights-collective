@@ -64,7 +64,30 @@ const CanvasModuleDetail = () => {
   }, [contentItems]);
 
   const loadData = async () => {
-    if (!courseId || !moduleId) return;
+    // Validate that both courseId and moduleId are valid UUIDs
+    if (!courseId || !moduleId || courseId === 'undefined' || moduleId === 'undefined') {
+      console.error('Invalid course or module ID:', { courseId, moduleId });
+      setLoading(false);
+      toast({
+        title: "Error",
+        description: "Invalid course or module ID",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Basic UUID validation - ensure it's not just "undefined" string
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(courseId) || !uuidRegex.test(moduleId)) {
+      console.error('Invalid UUID format:', { courseId, moduleId });
+      setLoading(false);
+      toast({
+        title: "Error", 
+        description: "Invalid course or module ID format",
+        variant: "destructive"
+      });
+      return;
+    }
 
     try {
       setLoading(true);
