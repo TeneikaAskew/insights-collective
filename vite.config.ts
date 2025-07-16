@@ -8,7 +8,12 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
-    allowedHosts: ['6429aca1-fa6f-43b9-a01e-47aa8c8338eb.lovableproject.com']
+    allowedHosts: ['6429aca1-fa6f-43b9-a01e-47aa8c8338eb.lovableproject.com'],
+    watch: {
+      usePolling: true,
+      interval: 1000,
+      ignored: ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/build/**']
+    }
   },
   plugins: [
     react(),
