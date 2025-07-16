@@ -25,27 +25,30 @@ const CourseGradebook = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('enrollments')
-        .select(`
-          user_id,
-          profiles(
-            id,
-            first_name,
-            last_name,
-            avatar_url
-          )
-        `)
+        .select('user_id')
         .eq('course_id', courseId);
       
       if (error) throw error;
-      return data?.map((enrollment: any) => {
-        const profile = enrollment.profiles;
-        return {
-          id: profile?.id,
-          full_name: `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim(),
-          email: '', // Email not available in profiles for gradebook
-          avatar_url: profile?.avatar_url
-        };
-      }).filter((student: any) => student.id) || [];
+      
+      if (!data || data.length === 0) {
+        return [];
+      }
+
+      // Get profiles for enrolled users
+      const userIds = data.map(e => e.user_id).filter(Boolean);
+      const { data: profiles, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, avatar_url')
+        .in('id', userIds);
+      
+      if (profileError) throw profileError;
+
+      return profiles?.map(profile => ({
+        id: profile.id,
+        full_name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim(),
+        email: '', // Email not available in profiles for gradebook
+        avatar_url: profile.avatar_url
+      })) || [];
     },
     enabled: !!courseId && canEdit,
   });
