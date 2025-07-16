@@ -208,11 +208,13 @@ const QuizResultsSection = () => {
                   index === 0 ? 'border-primary/50 bg-primary/5' : 'border-muted'
                 }`}
               >
-                <div className="flex items-center gap-2 mb-2">
-                  {getTrackIcon(result.track)}
-                  <h3 className="font-medium">{result.track}</h3>
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    {getTrackIcon(result.track)}
+                    <h3 className="font-medium truncate">{result.track}</h3>
+                  </div>
                   {index === 0 && (
-                    <span className="ml-auto text-xs bg-primary/20 text-primary font-medium px-2 py-1 rounded-full">
+                    <span className="text-xs bg-primary/20 text-primary font-medium px-2 py-1 rounded-full whitespace-nowrap flex-shrink-0">
                       Top Match
                     </span>
                   )}
