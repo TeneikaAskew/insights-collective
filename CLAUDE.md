@@ -29,6 +29,7 @@ npm run test:coverage # Run tests with coverage report
 supabase start    # Start local Supabase instance
 supabase db push  # Push migrations to local database
 supabase functions serve [function-name] # Test Edge Functions locally
+supabase link --project-ref siuqvhscuiycvdrtiqsh
 ```
 
 ## High-Level Architecture
