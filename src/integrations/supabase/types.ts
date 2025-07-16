@@ -2627,15 +2627,7 @@ export type Database = {
           time_taken?: number | null
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "quiz_attempts_quiz_id_fkey"
-            columns: ["quiz_id"]
-            isOneToOne: false
-            referencedRelation: "quizzes"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       quiz_questions: {
         Row: {
@@ -2677,15 +2669,7 @@ export type Database = {
           question_type?: string
           quiz_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "quiz_questions_quiz_id_fkey"
-            columns: ["quiz_id"]
-            isOneToOne: false
-            referencedRelation: "quizzes"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       quiz_submissions: {
         Row: {
@@ -2745,72 +2729,69 @@ export type Database = {
           user_id?: string
           workflow_state?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "quiz_submissions_quiz_id_fkey"
-            columns: ["quiz_id"]
-            isOneToOne: false
-            referencedRelation: "quizzes"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       quizzes: {
         Row: {
-          attempts_allowed: number | null
-          content_block_id: string
-          course_id: string | null
+          allowed_attempts: number | null
+          content_item_id: string
           created_at: string | null
           description: string | null
+          due_at: string | null
           id: string
-          passing_score: number | null
-          randomize_questions: boolean | null
-          scoring_policy: string | null
+          lock_at: string | null
+          points_possible: number | null
+          quiz_type: string | null
+          show_correct_answers: boolean | null
+          shuffle_answers: boolean | null
+          shuffle_questions: boolean | null
           time_limit: number | null
           title: string
+          unlock_at: string | null
           updated_at: string | null
         }
         Insert: {
-          attempts_allowed?: number | null
-          content_block_id: string
-          course_id?: string | null
+          allowed_attempts?: number | null
+          content_item_id: string
           created_at?: string | null
           description?: string | null
+          due_at?: string | null
           id?: string
-          passing_score?: number | null
-          randomize_questions?: boolean | null
-          scoring_policy?: string | null
+          lock_at?: string | null
+          points_possible?: number | null
+          quiz_type?: string | null
+          show_correct_answers?: boolean | null
+          shuffle_answers?: boolean | null
+          shuffle_questions?: boolean | null
           time_limit?: number | null
           title: string
+          unlock_at?: string | null
           updated_at?: string | null
         }
         Update: {
-          attempts_allowed?: number | null
-          content_block_id?: string
-          course_id?: string | null
+          allowed_attempts?: number | null
+          content_item_id?: string
           created_at?: string | null
           description?: string | null
+          due_at?: string | null
           id?: string
-          passing_score?: number | null
-          randomize_questions?: boolean | null
-          scoring_policy?: string | null
+          lock_at?: string | null
+          points_possible?: number | null
+          quiz_type?: string | null
+          show_correct_answers?: boolean | null
+          shuffle_answers?: boolean | null
+          shuffle_questions?: boolean | null
           time_limit?: number | null
           title?: string
+          unlock_at?: string | null
           updated_at?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "quizzes_content_block_id_fkey"
-            columns: ["content_block_id"]
+            foreignKeyName: "quizzes_content_item_id_fkey"
+            columns: ["content_item_id"]
             isOneToOne: false
-            referencedRelation: "content_blocks"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "quizzes_course_id_fkey"
-            columns: ["course_id"]
-            isOneToOne: false
-            referencedRelation: "courses"
+            referencedRelation: "content_items"
             referencedColumns: ["id"]
           },
         ]
