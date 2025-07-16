@@ -335,6 +335,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "assignments_content_item_id_fkey"
+            columns: ["content_item_id"]
+            isOneToOne: false
+            referencedRelation: "content_items"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "assignments_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
