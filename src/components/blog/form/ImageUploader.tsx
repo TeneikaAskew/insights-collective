@@ -6,10 +6,6 @@ import { Upload, Image, Search } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useStorageUpload } from '@/hooks/useStorageUpload';
 import {
-
-import { createLogger } from '@/utils/logger';
-
-const logger = createLogger('ImageUploader');
   Dialog,
   DialogContent,
   DialogDescription,
@@ -17,6 +13,9 @@ const logger = createLogger('ImageUploader');
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('ImageUploader');
 
 interface ImageUploaderProps {
   imageUrl: string;

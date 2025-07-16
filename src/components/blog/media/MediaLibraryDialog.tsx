@@ -12,10 +12,6 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { 
-
-import { createLogger } from '@/utils/logger';
-
-const logger = createLogger('MediaLibraryDialog');
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -25,6 +21,9 @@ const logger = createLogger('MediaLibraryDialog');
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('MediaLibraryDialog');
 
 interface MediaItem {
   id: string;

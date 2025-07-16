@@ -71,7 +71,7 @@ const CourseCalendar = () => {
         .gte('due_date', monthStart.toISOString())
         .lte('due_date', monthEnd.toISOString());
 
-      // Fetch quizzes
+      // Fetch quizzes - join through content_items to get course relationship
       const { data: quizzes } = await supabase
         .from('quizzes')
         .select(`
@@ -80,8 +80,8 @@ const CourseCalendar = () => {
           unlock_at,
           lock_at,
           points_possible,
-          content_items!inner(course_id),
-          module:modules(title)
+          content_items!inner(course_id, module_id),
+          module:content_items(module:modules(title))
         `)
         .eq('content_items.course_id', courseId);
 
