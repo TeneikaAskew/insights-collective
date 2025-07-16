@@ -9,7 +9,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FileText, Video, Image, Trash2, Plus, Edit, Save } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import AIContentGenerator from '@/components/ai/AIContentGenerator';
-import RichTextEditor from '@/components/ui/rich-text-editor';
 import {
   AlertDialog,
   AlertDialogAction,

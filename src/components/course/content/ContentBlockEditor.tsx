@@ -21,7 +21,7 @@ import {
   X
 } from 'lucide-react';
 import FileUploadZone from './FileUploadZone';
-import RichTextEditor from '@/components/ui/rich-text-editor';
+import { UnifiedCanvasEditor } from '@/components/ui/unified-canvas-editor';
 import { UploadedFile } from '@/hooks/useFileUpload';
 
 export interface ContentBlock {
@@ -139,10 +139,12 @@ const ContentBlockEditor: React.FC<ContentBlockEditorProps> = ({
             </div>
             <div>
               <Label>Content</Label>
-              <RichTextEditor
-                value={content}
+              <UnifiedCanvasEditor
+                content={content}
                 onChange={setContent}
                 placeholder="Write your content here..."
+                minHeight="300px"
+                showAdvancedFeatures={false}
               />
             </div>
           </div>

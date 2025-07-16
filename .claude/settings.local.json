@@ -49,7 +49,8 @@
       "WebFetch(domain:www.howtocanvas.com)",
       "WebFetch(domain:www.howtocanvas.com)",
       "WebFetch(domain:www.howtocanvas.com)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(rg:*)"
     ],
     "deny": []
   }
