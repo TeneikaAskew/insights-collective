@@ -28,7 +28,7 @@ import {
   HelpCircle,
   Link,
   ExternalLink,
-  Tool,
+  Settings,
   Edit,
   Trash2,
   Eye,
@@ -237,7 +237,7 @@ export function CanvasModuleContent({
       case 'quiz': return <HelpCircle className="h-4 w-4" />;
       case 'discussion': return <FileText className="h-4 w-4" />;
       case 'external_url': return <ExternalLink className="h-4 w-4" />;
-      case 'external_tool': return <Tool className="h-4 w-4" />;
+      case 'external_tool': return <Settings className="h-4 w-4" />;
       default: return <FileText className="h-4 w-4" />;
     }
   };
@@ -308,7 +308,7 @@ export function CanvasModuleContent({
                 setNewItemType('external_tool');
                 setShowAddDialog(true);
               }}>
-                <Tool className="h-4 w-4 mr-2" />
+                <Settings className="h-4 w-4 mr-2" />
                 External Tool
               </DropdownMenuItem>
             </DropdownMenuContent>

@@ -17,7 +17,7 @@ import {
   ClipboardList, 
   HelpCircle,
   ExternalLink,
-  Tool,
+  Settings,
   Calendar,
   Clock,
   CheckCircle2,
@@ -137,7 +137,7 @@ const CanvasModuleDetail = () => {
       case 'assignment': return <ClipboardList className="h-5 w-5" />;
       case 'quiz': return <HelpCircle className="h-5 w-5" />;
       case 'external_url': return <ExternalLink className="h-5 w-5" />;
-      case 'external_tool': return <Tool className="h-5 w-5" />;
+      case 'external_tool': return <Settings className="h-5 w-5" />;
       default: return <FileText className="h-5 w-5" />;
     }
   };
