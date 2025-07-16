@@ -271,37 +271,39 @@ const InteractiveCareerReportSection: React.FC<InteractiveCareerReportSectionPro
                 <p className="text-muted-foreground">{reportData.summary}</p>
               </div>
 
-              <div className="space-y-3">
-                <h3 className="text-lg font-medium flex items-center">
-                  <Award className="mr-2 h-5 w-5 text-primary" />
-                  Top Career Match
-                </h3>
-                <div className="p-4 rounded-lg border border-primary/40 bg-primary/5">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div>
-                      <h4 className="font-semibold text-primary">
-                        {reportData.recommendedRoles[0].title}
-                      </h4>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {reportData.recommendedRoles[0].description}
-                      </p>
-                    </div>
-                    <div className="flex flex-col items-center">
-                      <div className="text-2xl font-bold text-primary">
-                        {reportData.recommendedRoles[0].matchPercentage}%
+              {reportData.recommendedRoles && reportData.recommendedRoles.length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="text-lg font-medium flex items-center">
+                    <Award className="mr-2 h-5 w-5 text-primary" />
+                    Top Career Match
+                  </h3>
+                  <div className="p-4 rounded-lg border border-primary/40 bg-primary/5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div>
+                        <h4 className="font-semibold text-primary">
+                          {reportData.recommendedRoles[0].title}
+                        </h4>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {reportData.recommendedRoles[0].description}
+                        </p>
                       </div>
-                      <div className="text-xs text-muted-foreground">Match Score</div>
+                      <div className="flex flex-col items-center">
+                        <div className="text-2xl font-bold text-primary">
+                          {reportData.recommendedRoles[0].matchPercentage}%
+                        </div>
+                        <div className="text-xs text-muted-foreground">Match Score</div>
+                      </div>
                     </div>
+                    <Button 
+                      className="w-full mt-4" 
+                      size="sm"
+                      onClick={() => handleExploreRole(reportData.recommendedRoles[0].title)}
+                    >
+                      Explore This Career
+                    </Button>
                   </div>
-                  <Button 
-                    className="w-full mt-4" 
-                    size="sm"
-                    onClick={() => handleExploreRole(reportData.recommendedRoles[0].title)}
-                  >
-                    Explore This Career
-                  </Button>
                 </div>
-              </div>
+              )}
 
               <div className="space-y-3">
                 <h3 className="text-lg font-medium flex items-center">
