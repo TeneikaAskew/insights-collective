@@ -69,6 +69,9 @@ const CanvasModuleDetail = () => {
     try {
       setLoading(true);
 
+      // Reset selected item when loading new module
+      setSelectedItem(null);
+
       // Load course
       const { data: courseData, error: courseError } = await supabase
         .from('courses')
@@ -79,22 +82,39 @@ const CanvasModuleDetail = () => {
       if (courseError) throw courseError;
       setCourse(courseData);
 
-      // Load module
-      const { data: moduleData, error: moduleError } = await supabase
+      // Check user role early
+      const isInstructor = user?.roles?.includes('instructor') || user?.roles?.includes('admin');
+
+      // Load module with published filter for non-instructors
+      const moduleQuery = supabase
         .from('modules')
         .select('*')
-        .eq('id', moduleId)
-        .single();
+        .eq('id', moduleId);
+
+      if (!isInstructor) {
+        moduleQuery.eq('published', true);
+      }
+
+      const { data: moduleData, error: moduleError } = await moduleQuery.single();
 
       if (moduleError) throw moduleError;
+      if (!moduleData) {
+        throw new Error('Module not found or not published');
+      }
       setModule(moduleData);
 
-      // Load all modules for navigation
-      const { data: modulesData, error: modulesError } = await supabase
+      // Load all modules for navigation with published filter for non-instructors
+      const modulesQuery = supabase
         .from('modules')
         .select('*')
         .eq('course_id', courseId)
         .order('position', { ascending: true });
+
+      if (!isInstructor) {
+        modulesQuery.eq('published', true);
+      }
+
+      const { data: modulesData, error: modulesError } = await modulesQuery;
 
       if (modulesError) throw modulesError;
       setModules(modulesData || []);
@@ -102,7 +122,6 @@ const CanvasModuleDetail = () => {
       // Load content items
       const items = await CanvasContentService.getContentItems(moduleId);
       // Filter out unpublished items for students
-      const isInstructor = user?.roles?.includes('instructor') || user?.roles?.includes('admin');
       const visibleItems = items.filter(item => item.published || isInstructor);
       setContentItems(visibleItems);
 
