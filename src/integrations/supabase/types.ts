@@ -2750,6 +2750,7 @@ export type Database = {
           due_at: string | null
           id: string
           lock_at: string | null
+          module_id: string | null
           points_possible: number | null
           quiz_type: string | null
           show_correct_answers: boolean | null
@@ -2768,6 +2769,7 @@ export type Database = {
           due_at?: string | null
           id?: string
           lock_at?: string | null
+          module_id?: string | null
           points_possible?: number | null
           quiz_type?: string | null
           show_correct_answers?: boolean | null
@@ -2786,6 +2788,7 @@ export type Database = {
           due_at?: string | null
           id?: string
           lock_at?: string | null
+          module_id?: string | null
           points_possible?: number | null
           quiz_type?: string | null
           show_correct_answers?: boolean | null
@@ -2802,6 +2805,13 @@ export type Database = {
             columns: ["content_item_id"]
             isOneToOne: false
             referencedRelation: "content_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quizzes_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "modules"
             referencedColumns: ["id"]
           },
         ]
