@@ -1407,7 +1407,7 @@ export type Database = {
           category: string
           created_at: string | null
           description: string
-          duration: string | null
+          duration: number | null
           enrollment_count: number | null
           enrollment_status: string | null
           id: string
@@ -1425,7 +1425,7 @@ export type Database = {
           category: string
           created_at?: string | null
           description: string
-          duration?: string | null
+          duration?: number | null
           enrollment_count?: number | null
           enrollment_status?: string | null
           id?: string
@@ -1443,7 +1443,7 @@ export type Database = {
           category?: string
           created_at?: string | null
           description?: string
-          duration?: string | null
+          duration?: number | null
           enrollment_count?: number | null
           enrollment_status?: string | null
           id?: string
