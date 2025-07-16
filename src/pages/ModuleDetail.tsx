@@ -230,17 +230,6 @@ const ModuleDetail = () => {
         
         <div className="grid gap-6 lg:grid-cols-4">
           <div className="lg:col-span-3 space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-2xl">{module.title}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="mb-4">
-                  <p className="text-muted-foreground">{module.description}</p>
-                </div>
-                
-              </CardContent>
-            </Card>
             
             <Tabs defaultValue="lessons">
               <TabsList>

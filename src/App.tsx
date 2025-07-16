@@ -32,6 +32,11 @@ const AssignmentDetail = lazy(() => import('@/pages/AssignmentDetail'));
 const LessonDetail = lazy(() => import('@/pages/LessonDetail'));
 const ModuleDetail = lazy(() => import('@/pages/ModuleDetail'));
 const EnrolledCoursesDashboard = lazy(() => import('@/pages/EnrolledCoursesDashboard'));
+const CourseGradebook = lazy(() => import('@/pages/CourseGradebook'));
+const CourseProgress = lazy(() => import('@/pages/CourseProgress'));
+const CourseCertificate = lazy(() => import('@/pages/CourseCertificate'));
+const CourseOrganizer = lazy(() => import('@/pages/CourseOrganizer'));
+const CourseCalendar = lazy(() => import('@/pages/CourseCalendar'));
 
 // Interview Preparation Pages
 const InterviewPrep = lazy(() => import('@/pages/InterviewPrep'));
@@ -191,11 +196,15 @@ function App() {
                      <Route path="/courses/:courseId/announcements" element={<CourseDetail />} />
                      <Route path="/courses/:courseId/assignments" element={<CourseDetail />} />
                      <Route path="/courses/:courseId/grades" element={<CourseDetail />} />
-                     <Route path="/courses/:courseId/calendar" element={<CourseDetail />} />
+                     <Route path="/courses/:courseId/gradebook" element={<CourseGradebook />} />
+                     <Route path="/courses/:courseId/progress" element={<CourseProgress />} />
+                     <Route path="/courses/:courseId/certificate" element={<CourseCertificate />} />
+                     <Route path="/courses/:courseId/calendar" element={<CourseCalendar />} />
                      <Route path="/courses/:courseId/people" element={<CourseDetail />} />
                      <Route path="/courses/:courseId/edit" element={<CourseEdit />} />
                      <Route path="/courses/:courseId/management" element={<CourseManagement />} />
                      <Route path="/courses/:courseId/manage-materials" element={<CourseManageMaterials />} />
+                     <Route path="/courses/:courseId/organize" element={<CourseOrganizer />} />
                      <Route path="/courses/:courseId/modules/:moduleId/assignments/:assignmentId" element={<AssignmentDetail />} />
                      <Route path="/courses/:courseId/modules/:moduleId/lessons/:lessonId" element={<LessonDetail />} />
                      <Route path="/courses/:courseId/modules/:moduleId" element={<ModuleDetail />} />
