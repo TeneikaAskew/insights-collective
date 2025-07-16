@@ -318,7 +318,7 @@ export function CanvasModuleManager({ courseId, courseDuration }: CanvasModuleMa
           if (!open) resetForm();
         }}
       >
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
               {editingModule ? 'Edit Module' : 'Create New Module'}

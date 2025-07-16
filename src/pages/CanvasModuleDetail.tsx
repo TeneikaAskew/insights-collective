@@ -408,28 +408,52 @@ const CanvasModuleDetail = () => {
 
                 {/* Previous/Next Module */}
                 <div className="grid grid-cols-2 gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    disabled={!modules.find(m => m.week === module.week - 1)}
-                    asChild
-                  >
-                    <Link to={`/courses/${courseId}/modules/${modules.find(m => m.week === module.week - 1)?.id}`}>
-                      <ChevronLeft className="h-3 w-3" />
-                      Prev
-                    </Link>
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    disabled={!modules.find(m => m.week === module.week + 1)}
-                    asChild
-                  >
-                    <Link to={`/courses/${courseId}/modules/${modules.find(m => m.week === module.week + 1)?.id}`}>
-                      Next
-                      <ChevronRight className="h-3 w-3" />
-                    </Link>
-                  </Button>
+                  {(() => {
+                    const prevModule = modules.find(m => m.week === module.week - 1);
+                    return (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        disabled={!prevModule}
+                        asChild={!!prevModule}
+                      >
+                        {prevModule ? (
+                          <Link to={`/courses/${courseId}/modules/${prevModule.id}`}>
+                            <ChevronLeft className="h-3 w-3" />
+                            Prev
+                          </Link>
+                        ) : (
+                          <>
+                            <ChevronLeft className="h-3 w-3" />
+                            Prev
+                          </>
+                        )}
+                      </Button>
+                    );
+                  })()}
+                  {(() => {
+                    const nextModule = modules.find(m => m.week === module.week + 1);
+                    return (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        disabled={!nextModule}
+                        asChild={!!nextModule}
+                      >
+                        {nextModule ? (
+                          <Link to={`/courses/${courseId}/modules/${nextModule.id}`}>
+                            Next
+                            <ChevronRight className="h-3 w-3" />
+                          </Link>
+                        ) : (
+                          <>
+                            Next
+                            <ChevronRight className="h-3 w-3" />
+                          </>
+                        )}
+                      </Button>
+                    );
+                  })()}
                 </div>
               </CardContent>
             </Card>
