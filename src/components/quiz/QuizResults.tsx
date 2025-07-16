@@ -227,10 +227,10 @@ const QuizResults: React.FC<QuizResultsProps> = ({
   }, [scores, answers]);
   const topTracks = Object.entries(scores).sort(([, a], [, b]) => b - a).slice(0, 3).map(([track, score]) => ({
     track: track as CareerTrack,
-    score,
-    level: getSkillLevel(score),
+    score: score * 5, // Transform from 20-point scale to 100-point scale
+    level: getSkillLevel(score * 5),
     persona: getTrackPersona(track as CareerTrack),
-    courses: getCourseRecommendations(track as CareerTrack, getSkillLevel(score))
+    courses: getCourseRecommendations(track as CareerTrack, getSkillLevel(score * 5))
   }));
   const getTrackIcon = (track: CareerTrack) => {
     switch (track) {
