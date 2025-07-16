@@ -188,6 +188,9 @@ export interface CreateAssignmentInput extends CreateContentItemInput {
   due_at?: Date;
   submission_types?: string[];
   allowed_attempts?: number;
+  unlock_at?: Date;
+  lock_at?: Date;
+  grading_type?: 'points' | 'percent' | 'letter_grade' | 'pass_fail';
 }
 
 // Helper type for creating quizzes

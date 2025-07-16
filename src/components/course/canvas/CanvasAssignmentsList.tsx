@@ -155,7 +155,7 @@ export function CanvasAssignmentsList({ courseId }: CanvasAssignmentsListProps) 
                     {getStatusBadge(status)}
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    {assignment.module?.title} - Week {assignment.module?.week}
+                    Module Assignment
                   </p>
                 </div>
                 <div className="text-right">

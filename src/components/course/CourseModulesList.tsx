@@ -209,7 +209,7 @@ export function CourseModulesList({ courseId }: CourseModulesListProps) {
                       </div>
                     </div>
                     <Badge variant="outline">
-                      {module.content_blocks?.length || 0} items
+                      {module.contentItems?.length || 0} items
                     </Badge>
                   </div>
                 </CardHeader>
@@ -220,22 +220,10 @@ export function CourseModulesList({ courseId }: CourseModulesListProps) {
                   
                   {/* Content summary */}
                   <div className="flex flex-wrap gap-2 text-xs">
-                    {module.lessons.length > 0 && (
+                    {module.contentItems && module.contentItems.length > 0 && (
                       <div className="flex items-center gap-1 text-muted-foreground">
                         <BookOpen className="h-3 w-3" />
-                        <span>{module.lessons.length} activities</span>
-                      </div>
-                    )}
-                    {module.assignments.length > 0 && (
-                      <div className="flex items-center gap-1 text-muted-foreground">
-                        <FileText className="h-3 w-3" />
-                        <span>{module.assignments.length} assignments</span>
-                      </div>
-                    )}
-                    {module.quizzes.length > 0 && (
-                      <div className="flex items-center gap-1 text-muted-foreground">
-                        <HelpCircle className="h-3 w-3" />
-                        <span>{module.quizzes.length} quizzes</span>
+                        <span>{module.contentItems.length} items</span>
                       </div>
                     )}
                   </div>
