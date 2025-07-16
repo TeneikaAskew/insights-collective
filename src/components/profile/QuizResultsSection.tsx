@@ -63,8 +63,8 @@ const QuizResultsSection = () => {
             .slice(0, 3)
             .map(([track, score]) => ({
               track: track as CareerTrack,
-              score: Math.round(score),
-              level: getSkillLevel(Math.round(score)),
+              score: Math.round(score * 5), // Transform from 20-point scale to 100-point scale
+              level: getSkillLevel(Math.round(score * 5)),
               persona: getTrackPersona(track as CareerTrack)
             }));
         }
@@ -106,8 +106,8 @@ const QuizResultsSection = () => {
             .slice(0, 3)
             .map(([track, score]) => ({
               track: track as CareerTrack,
-              score: Math.round(score),
-              level: getSkillLevel(Math.round(score)),
+              score: Math.round(score * 5), // Transform from 20-point scale to 100-point scale
+              level: getSkillLevel(Math.round(score * 5)),
               persona: getTrackPersona(track as CareerTrack)
             }));
           
