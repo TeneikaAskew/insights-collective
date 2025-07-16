@@ -290,6 +290,7 @@ export type Database = {
       assignments: {
         Row: {
           content: string | null
+          content_item_id: string | null
           course_id: string
           created_at: string
           description: string | null
@@ -304,6 +305,7 @@ export type Database = {
         }
         Insert: {
           content?: string | null
+          content_item_id?: string | null
           course_id: string
           created_at?: string
           description?: string | null
@@ -318,6 +320,7 @@ export type Database = {
         }
         Update: {
           content?: string | null
+          content_item_id?: string | null
           course_id?: string
           created_at?: string
           description?: string | null
