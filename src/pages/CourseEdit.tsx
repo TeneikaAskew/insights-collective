@@ -6,7 +6,7 @@ import { useParams, Link } from 'react-router-dom';
 import { CourseLayout } from '@/components/course/CourseLayout';
 import { useCourseData } from '@/hooks/useCourseData';
 import { CourseDetailsForm } from '@/components/course/CourseDetailsForm';
-import WeekBasedModuleManager from '@/components/course/management/WeekBasedModuleManager';
+import CanvasModuleManager from '@/components/course/management/CanvasModuleManager';
 import { Spinner } from '@/components/ui/spinner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -159,9 +159,9 @@ function CourseEdit() {
             </TabsContent>
 
             <TabsContent value="content" className="mt-6">
-              <WeekBasedModuleManager 
+              <CanvasModuleManager 
                 courseId={courseId!} 
-                courseDuration={parseInt(course.duration?.toString() || '1')}
+                courseDuration={parseInt(course.duration?.toString() || '12')}
               />
             </TabsContent>
 
