@@ -94,7 +94,7 @@ const CanvasModuleDetail = () => {
         .from('modules')
         .select('*')
         .eq('course_id', courseId)
-        .order('week', { ascending: true });
+        .order('position', { ascending: true });
 
       if (modulesError) throw modulesError;
       setModules(modulesData || []);
@@ -102,11 +102,24 @@ const CanvasModuleDetail = () => {
       // Load content items
       const items = await CanvasContentService.getContentItems(moduleId);
       // Filter out unpublished items for students
-      const visibleItems = items.filter(item => item.published || user?.role === 'instructor');
+      const isInstructor = user?.roles?.includes('instructor') || user?.roles?.includes('admin');
+      const visibleItems = items.filter(item => item.published || isInstructor);
       setContentItems(visibleItems);
 
-      // Calculate progress (simplified for now)
-      setProgress(25); // Would calculate based on actual completion
+      // Calculate progress based on actual completion
+      if (visibleItems.length > 0) {
+        const { data: progressData } = await supabase
+          .from('content_item_progressions')
+          .select('workflow_state')
+          .eq('user_id', user?.id)
+          .in('content_item_id', visibleItems.map(item => item.id));
+        
+        const completedItems = progressData?.filter(p => p.workflow_state === 'read') || [];
+        const progressPercentage = Math.round((completedItems.length / visibleItems.length) * 100);
+        setProgress(progressPercentage);
+      } else {
+        setProgress(0);
+      }
 
     } catch (error: any) {
       console.error('Error loading data:', error);
@@ -126,6 +139,17 @@ const CanvasModuleDetail = () => {
     // Mark as read
     try {
       await CanvasContentService.markContentItemAsRead(item.id);
+      
+      // Recalculate progress after marking as read
+      const { data: progressData } = await supabase
+        .from('content_item_progressions')
+        .select('workflow_state')
+        .eq('user_id', user?.id)
+        .in('content_item_id', contentItems.map(item => item.id));
+      
+      const completedItems = progressData?.filter(p => p.workflow_state === 'read') || [];
+      const progressPercentage = Math.round((completedItems.length / contentItems.length) * 100);
+      setProgress(progressPercentage);
     } catch (error) {
       console.error('Error marking item as read:', error);
     }
@@ -414,7 +438,8 @@ const CanvasModuleDetail = () => {
                 {/* Previous/Next Module */}
                 <div className="grid grid-cols-2 gap-2">
                   {(() => {
-                    const prevModule = modules.find(m => m.week === module.week - 1);
+                    const currentIndex = modules.findIndex(m => m.id === module.id);
+                    const prevModule = currentIndex > 0 ? modules[currentIndex - 1] : null;
                     if (prevModule) {
                       return (
                         <Button variant="outline" size="sm" asChild>
@@ -433,7 +458,8 @@ const CanvasModuleDetail = () => {
                     );
                   })()}
                   {(() => {
-                    const nextModule = modules.find(m => m.week === module.week + 1);
+                    const currentIndex = modules.findIndex(m => m.id === module.id);
+                    const nextModule = currentIndex < modules.length - 1 ? modules[currentIndex + 1] : null;
                     if (nextModule) {
                       return (
                         <Button variant="outline" size="sm" asChild>

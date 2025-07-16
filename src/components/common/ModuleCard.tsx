@@ -3,6 +3,10 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Progress } from '@/components/ui/progress';
 import { CheckCircle, Clock, BookOpen, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+
 interface ModuleCardProps {
   courseId: string;
   module: Module;
@@ -11,6 +15,36 @@ const ModuleCard = ({
   courseId,
   module
 }: ModuleCardProps) => {
+  const { user } = useAuth();
+  const [publishedContentCount, setPublishedContentCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPublishedContentCount = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('content_items')
+          .select('id, published')
+          .eq('module_id', module.id);
+
+        if (error) {
+          console.error('Error fetching content items:', error);
+          return;
+        }
+
+        const isInstructor = user?.roles?.includes('instructor') || user?.roles?.includes('admin');
+        const visibleItems = data?.filter(item => item.published || isInstructor) || [];
+        setPublishedContentCount(visibleItems.length);
+      } catch (error) {
+        console.error('Error fetching published content count:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPublishedContentCount();
+  }, [module.id, user?.roles]);
+
   // Add null checks for all potential undefined properties
   const lessons = module.lessons || [];
   const assignments = module.assignments || [];
@@ -39,7 +73,9 @@ const ModuleCard = ({
             <div className="grid grid-cols-3 gap-2 mt-2">
               <div className="flex flex-col items-center justify-center p-2 rounded-lg bg-amber-500">
                 <BookOpen className="h-4 w-4 mb-1" />
-                <span className="text-xs">{lessons.length} Activities</span>
+                <span className="text-xs">
+                  {loading ? '...' : publishedContentCount} {publishedContentCount === 1 ? 'Activity' : 'Activities'}
+                </span>
               </div>
               
               <div className="flex flex-col items-center justify-center p-2 rounded-lg bg-amber-500">

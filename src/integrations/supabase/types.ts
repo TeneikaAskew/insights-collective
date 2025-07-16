@@ -2176,6 +2176,7 @@ export type Database = {
           created_at: string | null
           description: string
           id: string
+          position: number
           prerequisite_module_ids: string[] | null
           publish_final_grade: boolean | null
           published: boolean | null
@@ -2190,6 +2191,7 @@ export type Database = {
           created_at?: string | null
           description: string
           id?: string
+          position: number
           prerequisite_module_ids?: string[] | null
           publish_final_grade?: boolean | null
           published?: boolean | null
@@ -2204,6 +2206,7 @@ export type Database = {
           created_at?: string | null
           description?: string
           id?: string
+          position?: number
           prerequisite_module_ids?: string[] | null
           publish_final_grade?: boolean | null
           published?: boolean | null
