@@ -118,7 +118,7 @@ export const AssignmentForm: React.FC<AssignmentFormProps> = ({
     onSubmit({
       ...values,
       course_id: courseId,
-    });
+    } as any);
   };
 
   return (
