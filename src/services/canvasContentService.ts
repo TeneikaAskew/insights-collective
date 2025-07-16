@@ -79,18 +79,36 @@ export class CanvasContentService {
 
     // Create type-specific records
     if (input.type === 'assignment') {
-      const assignmentInput = input as CreateAssignmentInput;
-      const { error: assignmentError } = await supabase
+      // Handle assignment settings from either top-level or settings.assignment
+      const assignmentData = input.settings?.assignment || {
+        points_possible: (input as CreateAssignmentInput).points_possible,
+        due_at: (input as CreateAssignmentInput).due_at,
+        submission_types: (input as CreateAssignmentInput).submission_types,
+        allowed_attempts: (input as CreateAssignmentInput).allowed_attempts,
+        unlock_at: (input as CreateAssignmentInput).unlock_at,
+        lock_at: (input as CreateAssignmentInput).lock_at,
+        grading_type: (input as CreateAssignmentInput).grading_type
+      };
+
+      const { data: assignment, error: assignmentError } = await supabase
         .from('assignments')
         .insert({
           content_item_id: contentItem.id,
-          points_possible: assignmentInput.points_possible,
-          due_at: assignmentInput.due_at?.toISOString(),
-          submission_types: assignmentInput.submission_types || ['online_text_entry'],
-          allowed_attempts: assignmentInput.allowed_attempts || 1
-        });
+          points_possible: assignmentData.points_possible || 100,
+          due_at: assignmentData.due_at || null,
+          unlock_at: assignmentData.unlock_at || null,
+          lock_at: assignmentData.lock_at || null,
+          submission_types: assignmentData.submission_types || ['online_text_entry'],
+          allowed_attempts: assignmentData.allowed_attempts || 1,
+          grading_type: assignmentData.grading_type || 'points'
+        })
+        .select()
+        .single();
 
       if (assignmentError) throw assignmentError;
+      
+      // Update settings to include assignment ID for reference
+      contentItem.settings = { ...contentItem.settings, assignment_id: assignment.id };
     } else if (input.type === 'quiz') {
       const quizInput = input as CreateQuizInput;
       const { data: quiz, error: quizError } = await supabase
@@ -127,7 +145,8 @@ export class CanvasContentService {
       }
     }
 
-    return contentItem;
+    // Return the content item with assignment data attached
+    return await this.getContentItem(contentItem.id);
   }
 
   static async updateContentItem(

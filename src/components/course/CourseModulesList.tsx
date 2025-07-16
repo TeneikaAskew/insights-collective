@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Link } from 'react-router-dom';
 import { BookOpen, FileText, HelpCircle, Clock, ChevronRight, AlertCircle } from 'lucide-react';
 import { EditCourseButton } from '@/components/course/EditCourseButton';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Rich text renderer component for module descriptions
 const RichTextRenderer: React.FC<{ content: string }> = ({ content }) => {
@@ -65,11 +66,11 @@ interface Module {
   title: string;
   description: string;
   week: number;
-  content_blocks: any[];
-  lessons: any[];
-  assignments: any[];
-  quizzes: any[];
+  position: number;
+  published: boolean;
+  contentItems?: any[];
   completionStatus: number;
+  estimatedTime?: number;
 }
 
 interface CourseModulesListProps {
@@ -80,6 +81,7 @@ export function CourseModulesList({ courseId }: CourseModulesListProps) {
   const [modules, setModules] = useState<Module[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
 
   useEffect(() => {
     const fetchModules = async () => {
@@ -87,40 +89,65 @@ export function CourseModulesList({ courseId }: CourseModulesListProps) {
       
       try {
         setLoading(true);
+        
+        // Fetch modules
         const { data: modulesData, error: modulesError } = await supabase
           .from('modules')
-          .select(`
-            *,
-            content_blocks(
-              id,
-              title,
-              block_type,
-              position,
-              completion_required
-            )
-          `)
+          .select('*')
           .eq('course_id', courseId)
+          .eq('published', true)
+          .order('position', { ascending: true })
           .order('week', { ascending: true });
 
         if (modulesError) throw modulesError;
 
-        // Process modules to categorize content blocks
-        const processedModules = (modulesData || []).map(module => {
-          const contentBlocks = module.content_blocks || [];
-          const textBlocks = contentBlocks.filter(block => 
-            ['text', 'image', 'video', 'file', 'quote', 'code', 'embed'].includes(block.block_type)
-          );
-          const assignmentBlocks = contentBlocks.filter(block => block.block_type === 'assignment');
-          const quizBlocks = contentBlocks.filter(block => block.block_type === 'quiz');
-          
+        // For each module, fetch content items and calculate progress
+        const processedModules = await Promise.all((modulesData || []).map(async (module) => {
+          // Fetch content items for this module
+          const { data: contentItems } = await supabase
+            .from('content_items')
+            .select(`
+              id,
+              type,
+              title,
+              published,
+              assignment:assignments(id),
+              quiz:quizzes(id)
+            `)
+            .eq('module_id', module.id)
+            .eq('published', true);
+
+          // Calculate progress if user is logged in
+          let completionStatus = 0;
+          if (user && contentItems && contentItems.length > 0) {
+            const { data: progressData } = await supabase
+              .from('content_item_progressions')
+              .select('workflow_state')
+              .eq('user_id', user.id)
+              .in('content_item_id', contentItems.map(item => item.id));
+
+            const completedItems = progressData?.filter(p => p.workflow_state === 'read') || [];
+            completionStatus = Math.round((completedItems.length / contentItems.length) * 100);
+          }
+
+          // Count content types
+          const lessons = contentItems?.filter(item => item.type === 'page') || [];
+          const assignments = contentItems?.filter(item => item.type === 'assignment') || [];
+          const quizzes = contentItems?.filter(item => item.type === 'quiz') || [];
+
+          // Estimate time based on content
+          const estimatedTime = lessons.length * 15 + assignments.length * 30 + quizzes.length * 20; // minutes
+
           return {
             ...module,
-            lessons: textBlocks,
-            assignments: assignmentBlocks,
-            quizzes: quizBlocks,
-            completionStatus: 0 // TODO: Calculate actual completion status
+            contentItems,
+            lessons,
+            assignments,
+            quizzes,
+            completionStatus,
+            estimatedTime
           };
-        });
+        }));
 
         setModules(processedModules);
       } catch (error: any) {
@@ -132,7 +159,7 @@ export function CourseModulesList({ courseId }: CourseModulesListProps) {
     };
 
     fetchModules();
-  }, [courseId]);
+  }, [courseId, user]);
 
   if (loading) {
     return (
@@ -226,7 +253,15 @@ export function CourseModulesList({ courseId }: CourseModulesListProps) {
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
                       <Clock className="h-3 w-3" />
-                      <span>Est. 2-3 hours</span>
+                      <span>
+                        {module.estimatedTime ? (
+                          module.estimatedTime >= 60 
+                            ? `Est. ${Math.round(module.estimatedTime / 60)} hour${Math.round(module.estimatedTime / 60) !== 1 ? 's' : ''}`
+                            : `Est. ${module.estimatedTime} min`
+                        ) : (
+                          'Est. time varies'
+                        )}
+                      </span>
                     </div>
                     <Button asChild size="sm">
                       <Link to={`/courses/${courseId}/modules/${module.id}`}>

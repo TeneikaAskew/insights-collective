@@ -426,7 +426,10 @@ const CanvasModuleDetail = () => {
                 Week {module.week}: {module.title}
               </h1>
               {module.description && (
-                <p className="text-muted-foreground">{module.description}</p>
+                <div 
+                  className="prose prose-sm max-w-none text-muted-foreground"
+                  dangerouslySetInnerHTML={{ __html: module.description }}
+                />
               )}
             </div>
             <div className="text-right">

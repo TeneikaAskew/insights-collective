@@ -15,8 +15,7 @@ import {
   ChevronLeft,
   User,
   TrendingUp,
-  GraduationCap,
-  Layers
+  GraduationCap
 } from 'lucide-react';
 import {
   Sidebar,
@@ -44,7 +43,6 @@ const courseNavItems = [
   { title: 'Grades', url: '/grades', icon: BarChart3, studentTitle: 'My Grades' },
   { title: 'Progress', url: '/progress', icon: TrendingUp, studentOnly: true },
   { title: 'Gradebook', url: '/gradebook', icon: GraduationCap, instructorOnly: true },
-  { title: 'Organize', url: '/organize', icon: Layers, instructorOnly: true },
   { title: 'Calendar', url: '/calendar', icon: Calendar },
   { title: 'People', url: '/people', icon: Users },
 ];

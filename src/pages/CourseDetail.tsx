@@ -20,6 +20,7 @@ import { useForums } from '@/hooks/useForums';
 import { useCoursePermissions } from '@/hooks/useCoursePermissions';
 import { EditCourseButton } from '@/components/course/EditCourseButton';
 import { CourseModulesList } from '@/components/course/CourseModulesList';
+import { CanvasAssignmentsList } from '@/components/course/canvas/CanvasAssignmentsList';
 
 const CourseDetail = () => {
   const { courseId } = useParams<{ courseId: string }>();
@@ -391,12 +392,7 @@ const CourseDetail = () => {
                 <FileText className="h-5 w-5 text-primary" />
                 <h2 className="text-2xl font-bold">Assignments</h2>
               </div>
-              <div className="text-center p-8 border rounded-lg bg-muted/20">
-                <p className="text-muted-foreground">No assignments yet.</p>
-                <p className="text-sm text-muted-foreground mt-2">
-                  Assignments will appear here once they're published.
-                </p>
-              </div>
+              <CanvasAssignmentsList courseId={courseId!} />
             </div>
           </div>
         );
