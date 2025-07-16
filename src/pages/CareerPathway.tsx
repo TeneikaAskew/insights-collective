@@ -105,6 +105,21 @@ const CareerPathway: React.FC = () => {
     navigate('/career-agent');
   };
 
+  // Parser function to clean step titles/names
+  const cleanStepTitle = (title: string): string => {
+    if (!title) return '';
+    
+    // Remove step prefixes like "Step 1:", "Step 2:", etc.
+    const cleanedTitle = title
+      .replace(/^Step\s*\d+\s*:?\s*/i, '')
+      .replace(/^\d+\.\s*/, '')
+      .replace(/^Phase\s*\d+\s*:?\s*/i, '')
+      .replace(/^Stage\s*\d+\s*:?\s*/i, '')
+      .trim();
+    
+    return cleanedTitle || title; // Return original if cleaning resulted in empty string
+  };
+
   // Generate action plan
   const generateActionPlan = async () => {
     if (!user) {
@@ -360,7 +375,7 @@ const CareerPathway: React.FC = () => {
                           ? data.report.futureCareerPath
                           : data.report.careerPathSteps || []).map((step: any, idx: number) => (
                             <li key={idx} className="mb-2 text-left">
-                              <span className="font-medium">{step.step || step.title}</span>: {step.action || step.description} <span className="text-gray-500">({step.timeline || step.timeframe})</span>
+                              <span className="font-medium">{cleanStepTitle(step.step || step.title)}</span>: {step.action || step.description} <span className="text-gray-500">({step.timeline || step.timeframe})</span>
                             </li>
                         ))}
                       </ol>
@@ -586,7 +601,7 @@ const CareerPathway: React.FC = () => {
                         <Card className="flex-grow">
                           <CardContent className="p-6">
                             <div className="flex justify-between items-start mb-3">
-                              <h3 className="font-bold text-lg text-gray-900">{step.step || step.title}</h3>
+                              <h3 className="font-bold text-lg text-gray-900">{cleanStepTitle(step.step || step.title)}</h3>
                               <span className="text-primary text-sm font-medium bg-primary/10 px-3 py-1 rounded-full">
                                 {step.timeline || step.timeframe}
                               </span>
