@@ -231,10 +231,10 @@ const QuizResults: React.FC<QuizResultsProps> = ({
   }, [scores, answers]);
   const topTracks = Object.entries(scores).sort(([, a], [, b]) => b - a).slice(0, 3).map(([track, score]) => ({
     track: track as CareerTrack,
-    score,
-    level: getSkillLevel(score),
+    score: score * 5, // Transform from 20-point scale to 100-point scale
+    level: getSkillLevel(score * 5),
     persona: getTrackPersona(track as CareerTrack),
-    courses: getCourseRecommendations(track as CareerTrack, getSkillLevel(score))
+    courses: getCourseRecommendations(track as CareerTrack, getSkillLevel(score * 5))
   }));
   const getTrackIcon = (track: CareerTrack) => {
     switch (track) {
@@ -360,12 +360,12 @@ const QuizResults: React.FC<QuizResultsProps> = ({
 
         <div className="space-y-6">
           {topTracks.map((result, i) => <Card key={result.track} className={`border-t-4 ${i === 0 ? 'border-t-primary' : i === 1 ? 'border-t-blue-400' : 'border-t-blue-300'}`}>
-              <CardHeader className="flex justify-between items-start">
-                <div>
+              <CardHeader>
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">{getTrackIcon(result.track)}<CardTitle>{result.track}</CardTitle></div>
                   <CardDescription>Match Score: {Math.round(result.score)} - {result.level}</CardDescription>
+                  <div className="text-xl font-bold bg-primary/10 text-primary w-12 h-12 flex items-center justify-center rounded-full">#{i + 1}</div>
                 </div>
-                <div className="text-xl font-bold bg-primary/10 text-primary w-12 h-12 flex items-center justify-center rounded-full">#{i + 1}</div>
               </CardHeader>
               <CardContent>
                 <div className="grid md:grid-cols-2 gap-4">

@@ -6,17 +6,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { User, Settings, LogOut, Save } from 'lucide-react';
 import QuizResultsSection from '@/components/profile/QuizResultsSection';
-import CareerPathwaySection from '@/components/profile/CareerPathwaySection';
 import { ProfileAvatar } from '@/components/profile/ProfileAvatar';
 import { NotificationSettings } from '@/components/profile/NotificationSettings';
 import { useProfileUpdate } from '@/hooks/useProfileUpdate';
 import { supabase } from '@/integrations/supabase/client';
 import { UserWithProfile } from '@/types/index';
-import { useCareerPathwayResults } from '@/hooks/useCareerPathwayResults';
 import { useToast } from '@/hooks/use-toast';
 
 import { createLogger } from '@/utils/logger';
@@ -39,17 +36,12 @@ const Profile = () => {
   const navigate = useNavigate();
   const { updateProfile, loading } = useProfileUpdate();
   const { toast } = useToast();
-  const [enrolledCourses, setEnrolledCourses] = useState([]);
   const [formData, setFormData] = useState<UserProfile>({
     first_name: '',
     last_name: '',
     bio: '',
   });
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-
-  const [quizAnswers, setQuizAnswers] = useState<Record<string, string | number>>({});
-
-  const { data: careerReportData, isLoading: careerReportLoading } = useCareerPathwayResults();
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -75,37 +67,7 @@ const Profile = () => {
         }
       };
 
-      const fetchEnrolledCourses = async () => {
-        const { data, error } = await supabase
-          .from('enrollments')
-          .select(`
-            *,
-            courses (*)
-          `)
-          .eq('user_id', user.id);
-
-        if (data && !error) {
-          setEnrolledCourses(data);
-        }
-      };
-
-      const fetchQuizAnswers = async () => {
-        const { data, error } = await supabase
-          .from('career_pathway_answers')
-          .select('answers')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (data?.answers && !error) {
-          setQuizAnswers(data.answers);
-        }
-      };
-
       fetchProfile();
-      fetchEnrolledCourses();
-      fetchQuizAnswers();
     }
   }, [user, isAuthenticated, navigate]);
 
@@ -239,66 +201,6 @@ const Profile = () => {
               </CardContent>
             </Card>
 
-            <CareerPathwaySection pathwayAnswers={quizAnswers} />
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Enrolled Courses</CardTitle>
-                <CardDescription>Your learning journey</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Tabs defaultValue="active">
-                  <TabsList>
-                    <TabsTrigger value="active">Active</TabsTrigger>
-                    <TabsTrigger value="completed">Completed</TabsTrigger>
-                  </TabsList>
-                  
-                  <TabsContent value="active" className="mt-4">
-                    {enrolledCourses.length > 0 ? (
-                      <div className="space-y-4">
-                        {enrolledCourses.map((enrollment: any) => (
-                          <div key={enrollment.id} className="flex items-center justify-between p-4 border rounded-lg">
-                            <div className="flex items-center gap-4">
-                              <div className="w-16 h-16 overflow-hidden rounded-md">
-                                <img 
-                                  src={enrollment.courses?.thumbnail || '/placeholder.svg'} 
-                                  alt={enrollment.courses?.title} 
-                                  className="w-full h-full object-cover"
-                                />
-                              </div>
-                              <div>
-                                <h3 className="font-medium">{enrollment.courses?.title}</h3>
-                                <p className="text-sm text-muted-foreground">
-                                  Progress: {enrollment.completion_status || 0}%
-                                </p>
-                              </div>
-                            </div>
-                            <Button asChild variant="outline">
-                              <a href={`/courses/${enrollment.course_id}`}>Continue</a>
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-8">
-                        <p className="text-muted-foreground">You are not enrolled in any courses yet.</p>
-                        <Button className="mt-4" asChild>
-                          <a href="/courses">Browse Courses</a>
-                        </Button>
-                      </div>
-                    )}
-                  </TabsContent>
-                  
-                  <TabsContent value="completed" className="mt-4">
-                    <div className="text-center py-8">
-                      <p className="text-muted-foreground">
-                        You haven't completed any courses yet.
-                      </p>
-                    </div>
-                  </TabsContent>
-                </Tabs>
-              </CardContent>
-            </Card>
           </div>
         </div>
       </div>
