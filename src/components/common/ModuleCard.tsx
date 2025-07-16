@@ -39,7 +39,7 @@ const ModuleCard = ({
             <div className="grid grid-cols-3 gap-2 mt-2">
               <div className="flex flex-col items-center justify-center p-2 rounded-lg bg-amber-500">
                 <BookOpen className="h-4 w-4 mb-1" />
-                <span className="text-xs">{lessons.length} Lessons</span>
+                <span className="text-xs">{lessons.length} Activities</span>
               </div>
               
               <div className="flex flex-col items-center justify-center p-2 rounded-lg bg-amber-500">

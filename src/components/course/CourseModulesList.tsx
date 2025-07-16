@@ -196,7 +196,7 @@ export function CourseModulesList({ courseId }: CourseModulesListProps) {
                     {module.lessons.length > 0 && (
                       <div className="flex items-center gap-1 text-muted-foreground">
                         <BookOpen className="h-3 w-3" />
-                        <span>{module.lessons.length} lessons</span>
+                        <span>{module.lessons.length} activities</span>
                       </div>
                     )}
                     {module.assignments.length > 0 && (
