@@ -359,9 +359,9 @@ const QuizResults: React.FC<QuizResultsProps> = ({
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">{getTrackIcon(result.track)}<CardTitle>{result.track}</CardTitle></div>
+                  <CardDescription>Match Score: {Math.round(result.score)} - {result.level}</CardDescription>
                   <div className="text-xl font-bold bg-primary/10 text-primary w-12 h-12 flex items-center justify-center rounded-full">#{i + 1}</div>
                 </div>
-                <CardDescription>Match Score: {Math.round(result.score)} - {result.level}</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid md:grid-cols-2 gap-4">
