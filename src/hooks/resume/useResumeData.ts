@@ -5,6 +5,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useResumeStorage } from './useResumeStorage';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useResumeData');
+
 interface Resume {
   id: string;
   user_id: string;
@@ -44,7 +48,7 @@ export function useResumeData() {
     
     setLoading(true);
     try {
-      console.log("Fetching resume for user:", user.id);
+      logger.log("Fetching resume for user:", user.id);
       
       // Get resume record
       const { data, error } = await supabase
@@ -56,20 +60,20 @@ export function useResumeData() {
         .maybeSingle();
         
       if (error) {
-        console.error("Error fetching resume:", JSON.stringify(error));
+        logger.error("Error fetching resume:", JSON.stringify(error));
         throw error;
       }
       
       if (data) {
-        console.log("Found resume record with file path:", data.file_path);
+        logger.log("Found resume record with file path:", data.file_path);
         
         // Get download URL for the resume file using signed URL
         const fileUrl = await getResumeFileUrl(user.id, data.file_path);
         
         if (fileUrl) {
-          console.log("Successfully generated signed URL for resume");
+          logger.log("Successfully generated signed URL for resume");
         } else {
-          console.warn("Could not generate signed URL for resume");
+          logger.warn("Could not generate signed URL for resume");
         }
         
         setResume({
@@ -77,11 +81,11 @@ export function useResumeData() {
           file_url: fileUrl
         });
       } else {
-        console.log("No resume found for user");
+        logger.log("No resume found for user");
         setResume(null);
       }
     } catch (error) {
-      console.error('Error fetching resume:', error);
+      logger.error('Error fetching resume:', error);
       toast({
         title: 'Error',
         description: 'Could not load your resume. Please try again later.',
@@ -102,7 +106,7 @@ export function useResumeData() {
       if (error) throw error;
       return true;
     } catch (error) {
-      console.error('Error updating resume record:', error);
+      logger.error('Error updating resume record:', error);
       return false;
     }
   };
@@ -116,7 +120,7 @@ export function useResumeData() {
       if (error) throw error;
       return true;
     } catch (error) {
-      console.error('Error creating resume record:', error);
+      logger.error('Error creating resume record:', error);
       return false;
     }
   };
@@ -131,7 +135,7 @@ export function useResumeData() {
       if (error) throw error;
       return true;
     } catch (error) {
-      console.error('Error deleting resume record:', error);
+      logger.error('Error deleting resume record:', error);
       return false;
     }
   };

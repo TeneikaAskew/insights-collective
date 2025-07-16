@@ -5,6 +5,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from './use-toast';
 import { fetchArchivedUserConversations } from '@/services/conversationService';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useArchivedConversations');
+
 /**
  * Hook for fetching archived conversations
  */
@@ -28,7 +32,7 @@ export function useArchivedConversations() {
         const archivedConversations = await fetchArchivedUserConversations(user.id);
         setConversations(archivedConversations);
       } catch (error) {
-        console.error('Error loading archived conversations:', error);
+        logger.error('Error loading archived conversations:', error);
         setError(error);
         toast({
           title: 'Error',
@@ -51,7 +55,7 @@ export function useArchivedConversations() {
       const archivedConversations = await fetchArchivedUserConversations(user.id);
       setConversations(archivedConversations);
     } catch (error) {
-      console.error('Error refreshing archived conversations:', error);
+      logger.error('Error refreshing archived conversations:', error);
       setError(error);
     } finally {
       setLoading(false);

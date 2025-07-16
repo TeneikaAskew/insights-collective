@@ -5,6 +5,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { isValidUUID } from '@/utils/idUtils';
 import { Lesson, LessonInput } from '@/types/lesson';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useLessons');
+
 export function useLessons(moduleId?: string) {
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [loading, setLoading] = useState(true);
@@ -19,7 +23,7 @@ export function useLessons(moduleId?: string) {
     }
 
     if (!isValidUUID(moduleId)) {
-      console.error(`Invalid module UUID format: ${moduleId}`);
+      logger.error(`Invalid module UUID format: ${moduleId}`);
       setError('Invalid module ID format');
       setLoading(false);
       return;
@@ -44,7 +48,7 @@ export function useLessons(moduleId?: string) {
       if (error) throw error;
       setLessons(data || []);
     } catch (error: any) {
-      console.error('Error fetching lessons:', error);
+      logger.error('Error fetching lessons:', error);
       setError(error.message || 'Failed to load lessons');
       toast({
         title: 'Error',
@@ -81,7 +85,7 @@ export function useLessons(moduleId?: string) {
 
       return data;
     } catch (error: any) {
-      console.error('Error adding lesson:', error);
+      logger.error('Error adding lesson:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to add lesson',
@@ -93,7 +97,7 @@ export function useLessons(moduleId?: string) {
 
   const updateLesson = async (id: string, updates: Partial<LessonInput>): Promise<Lesson | null> => {
     if (!isValidUUID(id)) {
-      console.error(`Invalid lesson UUID format: ${id}`);
+      logger.error(`Invalid lesson UUID format: ${id}`);
       toast({
         title: 'Error',
         description: 'Invalid lesson ID format',
@@ -121,7 +125,7 @@ export function useLessons(moduleId?: string) {
 
       return data;
     } catch (error: any) {
-      console.error('Error updating lesson:', error);
+      logger.error('Error updating lesson:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to update lesson',
@@ -133,7 +137,7 @@ export function useLessons(moduleId?: string) {
 
   const deleteLesson = async (id: string): Promise<boolean> => {
     if (!isValidUUID(id)) {
-      console.error(`Invalid lesson UUID format: ${id}`);
+      logger.error(`Invalid lesson UUID format: ${id}`);
       toast({
         title: 'Error',
         description: 'Invalid lesson ID format',
@@ -166,7 +170,7 @@ export function useLessons(moduleId?: string) {
 
       return true;
     } catch (error: any) {
-      console.error('Error deleting lesson:', error);
+      logger.error('Error deleting lesson:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to delete lesson',

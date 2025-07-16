@@ -64,16 +64,10 @@ export function CourseSidebar() {
   };
 
   const getNavClassName = (itemUrl: string) => {
-<<<<<<< HEAD
     if (isActive(itemUrl)) {
       return 'bg-primary/10 text-primary font-medium border-r-2 border-primary';
     }
     return 'hover:!bg-primary/10 hover:!text-primary transition-all duration-200';
-=======
-    return isActive(itemUrl) 
-      ? 'bg-primary/10 text-primary font-medium border-r-2 border-primary' 
-      : 'hover:bg-muted/50 hover:text-primary';
->>>>>>> c503dac7f83a67d974c9592ab2ce9e5552eb26f3
   };
 
   // Filter nav items based on user role

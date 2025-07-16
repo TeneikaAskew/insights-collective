@@ -14,6 +14,10 @@ import { useToast } from '@/hooks/use-toast';
 import { Course } from '@/types';
 import { Navigate, Link } from 'react-router-dom';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('Dashboard');
+
 const Dashboard = () => {
   const { user, isAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = useState('courses');
@@ -85,7 +89,7 @@ const Dashboard = () => {
         
         setLoading(false);
       } catch (error: any) {
-        console.error('Error fetching enrolled courses:', error);
+        logger.error('Error fetching enrolled courses:', error);
         setError(error.message);
         setLoading(false);
         toast({
@@ -151,7 +155,7 @@ const Dashboard = () => {
           setTeachingCourses(formattedCourses);
         }
       } catch (error: any) {
-        console.error('Error fetching instructor courses:', error);
+        logger.error('Error fetching instructor courses:', error);
         toast({
           title: "Failed to load instructor courses",
           description: error.message,

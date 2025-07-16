@@ -9,6 +9,10 @@ import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ResumeAnalysis } from '@/components/assistants/types';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('processNextWord');
+
 interface ResumeChatProps {
   resumeAnalysis: ResumeAnalysis | null;
 }
@@ -78,7 +82,7 @@ const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
           setWelcomeMessageShown(true);
         }
       } catch (error) {
-        console.error('Error loading saved chat:', error);
+        logger.error('Error loading saved chat:', error);
       }
     }
   }, [user]);
@@ -101,9 +105,9 @@ const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
         stream: stream || false
       });
       
-      console.log(`Stored ${senderType} message in database`);
+      logger.log(`Stored ${senderType} message in database`);
     } catch (error) {
-      console.error('Error storing message in database:', error);
+      logger.error('Error storing message in database:', error);
     }
   };
 
@@ -123,10 +127,10 @@ const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
       
       // Store the conversation ID in localStorage
       localStorage.setItem(`${STORAGE_KEYS.CONVERSATION_ID}_${user.id}`, data.id);
-      console.log('Created new conversation:', data.id);
+      logger.log('Created new conversation:', data.id);
       return data.id;
     } catch (error) {
-      console.error('Error creating conversation:', error);
+      logger.error('Error creating conversation:', error);
       return null;
     }
   };
@@ -264,7 +268,7 @@ Provide helpful, specific advice as a resume coach. Be constructive, honest, and
             .single();
           
           if (error) {
-            console.error('Error fetching stored assessment:', error);
+            logger.error('Error fetching stored assessment:', error);
             throw error;
           }
           
@@ -329,7 +333,7 @@ ${resumeRoast}
           }
           
         } catch (error) {
-          console.error('Error with assessment:', error);
+          logger.error('Error with assessment:', error);
           
           // Fallback welcome message - NO TYPING ANIMATION
           const fallbackContent = `I've analyzed your resume and can help you improve it! Your resume currently has a grade of **${resumeAnalysis.letter_grade} (${resumeAnalysis.resume_percent}%)**.
@@ -441,7 +445,7 @@ Let's start by discussing your experience: **What specific challenges did you ta
       const controller = new AbortController();
       setStreamController(controller);
       
-      console.log('Invoking together-ai function with chat history');
+      logger.log('Invoking together-ai function with chat history');
       
       const selectedModel = 'meta-llama/Llama-3-8b-chat-hf';
       const maxTokens = 1024;
@@ -455,15 +459,15 @@ Let's start by discussing your experience: **What specific challenges did you ta
         }
       });
       
-      console.log('Supabase function response received:', response);
+      logger.log('Supabase function response received:', response);
       
       if (response.error) {
-        console.error('Error from Together AI:', response.error);
+        logger.error('Error from Together AI:', response.error);
         throw new Error(response.error.message || 'Unknown error');
       }
       
       if (!response.data || !response.data.body) {
-        console.error('No body in response data:', response.data);
+        logger.error('No body in response data:', response.data);
         throw new Error('No readable stream in response');
       }
       
@@ -482,7 +486,7 @@ Let's start by discussing your experience: **What specific challenges did you ta
           if (streamTimeout) clearTimeout(streamTimeout);
           
           streamTimeout = setTimeout(() => {
-            console.log('Stream timed out - no data received in', MAX_SILENCE_MS, 'ms');
+            logger.log('Stream timed out - no data received in', MAX_SILENCE_MS, 'ms');
             reader.cancel('Stream timed out');
             // Mark streaming as complete
             setMessages(prev => prev.map(msg => 
@@ -497,14 +501,14 @@ Let's start by discussing your experience: **What specific challenges did you ta
           const { done, value } = await reader.read();
           
           if (done) {
-            console.log('Stream marked as done');
+            logger.log('Stream marked as done');
             if (streamTimeout) clearTimeout(streamTimeout);
             break;
           }
           
           // Decode the chunk
           const chunk = new TextDecoder().decode(value);
-          console.log('Received chunk:', chunk.substring(0, 100));
+          logger.log('Received chunk:', chunk.substring(0, 100));
           
           // Parse SSE format - each line starts with "data: "
           const lines = chunk.split('\n').filter(line => line.trim() !== '');
@@ -517,17 +521,17 @@ Let's start by discussing your experience: **What specific challenges did you ta
                 
                 // Check if it's the "[DONE]" marker
                 if (jsonStr.trim() === '[DONE]') {
-                  console.log('Received [DONE] marker');
+                  logger.log('Received [DONE] marker');
                   continue;
                 }
                 
                 const jsonData = JSON.parse(jsonStr);
-                console.log('Parsed JSON data:', jsonData);
+                logger.log('Parsed JSON data:', jsonData);
                 
                 // Process delta.content format (newer API)
                 if (jsonData.choices && jsonData.choices[0]?.delta?.content) {
                   const newText = jsonData.choices[0].delta.content;
-                  console.log('Received new text:', newText);
+                  logger.log('Received new text:', newText);
                   
                   // Add to full content reference
                   fullContentRef.current += newText;
@@ -551,7 +555,7 @@ Let's start by discussing your experience: **What specific challenges did you ta
                 // Handle text format (older API)
                 else if (jsonData.choices && jsonData.choices[0]?.text) {
                   const newText = jsonData.choices[0].text;
-                  console.log('Received new text (legacy format):', newText);
+                  logger.log('Received new text (legacy format):', newText);
                   
                   // Add to full content reference
                   fullContentRef.current += newText;
@@ -572,13 +576,13 @@ Let's start by discussing your experience: **What specific challenges did you ta
                   }
                 }
               } catch (e) {
-                console.warn('Error parsing SSE data:', e, 'Line:', line);
+                logger.warn('Error parsing SSE data:', e, 'Line:', line);
               }
             }
           }
         }
       } catch (error) {
-        console.error('Error processing stream:', error);
+        logger.error('Error processing stream:', error);
         // Still update with whatever content we got
         setMessages(prev => prev.map(msg => 
           msg.id === streamingMessage.id 
@@ -612,12 +616,12 @@ Let's start by discussing your experience: **What specific challenges did you ta
       }
       
     } catch (error) {
-      console.error('Error sending message:', error);
+      logger.error('Error sending message:', error);
       
       // Log more details if available
       if (error.response) {
-        console.error('Response data:', error.response.data);
-        console.error('Response status:', error.response.status);
+        logger.error('Response data:', error.response.data);
+        logger.error('Response status:', error.response.status);
       }
       
       toast({

@@ -43,6 +43,10 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('AdminPageVisibility');
+
 const AdminPageVisibility = () => {
   const { pageVisibility, isLoading, updatePageVisibility, syncAvailablePages, isSyncing } = usePageVisibility();
   const { toast } = useToast();
@@ -55,14 +59,14 @@ const AdminPageVisibility = () => {
 
   // Log user role information on component load
   useEffect(() => {
-    console.log('Current user in AdminPageVisibility:', user);
-    console.log('User roles:', user?.roles);
-    console.log('User metadata:', user?.user_metadata);
-    console.log('Current page visibility data:', pageVisibility);
+    logger.log('Current user in AdminPageVisibility:', user);
+    logger.log('User roles:', user?.roles);
+    logger.log('User metadata:', user?.user_metadata);
+    logger.log('Current page visibility data:', pageVisibility);
     
     // If no data is loaded initially, trigger a sync
     if (pageVisibility.length === 0 && !isLoading && !isSyncing && !hasSynced) {
-      console.log('No page visibility data found, triggering initial sync');
+      logger.log('No page visibility data found, triggering initial sync');
       handleSyncPages();
     }
   }, [user, pageVisibility, isLoading, isSyncing, hasSynced]);
@@ -90,7 +94,7 @@ const AdminPageVisibility = () => {
         description: "There was an error updating the page visibility.",
         variant: "destructive",
       });
-      console.error("Failed to update visibility:", error);
+      logger.error("Failed to update visibility:", error);
     } finally {
       setUpdating(prev => ({ ...prev, [id + field]: false }));
     }
@@ -100,7 +104,7 @@ const AdminPageVisibility = () => {
     try {
       setErrorMessage(null);
       setSyncStatus('idle');
-      console.log("Starting page sync...");
+      logger.log("Starting page sync...");
       await syncAvailablePages();
       setHasSynced(true);
       
@@ -118,19 +122,19 @@ const AdminPageVisibility = () => {
         description: "There was an error syncing the page visibility.",
         variant: "destructive",
       });
-      console.error("Failed to sync pages:", error);
+      logger.error("Failed to sync pages:", error);
     }
   };
 
   const manualCheckDatabase = async () => {
     try {
       setErrorMessage(null);
-      console.log("Manually checking database content");
+      logger.log("Manually checking database content");
       const { data, error } = await supabase.from('page_visibility').select('*');
       
       if (error) {
         setErrorMessage(`Database query error: ${error.message}`);
-        console.error("Database query error:", error);
+        logger.error("Database query error:", error);
         toast({
           title: "Database query error",
           description: error.message,
@@ -139,7 +143,7 @@ const AdminPageVisibility = () => {
         return;
       }
       
-      console.log("Database page_visibility records:", data);
+      logger.log("Database page_visibility records:", data);
       toast({
         title: "Database checked",
         description: `Found ${data?.length || 0} page visibility records.`,
@@ -147,7 +151,7 @@ const AdminPageVisibility = () => {
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Unknown error';
       setErrorMessage(`Error checking database: ${errorMsg}`);
-      console.error("Error checking database:", err);
+      logger.error("Error checking database:", err);
     }
   };
 

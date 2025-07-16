@@ -2,13 +2,17 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useEventsWithRegistrations');
+
 export const useEventsWithRegistrations = () => {
   const { user } = useAuth();
   
   return useQuery({
     queryKey: ['events-with-registrations', user?.id],
     queryFn: async () => {
-      console.log('Fetching events and registrations together...');
+      logger.log('Fetching events and registrations together...');
       
       // Fetch events
       const { data: events, error: eventsError } = await supabase
@@ -17,7 +21,7 @@ export const useEventsWithRegistrations = () => {
         .order('date', { ascending: true });
       
       if (eventsError) {
-        console.error('Error fetching events:', eventsError);
+        logger.error('Error fetching events:', eventsError);
         throw eventsError;
       }
       
@@ -27,7 +31,7 @@ export const useEventsWithRegistrations = () => {
         .select('event_id, user_id');
       
       if (allRegError) {
-        console.error('Error fetching all registrations:', allRegError);
+        logger.error('Error fetching all registrations:', allRegError);
         throw allRegError;
       }
       
@@ -40,14 +44,14 @@ export const useEventsWithRegistrations = () => {
           .eq('user_id', user.id);
         
         if (userRegError) {
-          console.error('Error fetching user registrations:', userRegError);
+          logger.error('Error fetching user registrations:', userRegError);
           throw userRegError;
         }
         
         userRegistrations = userRegs || [];
       }
       
-      console.log('Fetched data:', {
+      logger.log('Fetched data:', {
         eventsCount: events?.length,
         userRegistrationsCount: userRegistrations.length,
         totalRegistrationsCount: allRegistrations?.length

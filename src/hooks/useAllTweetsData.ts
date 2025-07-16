@@ -4,6 +4,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast'; 
 import type { Resource } from './useResources'; // Import type
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useAllTweetsData');
+
 // Constants for caching
 const TWEETS_GC_TIME = 1000 * 60 * 30; // 30 minutes
 const TWEETS_STALE_TIME = 1000 * 60 * 5; // 5 minutes
@@ -12,7 +16,7 @@ export function useAllTweetsData() {
   const { toast } = useToast();
 
   const fetchAllTweets = async (): Promise<Resource[]> => {
-    console.log('Fetching all tweets data from Resources Table');
+    logger.log('Fetching all tweets data from Resources Table');
     const { data, error } = await supabase
       .from('resources')
       .select('*')
@@ -21,7 +25,7 @@ export function useAllTweetsData() {
       .order('created_at', { ascending: false }); 
 
     if (error) {
-      console.error('Error fetching all tweets:', error);
+      logger.error('Error fetching all tweets:', error);
       toast({
         title: 'Error fetching tweet data',
         description: error.message,

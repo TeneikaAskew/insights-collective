@@ -15,6 +15,10 @@ import { format } from 'date-fns';
 import { Video, VideoOff, Mic, MicOff, Phone, Clock, ChevronLeft, Award, BookOpen, Sparkles } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('MockInterviewRoom');
+
 interface MockSession {
   id: string;
   user1_id: string;
@@ -87,7 +91,7 @@ export default function MockInterviewRoom() {
       const timeDiff = Math.floor((sessionTime.getTime() - now.getTime()) / 1000);
       setRemainingTime(timeDiff > 0 ? timeDiff : 0);
     } catch (error) {
-      console.error('Error loading session:', error);
+      logger.error('Error loading session:', error);
       toast({
         title: 'Error',
         description: 'Failed to load interview session',
@@ -119,7 +123,7 @@ export default function MockInterviewRoom() {
       // 4. Handle ICE candidates
       // 5. Set up data channel if needed
     } catch (error) {
-      console.error('Error accessing media devices:', error);
+      logger.error('Error accessing media devices:', error);
       toast({
         title: 'Media Access Error',
         description: 'Failed to access camera or microphone',
@@ -194,7 +198,7 @@ export default function MockInterviewRoom() {
         description: 'The mock interview session has been completed',
       });
     } catch (error) {
-      console.error('Error ending session:', error);
+      logger.error('Error ending session:', error);
       toast({
         title: 'Error',
         description: 'Failed to end the session',

@@ -37,6 +37,10 @@ import { CSS } from '@dnd-kit/utilities';
 import { createPortal } from 'react-dom';
 import ModuleManager from './ModuleManager';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('WeekBasedModuleManager');
+
 interface Module {
   id: string;
   title: string;
@@ -183,7 +187,7 @@ const WeekBasedModuleManager = ({ courseId, courseDuration }: WeekBasedModuleMan
       if (error) throw error;
       setModules(data || []);
     } catch (error) {
-      console.error('Error fetching modules:', error);
+      logger.error('Error fetching modules:', error);
       toast({
         title: "Error",
         description: "Failed to load modules",
@@ -226,7 +230,7 @@ const WeekBasedModuleManager = ({ courseId, courseDuration }: WeekBasedModuleMan
         description: "Module added successfully",
       });
     } catch (error) {
-      console.error('Error creating module:', error);
+      logger.error('Error creating module:', error);
       toast({
         title: "Error",
         description: "Failed to create module",
@@ -267,7 +271,7 @@ const WeekBasedModuleManager = ({ courseId, courseDuration }: WeekBasedModuleMan
         description: "Module updated successfully",
       });
     } catch (error) {
-      console.error('Error updating module:', error);
+      logger.error('Error updating module:', error);
       toast({
         title: "Error",
         description: "Failed to update module",
@@ -306,7 +310,7 @@ const WeekBasedModuleManager = ({ courseId, courseDuration }: WeekBasedModuleMan
         description: "Module deleted successfully",
       });
     } catch (error) {
-      console.error('Error deleting module:', error);
+      logger.error('Error deleting module:', error);
       toast({
         title: "Error",
         description: "Failed to delete module",
@@ -383,7 +387,7 @@ const WeekBasedModuleManager = ({ courseId, courseDuration }: WeekBasedModuleMan
         description: `Module moved to week ${newWeek}`,
       });
     } catch (error) {
-      console.error('Error updating module week:', error);
+      logger.error('Error updating module week:', error);
       toast({
         title: "Error",
         description: "Failed to update module week",

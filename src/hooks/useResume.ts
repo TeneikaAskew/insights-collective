@@ -4,6 +4,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useResume');
+
 export interface ResumeAnalysis {
   text?: string;
   sentences?: Array<{
@@ -141,7 +145,7 @@ export function useResume() {
         attempts++;
         setTimeout(poll, 2000);
       } catch (error) {
-        console.error('Error polling for improvements:', error);
+        logger.error('Error polling for improvements:', error);
         setIsPollingForImprovements(false);
       }
     };

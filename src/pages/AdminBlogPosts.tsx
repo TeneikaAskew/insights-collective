@@ -32,6 +32,10 @@ import { BlogPost } from '@/types/blog';
 import { getAllBlogPosts, deleteBlogPost, getBlogCategories } from '@/services/blogService';
 import { format } from 'date-fns';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('AdminBlogPosts');
+
 const AdminBlogPosts = () => {
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -86,7 +90,7 @@ const AdminBlogPosts = () => {
         tagsCount: tags.size
       });
     } catch (error) {
-      console.error('Error fetching blog posts:', error);
+      logger.error('Error fetching blog posts:', error);
       toast({
         title: "Error",
         description: "Failed to load blog posts. Please try again.",
@@ -102,7 +106,7 @@ const AdminBlogPosts = () => {
       const categoryData = await getBlogCategories();
       setCategories(['all', ...categoryData.map(cat => cat.name)]);
     } catch (error) {
-      console.error('Error fetching categories:', error);
+      logger.error('Error fetching categories:', error);
     }
   };
 
@@ -130,7 +134,7 @@ const AdminBlogPosts = () => {
         throw new Error("Failed to delete post");
       }
     } catch (error) {
-      console.error('Error deleting post:', error);
+      logger.error('Error deleting post:', error);
       toast({
         title: "Error",
         description: "Failed to delete the post. Please try again.",

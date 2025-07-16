@@ -22,6 +22,10 @@ import { EditCourseButton } from '@/components/course/EditCourseButton';
 import { CourseModulesList } from '@/components/course/CourseModulesList';
 import { CanvasAssignmentsList } from '@/components/course/canvas/CanvasAssignmentsList';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('CourseDetail');
+
 const CourseDetail = () => {
   const { courseId } = useParams<{ courseId: string }>();
   const location = useLocation();
@@ -127,7 +131,7 @@ const CourseDetail = () => {
         setModules(processedModules);
         setLoading(false);
       } catch (error: any) {
-        console.error('Error fetching course data:', error);
+        logger.error('Error fetching course data:', error);
         setError(error.message || "Error loading course");
         setLoading(false);
         toast({
@@ -151,7 +155,7 @@ const CourseDetail = () => {
       const checkEnrollment = async () => {
         try {
           if (!isValidUUID(courseId)) {
-            console.error(`Invalid course ID: ${courseId}`);
+            logger.error(`Invalid course ID: ${courseId}`);
             return;
           }
           
@@ -166,14 +170,14 @@ const CourseDetail = () => {
             setIsEnrolled(true);
           }
         } catch (error) {
-          console.error('Error checking enrollment:', error);
+          logger.error('Error checking enrollment:', error);
         }
       };
 
       const checkWishlist = async () => {
         try {
           if (!isValidUUID(courseId)) {
-            console.error(`Invalid course ID: ${courseId}`);
+            logger.error(`Invalid course ID: ${courseId}`);
             return;
           }
           
@@ -188,7 +192,7 @@ const CourseDetail = () => {
             setIsWishlisted(true);
           }
         } catch (error) {
-          console.error('Error checking wishlist:', error);
+          logger.error('Error checking wishlist:', error);
         }
       };
       
@@ -258,7 +262,7 @@ const CourseDetail = () => {
         description: `You have been enrolled in ${course.title}`
       });
     } catch (error: any) {
-      console.error('Error enrolling in course:', error);
+      logger.error('Error enrolling in course:', error);
       toast({
         title: "Enrollment failed",
         description: error.message || "There was an error enrolling in this course",
@@ -313,7 +317,7 @@ const CourseDetail = () => {
         description: `${course.title} has been ${newWishlistStatus ? 'added to' : 'removed from'} your wishlist`
       });
     } catch (error: any) {
-      console.error('Error updating wishlist:', error);
+      logger.error('Error updating wishlist:', error);
       toast({
         title: "Wishlist update failed",
         description: error.message || "There was an error updating your wishlist",

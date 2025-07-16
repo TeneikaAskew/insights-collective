@@ -9,6 +9,10 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Shield } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('CourseOrganizer');
+
 interface Module {
   id: string;
   title: string;
@@ -132,7 +136,7 @@ const CourseOrganizer = () => {
       });
     },
     onError: (error) => {
-      console.error('Error saving order:', error);
+      logger.error('Error saving order:', error);
       toast({
         title: 'Error',
         description: 'Failed to update course structure',

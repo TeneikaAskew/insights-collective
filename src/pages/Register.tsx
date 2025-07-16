@@ -12,6 +12,10 @@ import { FaGoogle } from 'react-icons/fa';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('Register');
+
 const Register = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -49,7 +53,7 @@ const Register = () => {
     
     if (redirectPath && redirectPath !== '/login' && redirectPath !== '/register') {
       storeRedirectPath(redirectPath);
-      console.log('Register page: Stored redirect path:', redirectPath);
+      logger.log('Register page: Stored redirect path:', redirectPath);
     }
   };
 
@@ -111,7 +115,7 @@ const Register = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    console.log('Starting registration process...');
+    logger.log('Starting registration process...');
     
     clearErrors();
     setRegistrationSuccess(false);
@@ -156,12 +160,12 @@ const Register = () => {
     setFormSubmitting(true);
     
     try {
-      console.log('Attempting to register with:', { name: name.trim(), email: email.trim().toLowerCase() });
+      logger.log('Attempting to register with:', { name: name.trim(), email: email.trim().toLowerCase() });
       
       storeCurrentPath();
       const result = await register(name.trim(), email.trim().toLowerCase(), password);
       
-      console.log('Registration successful');
+      logger.log('Registration successful');
       setRegistrationSuccess(true);
       setNeedsEmailVerification(true);
       
@@ -173,7 +177,7 @@ const Register = () => {
       });
       
     } catch (error: any) {
-      console.error('Registration error:', error);
+      logger.error('Registration error:', error);
       
       // Parse and display specific error messages
       let errorMessage = error.message || 'An error occurred during registration. Please try again.';
@@ -233,11 +237,11 @@ const Register = () => {
       const redirectPath = redirectParam || from || '/resources';
       
       localStorage.setItem('redirectAfterLogin', redirectPath);
-      console.log('[Register] Stored redirect path before social sign-in:', redirectPath);
+      logger.log('[Register] Stored redirect path before social sign-in:', redirectPath);
       
       await googleSignIn();
     } catch (error: any) {
-      console.error(`[${provider}] Social sign-in failed:`, error);
+      logger.error(`[${provider}] Social sign-in failed:`, error);
       toast({
         title: 'Authentication Error',
         description: error.message || `Failed to sign in with ${provider}`,

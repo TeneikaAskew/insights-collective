@@ -17,6 +17,9 @@ import {
 } from 'lucide-react';
 import { ContentBlock } from '@/types/moduleContent';
 import { cn } from '@/lib/utils';
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('ContentBlockRenderer');
 
 interface ContentBlockRendererProps {
   block: ContentBlock;
@@ -247,7 +250,7 @@ const ContentBlockRenderer: React.FC<ContentBlockRendererProps> = ({
                 size="sm"
                 onClick={() => {
                   // This would open QuizTaker component
-                  console.log('Starting quiz for block:', block.id);
+                  logger.log('Starting quiz for block:', block.id);
                 }}
               >
                 Start Quiz

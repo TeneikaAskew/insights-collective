@@ -10,6 +10,10 @@ import { Plus, Trash2, Save, ArrowUp, ArrowDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('addQuestion');
+
 interface QuizQuestion {
   id?: string;
   question_text: string;
@@ -79,7 +83,7 @@ const QuizBuilder: React.FC<QuizBuilderProps> = ({
       if (error) throw error;
       setQuestions(data || []);
     } catch (error) {
-      console.error('Error fetching questions:', error);
+      logger.error('Error fetching questions:', error);
       toast({
         title: 'Error',
         description: 'Failed to load quiz questions',
@@ -199,7 +203,7 @@ const QuizBuilder: React.FC<QuizBuilderProps> = ({
         description: 'Quiz saved successfully'
       });
     } catch (error) {
-      console.error('Error saving quiz:', error);
+      logger.error('Error saving quiz:', error);
       toast({
         title: 'Error',
         description: 'Failed to save quiz',

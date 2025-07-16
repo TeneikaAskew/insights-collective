@@ -15,6 +15,10 @@ import { useToast } from '@/hooks/use-toast';
 import { usePortfolioPages } from '@/hooks/usePortfolioPages';
 import { ImageUploadArea } from './ImageUploadArea';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('ProjectCard');
+
 interface ProjectCardProps {
   project: PortfolioProject;
   onDelete: (projectId: string) => void;
@@ -99,7 +103,7 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
   };
 
   const handleUpdateProject = () => {
-    console.log('Updating project with form data:', formData);
+    logger.log('Updating project with form data:', formData);
     onUpdate(formData);
     setIsDialogOpen(false);
     toast({

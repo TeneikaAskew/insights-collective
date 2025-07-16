@@ -9,6 +9,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Save } from 'lucide-react';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('generateFieldName');
+
 interface SurveySectionProps {
   section: SectionData;
   formData: Record<string, any>;
@@ -74,7 +78,7 @@ const SurveySection: React.FC<SurveySectionProps> = ({
         description: 'Your responses have been saved as a draft.',
       });
     } catch (error) {
-      console.error("Error saving draft:", error);
+      logger.error("Error saving draft:", error);
       toast({
         title: 'Error',
         description: 'Failed to save draft. Please try again.',

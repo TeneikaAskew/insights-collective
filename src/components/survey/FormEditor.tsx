@@ -18,6 +18,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { cn } from '@/lib/utils';
 import { Spinner } from '@/components/ui/spinner';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('FormEditor');
+
 interface FormEditorProps {
   initialFormData?: {
     id: string;
@@ -66,7 +70,7 @@ export default function FormEditor({ initialFormData }: FormEditorProps) {
     } else if (slug) {
       const fetchForm = async () => {
         try {
-          console.log("Fetching form data for slug:", slug);
+          logger.log("Fetching form data for slug:", slug);
           const { data, error } = await supabase
             .from('forms')
             .select('*')
@@ -74,16 +78,16 @@ export default function FormEditor({ initialFormData }: FormEditorProps) {
             .single();
 
           if (error) {
-            console.error("Error fetching form:", error);
+            logger.error("Error fetching form:", error);
             throw error;
           }
 
           if (!data) {
-            console.error("No data returned for slug:", slug);
+            logger.error("No data returned for slug:", slug);
             throw new Error(`Form with slug "${slug}" not found`);
           }
 
-          console.log("Form data received:", data);
+          logger.log("Form data received:", data);
 
           setFormData({
             id: data.id,
@@ -98,10 +102,10 @@ export default function FormEditor({ initialFormData }: FormEditorProps) {
               data.form_structure.sections : []
           };
           
-          console.log("Form structure initialized:", formStructData);
+          logger.log("Form structure initialized:", formStructData);
           setFormStructure(formStructData);
         } catch (error: any) {
-          console.error('Error fetching form:', error);
+          logger.error('Error fetching form:', error);
           toast({
             title: 'Error',
             description: 'Could not load form data: ' + (error.message || 'Unknown error'),
@@ -115,14 +119,14 @@ export default function FormEditor({ initialFormData }: FormEditorProps) {
       fetchForm();
     } else {
       // Handle case where there's no initialFormData and no slug
-      console.log("No initial form data or slug provided");
+      logger.log("No initial form data or slug provided");
       setLoading(false);
     }
   }, [initialFormData, slug, toast]);
 
   const handleSaveForm = async () => {
     if (!formData?.id) {
-      console.error("No form ID available for saving");
+      logger.error("No form ID available for saving");
       toast({
         title: 'Error',
         description: 'Cannot save: Form ID is missing',
@@ -133,7 +137,7 @@ export default function FormEditor({ initialFormData }: FormEditorProps) {
     
     setSaving(true);
     try {
-      console.log("Saving form structure:", formStructure);
+      logger.log("Saving form structure:", formStructure);
       const { error } = await supabase
         .from('forms')
         .update({
@@ -148,7 +152,7 @@ export default function FormEditor({ initialFormData }: FormEditorProps) {
         description: 'Form structure saved successfully'
       });
     } catch (error: any) {
-      console.error('Error saving form:', error);
+      logger.error('Error saving form:', error);
       toast({
         title: 'Error',
         description: 'Failed to save form structure: ' + (error.message || 'Unknown error'),
@@ -295,7 +299,7 @@ export default function FormEditor({ initialFormData }: FormEditorProps) {
 
     // Make sure formStructure exists and sections is an array
     if (!formStructure || !Array.isArray(formStructure.sections)) {
-      console.error("Invalid form structure for drag and drop");
+      logger.error("Invalid form structure for drag and drop");
       return;
     }
 
@@ -319,7 +323,7 @@ export default function FormEditor({ initialFormData }: FormEditorProps) {
     const destSection = sections.find(s => s.id === destination.droppableId);
     
     if (!sourceSection || !destSection) {
-      console.error("Source or destination section not found");
+      logger.error("Source or destination section not found");
       return;
     }
     
@@ -395,7 +399,7 @@ export default function FormEditor({ initialFormData }: FormEditorProps) {
 
   // Ensure sections is always a valid array
   const sections = Array.isArray(formStructure?.sections) ? formStructure.sections : [];
-  console.log("Rendering form with sections:", sections);
+  logger.log("Rendering form with sections:", sections);
 
   return (
     <div className="container py-8">
@@ -460,7 +464,7 @@ export default function FormEditor({ initialFormData }: FormEditorProps) {
                 description: `Form is now ${checked ? 'published' : 'unpublished'}`
               });
             } catch (error: any) {
-              console.error('Error updating form status:', error);
+              logger.error('Error updating form status:', error);
               toast({
                 title: 'Error',
                 description: 'Failed to update form status: ' + (error.message || 'Unknown error'),

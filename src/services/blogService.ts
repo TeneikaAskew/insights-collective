@@ -1,6 +1,9 @@
 
 import { BlogPost, BlogFormData, BlogCategory, BlogAnalytics } from '@/types/blog';
 import { supabase } from '@/integrations/supabase/client';
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('blogService');
 
 // Get all blog posts with real data from Supabase
 export const getAllBlogPosts = async (): Promise<BlogPost[]> => {
@@ -38,7 +41,7 @@ export const getAllBlogPosts = async (): Promise<BlogPost[]> => {
       readTime: post.read_time
     }));
   } catch (error) {
-    console.error('Error fetching blog posts:', error);
+    logger.error('Error fetching blog posts:', error);
     return [];
   }
 };
@@ -46,7 +49,7 @@ export const getAllBlogPosts = async (): Promise<BlogPost[]> => {
 // Get blog post by slug with real data
 export const getBlogPostBySlug = async (slug: string): Promise<BlogPost | null> => {
   try {
-    console.log('Fetching blog post with slug:', slug);
+    logger.log('Fetching blog post with slug:', slug);
     
     // First get the blog post
     const { data: postData, error: postError } = await supabase
@@ -56,15 +59,15 @@ export const getBlogPostBySlug = async (slug: string): Promise<BlogPost | null> 
       .eq('status', 'published')
       .maybeSingle();
 
-    console.log('Post query result:', { postData, postError });
+    logger.log('Post query result:', { postData, postError });
 
     if (postError) {
-      console.error('Database error:', postError);
+      logger.error('Database error:', postError);
       throw postError;
     }
     
     if (!postData) {
-      console.log('No data found for slug:', slug);
+      logger.log('No data found for slug:', slug);
       return null;
     }
 
@@ -119,14 +122,14 @@ export const getBlogPostBySlug = async (slug: string): Promise<BlogPost | null> 
       readTime: postData.read_time
     };
 
-    console.log('Constructed post object:', post);
+    logger.log('Constructed post object:', post);
 
     // Record a view for this post
     recordBlogPostView(post.id, post.slug);
     
     return post;
   } catch (error) {
-    console.error(`Error fetching blog post with slug ${slug}:`, error);
+    logger.error(`Error fetching blog post with slug ${slug}:`, error);
     return null;
   }
 };
@@ -217,7 +220,7 @@ export const createBlogPost = async (blogPost: BlogFormData): Promise<BlogPost |
       readTime: data.read_time
     };
   } catch (error) {
-    console.error('Error creating blog post:', error);
+    logger.error('Error creating blog post:', error);
     return null;
   }
 };
@@ -328,7 +331,7 @@ export const updateBlogPost = async (slug: string, blogPost: BlogFormData): Prom
       readTime: data.read_time
     };
   } catch (error) {
-    console.error('Error updating blog post:', error);
+    logger.error('Error updating blog post:', error);
     return null;
   }
 };
@@ -344,7 +347,7 @@ export const deleteBlogPost = async (slug: string): Promise<boolean> => {
     if (error) throw error;
     return true;
   } catch (error) {
-    console.error('Error deleting blog post:', error);
+    logger.error('Error deleting blog post:', error);
     return false;
   }
 };
@@ -369,7 +372,7 @@ export const getBlogCategories = async (): Promise<BlogCategory[]> => {
       count: category.blog_posts?.length || 0
     }));
   } catch (error) {
-    console.error('Error fetching blog categories:', error);
+    logger.error('Error fetching blog categories:', error);
     return [];
   }
 };
@@ -390,7 +393,7 @@ export const recordBlogPostView = async (postId: string, slug: string) => {
       });
     
     if (error) {
-      console.error('Error recording blog post view:', error);
+      logger.error('Error recording blog post view:', error);
     }
 
     // Update view count on the post
@@ -401,7 +404,7 @@ export const recordBlogPostView = async (postId: string, slug: string) => {
     });
     
   } catch (error) {
-    console.error('Error recording blog post view:', error);
+    logger.error('Error recording blog post view:', error);
   }
 };
 
@@ -459,7 +462,7 @@ export const getBlogPostAnalytics = async (
       conversionRate: Math.random() * 5 + 1, // Mock data for now
     };
   } catch (error) {
-    console.error('Error fetching blog post analytics:', error);
+    logger.error('Error fetching blog post analytics:', error);
     
     return {
       views: 0,

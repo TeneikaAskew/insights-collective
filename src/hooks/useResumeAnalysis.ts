@@ -5,6 +5,10 @@ import { ResumeAnalysis } from '@/components/assistants/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { CareerTrack } from '@/data/careerQuizData';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useResumeAnalysis');
+
 // Career path alignment calculation
 interface CareerAlignment {
   path: CareerTrack;
@@ -250,11 +254,11 @@ const countKeywordsInResume = (resumeText: string, keywordList: string[]): numbe
       if (matches) {
         count += matches.length;
         // Optional: log matched keywords for debugging
-        // console.log(`Found ${matches.length} matches for '${keyword}'`);
+        // logger.log(`Found ${matches.length} matches for '${keyword}'`);
       }
     } catch (error) {
       // If there's an error with a specific keyword, log it and continue
-      console.warn(`Error matching keyword '${keyword}': ${error.message}`);
+      logger.warn(`Error matching keyword '${keyword}': ${error.message}`);
     }
   }
   
@@ -305,7 +309,7 @@ export function useResumeAnalysis() {
           setHasLoadedAnalysis(true);
           return;
         } catch (error) {
-          console.error('Error parsing saved analysis:', error);
+          logger.error('Error parsing saved analysis:', error);
         }
       }
       // If not in localStorage, try DB (resume table)
@@ -318,7 +322,7 @@ export function useResumeAnalysis() {
           .limit(1)
           .maybeSingle();
         if (error) {
-          console.error('Error fetching analysis from DB:', error);
+          logger.error('Error fetching analysis from DB:', error);
         } else if (data && data.analysis) {
           setAnalysis(data.analysis);
           calculateCareerAlignments(data.analysis);
@@ -327,7 +331,7 @@ export function useResumeAnalysis() {
           setHasLoadedAnalysis(true);
         }
       } catch (err) {
-        console.error('Error loading analysis from DB:', err);
+        logger.error('Error loading analysis from DB:', err);
       }
     };
     tryLoadAnalysis();
@@ -374,7 +378,7 @@ export function useResumeAnalysis() {
 
     const poll = async (attempt: number) => {
       if (attempt >= config.maxAttempts) {
-        console.log('Max polling attempts reached');
+        logger.log('Max polling attempts reached');
         setIsPollingForImprovements(false);
         setPollingStatus('error');
         toast({
@@ -386,7 +390,7 @@ export function useResumeAnalysis() {
       }
 
       try {
-        console.log("Missing bullet points, Bullet Improver Function Invoked")
+        logger.log("Missing bullet points, Bullet Improver Function Invoked")
         
         const { data, error } = await supabase.functions.invoke('resume-analyzer', {
           body: { 
@@ -396,12 +400,12 @@ export function useResumeAnalysis() {
         });
 
         if (error) {
-          console.error("Error polling for improved bullets:", error);
+          logger.error("Error polling for improved bullets:", error);
           throw error;
         }
 
         if (data?.improved_bullets && data.improved_bullets.length > 0) {
-          console.log("Received improved bullets:", data.improved_bullets.length);
+          logger.log("Received improved bullets:", data.improved_bullets.length);
           
           // Update the analysis with improved bullets
           setImprovedBullets(data.improved_bullets);
@@ -442,7 +446,7 @@ export function useResumeAnalysis() {
         }, nextInterval);
 
       } catch (err) {
-        console.error("Error in polling:", err);
+        logger.error("Error in polling:", err);
         setIsPollingForImprovements(false);
         setPollingStatus('error');
         
@@ -490,7 +494,7 @@ export function useResumeAnalysis() {
     updatedAnalysis.bi_keywords_count = countKeywordsInResume(resumeText, CAREER_KEYWORDS['Business Intelligence']);
     
     // Log the keyword counts
-    console.log('Keyword counts:', {
+    logger.log('Keyword counts:', {
       'AI/ML': updatedAnalysis.ai_ml_keywords_count,
       'Analytics': updatedAnalysis.analytics_keywords_count,
       'Data Engineering': updatedAnalysis.data_engineering_keywords_count,
@@ -500,7 +504,7 @@ export function useResumeAnalysis() {
     // Update the analysis state and localStorage
     setAnalysis(updatedAnalysis);
     localStorage.setItem(`resume_analysis_${user?.id}`, JSON.stringify(updatedAnalysis));
-    console.log("Updated Analysis: ", updatedAnalysis)
+    logger.log("Updated Analysis: ", updatedAnalysis)
     
     return updatedAnalysis;
   };
@@ -525,14 +529,14 @@ export function useResumeAnalysis() {
           quizTopPath = quizAttempt.top_recommended_path as CareerTrack;
         }
       } catch (error) {
-        console.error('Error fetching quiz attempt:', error);
+        logger.error('Error fetching quiz attempt:', error);
       }
     }
     
     if (!quizTopPath) {
       quizTopPath = localStorage.getItem('recommendedCareerPath') as CareerTrack;
     }
-    console.log("Data Quiz Top Paths: ", quizTopPath);
+    logger.log("Data Quiz Top Paths: ", quizTopPath);
 
     const careerPaths: CareerTrack[] = ['AI/ML', 'Analytics', 'Data Engineering', 'Business Intelligence'];
     
@@ -557,7 +561,7 @@ export function useResumeAnalysis() {
           break;
       }
       
-      console.log(`Keyword count for ${path}: ${keywordCount}`);
+      logger.log(`Keyword count for ${path}: ${keywordCount}`);
       
       // More realistic percentage calculation
       let percentage = 0;
@@ -601,7 +605,7 @@ export function useResumeAnalysis() {
       // Generate description
       const description = `Your resume shows ${percentage}% alignment with ${path} roles.`;
       
-      console.log(`Final percentage for ${path}: ${percentage}%`);
+      logger.log(`Final percentage for ${path}: ${percentage}%`);
       
       return { path, percentage, description };
     });
@@ -622,7 +626,7 @@ export function useResumeAnalysis() {
       });
       
       if (error) {
-        console.error("Error fetching assessment:", error);
+        logger.error("Error fetching assessment:", error);
         throw error;
       }
       
@@ -634,9 +638,9 @@ export function useResumeAnalysis() {
           .eq('user_id', userId);
           
         if (updateError) {
-          console.error('Error storing assessment in database:', updateError);
+          logger.error('Error storing assessment in database:', updateError);
         } else {
-          console.log('Initial assessment stored successfully');
+          logger.log('Initial assessment stored successfully');
         }
         
         return data.roast;
@@ -644,14 +648,14 @@ export function useResumeAnalysis() {
       
       return null;
     } catch (error) {
-      console.error('Error fetching resume assessment:', error);
+      logger.error('Error fetching resume assessment:', error);
       return null;
     }
   };
 
   const analyzeResume = async (text: string): Promise<boolean> => {
     if (!text || !user) {
-      console.log("Cannot analyze: missing text or user");
+      logger.log("Cannot analyze: missing text or user");
       return false;
     }
     
@@ -667,7 +671,7 @@ export function useResumeAnalysis() {
     localStorage.removeItem(`resume_analysis_${user.id}`);
     localStorage.removeItem(`resume_text_${user.id}`);
     
-    console.log("Starting resume analysis with text of length:", text.length);
+    logger.log("Starting resume analysis with text of length:", text.length);
     
     try {
       // Store the resume text in localStorage for potential later use
@@ -676,8 +680,8 @@ export function useResumeAnalysis() {
       // Check if there are career goals stored in localStorage
       const careerGoals = localStorage.getItem(`career_goals_${user.id}`);
       
-      console.log("[Resume Analysis] Starting initial resume analysis...");
-      console.log("Resume Text: ", text);
+      logger.log("[Resume Analysis] Starting initial resume analysis...");
+      logger.log("Resume Text: ", text);
       
       const { data: analysisData, error } = await supabase.functions.invoke('resume-analyzer', {
         body: { 
@@ -687,21 +691,21 @@ export function useResumeAnalysis() {
           careerGoals: careerGoals || undefined
         }
       });
-      console.log("Analysis Data: ", analysisData);
+      logger.log("Analysis Data: ", analysisData);
 
-      console.log("[Resume Analysis] Initial analysis completed", {
+      logger.log("[Resume Analysis] Initial analysis completed", {
         success: !!analysisData && !error,
         hasError: !!error,
         data: analysisData
       });
 
       if (error) {
-        console.error("[Resume Analysis] Edge function error:", error);
+        logger.error("[Resume Analysis] Edge function error:", error);
         throw new Error(`Edge function error: ${error.message}`);
       }
       
       if (!analysisData || typeof analysisData !== 'object' || Object.keys(analysisData).length === 0) {
-        console.error("[Resume Analysis] Invalid or empty analysis data:", analysisData);
+        logger.error("[Resume Analysis] Invalid or empty analysis data:", analysisData);
         throw new Error("Invalid or empty analysis data returned");
       }
       
@@ -710,7 +714,7 @@ export function useResumeAnalysis() {
       const missingFields = requiredFields.filter(field => !(field in analysisData));
       
       if (missingFields.length > 0) {
-        console.error("[Resume Analysis] Missing required fields:", {
+        logger.error("[Resume Analysis] Missing required fields:", {
           missingFields,
           availableFields: Object.keys(analysisData),
           data: analysisData
@@ -724,7 +728,7 @@ export function useResumeAnalysis() {
         //   themes: analysisData.themes || ['Analysis incomplete. Please try again.']
         // };
         
-        // console.log("[Resume Analysis] Recovered data:", recoveredData);
+        // logger.log("[Resume Analysis] Recovered data:", recoveredData);
         
         // // Clean and enhance the recovered data
         // const cleanedData = cleanAnalysisOutput(recoveredData);
@@ -776,17 +780,17 @@ export function useResumeAnalysis() {
           .maybeSingle();
 
         if (analysisError) {
-          console.error("[Resume Analysis] Error checking analysis status:", analysisError);
+          logger.error("[Resume Analysis] Error checking analysis status:", analysisError);
           return true;
         }
 
         if (!analysisData?.analysis_complete === true || !analysisData?.analysis) {
-          console.log("[Resume Analysis] Analysis not yet complete or missing data");
+          logger.log("[Resume Analysis] Analysis not yet complete or missing data");
           return true;
         }
 
         // Now trigger bullet improvements
-        console.log("[Resume Analysis] Analysis complete, triggering improve-bullets...");
+        logger.log("[Resume Analysis] Analysis complete, triggering improve-bullets...");
         try {
           await supabase.functions.invoke('resume-analyzer', {
             body: { 
@@ -794,25 +798,25 @@ export function useResumeAnalysis() {
               userId: user.id
             }
           });
-          console.log("[Resume Analysis] Improve-bullets request sent successfully");
+          logger.log("[Resume Analysis] Improve-bullets request sent successfully");
           // Start polling after successful request
           setIsPollingForImprovements(true);
           setPollingStatus('polling');
           pollForImprovedBullets(user.id);
         } catch (err) {
-          console.error("[Resume Analysis] Error triggering improve-bullets:", err);
+          logger.error("[Resume Analysis] Error triggering improve-bullets:", err);
           setIsPollingForImprovements(false);
           setPollingStatus('error');
         }
       } catch (err) {
-        console.error("[Resume Analysis] Error triggering improve-bullets:", err);
+        logger.error("[Resume Analysis] Error triggering improve-bullets:", err);
         setIsPollingForImprovements(false);
         setPollingStatus('error');
       }
 
       return true;
     } catch (err) {
-      console.error("[Resume Analysis] Error in analyzeResume:", err);
+      logger.error("[Resume Analysis] Error in analyzeResume:", err);
       setIsAnalyzing(false);
       setIsPollingForImprovements(false);
       setPollingStatus('error');

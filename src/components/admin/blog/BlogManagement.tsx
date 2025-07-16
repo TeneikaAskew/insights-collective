@@ -49,6 +49,10 @@ import { getAllBlogPosts, deleteBlogPost, getBlogCategories } from '@/services/b
 import { BlogPost, BlogCategory } from '@/types/blog';
 import { useToast } from '@/hooks/use-toast';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('BlogManagement');
+
 export function BlogManagement() {
   const { toast } = useToast();
   const [posts, setPosts] = useState<BlogPost[]>([]);
@@ -71,7 +75,7 @@ export function BlogManagement() {
       setPosts(postsData);
       setCategories(categoriesData);
     } catch (error) {
-      console.error('Error loading blog data:', error);
+      logger.error('Error loading blog data:', error);
       toast({
         title: 'Error',
         description: 'Failed to load blog data',
@@ -95,7 +99,7 @@ export function BlogManagement() {
         throw new Error('Failed to delete post');
       }
     } catch (error) {
-      console.error('Error deleting post:', error);
+      logger.error('Error deleting post:', error);
       toast({
         title: 'Error',
         description: 'Failed to delete blog post',

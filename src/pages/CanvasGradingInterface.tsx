@@ -36,6 +36,10 @@ import {
 import { format } from 'date-fns';
 import type { ContentItem, Assignment, AssignmentSubmission } from '@/types/canvas';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('gradingSubmissions');
+
 interface GradingSubmission extends AssignmentSubmission {
   user: {
     id: string;
@@ -116,7 +120,7 @@ function CanvasGradingInterface() {
       }
 
     } catch (error: any) {
-      console.error('Error loading grading data:', error);
+      logger.error('Error loading grading data:', error);
       toast({
         title: 'Error loading submissions',
         description: error.message,
@@ -183,7 +187,7 @@ function CanvasGradingInterface() {
       }
 
     } catch (error: any) {
-      console.error('Error saving grade:', error);
+      logger.error('Error saving grade:', error);
       toast({
         title: 'Error saving grade',
         description: error.message,

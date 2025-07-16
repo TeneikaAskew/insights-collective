@@ -5,6 +5,10 @@ import { useToast } from '@/hooks/use-toast';
 import { useResumeStorage, deleteResumeFile } from './useResumeStorage';
 import { LocalStorageUtils } from '@/utils/localStorageUtils';
 import { useResumeAnalysis } from '@/hooks/useResumeAnalysis';
+
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useResume');
 // Create cache outside of hook
 const signedUrlCache = new Map<string, string>();
 
@@ -33,17 +37,17 @@ const checkResumesTableExists = async () => {
     
     // If there's a PostgreSQL error specifically about relation not existing
     if (error && error.code === '42P01') {
-      console.error("Resumes table does not exist:", error);
+      logger.error("Resumes table does not exist:", error);
       return false;
     } else if (error) {
-      console.error("Error checking resumes table:", error);
+      logger.error("Error checking resumes table:", error);
       return false;
     } else {
-      console.log("Resumes table exists");
+      logger.log("Resumes table exists");
       return true;
     }
   } catch (error) {
-    console.error("Error checking if resumes table exists:", error);
+    logger.error("Error checking if resumes table exists:", error);
     return false;
   }
 };
@@ -99,7 +103,7 @@ export const useResume = () => {
       // Verify the table exists
       const tableExists = await checkResumesTableExists();
       if (!tableExists) {
-        console.error("Resumes table does not exist");
+        logger.error("Resumes table does not exist");
         setResume(null);
         setLoading(false);
         return;
@@ -116,7 +120,7 @@ export const useResume = () => {
       
       if (error) {
         if (error.code !== 'PGRST116') { // No rows returned is not an error for us
-          console.error('Error fetching resume:', error);
+          logger.error('Error fetching resume:', error);
           toast({
             title: 'Error',
             description: 'Failed to load resume data.',
@@ -134,7 +138,7 @@ export const useResume = () => {
         
         if (signedUrlCacheRef.current.has(fullPath)) {
           fileUrl = signedUrlCacheRef.current.get(fullPath)!;
-          console.log("Using cached signed URL:", fileUrl);
+          logger.log("Using cached signed URL:", fileUrl);
         } else {
           try {
             // Reset the fetch flag since we're fetching a new URL
@@ -142,10 +146,10 @@ export const useResume = () => {
             fileUrl = await getResumeFileUrl(user.id, fullPath);
             if (fileUrl) {
               signedUrlCacheRef.current.set(fullPath, fileUrl);
-              console.log("Cached new signed URL for:", fullPath);
+              logger.log("Cached new signed URL for:", fullPath);
             }
           } catch (urlError) {
-            console.error('Error getting file URL:', urlError);
+            logger.error('Error getting file URL:', urlError);
           }
         }
         
@@ -156,7 +160,7 @@ export const useResume = () => {
           created_at: data.uploaded_at // Use uploaded_at as created_at
         });
         
-        console.log("Resume loaded successfully:", {
+        logger.log("Resume loaded successfully:", {
           id: data.id,
           hasText: !!data.text,
           hasUrl: !!fileUrl,
@@ -166,7 +170,7 @@ export const useResume = () => {
         setResume(null);
       }
     } catch (error) {
-      console.error('Error in fetchResume:', error);
+      logger.error('Error in fetchResume:', error);
       toast({
         title: 'Error',
         description: 'An unexpected error occurred loading your resume.',
@@ -206,9 +210,9 @@ export const useResume = () => {
       // let fileText = '';
       // try {
       //   fileText = await extractTextFromFile(file);
-      //   console.log("Successfully extracted text, length:", fileText.length);
+      //   logger.log("Successfully extracted text, length:", fileText.length);
       // } catch (extractError) {
-      //   console.warn('Could not extract text from file:', extractError);
+      //   logger.warn('Could not extract text from file:', extractError);
       //   try {
       //     // Fallback to basic text extraction
       //     const textReader = new FileReader();
@@ -216,9 +220,9 @@ export const useResume = () => {
       //     fileText = await new Promise((resolve) => {
       //       textReader.onload = () => resolve(textReader.result as string);
       //     });
-      //     console.log("Used fallback text extraction, length:", fileText.length);
+      //     logger.log("Used fallback text extraction, length:", fileText.length);
       //   } catch (err) {
-      //     console.warn('Fallback text extraction also failed:', err);
+      //     logger.warn('Fallback text extraction also failed:', err);
       //     // Continue with empty text - at least we can store the file
       //     fileText = 'Text extraction failed. Please try again with a different file format.';
       //   }
@@ -228,11 +232,11 @@ export const useResume = () => {
         
         if (!fileText) {
           try {
-            console.log("No pre-extracted text provided, extracting now...");
+            logger.log("No pre-extracted text provided, extracting now...");
             fileText = await extractTextFromFile(file);
-            console.log("Successfully extracted text, length:", fileText.length);
+            logger.log("Successfully extracted text, length:", fileText.length);
           } catch (extractError) {
-            console.warn('Could not extract text from file:', extractError);
+            logger.warn('Could not extract text from file:', extractError);
             try {
               // Fallback to basic text extraction
               const textReader = new FileReader();
@@ -240,15 +244,15 @@ export const useResume = () => {
               fileText = await new Promise((resolve) => {
                 textReader.onload = () => resolve(textReader.result as string);
               });
-              console.log("Used fallback text extraction, length:", fileText.length);
+              logger.log("Used fallback text extraction, length:", fileText.length);
             } catch (err) {
-              console.warn('Fallback text extraction also failed:', err);
+              logger.warn('Fallback text extraction also failed:', err);
               // Continue with empty text - at least we can store the file
               fileText = 'Text extraction failed. Please try again with a different file format.';
             }
           }
         } else {
-          console.log("Using pre-extracted text, length:", fileText.length);
+          logger.log("Using pre-extracted text, length:", fileText.length);
         }
 
       // Upload file to storage with a unique path
@@ -260,7 +264,7 @@ export const useResume = () => {
       }
       
       // ALWAYS create a new record
-      console.log("Creating new resume record");
+      logger.log("Creating new resume record");
       const { data: newResume, error: insertError } = await supabase
         .from('resumes')
         .insert({
@@ -274,11 +278,11 @@ export const useResume = () => {
         .single();
       
       if (insertError) {
-        console.error('Error creating new resume record:', insertError);
+        logger.error('Error creating new resume record:', insertError);
         throw new Error('Failed to save resume information to database');
       }
       
-      console.log("Successfully created new resume record:", newResume?.id);
+      logger.log("Successfully created new resume record:", newResume?.id);
       
       // Clear any cached analysis data since we have a new resume
       localStorage.removeItem(`resume_analysis_${user.id}`);
@@ -294,14 +298,14 @@ export const useResume = () => {
             .single();
           
           if (verifyError) {
-            console.error("Verification error:", verifyError);
+            logger.error("Verification error:", verifyError);
             return false;
           }
           
-          console.log("Record verified with text length:", verifyData?.text?.length || 0);
+          logger.log("Record verified with text length:", verifyData?.text?.length || 0);
           return !!verifyData && !!verifyData.text;
         } catch (error) {
-          console.error("Verification failed:", error);
+          logger.error("Verification failed:", error);
           return false;
         }
       };
@@ -315,7 +319,7 @@ export const useResume = () => {
       }
       
       if (!verified) {
-        console.warn("Could not verify new record was created properly");
+        logger.warn("Could not verify new record was created properly");
       }
       
       // Refresh resume data to get the latest record
@@ -328,7 +332,7 @@ export const useResume = () => {
       
       return true;
     } catch (error) {
-      console.error('Error uploading resume:', error);
+      logger.error('Error uploading resume:', error);
       toast({
         title: 'Upload Failed',
         description: error.message || 'Failed to upload resume.',
@@ -343,50 +347,50 @@ export const useResume = () => {
   // Delete resume from storage and database
   const deleteResume = async (): Promise<boolean> => {
     if (!user || !resume) {
-      console.error("Cannot delete: missing user or resume");
+      logger.error("Cannot delete: missing user or resume");
       return false;
     }
   
     try {
-      console.log(`=== RESUME DELETION STARTED ===`);
-      console.log(`Resume ID: ${resume.id}`);
-      console.log(`User ID: ${user.id}`);
-      console.log(`File path: ${resume.file_path}`);
+      logger.log(`=== RESUME DELETION STARTED ===`);
+      logger.log(`Resume ID: ${resume.id}`);
+      logger.log(`User ID: ${user.id}`);
+      logger.log(`File path: ${resume.file_path}`);
       
       // First, clear local storage caches associated with this resume
-      console.log(`Clearing localStorage cache for user ${user.id}...`);
+      logger.log(`Clearing localStorage cache for user ${user.id}...`);
       localStorage.removeItem(`resume_analysis_${user.id}`);
       localStorage.removeItem(`resume_text_${user.id}`);
       localStorage.removeItem(`resume_data_${user.id}`);
   
       // Also clear any URL cache
       signedUrlCacheRef.current.clear();
-      console.log(`Cleared URL cache`);
+      logger.log(`Cleared URL cache`);
   
       // First try to delete the file from storage
       try {
-        console.log(`Attempting to delete file from storage: ${resume.file_path}`);
+        logger.log(`Attempting to delete file from storage: ${resume.file_path}`);
         // Fix here: deleteResumeFile expects 2 args, but 3 were provided causing TS error.
         // So ensure only 2 args are passed: userId and filePath
         const storageResult = await deleteResumeFile(user.id, resume.file_path);
         if (!storageResult) {
-          console.warn(`Could not delete file from storage: ${resume.file_path}`);
+          logger.warn(`Could not delete file from storage: ${resume.file_path}`);
         } else {
-          console.log(`Successfully deleted file from storage: ${resume.file_path}`);
+          logger.log(`Successfully deleted file from storage: ${resume.file_path}`);
         }
       } catch (storageError) {
-        console.warn(`Error deleting file from storage: ${resume.file_path}`, storageError);
+        logger.warn(`Error deleting file from storage: ${resume.file_path}`, storageError);
       }
       
       // Delete record from database using ID rather than user_id
-      // console.log(`Deleting resume with ID: ${resume.id} from database...`);
+      // logger.log(`Deleting resume with ID: ${resume.id} from database...`);
       // const { data, error: dbError } = await supabase
       //   .from('resumes')
       //   .delete()
       //   .eq('id', resume.id)
       //   .select();
 
-      console.log(`Deleting all resumes for user ID: ${user.id} from database...`);
+      logger.log(`Deleting all resumes for user ID: ${user.id} from database...`);
       const { data, error: dbError } = await supabase
         .from('resumes')
         .delete()
@@ -394,16 +398,16 @@ export const useResume = () => {
         .select();
       
       if (dbError) {
-        console.error(`Database error deleting resume ID ${resume.id}:`, dbError);
+        logger.error(`Database error deleting resume ID ${resume.id}:`, dbError);
         throw new Error(`Failed to delete resume from database: ${dbError.message}`);
       }
       
-      console.log(`Database response:`, data);
-      console.log(`Successfully deleted resume record from database. Resume ID: ${resume.id}`);
+      logger.log(`Database response:`, data);
+      logger.log(`Successfully deleted resume record from database. Resume ID: ${resume.id}`);
       
       // Clear the resume state
       setResume(null);
-      console.log(`Reset resume state to null`);
+      logger.log(`Reset resume state to null`);
       
       // Reset fetching flags to allow refetching
       hasFetchedResume.current = false;
@@ -414,16 +418,16 @@ export const useResume = () => {
         description: 'Resume deleted successfully.',
       });
       
-      console.log(`=== RESUME DELETION COMPLETED SUCCESSFULLY ===`);
+      logger.log(`=== RESUME DELETION COMPLETED SUCCESSFULLY ===`);
       
       // Refresh to get the next most recent resume if one exists
-      console.log(`Fetching next most recent resume if available...`);
+      logger.log(`Fetching next most recent resume if available...`);
       await fetchResume();
       
       return true;
     } catch (error) {
-      console.error(`=== RESUME DELETION FAILED ===`);
-      console.error('Error details:', error);
+      logger.error(`=== RESUME DELETION FAILED ===`);
+      logger.error('Error details:', error);
       
       toast({
         title: 'Delete Failed',
@@ -438,7 +442,7 @@ export const useResume = () => {
         hasFetchedResume.current = false;
         await fetchResume();
       } catch (cleanupError) {
-        console.error('Error during cleanup after failed deletion:', cleanupError);
+        logger.error('Error during cleanup after failed deletion:', cleanupError);
       }
       
       return false;

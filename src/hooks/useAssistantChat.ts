@@ -7,6 +7,10 @@ import { Chat, Message, PersonalizationSettings } from '@/components/assistants/
 import { Assistant } from '@/types/assistants';
 import { allAssistants, careerExplorerAssistant } from '@/data/assistantData';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useAssistantChat');
+
 export const useAssistantChat = (initialAssistant: Assistant) => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -47,7 +51,7 @@ export const useAssistantChat = (initialAssistant: Assistant) => {
         .order('created_at', { ascending: true });
         
       if (error) {
-        console.error('Error fetching conversation history:', error);
+        logger.error('Error fetching conversation history:', error);
         return;
       }
       
@@ -62,7 +66,7 @@ export const useAssistantChat = (initialAssistant: Assistant) => {
         setMessages(chatMessages);
       }
     } catch (error) {
-      console.error('Error in fetchConversationHistory:', error);
+      logger.error('Error in fetchConversationHistory:', error);
     }
   };
   
@@ -202,7 +206,7 @@ export const useAssistantChat = (initialAssistant: Assistant) => {
         localStorage.setItem('assistantChats', JSON.stringify(updatedChats));
       }
     } catch (error) {
-      console.error('Error sending message:', error);
+      logger.error('Error sending message:', error);
       toast({
         title: "Error",
         description: "Failed to get a response. Please try again.",

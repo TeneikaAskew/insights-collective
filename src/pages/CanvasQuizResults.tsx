@@ -25,6 +25,10 @@ import {
 import { format } from 'date-fns';
 import type { ContentItem, Quiz, QuizQuestion } from '@/types/canvas';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('CanvasQuizResults');
+
 interface QuizSubmissionWithAnswers {
   id: string;
   quiz_id: string;
@@ -109,7 +113,7 @@ export default function CanvasQuizResults() {
       }
 
     } catch (error: any) {
-      console.error('Error loading quiz results:', error);
+      logger.error('Error loading quiz results:', error);
       toast({
         title: 'Error loading quiz results',
         description: error.message,

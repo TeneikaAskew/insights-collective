@@ -5,6 +5,10 @@ import { validateFormFieldConfig, logSecurityEvent } from '@/utils/securityUtils
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('EnhancedFormBuilder');
+
 interface FormField {
   id: string;
   type: string;
@@ -31,7 +35,7 @@ export function EnhancedFormBuilder({ initialFields = [], onFieldsChange }: Enha
   const validateAndSanitizeField = useCallback((field: FormField): FormField | null => {
     // Validate field configuration for security
     if (!validateFormFieldConfig(field)) {
-      console.warn('Invalid field configuration detected:', field);
+      logger.warn('Invalid field configuration detected:', field);
       if (user?.id) {
         logSecurityEvent(
           user.id,

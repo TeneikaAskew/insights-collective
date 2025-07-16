@@ -5,6 +5,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { isValidUUID } from '@/utils/idUtils';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useCourseAssignments');
+
 type CourseAssignment = {
   id: string;
   user_id: string;
@@ -35,7 +39,7 @@ export function useCourseAssignments(courseId?: string) {
     
     // Validate UUID format
     if (!isValidUUID(courseId)) {
-      console.error(`Invalid course UUID format: ${courseId}`);
+      logger.error(`Invalid course UUID format: ${courseId}`);
       setError('Invalid course ID format');
       setLoading(false);
       toast({
@@ -61,10 +65,10 @@ export function useCourseAssignments(courseId?: string) {
         
         if (error) throw error;
         
-        console.log('Fetched course assignments:', data);
+        logger.log('Fetched course assignments:', data);
         setAssignments(data || []);
       } catch (error: any) {
-        console.error('Error fetching course assignments:', error);
+        logger.error('Error fetching course assignments:', error);
         setError(error.message || 'Failed to load course instructors');
         toast({
           title: 'Error',
@@ -84,7 +88,7 @@ export function useCourseAssignments(courseId?: string) {
     
     // Validate UUID format
     if (!isValidUUID(courseId) || !isValidUUID(userId)) {
-      console.error(`Invalid UUID format - courseId: ${courseId}, userId: ${userId}`);
+      logger.error(`Invalid UUID format - courseId: ${courseId}, userId: ${userId}`);
       toast({
         title: 'Error',
         description: 'Invalid ID format',
@@ -147,7 +151,7 @@ export function useCourseAssignments(courseId?: string) {
       
       return newAssignment;
     } catch (error: any) {
-      console.error('Error adding instructor:', error);
+      logger.error('Error adding instructor:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to add instructor',
@@ -162,7 +166,7 @@ export function useCourseAssignments(courseId?: string) {
     
     // Validate UUID format
     if (!isValidUUID(assignmentId)) {
-      console.error(`Invalid assignment UUID format: ${assignmentId}`);
+      logger.error(`Invalid assignment UUID format: ${assignmentId}`);
       toast({
         title: 'Error',
         description: 'Invalid assignment ID format',
@@ -188,7 +192,7 @@ export function useCourseAssignments(courseId?: string) {
       
       return true;
     } catch (error: any) {
-      console.error('Error removing instructor:', error);
+      logger.error('Error removing instructor:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to remove instructor',

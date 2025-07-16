@@ -9,6 +9,10 @@ import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/AuthContext'; // Import useAuth to get the current user ID
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('getInitials');
+
 interface ConversationListProps {
   conversations: any[];
   loading: boolean;
@@ -148,7 +152,7 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
             timeAgo = formatDistanceToNow(new Date(conversation.updated_at), { addSuffix: true });
           }
         } catch (error) {
-          console.error('Error formatting date:', error);
+          logger.error('Error formatting date:', error);
           timeAgo = 'Recently';
         }
 

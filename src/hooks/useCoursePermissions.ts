@@ -4,6 +4,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { isValidUUID } from '@/utils/idUtils';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useCoursePermissions');
+
 export function useCoursePermissions(courseId?: string) {
   const { user } = useAuth();
   const [canEdit, setCanEdit] = useState(false);
@@ -13,10 +17,10 @@ export function useCoursePermissions(courseId?: string) {
   const [error, setError] = useState<string | null>(null);
   
   useEffect(() => {
-    console.log('useCoursePermissions effect triggered - user:', user?.id, 'courseId:', courseId);
+    logger.log('useCoursePermissions effect triggered - user:', user?.id, 'courseId:', courseId);
     
     if (!user || !courseId) {
-      console.log('Missing user or courseId, setting canEdit to false');
+      logger.log('Missing user or courseId, setting canEdit to false');
       setCanEdit(false);
       setLoading(false);
       return;
@@ -24,7 +28,7 @@ export function useCoursePermissions(courseId?: string) {
     
     // Validate UUID format
     if (!isValidUUID(courseId)) {
-      console.error(`Invalid course UUID format: ${courseId}`);
+      logger.error(`Invalid course UUID format: ${courseId}`);
       setError('Invalid course ID format');
       setCanEdit(false);
       setLoading(false);
@@ -43,18 +47,18 @@ export function useCoursePermissions(courseId?: string) {
           .eq('id', user.id)
           .single();
         
-        console.log('User profile data:', userProfile, 'error:', profileError);
+        logger.log('User profile data:', userProfile, 'error:', profileError);
         
         // Use the new security definer functions for consistent role checking
-        console.log('Checking permissions for user:', user.id, 'course:', courseId);
+        logger.log('Checking permissions for user:', user.id, 'course:', courseId);
         
         const { data: hasAdminAccess, error: adminError } = await supabase
           .rpc('has_admin_access', { user_id_param: user.id });
         
-        console.log('Admin access check result:', hasAdminAccess, 'error:', adminError);
+        logger.log('Admin access check result:', hasAdminAccess, 'error:', adminError);
         
         if (adminError) {
-          console.error('Error checking admin access:', adminError);
+          logger.error('Error checking admin access:', adminError);
           throw adminError;
         }
         
@@ -64,10 +68,10 @@ export function useCoursePermissions(courseId?: string) {
             course_id_param: courseId 
           });
         
-        console.log('Instructor access check result:', isCourseInstructor, 'error:', instructorError);
+        logger.log('Instructor access check result:', isCourseInstructor, 'error:', instructorError);
         
         if (instructorError) {
-          console.error('Error checking instructor access:', instructorError);
+          logger.error('Error checking instructor access:', instructorError);
           throw instructorError;
         }
         
@@ -75,8 +79,8 @@ export function useCoursePermissions(courseId?: string) {
         const isAdminFromProfile = userProfile?.roles?.includes('admin');
         const finalAdminAccess = hasAdminAccess || isAdminFromProfile;
         
-        console.log('Setting permissions - Admin (RPC):', hasAdminAccess, 'Admin (Profile):', isAdminFromProfile, 'Final Admin:', finalAdminAccess, 'Instructor:', isCourseInstructor);
-        console.log('About to set state - canEdit will be:', finalAdminAccess || isCourseInstructor);
+        logger.log('Setting permissions - Admin (RPC):', hasAdminAccess, 'Admin (Profile):', isAdminFromProfile, 'Final Admin:', finalAdminAccess, 'Instructor:', isCourseInstructor);
+        logger.log('About to set state - canEdit will be:', finalAdminAccess || isCourseInstructor);
         
         setIsAdmin(finalAdminAccess);
         setIsInstructor(isCourseInstructor || false);
@@ -97,7 +101,7 @@ export function useCoursePermissions(courseId?: string) {
         }
         
       } catch (error: any) {
-        console.error('Error checking course permissions:', error);
+        logger.error('Error checking course permissions:', error);
         setError(error.message || 'Error checking course permissions');
         setCanEdit(false);
         

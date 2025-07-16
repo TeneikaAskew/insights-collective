@@ -6,6 +6,10 @@ import { useStorageUpload } from '@/hooks/useStorageUpload';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('ImageUploadArea');
+
 interface ImageUploadAreaProps {
   onImagesUploaded: (imageUrls: string[]) => void;
   existingImages?: string[];
@@ -82,13 +86,13 @@ export function ImageUploadArea({
     const uploadedUrls: string[] = [];
 
     try {
-      console.log(`Uploading ${imageFiles.length} images to project-images bucket`);
+      logger.log(`Uploading ${imageFiles.length} images to project-images bucket`);
       
       for (const file of imageFiles) {
         const result = await uploadFile(file, 'project-images', user.id);
         if (result?.publicUrl) {
           uploadedUrls.push(result.publicUrl);
-          console.log('Image uploaded successfully:', result.publicUrl);
+          logger.log('Image uploaded successfully:', result.publicUrl);
         }
       }
 
@@ -101,7 +105,7 @@ export function ImageUploadArea({
         });
       }
     } catch (error) {
-      console.error('Error uploading images:', error);
+      logger.error('Error uploading images:', error);
       toast({
         title: "Upload failed",
         description: "Failed to upload images. Please try again.",

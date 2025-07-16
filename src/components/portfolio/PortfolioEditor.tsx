@@ -24,6 +24,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('PortfolioEditor');
+
 export function PortfolioEditor() {
   const { pageId } = useParams<{ pageId: string }>();
   const navigate = useNavigate();
@@ -40,7 +44,7 @@ export function PortfolioEditor() {
   useEffect(() => {
     if (!user?.id) return;
 
-    console.log('Setting up real-time subscription for portfolio projects');
+    logger.log('Setting up real-time subscription for portfolio projects');
 
     const channel = supabase
       .channel('portfolio-projects-changes')
@@ -53,7 +57,7 @@ export function PortfolioEditor() {
           filter: `user_id=eq.${user.id}`
         },
         (payload) => {
-          console.log('Portfolio project changed:', payload);
+          logger.log('Portfolio project changed:', payload);
           // Refetch the portfolio page to get updated project data
           refetchPortfolioPage();
         }
@@ -61,7 +65,7 @@ export function PortfolioEditor() {
       .subscribe();
 
     return () => {
-      console.log('Cleaning up real-time subscription');
+      logger.log('Cleaning up real-time subscription');
       supabase.removeChannel(channel);
     };
   }, [user?.id, refetchPortfolioPage]);

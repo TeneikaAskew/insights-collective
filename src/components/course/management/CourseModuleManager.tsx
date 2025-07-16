@@ -18,6 +18,10 @@ import {
 import { Plus, BookOpen, Edit, Trash2 } from 'lucide-react';
 import ModuleManager from './ModuleManager';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('CourseModuleManager');
+
 interface CourseModuleManagerProps {
   courseId: string;
 }
@@ -59,7 +63,7 @@ const CourseModuleManager = ({ courseId }: CourseModuleManagerProps) => {
       if (error) throw error;
       setModules(data || []);
     } catch (error) {
-      console.error('Error fetching modules:', error);
+      logger.error('Error fetching modules:', error);
       toast({
         title: "Error",
         description: "Failed to load modules",
@@ -102,7 +106,7 @@ const CourseModuleManager = ({ courseId }: CourseModuleManagerProps) => {
         description: "Module added successfully",
       });
     } catch (error) {
-      console.error('Error creating module:', error);
+      logger.error('Error creating module:', error);
       toast({
         title: "Error",
         description: "Failed to create module",
@@ -141,7 +145,7 @@ const CourseModuleManager = ({ courseId }: CourseModuleManagerProps) => {
         description: "Module deleted successfully",
       });
     } catch (error) {
-      console.error('Error deleting module:', error);
+      logger.error('Error deleting module:', error);
       toast({
         title: "Error",
         description: "Failed to delete module",

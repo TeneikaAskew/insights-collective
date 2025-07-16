@@ -36,6 +36,10 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from '@/components/ui/textarea';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('MockInterviews');
+
 interface MockSession {
   id: string;
   user1_id: string;
@@ -100,7 +104,7 @@ export default function MockInterviews() {
 
       setSessions(sessions || []);
     } catch (error) {
-      console.error('Error loading sessions:', error);
+      logger.error('Error loading sessions:', error);
       toast({
         title: 'Error',
         description: 'Failed to load mock interview sessions.',
@@ -151,7 +155,7 @@ export default function MockInterviews() {
         setAvailableUsers([]);
       }
     } catch (error) {
-      console.error('Error loading available users:', error);
+      logger.error('Error loading available users:', error);
       toast({
         title: 'Error',
         description: 'Failed to load available users.',
@@ -199,7 +203,7 @@ export default function MockInterviews() {
       setSelectedType('behavioral');
       setIsInterviewer(false);
     } catch (error) {
-      console.error('Error scheduling session:', error);
+      logger.error('Error scheduling session:', error);
       toast({
         title: 'Error',
         description: 'Failed to schedule mock interview session.',
@@ -280,7 +284,7 @@ export default function MockInterviews() {
       
       setReportDialogOpen(false);
     } catch (error) {
-      console.error('Error submitting no-show report:', error);
+      logger.error('Error submitting no-show report:', error);
       toast({
         title: 'Error',
         description: 'Failed to submit no-show report.',

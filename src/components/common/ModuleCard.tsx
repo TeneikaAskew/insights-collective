@@ -7,6 +7,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('ModuleCard');
+
 interface ModuleCardProps {
   courseId: string;
   module: Module;
@@ -28,7 +32,7 @@ const ModuleCard = ({
           .eq('module_id', module.id);
 
         if (error) {
-          console.error('Error fetching content items:', error);
+          logger.error('Error fetching content items:', error);
           return;
         }
 
@@ -36,7 +40,7 @@ const ModuleCard = ({
         const visibleItems = data?.filter(item => item.published || isInstructor) || [];
         setPublishedContentCount(visibleItems.length);
       } catch (error) {
-        console.error('Error fetching published content count:', error);
+        logger.error('Error fetching published content count:', error);
       } finally {
         setLoading(false);
       }

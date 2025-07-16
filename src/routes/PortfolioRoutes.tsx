@@ -11,6 +11,10 @@ import PortfolioExplorer from '@/pages/PortfolioExplorer';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import PageVisibilityGuard from '@/components/PageVisibilityGuard';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('portfolioRoutes');
+
 // Wrapper component for EnhancedPortfolioEditor
 function PortfolioEditorWrapper() {
   const { pageId } = useParams<{ pageId: string }>();
@@ -47,10 +51,10 @@ function PublicPortfolioViewWrapper() {
     enabled: !!customUrl,
   });
 
-  console.log('PublicPortfolioViewWrapper - customUrl:', customUrl);
-  console.log('PublicPortfolioViewWrapper - portfolioPage:', portfolioPage);
-  console.log('PublicPortfolioViewWrapper - projects:', portfolioPage?.projects);
-  console.log('PublicPortfolioViewWrapper - projects length:', portfolioPage?.projects?.length);
+  logger.log('PublicPortfolioViewWrapper - customUrl:', customUrl);
+  logger.log('PublicPortfolioViewWrapper - portfolioPage:', portfolioPage);
+  logger.log('PublicPortfolioViewWrapper - projects:', portfolioPage?.projects);
+  logger.log('PublicPortfolioViewWrapper - projects length:', portfolioPage?.projects?.length);
 
   if (isLoading) {
     return (
@@ -61,7 +65,7 @@ function PublicPortfolioViewWrapper() {
   }
 
   if (error || !portfolioPage) {
-    console.error('PublicPortfolioViewWrapper - Error or no data:', error);
+    logger.error('PublicPortfolioViewWrapper - Error or no data:', error);
     return (
       <div className="container mx-auto px-4 py-12 max-w-3xl">
         <div className="p-8 text-center">

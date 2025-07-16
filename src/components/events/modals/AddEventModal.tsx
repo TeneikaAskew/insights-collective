@@ -4,6 +4,10 @@ import { Button } from '@/components/ui/button';
 import { EventFormFields, eventTypes, eventFormats } from '@/components/events/modals/EventFormFields';
 import { useEventForm } from '@/components/events/hooks/useEventForm';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('AddEventModal');
+
 interface AddEventModalProps {
   open: boolean;
   onAddEvent: (event: any) => void;
@@ -22,8 +26,8 @@ export function AddEventModal({ open, onAddEvent, editEvent, onClose, children }
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    console.log('Form submission started');
-    console.log('Form state:', formState);
+    logger.log('Form submission started');
+    logger.log('Form state:', formState);
     
     // Validate required fields based on Supabase schema
     const errors: string[] = [];
@@ -35,7 +39,7 @@ export function AddEventModal({ open, onAddEvent, editEvent, onClose, children }
     if (!formState.date) errors.push('Date is required');
     
     if (errors.length > 0) {
-      console.error('Validation errors:', errors);
+      logger.error('Validation errors:', errors);
       alert('Please fill in all required fields:\n' + errors.join('\n'));
       return;
     }
@@ -64,7 +68,7 @@ export function AddEventModal({ open, onAddEvent, editEvent, onClose, children }
       eventData.id = editEvent.id;
     }
     
-    console.log('Submitting event data:', eventData);
+    logger.log('Submitting event data:', eventData);
     onAddEvent(eventData);
   };
   

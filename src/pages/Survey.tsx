@@ -10,6 +10,10 @@ import { Badge } from '@/components/ui/badge';
 import { Calendar, Clock, Users, Star } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('Survey');
+
 const Survey = () => {
   const [forms, setForms] = useState<FormData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,13 +33,13 @@ const Survey = () => {
         .order('created_at', { ascending: false }); // Then by creation date
 
       if (error) {
-        console.error('Error fetching forms:', error);
+        logger.error('Error fetching forms:', error);
         return;
       }
 
       setForms(data || []);
     } catch (error) {
-      console.error('Error fetching forms:', error);
+      logger.error('Error fetching forms:', error);
     } finally {
       setLoading(false);
     }

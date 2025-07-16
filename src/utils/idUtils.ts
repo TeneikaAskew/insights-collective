@@ -2,6 +2,10 @@
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '@/integrations/supabase/client';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('isValidUUID');
+
 // Local storage keys
 const COURSE_ENROLLMENT_KEY = 'insightsCollective_enrolledCourses';
 const COURSE_WISHLIST_KEY = 'insightsCollective_wishlistedCourses';
@@ -30,7 +34,7 @@ const getCourseUuidMapping = (): Record<string, string> => {
     
     return mapping;
   } catch (error) {
-    console.error('Error getting course UUID mapping:', error);
+    logger.error('Error getting course UUID mapping:', error);
     return {};
   }
 };
@@ -40,7 +44,7 @@ const saveCourseUuidMapping = (mapping: Record<string, string>): void => {
   try {
     localStorage.setItem(COURSE_UUID_MAPPING_KEY, JSON.stringify(mapping));
   } catch (error) {
-    console.error('Error saving course UUID mapping:', error);
+    logger.error('Error saving course UUID mapping:', error);
   }
 };
 
@@ -83,7 +87,7 @@ export const getEnrolledCourses = (): string[] => {
     // Filter out invalid UUIDs
     return courses.filter(isValidUUID);
   } catch (error) {
-    console.error('Error getting enrolled courses:', error);
+    logger.error('Error getting enrolled courses:', error);
     return [];
   }
 };
@@ -103,7 +107,7 @@ export const addEnrolledCourse = (courseId: string): void => {
       localStorage.setItem(COURSE_ENROLLMENT_KEY, JSON.stringify(enrolledCourses));
     }
   } catch (error) {
-    console.error('Error adding enrolled course:', error);
+    logger.error('Error adding enrolled course:', error);
   }
 };
 
@@ -116,7 +120,7 @@ export const isEnrolledInCourse = (courseId: string): boolean => {
     
     return getEnrolledCourses().includes(courseUUID);
   } catch (error) {
-    console.error('Error checking if enrolled in course:', error);
+    logger.error('Error checking if enrolled in course:', error);
     return false;
   }
 };
@@ -129,7 +133,7 @@ export const getWishlistedCourses = (): string[] => {
     // Filter out invalid UUIDs
     return courses.filter(isValidUUID);
   } catch (error) {
-    console.error('Error getting wishlisted courses:', error);
+    logger.error('Error getting wishlisted courses:', error);
     return [];
   }
 };
@@ -157,7 +161,7 @@ export const toggleWishlistedCourse = (courseId: string): boolean => {
       return true;
     }
   } catch (error) {
-    console.error('Error toggling wishlisted course:', error);
+    logger.error('Error toggling wishlisted course:', error);
     return false;
   }
 };
@@ -171,7 +175,7 @@ export const isWishlistedCourse = (courseId: string): boolean => {
     
     return getWishlistedCourses().includes(courseUUID);
   } catch (error) {
-    console.error('Error checking if course is wishlisted:', error);
+    logger.error('Error checking if course is wishlisted:', error);
     return false;
   }
 };
@@ -184,7 +188,7 @@ export const getRegisteredEvents = (): string[] => {
     // Filter out invalid UUIDs
     return events.filter(isValidUUID);
   } catch (error) {
-    console.error('Error getting registered events:', error);
+    logger.error('Error getting registered events:', error);
     return [];
   }
 };
@@ -203,7 +207,7 @@ export const registerForEvent = (eventId: string): void => {
       localStorage.setItem(EVENT_REGISTRATION_KEY, JSON.stringify(registeredEvents));
     }
   } catch (error) {
-    console.error('Error registering for event:', error);
+    logger.error('Error registering for event:', error);
   }
 };
 
@@ -216,7 +220,7 @@ export const isRegisteredForEvent = (eventId: string): boolean => {
     
     return getRegisteredEvents().includes(eventUUID);
   } catch (error) {
-    console.error('Error checking if registered for event:', error);
+    logger.error('Error checking if registered for event:', error);
     return false;
   }
 };

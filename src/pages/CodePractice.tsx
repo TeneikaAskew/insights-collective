@@ -13,6 +13,10 @@ import Editor from '@monaco-editor/react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MonacoThemeProvider, MonacoCard } from '@/components/ui/theme-monaco';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('CodePractice');
+
 interface CodeChallenge {
   id: string;
   title: string;
@@ -95,7 +99,7 @@ export default function CodePractice() {
 
       setChallenges(challenges || []);
     } catch (error) {
-      console.error('Error loading challenges:', error);
+      logger.error('Error loading challenges:', error);
       toast({
         title: 'Error',
         description: 'Failed to load challenges. Please try again.',
@@ -148,7 +152,7 @@ export default function CodePractice() {
         variant: executionResult.allTestsPassed ? 'default' : 'destructive',
       });
     } catch (error) {
-      console.error('Error executing code:', error);
+      logger.error('Error executing code:', error);
       toast({
         title: 'Error',
         description: 'Failed to execute code. Please try again.',

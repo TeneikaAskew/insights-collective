@@ -31,6 +31,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('BlogSettings');
+
 const blogSettingsSchema = z.object({
   // General Settings
   blog_title: z.string().min(1, 'Blog title is required'),
@@ -161,7 +165,7 @@ export function BlogSettings() {
         });
       }
     } catch (error) {
-      console.error('Error loading settings:', error);
+      logger.error('Error loading settings:', error);
       toast({
         title: 'Error',
         description: 'Failed to load blog settings. Using defaults.',
@@ -203,7 +207,7 @@ export function BlogSettings() {
         description: 'Your blog settings have been updated successfully.',
       });
     } catch (error) {
-      console.error('Error saving settings:', error);
+      logger.error('Error saving settings:', error);
       toast({
         title: 'Error',
         description: 'Failed to save settings. Please try again.',

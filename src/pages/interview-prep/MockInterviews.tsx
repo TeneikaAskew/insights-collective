@@ -17,6 +17,10 @@ import AppLayout from '@/components/layout/AppLayout';
 import { useNavigate } from 'react-router-dom';
 import { AvailabilityManager } from '@/components/interview-prep/AvailabilityManager';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('MockInterviews');
+
 interface MockSession {
   id: string;
   user1_id: string;
@@ -98,7 +102,7 @@ export default function MockInterviews() {
       
       setHasSetAvailability(availabilitySlots && availabilitySlots.length > 0);
     } catch (error: any) {
-      console.error('Error checking availability status:', error);
+      logger.error('Error checking availability status:', error);
     }
   };
 
@@ -124,7 +128,7 @@ export default function MockInterviews() {
       setPreviousSessions(sessionCounts);
       setSessions(sessions || []);
     } catch (error: any) {
-      console.error('Error loading sessions:', error);
+      logger.error('Error loading sessions:', error);
       toast({
         title: 'Error',
         description: 'Failed to load mock interview sessions: ' + error.message,
@@ -185,7 +189,7 @@ export default function MockInterviews() {
         setAvailableUsers([]);
       }
     } catch (error) {
-      console.error('Error loading available users:', error);
+      logger.error('Error loading available users:', error);
       toast({
         title: 'Error',
         description: 'Failed to load available users.',
@@ -243,7 +247,7 @@ export default function MockInterviews() {
       setSelectedType('behavioral');
       setIsInterviewer(false);
     } catch (error: any) {
-      console.error('Error scheduling session:', error);
+      logger.error('Error scheduling session:', error);
       toast({
         title: 'Error',
         description: 'Failed to schedule mock interview session: ' + error.message,

@@ -6,6 +6,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from './use-toast';
 import { enrichProfileWithRoles } from '@/utils/profileUtils';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useConversationMessages');
+
 /**
  * Fetches messages for a specific conversation and sets up real-time updates
  */
@@ -66,7 +70,7 @@ export function useConversationMessages(conversationId?: string) {
           .eq('read', false);
 
       } catch (error) {
-        console.error('Error fetching messages:', error);
+        logger.error('Error fetching messages:', error);
         toast({
           title: 'Error',
           description: 'Could not load messages. Please try again later.',
@@ -90,7 +94,7 @@ export function useConversationMessages(conversationId?: string) {
           filter: `conversation_id=eq.${conversationId}`
         }, 
         async (payload) => {
-          console.log('Received new message:', payload);
+          logger.log('Received new message:', payload);
           
           try {
             // Fetch the sender profile for the new message
@@ -131,12 +135,12 @@ export function useConversationMessages(conversationId?: string) {
                 .eq('id', payload.new.id);
             }
           } catch (error) {
-            console.error('Error processing real-time message:', error);
+            logger.error('Error processing real-time message:', error);
           }
         }
       )
       .subscribe((status) => {
-        console.log('Message real-time subscription status:', status);
+        logger.log('Message real-time subscription status:', status);
       });
 
     return () => {

@@ -13,6 +13,9 @@ import { Link } from 'react-router-dom';
 import { BookOpen, FileText, HelpCircle, Clock, ChevronRight, AlertCircle } from 'lucide-react';
 import { EditCourseButton } from '@/components/course/EditCourseButton';
 import { useAuth } from '@/contexts/AuthContext';
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('CourseModulesList');
 
 // Rich text renderer component for module descriptions
 const RichTextRenderer: React.FC<{ content: string }> = ({ content }) => {
@@ -151,7 +154,7 @@ export function CourseModulesList({ courseId }: CourseModulesListProps) {
 
         setModules(processedModules);
       } catch (error: any) {
-        console.error('Error fetching modules:', error);
+        logger.error('Error fetching modules:', error);
         setError(error.message || 'Failed to load modules');
       } finally {
         setLoading(false);

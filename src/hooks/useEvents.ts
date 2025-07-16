@@ -1,6 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { eventService } from '@/services/eventService';
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useEvents');
 
 export interface Event {
   id: string;
@@ -30,7 +33,7 @@ export const useEvents = () => {
         .order('date', { ascending: true });
 
       if (error) {
-        console.error('Error fetching events:', error);
+        logger.error('Error fetching events:', error);
         throw error;
       }
 
@@ -58,7 +61,7 @@ export const useUpcomingEvents = (limit?: number) => {
       const { data, error } = await query;
 
       if (error) {
-        console.error('Error fetching upcoming events:', error);
+        logger.error('Error fetching upcoming events:', error);
         throw error;
       }
 
@@ -89,7 +92,7 @@ export const useRecentEvents = (limit?: number) => {
       const { data, error } = await query;
 
       if (error) {
-        console.error('Error fetching recent events:', error);
+        logger.error('Error fetching recent events:', error);
         throw error;
       }
 
@@ -127,7 +130,7 @@ export const useEvent = (eventId: string) => {
         .single();
 
       if (error) {
-        console.error('Error fetching event:', error);
+        logger.error('Error fetching event:', error);
         throw error;
       }
 
@@ -143,7 +146,7 @@ export const useCreateEvent = () => {
   
   return useMutation({
     mutationFn: async (eventData: Omit<Event, 'id' | 'created_at' | 'updated_at'>) => {
-      console.log('Creating event with data:', eventData);
+      logger.log('Creating event with data:', eventData);
       
       // Validate required fields
       if (!eventData.title || !eventData.description || !eventData.date || !eventData.type || !eventData.format) {
@@ -151,15 +154,15 @@ export const useCreateEvent = () => {
       }
       
       const result = await eventService.createEvent(eventData);
-      console.log('Event created successfully:', result);
+      logger.log('Event created successfully:', result);
       return result;
     },
     onSuccess: () => {
-      console.log('Invalidating events cache after successful creation');
+      logger.log('Invalidating events cache after successful creation');
       queryClient.invalidateQueries({ queryKey: ['events'] });
     },
     onError: (error) => {
-      console.error('Error creating event:', error);
+      logger.error('Error creating event:', error);
     },
   });
 };
@@ -169,19 +172,19 @@ export const useUpdateEvent = () => {
   
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Event> & { id: string }) => {
-      console.log('Updating event:', id, 'with data:', updates);
+      logger.log('Updating event:', id, 'with data:', updates);
       
       const result = await eventService.updateEvent(id, updates);
-      console.log('Event updated successfully:', result);
+      logger.log('Event updated successfully:', result);
       return result;
     },
     onSuccess: (_, variables) => {
-      console.log('Invalidating events cache after successful update');
+      logger.log('Invalidating events cache after successful update');
       queryClient.invalidateQueries({ queryKey: ['events'] });
       queryClient.invalidateQueries({ queryKey: ['events', variables.id] });
     },
     onError: (error) => {
-      console.error('Error updating event:', error);
+      logger.error('Error updating event:', error);
     },
   });
 };
@@ -191,17 +194,17 @@ export const useDeleteEvent = () => {
   
   return useMutation({
     mutationFn: async (eventId: string) => {
-      console.log('Deleting event:', eventId);
+      logger.log('Deleting event:', eventId);
       
       await eventService.deleteEvent(eventId);
-      console.log('Event deleted successfully');
+      logger.log('Event deleted successfully');
     },
     onSuccess: () => {
-      console.log('Invalidating events cache after successful deletion');
+      logger.log('Invalidating events cache after successful deletion');
       queryClient.invalidateQueries({ queryKey: ['events'] });
     },
     onError: (error) => {
-      console.error('Error deleting event:', error);
+      logger.error('Error deleting event:', error);
     },
   });
 };

@@ -12,6 +12,10 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Trash2, Save } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('CourseSettings');
+
 interface CourseSettingsProps {
   courseId?: string;
   course: Course | null;
@@ -70,7 +74,7 @@ export default function CourseSettings({ courseId, course }: CourseSettingsProps
         description: 'Course settings have been updated successfully.',
       });
     } catch (error: any) {
-      console.error('Error saving settings:', error);
+      logger.error('Error saving settings:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to save settings',
@@ -102,7 +106,7 @@ export default function CourseSettings({ courseId, course }: CourseSettingsProps
       // Navigate back to course list
       navigate('/admin/courses');
     } catch (error: any) {
-      console.error('Error deleting course:', error);
+      logger.error('Error deleting course:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to delete course',

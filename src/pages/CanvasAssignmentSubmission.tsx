@@ -30,6 +30,10 @@ import {
 import { format } from 'date-fns';
 import type { ContentItem, AssignmentSubmission } from '@/types/canvas';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('CanvasAssignmentSubmission');
+
 export default function CanvasAssignmentSubmission() {
   const { courseId, moduleId, contentItemId } = useParams();
   const navigate = useNavigate();
@@ -90,7 +94,7 @@ export default function CanvasAssignmentSubmission() {
       }
 
     } catch (error: any) {
-      console.error('Error loading assignment:', error);
+      logger.error('Error loading assignment:', error);
       toast({
         title: 'Error loading assignment',
         description: error.message,
@@ -170,7 +174,7 @@ export default function CanvasAssignmentSubmission() {
       navigate(`/courses/${courseId}/modules/${moduleId}`);
 
     } catch (error: any) {
-      console.error('Error submitting assignment:', error);
+      logger.error('Error submitting assignment:', error);
       toast({
         title: 'Error submitting assignment',
         description: error.message,

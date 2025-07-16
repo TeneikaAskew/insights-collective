@@ -36,6 +36,10 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('BlogCategoriesManager');
+
 interface Category {
   id: string;
   name: string;
@@ -114,7 +118,7 @@ export function BlogCategoriesManager() {
       const tree = buildCategoryTree(categoriesWithCounts);
       setCategories(tree);
     } catch (error) {
-      console.error('Error loading categories:', error);
+      logger.error('Error loading categories:', error);
       toast({
         title: 'Error',
         description: 'Failed to load categories',
@@ -231,7 +235,7 @@ export function BlogCategoriesManager() {
       setShowDialog(false);
       loadCategories();
     } catch (error: any) {
-      console.error('Error saving category:', error);
+      logger.error('Error saving category:', error);
       
       // Check for unique constraint violation
       if (error.code === '23505' && error.details?.includes('slug')) {
@@ -269,7 +273,7 @@ export function BlogCategoriesManager() {
       setDeleteConfirm(null);
       loadCategories();
     } catch (error) {
-      console.error('Error deleting category:', error);
+      logger.error('Error deleting category:', error);
       toast({
         title: 'Error',
         description: 'Failed to delete category. Make sure it has no child categories.',

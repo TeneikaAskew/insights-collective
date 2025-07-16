@@ -16,6 +16,10 @@ import AppLayout from '@/components/layout/AppLayout';
 import { LocalStorageUtils } from '@/utils/localStorageUtils';
 import { Link, useNavigate } from 'react-router-dom';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('JobDescription');
+
 interface StudyGuide {
   id: string;
   competencies: {
@@ -53,7 +57,7 @@ export default function JobDescription() {
       // Try to load study guide from local storage
       const cachedStudyGuide = LocalStorageUtils.getStudyGuide(user.id);
       if (cachedStudyGuide) {
-        console.log('Loaded study guide from local storage');
+        logger.log('Loaded study guide from local storage');
         setStudyGuide(cachedStudyGuide);
         // Only switch to study guide tab if there's data
         setActiveTab('study-guide');
@@ -94,7 +98,7 @@ export default function JobDescription() {
         });
       }
     } catch (error) {
-      console.error('Error extracting job description:', error);
+      logger.error('Error extracting job description:', error);
       toast({
         title: 'Extraction Error',
         description: 'An error occurred while extracting the job description',
@@ -151,7 +155,7 @@ export default function JobDescription() {
         description: 'Your personalized study guide has been generated',
       });
     } catch (error) {
-      console.error('Error analyzing job description:', error);
+      logger.error('Error analyzing job description:', error);
       toast({
         title: 'Analysis Error',
         description: 'An error occurred while analyzing the job description',

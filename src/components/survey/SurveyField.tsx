@@ -16,6 +16,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Slider } from '@/components/ui/slider';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('shouldShowField');
+
 interface FieldData {
   label: string;
   type: 'text' | 'textarea' | 'dropdown' | 'radio' | 'checkbox' | 'date' | 
@@ -118,7 +122,7 @@ const SurveyField: React.FC<SurveyFieldProps> = ({ field, fieldName, defaultValu
             setExistingResume(data);
           }
         } catch (err) {
-          console.error("Error checking for existing resume:", err);
+          logger.error("Error checking for existing resume:", err);
         }
       }
     };
@@ -177,7 +181,7 @@ const SurveyField: React.FC<SurveyFieldProps> = ({ field, fieldName, defaultValu
       });
       
     } catch (error) {
-      console.error("Error uploading resume:", error);
+      logger.error("Error uploading resume:", error);
       toast({
         title: 'Upload Failed',
         description: 'There was an error uploading your resume. Please try again.',

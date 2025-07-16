@@ -26,6 +26,10 @@ import {
 import { Plus, BookOpen, Clock, Pencil, Trash2, Edit } from 'lucide-react';
 import EnhancedModuleContentEditor from './EnhancedModuleContentEditor';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('ModuleManager');
+
 interface ModuleManagerProps {
   courseId: string;
   moduleId: string;
@@ -96,7 +100,7 @@ const ModuleManager = ({ courseId, moduleId, module, onUpdate }: ModuleManagerPr
         });
       }
     } catch (error) {
-      console.error('Error creating lesson:', error);
+      logger.error('Error creating lesson:', error);
       toast({
         title: "Error",
         description: "Failed to create lesson",
@@ -146,7 +150,7 @@ const ModuleManager = ({ courseId, moduleId, module, onUpdate }: ModuleManagerPr
         onUpdate();
       }
     } catch (error) {
-      console.error('Error deleting lesson:', error);
+      logger.error('Error deleting lesson:', error);
       toast({
         title: 'Error',
         description: 'Failed to delete lesson',
@@ -185,7 +189,7 @@ const ModuleManager = ({ courseId, moduleId, module, onUpdate }: ModuleManagerPr
         description: "Module updated successfully",
       });
     } catch (error) {
-      console.error('Error updating module:', error);
+      logger.error('Error updating module:', error);
       toast({
         title: "Error",
         description: "Failed to update module",

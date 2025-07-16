@@ -3,6 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { useToast } from './use-toast';
 import type { EnrichedUser } from './useAuth';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useAuthRedirect');
+
 export const useAuthRedirect = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -11,19 +15,19 @@ export const useAuthRedirect = () => {
   const storeRedirectPath = useCallback((path: string) => {
     if (path && !['/login', '/register', '/', '/auth/callback'].includes(path)) {
       localStorage.setItem('redirectAfterLogin', path);
-      console.log('[useAuthRedirect] Stored redirect path:', path);
+      logger.log('[useAuthRedirect] Stored redirect path:', path);
     }
   }, []);
 
   const executeRedirect = useCallback((user: EnrichedUser | null) => {
     if (hasRedirected) {
-      console.log('[useAuthRedirect] Already redirected, skipping');
+      logger.log('[useAuthRedirect] Already redirected, skipping');
       return;
     }
 
     const storedPath = localStorage.getItem('redirectAfterLogin');
     if (!storedPath) {
-      console.log('[useAuthRedirect] No stored redirect path');
+      logger.log('[useAuthRedirect] No stored redirect path');
       return;
     }
 
@@ -39,7 +43,7 @@ export const useAuthRedirect = () => {
       redirectTo = '/dashboard';
     }
 
-    console.log('[useAuthRedirect] Executing redirect to:', redirectTo);
+    logger.log('[useAuthRedirect] Executing redirect to:', redirectTo);
     localStorage.removeItem('redirectAfterLogin');
     setHasRedirected(true);
     navigate(redirectTo, { replace: true });

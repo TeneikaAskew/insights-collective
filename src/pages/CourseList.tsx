@@ -13,6 +13,10 @@ import { useAuthenticatedNavigation } from '@/hooks/useAuthenticatedNavigation';
 import EnrollmentBadge from '@/components/course/EnrollmentBadge';
 import { useNavigate } from 'react-router-dom';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('CourseList');
+
 const CourseList = () => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
@@ -69,7 +73,7 @@ const CourseList = () => {
         setCourses(formattedCourses);
         setLoading(false);
       } catch (error: any) {
-        console.error('Error fetching courses:', error);
+        logger.error('Error fetching courses:', error);
         setError(error.message);
         setLoading(false);
         toast({

@@ -18,6 +18,9 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import type { ContentItem } from '@/types/canvas';
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('CanvasAssignmentsList');
 
 interface CanvasAssignmentsListProps {
   courseId: string;
@@ -77,7 +80,7 @@ export function CanvasAssignmentsList({ courseId }: CanvasAssignmentsListProps) 
       }
 
     } catch (error: any) {
-      console.error('Error loading assignments:', error);
+      logger.error('Error loading assignments:', error);
       toast({
         title: 'Error loading assignments',
         description: error.message,

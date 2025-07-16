@@ -23,6 +23,10 @@ import { ProjectCard } from './ProjectCard';
 import { useToast } from '@/hooks/use-toast';
 import { createPortal } from 'react-dom';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('KanbanBoard');
+
 const statusColumns: { id: ProjectStatus; title: string; color: string }[] = [
   { id: 'Idea', title: 'Ideas', color: 'bg-gray-100' },
   { id: 'Planned', title: 'Planned', color: 'bg-blue-50' },
@@ -93,7 +97,7 @@ export function KanbanBoard({
     const projectId = active.id as string;
     const project = localProjects.find(p => p.id === projectId);
     
-    console.log('Drag started for project:', projectId, project);
+    logger.log('Drag started for project:', projectId, project);
     
     if (project) {
       setDraggingProject(project);
@@ -104,12 +108,12 @@ export function KanbanBoard({
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     
-    console.log('Drag ended:', { active: active?.id, over: over?.id });
+    logger.log('Drag ended:', { active: active?.id, over: over?.id });
     
     setDraggingProject(null);
     
     if (!over || !active) {
-      console.log('No valid drop target or active item');
+      logger.log('No valid drop target or active item');
       return;
     }
     
@@ -119,14 +123,14 @@ export function KanbanBoard({
     // Validate that the new status is a valid ProjectStatus
     const validStatuses: ProjectStatus[] = ['Idea', 'Planned', 'In Progress', 'Completed'];
     if (!validStatuses.includes(newStatus)) {
-      console.log('Invalid drop target:', newStatus);
+      logger.log('Invalid drop target:', newStatus);
       return;
     }
     
     // Only update if the status actually changed
     const project = localProjects.find(p => p.id === projectId);
     if (project && project.status !== newStatus) {
-      console.log('Updating project status:', projectId, 'from', project.status, 'to', newStatus);
+      logger.log('Updating project status:', projectId, 'from', project.status, 'to', newStatus);
       
       // Optimistically update local state first
       setLocalProjects(prevProjects => 

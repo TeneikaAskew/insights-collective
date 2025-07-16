@@ -6,6 +6,10 @@ import { Upload, Image, Search } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useStorageUpload } from '@/hooks/useStorageUpload';
 import {
+
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('ImageUploader');
   Dialog,
   DialogContent,
   DialogDescription,
@@ -49,7 +53,7 @@ export function ImageUploader({
         });
       }
     } catch (error) {
-      console.error('Error uploading image:', error);
+      logger.error('Error uploading image:', error);
       toast({
         title: "Error",
         description: "Failed to upload image",
@@ -80,7 +84,7 @@ export function ImageUploader({
         setIsSearching(false);
       }, 1000);
     } catch (error) {
-      console.error('Error searching for images:', error);
+      logger.error('Error searching for images:', error);
       toast({
         title: "Error",
         description: "Failed to search for images",

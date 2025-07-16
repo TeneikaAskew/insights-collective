@@ -28,6 +28,10 @@ const STORAGE_KEYS = {
 // Import stopwords for keyword extraction
 import { eng } from '@/lib/stopwords_eng';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('removeStopwords');
+
 // Configuration for text filtering
 const FILTERING_CONFIG = {
   // Default is true - enable filtering
@@ -516,7 +520,7 @@ const evaluateKeywords = (jobText: string, resumeText: string): KeywordEvaluatio
 
     setIsExtracting(true);
     try {
-      console.log("Starting Job Extraction from: ", jobUrl)
+      logger.log("Starting Job Extraction from: ", jobUrl)
       const { data, error } = await supabase.functions.invoke('scrape-job-description', {
         body: { url: jobUrl }
       });
@@ -537,7 +541,7 @@ const evaluateKeywords = (jobText: string, resumeText: string): KeywordEvaluatio
         });
       }
     } catch (error) {
-      console.error("Error extracting job description:", error);
+      logger.error("Error extracting job description:", error);
       toast({
         title: "Extraction Error",
         description: "An error occurred while extracting the job description",
@@ -579,7 +583,7 @@ const analyzeJobMatch = async () => {
     const processedResumeText = useFiltering ? filterText(resumeText) : resumeText;
     const processedJobDescription = useFiltering ? filterText(jobDescription) : jobDescription;
 
-    console.log("[Job Description Analyzer] Starting local keyword analysis");
+    logger.log("[Job Description Analyzer] Starting local keyword analysis");
     
     // STEP 1: Perform standard keyword evaluation locally
     const keywordEvaluations = evaluateKeywords(processedJobDescription, processedResumeText);
@@ -608,8 +612,8 @@ const analyzeJobMatch = async () => {
     const matchedCount = sortedKeywords.filter(kw => kw.resumeFrequency > 0).length;
     const keywordScore = Math.round((matchedCount / (keywordCount || 1)) * 100);
     
-    console.log(`[Job Description Analyzer] Keyword analysis complete. Match Score: ${keywordScore}%`);
-    console.log(`[Job Description Analyzer] Matched keywords: ${matchedKeywords.length}, Missing keywords: ${missingKeywords.length} `);
+    logger.log(`[Job Description Analyzer] Keyword analysis complete. Match Score: ${keywordScore}%`);
+    logger.log(`[Job Description Analyzer] Matched keywords: ${matchedKeywords.length}, Missing keywords: ${missingKeywords.length} `);
     
     // STEP 2: Try to use AI for the skill analysis and improvement suggestions
     let analysisResult;
@@ -619,7 +623,7 @@ const analyzeJobMatch = async () => {
     };
     
     try {
-      console.log("[Job Description Analyzer] Calling AI for skill analysis\n", processedResumeText, processedJobDescription, preCalculatedKeywords);
+      logger.log("[Job Description Analyzer] Calling AI for skill analysis\n", processedResumeText, processedJobDescription, preCalculatedKeywords);
       
       // Call AI for skill analysis only
       const { data, error } = await supabase.functions.invoke('analyze-job-match', {
@@ -647,9 +651,9 @@ const analyzeJobMatch = async () => {
         improvementSuggestions: data.improvementSuggestions || []
       };
       
-      console.log("[Job Description Analyzer] AI skill analysis complete");
+      logger.log("[Job Description Analyzer] AI skill analysis complete");
     } catch (aiError) {
-      console.error("AI skill analysis failed, using basic analysis for all parts:", aiError);
+      logger.error("AI skill analysis failed, using basic analysis for all parts:", aiError);
       
       // Fallback to completely local analysis using the old methods
       analysisResult = {
@@ -668,7 +672,7 @@ const analyzeJobMatch = async () => {
         ]
       };
       
-      console.log("[Job Description Analyzer] Fallback local analysis complete");
+      logger.log("[Job Description Analyzer] Fallback local analysis complete");
     }
 
     // Set the analysis result for rendering
@@ -686,7 +690,7 @@ const analyzeJobMatch = async () => {
       description: "Your resume has been analyzed against the job description.",
     });
   } catch (error) {
-    console.error("Error analyzing job match:", error);
+    logger.error("Error analyzing job match:", error);
     toast({
       title: "Analysis Error",
       description: "An error occurred during analysis. Please try again.",
@@ -732,8 +736,8 @@ const analyzeJobMatch = async () => {
   //     // Apply text filtering if enabled
   //     const processedResumeText = useFiltering ? filterText(resumeText) : resumeText;
   //     const processedJobDescription = useFiltering ? filterText(jobDescription) : jobDescription;
-  //     console.log("[Job Description Analyzer] Processed Resume to API: ", processedResumeText)
-  //     console.log("[Job Description Analyzer] Processed JD to API: ", processedJobDescription)
+  //     logger.log("[Job Description Analyzer] Processed Resume to API: ", processedResumeText)
+  //     logger.log("[Job Description Analyzer] Processed JD to API: ", processedJobDescription)
       
   //     // First try to use the AI-powered analysis
   //     let result;
@@ -748,7 +752,7 @@ const analyzeJobMatch = async () => {
   //       if (error) throw new Error(error.message);
   //       result = data;
   //     } catch (aiError) {
-  //       console.error("AI analysis failed, falling back to basic analysis:", aiError);
+  //       logger.error("AI analysis failed, falling back to basic analysis:", aiError);
         
   //       // Fallback to basic keyword matching
   //       const jobDescLower = jobDescription.toLowerCase();
@@ -795,7 +799,7 @@ const analyzeJobMatch = async () => {
   //       description: "Your resume has been analyzed against the job description.",
   //     });
   //   } catch (error) {
-  //     console.error("Error analyzing job match:", error);
+  //     logger.error("Error analyzing job match:", error);
   //     toast({
   //       title: "Analysis Error",
   //       description: "An error occurred during analysis. Please try again.",

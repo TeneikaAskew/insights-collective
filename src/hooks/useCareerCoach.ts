@@ -6,6 +6,10 @@ import { storeQuizAttempt, startCareerCoachConversation } from '@/services/quizS
 import { CareerTrack } from '@/data/careerQuizData';
 import { useAuth } from '@/contexts/AuthContext';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useCareerCoach');
+
 // Define typical salary ranges for each career path
 const careerPathSalaries: Record<CareerTrack, number> = {
   'AI/ML': 160000,
@@ -34,11 +38,11 @@ export function useCareerCoach() {
             
             // Only sync if we have valid data
             if (Object.keys(scores).length > 0 && Object.keys(answers).length > 0) {
-              console.log('Syncing stored quiz results to Supabase silently');
+              logger.log('Syncing stored quiz results to Supabase silently');
               const quizAttemptId = await storeQuizAttempt(answers, scores);
               
               if (quizAttemptId) {
-                console.log('Successfully synced quiz results to Supabase');
+                logger.log('Successfully synced quiz results to Supabase');
                 
                 // If the user was redirected to login from career coach, initialize conversation
                 const redirectPath = localStorage.getItem('redirectAfterLogin');
@@ -55,7 +59,7 @@ export function useCareerCoach() {
               }
             }
           } catch (error) {
-            console.error('Error syncing quiz results to Supabase:', error);
+            logger.error('Error syncing quiz results to Supabase:', error);
           }
         }
       }
@@ -127,7 +131,7 @@ export function useCareerCoach() {
       
       return true;
     } catch (error) {
-      console.error('Error initiating career coach chat:', error);
+      logger.error('Error initiating career coach chat:', error);
       
       toast({
         title: "Error starting chat",

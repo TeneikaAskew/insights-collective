@@ -1,6 +1,10 @@
 import { useMemo } from 'react';
 import { BulletAnalysis } from '@/components/assistants/types';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('BULLET_CATEGORIES');
+
 // Define bullet categories
 export const BULLET_CATEGORIES = {
   action: { label: 'Action', color: '#1F75FE' },    // insight-blue
@@ -23,7 +27,7 @@ interface XYZScores {
 // Function to prepare chart data from bullet analysis
 export const prepareBulletChartData = (bullet: BulletAnalysis) => {
   if (!bullet) {
-    console.error("Received null or undefined bullet data");
+    logger.error("Received null or undefined bullet data");
     return {
       dataWithPercent: [],
       bullet_total: 0,

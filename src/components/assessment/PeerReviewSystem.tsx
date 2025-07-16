@@ -10,6 +10,10 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('handleScoreChange');
+
 interface RubricCriteria {
   assessment_area: string;
   criteria_description: string;
@@ -111,7 +115,7 @@ const PeerReviewSystem: React.FC<PeerReviewSystemProps> = ({
       }
 
     } catch (error) {
-      console.error('Error fetching data:', error);
+      logger.error('Error fetching data:', error);
       toast({
         title: 'Error',
         description: 'Failed to load assessment data',
@@ -176,7 +180,7 @@ const PeerReviewSystem: React.FC<PeerReviewSystemProps> = ({
       setScores(initialScores);
 
     } catch (error) {
-      console.error('Error submitting review:', error);
+      logger.error('Error submitting review:', error);
       toast({
         title: 'Error',
         description: 'Failed to submit review',

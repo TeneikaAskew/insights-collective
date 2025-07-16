@@ -12,6 +12,10 @@ import { Input } from '@/components/ui/input';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('FormSubmissionsList');
+
 interface FormSubmissionsListProps {
   formId: string;
   formSlug: string;
@@ -67,7 +71,7 @@ export default function FormSubmissionsList({ formId, formSlug }: FormSubmission
       
       setSubmissions(data || []);
     } catch (error) {
-      console.error('Error fetching submissions:', error);
+      logger.error('Error fetching submissions:', error);
       toast({
         title: "Error",
         description: "Failed to load form submissions",

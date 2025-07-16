@@ -8,6 +8,10 @@ import { BookOpen, ArrowRight, Bookmark, Loader2 } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('getTagFromBlogTags');
+
 interface BlueprintEntry {
   id: number;
   title: string;
@@ -56,7 +60,7 @@ const DataBlueprintSeries = () => {
 
         setBlueprintEntries(entries);
       } catch (error) {
-        console.error('Error loading blog posts:', error);
+        logger.error('Error loading blog posts:', error);
         // Fallback to empty array - the page will still show with other content
         setBlueprintEntries([]);
       } finally {

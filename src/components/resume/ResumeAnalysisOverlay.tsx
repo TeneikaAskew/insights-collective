@@ -6,6 +6,10 @@ import { Spinner } from '@/components/ui/spinner';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('saveGoalsLocally');
+
 type AnalysisStage = {
   id: string;
   message: string;
@@ -126,12 +130,12 @@ export const ResumeAnalysisOverlay: React.FC<ResumeAnalysisOverlayProps> = ({
         .eq('id', resumeId);
       
       if (error) {
-        console.error('Error saving career goals:', error);
+        logger.error('Error saving career goals:', error);
       } else {
-        console.log('Career goals saved to database');
+        logger.log('Career goals saved to database');
       }
     } catch (err) {
-      console.error('Error in saving career goals:', err);
+      logger.error('Error in saving career goals:', err);
     } finally {
       setIsSaving(false);
     }

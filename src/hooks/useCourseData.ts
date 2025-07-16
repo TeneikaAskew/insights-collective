@@ -3,6 +3,9 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Course } from '@/types';
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useCourseData');
 
 export function useCourseData(courseId?: string) {
   const [course, setCourse] = useState<Course | null>(null);
@@ -22,7 +25,7 @@ export function useCourseData(courseId?: string) {
       setError(null);
       
       try {
-        console.log('Fetching course data for ID:', courseId);
+        logger.log('Fetching course data for ID:', courseId);
         
         // Fetch course details with instructor information
         const { data, error: courseError } = await supabase
@@ -35,7 +38,7 @@ export function useCourseData(courseId?: string) {
           .single();
         
         if (courseError) {
-          console.error('Course fetch error:', courseError);
+          logger.error('Course fetch error:', courseError);
           throw courseError;
         }
 
@@ -43,7 +46,7 @@ export function useCourseData(courseId?: string) {
           throw new Error('Course not found');
         }
 
-        console.log('Raw course data from database:', data);
+        logger.log('Raw course data from database:', data);
 
         // Transform database fields to frontend model
         const transformedCourse: Course = {
@@ -71,7 +74,7 @@ export function useCourseData(courseId?: string) {
           } : undefined,
         };
 
-        console.log('Transformed course data:', transformedCourse);
+        logger.log('Transformed course data:', transformedCourse);
 
         // Fetch enrollment count
         const { count, error: countError } = await supabase
@@ -86,7 +89,7 @@ export function useCourseData(courseId?: string) {
         // Set the course data
         setCourse(transformedCourse);
       } catch (err: any) {
-        console.error('Error fetching course:', err);
+        logger.error('Error fetching course:', err);
         setError(err.message || 'Failed to load course details');
         toast({
           title: 'Error',

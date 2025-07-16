@@ -3,6 +3,10 @@ import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('AuthCallback');
+
 const AuthCallback = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -16,7 +20,7 @@ const AuthCallback = () => {
     
     // Short delay to ensure any auth state changes are processed
     const timer = setTimeout(() => {
-      console.log('[AuthCallback] Redirecting to:', redirect);
+      logger.log('[AuthCallback] Redirecting to:', redirect);
       navigate(redirect, { replace: true });
     }, 300);
 

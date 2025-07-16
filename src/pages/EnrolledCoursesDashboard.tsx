@@ -24,6 +24,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('EnrolledCoursesDashboard');
+
 interface EnrolledCourse {
   id: string;
   title: string;
@@ -98,7 +102,7 @@ export default function EnrolledCoursesDashboard() {
 
       setCourses(enrolledCourses);
     } catch (error: any) {
-      console.error('Error fetching enrolled courses:', error);
+      logger.error('Error fetching enrolled courses:', error);
       toast({
         title: 'Error loading courses',
         description: 'Failed to load your enrolled courses',

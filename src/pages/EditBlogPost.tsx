@@ -10,6 +10,10 @@ import { BlogFormData, BlogPost } from '@/types/blog';
 import { toast } from '@/hooks/use-toast';
 import BlogPostForm from '@/components/blog/BlogPostForm';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('EditBlogPost');
+
 const EditBlogPost = () => {
   const navigate = useNavigate();
   const { slug } = useParams<{ slug: string }>();
@@ -35,7 +39,7 @@ const EditBlogPost = () => {
           navigate('/admin/blog');
         }
       } catch (error) {
-        console.error('Error fetching blog post:', error);
+        logger.error('Error fetching blog post:', error);
         toast({
           title: "Error",
           description: "Failed to load blog post",
@@ -67,7 +71,7 @@ const EditBlogPost = () => {
         throw new Error('Failed to update post');
       }
     } catch (error) {
-      console.error('Error updating blog post:', error);
+      logger.error('Error updating blog post:', error);
       toast({
         title: "Error",
         description: "Failed to update blog post",

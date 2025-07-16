@@ -1,6 +1,10 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useOnboarding');
+
 interface OnboardingStep {
   id: string;
   title: string;
@@ -60,7 +64,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         setDismissedTours(progress.dismissedTours || []);
         setIsFirstVisit(false);
       } catch (error) {
-        console.error('Failed to parse onboarding progress:', error);
+        logger.error('Failed to parse onboarding progress:', error);
         setIsFirstVisit(true);
       }
     } else {

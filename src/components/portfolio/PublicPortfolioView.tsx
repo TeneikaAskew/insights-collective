@@ -6,6 +6,10 @@ import { usePortfolioPages } from '@/hooks/usePortfolioPages';
 import { Spinner } from '@/components/ui/spinner';
 import { PortfolioLayoutRenderer } from './PortfolioLayoutRenderer';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('PublicPortfolioView');
+
 export function PublicPortfolioView() {
   const { customUrl } = useParams<{ customUrl: string }>();
   const { getPublicPortfolioPage } = usePortfolioPages();
@@ -16,9 +20,9 @@ export function PublicPortfolioView() {
     enabled: !!customUrl,
   });
   
-  console.log('Public portfolio data in PublicPortfolioView:', portfolioData);
-  console.log('Projects in PublicPortfolioView:', portfolioData?.projects);
-  console.log('Projects count:', portfolioData?.projects?.length || 0);
+  logger.log('Public portfolio data in PublicPortfolioView:', portfolioData);
+  logger.log('Projects in PublicPortfolioView:', portfolioData?.projects);
+  logger.log('Projects count:', portfolioData?.projects?.length || 0);
   
   if (isLoading) {
     return (

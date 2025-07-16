@@ -39,6 +39,10 @@ import { UnifiedCanvasEditor } from '@/components/ui/unified-canvas-editor';
 import type { ContentItem, Module } from '@/types/canvas';
 import { format } from 'date-fns';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('CanvasModuleDetail');
+
 const CanvasModuleDetail = () => {
   const { courseId, moduleId } = useParams<{ courseId: string; moduleId: string }>();
   const navigate = useNavigate();
@@ -66,7 +70,7 @@ const CanvasModuleDetail = () => {
   const loadData = async () => {
     // Validate that both courseId and moduleId are valid UUIDs
     if (!courseId || !moduleId || courseId === 'undefined' || moduleId === 'undefined') {
-      console.error('Invalid course or module ID:', { courseId, moduleId });
+      logger.error('Invalid course or module ID:', { courseId, moduleId });
       setLoading(false);
       toast({
         title: "Error",
@@ -79,7 +83,7 @@ const CanvasModuleDetail = () => {
     // Basic UUID validation - ensure it's not just "undefined" string
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(courseId) || !uuidRegex.test(moduleId)) {
-      console.error('Invalid UUID format:', { courseId, moduleId });
+      logger.error('Invalid UUID format:', { courseId, moduleId });
       setLoading(false);
       toast({
         title: "Error", 
@@ -177,7 +181,7 @@ const CanvasModuleDetail = () => {
       }
 
     } catch (error: any) {
-      console.error('Error loading data:', error);
+      logger.error('Error loading data:', error);
       toast({
         title: "Error",
         description: "Failed to load module content",
@@ -206,7 +210,7 @@ const CanvasModuleDetail = () => {
       const progressPercentage = Math.round((completedItems.length / contentItems.length) * 100);
       setProgress(progressPercentage);
     } catch (error) {
-      console.error('Error marking item as read:', error);
+      logger.error('Error marking item as read:', error);
     }
   };
 

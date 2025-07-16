@@ -14,6 +14,10 @@ import { Plus } from 'lucide-react';
 import { slugify } from '@/lib/utils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('AdminForms');
+
 const AdminForms = () => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -77,7 +81,7 @@ const AdminForms = () => {
       setFormLink('');
       setOpen(false);
     } catch (error: any) {
-      console.error("Error creating form:", error);
+      logger.error("Error creating form:", error);
       setError(error.message || "Failed to create form. Please try again.");
       toast({
         title: "Error",

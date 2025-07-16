@@ -40,6 +40,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('BlogAnalyticsDashboard');
+
 interface AnalyticsData {
   date: string;
   views: number;
@@ -197,7 +201,7 @@ export function BlogAnalyticsDashboard({ postId }: BlogAnalyticsDashboardProps) 
       ]);
 
     } catch (error) {
-      console.error('Error loading analytics:', error);
+      logger.error('Error loading analytics:', error);
       toast({
         title: 'Error',
         description: 'Failed to load analytics data',

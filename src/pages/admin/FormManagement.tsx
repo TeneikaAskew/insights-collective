@@ -14,6 +14,10 @@ import { FormData } from '@/types/forms';
 import { ArrowLeft, FileText, BarChart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('FormManagement');
+
 export default function FormManagement() {
   const location = useLocation();
   const params = useParams();
@@ -72,7 +76,7 @@ export default function FormManagement() {
         setError('Form not found');
       }
     } catch (error) {
-      console.error('Error fetching form:', error);
+      logger.error('Error fetching form:', error);
       setError('Failed to load form data');
       toast({
         title: "Error",

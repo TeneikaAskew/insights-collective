@@ -19,6 +19,10 @@ import { useUsers } from '@/hooks/useUsers';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getOrCreateOneOnOneConversation } from '@/services/conversationService';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('NewConversationDialog');
+
 interface NewConversationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -56,7 +60,7 @@ export function NewConversationDialog({ open, onOpenChange }: NewConversationDia
 
     try {
       setIsCreating(true);
-      console.log("Getting or creating conversation with:", selectedUser.id);
+      logger.log("Getting or creating conversation with:", selectedUser.id);
       
       // Use getOrCreateOneOnOneConversation to avoid duplicates
       const conversationId = await getOrCreateOneOnOneConversation(user.id, selectedUser.id);
@@ -74,7 +78,7 @@ export function NewConversationDialog({ open, onOpenChange }: NewConversationDia
         throw new Error('Failed to create or find conversation');
       }
     } catch (error) {
-      console.error('Error starting conversation:', error);
+      logger.error('Error starting conversation:', error);
       toast({
         title: 'Error',
         description: 'Failed to start conversation. Please try again.',

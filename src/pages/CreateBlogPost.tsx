@@ -10,6 +10,10 @@ import { BlogFormData } from '@/types/blog';
 import { toast } from '@/hooks/use-toast';
 import BlogPostForm from '@/components/blog/BlogPostForm';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('CreateBlogPost');
+
 const CreateBlogPost = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
@@ -29,7 +33,7 @@ const CreateBlogPost = () => {
         throw new Error('Failed to create post');
       }
     } catch (error) {
-      console.error('Error creating blog post:', error);
+      logger.error('Error creating blog post:', error);
       toast({
         title: "Error",
         description: "Failed to create blog post",

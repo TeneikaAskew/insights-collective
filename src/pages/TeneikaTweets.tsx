@@ -14,6 +14,10 @@ import { format, parseISO } from 'date-fns';
 import { CalendarIcon, SearchIcon, RefreshCw, ExternalLink, Heart, Repeat, MessageCircle } from 'lucide-react';
 import type { DateRange } from 'react-day-picker';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('TeneikaTweets');
+
 interface Tweet {
   id: string;
   tweet_id: string;
@@ -88,7 +92,7 @@ const TeneikaTweets = () => {
       // Refetch the tweets to show new data
       refetch();
     } catch (error: any) {
-      console.error('Error triggering scrape:', error);
+      logger.error('Error triggering scrape:', error);
       toast({
         title: 'Scraping Failed',
         description: error.message || 'Failed to scrape tweets',

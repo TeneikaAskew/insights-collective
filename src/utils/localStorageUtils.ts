@@ -1,5 +1,9 @@
 // localStorageUtils.ts
 
+
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('LocalStorageUtils');
 interface LocalStorageItem {
   key: string;
   value: string | null;
@@ -48,7 +52,7 @@ export class LocalStorageUtils {
           }
         });
       } catch (error) {
-        console.error('Error accessing localStorage:', error);
+        logger.error('Error accessing localStorage:', error);
       }
     }
     return items;
@@ -62,7 +66,7 @@ export class LocalStorageUtils {
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
         // Direct iteration through localStorage
-        console.log(`Total localStorage items: ${window.localStorage.length}`);
+        logger.log(`Total localStorage items: ${window.localStorage.length}`);
         for (let i = 0; i < window.localStorage.length; i++) {
           const key = window.localStorage.key(i);
           if (key) {
@@ -75,7 +79,7 @@ export class LocalStorageUtils {
         
         // Verify if we found all items by comparing with Object.keys
         const objKeys = Object.keys(window.localStorage);
-        console.log(`Items found via iteration: ${items.length}, via Object.keys: ${objKeys.length}`);
+        logger.log(`Items found via iteration: ${items.length}, via Object.keys: ${objKeys.length}`);
         
         // Add any keys we might have missed from Object.keys
         objKeys.forEach(key => {
@@ -87,7 +91,7 @@ export class LocalStorageUtils {
           }
         });
       } catch (error) {
-        console.error('Error accessing localStorage:', error);
+        logger.error('Error accessing localStorage:', error);
       }
     }
     return items;
@@ -107,7 +111,7 @@ export class LocalStorageUtils {
           }
         }
       } catch (error) {
-        console.error('Error finding localStorage items:', error);
+        logger.error('Error finding localStorage items:', error);
       }
     }
     return matchingItems;
@@ -127,7 +131,7 @@ export class LocalStorageUtils {
           }
         }
       } catch (error) {
-        console.error('Error getting resume items:', error);
+        logger.error('Error getting resume items:', error);
       }
     }
     return resumeItems;
@@ -137,18 +141,18 @@ export class LocalStorageUtils {
    * Clear all resume-related items for a specific user
    */
   static clearResumeItems(userId: string): void {
-    console.log(`Clearing all resume items for user: ${userId}`);
+    logger.log(`Clearing all resume items for user: ${userId}`);
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
         for (let i = window.localStorage.length - 1; i >= 0; i--) {
           const key = window.localStorage.key(i);
           if (key && (key.includes('resume') || key.includes(userId))) {
-            console.log(`Removing: ${key}`);
+            logger.log(`Removing: ${key}`);
             window.localStorage.removeItem(key);
           }
         }
       } catch (error) {
-        console.error('Error clearing resume items:', error);
+        logger.error('Error clearing resume items:', error);
       }
     }
   }
@@ -157,7 +161,7 @@ export class LocalStorageUtils {
    * Clear all items from localStorage that match any of the provided patterns
    */
   static clearItemsByPatterns(patterns: string[]): void {
-    console.log(`Clearing all localStorage items matching patterns: ${patterns.join(', ')}`);
+    logger.log(`Clearing all localStorage items matching patterns: ${patterns.join(', ')}`);
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
         for (let i = window.localStorage.length - 1; i >= 0; i--) {
@@ -166,13 +170,13 @@ export class LocalStorageUtils {
             const keyLower = key.toLowerCase();
             const shouldRemove = patterns.some(pattern => keyLower.includes(pattern.toLowerCase()));
             if (shouldRemove) {
-              console.log(`Removing localStorage item: ${key}`);
+              logger.log(`Removing localStorage item: ${key}`);
               window.localStorage.removeItem(key);
             }
           }
         }
       } catch (error) {
-        console.error('Error clearing items by patterns:', error);
+        logger.error('Error clearing items by patterns:', error);
       }
     }
   }
@@ -181,7 +185,7 @@ export class LocalStorageUtils {
    * Clear specific job-related items from localStorage
    */
   static clearJobItems(): void {
-    console.log('Clearing job-related items from localStorage');
+    logger.log('Clearing job-related items from localStorage');
     if (typeof window !== 'undefined' && window.localStorage) {
       const jobKeys = [
         'job_description_url',
@@ -194,10 +198,10 @@ export class LocalStorageUtils {
       try {
         jobKeys.forEach(key => {
           window.localStorage.removeItem(key);
-          console.log(`Removed job-related key: ${key}`);
+          logger.log(`Removed job-related key: ${key}`);
         });
       } catch (error) {
-        console.error('Error clearing job items:', error);
+        logger.error('Error clearing job items:', error);
       }
     }
   }
@@ -206,13 +210,13 @@ export class LocalStorageUtils {
    * Save job study guide to localStorage
    */
   static saveStudyGuide(userId: string, studyGuide: any): void {
-    console.log('Saving study guide to localStorage');
+    logger.log('Saving study guide to localStorage');
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
         window.localStorage.setItem(`study_guide_${userId}`, JSON.stringify(studyGuide));
-        console.log('Study guide saved to localStorage');
+        logger.log('Study guide saved to localStorage');
       } catch (error) {
-        console.error('Error saving study guide to localStorage:', error);
+        logger.error('Error saving study guide to localStorage:', error);
       }
     }
   }
@@ -221,13 +225,13 @@ export class LocalStorageUtils {
    * Get job study guide from localStorage
    */
   static getStudyGuide(userId: string): any {
-    console.log('Getting study guide from localStorage');
+    logger.log('Getting study guide from localStorage');
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
         const studyGuide = window.localStorage.getItem(`study_guide_${userId}`);
         return studyGuide ? JSON.parse(studyGuide) : null;
       } catch (error) {
-        console.error('Error getting study guide from localStorage:', error);
+        logger.error('Error getting study guide from localStorage:', error);
         return null;
       }
     }
@@ -238,15 +242,15 @@ export class LocalStorageUtils {
    * Save submitted STAR responses with feedback to localStorage
    */
   static saveSavedStarResponses(userId: string, responses: SavedStarResponses): void {
-    console.log('Saving submitted STAR responses to localStorage');
+    logger.log('Saving submitted STAR responses to localStorage');
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
-        console.log(`Responses to save for user ${userId}:`, Object.keys(responses).length);
-        console.log('First few responses:', Object.entries(responses).slice(0, 2));
+        logger.log(`Responses to save for user ${userId}:`, Object.keys(responses).length);
+        logger.log('First few responses:', Object.entries(responses).slice(0, 2));
         window.localStorage.setItem(`saved_star_responses_${userId}`, JSON.stringify(responses));
-        console.log('Saved STAR responses stored to localStorage');
+        logger.log('Saved STAR responses stored to localStorage');
       } catch (error) {
-        console.error('Error saving STAR responses to localStorage:', error);
+        logger.error('Error saving STAR responses to localStorage:', error);
       }
     }
   }
@@ -255,20 +259,20 @@ export class LocalStorageUtils {
    * Get saved STAR responses with feedback from localStorage
    */
   static getSavedStarResponses(userId: string): SavedStarResponses | null {
-    console.log('Getting saved STAR responses from localStorage');
+    logger.log('Getting saved STAR responses from localStorage');
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
         const savedResponsesKey = `saved_star_responses_${userId}`;
         const savedResponses = window.localStorage.getItem(savedResponsesKey);
-        console.log(`Key: ${savedResponsesKey}, Found data:`, savedResponses ? 'Yes' : 'No');
+        logger.log(`Key: ${savedResponsesKey}, Found data:`, savedResponses ? 'Yes' : 'No');
         if (savedResponses) {
           const parsed = JSON.parse(savedResponses);
-          console.log(`Parsed ${Object.keys(parsed).length} saved responses`);
+          logger.log(`Parsed ${Object.keys(parsed).length} saved responses`);
           return parsed;
         }
         return null;
       } catch (error) {
-        console.error('Error getting saved STAR responses from localStorage:', error);
+        logger.error('Error getting saved STAR responses from localStorage:', error);
         return null;
       }
     }
@@ -279,13 +283,13 @@ export class LocalStorageUtils {
    * Save STAR responses to localStorage
    */
   static saveStarResponses(userId: string, responses: any[]): void {
-    console.log('Saving STAR responses to localStorage');
+    logger.log('Saving STAR responses to localStorage');
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
         window.localStorage.setItem(`star_responses_${userId}`, JSON.stringify(responses));
-        console.log('STAR responses saved to localStorage');
+        logger.log('STAR responses saved to localStorage');
       } catch (error) {
-        console.error('Error saving STAR responses to localStorage:', error);
+        logger.error('Error saving STAR responses to localStorage:', error);
       }
     }
   }
@@ -294,13 +298,13 @@ export class LocalStorageUtils {
    * Get STAR responses from localStorage
    */
   static getStarResponses(userId: string): any[] {
-    console.log('Getting STAR responses from localStorage');
+    logger.log('Getting STAR responses from localStorage');
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
         const responses = window.localStorage.getItem(`star_responses_${userId}`);
         return responses ? JSON.parse(responses) : [];
       } catch (error) {
-        console.error('Error getting STAR responses from localStorage:', error);
+        logger.error('Error getting STAR responses from localStorage:', error);
         return [];
       }
     }
@@ -311,15 +315,15 @@ export class LocalStorageUtils {
    * Add a single STAR response to localStorage
    */
   static addStarResponse(userId: string, response: any): void {
-    console.log('Adding STAR response to localStorage');
+    logger.log('Adding STAR response to localStorage');
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
         const responses = this.getStarResponses(userId);
         responses.unshift(response); // Add new response at the beginning
         this.saveStarResponses(userId, responses);
-        console.log('STAR response added to localStorage');
+        logger.log('STAR response added to localStorage');
       } catch (error) {
-        console.error('Error adding STAR response to localStorage:', error);
+        logger.error('Error adding STAR response to localStorage:', error);
       }
     }
   }
@@ -328,12 +332,12 @@ export class LocalStorageUtils {
    * Save draft STAR responses for each question
    */
   static saveStarResponseDrafts(userId: string, drafts: StarResponseDrafts): void {
-    console.log('Saving STAR response drafts to localStorage:', Object.keys(drafts).length);
+    logger.log('Saving STAR response drafts to localStorage:', Object.keys(drafts).length);
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
         window.localStorage.setItem(`star_drafts_${userId}`, JSON.stringify(drafts));
       } catch (error) {
-        console.error('Error saving STAR drafts to localStorage:', error);
+        logger.error('Error saving STAR drafts to localStorage:', error);
       }
     }
   }
@@ -342,15 +346,15 @@ export class LocalStorageUtils {
    * Get draft STAR responses for each question
    */
   static getStarResponseDrafts(userId: string): StarResponseDrafts {
-    console.log('Getting STAR response drafts from localStorage');
+    logger.log('Getting STAR response drafts from localStorage');
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
         const draftsKey = `star_drafts_${userId}`;
         const drafts = window.localStorage.getItem(draftsKey);
-        console.log(`Found drafts for key ${draftsKey}:`, drafts ? 'Yes' : 'No');
+        logger.log(`Found drafts for key ${draftsKey}:`, drafts ? 'Yes' : 'No');
         return drafts ? JSON.parse(drafts) : {};
       } catch (error) {
-        console.error('Error getting STAR drafts from localStorage:', error);
+        logger.error('Error getting STAR drafts from localStorage:', error);
         return {};
       }
     }
@@ -361,14 +365,14 @@ export class LocalStorageUtils {
    * Save draft STAR response for a specific question
    */
   static saveStarResponseDraftForQuestion(userId: string, questionId: string, draft: StarResponseDraft): void {
-    console.log(`Saving STAR response draft for question ${questionId}`);
+    logger.log(`Saving STAR response draft for question ${questionId}`);
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
         const allDrafts = this.getStarResponseDrafts(userId);
         allDrafts[questionId] = draft;
         this.saveStarResponseDrafts(userId, allDrafts);
       } catch (error) {
-        console.error('Error saving STAR draft for question to localStorage:', error);
+        logger.error('Error saving STAR draft for question to localStorage:', error);
       }
     }
   }
@@ -377,15 +381,15 @@ export class LocalStorageUtils {
    * Get draft STAR response for a specific question
    */
   static getStarResponseDraftForQuestion(userId: string, questionId: string): StarResponseDraft | null {
-    console.log(`Getting STAR response draft for question ${questionId}`);
+    logger.log(`Getting STAR response draft for question ${questionId}`);
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
         const allDrafts = this.getStarResponseDrafts(userId);
-        console.log(`Looking for question ${questionId} in drafts:`, 
+        logger.log(`Looking for question ${questionId} in drafts:`, 
                    `Found: ${questionId in allDrafts ? 'Yes' : 'No'}`);
         return allDrafts[questionId] || null;
       } catch (error) {
-        console.error('Error getting STAR draft for question from localStorage:', error);
+        logger.error('Error getting STAR draft for question from localStorage:', error);
         return null;
       }
     }
@@ -396,12 +400,12 @@ export class LocalStorageUtils {
    * Clear all draft STAR responses
    */
   static clearStarResponseDrafts(userId: string): void {
-    console.log('Clearing all STAR response drafts');
+    logger.log('Clearing all STAR response drafts');
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
         window.localStorage.removeItem(`star_drafts_${userId}`);
       } catch (error) {
-        console.error('Error clearing STAR drafts from localStorage:', error);
+        logger.error('Error clearing STAR drafts from localStorage:', error);
       }
     }
   }
@@ -410,23 +414,23 @@ export class LocalStorageUtils {
    * Print all items to console
    */
   static logAllItems(): void {
-    console.log('=== All localStorage items ===');
+    logger.log('=== All localStorage items ===');
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
         for (let i = 0; i < window.localStorage.length; i++) {
           const key = window.localStorage.key(i);
           if (key) {
             const value = window.localStorage.getItem(key);
-            console.log(`${key}: ${value}`);
+            logger.log(`${key}: ${value}`);
           }
         }
-        console.log(`Total localStorage items: ${window.localStorage.length}`);
-        console.log('Direct object keys:', Object.keys(window.localStorage));
+        logger.log(`Total localStorage items: ${window.localStorage.length}`);
+        logger.log('Direct object keys:', Object.keys(window.localStorage));
       } catch (error) {
-        console.error('Error logging localStorage items:', error);
+        logger.error('Error logging localStorage items:', error);
       }
     }
-    console.log('==============================');
+    logger.log('==============================');
   }
 
   /**
@@ -447,9 +451,9 @@ export class LocalStorageUtils {
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
         window.localStorage.setItem(key, value);
-        console.log(`Test item created: ${key}`);
+        logger.log(`Test item created: ${key}`);
       } catch (error) {
-        console.error('Error creating test item:', error);
+        logger.error('Error creating test item:', error);
       }
     }
     
@@ -460,9 +464,9 @@ export class LocalStorageUtils {
    * Dump all localStorage items to browser console
    */
   static dumpToConsole(): void {
-    console.group('LocalStorage Dump');
-    console.log('Full localStorage object:', window.localStorage);
-    console.log('Total items:', window.localStorage.length);
+    logger.log('=== LocalStorage Dump Start ===');
+    logger.log('Full localStorage object:', window.localStorage);
+    logger.log('Total items:', window.localStorage.length);
     
     // Group items by prefix/category for easier reading
     const categorized: Record<string, LocalStorageMap> = {
@@ -489,7 +493,7 @@ export class LocalStorageUtils {
       }
     });
     
-    console.log('Categorized localStorage items:', categorized);
-    console.groupEnd();
+    logger.log('Categorized localStorage items:', categorized);
+    logger.log('=== LocalStorage Dump End ===');
   }
 }

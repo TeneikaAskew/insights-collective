@@ -12,6 +12,10 @@ import { format } from 'date-fns';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('FormSubmissionDetail');
+
 interface FormSubmissionDetailProps {
   formId: string;
   submissionId: string;
@@ -61,7 +65,7 @@ export default function FormSubmissionDetail({ formId, submissionId, form }: For
         });
       }
     } catch (error) {
-      console.error('Error fetching submission details:', error);
+      logger.error('Error fetching submission details:', error);
       setError('Failed to load submission details');
       toast({
         title: "Error",

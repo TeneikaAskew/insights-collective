@@ -21,6 +21,10 @@ import { Helmet } from 'react-helmet-async';
 import OnboardingGuide from '@/components/onboarding/OnboardingGuide';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('userName');
+
 // Define the ActionPlan interface
 interface ActionPlanTimeframe {
   skills: Array<{
@@ -82,7 +86,7 @@ const CareerPathway: React.FC = () => {
     "12_months": "12 Months"
   };
   useEffect(() => {
-    console.log("Career pathway report data:", data);
+    logger.log("Career pathway report data:", data);
     // Set the action plan from the data if it exists
     if (data?.actionPlan) {
       setActionPlan(data.actionPlan);
@@ -126,7 +130,7 @@ const CareerPathway: React.FC = () => {
         }
       });
       if (error) {
-        console.error("Error invoking function:", error);
+        logger.error("Error invoking function:", error);
         throw error;
       }
       if (data?.success && data?.data) {
@@ -139,7 +143,7 @@ const CareerPathway: React.FC = () => {
         throw new Error("Failed to generate action plan");
       }
     } catch (error) {
-      console.error("Error generating action plan:", error);
+      logger.error("Error generating action plan:", error);
       toast({
         title: "Generation Failed",
         description: "We couldn't generate your action plan. Please try again later.",

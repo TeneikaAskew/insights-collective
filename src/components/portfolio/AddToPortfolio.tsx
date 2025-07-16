@@ -11,6 +11,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('AddToPortfolio');
+
 interface AddToPortfolioProps {
   project: PortfolioProject;
 }
@@ -26,11 +30,11 @@ export function AddToPortfolio({ project }: AddToPortfolioProps) {
   
   const handleAddToPage = async (pageId: string) => {
     if (!user) {
-      console.log('No user found');
+      logger.log('No user found');
       return;
     }
     
-    console.log('Starting handleAddToPage:', { pageId, projectId: project.id, userId: user.id });
+    logger.log('Starting handleAddToPage:', { pageId, projectId: project.id, userId: user.id });
     setAddingToPage(pageId);
     
     try {
@@ -39,7 +43,7 @@ export function AddToPortfolio({ project }: AddToPortfolioProps) {
         projectId: project.id
       });
       
-      console.log('Successfully added project to page:', result);
+      logger.log('Successfully added project to page:', result);
       setAddedToPages((prev) => [...prev, pageId]);
       
       // Show success toast
@@ -55,7 +59,7 @@ export function AddToPortfolio({ project }: AddToPortfolioProps) {
       }, 1500);
       
     } catch (error) {
-      console.error('Error adding project to page:', error);
+      logger.error('Error adding project to page:', error);
       toast({
         title: "Error",
         description: "Failed to add project to portfolio. Please try again.",
@@ -83,7 +87,7 @@ export function AddToPortfolio({ project }: AddToPortfolioProps) {
     return null;
   }
   
-  console.log('Rendering AddToPortfolio with portfolioPages:', portfolioPages);
+  logger.log('Rendering AddToPortfolio with portfolioPages:', portfolioPages);
   
   return (
     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -122,7 +126,7 @@ export function AddToPortfolio({ project }: AddToPortfolioProps) {
                   const isAdded = isAlreadyInPortfolio || isAddedNow;
                   const isLoading = addingToPage === page.id;
                   
-                  console.log('Rendering page:', {
+                  logger.log('Rendering page:', {
                     pageId: page.id,
                     title: page.title,
                     isAlreadyInPortfolio,
@@ -138,7 +142,7 @@ export function AddToPortfolio({ project }: AddToPortfolioProps) {
                       className={`transition-colors cursor-pointer ${isAdded ? 'border-green-500 bg-green-50' : 'hover:bg-gray-50'}`}
                       onClick={() => {
                         if (!isAdded && !isLoading) {
-                          console.log('Card clicked for page:', page.id);
+                          logger.log('Card clicked for page:', page.id);
                           handleAddToPage(page.id);
                         }
                       }}
@@ -167,7 +171,7 @@ export function AddToPortfolio({ project }: AddToPortfolioProps) {
                               size="sm"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                console.log('Button clicked for page:', page.id);
+                                logger.log('Button clicked for page:', page.id);
                                 handleAddToPage(page.id);
                               }}
                               disabled={isLoading || addProjectToPage.isPending}

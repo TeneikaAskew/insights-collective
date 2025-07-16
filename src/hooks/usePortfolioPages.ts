@@ -3,6 +3,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { PortfolioPage, PortfolioPageProject } from '@/types/portfolio';
 import { useToast } from '@/hooks/use-toast';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('usePortfolioPages');
+
 export const usePortfolioPages = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -81,7 +85,7 @@ export const usePortfolioPages = () => {
 
   // Fetch a single portfolio page by ID or custom URL
   const getPortfolioPage = async (identifier: string): Promise<PortfolioPage | null> => {
-    console.log('getPortfolioPage called with identifier:', identifier);
+    logger.log('getPortfolioPage called with identifier:', identifier);
     
     // First try to get by custom URL
     let { data, error } = await supabase
@@ -97,11 +101,11 @@ export const usePortfolioPages = () => {
       .eq('is_public', true)
       .maybeSingle();
 
-    console.log('Query by custom_url result:', { data, error });
+    logger.log('Query by custom_url result:', { data, error });
 
     // If not found by custom URL, try by ID
     if (!data && !error) {
-      console.log('Trying to fetch by ID:', identifier);
+      logger.log('Trying to fetch by ID:', identifier);
       ({ data, error } = await supabase
         .from('portfolio_pages')
         .select(`
@@ -115,16 +119,16 @@ export const usePortfolioPages = () => {
         .eq('is_public', true)
         .maybeSingle());
       
-      console.log('Query by ID result:', { data, error });
+      logger.log('Query by ID result:', { data, error });
     }
 
     if (error) {
-      console.error('getPortfolioPage error:', error);
+      logger.error('getPortfolioPage error:', error);
       throw error;
     }
     
     if (!data) {
-      console.log('No portfolio data found for identifier:', identifier);
+      logger.log('No portfolio data found for identifier:', identifier);
       return null;
     }
 
@@ -136,17 +140,17 @@ export const usePortfolioPages = () => {
       })) || []
     } as PortfolioPage;
 
-    console.log('getPortfolioPage final result:', result);
-    console.log('getPortfolioPage projects count:', result.projects?.length);
+    logger.log('getPortfolioPage final result:', result);
+    logger.log('getPortfolioPage projects count:', result.projects?.length);
     
     return result;
   };
 
   // Get public portfolio page (for public viewing)
   const getPublicPortfolioPage = async (identifier: string): Promise<PortfolioPage | null> => {
-    console.log('getPublicPortfolioPage called with:', identifier);
+    logger.log('getPublicPortfolioPage called with:', identifier);
     const result = await getPortfolioPage(identifier);
-    console.log('getPublicPortfolioPage returning:', result);
+    logger.log('getPublicPortfolioPage returning:', result);
     return result;
   };
 
@@ -176,7 +180,7 @@ export const usePortfolioPages = () => {
       });
     },
     onError: (error) => {
-      console.error('Error creating portfolio page:', error);
+      logger.error('Error creating portfolio page:', error);
       toast({
         title: "Error",
         description: "Failed to create portfolio page",
@@ -206,7 +210,7 @@ export const usePortfolioPages = () => {
       queryClient.invalidateQueries({ queryKey: ['portfolio-page'] });
     },
     onError: (error) => {
-      console.error('Error updating portfolio page:', error);
+      logger.error('Error updating portfolio page:', error);
       throw error;
     }
   });
@@ -229,7 +233,7 @@ export const usePortfolioPages = () => {
       });
     },
     onError: (error) => {
-      console.error('Error deleting portfolio page:', error);
+      logger.error('Error deleting portfolio page:', error);
       toast({
         title: "Error",
         description: "Failed to delete portfolio page",
@@ -280,7 +284,7 @@ export const usePortfolioPages = () => {
       });
     },
     onError: (error) => {
-      console.error('Error adding project to portfolio:', error);
+      logger.error('Error adding project to portfolio:', error);
       toast({
         title: "Error",
         description: "Failed to add project to portfolio",
@@ -326,7 +330,7 @@ export const usePortfolioPages = () => {
       });
     },
     onError: (error) => {
-      console.error('Error removing project from portfolio:', error);
+      logger.error('Error removing project from portfolio:', error);
       toast({
         title: "Error",
         description: "Failed to remove project from portfolio",
@@ -382,7 +386,7 @@ export const usePortfolioPages = () => {
       queryClient.invalidateQueries({ queryKey: ['portfolio-page'] });
     },
     onError: (error) => {
-      console.error('Error updating portfolio page project:', error);
+      logger.error('Error updating portfolio page project:', error);
       throw error;
     }
   });

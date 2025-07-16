@@ -3,6 +3,10 @@ import React, { createContext, useContext, useEffect } from 'react';
 import { useAuthProvider, AuthContextType } from '@/hooks/useAuth';
 import { validateSessionIntegrity } from '@/utils/securityUtils';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useAuth');
+
 // Create context
 const AuthContext = createContext<AuthContextType | null>(null);
 
@@ -13,7 +17,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Monitor session integrity
   useEffect(() => {
     if (auth.session && !validateSessionIntegrity(auth.session)) {
-      console.warn('[AuthProvider] Invalid session detected, signing out user');
+      logger.warn('[AuthProvider] Invalid session detected, signing out user');
       auth.logout();
     }
   }, [auth.session]);
@@ -21,7 +25,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Security event logging
   useEffect(() => {
     if (auth.isAuthenticated) {
-      console.log('[AuthProvider] User authenticated:', {
+      logger.log('[AuthProvider] User authenticated:', {
         userId: auth.user?.id,
         roles: auth.user?.roles,
         timestamp: new Date().toISOString()

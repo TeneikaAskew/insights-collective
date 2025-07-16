@@ -16,6 +16,10 @@ import { format } from 'date-fns';
 import { useAuthenticatedNavigation } from '@/hooks/useAuthenticatedNavigation';
 import { useAuth } from '@/contexts/AuthContext';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('FormList');
+
 interface FormListProps {
   searchTerm: string;
 }
@@ -52,10 +56,10 @@ export function FormList({ searchTerm }: FormListProps) {
       if (fellowshipFormIndex === -1) {
         // If not in database, create it
         try {
-          console.log("Creating fellowship form in FormList component...");
+          logger.log("Creating fellowship form in FormList component...");
           const fellowshipFormTemplate = createFellowshipForm();
           
-          console.log("Fellowship form to be inserted:", fellowshipFormTemplate);
+          logger.log("Fellowship form to be inserted:", fellowshipFormTemplate);
           
           const { data: insertedForm, error: insertError } = await supabase
             .from('forms')
@@ -64,7 +68,7 @@ export function FormList({ searchTerm }: FormListProps) {
             .single();
 
           if (insertError) {
-            console.error("Error inserting fellowship form:", insertError);
+            logger.error("Error inserting fellowship form:", insertError);
             // Add to the list with required properties for FormData
             setForms([...formsList, {
               ...fellowshipFormTemplate,
@@ -74,11 +78,11 @@ export function FormList({ searchTerm }: FormListProps) {
             } as FormData]);
           } else if (insertedForm) {
             // Add to the list
-            console.log("Fellowship form inserted:", insertedForm);
+            logger.log("Fellowship form inserted:", insertedForm);
             setForms([...formsList, insertedForm]);
           }
         } catch (insertErr) {
-          console.error("Exception inserting fellowship form:", insertErr);
+          logger.error("Exception inserting fellowship form:", insertErr);
           // Add to the list with required properties for FormData
           const fellowshipFormTemplate = createFellowshipForm();
           setForms([...formsList, {
@@ -93,7 +97,7 @@ export function FormList({ searchTerm }: FormListProps) {
         setForms(formsList);
       }
     } catch (error) {
-      console.error('Error fetching forms:', error);
+      logger.error('Error fetching forms:', error);
       toast({
         title: "Error",
         description: "Failed to load forms",
@@ -144,7 +148,7 @@ export function FormList({ searchTerm }: FormListProps) {
         description: "Form deleted successfully"
       });
     } catch (error) {
-      console.error('Error deleting form:', error);
+      logger.error('Error deleting form:', error);
       toast({
         title: "Error",
         description: "Failed to delete form",
@@ -181,7 +185,7 @@ export function FormList({ searchTerm }: FormListProps) {
         description: form.featured ? "Form unfeatured successfully" : "Form featured successfully"
       });
     } catch (error) {
-      console.error('Error toggling featured status:', error);
+      logger.error('Error toggling featured status:', error);
       toast({
         title: "Error",
         description: "Failed to update featured status",

@@ -56,6 +56,10 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('BlogManagementV2');
+
 interface BlogPost {
   id: string;
   title: string;
@@ -117,7 +121,7 @@ export function BlogManagementV2() {
       if (error) throw error;
       setCategories(data || []);
     } catch (error) {
-      console.error('Error loading categories:', error);
+      logger.error('Error loading categories:', error);
     }
   };
 
@@ -199,7 +203,7 @@ export function BlogManagementV2() {
         totalLikes,
       });
     } catch (error) {
-      console.error('Error loading posts:', error);
+      logger.error('Error loading posts:', error);
       toast({
         title: 'Error',
         description: 'Failed to load blog posts',
@@ -229,7 +233,7 @@ export function BlogManagementV2() {
       setDeleteConfirm(null);
       loadPosts();
     } catch (error) {
-      console.error('Error deleting post:', error);
+      logger.error('Error deleting post:', error);
       toast({
         title: 'Error',
         description: 'Failed to delete blog post',
@@ -265,7 +269,7 @@ export function BlogManagementV2() {
 
       loadPosts();
     } catch (error) {
-      console.error('Error duplicating post:', error);
+      logger.error('Error duplicating post:', error);
       toast({
         title: 'Error',
         description: 'Failed to duplicate blog post',

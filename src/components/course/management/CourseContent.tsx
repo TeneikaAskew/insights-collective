@@ -30,6 +30,10 @@ import { Switch } from '@/components/ui/switch';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('CourseContent');
+
 interface Module {
   id: string;
   title: string;
@@ -134,7 +138,7 @@ export default function CourseContent({ courseId }: CourseContentProps) {
         setModules([]);
       }
     } catch (error: any) {
-      console.error('Error fetching modules:', error);
+      logger.error('Error fetching modules:', error);
       toast({
         title: 'Error',
         description: 'Failed to load course modules',
@@ -157,7 +161,7 @@ export default function CourseContent({ courseId }: CourseContentProps) {
       if (error) throw error;
       setModuleContents(data || []);
     } catch (error: any) {
-      console.error('Error fetching module contents:', error);
+      logger.error('Error fetching module contents:', error);
       toast({
         title: 'Error',
         description: 'Failed to load module contents',
@@ -208,7 +212,7 @@ export default function CourseContent({ courseId }: CourseContentProps) {
       // Select the newly created module
       setSelectedModule(newModule.id);
     } catch (error: any) {
-      console.error('Error adding module:', error);
+      logger.error('Error adding module:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to add module',
@@ -246,7 +250,7 @@ export default function CourseContent({ courseId }: CourseContentProps) {
         description: 'Module updated successfully',
       });
     } catch (error: any) {
-      console.error('Error updating module:', error);
+      logger.error('Error updating module:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to update module',
@@ -287,7 +291,7 @@ export default function CourseContent({ courseId }: CourseContentProps) {
         description: 'Module deleted successfully',
       });
     } catch (error: any) {
-      console.error('Error deleting module:', error);
+      logger.error('Error deleting module:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to delete module',
@@ -343,7 +347,7 @@ export default function CourseContent({ courseId }: CourseContentProps) {
         description: 'Content added successfully',
       });
     } catch (error: any) {
-      console.error('Error adding content:', error);
+      logger.error('Error adding content:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to add content',
@@ -392,7 +396,7 @@ export default function CourseContent({ courseId }: CourseContentProps) {
         description: 'Content updated successfully',
       });
     } catch (error: any) {
-      console.error('Error updating content:', error);
+      logger.error('Error updating content:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to update content',
@@ -433,7 +437,7 @@ export default function CourseContent({ courseId }: CourseContentProps) {
         description: 'Content deleted successfully',
       });
     } catch (error: any) {
-      console.error('Error deleting content:', error);
+      logger.error('Error deleting content:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to delete content',
@@ -476,7 +480,7 @@ export default function CourseContent({ courseId }: CourseContentProps) {
         description: 'Module order updated',
       });
     } catch (error: any) {
-      console.error('Error updating module positions:', error);
+      logger.error('Error updating module positions:', error);
       toast({
         title: 'Error',
         description: 'Failed to update module order',
@@ -520,7 +524,7 @@ export default function CourseContent({ courseId }: CourseContentProps) {
         description: 'Content order updated',
       });
     } catch (error: any) {
-      console.error('Error updating content positions:', error);
+      logger.error('Error updating content positions:', error);
       toast({
         title: 'Error',
         description: 'Failed to update content order',

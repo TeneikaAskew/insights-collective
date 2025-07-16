@@ -42,6 +42,10 @@ import { BlogPostAnalytics } from './analytics/BlogPostAnalytics';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { generateExcerpt } from '@/utils/excerptGenerator';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('BlogPostFormV2');
+
 const blogPostSchema = z.object({
   title: z.string().min(1, 'Title is required').max(255),
   excerpt: z.string().max(500).optional(),
@@ -115,7 +119,7 @@ export function BlogPostFormV2({ postId }: BlogPostFormV2Props) {
       if (error) throw error;
       setCategories(data || []);
     } catch (error) {
-      console.error('Error loading categories:', error);
+      logger.error('Error loading categories:', error);
     }
   };
 
@@ -132,7 +136,7 @@ export function BlogPostFormV2({ postId }: BlogPostFormV2Props) {
 
       setBlogSettings(data);
     } catch (error) {
-      console.error('Error loading blog settings:', error);
+      logger.error('Error loading blog settings:', error);
     }
   };
 
@@ -177,7 +181,7 @@ export function BlogPostFormV2({ postId }: BlogPostFormV2Props) {
 
       setLastSaved(new Date(post.updated_at));
     } catch (error) {
-      console.error('Error loading post:', error);
+      logger.error('Error loading post:', error);
       toast({
         title: 'Error',
         description: 'Failed to load blog post',
@@ -280,7 +284,7 @@ export function BlogPostFormV2({ postId }: BlogPostFormV2Props) {
         navigate(`/admin/blog/edit/${resultPostId}`);
       }
     } catch (error) {
-      console.error('Error saving post:', error);
+      logger.error('Error saving post:', error);
       toast({
         title: 'Error',
         description: 'Failed to save blog post',

@@ -15,6 +15,10 @@ import SectionEditor from './SectionEditor';
 import { Spinner } from '@/components/ui/spinner';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('addSection');
+
 const FormBuilder: React.FC<FormBuilderProps> = ({ initialFormData, viewMode = false }) => {
   const [loading, setLoading] = useState(!initialFormData);
   const [saving, setSaving] = useState(false);
@@ -79,7 +83,7 @@ const FormBuilder: React.FC<FormBuilderProps> = ({ initialFormData, viewMode = f
       
       setSubmissions(data || []);
     } catch (error) {
-      console.error('Error fetching submissions:', error);
+      logger.error('Error fetching submissions:', error);
       toast({
         title: 'Error',
         description: 'Failed to load form submissions',
@@ -92,7 +96,7 @@ const FormBuilder: React.FC<FormBuilderProps> = ({ initialFormData, viewMode = f
 
   const handleSaveForm = async () => {
     if (!formData?.id) {
-      console.error("No form ID available for saving");
+      logger.error("No form ID available for saving");
       toast({
         title: 'Error',
         description: 'Cannot save: Form ID is missing',
@@ -103,7 +107,7 @@ const FormBuilder: React.FC<FormBuilderProps> = ({ initialFormData, viewMode = f
     
     setSaving(true);
     try {
-      console.log("Saving form structure:", formStructure);
+      logger.log("Saving form structure:", formStructure);
       const { error } = await supabase
         .from('forms')
         .update({
@@ -118,7 +122,7 @@ const FormBuilder: React.FC<FormBuilderProps> = ({ initialFormData, viewMode = f
         description: 'Form structure saved successfully'
       });
     } catch (error: any) {
-      console.error('Error saving form:', error);
+      logger.error('Error saving form:', error);
       toast({
         title: 'Error',
         description: 'Failed to save form structure: ' + (error.message || 'Unknown error'),
@@ -265,7 +269,7 @@ const FormBuilder: React.FC<FormBuilderProps> = ({ initialFormData, viewMode = f
 
     // Make sure formStructure exists and sections is an array
     if (!formStructure || !Array.isArray(formStructure.sections)) {
-      console.error("Invalid form structure for drag and drop");
+      logger.error("Invalid form structure for drag and drop");
       return;
     }
 
@@ -289,7 +293,7 @@ const FormBuilder: React.FC<FormBuilderProps> = ({ initialFormData, viewMode = f
     const destSection = sections.find(s => s.id === destination.droppableId);
     
     if (!sourceSection || !destSection) {
-      console.error("Source or destination section not found");
+      logger.error("Source or destination section not found");
       return;
     }
     
@@ -492,7 +496,7 @@ const FormBuilder: React.FC<FormBuilderProps> = ({ initialFormData, viewMode = f
                 description: `Form is now ${checked ? 'published' : 'unpublished'}`
               });
             } catch (error: any) {
-              console.error('Error updating form status:', error);
+              logger.error('Error updating form status:', error);
               toast({
                 title: 'Error',
                 description: 'Failed to update form status: ' + (error.message || 'Unknown error'),

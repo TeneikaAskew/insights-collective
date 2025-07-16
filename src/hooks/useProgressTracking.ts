@@ -3,6 +3,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useProgressTracking');
+
 export interface ContentProgress {
   id: string;
   user_id: string;
@@ -133,7 +137,7 @@ export function useProgressTracking(courseId?: string, moduleId?: string) {
       });
 
     } catch (error) {
-      console.error('Error fetching course progress:', error);
+      logger.error('Error fetching course progress:', error);
       toast({
         title: 'Error',
         description: 'Failed to load course progress',
@@ -194,7 +198,7 @@ export function useProgressTracking(courseId?: string, moduleId?: string) {
       });
 
     } catch (error) {
-      console.error('Error fetching module progress:', error);
+      logger.error('Error fetching module progress:', error);
       toast({
         title: 'Error',
         description: 'Failed to load module progress',
@@ -258,7 +262,7 @@ export function useProgressTracking(courseId?: string, moduleId?: string) {
 
       return true;
     } catch (error) {
-      console.error('Error updating content progress:', error);
+      logger.error('Error updating content progress:', error);
       toast({
         title: 'Error',
         description: 'Failed to update progress',

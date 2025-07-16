@@ -11,6 +11,10 @@ import AppLayout from '@/components/layout/AppLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('BlogPostPage');
+
 export default function BlogPostPage() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
@@ -29,18 +33,18 @@ export default function BlogPostPage() {
 
   const loadBlogPost = async (postSlug: string) => {
     try {
-      console.log('Loading blog post with slug:', postSlug);
+      logger.log('Loading blog post with slug:', postSlug);
       const postData = await getBlogPostBySlug(postSlug);
-      console.log('Retrieved blog post data:', postData);
+      logger.log('Retrieved blog post data:', postData);
       if (!postData) {
-        console.log('No post data found for slug:', postSlug);
+        logger.log('No post data found for slug:', postSlug);
         setPost(null);
         setLoading(false);
         return;
       }
       setPost(postData);
     } catch (error) {
-      console.error('Error loading blog post:', error);
+      logger.error('Error loading blog post:', error);
       setPost(null);
     } finally {
       setLoading(false);
@@ -65,7 +69,7 @@ export default function BlogPostPage() {
           url: url
         });
       } catch (error) {
-        console.log('Error sharing:', error);
+        logger.log('Error sharing:', error);
       }
     } else {
       await navigator.clipboard.writeText(url);

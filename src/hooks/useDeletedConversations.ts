@@ -5,6 +5,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from './use-toast';
 import { fetchDeletedUserConversations } from '@/services/conversationService';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useDeletedConversations');
+
 /**
  * Hook for fetching deleted conversations
  */
@@ -28,7 +32,7 @@ export function useDeletedConversations() {
         const deletedConversations = await fetchDeletedUserConversations(user.id);
         setConversations(deletedConversations);
       } catch (error) {
-        console.error('Error loading deleted conversations:', error);
+        logger.error('Error loading deleted conversations:', error);
         setError(error);
         toast({
           title: 'Error',
@@ -51,7 +55,7 @@ export function useDeletedConversations() {
       const deletedConversations = await fetchDeletedUserConversations(user.id);
       setConversations(deletedConversations);
     } catch (error) {
-      console.error('Error refreshing deleted conversations:', error);
+      logger.error('Error refreshing deleted conversations:', error);
       setError(error);
     } finally {
       setLoading(false);

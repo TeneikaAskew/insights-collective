@@ -6,6 +6,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useUserProfile } from './useUserProfile';
 import { useToast } from './use-toast';
 import { useAuthRedirect } from './useAuthRedirect';
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useAuth');
 
 export interface EnrichedUser extends User {
   roles?: string[];
@@ -23,7 +26,7 @@ const useSafeNavigation = () => {
     navigate = useNavigate();
     location = useLocation();
   } catch (error) {
-    console.warn('Navigation hooks used outside Router context');
+    logger.warn('Navigation hooks used outside Router context');
   }
   
   return { navigate, location };
@@ -46,10 +49,10 @@ export const useAuthProvider = () => {
   const isAdmin = enrichedUser?.roles?.includes('admin') || false;
   const isAdminAuthenticated = enrichedUser?.roles?.includes('admin');
 
-  console.log('[useAuth] Current enrichedUser:', enrichedUser);
-  console.log('[useAuth] enrichedUser roles:', enrichedUser?.roles);
-  console.log('[useAuth] isAdmin result:', isAdmin);
-  console.log('[useAuth] isAdminAuthenticated result:', isAdminAuthenticated);
+  logger.log('[useAuth] Current enrichedUser:', enrichedUser);
+  logger.log('[useAuth] enrichedUser roles:', enrichedUser?.roles);
+  logger.log('[useAuth] isAdmin result:', isAdmin);
+  logger.log('[useAuth] isAdminAuthenticated result:', isAdminAuthenticated);
 
   // Use redirect hook instead of local state
   const storeRedirectPath = redirect.storeRedirectPath;
@@ -65,7 +68,7 @@ export const useAuthProvider = () => {
     const { data } = supabase.auth.onAuthStateChange((_event, newSession) => {
       if (!isMounted) return;
 
-      console.log('[useAuth] Auth state changed, new session:', !!newSession);
+      logger.log('[useAuth] Auth state changed, new session:', !!newSession);
       setSession(newSession);
     });
 
@@ -73,17 +76,17 @@ export const useAuthProvider = () => {
       try {
         const { data, error } = await supabase.auth.getSession();
         if (error) {
-          console.error('[useAuth] Error getting session:', error);
+          logger.error('[useAuth] Error getting session:', error);
           setSession(null);
         } else if (data.session) {
-          console.log('[useAuth] Session found during initialization');
+          logger.log('[useAuth] Session found during initialization');
           setSession(data.session);
         } else {
-          console.log('[useAuth] No session found during initialization');
+          logger.log('[useAuth] No session found during initialization');
           setSession(null);
         }
       } catch (err) {
-        console.error('[useAuth] Unexpected error during getSession:', err);
+        logger.error('[useAuth] Unexpected error during getSession:', err);
       } finally {
         setLoading(false);
       }
@@ -125,7 +128,7 @@ export const useAuthProvider = () => {
       // Get the redirect path from localStorage - this should be set before calling socialSignIn
       const redirectPath = localStorage.getItem('redirectAfterLogin') || '/resources';
       
-      console.log(`[socialSignIn] Signing in with ${provider}. Redirect path: ${redirectPath}`);
+      logger.log(`[socialSignIn] Signing in with ${provider}. Redirect path: ${redirectPath}`);
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
@@ -136,7 +139,7 @@ export const useAuthProvider = () => {
 
       if (error) throw error;
     } catch (error: any) {
-      console.error(`[socialSignIn] ${provider} sign-in error:`, error);
+      logger.error(`[socialSignIn] ${provider} sign-in error:`, error);
       toast({ 
         title: 'Error', 
         description: error.message, 
@@ -149,7 +152,7 @@ export const useAuthProvider = () => {
 
   const register = useCallback(async (name: string, email: string, password: string) => {
     if (!navigate) {
-      console.error('Navigation not available, cannot complete registration flow');
+      logger.error('Navigation not available, cannot complete registration flow');
       throw new Error('Navigation not available');
     }
     
@@ -157,7 +160,7 @@ export const useAuthProvider = () => {
       setLoading(true);
       setError(null);
 
-      console.log('[register] Starting registration process for:', { name, email });
+      logger.log('[register] Starting registration process for:', { name, email });
 
       // Enhanced validation before sending to Supabase
       const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
@@ -187,7 +190,7 @@ export const useAuthProvider = () => {
       });
 
       if (error) {
-        console.error('[register] Supabase error:', error);
+        logger.error('[register] Supabase error:', error);
         
         // Handle specific Supabase errors with clearer messages
         if (error.message.includes('email_address_invalid') || 
@@ -206,15 +209,15 @@ export const useAuthProvider = () => {
         }
       }
 
-      console.log('[register] Registration successful:', { userId: data.user?.id, needsConfirmation: !data.session });
+      logger.log('[register] Registration successful:', { userId: data.user?.id, needsConfirmation: !data.session });
 
       // Check if user needs email confirmation
       if (data.user && !data.session) {
-        console.log('[register] Email confirmation required');
+        logger.log('[register] Email confirmation required');
         // Don't navigate immediately, let the component handle showing the success message
         return { success: true, needsEmailVerification: true };
       } else if (data.session) {
-        console.log('[register] User registered and signed in automatically');
+        logger.log('[register] User registered and signed in automatically');
         // Navigate to login page after a brief delay to show success message
         setTimeout(() => {
           navigate('/login');
@@ -224,7 +227,7 @@ export const useAuthProvider = () => {
 
       return { success: true, needsEmailVerification: true };
     } catch (error: any) {
-      console.error('[register] Registration error:', error);
+      logger.error('[register] Registration error:', error);
       setError(error.message);
       throw error; // Re-throw so the component can handle it
     } finally {
@@ -234,7 +237,7 @@ export const useAuthProvider = () => {
 
   const logout = useCallback(async () => {
     if (!navigate) {
-      console.error('Navigation not available, cannot complete logout flow');
+      logger.error('Navigation not available, cannot complete logout flow');
       return;
     }
     
@@ -243,7 +246,7 @@ export const useAuthProvider = () => {
       setSession(null);
       navigate('/');
     } catch (error: any) {
-      console.error('[logout] Error during sign out:', error);
+      logger.error('[logout] Error during sign out:', error);
       toast({ 
         title: 'Error signing out',
         description: error.message,

@@ -8,6 +8,10 @@ import { Users } from 'lucide-react';
 import { getUserInitials, getFullName } from '@/utils/profileUtils';
 import { supabase } from '@/integrations/supabase/client';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('UserPresenceBar');
+
 export const UserPresenceBar = () => {
   const { onlineUsers, currentUserPresence } = usePageVisibility();
   const { user } = useAuth();
@@ -15,9 +19,9 @@ export const UserPresenceBar = () => {
 
   // Debug logs to understand current state
   useEffect(() => {
-    console.log('[UserPresenceBar] Rendered with online users:', onlineUsers);
-    console.log('[UserPresenceBar] Current user presence:', currentUserPresence);
-    console.log('[UserPresenceBar] Auth user:', user);
+    logger.log('[UserPresenceBar] Rendered with online users:', onlineUsers);
+    logger.log('[UserPresenceBar] Current user presence:', currentUserPresence);
+    logger.log('[UserPresenceBar] Auth user:', user);
   }, [onlineUsers, currentUserPresence, user]);
 
   useEffect(() => {
@@ -25,7 +29,7 @@ export const UserPresenceBar = () => {
       if (!user) return;
 
       try {
-        console.log('[UserPresenceBar] Fetching profile data for user:', user.id);
+        logger.log('[UserPresenceBar] Fetching profile data for user:', user.id);
         
         const { data: profile, error } = await supabase
           .from('profiles')
@@ -34,16 +38,16 @@ export const UserPresenceBar = () => {
           .single();
 
         if (error) {
-          console.error('[UserPresenceBar] Error fetching profile:', error);
+          logger.error('[UserPresenceBar] Error fetching profile:', error);
           return;
         }
 
         if (profile) {
-          console.log('[UserPresenceBar] Profile data fetched:', profile);
+          logger.log('[UserPresenceBar] Profile data fetched:', profile);
           setProfileData(profile);
         }
       } catch (error) {
-        console.error('[UserPresenceBar] Exception while fetching profile:', error);
+        logger.error('[UserPresenceBar] Exception while fetching profile:', error);
       }
     };
 
@@ -52,14 +56,14 @@ export const UserPresenceBar = () => {
 
   // If no authenticated user or no online users, don't render the bar
   if (!user) {
-    console.log('[UserPresenceBar] No authenticated user, not rendering');
+    logger.log('[UserPresenceBar] No authenticated user, not rendering');
     return null;
   }
 
   // If the online users list is empty, add debugging info but still show current user
   const showDebugInfo = onlineUsers.length === 0;
   if (showDebugInfo) {
-    console.log('[UserPresenceBar] Online users list is empty, but still showing current user');
+    logger.log('[UserPresenceBar] Online users list is empty, but still showing current user');
   }
 
   // Get total online count (even if it's just the current user)

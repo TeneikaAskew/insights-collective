@@ -15,6 +15,10 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
 import '../../../src/components/interview-prep/flashcard.css';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('StarPractice');
+
 interface STARResponse {
   id: string;
   question_id: string;
@@ -60,31 +64,31 @@ export default function StarPractice() {
   // Fix the localStorage usage with proper methods
   const [streak, setStreak] = useState(() => {
     try {
-      console.log("Initializing streak from localStorage");
+      logger.log("Initializing streak from localStorage");
       const streakValue = localStorage.getItem('starPracticeStreak');
-      console.log("Found streak value:", streakValue);
+      logger.log("Found streak value:", streakValue);
       return parseInt(streakValue || '0', 10);
     } catch (e) {
-      console.error('Error accessing localStorage for streak:', e);
+      logger.error('Error accessing localStorage for streak:', e);
       return 0;
     }
   });
   
   const [lastPracticeDate, setLastPracticeDate] = useState(() => {
     try {
-      console.log("Initializing lastPracticeDate from localStorage");
+      logger.log("Initializing lastPracticeDate from localStorage");
       const dateValue = localStorage.getItem('starPracticeLastDate');
-      console.log("Found lastPracticeDate value:", dateValue);
+      logger.log("Found lastPracticeDate value:", dateValue);
       return dateValue || '';
     } catch (e) {
-      console.error('Error accessing localStorage for last practice date:', e);
+      logger.error('Error accessing localStorage for last practice date:', e);
       return '';
     }
   });
 
   // Set up effect to load questions when component mounts
   useEffect(() => {
-    console.log("Component mounted, loading questions for user:", user?.id);
+    logger.log("Component mounted, loading questions for user:", user?.id);
     loadQuestions();
     checkAndUpdateStreak();
   }, [user]);
@@ -92,13 +96,13 @@ export default function StarPractice() {
   // Set initial question index based on URL parameter if available
   useEffect(() => {
     if (questionId && questions.length > 0) {
-      console.log("URL contains questionId:", questionId, "looking for matching question");
+      logger.log("URL contains questionId:", questionId, "looking for matching question");
       const index = questions.findIndex(q => q.id === questionId);
       if (index !== -1) {
-        console.log(`Found matching question at index ${index}, setting currentQuestionIndex`);
+        logger.log(`Found matching question at index ${index}, setting currentQuestionIndex`);
         setCurrentQuestionIndex(index);
       } else {
-        console.log("No matching question found for questionId:", questionId);
+        logger.log("No matching question found for questionId:", questionId);
       }
     }
   }, [questionId, questions]);
@@ -106,14 +110,14 @@ export default function StarPractice() {
   // Load saved responses for the current question whenever it changes
   useEffect(() => {
     if (user?.id && questions.length > 0) {
-      console.log("Current question changed or questions loaded, loading saved response");
+      logger.log("Current question changed or questions loaded, loading saved response");
       loadSavedResponse();
     }
   }, [currentQuestionIndex, questions, user]);
 
   const checkAndUpdateStreak = () => {
     const today = new Date().toLocaleDateString();
-    console.log("Checking streak. Last practice date:", lastPracticeDate, "Today:", today);
+    logger.log("Checking streak. Last practice date:", lastPracticeDate, "Today:", today);
     
     if (lastPracticeDate && lastPracticeDate !== today) {
       const lastDate = new Date(lastPracticeDate);
@@ -122,44 +126,44 @@ export default function StarPractice() {
       // Check if the last practice was yesterday
       const timeDiff = currentDate.getTime() - lastDate.getTime();
       const daysDiff = timeDiff / (1000 * 3600 * 24);
-      console.log("Days difference:", daysDiff);
+      logger.log("Days difference:", daysDiff);
       
       if (daysDiff > 1.5) {
         // Reset streak if more than 1.5 days have passed (to account for time zones)
-        console.log("More than 1.5 days passed, resetting streak to 1");
+        logger.log("More than 1.5 days passed, resetting streak to 1");
         setStreak(1);
       } else if (daysDiff >= 0.5) {
         // Increment streak if it's a new day
-        console.log("New day detected, incrementing streak");
+        logger.log("New day detected, incrementing streak");
         setStreak(prev => prev + 1);
       }
     } else if (!lastPracticeDate) {
       // First time practicing
-      console.log("First time practicing, setting streak to 1");
+      logger.log("First time practicing, setting streak to 1");
       setStreak(1);
     }
     
     // Update localStorage
     try {
       // Update last practice date
-      console.log("Updating localStorage with new streak:", streak, "and date:", today);
+      logger.log("Updating localStorage with new streak:", streak, "and date:", today);
       setLastPracticeDate(today);
       localStorage.setItem('starPracticeLastDate', today);
       localStorage.setItem('starPracticeStreak', streak.toString());
     } catch (e) {
-      console.error('Error saving to localStorage:', e);
+      logger.error('Error saving to localStorage:', e);
     }
   };
 
   const loadQuestions = async () => {
     if (!user?.id) {
-      console.log("User ID is undefined, cannot load questions");
+      logger.log("User ID is undefined, cannot load questions");
       setLoading(false);
       return;
     }
 
     try {
-      console.log("Loading study guides for user:", user.id);
+      logger.log("Loading study guides for user:", user.id);
       
       const { data: studyGuides, error } = await supabase
         .from('study_guides')
@@ -171,17 +175,17 @@ export default function StarPractice() {
 
       if (error) throw error;
 
-      console.log("Study guides loaded:", studyGuides);
+      logger.log("Study guides loaded:", studyGuides);
 
       if (studyGuides?.questions) {
         const behavioralQuestions = studyGuides.questions.filter(
           (q: any) => q.type === 'behavioral'
         );
-        console.log("Filtered behavioral questions:", behavioralQuestions);
+        logger.log("Filtered behavioral questions:", behavioralQuestions);
         setQuestions(behavioralQuestions);
       }
     } catch (error) {
-      console.error('Error loading questions:', error);
+      logger.error('Error loading questions:', error);
       toast({
         title: 'Error',
         description: 'Failed to load questions. Please try again.',
@@ -197,14 +201,14 @@ export default function StarPractice() {
     
     try {
       const currentQuestion = questions[currentQuestionIndex];
-      console.log("[StarPractice] Loading saved response for question:", currentQuestion.id);
+      logger.log("[StarPractice] Loading saved response for question:", currentQuestion.id);
       
       // First check localStorage for saved responses with feedback
       const savedResponses = LocalStorageUtils.getSavedStarResponses(user.id);
-      console.log("[StarPractice] Saved responses from localStorage:", savedResponses);
+      logger.log("[StarPractice] Saved responses from localStorage:", savedResponses);
       if (savedResponses && savedResponses[currentQuestion.id]) {
         const savedData = savedResponses[currentQuestion.id];
-        console.log("[StarPractice] Found saved response with feedback in localStorage:", savedData);
+        logger.log("[StarPractice] Found saved response with feedback in localStorage:", savedData);
         setResponse(savedData.response);
         setFeedback(savedData.feedback);
         setHasSubmittedResponse(true);
@@ -213,9 +217,9 @@ export default function StarPractice() {
       }
       
       // If no saved response with feedback found, check for draft
-      console.log("[StarPractice] No saved response with feedback found, checking for draft");
+      logger.log("[StarPractice] No saved response with feedback found, checking for draft");
       const savedDraft = LocalStorageUtils.getStarResponseDraftForQuestion(user.id, currentQuestion.id);
-      console.log("[StarPractice] Draft found:", savedDraft);
+      logger.log("[StarPractice] Draft found:", savedDraft);
       if (savedDraft) {
         setResponse(savedDraft);
         setHasSubmittedResponse(false);
@@ -225,7 +229,7 @@ export default function StarPractice() {
       }
       
       // As a last resort, check the database for any submitted response
-      console.log("[StarPractice] No response found in localStorage, checking database");
+      logger.log("[StarPractice] No response found in localStorage, checking database");
       const { data: dbResponses, error } = await supabase
         .from('star_responses')
         .select('*')
@@ -235,9 +239,9 @@ export default function StarPractice() {
         .limit(1);
         
       if (error) {
-        console.error("[StarPractice] Error fetching responses from database:", error);
+        logger.error("[StarPractice] Error fetching responses from database:", error);
       } else if (dbResponses && dbResponses.length > 0) {
-        console.log("[StarPractice] Found response in database:", dbResponses[0]);
+        logger.log("[StarPractice] Found response in database:", dbResponses[0]);
         setResponse({
           situation: dbResponses[0].situation,
           task: dbResponses[0].task,
@@ -246,7 +250,7 @@ export default function StarPractice() {
         });
         
         if (dbResponses[0].ai_feedback) {
-          console.log("[StarPractice] Response has feedback:", dbResponses[0].ai_feedback);
+          logger.log("[StarPractice] Response has feedback:", dbResponses[0].ai_feedback);
           setFeedback(dbResponses[0].ai_feedback);
           setHasSubmittedResponse(true);
           
@@ -263,15 +267,15 @@ export default function StarPractice() {
             timestamp: new Date().getTime()
           };
           LocalStorageUtils.saveSavedStarResponses(user.id, allResponses);
-          console.log("[StarPractice] Saved database response to localStorage for future use");
+          logger.log("[StarPractice] Saved database response to localStorage for future use");
         } else {
-          console.log("[StarPractice] Database response has no feedback");
+          logger.log("[StarPractice] Database response has no feedback");
           setHasSubmittedResponse(false);
           setFeedback(null);
         }
       } else {
         // Reset to empty response if no saved data found anywhere
-        console.log("[StarPractice] No saved response found anywhere, resetting to empty");
+        logger.log("[StarPractice] No saved response found anywhere, resetting to empty");
         setResponse({
           situation: '',
           task: '',
@@ -284,7 +288,7 @@ export default function StarPractice() {
       
       setIsFlipped(false);
     } catch (error) {
-      console.error('[StarPractice] Error loading saved response:', error);
+      logger.error('[StarPractice] Error loading saved response:', error);
     }
   };
 
@@ -293,11 +297,11 @@ export default function StarPractice() {
     
     try {
       const currentQuestion = questions[currentQuestionIndex];
-      console.log("Saving draft for question:", currentQuestion.id, response);
+      logger.log("Saving draft for question:", currentQuestion.id, response);
       LocalStorageUtils.saveStarResponseDraftForQuestion(user.id, currentQuestion.id, response as any);
-      console.log("Draft saved successfully");
+      logger.log("Draft saved successfully");
     } catch (error) {
-      console.error('Error saving response draft:', error);
+      logger.error('Error saving response draft:', error);
     }
   };
 
@@ -309,7 +313,7 @@ export default function StarPractice() {
 
     setSubmitting(true);
     try {
-      console.log("Submitting STAR response for question:", currentQuestion.id);
+      logger.log("Submitting STAR response for question:", currentQuestion.id);
       // Save response
       const { data: savedResponse, error: saveError } = await supabase
         .from('star_responses')
@@ -322,10 +326,10 @@ export default function StarPractice() {
         .single();
 
       if (saveError) throw saveError;
-      console.log("Saved response:", savedResponse);
+      logger.log("Saved response:", savedResponse);
 
       // Get AI feedback
-      console.log("Calling evaluate-star-response function with responseId:", savedResponse.id);
+      logger.log("Calling evaluate-star-response function with responseId:", savedResponse.id);
       const { data: evaluatedResponse, error: evalError } = await supabase
         .functions.invoke('evaluate-star-response', {
           body: { responseId: savedResponse.id },
@@ -333,10 +337,10 @@ export default function StarPractice() {
 
       if (evalError) throw evalError;
       
-      console.log("Received function response:", evaluatedResponse);
+      logger.log("Received function response:", evaluatedResponse);
       
       if (evaluatedResponse && evaluatedResponse.ai_feedback) {
-        console.log("Setting feedback state with:", evaluatedResponse.ai_feedback);
+        logger.log("Setting feedback state with:", evaluatedResponse.ai_feedback);
         setFeedback(evaluatedResponse.ai_feedback);
         
         // Also save the feedback to localStorage
@@ -348,7 +352,7 @@ export default function StarPractice() {
             timestamp: new Date().getTime()
           };
           LocalStorageUtils.saveSavedStarResponses(user.id, allResponses);
-          console.log("Saved feedback to localStorage:", allResponses[currentQuestion.id]);
+          logger.log("Saved feedback to localStorage:", allResponses[currentQuestion.id]);
         }
         
         setIsFlipped(true);
@@ -358,11 +362,11 @@ export default function StarPractice() {
           description: 'Your STAR response has been evaluated.',
         });
       } else {
-        console.error("No feedback received in evaluation response:", evaluatedResponse);
+        logger.error("No feedback received in evaluation response:", evaluatedResponse);
         throw new Error("No feedback received from evaluation");
       }
     } catch (error) {
-      console.error('Error submitting response:', error);
+      logger.error('Error submitting response:', error);
       toast({
         title: 'Error',
         description: 'Failed to submit response. Please try again.',
@@ -374,8 +378,8 @@ export default function StarPractice() {
   };
 
   const handleFlip = () => {
-    console.log("Flipping card. Current state:", isFlipped, "Setting to:", !isFlipped);
-    console.log("Current feedback:", feedback);
+    logger.log("Flipping card. Current state:", isFlipped, "Setting to:", !isFlipped);
+    logger.log("Current feedback:", feedback);
     setIsFlipped(!isFlipped);
   };
 
@@ -474,14 +478,14 @@ export default function StarPractice() {
 
   // Save response when input changes
   const handleResponseChange = (field: 'situation' | 'task' | 'action' | 'result', value: string) => {
-    console.log(`Updating ${field} field with new value:`, value);
+    logger.log(`Updating ${field} field with new value:`, value);
     const updatedResponse = { ...response, [field]: value };
     setResponse(updatedResponse);
     
     // Debounce the save - in a real app, you might want to use a proper debounce function
     if (user?.id && questions[currentQuestionIndex]) {
       const timeoutId = setTimeout(() => {
-        console.log("Auto-saving draft after debounce");
+        logger.log("Auto-saving draft after debounce");
         LocalStorageUtils.saveStarResponseDraftForQuestion(
           user.id, 
           questions[currentQuestionIndex].id, 
@@ -495,24 +499,24 @@ export default function StarPractice() {
 
   // Debug logging in useEffect to track state changes
   useEffect(() => {
-    console.log("Response state updated:", response);
+    logger.log("Response state updated:", response);
   }, [response]);
 
   useEffect(() => {
-    console.log("Feedback state updated:", feedback);
+    logger.log("Feedback state updated:", feedback);
   }, [feedback]);
 
   useEffect(() => {
-    console.log("isFlipped state updated:", isFlipped);
+    logger.log("isFlipped state updated:", isFlipped);
   }, [isFlipped]);
 
   useEffect(() => {
-    console.log("hasSubmittedResponse state updated:", hasSubmittedResponse);
+    logger.log("hasSubmittedResponse state updated:", hasSubmittedResponse);
   }, [hasSubmittedResponse]);
 
   useEffect(() => {
     if (isFlipped) {
-      console.log("Card is flipped, feedback should be showing:", feedback);
+      logger.log("Card is flipped, feedback should be showing:", feedback);
     }
   }, [isFlipped, feedback]);
 

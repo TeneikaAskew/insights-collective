@@ -13,6 +13,10 @@ import { format } from 'date-fns';
 import { Mic, MicOff, Camera, CameraOff, Phone, MessageSquare } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('MockInterviewRoom');
+
 interface Message {
   id: string;
   sender_id: string;
@@ -76,7 +80,7 @@ export default function MockInterviewRoom() {
         messagesSubscription.unsubscribe();
       };
     } catch (error) {
-      console.error('Error loading session:', error);
+      logger.error('Error loading session:', error);
       toast({
         title: 'Error',
         description: 'Failed to load interview session.',
@@ -163,7 +167,7 @@ export default function MockInterviewRoom() {
         // This is where you would implement your signaling mechanism
       }
     } catch (error) {
-      console.error('Error setting up WebRTC:', error);
+      logger.error('Error setting up WebRTC:', error);
       toast({
         title: 'Error',
         description: 'Failed to setup video call. Please check your camera and microphone permissions.',
@@ -228,7 +232,7 @@ export default function MockInterviewRoom() {
 
       setNewMessage('');
     } catch (error) {
-      console.error('Error sending message:', error);
+      logger.error('Error sending message:', error);
       toast({
         title: 'Error',
         description: 'Failed to send message.',
@@ -247,7 +251,7 @@ export default function MockInterviewRoom() {
       cleanupWebRTC();
       window.location.href = '/mock-interviews';
     } catch (error) {
-      console.error('Error ending call:', error);
+      logger.error('Error ending call:', error);
       toast({
         title: 'Error',
         description: 'Failed to end call.',

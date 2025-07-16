@@ -5,6 +5,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { logSecurityEvent, logAuditEvent } from '@/utils/securityUtils';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useEnhancedEventRegistration');
+
 interface UseEnhancedEventRegistrationProps {
   eventId: string;
 }
@@ -32,7 +36,7 @@ export function useEnhancedEventRegistration({ eventId }: UseEnhancedEventRegist
         .maybeSingle();
 
       if (error) {
-        console.error('Error checking registration status:', error);
+        logger.error('Error checking registration status:', error);
         // Log security event for potential access issues
         await logSecurityEvent(
           user.id,
@@ -45,7 +49,7 @@ export function useEnhancedEventRegistration({ eventId }: UseEnhancedEventRegist
         setIsRegistered(!!data);
       }
     } catch (error) {
-      console.error('Exception checking registration status:', error);
+      logger.error('Exception checking registration status:', error);
     } finally {
       setIsLoading(false);
     }
@@ -90,7 +94,7 @@ export function useEnhancedEventRegistration({ eventId }: UseEnhancedEventRegist
         }]);
 
       if (error) {
-        console.error('Registration error:', error);
+        logger.error('Registration error:', error);
         toast({
           title: 'Registration Failed',
           description: 'Failed to register for the event. Please try again.',
@@ -133,7 +137,7 @@ export function useEnhancedEventRegistration({ eventId }: UseEnhancedEventRegist
         );
       }
     } catch (error) {
-      console.error('Exception during registration:', error);
+      logger.error('Exception during registration:', error);
       toast({
         title: 'Registration Error',
         description: 'An unexpected error occurred. Please try again.',
@@ -158,7 +162,7 @@ export function useEnhancedEventRegistration({ eventId }: UseEnhancedEventRegist
         .eq('user_id', user.id);
 
       if (error) {
-        console.error('Unregistration error:', error);
+        logger.error('Unregistration error:', error);
         toast({
           title: 'Unregistration Failed',
           description: 'Failed to unregister from the event. Please try again.',
@@ -183,7 +187,7 @@ export function useEnhancedEventRegistration({ eventId }: UseEnhancedEventRegist
         );
       }
     } catch (error) {
-      console.error('Exception during unregistration:', error);
+      logger.error('Exception during unregistration:', error);
       toast({
         title: 'Unregistration Error',
         description: 'An unexpected error occurred. Please try again.',

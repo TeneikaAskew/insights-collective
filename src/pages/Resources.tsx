@@ -13,6 +13,10 @@ import { ResourceDirectoryTab } from '@/components/resources/ResourceDirectoryTa
 import { TopTweetsTab } from '@/components/resources/TopTweetsTab';
 import { LinkedInUpdatesTab } from '@/components/resources/LinkedInUpdatesTab';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('adaptResourceToTweet');
+
 const VISIBLE_RESOURCES_IN_DIRECTORY = 5;
 const VISIBLE_TWEETS = 3;
 const VISIBLE_LINKEDIN = 3;
@@ -50,7 +54,7 @@ const extractUniqueValues = (resources: Resource[], primaryField: keyof Resource
 };
 
 const processResources = (resources: Resource[]): ResourceWithSourceType[] => {
-  console.log('[ProcessResources] Input resources count:', resources.length);
+  logger.log('[ProcessResources] Input resources count:', resources.length);
   return resources.map(resource => {
     const sourceType = classifyResourceSource(resource);
     return {
@@ -128,18 +132,18 @@ const Resources = () => {
   const { data: allRawTweetsData, isLoading: isLoadingTopTweets } = useAllTweetsData();
 
   const processedResources = useMemo(() => {
-    console.log('[ProcessResources] Input resources count:', resources.length);
+    logger.log('[ProcessResources] Input resources count:', resources.length);
     const pr = processResources(resources);
-    console.log('[ProcessResources] Processed general resources (with sourceType):', pr.length);
+    logger.log('[ProcessResources] Processed general resources (with sourceType):', pr.length);
     return pr;
   }, [resources]);
 
   // Process the raw tweet data separately
   const processedAllTweets = useMemo(() => {
     const tweetsArray = allRawTweetsData || [];
-    console.log('[ResourcesPage] Raw tweets from useAllTweetsData hook:', tweetsArray.length);
+    logger.log('[ResourcesPage] Raw tweets from useAllTweetsData hook:', tweetsArray.length);
     const pt = processResources(tweetsArray);
-    console.log('[ResourcesPage] Processed all tweets (with sourceType):', pt.length);
+    logger.log('[ResourcesPage] Processed all tweets (with sourceType):', pt.length);
     return pt;
   }, [allRawTweetsData]);
 
@@ -155,21 +159,21 @@ const Resources = () => {
 
   // Filtered resources for the Directory tab (and potentially LinkedIn if not separated later)
   const filteredMainResources = useMemo(() => {
-    console.log('[ResourcesPage] Filtering processed general resources. Count:', processedResources.length, 'Filters:', { searchQuery, categoryFilter, typeFilter, withDeadline });
+    logger.log('[ResourcesPage] Filtering processed general resources. Count:', processedResources.length, 'Filters:', { searchQuery, categoryFilter, typeFilter, withDeadline });
     const fr = processedResources.filter(resource => matchesFilters(resource, searchQuery, categoryFilter, typeFilter, withDeadline));
-    console.log('[ResourcesPage] Filtered general resources:', fr.length);
+    logger.log('[ResourcesPage] Filtered general resources:', fr.length);
     return fr;
   }, [processedResources, searchQuery, categoryFilter, typeFilter, withDeadline]);
 
   const directoryResources = useMemo(() => {
-    console.log('[ResourcesPage] Directory resources (filtered from general pool):', filteredMainResources.length);
+    logger.log('[ResourcesPage] Directory resources (filtered from general pool):', filteredMainResources.length);
     return filteredMainResources;
   }, [filteredMainResources]);
 
   // Top Global Tweets now derived from its own processed data pool
   const topGlobalTweets = useMemo(() => {
     const allTweetsForSorting = processedAllTweets.filter(r => r.sourceType === 'Tweet');
-    console.log('[ResourcesPage] All processed tweets for topGlobalTweets calc (from dedicated fetch):', allTweetsForSorting.length);
+    logger.log('[ResourcesPage] All processed tweets for topGlobalTweets calc (from dedicated fetch):', allTweetsForSorting.length);
     
     const sorted = allTweetsForSorting.sort((a, b) => {
       const favCountA = Number(a.favorite_count) || 0;
@@ -180,21 +184,21 @@ const Resources = () => {
     });
     
     const topTweets = sorted.slice(0, TOP_TWEETS_COUNT);
-    console.log('[ResourcesPage] Top global tweets (sorted solely by favorite_count, from dedicated fetch, before UI filtering):', topTweets.length);
+    logger.log('[ResourcesPage] Top global tweets (sorted solely by favorite_count, from dedicated fetch, before UI filtering):', topTweets.length);
     return topTweets;
   }, [processedAllTweets]); // Depends on processedAllTweets
 
   // TweetResources are the topGlobalTweets further filtered by UI controls
   const tweetResources = useMemo(() => {
     const tr = topGlobalTweets.filter(resource => matchesFilters(resource, searchQuery, categoryFilter, typeFilter, withDeadline));
-    console.log('[ResourcesPage] Filtered Tweet resources (for Tweet Tab display):', tr.length);
+    logger.log('[ResourcesPage] Filtered Tweet resources (for Tweet Tab display):', tr.length);
     return tr;
   }, [topGlobalTweets, searchQuery, categoryFilter, typeFilter, withDeadline]);
 
   const linkedinResources = useMemo(() => {
     // LinkedIn resources are still derived from the main filtered pool
     const lr = filteredMainResources.filter(r => r.sourceType === 'LinkedIn');
-    console.log('[ResourcesPage] LinkedIn resources (for LinkedIn Tab):', lr.length);
+    logger.log('[ResourcesPage] LinkedIn resources (for LinkedIn Tab):', lr.length);
     return lr;
   }, [filteredMainResources]);
 
@@ -209,7 +213,7 @@ const Resources = () => {
     setCategoryFilter('all');
     setTypeFilter('all');
     setWithDeadline(false);
-    console.log('[ResourcesPage] Filters cleared.');
+    logger.log('[ResourcesPage] Filters cleared.');
   };
 
   const commonFilterProps = {

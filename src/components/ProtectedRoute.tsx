@@ -6,6 +6,10 @@ import { useToast } from '@/hooks/use-toast';
 import { validateSessionIntegrity, logSecurityEvent } from '@/utils/securityUtils';
 import { supabase } from '@/integrations/supabase/client';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('if');
+
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requireAdmin?: boolean;
@@ -33,7 +37,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireAdmin 
           .rpc('has_admin_access', { user_id_param: user.id });
         
         if (error) {
-          console.error('Error checking admin access in ProtectedRoute:', error);
+          logger.error('Error checking admin access in ProtectedRoute:', error);
           await logSecurityEvent(user.id, 'protected_route_admin_check_failed', 'error', 'Failed to verify admin access in ProtectedRoute', { error: error.message, path: location.pathname });
           setHasAdminAccess(false);
           return;
@@ -45,7 +49,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireAdmin 
         await logSecurityEvent(user.id, 'protected_route_access', 'info', `Protected route access: ${data ? 'granted' : 'denied'}`, { path: location.pathname, requireAdmin });
         
       } catch (error) {
-        console.error('Exception in ProtectedRoute admin check:', error);
+        logger.error('Exception in ProtectedRoute admin check:', error);
         setHasAdminAccess(false);
       }
     };
@@ -64,7 +68,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireAdmin 
       // Basic validation of redirect path
       if (pathForRedirect.startsWith('/') && !pathForRedirect.includes('..')) {
         storeRedirectPath(pathForRedirect);
-        console.log('[ProtectedRoute] Stored redirect path for unauthenticated user:', pathForRedirect);
+        logger.log('[ProtectedRoute] Stored redirect path for unauthenticated user:', pathForRedirect);
       }
     }
   }, [isAuthenticated, location.pathname, location.search, storeRedirectPath]);
@@ -75,7 +79,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireAdmin 
 
   // Enhanced session validation
   if (isAuthenticated && session && !validateSessionIntegrity(session)) {
-    console.warn('[ProtectedRoute] Invalid session detected, redirecting to login');
+    logger.warn('[ProtectedRoute] Invalid session detected, redirecting to login');
     toast({
       title: 'Session Invalid',
       description: 'Your session has expired. Please log in again.',
@@ -90,7 +94,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireAdmin 
 
   // Enhanced admin access validation using new security function
   if (requireAdmin && !hasAdminAccess) {
-    console.warn('[ProtectedRoute] Non-admin user attempted protected access:', user?.id);
+    logger.warn('[ProtectedRoute] Non-admin user attempted protected access:', user?.id);
     
     // Log security event for unauthorized access attempt
     if (user?.id) {

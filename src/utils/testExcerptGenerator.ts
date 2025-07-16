@@ -3,28 +3,32 @@
 
 import { testExcerptGeneration } from './excerptGenerator';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('runExcerptTests');
+
 export function runExcerptTests() {
-  console.log('🧪 Running Excerpt Generation Tests...');
+  logger.log('🧪 Running Excerpt Generation Tests...');
   
   const results = testExcerptGeneration();
   
-  console.log(`✅ Tests Passed: ${results.passed}`);
-  console.log(`❌ Tests Failed: ${results.failed}`);
+  logger.log(`✅ Tests Passed: ${results.passed}`);
+  logger.log(`❌ Tests Failed: ${results.failed}`);
   
   if (results.failed > 0) {
-    console.log('\n📋 Failed Test Details:');
+    logger.log('\n📋 Failed Test Details:');
     results.results
       .filter(r => !r.passed)
       .forEach(result => {
-        console.log(`- ${result.name}: ${result.error || 'Assertion failed'}`);
+        logger.log(`- ${result.name}: ${result.error || 'Assertion failed'}`);
       });
   }
   
-  console.log('\n📊 All Test Results:');
+  logger.log('\n📊 All Test Results:');
   results.results.forEach(result => {
-    console.log(`${result.passed ? '✅' : '❌'} ${result.name}`);
+    logger.log(`${result.passed ? '✅' : '❌'} ${result.name}`);
     if (result.output !== null) {
-      console.log(`   Output: "${result.output}"`);
+      logger.log(`   Output: "${result.output}"`);
     }
   });
   

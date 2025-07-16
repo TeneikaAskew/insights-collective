@@ -6,6 +6,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { CareerReportData } from '@/components/assistants/utils/types';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('TestInteractiveReport');
+
 const TestInteractiveReport = () => {
   const [rawReport, setRawReport] = useState<string>(
     `**Personalized Career Advice Report for Joshua B. Brown**
@@ -55,7 +59,7 @@ By following these recommendations, you can create a successful career path in t
       const parsed = parseCareerReport(rawReport);
       setParsedReport(parsed);
     } catch (error) {
-      console.error('Error parsing report:', error);
+      logger.error('Error parsing report:', error);
       alert('Error parsing report. Check console for details.');
     }
   };

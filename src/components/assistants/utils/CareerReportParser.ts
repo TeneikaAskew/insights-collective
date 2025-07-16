@@ -4,6 +4,10 @@
 
 import { CareerReportData, RecommendedRole, SkillCourse, CareerPathStep } from './types';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('parseCareerReport');
+
 // Helper function to clean and capitalize focus areas
 const cleanFocusAreas = (focusAreas: string[]): string[] => {
   return focusAreas.map(area => {
@@ -83,12 +87,12 @@ const extractCareerPathSteps = (text: string): CareerPathStep[] => {
 };
 
 export const parseCareerReport = (reportText: string): CareerReportData => {
-  console.log("Starting to parse career report...");
+  logger.log("Starting to parse career report...");
   
   try {
     // Try to parse as JSON first
     const jsonData = JSON.parse(reportText);
-    console.log("Successfully parsed as JSON:", jsonData);
+    logger.log("Successfully parsed as JSON:", jsonData);
     
     // If it's already in the correct format, clean focus areas and return
     if (jsonData.recommendedRoles) {
@@ -113,7 +117,7 @@ export const parseCareerReport = (reportText: string): CareerReportData => {
     
     return extractDataFromJSON(jsonData);
   } catch (error) {
-    console.log("Not valid JSON, attempting text parsing...");
+    logger.log("Not valid JSON, attempting text parsing...");
     return extractDataFromText(reportText);
   }
 };

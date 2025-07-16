@@ -12,6 +12,10 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { Checkbox } from '@/components/ui/checkbox';
 import { Check, Plus, Trash2, ChevronDown } from 'lucide-react';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('AvailabilityManager');
+
 interface TimeSlot {
   id: string;
   startTime: string;
@@ -115,7 +119,7 @@ export function AvailabilityManager({ timeBlocks, onAvailabilityChange }: Availa
       setSelectedTimesByDay(timesByDay);
       setActiveDays(activeDaysList);
     } catch (error: any) {
-      console.error('Error loading availability:', error);
+      logger.error('Error loading availability:', error);
       toast({
         title: 'Error',
         description: 'Failed to load availability: ' + error.message,
@@ -252,7 +256,7 @@ export function AvailabilityManager({ timeBlocks, onAvailabilityChange }: Availa
         onAvailabilityChange();
       }
     } catch (error: any) {
-      console.error('Error saving availability:', error);
+      logger.error('Error saving availability:', error);
       toast({
         title: 'Error',
         description: 'Failed to save availability: ' + error.message,

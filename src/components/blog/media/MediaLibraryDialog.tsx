@@ -12,6 +12,10 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { 
+
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('MediaLibraryDialog');
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -80,7 +84,7 @@ export function MediaLibraryDialog({ open, onOpenChange, onSelect }: MediaLibrar
       setMedia(data || []);
       setFilteredMedia(data || []);
     } catch (error) {
-      console.error('Error loading media:', error);
+      logger.error('Error loading media:', error);
       toast({
         title: 'Error',
         description: 'Failed to load media library',
@@ -140,7 +144,7 @@ export function MediaLibraryDialog({ open, onOpenChange, onSelect }: MediaLibrar
         if (dbError) throw dbError;
         return mediaData;
       } catch (error) {
-        console.error('Error uploading file:', error);
+        logger.error('Error uploading file:', error);
         throw error;
       }
     });
@@ -196,7 +200,7 @@ export function MediaLibraryDialog({ open, onOpenChange, onSelect }: MediaLibrar
         description: 'Media details updated successfully',
       });
     } catch (error) {
-      console.error('Error updating media:', error);
+      logger.error('Error updating media:', error);
       toast({
         title: 'Error',
         description: 'Failed to update media details',
@@ -227,7 +231,7 @@ export function MediaLibraryDialog({ open, onOpenChange, onSelect }: MediaLibrar
         description: 'Media deleted successfully',
       });
     } catch (error) {
-      console.error('Error deleting media:', error);
+      logger.error('Error deleting media:', error);
       toast({
         title: 'Error',
         description: 'Failed to delete media',

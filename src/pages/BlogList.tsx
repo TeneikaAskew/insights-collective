@@ -23,6 +23,10 @@ import { getAllBlogPosts, getBlogCategories } from '@/services/blogService';
 import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('BlogList');
+
 const BlogList = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
@@ -60,7 +64,7 @@ const BlogList = () => {
       const posts = await getAllBlogPosts();
       setBlogPosts(posts);
     } catch (error) {
-      console.error('Error fetching blog posts:', error);
+      logger.error('Error fetching blog posts:', error);
     } finally {
       setIsLoading(false);
     }
@@ -71,7 +75,7 @@ const BlogList = () => {
       const fetchedCategories = await getBlogCategories();
       setCategories(fetchedCategories);
     } catch (error) {
-      console.error('Error fetching categories:', error);
+      logger.error('Error fetching categories:', error);
     }
   };
 

@@ -11,6 +11,10 @@ import { Separator } from '@/components/ui/separator';
 import { FaGoogle, FaGithub, FaTwitter } from 'react-icons/fa';
 import { useToast } from '@/hooks/use-toast';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('Login');
+
 const Login = () => {
   const {
     login,
@@ -35,9 +39,9 @@ const Login = () => {
   // Simple redirect logic - just navigate directly when authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      console.log('[Login] User authenticated, redirecting...');
+      logger.log('[Login] User authenticated, redirecting...');
       const redirectTo = redirectParam || '/dashboard';
-      console.log('[Login] Redirecting to:', redirectTo);
+      logger.log('[Login] Redirecting to:', redirectTo);
       navigate(redirectTo, { replace: true });
     }
   }, [isAuthenticated, navigate, redirectParam]);
@@ -49,12 +53,12 @@ const Login = () => {
       setError('Please enter both email and password');
       return;
     }
-    console.log('[handleUserLogin] Logging in with email:', email);
+    logger.log('[handleUserLogin] Logging in with email:', email);
     try {
       setLoading(true);
       await login(email, password);
     } catch (error: any) {
-      console.error('[handleUserLogin] Login error:', error);
+      logger.error('[handleUserLogin] Login error:', error);
       setError(error.message);
     } finally {
       setLoading(false);
@@ -62,7 +66,7 @@ const Login = () => {
   };
 
   const handleSocialSignIn = async (provider: 'google' | 'github' | 'twitter') => {
-    console.log(`[handleSocialSignIn] Initiating ${provider} login`);
+    logger.log(`[handleSocialSignIn] Initiating ${provider} login`);
     try {
       setError(null);
       setSocialLoading(provider);
@@ -70,7 +74,7 @@ const Login = () => {
       // Store the redirect path BEFORE initiating social sign in
       const redirectPath = redirectParam || '/dashboard';
       localStorage.setItem('redirectAfterLogin', redirectPath);
-      console.log(`[handleSocialSignIn] Stored redirect path: ${redirectPath}`);
+      logger.log(`[handleSocialSignIn] Stored redirect path: ${redirectPath}`);
       
       const signInMethod = {
         'google': googleSignIn,
@@ -83,7 +87,7 @@ const Login = () => {
         throw new Error(`Unsupported provider: ${provider}`);
       }
     } catch (error: any) {
-      console.error(`[${provider}] Social sign-in failed:`, error);
+      logger.error(`[${provider}] Social sign-in failed:`, error);
       toast({
         title: 'Authentication Error',
         description: error.message || `Failed to sign in with ${provider}`,
@@ -152,7 +156,7 @@ const Login = () => {
                   <Input id="password" type={showPassword ? 'text' : 'password'} placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required />
                   <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => {
                   setShowPassword(prev => !prev);
-                  console.log('[Password Toggle] showPassword:', !showPassword);
+                  logger.log('[Password Toggle] showPassword:', !showPassword);
                 }}>
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>

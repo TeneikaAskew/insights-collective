@@ -3,6 +3,9 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('PageVisibilityContext');
 
 interface OnlineUser {
   id: string;
@@ -42,7 +45,7 @@ export const usePageVisibility = () => {
   const context = useContext(PageVisibilityContext);
   if (context === undefined) {
     // Return default values when context is not available to prevent blocking
-    console.warn('[PageVisibilityContext] Context not found, returning conservative defaults');
+    logger.warn('Context not found, returning conservative defaults');
     return {
       isPageVisible: () => false, // Default to hidden for safety
       isLoading: true, // Indicate we're still loading
@@ -95,7 +98,7 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
         .order('page_path');
 
       if (error) {
-        console.error('Error fetching page visibility data:', error);
+        logger.error('Error fetching page visibility data:', error);
         toast({
           title: 'Error loading page visibility',
           description: error.message,
@@ -106,7 +109,7 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
 
       setPageVisibility(data || []);
     } catch (error) {
-      console.error('Error fetching page visibility data:', error);
+      logger.error('Error fetching page visibility data:', error);
       toast({
         title: 'Error loading page visibility',
         description: 'Failed to load page visibility settings',
@@ -118,29 +121,29 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
   };
 
   const isPageVisible = (path: string): boolean => {
-    console.log(`[PageVisibilityProvider] Checking visibility for path: ${path}`);
-    console.log(`[PageVisibilityProvider] Current pageVisibility data:`, pageVisibility);
-    console.log(`[PageVisibilityProvider] User roles:`, user?.roles);
-    console.log(`[PageVisibilityProvider] isLoading:`, isLoading);
+    logger.debug(`Checking visibility for path: ${path}`);
+    logger.debug('Current pageVisibility data:', pageVisibility);
+    logger.debug('User roles:', user?.roles);
+    logger.debug('isLoading:', isLoading);
     
     // Admin users can see all pages
     if (user?.roles?.includes('admin')) {
-      console.log(`[PageVisibilityProvider] Admin user, showing all pages`);
+      logger.debug('Admin user, showing all pages');
       return true;
     }
     
     // If data is still loading, hide pages by default (except admin)
     if (isLoading || pageVisibility.length === 0) {
-      console.log(`[PageVisibilityProvider] Data still loading or empty, hiding ${path} by default`);
+      logger.debug(`Data still loading or empty, hiding ${path} by default`);
       return false;
     }
     
     // Find the page visibility entry for this path
     const pageEntry = pageVisibility.find(page => page.page_path === path);
-    console.log(`[PageVisibilityProvider] Found page entry for ${path}:`, pageEntry);
+    logger.debug(`Found page entry for ${path}:`, pageEntry);
     
     if (!pageEntry) {
-      console.log(`[PageVisibilityProvider] No page entry found for ${path}, defaulting to visible`);
+      logger.debug(`No page entry found for ${path}, defaulting to visible`);
       return true; // Default to visible if not in database but data is loaded
     }
     
@@ -148,22 +151,22 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
     const isInstructor = user?.roles?.includes('instructor');
     const isRegularUser = !isInstructor && !user?.roles?.includes('admin');
     
-    console.log(`[PageVisibilityProvider] Page ${path}, isInstructor: ${isInstructor}, isRegularUser: ${isRegularUser}`);
-    console.log(`[PageVisibilityProvider] Page settings - visible_to_users: ${pageEntry.visible_to_users}, visible_to_instructors: ${pageEntry.visible_to_instructors}`);
+    logger.debug(`Page ${path}, isInstructor: ${isInstructor}, isRegularUser: ${isRegularUser}`);
+    logger.debug(`Page settings - visible_to_users: ${pageEntry.visible_to_users}, visible_to_instructors: ${pageEntry.visible_to_instructors}`);
     
     // Determine visibility based on role
     if (isInstructor) {
       const visible = pageEntry.visible_to_instructors;
-      console.log(`[PageVisibilityProvider] Instructor visibility result for ${path}: ${visible}`);
+      logger.debug(`Instructor visibility result for ${path}: ${visible}`);
       return visible;
     } else if (isRegularUser) {
       const visible = pageEntry.visible_to_users;
-      console.log(`[PageVisibilityProvider] Regular user visibility result for ${path}: ${visible}`);
+      logger.debug(`Regular user visibility result for ${path}: ${visible}`);
       return visible;
     }
     
     // Default to visible for any other case
-    console.log(`[PageVisibilityProvider] Default visibility for ${path}: true`);
+    logger.debug(`Default visibility for ${path}: true`);
     return true;
   };
 
@@ -175,7 +178,7 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
         .eq('id', pageId);
 
       if (error) {
-        console.error('Error updating page visibility:', error);
+        logger.error('Error updating page visibility:', error);
         toast({
           title: 'Error updating page visibility',
           description: error.message,
@@ -196,7 +199,7 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
         description: 'Page visibility settings have been saved successfully.',
       });
     } catch (error) {
-      console.error('Error updating page visibility:', error);
+      logger.error('Error updating page visibility:', error);
       toast({
         title: 'Error updating page visibility',
         description: 'Failed to update page visibility settings',
@@ -287,7 +290,7 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
         { page_path: '/terms-of-service', page_name: 'Terms of Service' }
       ];
 
-      console.log('Syncing pages to database:', availablePages);
+      logger.log('Syncing pages to database:', availablePages);
 
       // Upsert all pages into the database
       for (const page of availablePages) {
@@ -304,7 +307,7 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
           });
 
         if (error) {
-          console.error(`Error upserting page ${page.page_path}:`, error);
+          logger.error(`Error upserting page ${page.page_path}:`, error);
         }
       }
       
@@ -316,7 +319,7 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
         description: `${availablePages.length} pages have been synchronized with the database.`,
       });
     } catch (error) {
-      console.error('[PageVisibilityProvider] Error syncing pages:', error);
+      logger.error('Error syncing pages:', error);
       toast({
         title: 'Error syncing pages',
         description: 'Failed to sync page visibility data',

@@ -13,6 +13,10 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { slugify } from '@/lib/utils';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('SurveyFormCreate');
+
 export default function SurveyFormCreate() {
   const { user, isAdmin } = useAuth();
   const [title, setTitle] = useState('');
@@ -86,7 +90,7 @@ export default function SurveyFormCreate() {
       // Navigate to form editor
       navigate(`/survey/${slug}/edit`);
     } catch (error) {
-      console.error('Error creating form:', error);
+      logger.error('Error creating form:', error);
       toast({
         title: 'Error',
         description: 'Failed to create form. Please try again.',

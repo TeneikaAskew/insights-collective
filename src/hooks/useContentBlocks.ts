@@ -6,6 +6,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { isValidUUID } from '@/utils/idUtils';
 import { ContentBlock, ContentBlockInput } from '@/types/moduleContent';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useContentBlocks');
+
 export type { ContentBlock, ContentBlockInput };
 
 export function useContentBlocks(moduleId?: string, lessonId?: string) {
@@ -22,14 +26,14 @@ export function useContentBlocks(moduleId?: string, lessonId?: string) {
     }
 
     if (!isValidUUID(moduleId)) {
-      console.error(`Invalid module UUID format: ${moduleId}`);
+      logger.error(`Invalid module UUID format: ${moduleId}`);
       setError('Invalid module ID format');
       setLoading(false);
       return;
     }
 
     if (lessonId && !isValidUUID(lessonId)) {
-      console.error(`Invalid lesson UUID format: ${lessonId}`);
+      logger.error(`Invalid lesson UUID format: ${lessonId}`);
       setError('Invalid lesson ID format');
       setLoading(false);
       return;
@@ -62,7 +66,7 @@ export function useContentBlocks(moduleId?: string, lessonId?: string) {
       if (error) throw error;
       setBlocks(data || []);
     } catch (error: any) {
-      console.error('Error fetching content blocks:', error);
+      logger.error('Error fetching content blocks:', error);
       setError(error.message || 'Failed to load content blocks');
       toast({
         title: 'Error',
@@ -78,7 +82,7 @@ export function useContentBlocks(moduleId?: string, lessonId?: string) {
     if (!user || !moduleId) return null;
 
     if (!isValidUUID(moduleId)) {
-      console.error(`Invalid module UUID format: ${moduleId}`);
+      logger.error(`Invalid module UUID format: ${moduleId}`);
       toast({
         title: 'Error',
         description: 'Invalid module ID format',
@@ -110,7 +114,7 @@ export function useContentBlocks(moduleId?: string, lessonId?: string) {
 
       return data;
     } catch (error: any) {
-      console.error('Error adding content block:', error);
+      logger.error('Error adding content block:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to add content block',
@@ -122,7 +126,7 @@ export function useContentBlocks(moduleId?: string, lessonId?: string) {
 
   const updateBlock = async (id: string, updates: Partial<ContentBlockInput>): Promise<ContentBlock | null> => {
     if (!isValidUUID(id)) {
-      console.error(`Invalid block UUID format: ${id}`);
+      logger.error(`Invalid block UUID format: ${id}`);
       toast({
         title: 'Error',
         description: 'Invalid block ID format',
@@ -150,7 +154,7 @@ export function useContentBlocks(moduleId?: string, lessonId?: string) {
 
       return data;
     } catch (error: any) {
-      console.error('Error updating content block:', error);
+      logger.error('Error updating content block:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to update content block',
@@ -162,7 +166,7 @@ export function useContentBlocks(moduleId?: string, lessonId?: string) {
 
   const deleteBlock = async (id: string): Promise<boolean> => {
     if (!isValidUUID(id)) {
-      console.error(`Invalid block UUID format: ${id}`);
+      logger.error(`Invalid block UUID format: ${id}`);
       toast({
         title: 'Error',
         description: 'Invalid block ID format',
@@ -188,7 +192,7 @@ export function useContentBlocks(moduleId?: string, lessonId?: string) {
 
       return true;
     } catch (error: any) {
-      console.error('Error deleting content block:', error);
+      logger.error('Error deleting content block:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to delete content block',
@@ -208,7 +212,7 @@ export function useContentBlocks(moduleId?: string, lessonId?: string) {
 
       for (const update of updates) {
         if (!isValidUUID(update.id)) {
-          console.error(`Invalid block UUID format: ${update.id}`);
+          logger.error(`Invalid block UUID format: ${update.id}`);
           continue;
         }
 
@@ -229,7 +233,7 @@ export function useContentBlocks(moduleId?: string, lessonId?: string) {
 
       return true;
     } catch (error: any) {
-      console.error('Error reordering content blocks:', error);
+      logger.error('Error reordering content blocks:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to reorder content blocks',

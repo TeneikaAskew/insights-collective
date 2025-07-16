@@ -7,6 +7,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useProfileUpdate } from '@/hooks/useProfileUpdate';
 import { useAuth } from '@/contexts/AuthContext';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('ProfileAvatar');
+
 export const ProfileAvatar = () => {
   const { user } = useAuth();
   const [uploading, setUploading] = useState(false);
@@ -33,7 +37,7 @@ export const ProfileAvatar = () => {
       await updateProfile({ avatar_url: data.publicUrl });
       setPreview(data.publicUrl);
     } catch (error: any) {
-      console.error('Error uploading avatar:', error);
+      logger.error('Error uploading avatar:', error);
     } finally {
       setUploading(false);
     }

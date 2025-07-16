@@ -11,6 +11,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { Forum } from '@/types/forum';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('ForumDetail');
+
 const ForumDetailPage: React.FC = () => {
   const { courseId, forumId } = useParams<{ courseId: string; forumId: string }>();
   
@@ -27,7 +31,7 @@ const ForumDetailPage: React.FC = () => {
         .single();
         
       if (error) {
-        console.error("Error fetching forum:", error);
+        logger.error("Error fetching forum:", error);
         return null;
       }
       return data as Forum;
@@ -49,7 +53,7 @@ const ForumDetailPage: React.FC = () => {
         .single();
         
       if (error) {
-        console.error("Error fetching course:", error);
+        logger.error("Error fetching course:", error);
         return null;
       }
       return data;

@@ -9,6 +9,10 @@ import { useResumeAnalysis } from '@/hooks/useResumeAnalysis';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/AuthContext';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('handleButtonClick');
+
   interface OverallScoreCardProps {
     letterGrade: string;
     resumePercent: number;
@@ -38,15 +42,15 @@ import { useAuth } from '@/contexts/AuthContext';
     const { user } = useAuth();
     const userId = user?.id;
     
-    // console.log('[OverallScoreCard] User ID:', userId);
-    // console.log('[OverallScoreCard] Resume analysis data:', localStorage.getItem(`resume_analysis_${userId}`));
-    // console.log('[OverallScoreCard] Resume text data:', localStorage.getItem(`resume_text_${userId}`));
-    // console.log('[OverallScoreCard] Resume data:', localStorage.getItem(`resume_data_${userId}`));
+    // logger.log('[OverallScoreCard] User ID:', userId);
+    // logger.log('[OverallScoreCard] Resume analysis data:', localStorage.getItem(`resume_analysis_${userId}`));
+    // logger.log('[OverallScoreCard] Resume text data:', localStorage.getItem(`resume_text_${userId}`));
+    // logger.log('[OverallScoreCard] Resume data:', localStorage.getItem(`resume_data_${userId}`));
   
     
   // Check for roast (keep existing functionality)
   useEffect(() => {
-    console.log("Checking if roast exists yet for: ", userId);
+    logger.log("Checking if roast exists yet for: ", userId);
     if (userId) {
       const checkForRoast = async () => {
         try {
@@ -56,12 +60,12 @@ import { useAuth } from '@/contexts/AuthContext';
           } = await supabase.from('resumes').select('resume_roast').eq('user_id', userId).order('uploaded_at', {
             ascending: false
           }).limit(1).maybeSingle();
-          console.log("user: ", userId, " - Roast data", data);
+          logger.log("user: ", userId, " - Roast data", data);
           if (!error && data?.resume_roast) {
             setHasRoast(true);
           }
         } catch (error) {
-          console.error("Error checking for roast:", error);
+          logger.error("Error checking for roast:", error);
         }
       };
       checkForRoast();
@@ -70,7 +74,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
   // Setup flashing effect with interval (keep existing functionality)
   useEffect(() => {
-    console.log("Does the analysis exist? ", hasAnalysis);
+    logger.log("Does the analysis exist? ", hasAnalysis);
     if (!hasAnalysis || hasBeenClicked) {
       if (flashIntervalRef.current) {
         clearInterval(flashIntervalRef.current);

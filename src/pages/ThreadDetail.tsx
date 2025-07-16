@@ -10,6 +10,10 @@ import { Thread, Forum } from '@/types/forum';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft } from 'lucide-react';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('ThreadDetail');
+
 const ThreadDetailPage: React.FC = () => {
   const { courseId, forumId, threadId } = useParams<{ courseId: string; forumId: string; threadId: string }>();
   
@@ -35,7 +39,7 @@ const ThreadDetailPage: React.FC = () => {
         if (error) throw error;
         return data as Thread;
       } catch (error) {
-        console.error('Error fetching thread:', error);
+        logger.error('Error fetching thread:', error);
         return null;
       }
     },
@@ -57,7 +61,7 @@ const ThreadDetailPage: React.FC = () => {
         if (error) throw error;
         return data as Forum;
       } catch (error) {
-        console.error('Error fetching forum:', error);
+        logger.error('Error fetching forum:', error);
         return null;
       }
     },
@@ -79,7 +83,7 @@ const ThreadDetailPage: React.FC = () => {
         if (error) throw error;
         return data;
       } catch (error) {
-        console.error('Error fetching course:', error);
+        logger.error('Error fetching course:', error);
         return null;
       }
     },

@@ -13,6 +13,10 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { createFellowshipForm } from '@/components/forms/builder';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('SurveyFormEdit');
+
 export default function SurveyFormEdit() {
   const { user, isAdmin } = useAuth();
   const { slug } = useParams<{ slug: string }>();
@@ -50,7 +54,7 @@ export default function SurveyFormEdit() {
       }
 
       try {
-        console.log("Fetching form data for slug:", actualSlug);
+        logger.log("Fetching form data for slug:", actualSlug);
         const { data, error: fetchError } = await supabase
           .from('forms')
           .select('*')
@@ -58,15 +62,15 @@ export default function SurveyFormEdit() {
           .single();
 
         if (fetchError) {
-          console.error("Supabase error:", fetchError);
+          logger.error("Supabase error:", fetchError);
           
           // If the form doesn't exist and the slug is ai-fellowship, create it
           if (fetchError.code === 'PGRST116' && actualSlug === 'ai-fellowship') {
-            console.log("Creating fellowship form...");
+            logger.log("Creating fellowship form...");
             const fellowshipForm = createFellowshipForm();
             
             // Log the form for debugging
-            console.log("Fellowship form to be inserted:", fellowshipForm);
+            logger.log("Fellowship form to be inserted:", fellowshipForm);
             
             // Insert the fellowship form into the database
             const { data: insertedForm, error: insertError } = await supabase
@@ -76,13 +80,13 @@ export default function SurveyFormEdit() {
               .single();
               
             if (insertError) {
-              console.error("Error inserting fellowship form:", insertError);
+              logger.error("Error inserting fellowship form:", insertError);
               setError(`Error creating fellowship form: ${insertError.message}`);
               setLoading(false);
               return;
             }
 
-            console.log("Fellowship form created successfully:", insertedForm);
+            logger.log("Fellowship form created successfully:", insertedForm);
             
             setFormData({
               id: insertedForm.id,
@@ -107,13 +111,13 @@ export default function SurveyFormEdit() {
         }
 
         if (!data) {
-          console.error("No data returned for slug:", actualSlug);
+          logger.error("No data returned for slug:", actualSlug);
           setError(`Form with slug "${actualSlug}" not found`);
           setLoading(false);
           return;
         }
 
-        console.log("Form data retrieved:", data);
+        logger.log("Form data retrieved:", data);
 
         // Initialize form structure with safe defaults
         const safeFormStructure: FormStructure = {
@@ -130,7 +134,7 @@ export default function SurveyFormEdit() {
           form_structure: safeFormStructure
         });
       } catch (error: any) {
-        console.error('Error fetching form:', error);
+        logger.error('Error fetching form:', error);
         toast({
           title: 'Error',
           description: 'Could not load form data: ' + (error.message || 'Unknown error'),
@@ -147,7 +151,7 @@ export default function SurveyFormEdit() {
   // Only allow admin users to access this page, but don't redirect immediately
   // to allow the auth system to properly store the redirect path
   if (!user || !isAdmin) {
-    console.log("User not authenticated as admin, will be handled by ProtectedRoute");
+    logger.log("User not authenticated as admin, will be handled by ProtectedRoute");
     return null; // Let ProtectedRoute handle the redirect
   }
 

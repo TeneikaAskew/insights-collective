@@ -17,6 +17,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProgressTracking } from '@/hooks/useProgressTracking';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('getCertificateIcon');
+
 interface Certificate {
   id: string;
   user_id: string;
@@ -102,7 +106,7 @@ const CertificationSystem: React.FC<CertificationSystemProps> = ({
       }
 
     } catch (error) {
-      console.error('Error fetching certificate data:', error);
+      logger.error('Error fetching certificate data:', error);
       toast({
         title: 'Error',
         description: 'Failed to load certificate data',
@@ -169,7 +173,7 @@ const CertificationSystem: React.FC<CertificationSystemProps> = ({
       });
 
     } catch (error) {
-      console.error('Error generating certificate:', error);
+      logger.error('Error generating certificate:', error);
       toast({
         title: 'Error',
         description: 'Failed to generate certificate',
@@ -218,7 +222,7 @@ This certificate can be verified at our verification portal.
       });
 
     } catch (error) {
-      console.error('Error downloading certificate:', error);
+      logger.error('Error downloading certificate:', error);
       toast({
         title: 'Error',
         description: 'Failed to download certificate',

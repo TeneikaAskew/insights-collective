@@ -20,6 +20,10 @@ import { useToast } from '@/hooks/use-toast';
 import { useAdminUsers } from '@/hooks/useAdminUsers';
 import { useAuth } from '@/contexts/AuthContext';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('AdminUsers');
+
 interface UserData {
   id: string;
   first_name?: string;
@@ -53,20 +57,20 @@ const AdminUsers = () => {
   useEffect(() => {
     // Only fetch users when user is loaded and has admin privileges
     if (user && user.roles && user.roles.includes('admin')) {
-      console.log('[AdminUsers] User is admin, fetching users...');
+      logger.log('[AdminUsers] User is admin, fetching users...');
       fetchUsers();
     } else if (user && user.roles && !user.roles.includes('admin')) {
-      console.log('[AdminUsers] User is not admin, setting error...');
+      logger.log('[AdminUsers] User is not admin, setting error...');
       // setError('Admin access required');
     } else {
-      console.log('[AdminUsers] User not loaded yet, waiting...');
+      logger.log('[AdminUsers] User not loaded yet, waiting...');
     }
   }, [user]);
 
   useEffect(() => {
-    console.log('[AdminUsers] Users state updated:', users);
-    console.log('[AdminUsers] Loading state:', loading);
-    console.log('[AdminUsers] Error state:', error);
+    logger.log('[AdminUsers] Users state updated:', users);
+    logger.log('[AdminUsers] Loading state:', loading);
+    logger.log('[AdminUsers] Error state:', error);
   }, [users, loading, error]);
   
   const getHighestRole = (roles: string[] = ['student']): string => {
@@ -129,7 +133,7 @@ const AdminUsers = () => {
         description: `Roles have been updated.`,
       });
     } catch (error: any) {
-      console.error('Error updating user roles:', error);
+      logger.error('Error updating user roles:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to update user roles.',
@@ -165,7 +169,7 @@ const AdminUsers = () => {
         description: 'User data has been exported to CSV.',
       });
     } catch (error) {
-      console.error('Error exporting users:', error);
+      logger.error('Error exporting users:', error);
       toast({
         title: 'Export Failed',
         description: 'Failed to export user data.',
@@ -209,7 +213,7 @@ const AdminUsers = () => {
 
   const handleBulkDelete = () => {
     // Add bulk delete functionality
-    console.log('Bulk delete users:', selectedUsers);
+    logger.log('Bulk delete users:', selectedUsers);
     toast({
       title: 'Bulk Delete',
       description: `Would delete ${selectedUsers.length} users`,
@@ -218,7 +222,7 @@ const AdminUsers = () => {
 
   const handleBulkRoleUpdate = () => {
     // Add bulk role update functionality
-    console.log('Bulk role update for users:', selectedUsers);
+    logger.log('Bulk role update for users:', selectedUsers);
     toast({
       title: 'Bulk Role Update',
       description: `Would update roles for ${selectedUsers.length} users`,
@@ -226,10 +230,10 @@ const AdminUsers = () => {
   };
 
   // Debug user data to understand the issue
-  console.log('[AdminUsers] Raw user data for debugging:');
+  logger.log('[AdminUsers] Raw user data for debugging:');
   users.forEach((user, index) => {
     if (index < 5) { // Only log first 5 users to avoid spam
-      console.log(`User ${index + 1}:`, {
+      logger.log(`User ${index + 1}:`, {
         name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
         roles: user.roles,
         id: user.id
@@ -248,7 +252,7 @@ const AdminUsers = () => {
   const instructorsCount = users.filter(u => {
     const hasInstructorRole = (u.roles || []).includes('instructor');
     if (hasInstructorRole) {
-      console.log('[AdminUsers] Found instructor:', {
+      logger.log('[AdminUsers] Found instructor:', {
         name: `${u.first_name || ''} ${u.last_name || ''}`.trim(),
         roles: u.roles
       });
@@ -259,7 +263,7 @@ const AdminUsers = () => {
   const adminsCount = users.filter(u => {
     const hasAdminRole = (u.roles || []).includes('admin');
     if (hasAdminRole) {
-      console.log('[AdminUsers] Found admin:', {
+      logger.log('[AdminUsers] Found admin:', {
         name: `${u.first_name || ''} ${u.last_name || ''}`.trim(),
         roles: u.roles
       });
@@ -267,14 +271,14 @@ const AdminUsers = () => {
     return hasAdminRole;
   }).length;
 
-  console.log('[AdminUsers] Tab counts:', {
+  logger.log('[AdminUsers] Tab counts:', {
     all: allUsersCount,
     students: studentsCount,
     instructors: instructorsCount,
     admins: adminsCount
   });
 
-  console.log('[AdminUsers] Rendering with users:', users.length, 'loading:', loading, 'error:', error);
+  logger.log('[AdminUsers] Rendering with users:', users.length, 'loading:', loading, 'error:', error);
   
   return (
     <AppLayout>

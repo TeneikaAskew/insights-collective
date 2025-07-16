@@ -4,6 +4,9 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import CanvasContentService from '@/services/canvasContentService';
 import type { ContentItem, Module } from '@/types/canvas';
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useCanvasContent');
 
 export function useCanvasContent(moduleId: string | null) {
   const [contentItems, setContentItems] = useState<ContentItem[]>([]);
@@ -160,7 +163,7 @@ export function useModuleContentCounts(courseId: string) {
         setCounts(countsMap);
       }
     } catch (error) {
-      console.error('Error loading content counts:', error);
+      logger.error('Error loading content counts:', error);
     } finally {
       setLoading(false);
     }

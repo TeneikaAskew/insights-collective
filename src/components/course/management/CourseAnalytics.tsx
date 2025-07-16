@@ -7,6 +7,9 @@ import { ResponsiveContainer, LineChart, Line, BarChart, Bar, PieChart, Pie, Cel
 import { supabase } from '@/integrations/supabase/client';
 import { Spinner } from '@/components/ui/spinner';
 import { CalendarDays, Users, BookOpen } from 'lucide-react';
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('CourseAnalytics');
 
 interface CourseAnalyticsProps {
   courseId?: string;
@@ -94,7 +97,7 @@ export default function CourseAnalytics({ courseId }: CourseAnalyticsProps) {
       });
       
     } catch (error) {
-      console.error('Error fetching analytics data:', error);
+      logger.error('Error fetching analytics data:', error);
     } finally {
       setLoading(false);
     }
@@ -198,7 +201,7 @@ export default function CourseAnalytics({ courseId }: CourseAnalyticsProps) {
       
       return moduleViews;
     } catch (error) {
-      console.error('Error fetching module data:', error);
+      logger.error('Error fetching module data:', error);
       return [];
     }
   };

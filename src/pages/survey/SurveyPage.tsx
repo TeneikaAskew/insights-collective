@@ -13,6 +13,10 @@ import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-react';
 import { FormData, FormSection, FormStructure } from '@/types/forms';
 import { createFellowshipForm } from '@/components/forms/builder';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('SurveyPage');
+
 export default function SurveyPage() {
   const { slug } = useParams<{ slug: string }>();
   // Fix: Use surveySlug to match the route parameter name
@@ -38,7 +42,7 @@ export default function SurveyPage() {
       if (!actualSlug) return;
 
       try {
-        console.log("Fetching form with slug:", actualSlug);
+        logger.log("Fetching form with slug:", actualSlug);
         // Try to fetch the existing form
         const { data, error } = await supabase
           .from('forms')
@@ -49,13 +53,13 @@ export default function SurveyPage() {
 
         // If there's an error and the form doesn't exist but the slug is 'ai-fellowship'
         if (error) {
-          console.log("Error fetching form:", error);
+          logger.log("Error fetching form:", error);
           
           if (error.code === 'PGRST116' && slug === 'ai-fellowship') {
-            console.log("Fellowship form not found, creating it...");
+            logger.log("Fellowship form not found, creating it...");
             const fellowshipForm = createFellowshipForm();
             
-            console.log("Fellowship form to be created:", fellowshipForm);
+            logger.log("Fellowship form to be created:", fellowshipForm);
             
             // Insert the fellowship form into the database
             const { data: insertedForm, error: insertError } = await supabase
@@ -65,18 +69,18 @@ export default function SurveyPage() {
               .single();
               
             if (insertError) {
-              console.error("Error creating fellowship form:", insertError);
+              logger.error("Error creating fellowship form:", insertError);
               throw insertError;
             }
             
-            console.log("Fellowship form created:", insertedForm);
+            logger.log("Fellowship form created:", insertedForm);
             setFormData(insertedForm);
             
             if (insertedForm.form_structure && Array.isArray(insertedForm.form_structure.sections)) {
               setFormSections(insertedForm.form_structure.sections);
-              console.log("Set form sections:", insertedForm.form_structure.sections);
+              logger.log("Set form sections:", insertedForm.form_structure.sections);
             } else {
-              console.error("Invalid form structure:", insertedForm.form_structure);
+              logger.error("Invalid form structure:", insertedForm.form_structure);
             }
             
             toast({
@@ -88,7 +92,7 @@ export default function SurveyPage() {
           }
         } else {
           // If form was fetched successfully
-          console.log("Form found:", data);
+          logger.log("Form found:", data);
           
           // Check if form is active
           if (!data.status) {
@@ -105,9 +109,9 @@ export default function SurveyPage() {
 
           if (data.form_structure && Array.isArray(data.form_structure.sections)) {
             setFormSections(data.form_structure.sections);
-            console.log("Set form sections:", data.form_structure.sections);
+            logger.log("Set form sections:", data.form_structure.sections);
           } else {
-            console.error("Invalid form structure:", data.form_structure);
+            logger.error("Invalid form structure:", data.form_structure);
           }
         }
 
@@ -134,16 +138,16 @@ export default function SurveyPage() {
                   reset(parsedDraft);
                   setDraftLoaded(true);
                 } catch (e) {
-                  console.error("Error parsing saved draft:", e);
+                  logger.error("Error parsing saved draft:", e);
                 }
               }
             }
           } catch (error) {
-            console.error("Error loading draft:", error);
+            logger.error("Error loading draft:", error);
           }
         }
       } catch (error) {
-        console.error('Error fetching form:', error);
+        logger.error('Error fetching form:', error);
         toast({
           title: 'Error',
           description: 'Could not load form data',
@@ -210,7 +214,7 @@ export default function SurveyPage() {
       navigate(`/survey-confirmation/${actualSlug}`);
       
     } catch (error) {
-      console.error('Error submitting form:', error);
+      logger.error('Error submitting form:', error);
       toast({
         title: 'Error',
         description: 'Failed to submit form. Please try again.',

@@ -24,6 +24,10 @@ import CourseModuleManager from './CourseModuleManager';
 import AppLayout from '@/components/layout/AppLayout';
 import { useUsers } from '@/hooks/useUsers';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('CourseEditor');
+
 const CourseEditor = () => {
   const { courseId } = useParams<{ courseId: string }>();
   const isNewCourse = courseId === 'new';
@@ -82,7 +86,7 @@ const CourseEditor = () => {
           tags: data.tags || []
         });
       } catch (error: any) {
-        console.error('Error fetching course:', error);
+        logger.error('Error fetching course:', error);
         toast({
           title: 'Error',
           description: 'Failed to load course data',
@@ -247,7 +251,7 @@ const CourseEditor = () => {
       
       navigate(`/admin/courses/${result.id}/edit`);
     } catch (error: any) {
-      console.error('Error saving course:', error);
+      logger.error('Error saving course:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to save course',

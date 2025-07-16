@@ -31,6 +31,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { usePortfolio } from '@/hooks/usePortfolio';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('isValidActionPlan');
+
 interface CourseData {
   title: string;
   provider: string;
@@ -114,9 +118,9 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
 
   // Effect to update internal state when the prop changes
   useEffect(() => {
-    console.log('CAP Debug: useEffect triggered. initialActionPlan:', initialActionPlan);
+    logger.log('CAP Debug: useEffect triggered. initialActionPlan:', initialActionPlan);
     if (isValidActionPlan(initialActionPlan)) {
-      console.log('CAP Debug: Setting internal actionPlan state from initialActionPlan prop.');
+      logger.log('CAP Debug: Setting internal actionPlan state from initialActionPlan prop.');
       setActionPlan(initialActionPlan);
       // Ensure active timeframe is valid if the plan just loaded
       const validKeys = Object.keys(initialActionPlan).filter(key => 
@@ -126,16 +130,16 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
       if (validKeys.length > 0) {
          // Set default tab only if the current one isn't valid or doesn't exist in the new plan
          if (!validKeys.includes(activeTimeframe) || !initialActionPlan[activeTimeframe]) {
-             console.log(`CAP Debug: Setting active timeframe to default ${validKeys[0]}.`);
+             logger.log(`CAP Debug: Setting active timeframe to default ${validKeys[0]}.`);
              setActiveTimeframe(validKeys[0]);
          }
       } else {
-         console.warn("CAP Warn: initialActionPlan received but seems to have no valid timeframe keys.");
+         logger.warn("CAP Warn: initialActionPlan received but seems to have no valid timeframe keys.");
          setActionPlan(null); // Treat as no plan if keys are invalid
          setActiveTimeframe("6_weeks"); // Reset tab if plan becomes invalid
       }
     } else {
-      console.log('CAP Debug: initialActionPlan is null or invalid, clearing internal state.');
+      logger.log('CAP Debug: initialActionPlan is null or invalid, clearing internal state.');
       // If the prop becomes null/invalid, clear the internal state
       setActionPlan(null);
       setActiveTimeframe("6_weeks"); // Reset tab
@@ -155,23 +159,23 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
     }
 
     setIsGenerating(true);
-    console.log('CAP Debug: Starting regeneration...');
+    logger.log('CAP Debug: Starting regeneration...');
 
     try {
       const { data: functionData, error: functionError } = await supabase.functions.invoke('generate-career-action-plan', {
         body: { userId: user.id }
       });
 
-      console.log('CAP Debug: Regeneration API Response:', functionData);
+      logger.log('CAP Debug: Regeneration API Response:', functionData);
 
       if (functionError) {
-        console.error("CAP Error: Regeneration function invocation failed:", functionError);
+        logger.error("CAP Error: Regeneration function invocation failed:", functionError);
         throw new Error(`Function error: ${functionError.message}`);
       }
 
       if (functionData?.success && isValidActionPlan(functionData.data)) {
         const newPlan = functionData.data as ActionPlan;
-        console.log('CAP Debug: Setting regenerated action plan:', newPlan);
+        logger.log('CAP Debug: Setting regenerated action plan:', newPlan);
         setActionPlan(newPlan); // Update internal state directly
 
         // Find the first valid timeframe key to set as active
@@ -181,18 +185,18 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
         
         const defaultTimeframe = validKeys.length > 0 ? validKeys[0] : "6_weeks";
         setActiveTimeframe(defaultTimeframe);
-        console.log('CAP Debug: Resetting active timeframe to:', defaultTimeframe);
+        logger.log('CAP Debug: Resetting active timeframe to:', defaultTimeframe);
 
         toast({
           title: "Action Plan Regenerated",
           description: "Your updated career action plan is ready!",
         });
       } else {
-        console.error("CAP Error: Regeneration failed or returned invalid data.", functionData);
+        logger.error("CAP Error: Regeneration failed or returned invalid data.", functionData);
         throw new Error(functionData?.error || "Failed to generate a valid action plan.");
       }
     } catch (error) {
-      console.error("CAP Error: Error in regenerateActionPlan:", error);
+      logger.error("CAP Error: Error in regenerateActionPlan:", error);
       toast({
         title: "Regeneration Failed",
         description: `We couldn't regenerate your action plan. Please try again. Error: ${error instanceof Error ? error.message : String(error)}`,
@@ -202,7 +206,7 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
       // Do not clear the existing plan on failure, keep the old one
     } finally {
       setIsGenerating(false);
-      console.log('CAP Debug: Regeneration finished.');
+      logger.log('CAP Debug: Regeneration finished.');
     }
   };
 
@@ -283,9 +287,9 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
         description: `${type.charAt(0).toUpperCase() + type.slice(1)} has been added to your portfolio tracker.`,
       });
 
-      console.log('Successfully added to portfolio:', insertedProject);
+      logger.log('Successfully added to portfolio:', insertedProject);
     } catch (error) {
-      console.error('Error adding to portfolio:', error);
+      logger.error('Error adding to portfolio:', error);
       toast({
         title: "Error",
         description: "Failed to add item to portfolio. Please try again.",

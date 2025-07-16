@@ -11,6 +11,10 @@ import {
 import { getBlogPostAnalytics } from '@/services/blogService';
 import { BlogAnalytics } from '@/types/blog';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('BlogPostAnalytics');
+
 interface BlogPostAnalyticsProps {
   postId: string;
   postSlug: string;
@@ -31,7 +35,7 @@ export function BlogPostAnalytics({ postId, postSlug }: BlogPostAnalyticsProps) 
       const data = await getBlogPostAnalytics(postSlug, timeframe);
       setAnalytics(data);
     } catch (error) {
-      console.error('Error loading analytics:', error);
+      logger.error('Error loading analytics:', error);
     } finally {
       setLoading(false);
     }

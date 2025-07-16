@@ -17,6 +17,10 @@ import { Wand2 } from 'lucide-react';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('AIContentGenerator');
+
 interface AIContentGeneratorProps {
   onContentGenerated: (content: string) => void;
   contextType: 'course' | 'module' | 'lesson';
@@ -76,7 +80,7 @@ const AIContentGenerator = ({
         setIsGenerating(false);
       }, 1500);
     } catch (error) {
-      console.error('Error generating content:', error);
+      logger.error('Error generating content:', error);
       toast({
         title: "Generation Failed",
         description: "There was an error generating content. Please try again.",

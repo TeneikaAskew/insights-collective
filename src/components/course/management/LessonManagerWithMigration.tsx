@@ -18,6 +18,10 @@ import {
 import { Plus, BookOpen, Edit, Trash2, Clock } from 'lucide-react';
 import { CanvasEditor } from '@/components/ui/canvas-editor';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('LessonManagerWithMigration');
+
 interface LessonManagerWithMigrationProps {
   moduleId: string;
 }
@@ -52,7 +56,7 @@ const LessonManagerWithMigration = ({ moduleId }: LessonManagerWithMigrationProp
   };
 
   const handleAddLesson = async () => {
-    console.log('handleAddLesson called with formData:', formData);
+    logger.log('handleAddLesson called with formData:', formData);
     
     if (!formData.title.trim()) {
       toast({
@@ -64,7 +68,7 @@ const LessonManagerWithMigration = ({ moduleId }: LessonManagerWithMigrationProp
     }
 
     try {
-      console.log('Attempting to create lesson with data:', {
+      logger.log('Attempting to create lesson with data:', {
         title: formData.title,
         description: formData.description,
         content: formData.content || '',
@@ -88,7 +92,7 @@ const LessonManagerWithMigration = ({ moduleId }: LessonManagerWithMigrationProp
         module_id: moduleId
       });
 
-      console.log('Lesson created successfully:', newLesson);
+      logger.log('Lesson created successfully:', newLesson);
 
       if (newLesson) {
         toast({
@@ -100,7 +104,7 @@ const LessonManagerWithMigration = ({ moduleId }: LessonManagerWithMigrationProp
         refetch(); // Refresh the lessons list
       }
     } catch (error) {
-      console.error('Error creating lesson:', error);
+      logger.error('Error creating lesson:', error);
       toast({
         title: "Error",
         description: "Failed to create lesson. Please try again.",
@@ -134,7 +138,7 @@ const LessonManagerWithMigration = ({ moduleId }: LessonManagerWithMigrationProp
       setSelectedLesson(null);
       resetForm();
     } catch (error) {
-      console.error('Error updating lesson:', error);
+      logger.error('Error updating lesson:', error);
     }
   };
 
@@ -146,7 +150,7 @@ const LessonManagerWithMigration = ({ moduleId }: LessonManagerWithMigrationProp
     try {
       await deleteLesson(lessonId);
     } catch (error) {
-      console.error('Error deleting lesson:', error);
+      logger.error('Error deleting lesson:', error);
     }
   };
 

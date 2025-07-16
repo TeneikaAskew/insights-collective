@@ -4,6 +4,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from './use-toast';
 import { createNewConversation } from '@/services/conversationService';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useConversationCreate');
+
 /**
  * Hook for creating new conversations
  */
@@ -13,10 +17,10 @@ export function useConversationCreate() {
   const { toast } = useToast();
 
   const createConversation = async (subject: string, recipientIds: string[]) => {
-    console.log('[useConversationCreate] Attempting to create conversation');
+    logger.log('[useConversationCreate] Attempting to create conversation');
     
     if (!user) {
-      console.warn('[useConversationCreate] No authenticated user found');
+      logger.warn('[useConversationCreate] No authenticated user found');
       toast({
         title: 'Error',
         description: 'You must be logged in to create a conversation',
@@ -25,18 +29,18 @@ export function useConversationCreate() {
       return null;
     }
 
-    console.log('[useConversationCreate] Subject:', subject);
-    console.log('[useConversationCreate] Recipients:', recipientIds);
+    logger.log('[useConversationCreate] Subject:', subject);
+    logger.log('[useConversationCreate] Recipients:', recipientIds);
 
     setCreating(true);
     try {
       // Use the updated createNewConversation function which handles auth internally
       const conversationId = await createNewConversation(subject, recipientIds);
 
-      console.log('[useConversationCreate] Successfully created conversation:', conversationId);
+      logger.log('[useConversationCreate] Successfully created conversation:', conversationId);
       return conversationId;
     } catch (error) {
-      console.error('[useConversationCreate] Error creating conversation:', error);
+      logger.error('[useConversationCreate] Error creating conversation:', error);
       toast({
         title: 'Error',
         description: 'Failed to create conversation. Please try again.',
@@ -45,7 +49,7 @@ export function useConversationCreate() {
       return null;
     } finally {
       setCreating(false);
-      console.log('[useConversationCreate] Done creating conversation');
+      logger.log('[useConversationCreate] Done creating conversation');
     }
   };
   

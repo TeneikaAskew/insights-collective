@@ -2,6 +2,10 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useCareerGoals');
+
 export function useCareerGoals(userId?: string, resumeId?: string) {
   const [careerGoals, setCareerGoals] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
@@ -30,14 +34,14 @@ export function useCareerGoals(userId?: string, resumeId?: string) {
             .maybeSingle();
             
           if (error) {
-            console.error('Error loading career goals:', error);
+            logger.error('Error loading career goals:', error);
           } else if (data?.career_goals) {
             setCareerGoals(data.career_goals);
             // Update local storage with the most recent data
             localStorage.setItem(`career_goals_${userId}`, data.career_goals);
           }
         } catch (err) {
-          console.error('Error in loading career goals:', err);
+          logger.error('Error in loading career goals:', err);
         }
       }
       
@@ -71,13 +75,13 @@ export function useCareerGoals(userId?: string, resumeId?: string) {
         .eq('id', resumeId);
         
       if (error) {
-        console.error('Error saving career goals:', error);
+        logger.error('Error saving career goals:', error);
         return false;
       }
       
       return true;
     } catch (err) {
-      console.error('Error in saving career goals:', err);
+      logger.error('Error in saving career goals:', err);
       return false;
     } finally {
       setIsSaving(false);

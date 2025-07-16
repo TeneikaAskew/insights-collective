@@ -22,6 +22,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { archiveConversation, unarchiveConversation, deleteConversation, restoreConversation } from '@/services/conversationService';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('renderActions');
+
 interface MessageActionsProps {
   conversationId: string;
   onSuccess?: (actionType: 'archive' | 'unarchive' | 'delete' | 'restore') => void;
@@ -81,7 +85,7 @@ const MessageActions: React.FC<MessageActionsProps> = ({
       // Navigate back to the inbox
       navigate('/messages');
     } catch (error) {
-      console.error('Error marking conversation as unread:', error);
+      logger.error('Error marking conversation as unread:', error);
       toast({
         title: 'Error',
         description: 'Failed to mark conversation as unread',
@@ -106,7 +110,7 @@ const MessageActions: React.FC<MessageActionsProps> = ({
       
       if (onSuccess) onSuccess('archive');
     } catch (error) {
-      console.error('Error archiving conversation:', error);
+      logger.error('Error archiving conversation:', error);
       toast({
         title: 'Error',
         description: 'Failed to archive conversation',
@@ -131,7 +135,7 @@ const MessageActions: React.FC<MessageActionsProps> = ({
       
       if (onSuccess) onSuccess('unarchive');
     } catch (error) {
-      console.error('Error unarchiving conversation:', error);
+      logger.error('Error unarchiving conversation:', error);
       toast({
         title: 'Error',
         description: 'Failed to unarchive conversation',
@@ -160,7 +164,7 @@ const MessageActions: React.FC<MessageActionsProps> = ({
       
       if (onSuccess) onSuccess('delete');
     } catch (error) {
-      console.error('Error deleting conversation:', error);
+      logger.error('Error deleting conversation:', error);
       toast({
         title: 'Error',
         description: 'Failed to delete conversation',
@@ -185,7 +189,7 @@ const MessageActions: React.FC<MessageActionsProps> = ({
       
       if (onSuccess) onSuccess('restore');
     } catch (error) {
-      console.error('Error restoring conversation:', error);
+      logger.error('Error restoring conversation:', error);
       toast({
         title: 'Error',
         description: 'Failed to restore conversation',

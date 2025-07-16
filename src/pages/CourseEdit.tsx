@@ -17,6 +17,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { withCourseEditPermission } from '@/components/course/withCoursePermission';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('CourseEdit');
+
 function CourseEdit() {
   const { courseId } = useParams<{ courseId: string }>();
   const { course, isLoading, error } = useCourseData(courseId);
@@ -28,7 +32,7 @@ function CourseEdit() {
     if (!courseId) return;
 
     try {
-      console.log('Saving course with data:', updatedCourse);
+      logger.log('Saving course with data:', updatedCourse);
       
       // Transform camelCase form data to snake_case database fields
       // and filter out fields that shouldn't be updated
@@ -51,7 +55,7 @@ function CourseEdit() {
         Object.entries(courseData).filter(([_, value]) => value !== undefined)
       );
 
-      console.log('Cleaned data for database:', cleanedData);
+      logger.log('Cleaned data for database:', cleanedData);
       
       const { data, error } = await supabase
         .from('courses')
@@ -61,11 +65,11 @@ function CourseEdit() {
         .single();
 
       if (error) {
-        console.error('Save error:', error);
+        logger.error('Save error:', error);
         throw error;
       }
 
-      console.log('Course saved successfully, updated data:', data);
+      logger.log('Course saved successfully, updated data:', data);
 
       toast({
         title: 'Course updated successfully',
@@ -76,7 +80,7 @@ function CourseEdit() {
       window.location.reload();
 
     } catch (error: any) {
-      console.error('Error saving course:', error);
+      logger.error('Error saving course:', error);
       toast({
         title: 'Error updating course',
         description: error.message,

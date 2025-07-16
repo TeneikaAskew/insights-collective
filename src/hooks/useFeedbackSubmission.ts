@@ -4,6 +4,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('FEEDBACK_CATEGORIES');
+
 // Feedback categories dropdown options
 export const FEEDBACK_CATEGORIES = {
   useful: [
@@ -64,7 +68,7 @@ export const useFeedbackSubmission = (pagePath: string) => {
 
       return true;
     } catch (error) {
-      console.error('Feedback submission error:', error);
+      logger.error('Feedback submission error:', error);
       toast({
         title: 'Feedback Submission Failed',
         description: 'Please try again later',

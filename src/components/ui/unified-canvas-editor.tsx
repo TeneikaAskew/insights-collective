@@ -74,6 +74,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { sanitizeHtmlContent, isValidUrl } from '@/utils/securityUtils';
 import { cn } from '@/lib/utils';
 import { 
+
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('UnifiedCanvasEditor');
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -294,7 +298,7 @@ export function UnifiedCanvasEditor({
           ).run();
         }
       } catch (error) {
-        console.error('File upload failed:', error);
+        logger.error('File upload failed:', error);
       }
     }
   };

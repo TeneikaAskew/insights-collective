@@ -2,6 +2,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useEventRegistrations');
+
 export const useEventRegistrations = (eventId?: string) => {
   return useQuery({
     queryKey: ['event-registrations', eventId],
@@ -43,7 +47,7 @@ export const useUserRegistrations = () => {
     enabled: !!user,
     staleTime: 0, // Always fetch fresh data
     queryFn: async () => {
-      console.log('Fetching registrations for user:', user?.id);
+      logger.log('Fetching registrations for user:', user?.id);
       
       // First, try a simple query without joins
       const { data: simpleData, error: simpleError } = await supabase
@@ -51,11 +55,11 @@ export const useUserRegistrations = () => {
         .select('*')
         .eq('user_id', user!.id);
       
-      console.log('Simple query result:', { simpleData, simpleError });
+      logger.log('Simple query result:', { simpleData, simpleError });
       
       // For now, return the simple data to debug the issue
       if (simpleError) {
-        console.error('Error fetching user registrations (simple):', simpleError);
+        logger.error('Error fetching user registrations (simple):', simpleError);
         throw simpleError;
       }
       
@@ -87,10 +91,10 @@ export const useUserRegistrations = () => {
         .eq('user_id', user!.id)
         .order('registered_at', { ascending: false });
       
-      console.log('Join query result:', { data, error });
+      logger.log('Join query result:', { data, error });
       
       if (error) {
-        console.error('Error fetching user registrations:', error);
+        logger.error('Error fetching user registrations:', error);
         throw error;
       }
       return data || [];
@@ -107,7 +111,7 @@ export const useRegisterForEvent = () => {
     mutationFn: async (eventId: string) => {
       if (!user) throw new Error('Must be logged in to register');
       
-      console.log('Attempting to register user:', user.id, 'for event:', eventId);
+      logger.log('Attempting to register user:', user.id, 'for event:', eventId);
       
       // First check if user is already registered
       const { data: existing, error: checkError } = await supabase
@@ -118,12 +122,12 @@ export const useRegisterForEvent = () => {
         .maybeSingle();
       
       if (checkError) {
-        console.error('Error checking registration:', checkError);
+        logger.error('Error checking registration:', checkError);
         throw checkError;
       }
       
       if (existing) {
-        console.log('User already registered for this event');
+        logger.log('User already registered for this event');
         return { already_registered: true, data: existing };
       }
       
@@ -137,10 +141,10 @@ export const useRegisterForEvent = () => {
         .select()
         .single();
       
-      console.log('Registration result:', { data, error });
+      logger.log('Registration result:', { data, error });
       
       if (error) {
-        console.error('Registration error:', error);
+        logger.error('Registration error:', error);
         throw error;
       }
       
@@ -167,7 +171,7 @@ export const useUnregisterFromEvent = () => {
     mutationFn: async (eventId: string) => {
       if (!user) throw new Error('Must be logged in to unregister');
       
-      console.log('Attempting to unregister user:', user.id, 'from event:', eventId);
+      logger.log('Attempting to unregister user:', user.id, 'from event:', eventId);
       
       const { error, count } = await supabase
         .from('event_registrations')
@@ -175,10 +179,10 @@ export const useUnregisterFromEvent = () => {
         .eq('event_id', eventId)
         .eq('user_id', user.id);
       
-      console.log('Unregistration result:', { error, count });
+      logger.log('Unregistration result:', { error, count });
       
       if (error) {
-        console.error('Unregistration error:', error);
+        logger.error('Unregistration error:', error);
         throw error;
       }
     },

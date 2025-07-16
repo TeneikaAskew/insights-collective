@@ -4,6 +4,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useForums');
+
 export const useForums = (courseId: string) => {
   const [mockForums, setMockForums] = useState([]);
   
@@ -30,7 +34,7 @@ export const useForums = (courseId: string) => {
     queryFn: async () => {
       // For routes that don't have a courseId, use mock data
       if (!courseId) {
-        console.log("No courseId provided, using mock forums");
+        logger.log("No courseId provided, using mock forums");
         return mockForums;
       }
       
@@ -42,13 +46,13 @@ export const useForums = (courseId: string) => {
           .order('created_at', { ascending: false });
           
         if (error) {
-          console.error("Error fetching forums:", error);
+          logger.error("Error fetching forums:", error);
           return mockForums;
         }
         
         return data && data.length > 0 ? data : mockForums;
       } catch (err) {
-        console.error("Exception while fetching forums:", err);
+        logger.error("Exception while fetching forums:", err);
         return mockForums;
       }
     },
@@ -131,13 +135,13 @@ export const useForumThreads = (forumId: string) => {
           .order('updated_at', { ascending: false });
           
         if (error) {
-          console.error("Error fetching threads:", error);
+          logger.error("Error fetching threads:", error);
           return mockThreads;
         }
         
         return data && data.length > 0 ? data : mockThreads;
       } catch (err) {
-        console.error("Exception while fetching threads:", err);
+        logger.error("Exception while fetching threads:", err);
         return mockThreads;
       }
     },
@@ -209,13 +213,13 @@ export const useThreadPosts = (threadId: string) => {
           .order('created_at', { ascending: true });
           
         if (error) {
-          console.error("Error fetching posts:", error);
+          logger.error("Error fetching posts:", error);
           return mockPosts;
         }
         
         return data && data.length > 0 ? data : mockPosts;
       } catch (err) {
-        console.error("Exception while fetching posts:", err);
+        logger.error("Exception while fetching posts:", err);
         return mockPosts;
       }
     },
@@ -265,7 +269,7 @@ export const useCreatePost = (threadId: string) => {
       toast.success('Reply posted successfully');
     },
     onError: (error) => {
-      console.error('Error posting reply:', error);
+      logger.error('Error posting reply:', error);
       toast.error('Failed to post reply. Please try again.');
     }
   });
@@ -316,7 +320,7 @@ export const useCreateThread = (forumId: string) => {
       toast.success('Thread created successfully');
     },
     onError: (error) => {
-      console.error('Error creating thread:', error);
+      logger.error('Error creating thread:', error);
       toast.error('Failed to create thread. Please try again.');
     }
   });
@@ -349,14 +353,14 @@ export const useThreadSubscription = (threadId: string | null, forumId: string |
         const { data, error } = await query;
           
         if (error) {
-          console.error("Error fetching subscription:", error);
+          logger.error("Error fetching subscription:", error);
           return null;
         }
         
         setIsSubscribed(data && data.length > 0);
         return data && data.length > 0 ? data[0] : null;
       } catch (err) {
-        console.error("Exception while fetching subscription:", err);
+        logger.error("Exception while fetching subscription:", err);
         return null;
       }
     },
@@ -386,7 +390,7 @@ export const useThreadSubscription = (threadId: string | null, forumId: string |
       
       return data;
     } catch (err) {
-      console.error("Error subscribing:", err);
+      logger.error("Error subscribing:", err);
       toast.error('Failed to subscribe. Please try again.');
     }
   };
@@ -415,7 +419,7 @@ export const useThreadSubscription = (threadId: string | null, forumId: string |
       queryClient.invalidateQueries({ queryKey: ['subscription', threadId, forumId, userId] });
       toast.success('Unsubscribed successfully');
     } catch (err) {
-      console.error("Error unsubscribing:", err);
+      logger.error("Error unsubscribing:", err);
       toast.error('Failed to unsubscribe. Please try again.');
     }
   };
@@ -472,7 +476,7 @@ export const useMarkThreadAsRead = () => {
       // No toast needed since this is a background operation
     },
     onError: (error) => {
-      console.error('Error marking thread as read:', error);
+      logger.error('Error marking thread as read:', error);
       // No toast needed for this operation
     }
   });

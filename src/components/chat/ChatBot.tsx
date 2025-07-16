@@ -11,6 +11,10 @@ import { useToast } from '@/hooks/use-toast';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('ChatBot');
+
 type Message = {
   id: string;
   content: string;
@@ -82,7 +86,7 @@ const ChatBot = () => {
             .maybeSingle();
 
           if (error) {
-            console.error('Error checking resume existence:', error);
+            logger.error('Error checking resume existence:', error);
             // Add message anyway to prompt upload if needed
             appendBotMessage("Do you want to upload your resume to get personalized career advice?");
             return;
@@ -96,7 +100,7 @@ const ChatBot = () => {
             appendBotMessage("I don't see a resume on file. Please upload your resume to get personalized career advice.");
           }
         } catch (e) {
-          console.error('Exception during resume check:', e);
+          logger.error('Exception during resume check:', e);
           appendBotMessage("I cannot check your resume status currently. Please upload your resume for personalized career advice.");
         }
       })();
@@ -152,7 +156,7 @@ const ChatBot = () => {
           .maybeSingle();
 
         if (error) {
-          console.error('Error fetching resume text:', error);
+          logger.error('Error fetching resume text:', error);
         } else if (data && data.text) {
           resumeText = data.text;
         }
@@ -200,7 +204,7 @@ const ChatBot = () => {
       }
 
     } catch (error) {
-      console.error('Error processing message:', error);
+      logger.error('Error processing message:', error);
 
       const errorMessage: Message = {
         id: `assistant-fallback-${Date.now()}`,

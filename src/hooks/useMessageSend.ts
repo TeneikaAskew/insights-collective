@@ -4,6 +4,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from './use-toast';
 import { sendConversationMessage } from '@/services/conversationService';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useMessageSend');
+
 /**
  * Hook for sending messages in a conversation
  */
@@ -20,7 +24,7 @@ export function useMessageSend() {
       await sendConversationMessage(user.id, conversationId, content, attachmentUrl);
       return true;
     } catch (error) {
-      console.error('Error sending message:', error);
+      logger.error('Error sending message:', error);
       toast({
         title: 'Error',
         description: 'Failed to send message. Please try again.',

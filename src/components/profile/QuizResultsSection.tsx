@@ -9,6 +9,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('QuizResultsSection');
+
 interface QuizResult {
   track: CareerTrack;
   score: number;
@@ -57,7 +61,7 @@ const QuizResultsSection = () => {
         hasValidScores = Object.values(scores).some(score => score > 0);
         
         if (hasValidScores) {
-          console.log("Found valid quiz scores in localStorage");
+          logger.log("Found valid quiz scores in localStorage");
           topTracks = Object.entries(scores)
             .sort(([, scoreA], [, scoreB]) => scoreB - scoreA)
             .slice(0, 3)
@@ -72,7 +76,7 @@ const QuizResultsSection = () => {
       
       // If user is authenticated, try to fetch from Supabase
       if (user && (!hasValidScores || topTracks.length === 0)) {
-        console.log("Checking Supabase for quiz results for user:", user.id);
+        logger.log("Checking Supabase for quiz results for user:", user.id);
         
         const { data: quizAttempt, error } = await supabase
           .from('career_quiz_attempts')
@@ -83,11 +87,11 @@ const QuizResultsSection = () => {
           .maybeSingle();
         
         if (error) {
-          console.error("Error fetching quiz results from Supabase:", error);
+          logger.error("Error fetching quiz results from Supabase:", error);
         }
         
         if (quizAttempt) {
-          console.log("Found quiz results in Supabase:", quizAttempt);
+          logger.log("Found quiz results in Supabase:", quizAttempt);
           
           // Create scores object from Supabase data
           const supabaseScores: Record<CareerTrack, number> = {
@@ -116,16 +120,16 @@ const QuizResultsSection = () => {
       }
       
       if (hasValidScores && topTracks.length > 0) {
-        console.log("Setting quiz results:", topTracks);
+        logger.log("Setting quiz results:", topTracks);
         setQuizResults(topTracks);
         setHasResults(true);
       } else {
-        console.log("No valid quiz results found");
+        logger.log("No valid quiz results found");
         setQuizResults(null);
         setHasResults(false);
       }
     } catch (error) {
-      console.error("Error loading quiz results:", error);
+      logger.error("Error loading quiz results:", error);
       setQuizResults(null);
       setHasResults(false);
       toast({

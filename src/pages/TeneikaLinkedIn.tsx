@@ -14,6 +14,10 @@ import { format, parseISO } from 'date-fns';
 import { CalendarIcon, SearchIcon, RefreshCw, ExternalLink, Heart, MessageCircle, Share } from 'lucide-react';
 import type { DateRange } from 'react-day-picker';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('TeneikaLinkedIn');
+
 interface LinkedInPost {
   id: string;
   post_id: string;
@@ -89,7 +93,7 @@ const TeneikaLinkedIn = () => {
       // Refetch the posts to show new data
       refetch();
     } catch (error: any) {
-      console.error('Error triggering scrape:', error);
+      logger.error('Error triggering scrape:', error);
       toast({
         title: 'Scraping Failed',
         description: error.message || 'Failed to scrape LinkedIn posts',

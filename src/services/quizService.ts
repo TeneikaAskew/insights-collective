@@ -2,6 +2,9 @@
 import { supabase } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
 import { CareerTrack } from '@/data/careerQuizData';
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('quizService');
 
 // Interface for storing quiz attempt data
 export interface QuizAttemptData {
@@ -95,13 +98,13 @@ export const storeQuizAttempt = async (
       .single();
       
     if (error) {
-      console.error('Error storing quiz attempt:', error);
+      logger.error('Error storing quiz attempt:', error);
       return null;
     }
     
     return data.id;
   } catch (error) {
-    console.error('Error storing quiz attempt:', error);
+    logger.error('Error storing quiz attempt:', error);
     return null;
   }
 };
@@ -132,7 +135,7 @@ export const startCareerCoachConversation = async (
       .single();
       
     if (conversationError) {
-      console.error('Error creating conversation:', conversationError);
+      logger.error('Error creating conversation:', conversationError);
       return null;
     }
     
@@ -156,12 +159,12 @@ export const startCareerCoachConversation = async (
       });
       
     if (messageError) {
-      console.error('Error storing initial message:', messageError);
+      logger.error('Error storing initial message:', messageError);
     }
     
     return conversationData.id;
   } catch (error) {
-    console.error('Error starting conversation:', error);
+    logger.error('Error starting conversation:', error);
     return null;
   }
 };

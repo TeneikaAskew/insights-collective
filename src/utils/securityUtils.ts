@@ -5,6 +5,10 @@
 
 import { supabase } from '@/integrations/supabase/client';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('sanitizeInput');
+
 // Enhanced input sanitization with comprehensive XSS protection
 export const sanitizeInput = (input: string): string => {
   if (!input) return '';
@@ -178,14 +182,14 @@ export const checkAdminAccess = async (userId: string): Promise<boolean> => {
       .rpc('has_admin_access', { user_id_param: userId });
     
     if (error) {
-      console.error('Error checking admin access:', error);
+      logger.error('Error checking admin access:', error);
       await logSecurityEvent(userId, 'admin_check_failed', 'error', 'Failed to verify admin access', { error: error.message });
       return false;
     }
     
     return data || false;
   } catch (error) {
-    console.error('Exception checking admin access:', error);
+    logger.error('Exception checking admin access:', error);
     return false;
   }
 };
@@ -199,14 +203,14 @@ export const checkCourseInstructorAccess = async (userId: string, courseId: stri
       });
     
     if (error) {
-      console.error('Error checking instructor access:', error);
+      logger.error('Error checking instructor access:', error);
       await logSecurityEvent(userId, 'instructor_check_failed', 'error', 'Failed to verify instructor access', { courseId, error: error.message });
       return false;
     }
     
     return data || false;
   } catch (error) {
-    console.error('Exception checking instructor access:', error);
+    logger.error('Exception checking instructor access:', error);
     return false;
   }
 };
@@ -220,14 +224,14 @@ export const checkConversationAccess = async (userId: string, conversationId: st
       });
     
     if (error) {
-      console.error('Error checking conversation access:', error);
+      logger.error('Error checking conversation access:', error);
       await logSecurityEvent(userId, 'conversation_check_failed', 'error', 'Failed to verify conversation access', { conversationId, error: error.message });
       return false;
     }
     
     return data || false;
   } catch (error) {
-    console.error('Exception checking conversation access:', error);
+    logger.error('Exception checking conversation access:', error);
     return false;
   }
 };
@@ -249,7 +253,7 @@ export const logSecurityEvent = async (
       p_metadata: metadata || null
     });
   } catch (error) {
-    console.error('Failed to log security event:', error);
+    logger.error('Failed to log security event:', error);
   }
 };
 
@@ -272,6 +276,6 @@ export const logAuditEvent = async (
       p_new_values: newValues || null
     });
   } catch (error) {
-    console.error('Failed to log audit event:', error);
+    logger.error('Failed to log audit event:', error);
   }
 };

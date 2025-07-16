@@ -11,6 +11,10 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('formatTime');
+
 interface QuizQuestion {
   id: string;
   question_text: string;
@@ -182,7 +186,7 @@ const QuizTaker: React.FC<QuizTakerProps> = ({
       onComplete({ ...attempt, id: data.id, completed_at: data.completed_at });
       
     } catch (error) {
-      console.error('Error submitting quiz:', error);
+      logger.error('Error submitting quiz:', error);
       toast({
         title: 'Error',
         description: 'Failed to submit quiz',

@@ -10,6 +10,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { 
+
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('CourseCard');
   isWishlistedCourse, 
   toggleWishlistedCourse, 
   getMappedCourseUuid 
@@ -56,7 +60,7 @@ const CourseCard: React.FC<CourseCardProps> = ({
             setWishlisted(true);
           }
         } catch (error) {
-          console.error('Error checking wishlist:', error);
+          logger.error('Error checking wishlist:', error);
         }
       };
       
@@ -119,7 +123,7 @@ const CourseCard: React.FC<CourseCardProps> = ({
         onWishlistToggle(course.id, newWishlistStatus);
       }
     } catch (error: any) {
-      console.error('Error updating wishlist:', error);
+      logger.error('Error updating wishlist:', error);
       toast({
         title: "Wishlist update failed",
         description: error.message || "There was an error updating your wishlist",

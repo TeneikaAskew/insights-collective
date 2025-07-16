@@ -12,6 +12,10 @@ import { usePortfolioPages } from '@/hooks/usePortfolioPages';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('CreatePortfolioPageForm');
+
 interface CreatePortfolioPageFormProps {
   onSuccess: () => void;
 }
@@ -48,13 +52,13 @@ export function CreatePortfolioPageForm({ onSuccess }: CreatePortfolioPageFormPr
         .maybeSingle();
       
       if (error) {
-        console.error('Error checking URL:', error);
+        logger.error('Error checking URL:', error);
         return false;
       }
       
       return !!data;
     } catch (error) {
-      console.error('Error checking URL:', error);
+      logger.error('Error checking URL:', error);
       return false;
     } finally {
       setIsCheckingUrl(false);

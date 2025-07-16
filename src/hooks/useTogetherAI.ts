@@ -2,6 +2,10 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useTogetherAI');
+
 interface UseTogetherAIOptions {
   model?: string;
   maxTokens?: number;
@@ -80,7 +84,7 @@ export function useTogetherAI(options: UseTogetherAIOptions = {}) {
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to generate text';
       setError(errorMessage);
-      console.error('Error generating text with Together.ai:', errorMessage);
+      logger.error('Error generating text with Together.ai:', errorMessage);
       return null;
     } finally {
       setIsLoading(false);
@@ -128,7 +132,7 @@ export function useTogetherAI(options: UseTogetherAIOptions = {}) {
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to generate chat completion';
       setError(errorMessage);
-      console.error('Error generating chat completion with Together.ai:', errorMessage);
+      logger.error('Error generating chat completion with Together.ai:', errorMessage);
       return null;
     } finally {
       setIsLoading(false);

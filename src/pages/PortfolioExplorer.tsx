@@ -16,6 +16,10 @@ import { QuestionnaireAnswers, PortfolioInsightData, ProjectIdea, ProjectStatus,
 import { Check, RefreshCw, WandSparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('handleTabChange');
+
 function PortfolioExplorer() {
   const [searchParams] = useSearchParams();
   const { user, isAuthenticated } = useAuth();
@@ -58,7 +62,7 @@ function PortfolioExplorer() {
   // Set portfolio data from previous recommendations if available
   useEffect(() => {
     if (previousRecommendations && !portfolioData) {
-      console.log('Setting portfolio data from previous recommendations:', previousRecommendations);
+      logger.log('Setting portfolio data from previous recommendations:', previousRecommendations);
       setPortfolioData(previousRecommendations);
       setProfileCompleted(true);
     }
@@ -100,7 +104,7 @@ function PortfolioExplorer() {
 
       if (error) {
         if (error.code !== 'PGRST116') { // Not found error
-          console.error("Error fetching questionnaire:", error);
+          logger.error("Error fetching questionnaire:", error);
         }
         return;
       }
@@ -122,7 +126,7 @@ function PortfolioExplorer() {
         }));
       }
     } catch (error) {
-      console.error("Error fetching questionnaire:", error);
+      logger.error("Error fetching questionnaire:", error);
     }
   };
 
@@ -184,7 +188,7 @@ function PortfolioExplorer() {
         setActiveTab('ideas');
       }, 500);
     } catch (error) {
-      console.error("Error saving questionnaire data:", error);
+      logger.error("Error saving questionnaire data:", error);
     }
   };
 
@@ -436,7 +440,7 @@ function PortfolioExplorer() {
                 <Button 
                   onClick={() => {
                     if (previousRecommendations) {
-                      console.log("Loading previous recommendations:", previousRecommendations);
+                      logger.log("Loading previous recommendations:", previousRecommendations);
                       setPortfolioData(previousRecommendations);
                     }
                   }}

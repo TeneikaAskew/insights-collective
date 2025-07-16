@@ -6,6 +6,10 @@ import { Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('PageVisibilityGuard');
+
 export default function PageVisibilityGuard({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -20,17 +24,17 @@ export default function PageVisibilityGuard({ children }: { children: React.Reac
       try {
         if (!isLoading) {
           const pathToCheck = location.pathname;
-          console.log(`[PageVisibilityGuard] Checking visibility for path: ${pathToCheck}`);
-          console.log(`[PageVisibilityGuard] User:`, user);
+          logger.log(`[PageVisibilityGuard] Checking visibility for path: ${pathToCheck}`);
+          logger.log(`[PageVisibilityGuard] User:`, user);
           
           const visibility = isPageVisible(pathToCheck);
-          console.log(`[PageVisibilityGuard] Path ${pathToCheck} is visible: ${visibility}`);
+          logger.log(`[PageVisibilityGuard] Path ${pathToCheck} is visible: ${visibility}`);
           
           setIsVisible(visibility);
           setCheckComplete(true);
         }
       } catch (error) {
-        console.error('[PageVisibilityGuard] Error checking visibility:', error);
+        logger.error('[PageVisibilityGuard] Error checking visibility:', error);
         // Default to visible on error to prevent blocking
         setIsVisible(true);
         setCheckComplete(true);
@@ -49,7 +53,7 @@ export default function PageVisibilityGuard({ children }: { children: React.Reac
   useEffect(() => {
     if (isLoading) {
       const timeout = setTimeout(() => {
-        console.warn('[PageVisibilityGuard] Loading timeout, defaulting to visible');
+        logger.warn('[PageVisibilityGuard] Loading timeout, defaulting to visible');
         setIsVisible(true);
         setCheckComplete(true);
       }, 2000); // 2 second timeout
@@ -60,7 +64,7 @@ export default function PageVisibilityGuard({ children }: { children: React.Reac
 
   // During loading state, show a minimal loading indicator instead of full page blur
   if (isLoading && !checkComplete) {
-    console.log('[PageVisibilityGuard] Still loading visibility data...');
+    logger.log('[PageVisibilityGuard] Still loading visibility data...');
     return (
       <div className="flex justify-center items-center h-32">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -70,11 +74,11 @@ export default function PageVisibilityGuard({ children }: { children: React.Reac
   
   // If visible, show the content normally
   if (isVisible) {
-    console.log('[PageVisibilityGuard] Page is visible, showing content');
+    logger.log('[PageVisibilityGuard] Page is visible, showing content');
     return <>{children}</>;
   }
 
-  console.log('[PageVisibilityGuard] Page not visible, showing overlay');
+  logger.log('[PageVisibilityGuard] Page not visible, showing overlay');
 
   // Apply overlay directly - don't rely on DOM element queries which can be unreliable
   return (

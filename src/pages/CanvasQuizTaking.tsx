@@ -28,6 +28,10 @@ import {
 } from 'lucide-react';
 import type { ContentItem, Quiz, QuizQuestion } from '@/types/canvas';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('CanvasQuizTaking');
+
 interface QuizAnswer {
   questionId: string;
   answer: any; // Can be string, array of strings, etc.
@@ -106,7 +110,7 @@ export default function CanvasQuizTaking() {
       }
 
     } catch (error: any) {
-      console.error('Error loading quiz:', error);
+      logger.error('Error loading quiz:', error);
       toast({
         title: 'Error loading quiz',
         description: error.message,

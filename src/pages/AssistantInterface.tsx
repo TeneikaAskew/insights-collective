@@ -11,6 +11,10 @@ import { storeQuizAttempt, startCareerCoachConversation } from '@/services/quizS
 import { CareerTrack } from '@/data/careerQuizData';
 import { useAuthenticatedNavigation } from '@/hooks/useAuthenticatedNavigation';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('AssistantInterface');
+
 const AssistantInterface = () => {
   const { assistantId } = useParams();
   const { isAuthenticated } = useAuth();
@@ -37,7 +41,7 @@ const AssistantInterface = () => {
                 Object.keys(answers).length > 0 && 
                 !localStorage.getItem('activeQuizAttemptId')) {
               
-              console.log('Initializing career coach with stored quiz data');
+              logger.log('Initializing career coach with stored quiz data');
               
               const quizAttemptId = await storeQuizAttempt(answers, scores);
               
@@ -66,7 +70,7 @@ const AssistantInterface = () => {
               }
             }
           } catch (error) {
-            console.error('Error initializing career coach:', error);
+            logger.error('Error initializing career coach:', error);
             toast({
               title: "Error Initializing Career Coach",
               description: "There was an issue loading your quiz results. The Career Coach may not have access to your quiz data.",

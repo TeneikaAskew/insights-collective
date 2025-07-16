@@ -3,6 +3,10 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useStorageUpload');
+
 export interface UploadResult {
   publicUrl: string;
   path: string;
@@ -54,7 +58,7 @@ export function useStorageUpload() {
 
       return { publicUrl, path: filePath };
     } catch (error) {
-      console.error('Upload error:', error);
+      logger.error('Upload error:', error);
       toast({
         title: "Upload failed",
         description: "Failed to upload file. Please try again.",

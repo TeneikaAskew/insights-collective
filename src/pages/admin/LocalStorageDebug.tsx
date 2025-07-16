@@ -13,6 +13,10 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('refreshItems');
+
 const LocalStorageDebugPage: React.FC = () => {
   const [items, setItems] = useState<{ key: string; value: string | null }[]>([]);
   const [passcode, setPasscode] = useState<string>('');
@@ -44,7 +48,7 @@ const LocalStorageDebugPage: React.FC = () => {
         const { data, error } = await supabase.functions.invoke('get-debug-token');
         
         if (error) {
-          console.error('Error fetching debug token:', error);
+          logger.error('Error fetching debug token:', error);
           setIsLoading(false);
           return;
         }
@@ -60,7 +64,7 @@ const LocalStorageDebugPage: React.FC = () => {
           });
         }
       } catch (error) {
-        console.error('Error during auto-authentication:', error);
+        logger.error('Error during auto-authentication:', error);
       } finally {
         setIsLoading(false);
       }
@@ -99,7 +103,7 @@ const LocalStorageDebugPage: React.FC = () => {
         });
       }
     } catch (error) {
-      console.error('Error authenticating:', error);
+      logger.error('Error authenticating:', error);
       toast({
         title: "Authentication error",
         description: "Could not verify passcode. Please try again.",
@@ -113,18 +117,18 @@ const LocalStorageDebugPage: React.FC = () => {
   const refreshItems = () => {
     setIsRefreshing(true);
     try {
-      console.log('Refreshing localStorage items...');
+      logger.log('Refreshing localStorage items...');
       
       // Log all items to console first
       LocalStorageUtils.logAllItems();
       
       // Get items as array
       const allItems = LocalStorageUtils.getAllItemsAsArray();
-      console.log(`Found ${allItems.length} items in localStorage`);
+      logger.log(`Found ${allItems.length} items in localStorage`);
       
       // Debug each localStorage key-value pair
       allItems.forEach(item => {
-        console.log(`LocalStorage item - Key: ${item.key}, Value length: ${item.value?.length || 0}`);
+        logger.log(`LocalStorage item - Key: ${item.key}, Value length: ${item.value?.length || 0}`);
       });
       
       setItems(allItems);
@@ -135,7 +139,7 @@ const LocalStorageDebugPage: React.FC = () => {
         variant: "default"
       });
     } catch (error) {
-      console.error('Error refreshing items:', error);
+      logger.error('Error refreshing items:', error);
       toast({
         title: "Refresh error",
         description: "Could not refresh localStorage items",

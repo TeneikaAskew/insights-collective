@@ -12,6 +12,10 @@ import { Briefcase, Star, Code, Users, CheckCircle, BarChart, Brain, Target } fr
 import AppLayout from '@/components/layout/AppLayout';
 import { LocalStorageUtils } from '@/utils/localStorageUtils';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('InterviewPrep');
+
 interface StudyGuide {
   id: string;
   created_at: string;
@@ -32,7 +36,7 @@ export default function InterviewPrep() {
 
   useEffect(() => {
     if (user) {
-      console.log('Loading study guides for user:', user.id);
+      logger.log('Loading study guides for user:', user.id);
       loadStudyGuides();
     } else {
       // Set loading to false if no user is authenticated
@@ -46,7 +50,7 @@ export default function InterviewPrep() {
       if (user) {
         const cachedStudyGuide = LocalStorageUtils.getStudyGuide(user.id);
         if (cachedStudyGuide) {
-          console.log('Found study guide in local storage');
+          logger.log('Found study guide in local storage');
           setStudyGuides([cachedStudyGuide]);
           setLoading(false);
           return;
@@ -55,7 +59,7 @@ export default function InterviewPrep() {
 
       // If no cached study guide or user not authenticated, try to load from database
       if (user && user.id) {
-        console.log('Fetching study guides from Supabase for user:', user.id);
+        logger.log('Fetching study guides from Supabase for user:', user.id);
         const { data: guides, error } = await supabase
           .from('study_guides')
           .select('*')
@@ -63,11 +67,11 @@ export default function InterviewPrep() {
           .order('created_at', { ascending: false });
 
         if (error) {
-          console.error('Error loading study guides:', error);
+          logger.error('Error loading study guides:', error);
           throw error;
         }
 
-        console.log('Study guides loaded from database:', guides?.length || 0);
+        logger.log('Study guides loaded from database:', guides?.length || 0);
         setStudyGuides(guides || []);
         
         // Save the first study guide to local storage for future access
@@ -76,7 +80,7 @@ export default function InterviewPrep() {
         }
       }
     } catch (error) {
-      console.error('Error loading study guides:', error);
+      logger.error('Error loading study guides:', error);
       toast({
         title: 'Error',
         description: 'Failed to load study guides.',

@@ -33,6 +33,10 @@ import CareerActionPlan from './CareerActionPlan';
 import { CareerReportData } from './utils/types';
 import { useToast } from '@/hooks/use-toast';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('handleTakeQuiz');
+
 const sampleReportData: CareerReportData = {
   userName: "Joshua B. Brown",
   summary: "Based on your quiz answers and resume, we have generated a comprehensive report to guide your career growth in the data field. Your experience in program management, data-driven marketing, and logistics has equipped you with a unique set of skills that can be leveraged to excel in various roles.",
@@ -190,7 +194,7 @@ const InteractiveCareerReportSection: React.FC<InteractiveCareerReportSectionPro
         description: "Item has been added to your portfolio projects.",
       });
     } catch (error) {
-      console.error('Error adding to portfolio:', error);
+      logger.error('Error adding to portfolio:', error);
       toast({
         title: "Error",
         description: "Failed to add item to portfolio. Please try again.",

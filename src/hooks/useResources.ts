@@ -4,6 +4,10 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useResources');
+
 export interface Resource {
   id: string;
   category: string;
@@ -87,7 +91,7 @@ export function useResources() {
   const { toast } = useToast();
   
   const fetchResources = async (): Promise<Resource[]> => {
-    console.log('Fetching resources from API');
+    logger.log('Fetching resources from API');
     const { data, error } = await supabase
       .from('resources')
       .select('*')
@@ -95,7 +99,7 @@ export function useResources() {
       .limit(50);
       
     if (error) {
-      console.error('Error fetching resources:', error);
+      logger.error('Error fetching resources:', error);
       toast({
         title: 'Error fetching resources',
         description: error.message,
@@ -124,7 +128,7 @@ export function useResources() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'resources' },
         (payload) => {
-          console.log('Resources change received:', payload);
+          logger.log('Resources change received:', payload);
           // Invalidate and refetch
           window.location.reload(); // Consider queryClient.invalidateQueries(['resources']) for a smoother update
         }

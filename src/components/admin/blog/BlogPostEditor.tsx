@@ -8,6 +8,10 @@ import { BlogFormData, BlogPost } from '@/types/blog';
 import { getBlogPostBySlug, createBlogPost, updateBlogPost } from '@/services/blogService';
 import { useToast } from '@/hooks/use-toast';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('BlogPostEditor');
+
 export default function BlogPostEditor() {
   const { slug } = useParams<{ slug?: string }>();
   const navigate = useNavigate();
@@ -44,7 +48,7 @@ export default function BlogPostEditor() {
         });
       }
     } catch (error) {
-      console.error('Error loading blog post:', error);
+      logger.error('Error loading blog post:', error);
       toast({
         title: 'Error',
         description: 'Failed to load blog post',
@@ -74,7 +78,7 @@ export default function BlogPostEditor() {
         navigate('/admin/blog');
       }
     } catch (error) {
-      console.error('Error saving blog post:', error);
+      logger.error('Error saving blog post:', error);
       toast({
         title: 'Error',
         description: 'Failed to save blog post',

@@ -14,6 +14,10 @@ import { Save, Upload, X } from 'lucide-react';
 import CourseInstructorAccess from '@/components/course/CourseInstructorAccess';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('CourseDetails');
+
 interface CourseDetailsProps {
   course: Course | null;
 }
@@ -61,7 +65,7 @@ export default function CourseDetails({ course }: CourseDetailsProps) {
         if (error) throw error;
         setInstructors(data || []);
       } catch (error) {
-        console.error('Error fetching instructors:', error);
+        logger.error('Error fetching instructors:', error);
         toast({
           title: 'Error',
           description: 'Failed to load instructors',
@@ -195,7 +199,7 @@ export default function CourseDetails({ course }: CourseDetailsProps) {
         description: 'Course details updated successfully',
       });
     } catch (error: any) {
-      console.error('Error updating course:', error);
+      logger.error('Error updating course:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to update course details',

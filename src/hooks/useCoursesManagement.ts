@@ -4,6 +4,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Course, CourseFormData, CourseEnrollment, CourseStats } from '@/types/course';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useCoursesManagement');
+
 export function useCoursesManagement() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
@@ -16,7 +20,7 @@ export function useCoursesManagement() {
     setError(null);
     
     try {
-      console.log('Fetching courses...');
+      logger.log('Fetching courses...');
       
       // Fetch courses with instructor data - now using new RLS policies
       const { data: coursesData, error: coursesError } = await supabase
@@ -33,11 +37,11 @@ export function useCoursesManagement() {
         .order('created_at', { ascending: false });
 
       if (coursesError) {
-        console.error('Error fetching courses:', coursesError);
+        logger.error('Error fetching courses:', coursesError);
         throw coursesError;
       }
 
-      console.log('Raw courses data:', coursesData);
+      logger.log('Raw courses data:', coursesData);
 
       // Fetch enrollment counts for all courses
       const courseIds = coursesData?.map(course => course.id) || [];
@@ -75,10 +79,10 @@ export function useCoursesManagement() {
         } : undefined,
       }));
 
-      console.log('Transformed courses with enrollment counts:', transformedCourses);
+      logger.log('Transformed courses with enrollment counts:', transformedCourses);
       setCourses(transformedCourses);
     } catch (err: any) {
-      console.error('Error fetching courses:', err);
+      logger.error('Error fetching courses:', err);
       setError(err.message);
       toast({
         title: 'Error',
@@ -92,7 +96,7 @@ export function useCoursesManagement() {
 
   const saveCourse = async (courseData: Partial<CourseFormData>, courseId?: string) => {
     try {
-      console.log('Saving course data:', courseData);
+      logger.log('Saving course data:', courseData);
       
       const dbCourseData = {
         title: courseData.title,
@@ -108,7 +112,7 @@ export function useCoursesManagement() {
         instructor_id: courseData.instructor_id || null,
       };
 
-      console.log('Database course data:', dbCourseData);
+      logger.log('Database course data:', dbCourseData);
 
       let result;
       if (courseId) {
@@ -127,7 +131,7 @@ export function useCoursesManagement() {
           .single();
 
         if (error) {
-          console.error('Error updating course:', error);
+          logger.error('Error updating course:', error);
           throw error;
         }
         result = data;
@@ -144,7 +148,7 @@ export function useCoursesManagement() {
           });
         }
         
-        console.log('Course updated successfully:', result);
+        logger.log('Course updated successfully:', result);
       } else {
         // Create new course
         const { data, error } = await supabase
@@ -154,7 +158,7 @@ export function useCoursesManagement() {
           .single();
 
         if (error) {
-          console.error('Error creating course:', error);
+          logger.error('Error creating course:', error);
           throw error;
         }
         result = data;
@@ -170,7 +174,7 @@ export function useCoursesManagement() {
           });
         }
         
-        console.log('Course created successfully:', result);
+        logger.log('Course created successfully:', result);
       }
 
       // Refresh courses list
@@ -183,7 +187,7 @@ export function useCoursesManagement() {
 
       return result;
     } catch (err: any) {
-      console.error('Error saving course:', err);
+      logger.error('Error saving course:', err);
       
       // Log security event for failed operations
       if (user) {
@@ -245,7 +249,7 @@ export function useCoursesManagement() {
 
       return true;
     } catch (err: any) {
-      console.error('Error deleting course:', err);
+      logger.error('Error deleting course:', err);
       toast({
         title: 'Error',
         description: err.message || 'Failed to delete course',
@@ -283,7 +287,7 @@ export function useCoursesManagement() {
 
       return true;
     } catch (err: any) {
-      console.error('Error publishing course:', err);
+      logger.error('Error publishing course:', err);
       toast({
         title: 'Error',
         description: err.message || 'Failed to publish course',
@@ -321,7 +325,7 @@ export function useCoursesManagement() {
 
       return true;
     } catch (err: any) {
-      console.error('Error unpublishing course:', err);
+      logger.error('Error unpublishing course:', err);
       toast({
         title: 'Error',
         description: err.message || 'Failed to unpublish course',

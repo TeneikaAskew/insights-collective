@@ -5,6 +5,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { PortfolioProject, ProjectStatus, QuestionnaireAnswers, PortfolioInsightData } from '@/types/portfolio';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('usePortfolio');
+
 export function usePortfolio() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -39,7 +43,7 @@ export function usePortfolio() {
             .select('*')
             .in('project_id', projectIds);
 
-          if (statusError) console.error("Error fetching status data:", statusError);
+          if (statusError) logger.error("Error fetching status data:", statusError);
 
           // Merge projects with their status if status is not already in the project
           return projectsData.map(project => {
@@ -56,7 +60,7 @@ export function usePortfolio() {
           });
         }
       } catch (err) {
-        console.error("Error processing project status:", err);
+        logger.error("Error processing project status:", err);
       }
 
       // If no separate status data or if there was an error, just return projects with default status
@@ -78,11 +82,11 @@ export function usePortfolio() {
       try {
         const localData = localStorage.getItem(getLocalStorageKey());
         if (localData) {
-          console.info('Found portfolio recommendations in local storage');
+          logger.info('Found portfolio recommendations in local storage');
           return JSON.parse(localData) as PortfolioInsightData;
         }
       } catch (err) {
-        console.error('Error retrieving from local storage:', err);
+        logger.error('Error retrieving from local storage:', err);
       }
 
       try {
@@ -95,30 +99,30 @@ export function usePortfolio() {
 
         if (portfolioError) {
           if (portfolioError.code !== 'PGRST116') { // Not found error
-            console.error('Error fetching portfolio recommendations from portfolio table:', portfolioError);
+            logger.error('Error fetching portfolio recommendations from portfolio table:', portfolioError);
           } else {
-            console.log('No portfolio recommendations found for this user');
+            logger.log('No portfolio recommendations found for this user');
           }
           return null;
         }
 
         if (portfolioData?.recommendations) {
-          console.info('Found portfolio recommendations in portfolio table');
+          logger.info('Found portfolio recommendations in portfolio table');
           
           // Store in local storage for faster retrieval next time
           try {
             localStorage.setItem(getLocalStorageKey(), JSON.stringify(portfolioData.recommendations));
           } catch (storageErr) {
-            console.error('Error storing recommendations in local storage:', storageErr);
+            logger.error('Error storing recommendations in local storage:', storageErr);
           }
           
           return portfolioData.recommendations as PortfolioInsightData;
         }
 
-        console.info('No portfolio recommendations found');
+        logger.info('No portfolio recommendations found');
         return null;
       } catch (err) {
-        console.error('Error in fetchPreviousRecommendations:', err);
+        logger.error('Error in fetchPreviousRecommendations:', err);
         return null;
       }
     },
@@ -176,7 +180,7 @@ export function usePortfolio() {
       setIsLoading(true);
 
       try {
-        console.log('Calling portfolio-ideas function with:', {
+        logger.log('Calling portfolio-ideas function with:', {
           resumeText,
           actionPlan,
           questionnaireAnswers,
@@ -194,11 +198,11 @@ export function usePortfolio() {
         });
 
         if (error) {
-          console.error('Edge function error:', error);
+          logger.error('Edge function error:', error);
           throw new Error(error.message);
         }
         
-        console.log('Response from portfolio-ideas function:', data);
+        logger.log('Response from portfolio-ideas function:', data);
 
         if (!data?.success || !data?.data) {
           throw new Error('Failed to generate portfolio ideas');
@@ -208,7 +212,7 @@ export function usePortfolio() {
         try {
           localStorage.setItem(getLocalStorageKey(), JSON.stringify(data.data));
         } catch (storageErr) {
-          console.error('Error storing recommendations in local storage:', storageErr);
+          logger.error('Error storing recommendations in local storage:', storageErr);
         }
 
         // Invalidate recommendations cache to trigger refetch
@@ -216,7 +220,7 @@ export function usePortfolio() {
 
         return data.data;
       } catch (err) {
-        console.error('Error in generatePortfolioIdeas:', err);
+        logger.error('Error in generatePortfolioIdeas:', err);
         toast({
           title: "Error",
           description: "Failed to generate portfolio ideas. Please try again.",
@@ -268,7 +272,7 @@ export function usePortfolio() {
       });
     },
     onError: (error) => {
-      console.error('Error adding project:', error);
+      logger.error('Error adding project:', error);
       toast({
         title: "Error",
         description: "Failed to add project. Please try again.",
@@ -298,7 +302,7 @@ export function usePortfolio() {
       });
     },
     onError: (error) => {
-      console.error('Error updating project status:', error);
+      logger.error('Error updating project status:', error);
       toast({
         title: "Error",
         description: "Failed to update project status. Please try again.",
@@ -320,7 +324,7 @@ export function usePortfolio() {
         updated_at: new Date().toISOString()
       };
 
-      console.log('Updating project with data:', dataToUpdate);
+      logger.log('Updating project with data:', dataToUpdate);
 
       // Update project details including status if provided
       const { data, error: projectError } = await supabase
@@ -332,11 +336,11 @@ export function usePortfolio() {
         .single();
 
       if (projectError) {
-        console.error('Database update error:', projectError);
+        logger.error('Database update error:', projectError);
         throw new Error(projectError.message);
       }
 
-      console.log('Project updated successfully:', data);
+      logger.log('Project updated successfully:', data);
       return data;
     },
     onSuccess: (updatedProject) => {
@@ -347,7 +351,7 @@ export function usePortfolio() {
       });
     },
     onError: (error) => {
-      console.error('Error updating project:', error);
+      logger.error('Error updating project:', error);
       toast({
         title: "Error",
         description: "Failed to update project. Please try again.",
@@ -377,7 +381,7 @@ export function usePortfolio() {
       });
     },
     onError: (error) => {
-      console.error('Error deleting project:', error);
+      logger.error('Error deleting project:', error);
       toast({
         title: "Error",
         description: "Failed to delete project. Please try again.",

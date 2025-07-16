@@ -11,6 +11,10 @@ import { useNavigate } from 'react-router-dom';
 import { PlusCircle, Save, Copy, MoreHorizontal, Edit } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('FormTemplates');
+
 const templates = [
   {
     id: "feedback-template",
@@ -234,7 +238,7 @@ export function FormTemplates() {
         navigate(`/survey/${data.slug}/edit`);
       }
     } catch (error) {
-      console.error("Error creating form from template:", error);
+      logger.error("Error creating form from template:", error);
       toast({
         title: "Error",
         description: "Failed to create form from template",

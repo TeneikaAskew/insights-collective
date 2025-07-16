@@ -12,6 +12,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useNavigate } from 'react-router-dom';
 import { MonacoThemeProvider, MonacoCard } from '@/components/ui/theme-monaco';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('CodePractice');
+
 // Define the available job roles
 const jobRoles = [
   { value: 'data_analyst', label: 'Data Analyst' },
@@ -203,7 +207,7 @@ export default function CodePractice() {
       }, 1500);
       
     } catch (error) {
-      console.error('Error submitting code:', error);
+      logger.error('Error submitting code:', error);
       toast({
         title: 'Error',
         description: 'Failed to submit code. Please try again.',

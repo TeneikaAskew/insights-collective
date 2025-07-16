@@ -4,6 +4,10 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { isValidUUID } from '@/utils/idUtils';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useModuleProgress');
+
 export interface ModuleProgress {
   id: string;
   user_id: string;
@@ -52,7 +56,7 @@ export function useModuleProgress(moduleId?: string) {
     }
 
     if (!isValidUUID(moduleId)) {
-      console.error(`Invalid module UUID format: ${moduleId}`);
+      logger.error(`Invalid module UUID format: ${moduleId}`);
       setError('Invalid module ID format');
       setLoading(false);
       return;
@@ -108,7 +112,7 @@ export function useModuleProgress(moduleId?: string) {
       setQuizProgress(quizData || []);
 
     } catch (error: any) {
-      console.error('Error fetching module progress:', error);
+      logger.error('Error fetching module progress:', error);
       setError(error.message || 'Failed to load progress');
     } finally {
       setLoading(false);
@@ -147,7 +151,7 @@ export function useModuleProgress(moduleId?: string) {
 
       return true;
     } catch (error: any) {
-      console.error('Error marking module as complete:', error);
+      logger.error('Error marking module as complete:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to mark module as complete',
@@ -184,7 +188,7 @@ export function useModuleProgress(moduleId?: string) {
       setModuleProgress(data);
       return true;
     } catch (error: any) {
-      console.error('Error updating module progress:', error);
+      logger.error('Error updating module progress:', error);
       return false;
     }
   };
@@ -229,7 +233,7 @@ export function useModuleProgress(moduleId?: string) {
 
       return true;
     } catch (error: any) {
-      console.error('Error submitting assignment:', error);
+      logger.error('Error submitting assignment:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to submit assignment',

@@ -28,6 +28,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import { CourseInstructor } from '@/types';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('CourseInstructorsTab');
+
 interface CourseInstructorsTabProps {
   courseId: string;
 }
@@ -69,7 +73,7 @@ const CourseInstructorsTab = ({ courseId }: CourseInstructorsTabProps) => {
         .eq('course_id', courseId);
 
       if (error) {
-        console.error('Error fetching instructors:', error);
+        logger.error('Error fetching instructors:', error);
         return;
       }
 
@@ -88,7 +92,7 @@ const CourseInstructorsTab = ({ courseId }: CourseInstructorsTabProps) => {
 
       setInstructors(formattedInstructors);
     } catch (error) {
-      console.error('Error fetching instructors:', error);
+      logger.error('Error fetching instructors:', error);
     }
   };
 
@@ -105,7 +109,7 @@ const CourseInstructorsTab = ({ courseId }: CourseInstructorsTabProps) => {
         `);
 
       if (error) {
-        console.error('Error fetching profiles:', error);
+        logger.error('Error fetching profiles:', error);
         return;
       }
 
@@ -119,7 +123,7 @@ const CourseInstructorsTab = ({ courseId }: CourseInstructorsTabProps) => {
 
       setAvailableProfiles(formattedProfiles);
     } catch (error) {
-      console.error('Error fetching profiles:', error);
+      logger.error('Error fetching profiles:', error);
     }
   };
 
@@ -151,7 +155,7 @@ const CourseInstructorsTab = ({ courseId }: CourseInstructorsTabProps) => {
           title: "Error",
           description: "Failed to add instructor. They may already be assigned to this course.",
         });
-        console.error('Error adding instructor:', error);
+        logger.error('Error adding instructor:', error);
         return;
       }
 
@@ -164,7 +168,7 @@ const CourseInstructorsTab = ({ courseId }: CourseInstructorsTabProps) => {
       setSelectedProfileId('');
       fetchInstructors();
     } catch (error) {
-      console.error('Error adding instructor:', error);
+      logger.error('Error adding instructor:', error);
     }
   };
 
@@ -182,7 +186,7 @@ const CourseInstructorsTab = ({ courseId }: CourseInstructorsTabProps) => {
           title: "Error",
           description: "Failed to remove instructor",
         });
-        console.error('Error removing instructor:', error);
+        logger.error('Error removing instructor:', error);
         return;
       }
 
@@ -193,7 +197,7 @@ const CourseInstructorsTab = ({ courseId }: CourseInstructorsTabProps) => {
       
       fetchInstructors();
     } catch (error) {
-      console.error('Error removing instructor:', error);
+      logger.error('Error removing instructor:', error);
     }
   };
 

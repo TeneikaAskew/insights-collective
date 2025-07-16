@@ -8,6 +8,10 @@ import { supabase } from '@/integrations/supabase/client';
 // Make sure REALTIME_SUBSCRIBE_STATES is imported for type annotation
 import { RealtimeChannel, RealtimePostgresChangesPayload, REALTIME_SUBSCRIBE_STATES } from '@supabase/supabase-js';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useConversationList');
+
 /**
  * Hook for fetching and subscribing to conversations
  */
@@ -23,7 +27,7 @@ export function useConversationList() {
   // Define loadConversations using useCallback for stability
   const loadConversations = useCallback(async (source = 'unknown') => { // Add source for logging
     if (!user) {
-      console.log(`[useConversationList] No user for loadConversations (triggered by ${source}), clearing state.`);
+      logger.log(`[useConversationList] No user for loadConversations (triggered by ${source}), clearing state.`);
       setLoading(false);
       loadingRef.current = false;
       setConversations([]);
@@ -32,31 +36,31 @@ export function useConversationList() {
 
     // Avoid concurrent loads using ref
     if (loadingRef.current) {
-        console.log(`[useConversationList] Load already in progress, skipping load triggered by ${source}.`);
+        logger.log(`[useConversationList] Load already in progress, skipping load triggered by ${source}.`);
         return;
     }
-    console.log(`[useConversationList] Loading inbox conversations (triggered by ${source}) for user:`, user.id);
+    logger.log(`[useConversationList] Loading inbox conversations (triggered by ${source}) for user:`, user.id);
     setLoading(true);
     loadingRef.current = true; // Set loading flag
     setError(null);
     try {
       const conversationsData = await fetchUserConversations(user.id);
-      console.log('[useConversationList] Raw conversations received from fetchUserConversations:',
+      logger.log('[useConversationList] Raw conversations received from fetchUserConversations:',
         conversationsData.map(c => ({ id: c.id, archived: !!c.archived, deleted: !!c.deleted_at }))
       );
 
       // Enhanced logging for the specific problematic conversation
       const problematicConvo = conversationsData.find(c => c.id === '10fb00f9-a8e1-4c84-ae72-3f332cfc8b88');
       if (problematicConvo) {
-          console.warn(`[useConversationList] PROBLEM: Conversation 10fb00f9... (Archived: ${!!problematicConvo.archived}, Deleted: ${!!problematicConvo.deleted_at}) received from fetchUserConversations!`, problematicConvo);
+          logger.warn(`[useConversationList] PROBLEM: Conversation 10fb00f9... (Archived: ${!!problematicConvo.archived}, Deleted: ${!!problematicConvo.deleted_at}) received from fetchUserConversations!`, problematicConvo);
       } else {
-           console.log('[useConversationList] Conversation 10fb00f9... not found in received inbox data.');
+           logger.log('[useConversationList] Conversation 10fb00f9... not found in received inbox data.');
       }
 
-      console.log('[useConversationList] Setting state with conversations count:', conversationsData.length);
+      logger.log('[useConversationList] Setting state with conversations count:', conversationsData.length);
       setConversations(conversationsData as Conversation[]);
     } catch (error) {
-      console.error(`[useConversationList] Error loading conversations (triggered by ${source}):`, error);
+      logger.error(`[useConversationList] Error loading conversations (triggered by ${source}):`, error);
       setError(error);
       if (!(error instanceof Error && error.message.includes('JWT'))) {
         toast({
@@ -68,20 +72,20 @@ export function useConversationList() {
     } finally {
       setLoading(false);
       loadingRef.current = false; // Reset loading flag
-      console.log(`[useConversationList] Finished loading inbox (triggered by ${source})`);
+      logger.log(`[useConversationList] Finished loading inbox (triggered by ${source})`);
     }
   }, [user, toast]); // Dependencies for useCallback
 
   useEffect(() => {
-    console.log('[useConversationList] useEffect fired. User:', user?.id);
+    logger.log('[useConversationList] useEffect fired. User:', user?.id);
     if (!user) {
-      console.log('[useConversationList] No user found, skipping initial load and realtime setup.');
+      logger.log('[useConversationList] No user found, skipping initial load and realtime setup.');
       setLoading(false);
       loadingRef.current = false;
       setConversations([]); // Clear conversations if no user
       // Clean up existing channel if user logs out
       if (channelRef.current) {
-        console.log('[useConversationList] Removing channel due to user logout.');
+        logger.log('[useConversationList] Removing channel due to user logout.');
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
       }
@@ -105,7 +109,7 @@ export function useConversationList() {
        // For conversation updates, the ID is directly on the record
        const directConversationId = newId || oldId;
 
-       console.log(`[useConversationList] Realtime change detected from ${source}:`, {
+       logger.log(`[useConversationList] Realtime change detected from ${source}:`, {
          event: eventType,
          table: payload.table,
          schema: payload.schema,
@@ -125,12 +129,12 @@ export function useConversationList() {
 
        if (directConversationId === PROBLEM_ID) {
          isRelevantToProblem = true;
-         console.warn(`[useConversationList] Realtime event directly on conversation ${PROBLEM_ID} from ${source}. Reloading inbox.`);
+         logger.warn(`[useConversationList] Realtime event directly on conversation ${PROBLEM_ID} from ${source}. Reloading inbox.`);
        } else if (conversationId === PROBLEM_ID) {
          isRelevantToProblem = true;
-         console.warn(`[useConversationList] Realtime event (participant/message) related to conversation ${PROBLEM_ID} from ${source}. Reloading inbox.`);
+         logger.warn(`[useConversationList] Realtime event (participant/message) related to conversation ${PROBLEM_ID} from ${source}. Reloading inbox.`);
        } else {
-         console.log(`[useConversationList] Realtime event from ${source} detected (Not ${PROBLEM_ID}). Reloading inbox.`);
+         logger.log(`[useConversationList] Realtime event from ${source} detected (Not ${PROBLEM_ID}). Reloading inbox.`);
        }
 
        // Always reload for simplicity for now, pass the source
@@ -138,19 +142,19 @@ export function useConversationList() {
      };
 
 
-    console.log('[useConversationList] Setting up realtime channel...');
+    logger.log('[useConversationList] Setting up realtime channel...');
     // Ensure only one channel instance exists per user ID
     const channelKey = `conversation-changes-${user.id}`;
 
     // If channel exists for this key, it might be reused, but listeners need careful handling.
     // Safest approach: Remove old channel completely and create a new one ensures clean state.
     if (channelRef.current) {
-        console.log('[useConversationList] Removing previous channel before creating new one:', channelRef.current.topic);
+        logger.log('[useConversationList] Removing previous channel before creating new one:', channelRef.current.topic);
         supabase.removeChannel(channelRef.current);
         channelRef.current = null; // Clear the ref
     }
 
-    console.log('[useConversationList] Creating new channel:', channelKey);
+    logger.log('[useConversationList] Creating new channel:', channelKey);
     channelRef.current = supabase.channel(channelKey);
 
     const currentChannel = channelRef.current; // Use a stable variable inside the effect
@@ -178,7 +182,7 @@ export function useConversationList() {
                 if (count && count > 0) {
                   handleRealtimeChange(payload, 'conversations table (*)');
                 } else {
-                   console.log('[useConversationList] Ignoring conversation change (user not participant):', convId);
+                   logger.log('[useConversationList] Ignoring conversation change (user not participant):', convId);
                 }
               });
          }
@@ -218,15 +222,15 @@ export function useConversationList() {
                      setConversations(currentConvos => {
                        const currentConvoState = currentConvos.find(c => c.id === convId);
                        if (currentConvoState) {
-                          console.log('[useConversationList] New message detected for inbox conversation:', convId);
+                          logger.log('[useConversationList] New message detected for inbox conversation:', convId);
                           handleRealtimeChange(payload, 'messages table (INSERT)');
                        } else {
-                           console.log('[useConversationList] New message for conversation not currently in inbox (archived/deleted/filtered?):', convId);
+                           logger.log('[useConversationList] New message for conversation not currently in inbox (archived/deleted/filtered?):', convId);
                        }
                        return currentConvos; // Return unchanged state if not triggering reload
                      });
                  } else {
-                    console.log('[useConversationList] Ignoring new message (user not participant):', convId);
+                    logger.log('[useConversationList] Ignoring new message (user not participant):', convId);
                  }
                });
           }
@@ -249,7 +253,7 @@ export function useConversationList() {
              // Only proceed if 'read' status actually changed, and changed to true
              if (!convId || oldReadStatus === newReadStatus || newReadStatus !== true) return;
 
-             console.log(`[useConversationList] Message UPDATE detected for convo ${convId}, msg ${messageId}. Read status changed: ${oldReadStatus} -> ${newReadStatus}`);
+             logger.log(`[useConversationList] Message UPDATE detected for convo ${convId}, msg ${messageId}. Read status changed: ${oldReadStatus} -> ${newReadStatus}`);
 
              // Check if the user is a participant in the message's conversation
              supabase
@@ -264,25 +268,25 @@ export function useConversationList() {
                     setConversations(currentConvos => {
                       const currentConvoState = currentConvos.find(c => c.id === convId);
                       if (currentConvoState) {
-                         console.log('[useConversationList] Message update (likely read status) detected for inbox conversation:', convId);
+                         logger.log('[useConversationList] Message update (likely read status) detected for inbox conversation:', convId);
                          handleRealtimeChange(payload, 'messages table (UPDATE)');
                       } else {
-                          console.log('[useConversationList] Message update for conversation not currently in inbox:', convId);
+                          logger.log('[useConversationList] Message update for conversation not currently in inbox:', convId);
                       }
                       return currentConvos; // Return unchanged state if not triggering reload
                     });
                  } else {
-                    console.log('[useConversationList] Ignoring message update (user not participant):', convId);
+                    logger.log('[useConversationList] Ignoring message update (user not participant):', convId);
                  }
                });
           }
        )
       .subscribe((status: REALTIME_SUBSCRIBE_STATES, err?: Error) => { // Explicit type annotation for status
-        console.log(`[useConversationList] Realtime subscription status: ${status}`);
+        logger.log(`[useConversationList] Realtime subscription status: ${status}`);
 
         // Compare status by casting string literals to the REALTIME_SUBSCRIBE_STATES type
         if (status === ('SUBSCRIPTION_ERROR' as REALTIME_SUBSCRIBE_STATES)) {
-          console.error('[useConversationList] Realtime subscription error:', err);
+          logger.error('[useConversationList] Realtime subscription error:', err);
            toast({
              title: 'Connection Issue',
              description: 'Could not connect to live message updates. Please refresh.',
@@ -293,25 +297,25 @@ export function useConversationList() {
             status === ('TIMED_OUT' as REALTIME_SUBSCRIBE_STATES) ||
             status === ('CLOSED' as REALTIME_SUBSCRIBE_STATES)
             ) {
-             console.warn(`[useConversationList] Realtime channel issue: ${status}`, err);
+             logger.warn(`[useConversationList] Realtime channel issue: ${status}`, err);
              // Optionally attempt to resubscribe or notify user
         } else if (status === ('SUBSCRIBED' as REALTIME_SUBSCRIBE_STATES)) {
-             console.log('[useConversationList] Realtime successfully SUBSCRIBED.');
+             logger.log('[useConversationList] Realtime successfully SUBSCRIBED.');
              // Optionally trigger a load on successful subscribe to ensure consistency
              // loadConversations('realtime subscribed'); // Maybe too aggressive?
         } else {
-             console.log('[useConversationList] Realtime status:', status);
+             logger.log('[useConversationList] Realtime status:', status);
         }
       });
 
     // Cleanup function
     return () => {
-      console.log('[useConversationList] useEffect cleanup running...');
+      logger.log('[useConversationList] useEffect cleanup running...');
       if (currentChannel) {
-        console.log('[useConversationList] Removing channel during cleanup:', currentChannel.topic);
+        logger.log('[useConversationList] Removing channel during cleanup:', currentChannel.topic);
         supabase.removeChannel(currentChannel)
           .catch(removeError => {
-             console.error('[useConversationList] Error removing channel during cleanup:', removeError);
+             logger.error('[useConversationList] Error removing channel during cleanup:', removeError);
           });
         // Important: Clear the ref only if it matches the channel being removed
         if (channelRef.current === currentChannel) {

@@ -34,6 +34,10 @@ import {
 } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('AdminCourseEdit');
+
 const AdminCourseEdit = () => {
   const { courseId } = useParams<{ courseId: string }>();
   const isNewCourse = courseId === 'new';
@@ -109,7 +113,7 @@ const AdminCourseEdit = () => {
           setCourse(transformedCourse);
         }
       } catch (error: any) {
-        console.error('Error fetching course:', error);
+        logger.error('Error fetching course:', error);
         toast({
           title: 'Error',
           description: 'Failed to load course details',
@@ -143,7 +147,7 @@ const AdminCourseEdit = () => {
           .eq('role', 'instructor');
 
         if (error) {
-          console.error('Error fetching instructors:', error);
+          logger.error('Error fetching instructors:', error);
           return;
         }
 
@@ -161,7 +165,7 @@ const AdminCourseEdit = () => {
 
         setInstructors(formattedInstructors);
       } catch (error) {
-        console.error('Error fetching instructors:', error);
+        logger.error('Error fetching instructors:', error);
       }
     };
 
@@ -183,7 +187,7 @@ const AdminCourseEdit = () => {
           `);
 
         if (error) {
-          console.error('Error fetching profiles:', error);
+          logger.error('Error fetching profiles:', error);
           return;
         }
 
@@ -196,7 +200,7 @@ const AdminCourseEdit = () => {
 
         setAvailableProfiles(formattedProfiles);
       } catch (error) {
-        console.error('Error fetching profiles:', error);
+        logger.error('Error fetching profiles:', error);
       }
     };
 
@@ -271,7 +275,7 @@ const AdminCourseEdit = () => {
         });
       }
     } catch (error: any) {
-      console.error('Error saving course:', error);
+      logger.error('Error saving course:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to save course',
@@ -310,7 +314,7 @@ const AdminCourseEdit = () => {
           title: "Error",
           description: "Failed to add instructor. They may already be assigned to this course.",
         });
-        console.error('Error adding instructor:', error);
+        logger.error('Error adding instructor:', error);
         return;
       }
 
@@ -337,7 +341,7 @@ const AdminCourseEdit = () => {
         }]);
       }
     } catch (error) {
-      console.error('Error adding instructor:', error);
+      logger.error('Error adding instructor:', error);
     }
   };
 
@@ -355,7 +359,7 @@ const AdminCourseEdit = () => {
           title: "Error",
           description: "Failed to remove instructor",
         });
-        console.error('Error removing instructor:', error);
+        logger.error('Error removing instructor:', error);
         return;
       }
 
@@ -366,7 +370,7 @@ const AdminCourseEdit = () => {
       
       setInstructors(instructors.filter(instructor => instructor.userId !== userId));
     } catch (error) {
-      console.error('Error removing instructor:', error);
+      logger.error('Error removing instructor:', error);
     }
   };
   

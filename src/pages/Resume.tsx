@@ -15,6 +15,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { LocalStorageUtils } from '@/utils/localStorageUtils';
 import BulletPointChart from '@/components/resume/BulletPointChart';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('Resume');
+
 const AnalysisProgress: React.FC<{
   isAnalyzing: boolean;
   isPollingForImprovements: boolean;
@@ -67,7 +71,7 @@ const Resume = () => {
   // Add a debug helper function
   const logDebug = (area, message, data = null) => {
     const timestamp = new Date().toISOString();
-    console.log(`[${timestamp}][${area}] ${message}`, data || '');
+    logger.log(`[${timestamp}][${area}] ${message}`, data || '');
   };
   const {
     user,
@@ -238,7 +242,7 @@ const Resume = () => {
       }
     } catch (err) {
       logDebug('EnhancedUpdate', 'Error processing enhanced bullets:', err);
-      console.error("Error processing enhanced bullets:", err);
+      logger.error("Error processing enhanced bullets:", err);
       setIsPollingForImprovements(false);
       setPollingStatus('error');
     }
@@ -262,7 +266,7 @@ const Resume = () => {
         logDebug('InitialData', 'Initial data load complete');
       } catch (err) {
         logDebug('InitialData', 'Error in initial data load:', err);
-        console.error("Error in initial data load:", err);
+        logger.error("Error in initial data load:", err);
         if (err.message?.includes('bucket') || err.message?.includes('storage')) {
           setStorageError("Resume storage is not properly configured. Please contact support.");
           logDebug('InitialData', 'Setting storage error');
@@ -324,7 +328,7 @@ const Resume = () => {
         logDebug('AnalysisLoader', 'Reset hasLoadedEnhancedRef to false');
       } catch (err) {
         logDebug('AnalysisLoader', 'Error setting analysis from resume:', err);
-        console.error("Error setting analysis from resume:", err);
+        logger.error("Error setting analysis from resume:", err);
         // On error, reset states to allow retry
         setHasLoadedAnalysis(false);
         setAnalysis(null);
@@ -364,7 +368,7 @@ const Resume = () => {
         } = await supabase.from('resumes').select('enhanced_analysis').eq('id', resume.id).maybeSingle();
         if (error) {
           logDebug('InitialLoad', 'Error fetching enhanced analysis:', error);
-          console.error("Error fetching enhanced analysis:", error);
+          logger.error("Error fetching enhanced analysis:", error);
           setIsLoadingEnhancedBullets(false);
           return;
         }
@@ -374,12 +378,12 @@ const Resume = () => {
         } else {
           // No enhanced analysis yet
           logDebug('InitialLoad', `No enhanced bullets yet for resume ${resume.id}`);
-          console.log("No enhanced bullets yet for resume", resume.id);
+          logger.log("No enhanced bullets yet for resume", resume.id);
           setIsLoadingEnhancedBullets(false);
         }
       } catch (err) {
         logDebug('InitialLoad', 'Error loading enhanced analysis:', err);
-        console.error("Error loading enhanced analysis:", err);
+        logger.error("Error loading enhanced analysis:", err);
         setIsLoadingEnhancedBullets(false);
       }
     };
@@ -421,7 +425,7 @@ const Resume = () => {
           });
         } catch (err) {
           logDebug('FileHandler', 'Error extracting text:', err);
-          console.error(err);
+          logger.error(err);
           toast({
             title: 'Extraction failed',
             description: 'Could not extract text from your resume.',
@@ -462,7 +466,7 @@ const Resume = () => {
         }
       }).catch(err => {
         logDebug('AnalysisRunner', 'Error analyzing resume:', err);
-        console.error("Error analyzing resume:", err);
+        logger.error("Error analyzing resume:", err);
         setHasLoadedAnalysis(false);
         setAnalysis(null);
       });
@@ -682,7 +686,7 @@ const Resume = () => {
               handleEnhancedAnalysisUpdate(enhancedData.improved_bullets);
             }
           } catch (enhancedErr) {
-            console.error("Error checking for enhancements:", enhancedErr);
+            logger.error("Error checking for enhancements:", enhancedErr);
           }
         }
       } else {

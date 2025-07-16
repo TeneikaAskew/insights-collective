@@ -6,6 +6,10 @@ import { useToast } from '@/hooks/use-toast';
 import * as pdfjs from 'pdfjs-dist';
 import mammoth from 'mammoth';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useResumeStorage');
+
 // Configure PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@2.16.105/build/pdf.worker.min.js';
 
@@ -27,7 +31,7 @@ export const extractTextFromFile = async (file: File): Promise<string> => {
       throw new Error('Unsupported file type. Only PDF and DOCX are supported.');
     }
   } catch (error) {
-    console.error('Error extracting text from file:', error);
+    logger.error('Error extracting text from file:', error);
     throw new Error(`Failed to extract text from file: ${error.message}`);
   }
 };
@@ -35,13 +39,13 @@ export const extractTextFromFile = async (file: File): Promise<string> => {
 // Extract text from PDF file
 const extractTextFromPDF = async (file: File): Promise<string> => {
   try {
-    console.log("Starting PDF text extraction");
+    logger.log("Starting PDF text extraction");
     const arrayBuffer = await file.arrayBuffer();
     const uint8Array = new Uint8Array(arrayBuffer);
     
     // Load the PDF document
     const pdf = await pdfjs.getDocument({ data: uint8Array }).promise;
-    console.log(`PDF loaded, pages: ${pdf.numPages}`);
+    logger.log(`PDF loaded, pages: ${pdf.numPages}`);
     
     let fullText = '';
     
@@ -56,10 +60,10 @@ const extractTextFromPDF = async (file: File): Promise<string> => {
       fullText += pageText + '\n';
     }
     
-    console.log(`PDF text extraction complete, total length: ${fullText.length}`);
+    logger.log(`PDF text extraction complete, total length: ${fullText.length}`);
     return fullText;
   } catch (error) {
-    console.error('Error extracting text from PDF:', error);
+    logger.error('Error extracting text from PDF:', error);
     throw new Error('Failed to extract text from PDF');
   }
 };
@@ -67,13 +71,13 @@ const extractTextFromPDF = async (file: File): Promise<string> => {
 // Extract text from DOCX file
 const extractTextFromDOCX = async (file: File): Promise<string> => {
   try {
-    console.log("Starting DOCX text extraction");
+    logger.log("Starting DOCX text extraction");
     const arrayBuffer = await file.arrayBuffer();
     const result = await mammoth.extractRawText({ arrayBuffer });
-    console.log(`DOCX text extraction complete, total length: ${result.value.length}`);
+    logger.log(`DOCX text extraction complete, total length: ${result.value.length}`);
     return result.value;
   } catch (error) {
-    console.error('Error extracting text from DOCX:', error);
+    logger.error('Error extracting text from DOCX:', error);
     throw new Error('Failed to extract text from DOCX');
   }
 };
@@ -90,21 +94,21 @@ const checkBucketExists = async (): Promise<boolean> => {
       
     // If we can list files, the bucket exists and we have access
     if (!error) {
-      console.log('Successfully accessed resumes bucket');
+      logger.log('Successfully accessed resumes bucket');
       return true;
     }
     
     // Check for specific error messages that indicate the bucket doesn't exist
     if (error.message.includes('bucket') && error.message.toLowerCase().includes('not found')) {
-      console.log('Resumes bucket not found');
+      logger.log('Resumes bucket not found');
       return false;
     }
     
     // Log any other errors but assume the bucket might exist
-    console.error('Error checking bucket access:', error);
+    logger.error('Error checking bucket access:', error);
     return false;
   } catch (error) {
-    console.error('Unexpected error checking bucket access:', error);
+    logger.error('Unexpected error checking bucket access:', error);
     return false;
   }
 };
@@ -115,12 +119,12 @@ export const deleteResumeFile = async (userId: string, filePath: string) => {
   try {
     // Ensure path is correctly formatted
     const fullPath = filePath.includes(userId) ? filePath : `${userId}/${filePath}`;
-    console.log("Deleting file at path:", fullPath);
+    logger.log("Deleting file at path:", fullPath);
     
     // Check if bucket exists but don't try to create it
     const bucketExists = await checkBucketExists();
     if (!bucketExists) {
-      console.error('Storage bucket does not exist');
+      logger.error('Storage bucket does not exist');
       return false;
     }
     
@@ -130,13 +134,13 @@ export const deleteResumeFile = async (userId: string, filePath: string) => {
       .remove([fullPath]);
       
     if (deleteFileError) {
-      console.error("Error deleting file:", deleteFileError);
+      logger.error("Error deleting file:", deleteFileError);
       throw deleteFileError;
     }
     
     return true;
   } catch (error) {
-    console.error('Error deleting resume file:', error);
+    logger.error('Error deleting resume file:', error);
     return false;
   }
 };
@@ -160,7 +164,7 @@ export function useResumeStorage() {
     setUploading(true);
 
     try {
-      console.log("Starting file upload process for user:", userId);
+      logger.log("Starting file upload process for user:", userId);
       
       // Check if bucket exists but don't try to create it
       const bucketExists = await checkBucketExists();
@@ -177,7 +181,7 @@ export function useResumeStorage() {
       const fileExtension = file.name.split('.').pop() || '';
       const fileName = `${userId}/resume_${Date.now()}.${fileExtension}`;
       
-      console.log("Uploading file to path:", fileName);
+      logger.log("Uploading file to path:", fileName);
       
       // Upload the file with only supported options
       const { data, error } = await supabase.storage
@@ -190,7 +194,7 @@ export function useResumeStorage() {
         });
       
       if (error) {
-        console.error("Upload error details:", error);
+        logger.error("Upload error details:", error);
         
         if (error.message?.includes("Bucket not found")) {
           toast({
@@ -209,7 +213,7 @@ export function useResumeStorage() {
         throw error;
       }
       
-      console.log("Upload successful, file path:", data?.path);
+      logger.log("Upload successful, file path:", data?.path);
       
       return {
         fileName: fileName.split('/').pop() || '',
@@ -217,7 +221,7 @@ export function useResumeStorage() {
         success: true
       };
     } catch (error) {
-      console.error('Error uploading resume:', error);
+      logger.error('Error uploading resume:', error);
       
       toast({
         title: "Upload failed",
@@ -239,12 +243,12 @@ export function useResumeStorage() {
     try {
       // Make sure the path is correctly formed
       const fullPath = filePath.includes(userId) ? filePath : `${userId}/${filePath}`;
-      console.log("Getting signed URL for path:", fullPath);
+      logger.log("Getting signed URL for path:", fullPath);
       
       // Check if bucket exists but don't try to create it
       const bucketExists = await checkBucketExists();
       if (!bucketExists) {
-        console.error('Storage bucket does not exist');
+        logger.error('Storage bucket does not exist');
         return null;
       }
       
@@ -259,7 +263,7 @@ export function useResumeStorage() {
           });
           
         if (fileError) {
-          console.error("Error creating signed URL:", fileError);
+          logger.error("Error creating signed URL:", fileError);
           return null;
         }
         
@@ -269,14 +273,14 @@ export function useResumeStorage() {
           signedUrl + (signedUrl.includes('?') ? '&' : '?') + 'response-content-disposition=inline' 
           : null;
         
-        console.log("Successfully created signed URL:", updatedUrl);
+        logger.log("Successfully created signed URL:", updatedUrl);
         return updatedUrl;
       } catch (urlError) {
-        console.error("Error creating signed URL:", urlError);
+        logger.error("Error creating signed URL:", urlError);
         return null;
       }
     } catch (error) {
-      console.error('Error getting resume file URL:', error);
+      logger.error('Error getting resume file URL:', error);
       return null;
     }
   };

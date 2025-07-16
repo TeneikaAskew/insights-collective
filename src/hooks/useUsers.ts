@@ -4,6 +4,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { Profile } from '@/types/supabase';
 import { useToast } from './use-toast';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useUsers');
+
 /**
  * Hook for fetching and searching users
  */
@@ -22,7 +26,7 @@ export function useUsers() {
     const searchUsers = async () => {
       setLoading(true);
       try {
-        console.log('[useUsers] Searching for users with query:', searchQuery);
+        logger.log('[useUsers] Searching for users with query:', searchQuery);
         
         const { data, error } = await supabase
           .from('profiles')
@@ -32,7 +36,7 @@ export function useUsers() {
 
         if (error) throw error;
 
-        console.log('[useUsers] Raw user data received:', data?.length || 0, 'users');
+        logger.log('[useUsers] Raw user data received:', data?.length || 0, 'users');
 
         // Transform the data to match Profile type, providing defaults for missing fields
         const transformedData: Profile[] = (data || []).map(user => ({
@@ -44,10 +48,10 @@ export function useUsers() {
           roles: user.roles || ['student']
         }));
 
-        console.log('[useUsers] Transformed user data:', transformedData.length, 'users');
+        logger.log('[useUsers] Transformed user data:', transformedData.length, 'users');
         setUsers(transformedData);
       } catch (error) {
-        console.error('Error searching users:', error);
+        logger.error('Error searching users:', error);
         toast({
           title: 'Error',
           description: 'Failed to search users. Please try again.',
@@ -63,7 +67,7 @@ export function useUsers() {
   }, [searchQuery, toast]);
 
   const updateSearchQuery = (query: string) => {
-    console.log('[useUsers] Updating search query to:', query);
+    logger.log('[useUsers] Updating search query to:', query);
     setSearchQuery(query);
   };
 

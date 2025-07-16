@@ -7,6 +7,10 @@ import { Badge } from '@/components/ui/badge';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { onboardingTours } from '@/data/onboardingTours';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('findElement');
+
 interface OnboardingGuideProps {
   tourId: string;
 }
@@ -83,7 +87,7 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ tourId }) => {
             const delay = Math.min(500 * Math.pow(1.5, retryCount), 2000);
             timeoutId = setTimeout(findElement, delay);
           } else {
-            console.warn(`Onboarding: Element not found after ${maxRetries} attempts: "${currentStepData.target}"`);
+            logger.warn(`Onboarding: Element not found after ${maxRetries} attempts: "${currentStepData.target}"`);
             setElementNotFound(true);
             setTargetElement(null);
           }

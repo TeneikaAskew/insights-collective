@@ -5,6 +5,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { EnrichedUser } from './useAuth';
 import { enrichProfileWithRoles } from '@/utils/profileUtils';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useUserProfile');
+
 interface UserProfile {
   id: string;
   first_name: string;
@@ -48,7 +52,7 @@ export function useUserProfile(user: User | null) {
         if (profileError && profileError.code !== 'PGRST116') {
           // Only log error if it's not a "no profile found" error
           if (profileError.code !== 'PGRST116') {
-            console.error('Error fetching profile:', profileError);
+            logger.error('Error fetching profile:', profileError);
           }
           throw profileError;
         }
@@ -56,10 +60,10 @@ export function useUserProfile(user: User | null) {
         // Enrich profile with consistent role information
         const enrichedProfile = enrichProfileWithRoles(profile);
         
-        console.log('[useUserProfile] Profile fetched for user:', user.id);
-        console.log('[useUserProfile] Raw profile data:', profile);
-        console.log('[useUserProfile] Enriched profile data:', enrichedProfile);
-        console.log('[useUserProfile] Profile roles:', enrichedProfile?.roles);
+        logger.log('[useUserProfile] Profile fetched for user:', user.id);
+        logger.log('[useUserProfile] Raw profile data:', profile);
+        logger.log('[useUserProfile] Enriched profile data:', enrichedProfile);
+        logger.log('[useUserProfile] Profile roles:', enrichedProfile?.roles);
         
         // Generate a display name from first_name and last_name
         const displayName = enrichedProfile?.first_name && enrichedProfile?.last_name 
@@ -77,12 +81,12 @@ export function useUserProfile(user: User | null) {
           roles: enrichedProfile?.roles || ['student']
         };
         
-        console.log('[useUserProfile] Final enriched user:', finalEnrichedUser);
-        console.log('[useUserProfile] Final user roles:', finalEnrichedUser.roles);
+        logger.log('[useUserProfile] Final enriched user:', finalEnrichedUser);
+        logger.log('[useUserProfile] Final user roles:', finalEnrichedUser.roles);
         
         setEnrichedUser(finalEnrichedUser);
       } catch (err) {
-        console.error('Error loading user profile:', err);
+        logger.error('Error loading user profile:', err);
         setError(err as Error);
         // Still set the basic user data even if profile fetch fails
         setEnrichedUser({

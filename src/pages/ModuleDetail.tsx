@@ -24,6 +24,10 @@ import StudentContentRenderer from '@/components/course/content/StudentContentRe
 import { ModuleCompletionCard } from '@/components/course/ModuleCompletionCard';
 import { LessonAccordion } from '@/components/course/LessonAccordion';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('ModuleDetail');
+
 const ModuleDetail = () => {
   const { courseId, moduleId } = useParams<{ courseId: string; moduleId: string }>();
   const { toast } = useToast();
@@ -100,7 +104,7 @@ const ModuleDetail = () => {
           completionStatus: 0
         });
       } catch (error) {
-        console.error('Error fetching data:', error);
+        logger.error('Error fetching data:', error);
         toast({
           title: "Error",
           description: "Failed to load module data",

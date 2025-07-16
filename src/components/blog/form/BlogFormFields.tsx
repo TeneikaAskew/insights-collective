@@ -12,6 +12,10 @@ import { ImageUploader } from './ImageUploader';
 import { CanvasEditor } from '@/components/ui/canvas-editor';
 import { getBlogCategories } from '@/services/blogService';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('BlogFormFields');
+
 interface BlogFormFieldsProps {
   form: UseFormReturn<BlogFormData>;
   showImagePreview: boolean;
@@ -33,7 +37,7 @@ export function BlogFormFields({
         const categoryData = await getBlogCategories();
         setCategories(categoryData);
       } catch (error) {
-        console.error('Error fetching categories:', error);
+        logger.error('Error fetching categories:', error);
       }
     };
 

@@ -11,6 +11,10 @@ import { BlogPost, BlogCategory } from '@/types/blog';
 import AppLayout from '@/components/layout/AppLayout';
 import { useAuth } from '@/contexts/AuthContext';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('Blog');
+
 export default function Blog() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
@@ -44,7 +48,7 @@ export default function Blog() {
       setPosts(postsData);
       setCategories(categoriesData);
     } catch (error) {
-      console.error('Error loading blog data:', error);
+      logger.error('Error loading blog data:', error);
     } finally {
       setLoading(false);
     }

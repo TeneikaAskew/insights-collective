@@ -4,6 +4,10 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { isValidUUID } from '@/utils/idUtils';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useLessonProgress');
+
 export interface LessonProgress {
   id: string;
   user_id: string;
@@ -30,7 +34,7 @@ export function useLessonProgress(lessonId?: string) {
     }
 
     if (!isValidUUID(lessonId)) {
-      console.error(`Invalid lesson UUID format: ${lessonId}`);
+      logger.error(`Invalid lesson UUID format: ${lessonId}`);
       setError('Invalid lesson ID format');
       setLoading(false);
       return;
@@ -56,7 +60,7 @@ export function useLessonProgress(lessonId?: string) {
       if (error) throw error;
       setProgress(data);
     } catch (error: any) {
-      console.error('Error fetching lesson progress:', error);
+      logger.error('Error fetching lesson progress:', error);
       setError(error.message || 'Failed to load lesson progress');
     } finally {
       setLoading(false);
@@ -95,7 +99,7 @@ export function useLessonProgress(lessonId?: string) {
 
       return true;
     } catch (error: any) {
-      console.error('Error marking lesson as complete:', error);
+      logger.error('Error marking lesson as complete:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to mark lesson as complete',
@@ -132,7 +136,7 @@ export function useLessonProgress(lessonId?: string) {
       setProgress(data);
       return true;
     } catch (error: any) {
-      console.error('Error updating lesson progress:', error);
+      logger.error('Error updating lesson progress:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to update lesson progress',

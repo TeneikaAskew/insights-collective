@@ -50,7 +50,9 @@
       "WebFetch(domain:www.howtocanvas.com)",
       "WebFetch(domain:www.howtocanvas.com)",
       "Bash(npx tsc:*)",
-      "Bash(rg:*)"
+      "Bash(rg:*)",
+      "Bash(chmod:*)",
+      "Bash(npx tsx:*)"
     ],
     "deny": []
   }

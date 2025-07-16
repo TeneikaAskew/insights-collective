@@ -19,6 +19,10 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('EnhancedPortfolioEditor');
+
 interface EnhancedPortfolioEditorProps {
   portfolioPage: PortfolioPage;
 }
@@ -84,7 +88,7 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
     if (!user?.id) return [];
     
     try {
-      console.log('Fetching skills from user recommendations for user:', user.id);
+      logger.log('Fetching skills from user recommendations for user:', user.id);
       
       // First check the portfolio table for recommendations
       const { data: portfolioData, error: portfolioError } = await supabase
@@ -93,10 +97,10 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
         .eq('user_id', user.id)
         .maybeSingle();
 
-      console.log('Portfolio recommendations data:', portfolioData);
+      logger.log('Portfolio recommendations data:', portfolioData);
 
       if (portfolioData?.recommendations && portfolioData.recommendations.skills) {
-        console.log('Found skills in portfolio recommendations:', portfolioData.recommendations.skills);
+        logger.log('Found skills in portfolio recommendations:', portfolioData.recommendations.skills);
         return portfolioData.recommendations.skills;
       }
 
@@ -109,10 +113,10 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
         .limit(1)
         .maybeSingle();
 
-      console.log('Career pathway results data:', data);
+      logger.log('Career pathway results data:', data);
 
       if (error || !data?.report) {
-        console.log('No career pathway results found');
+        logger.log('No career pathway results found');
         return [];
       }
 
@@ -120,16 +124,16 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
       
       // Look for skills in the main skills array
       if (report.skills && Array.isArray(report.skills)) {
-        console.log('Found skills in career pathway report:', report.skills);
+        logger.log('Found skills in career pathway report:', report.skills);
         return report.skills.filter((skill: any): skill is string => 
           typeof skill === 'string' && skill.trim().length > 0
         );
       }
       
-      console.log('No skills found in recommendations');
+      logger.log('No skills found in recommendations');
       return [];
     } catch (error) {
-      console.error('Error fetching discovered skills:', error);
+      logger.error('Error fetching discovered skills:', error);
       return [];
     }
   };
@@ -138,10 +142,10 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
   useEffect(() => {
     const prefillSkills = async () => {
       if (!portfolioPage.profile_data?.skills || portfolioPage.profile_data.skills.length === 0) {
-        console.log('Prefilling skills from recommendations...');
+        logger.log('Prefilling skills from recommendations...');
         const discoveredSkills = await fetchDiscoveredSkills();
         if (discoveredSkills.length > 0) {
-          console.log('Prefilling skills:', discoveredSkills);
+          logger.log('Prefilling skills:', discoveredSkills);
           setProfileData(prev => ({
             ...prev,
             skills: discoveredSkills
@@ -204,7 +208,7 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
         description: "Portfolio saved successfully!",
       });
     } catch (error) {
-      console.error('Error saving portfolio:', error);
+      logger.error('Error saving portfolio:', error);
       toast({
         title: "Error",
         description: "Failed to save portfolio changes",
@@ -223,7 +227,7 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
         description: "Portfolio exported successfully!",
       });
     } catch (error) {
-      console.error('Error exporting portfolio:', error);
+      logger.error('Error exporting portfolio:', error);
       toast({
         title: "Error",
         description: "Failed to export portfolio",

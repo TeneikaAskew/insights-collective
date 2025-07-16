@@ -6,6 +6,10 @@ import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useCoursePermissions } from '@/hooks/useCoursePermissions';
+
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('EnrollmentBadge');
 interface EnrollmentBadgeProps {
   courseId: string;
   status?: string;
@@ -32,7 +36,7 @@ const EnrollmentBadge = ({
         return;
       }
       try {
-        console.log('Checking enrollment for user:', user.id, 'course:', courseId);
+        logger.log('Checking enrollment for user:', user.id, 'course:', courseId);
 
         // Use the same query pattern as the admin panel
         const {
@@ -40,15 +44,15 @@ const EnrollmentBadge = ({
           error
         } = await supabase.from('enrollments').select('id').eq('user_id', user.id).eq('course_id', courseId).maybeSingle();
         if (error) {
-          console.error('Error checking enrollment:', error);
+          logger.error('Error checking enrollment:', error);
           setIsEnrolled(false);
         } else {
           const enrolled = !!data;
-          console.log('Enrollment check result:', enrolled, 'Data:', data);
+          logger.log('Enrollment check result:', enrolled, 'Data:', data);
           setIsEnrolled(enrolled);
         }
       } catch (error) {
-        console.error('Error checking enrollment:', error);
+        logger.error('Error checking enrollment:', error);
         setIsEnrolled(false);
       } finally {
         setLoading(false);

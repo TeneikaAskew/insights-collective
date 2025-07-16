@@ -6,6 +6,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { validateSessionIntegrity, logSecurityEvent } from '@/utils/securityUtils';
 import { supabase } from '@/integrations/supabase/client';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('if');
+
 interface AdminGuardProps {
   children: React.ReactNode;
 }
@@ -31,7 +35,7 @@ const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
           .rpc('has_admin_access', { user_id_param: user.id });
         
         if (error) {
-          console.error('Error checking admin access:', error);
+          logger.error('Error checking admin access:', error);
           await logSecurityEvent(user.id, 'admin_guard_check_failed', 'error', 'Failed to verify admin access in AdminGuard', { error: error.message });
           setHasAdminAccess(false);
           return;
@@ -43,7 +47,7 @@ const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
         await logSecurityEvent(user.id, 'admin_guard_check', 'info', `Admin access check: ${data ? 'granted' : 'denied'}`, { path: location.pathname });
         
       } catch (error) {
-        console.error('Exception in admin access check:', error);
+        logger.error('Exception in admin access check:', error);
         setHasAdminAccess(false);
       }
     };
@@ -67,7 +71,7 @@ const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
 
   // Check session integrity
   if (isAuthenticated && session && !validateSessionIntegrity(session)) {
-    console.warn('[AdminGuard] Invalid session detected, redirecting to login');
+    logger.warn('[AdminGuard] Invalid session detected, redirecting to login');
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
@@ -77,7 +81,7 @@ const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
 
   // Enhanced admin role verification using new security function
   if (!hasAdminAccess) {
-    console.warn('[AdminGuard] Non-admin user attempted to access admin area:', user?.id);
+    logger.warn('[AdminGuard] Non-admin user attempted to access admin area:', user?.id);
     
     // Log security event for unauthorized access attempt
     if (user?.id) {

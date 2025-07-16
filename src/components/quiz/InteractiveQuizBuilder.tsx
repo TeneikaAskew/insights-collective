@@ -14,6 +14,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { 
+
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('InteractiveQuizBuilder');
   Plus, 
   Edit, 
   Trash2, 
@@ -210,7 +214,7 @@ export function InteractiveQuizBuilder({
         description: 'Quiz created successfully'
       });
     } catch (error) {
-      console.error('Error saving quiz:', error);
+      logger.error('Error saving quiz:', error);
       toast({
         title: 'Error',
         description: 'Failed to create quiz',

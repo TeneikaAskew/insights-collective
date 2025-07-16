@@ -16,6 +16,10 @@ import { useNavigate } from 'react-router-dom';
 // CareerAgent.tsx
 import { formatCareerPathwayReport } from '@/components/assistants/utils/CareerReportParser';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('initializeConversation');
+
 interface Message {
   id: string;
   sender: 'user' | 'bot';
@@ -134,7 +138,7 @@ const CareerAgent: React.FC = () => {
   const loadPreviousCareerPathwayData = async () => {
     if (!user?.id) return;
 
-    console.log('loadPreviousCareerPathwayData called');
+    logger.log('loadPreviousCareerPathwayData called');
     // Only load answers for the user where is_reset is false
     const { data: previousAnswers, error: answersError } = await supabase
       .from('career_pathway_answers')
@@ -142,10 +146,10 @@ const CareerAgent: React.FC = () => {
       .eq('user_id', user.id)
       .eq('is_reset', false)
       .order('created_at', { ascending: true });
-    console.log('previousAnswers loaded:', previousAnswers);
+    logger.log('previousAnswers loaded:', previousAnswers);
     
     if (answersError) {
-      console.error('Error loading previous answers:', answersError);
+      logger.error('Error loading previous answers:', answersError);
       initializeConversation();
       return;
     }
@@ -266,7 +270,7 @@ const CareerAgent: React.FC = () => {
 
   // Save answer to database
   const saveAnswerToDatabase = async (questionId: string, answer: string) => {
-    console.log('Payload being sent to Supabase:', {
+    logger.log('Payload being sent to Supabase:', {
       user_id: user.id,
       session_id: sessionId,
       question: questionId,
@@ -282,7 +286,7 @@ const CareerAgent: React.FC = () => {
           answer,
         });
       } catch (err) {
-        console.error('Error saving answer:', err);
+        logger.error('Error saving answer:', err);
         toast({
           title: 'Error',
           description: 'Failed to save your answer. Please try again.',
@@ -323,16 +327,16 @@ const CareerAgent: React.FC = () => {
 
   const handleResetAnswers = async () => {
     if (!user?.id) return;
-    console.log(`handleResetAnswers called for user ${user.id}`);
+    logger.log(`handleResetAnswers called for user ${user.id}`);
     
     try {
-      console.log('Checking rows before update...');
+      logger.log('Checking rows before update...');
       const { data: beforeRows } = await supabase
         .from('career_pathway_answers')
         .select('*')
         .eq('user_id', user.id)
         .is('is_reset', false);
-      console.log('Rows to update:', beforeRows);
+      logger.log('Rows to update:', beforeRows);
 
       const { data, error } = await supabase
         .from('career_pathway_answers')
@@ -340,7 +344,7 @@ const CareerAgent: React.FC = () => {
         .eq('user_id', user.id)
 
       if (error) {
-        console.log('Update error:', error);
+        logger.log('Update error:', error);
         toast({
           title: 'Error',
           description: 'Failed to reset your answers. Please try again.',
@@ -348,8 +352,8 @@ const CareerAgent: React.FC = () => {
         });
         return;
       }
-      console.log('Update successful:', data);
-      console.log('Checking rows after update...');
+      logger.log('Update successful:', data);
+      logger.log('Checking rows after update...');
       
 
       const { data: afterRows } = await supabase
@@ -357,7 +361,7 @@ const CareerAgent: React.FC = () => {
         .select('*')
         .eq('user_id', user.id)
         .is('is_reset', false);
-      console.log('Rows remaining after update:', afterRows);
+      logger.log('Rows remaining after update:', afterRows);
 
       // Clear all local state
       setAnswers({});
@@ -373,14 +377,14 @@ const CareerAgent: React.FC = () => {
       setResumePromptShown(false);
       setResumeUseConfirmed(null);
       setPreviousChatLoaded(false);
-      console.log('State cleared after reset');
+      logger.log('State cleared after reset');
 
       toast({
         title: 'Success',
         description: 'Your answers have been reset.',
       });
     } catch (err) {
-      console.log('Error in reset:', err);
+      logger.log('Error in reset:', err);
       toast({
         title: 'Error',
         description: 'An unexpected error occurred. Please try again.',
@@ -400,7 +404,7 @@ const CareerAgent: React.FC = () => {
     if (!user) return;
     
     try {
-      console.log('Calling evaluateCareerAdvice edge function');
+      logger.log('Calling evaluateCareerAdvice edge function');
       // Get the session properly using await
       const { data, error } = await supabase.functions.invoke('evaluateCareerAdvice', {
         body: {
@@ -438,7 +442,7 @@ const CareerAgent: React.FC = () => {
             report: JSON.stringify(report)
           });
         } catch (saveError) {
-          console.error("Error saving career pathway report:", saveError);
+          logger.error("Error saving career pathway report:", saveError);
         }
       }
       setMessages(prev => [...prev, { 
@@ -447,7 +451,7 @@ const CareerAgent: React.FC = () => {
         text: "Your personalized career pathway report is ready! I've prepared it below based on your answers and resume."
       }]);
     } catch(e) { 
-      console.error("Full error:", e);
+      logger.error("Full error:", e);
       handleReportError(e instanceof Error ? e.message : 'Failed to get career advice'); 
     }
   };
@@ -566,7 +570,7 @@ const CareerAgent: React.FC = () => {
             answer: answer
           });
         } catch (err) {
-          console.error('Error saving answer:', err);
+          logger.error('Error saving answer:', err);
         }
       }
       
@@ -630,7 +634,7 @@ const CareerAgent: React.FC = () => {
         setMessages((prev) => [...prev, botMessage]);
       }
     } catch (error) {
-      console.error("Error uploading resume:", error);
+      logger.error("Error uploading resume:", error);
       const botMessage: Message = {
         id: `bot_${Date.now()}`,
         sender: "bot",
@@ -659,7 +663,7 @@ const CareerAgent: React.FC = () => {
   };
 
   const handleEmojiClick = (msgId: string, emoji: string) => {
-    console.log(`User reacted to message ${msgId} with ${emoji}`);
+    logger.log(`User reacted to message ${msgId} with ${emoji}`);
     setReactingMessageId(null);
   };
 

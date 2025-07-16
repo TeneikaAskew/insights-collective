@@ -20,6 +20,10 @@ import {
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('CourseStudents');
+
 interface Student {
   enrollment_id: string;
   user_id: string;
@@ -58,7 +62,7 @@ export default function CourseStudents({ courseId }: CourseStudentsProps) {
   const fetchEnrolledStudents = async () => {
     setLoading(true);
     try {
-      console.log('Fetching students for course:', courseId);
+      logger.log('Fetching students for course:', courseId);
       
       // First get enrollments
       const { data: enrollments, error: enrollmentError } = await supabase
@@ -67,14 +71,14 @@ export default function CourseStudents({ courseId }: CourseStudentsProps) {
         .eq('course_id', courseId);
       
       if (enrollmentError) {
-        console.error('Error fetching enrollments:', enrollmentError);
+        logger.error('Error fetching enrollments:', enrollmentError);
         throw enrollmentError;
       }
 
-      console.log('Raw enrollment data:', enrollments);
+      logger.log('Raw enrollment data:', enrollments);
 
       if (!enrollments || enrollments.length === 0) {
-        console.log('No enrollments found for course:', courseId);
+        logger.log('No enrollments found for course:', courseId);
         setStudents([]);
         setFilteredStudents([]);
         setLoading(false);
@@ -89,10 +93,10 @@ export default function CourseStudents({ courseId }: CourseStudentsProps) {
         .in('id', userIds);
       
       if (profileError) {
-        console.error('Error fetching profiles:', profileError);
+        logger.error('Error fetching profiles:', profileError);
       }
 
-      console.log('Profile data:', profiles);
+      logger.log('Profile data:', profiles);
 
       // Transform data into the Student format
       const transformedData: Student[] = enrollments.map((enrollment) => {
@@ -109,11 +113,11 @@ export default function CourseStudents({ courseId }: CourseStudentsProps) {
         };
       });
 
-      console.log('Transformed student data:', transformedData);
+      logger.log('Transformed student data:', transformedData);
       setStudents(transformedData);
       setFilteredStudents(transformedData);
     } catch (error: any) {
-      console.error('Error fetching enrolled students:', error);
+      logger.error('Error fetching enrolled students:', error);
       toast({
         title: 'Error',
         description: 'Failed to load enrolled students',
@@ -147,7 +151,7 @@ export default function CourseStudents({ courseId }: CourseStudentsProps) {
         .rpc('get_user_id', { email: studentEmail.trim() });
       
       if (userIdError || !userId) {
-        console.error('Error finding user:', userIdError);
+        logger.error('Error finding user:', userIdError);
         toast({
           title: 'User Not Found',
           description: 'No user found with that email address. The user must have an account in the system.',
@@ -195,7 +199,7 @@ export default function CourseStudents({ courseId }: CourseStudentsProps) {
         .single();
       
       if (profileError) {
-        console.error('Error fetching profile:', profileError);
+        logger.error('Error fetching profile:', profileError);
       }
       
       // Add to the students list
@@ -219,7 +223,7 @@ export default function CourseStudents({ courseId }: CourseStudentsProps) {
       setStudentEmail('');
       setIsAddStudentOpen(false);
     } catch (error: any) {
-      console.error('Error adding student:', error);
+      logger.error('Error adding student:', error);
       toast({
         title: 'Error',
         description: 'Failed to enroll student. Please make sure the email is correct and the user exists in the system.',
@@ -251,7 +255,7 @@ export default function CourseStudents({ courseId }: CourseStudentsProps) {
         description: 'Student has been unenrolled from the course',
       });
     } catch (error: any) {
-      console.error('Error removing student:', error);
+      logger.error('Error removing student:', error);
       toast({
         title: 'Error',
         description: 'Failed to unenroll student',

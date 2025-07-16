@@ -3,6 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useAuthenticatedNavigation');
+
 /**
  * A hook that provides authentication-aware navigation
  * It ensures redirect paths are properly stored before auth redirects
@@ -26,7 +30,7 @@ export const useAuthenticatedNavigation = () => {
     if (requireAuth) {
       localStorage.setItem('redirectAfterLogin', path);
       storeRedirectPath?.(path);
-      console.log('[useAuthenticatedNavigation] Stored redirect path:', path);
+      logger.log('[useAuthenticatedNavigation] Stored redirect path:', path);
     }
     
     // Check if we need authentication

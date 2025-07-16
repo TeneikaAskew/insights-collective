@@ -5,6 +5,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { isValidUUID } from '@/utils/idUtils';
 import { ModuleContent, ModuleContentInput } from '@/types/moduleContent';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useModuleContent');
+
 export function useModuleContent(moduleId?: string) {
   const [contents, setContents] = useState<ModuleContent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -19,7 +23,7 @@ export function useModuleContent(moduleId?: string) {
     
     // Validate UUID format
     if (!isValidUUID(moduleId)) {
-      console.error(`Invalid module UUID format: ${moduleId}`);
+      logger.error(`Invalid module UUID format: ${moduleId}`);
       setError('Invalid module ID format');
       setLoading(false);
       return;
@@ -39,7 +43,7 @@ export function useModuleContent(moduleId?: string) {
         if (error) throw error;
         setContents(data || []);
       } catch (error: any) {
-        console.error('Error fetching module content:', error);
+        logger.error('Error fetching module content:', error);
         setError(error.message || 'Failed to load module content');
         toast({
           title: 'Error',
@@ -57,7 +61,7 @@ export function useModuleContent(moduleId?: string) {
   const addContent = async (newContent: ModuleContentInput) => {
     // Validate module_id UUID format
     if (!newContent.module_id || !isValidUUID(newContent.module_id)) {
-      console.error(`Invalid module UUID format: ${newContent.module_id}`);
+      logger.error(`Invalid module UUID format: ${newContent.module_id}`);
       toast({
         title: 'Error',
         description: 'Invalid module ID format',
@@ -84,7 +88,7 @@ export function useModuleContent(moduleId?: string) {
       
       return data;
     } catch (error: any) {
-      console.error('Error adding content:', error);
+      logger.error('Error adding content:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to add content',
@@ -97,7 +101,7 @@ export function useModuleContent(moduleId?: string) {
   const updateContent = async (id: string, updates: Partial<ModuleContentInput>) => {
     // Validate content id UUID format
     if (!id || !isValidUUID(id)) {
-      console.error(`Invalid content UUID format: ${id}`);
+      logger.error(`Invalid content UUID format: ${id}`);
       toast({
         title: 'Error',
         description: 'Invalid content ID format',
@@ -125,7 +129,7 @@ export function useModuleContent(moduleId?: string) {
       
       return data;
     } catch (error: any) {
-      console.error('Error updating content:', error);
+      logger.error('Error updating content:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to update content',
@@ -138,7 +142,7 @@ export function useModuleContent(moduleId?: string) {
   const deleteContent = async (id: string) => {
     // Validate content id UUID format
     if (!id || !isValidUUID(id)) {
-      console.error(`Invalid content UUID format: ${id}`);
+      logger.error(`Invalid content UUID format: ${id}`);
       toast({
         title: 'Error',
         description: 'Invalid content ID format',
@@ -164,7 +168,7 @@ export function useModuleContent(moduleId?: string) {
       
       return true;
     } catch (error: any) {
-      console.error('Error deleting content:', error);
+      logger.error('Error deleting content:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to delete content',
@@ -178,7 +182,7 @@ export function useModuleContent(moduleId?: string) {
     try {
       // Ensure all items have valid UUIDs
       if (newOrder.some(item => !isValidUUID(item.id))) {
-        console.error('Invalid content UUID format in reordering');
+        logger.error('Invalid content UUID format in reordering');
         toast({
           title: 'Error',
           description: 'Invalid content ID format',
@@ -213,7 +217,7 @@ export function useModuleContent(moduleId?: string) {
       
       return true;
     } catch (error: any) {
-      console.error('Error reordering content:', error);
+      logger.error('Error reordering content:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to reorder content',

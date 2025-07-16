@@ -4,6 +4,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { validateSessionIntegrity, logSecurityEvent } from '@/utils/securityUtils';
 import { useToast } from './use-toast';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useSecureSession');
+
 export const useSecureSession = () => {
   const { session, user, logout } = useAuth();
   const { toast } = useToast();
@@ -14,7 +18,7 @@ export const useSecureSession = () => {
 
     // Check session integrity
     if (!validateSessionIntegrity(session)) {
-      console.warn('[useSecureSession] Invalid session detected');
+      logger.warn('[useSecureSession] Invalid session detected');
       await logSecurityEvent(
         user.id,
         'invalid_session_detected',
@@ -38,7 +42,7 @@ export const useSecureSession = () => {
     const fiveMinutesFromNow = new Date(Date.now() + 5 * 60 * 1000);
     
     if (expiresAt && expiresAt < fiveMinutesFromNow) {
-      console.log('[useSecureSession] Session expiring soon, attempting refresh');
+      logger.log('[useSecureSession] Session expiring soon, attempting refresh');
       // Note: Supabase auto-refresh should handle this, but we log for monitoring
       await logSecurityEvent(
         user.id,

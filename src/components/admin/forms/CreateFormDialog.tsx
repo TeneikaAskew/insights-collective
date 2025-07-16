@@ -23,6 +23,10 @@ import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('CreateFormDialog');
+
 const FORM_TEMPLATES = [
   {
     id: 'blank',
@@ -201,7 +205,7 @@ const CreateFormDialog: React.FC<CreateFormDialogProps> = ({ open, onOpenChange 
       setSelectedTemplate('blank');
       onOpenChange(false);
     } catch (error) {
-      console.error("Error creating form:", error);
+      logger.error("Error creating form:", error);
       toast({
         title: "Error",
         description: "Failed to create form",

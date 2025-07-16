@@ -1,14 +1,18 @@
 
 import { Profile } from "@/types/supabase";
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('enrichProfileWithRoles');
+
 /**
  * Enriches a profile with consistent role information
  */
 export const enrichProfileWithRoles = (profile: any): Profile => {
   if (!profile) return null as any;
   
-  console.log('[enrichProfileWithRoles] Input profile:', profile);
-  console.log('[enrichProfileWithRoles] Profile roles raw:', profile.roles);
+  logger.log('[enrichProfileWithRoles] Input profile:', profile);
+  logger.log('[enrichProfileWithRoles] Profile roles raw:', profile.roles);
   
   // Handle roles from the database - only use roles array now
   let roles = profile.roles || ['student'];
@@ -37,8 +41,8 @@ export const enrichProfileWithRoles = (profile: any): Profile => {
     avatar_url: profile.avatar_url || null
   };
   
-  console.log('[enrichProfileWithRoles] Final enriched profile:', enrichedProfile);  
-  console.log('[enrichProfileWithRoles] Final roles:', enrichedProfile.roles);
+  logger.log('[enrichProfileWithRoles] Final enriched profile:', enrichedProfile);  
+  logger.log('[enrichProfileWithRoles] Final roles:', enrichedProfile.roles);
   
   return enrichedProfile;
 };

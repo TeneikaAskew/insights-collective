@@ -5,6 +5,10 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { unarchiveConversation } from '@/services/conversationService';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('UnarchiveButton');
+
 interface UnarchiveButtonProps {
   conversationId: string;
   onSuccess?: () => void;
@@ -32,7 +36,7 @@ const UnarchiveButton: React.FC<UnarchiveButtonProps> = ({
       
       if (onSuccess) onSuccess();
     } catch (error) {
-      console.error('Error unarchiving conversation:', error);
+      logger.error('Error unarchiving conversation:', error);
       toast({
         title: 'Error',
         description: 'Failed to unarchive conversation',

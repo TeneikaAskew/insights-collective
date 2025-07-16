@@ -4,6 +4,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { CourseEnrollment, CourseStats } from '@/types/course';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useCourseEnrollments');
+
 export function useCourseEnrollments(courseId?: string) {
   const [enrollments, setEnrollments] = useState<CourseEnrollment[]>([]);
   const [stats, setStats] = useState<CourseStats | null>(null);
@@ -21,7 +25,7 @@ export function useCourseEnrollments(courseId?: string) {
     setError(null);
 
     try {
-      console.log('Fetching enrollments for course:', courseId);
+      logger.log('Fetching enrollments for course:', courseId);
 
       // First get enrollments
       const { data: enrollments, error: enrollmentError } = await supabase
@@ -31,14 +35,14 @@ export function useCourseEnrollments(courseId?: string) {
         .order('enrolled_at', { ascending: false });
 
       if (enrollmentError) {
-        console.error('Error fetching enrollments:', enrollmentError);
+        logger.error('Error fetching enrollments:', enrollmentError);
         throw enrollmentError;
       }
 
-      console.log('Raw enrollment data:', enrollments);
+      logger.log('Raw enrollment data:', enrollments);
 
       if (!enrollments || enrollments.length === 0) {
-        console.log('No enrollments found for course:', courseId);
+        logger.log('No enrollments found for course:', courseId);
         setEnrollments([]);
         setStats({
           enrollment_count: 0,
@@ -56,10 +60,10 @@ export function useCourseEnrollments(courseId?: string) {
         .in('id', userIds);
       
       if (profileError) {
-        console.error('Error fetching profiles:', profileError);
+        logger.error('Error fetching profiles:', profileError);
       }
 
-      console.log('Profile data:', profiles);
+      logger.log('Profile data:', profiles);
 
       const transformedEnrollments: CourseEnrollment[] = enrollments.map(enrollment => {
         const profile = profiles?.find(p => p.id === enrollment.user_id);
@@ -78,7 +82,7 @@ export function useCourseEnrollments(courseId?: string) {
         };
       });
 
-      console.log('Transformed enrollments:', transformedEnrollments);
+      logger.log('Transformed enrollments:', transformedEnrollments);
       setEnrollments(transformedEnrollments);
 
       // Fetch course statistics
@@ -86,13 +90,13 @@ export function useCourseEnrollments(courseId?: string) {
         .rpc('get_course_stats', { course_id_param: courseId });
 
       if (statsError) {
-        console.error('Error fetching course stats:', statsError);
+        logger.error('Error fetching course stats:', statsError);
       } else if (statsData && statsData.length > 0) {
         setStats({
           enrollment_count: Number(statsData[0].enrollment_count) || 0,
           completion_rate: Number(statsData[0].completion_rate) || 0,
         });
-        console.log('Course stats:', statsData[0]);
+        logger.log('Course stats:', statsData[0]);
       } else {
         // Fallback stats calculation
         setStats({
@@ -104,7 +108,7 @@ export function useCourseEnrollments(courseId?: string) {
       }
 
     } catch (err: any) {
-      console.error('Error fetching enrollments:', err);
+      logger.error('Error fetching enrollments:', err);
       setError(err.message);
       toast({
         title: 'Error',

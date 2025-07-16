@@ -195,6 +195,10 @@ import { storeQuizAttempt } from '@/services/quizService';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useNavigate } from 'react-router-dom';
+
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('getTrackIcon');
 interface QuizResultsProps {
   scores: Record<CareerTrack, number>;
   answers: Record<number, number | string>;
@@ -288,7 +292,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
         localStorage.removeItem('quizAnswers');
       }
     } catch (error) {
-      console.error('Error saving quiz results:', error);
+      logger.error('Error saving quiz results:', error);
       toast({
         title: "Error Saving Results",
         description: "Please try again.",

@@ -3,6 +3,10 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('useFileUpload');
+
 export interface UploadedFile {
   url: string;
   path: string;
@@ -57,7 +61,7 @@ export function useFileUpload() {
       };
 
     } catch (error: any) {
-      console.error('Error uploading file:', error);
+      logger.error('Error uploading file:', error);
       toast({
         title: 'Upload Failed',
         description: error.message || 'Failed to upload file',
@@ -79,7 +83,7 @@ export function useFileUpload() {
       if (error) throw error;
       return true;
     } catch (error: any) {
-      console.error('Error deleting file:', error);
+      logger.error('Error deleting file:', error);
       toast({
         title: 'Delete Failed',
         description: error.message || 'Failed to delete file',

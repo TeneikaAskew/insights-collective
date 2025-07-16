@@ -1,4 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('eventService');
 
 export interface EventInput {
   title: string;
@@ -24,7 +27,7 @@ export const eventService = {
       .single();
 
     if (error) {
-      console.error('Error creating event:', error);
+      logger.error('Error creating event:', error);
       throw error;
     }
 
@@ -40,7 +43,7 @@ export const eventService = {
       .single();
 
     if (error) {
-      console.error('Error updating event:', error);
+      logger.error('Error updating event:', error);
       throw error;
     }
 
@@ -54,7 +57,7 @@ export const eventService = {
       .eq('id', id);
 
     if (error) {
-      console.error('Error deleting event:', error);
+      logger.error('Error deleting event:', error);
       throw error;
     }
   },
@@ -67,7 +70,7 @@ export const eventService = {
       .single();
 
     if (error) {
-      console.error('Error fetching event:', error);
+      logger.error('Error fetching event:', error);
       throw error;
     }
 
@@ -81,7 +84,7 @@ export const eventService = {
       .order('date', { ascending: true });
 
     if (error) {
-      console.error('Error fetching events:', error);
+      logger.error('Error fetching events:', error);
       throw error;
     }
 
@@ -104,7 +107,7 @@ export const eventService = {
     const { data, error } = await query;
 
     if (error) {
-      console.error('Error fetching upcoming events:', error);
+      logger.error('Error fetching upcoming events:', error);
       throw error;
     }
 
@@ -127,7 +130,7 @@ export const eventService = {
     const { data, error } = await query;
 
     if (error) {
-      console.error('Error fetching past events:', error);
+      logger.error('Error fetching past events:', error);
       throw error;
     }
 

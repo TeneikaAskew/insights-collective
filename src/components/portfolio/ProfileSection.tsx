@@ -17,6 +17,10 @@ import { format, parseISO, isValid } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { CityAutocomplete } from './CityAutocomplete';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('ProfileSection');
+
 interface ProfileSectionProps {
   profileData: ProfileData;
   onUpdate: (data: ProfileData) => void;
@@ -90,7 +94,7 @@ export function ProfileSection({ profileData, onUpdate }: ProfileSectionProps) {
         updateField('avatar_url', result.publicUrl);
       }
     } catch (error) {
-      console.error('Error uploading avatar:', error);
+      logger.error('Error uploading avatar:', error);
     } finally {
       setUploadingAvatar(false);
     }

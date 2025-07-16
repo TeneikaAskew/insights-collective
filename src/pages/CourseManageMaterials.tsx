@@ -27,6 +27,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
+
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('CourseManageMaterials');
   Accordion,
   AccordionContent,
   AccordionItem,
@@ -80,7 +84,7 @@ const CourseManageMaterials = () => {
       if (error) throw error;
       setCourse(data);
     } catch (error) {
-      console.error('Error fetching course:', error);
+      logger.error('Error fetching course:', error);
       toast({
         title: 'Error',
         description: 'Failed to load course details',
@@ -109,7 +113,7 @@ const CourseManageMaterials = () => {
         setSelectedModule(data[0]);
       }
     } catch (error) {
-      console.error('Error fetching modules:', error);
+      logger.error('Error fetching modules:', error);
       toast({
         title: 'Error',
         description: 'Failed to load modules',
@@ -148,7 +152,7 @@ const CourseManageMaterials = () => {
         description: 'Module added successfully',
       });
     } catch (error) {
-      console.error('Error adding module:', error);
+      logger.error('Error adding module:', error);
       toast({
         title: 'Error',
         description: 'Failed to add module',
@@ -192,7 +196,7 @@ const CourseManageMaterials = () => {
         description: 'Module updated successfully',
       });
     } catch (error) {
-      console.error('Error updating module:', error);
+      logger.error('Error updating module:', error);
       toast({
         title: 'Error',
         description: 'Failed to update module',
@@ -241,7 +245,7 @@ const CourseManageMaterials = () => {
         description: 'Module deleted successfully',
       });
     } catch (error) {
-      console.error('Error deleting module:', error);
+      logger.error('Error deleting module:', error);
       toast({
         title: 'Error',
         description: 'Failed to delete module',

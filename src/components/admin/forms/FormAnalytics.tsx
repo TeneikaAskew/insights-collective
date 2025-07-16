@@ -9,6 +9,10 @@ import { useToast } from '@/hooks/use-toast';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { Skeleton } from '@/components/ui/skeleton';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('FormAnalytics');
+
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
 const FormAnalytics = () => {
@@ -76,7 +80,7 @@ const FormAnalytics = () => {
         
         setFormDistribution(mockDistribution);
       } catch (error) {
-        console.error('Error fetching analytics:', error);
+        logger.error('Error fetching analytics:', error);
         toast({
           title: "Error",
           description: "Failed to load analytics data",

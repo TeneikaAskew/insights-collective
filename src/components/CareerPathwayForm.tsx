@@ -2,6 +2,10 @@
 import React from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('CareerPathwayForm');
+
 interface PathwayQuestion {
   id: string;
   label: string;
@@ -40,7 +44,7 @@ class CareerPathwayForm extends React.Component<CareerPathwayFormProps> {
       };
       
       // Log the payload for debugging
-      console.log("Sending payload to evaluateCareerAdvice:", JSON.stringify(payload));
+      logger.log("Sending payload to evaluateCareerAdvice:", JSON.stringify(payload));
       
       // Call the Supabase Edge Function with explicit content-type
       const { data, error } = await supabase.functions.invoke('evaluateCareerAdvice', {
@@ -51,14 +55,14 @@ class CareerPathwayForm extends React.Component<CareerPathwayFormProps> {
       });
       
       if (error) {
-        console.error("Error calling evaluateCareerAdvice:", error);
+        logger.error("Error calling evaluateCareerAdvice:", error);
         throw new Error(`Error evaluating career advice: ${error.message || 'Unknown error'}`);
       }
       
-      console.log("Response from evaluateCareerAdvice:", data);
+      logger.log("Response from evaluateCareerAdvice:", data);
       return data;
     } catch (error) {
-      console.error("Error in processRequest:", error);
+      logger.error("Error in processRequest:", error);
       throw error;
     }
   }

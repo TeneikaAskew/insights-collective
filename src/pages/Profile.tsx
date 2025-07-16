@@ -19,6 +19,10 @@ import { UserWithProfile } from '@/types/index';
 import { useCareerPathwayResults } from '@/hooks/useCareerPathwayResults';
 import { useToast } from '@/hooks/use-toast';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('Profile');
+
 interface UserProfile {
   first_name: string;
   last_name: string;
@@ -119,7 +123,7 @@ const Profile = () => {
         description: "Profile updated successfully",
       });
     } catch (error) {
-      console.error('Error saving profile:', error);
+      logger.error('Error saving profile:', error);
       toast({
         title: "Error",
         description: "Failed to save profile changes",

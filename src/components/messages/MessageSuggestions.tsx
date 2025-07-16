@@ -6,6 +6,10 @@ import { preWrittenMessages } from '@/utils/messageTemplates';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('MessageSuggestions');
+
 interface MessageSuggestionsProps {
   onSelectMessage: (message: string) => void;
   conversationId?: string;
@@ -35,7 +39,7 @@ const MessageSuggestions: React.FC<MessageSuggestionsProps> = ({
         onSelectMessage(data.message);
       }
     } catch (error) {
-      console.error('Error generating message:', error);
+      logger.error('Error generating message:', error);
       toast({
         title: "Error",
         description: "Could not generate message. Please try again.",
