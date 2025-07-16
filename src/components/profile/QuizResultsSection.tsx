@@ -209,14 +209,18 @@ const QuizResultsSection = () => {
                 }`}
               >
                 {/* Header with icon and title */}
-                <div className="flex items-center gap-2 mb-2">
-                  {getTrackIcon(result.track)}
-                  <h3 className="font-medium text-sm sm:text-base truncate flex-1">{result.track}</h3>
-                  {/* Top Match badge - only show on larger screens */}
+                <div className="mb-2">
+                  <div className="flex items-center gap-2 mb-1">
+                    {getTrackIcon(result.track)}
+                    <h3 className="font-medium text-sm sm:text-base">{result.track}</h3>
+                  </div>
+                  {/* Top Match badge - show below title on larger screens */}
                   {index === 0 && (
-                    <span className="hidden sm:inline-flex text-xs bg-primary/20 text-primary font-medium px-2 py-1 rounded-full whitespace-nowrap">
-                      Top Match
-                    </span>
+                    <div className="hidden sm:block">
+                      <span className="inline-flex text-xs bg-primary/20 text-primary font-medium px-2 py-1 rounded-full">
+                        Top Match
+                      </span>
+                    </div>
                   )}
                 </div>
 
