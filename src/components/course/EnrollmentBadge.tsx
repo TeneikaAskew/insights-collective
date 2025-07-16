@@ -78,7 +78,9 @@ const EnrollmentBadge = ({
       {isInstructor ? <>
           <Badge className="self-start bg-amber-500 hover:bg-amber-600">Teaching</Badge>
           <div className="flex gap-2">
-            
+            <Button variant="outline" size="sm" onClick={handleContinue}>
+              View Course
+            </Button>
             {canEdit && <>
                 <Button variant="outline" size="sm" onClick={handleEdit}>
                   <Pencil className="h-4 w-4 mr-1" />
