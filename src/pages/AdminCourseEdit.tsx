@@ -7,7 +7,7 @@ import { useCoursePermissions } from '@/hooks/useCoursePermissions';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AppLayout from '@/components/layout/AppLayout';
-import CourseModuleManager from '@/components/course/management/CourseModuleManager';
+import WeekBasedModuleManager from '@/components/course/management/WeekBasedModuleManager';
 import { ArrowLeft, Save, Plus, Trash, File } from 'lucide-react';
 import { CourseDetailsForm } from '@/components/course/CourseDetailsForm';
 import {
@@ -444,7 +444,7 @@ const AdminCourseEdit = () => {
                       Manage Materials
                     </Button>
                   </div>
-                  {courseId && <CourseModuleManager courseId={courseId} />}
+                  {courseId && <WeekBasedModuleManager courseId={courseId} courseDuration={parseInt(course.duration || '1')} />}
                 </TabsContent>
               )}
 
