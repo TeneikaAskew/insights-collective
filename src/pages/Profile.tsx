@@ -88,14 +88,14 @@ const Profile = () => {
       const fetchQuizAnswers = async () => {
         const { data, error } = await supabase
           .from('career_pathway_answers')
-          .select('answers')
+          .select('answer')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();
 
-        if (data?.answers && !error) {
-          setQuizAnswers(data.answers);
+        if (data?.answer && !error) {
+          setQuizAnswers(data.answer);
         }
       };
 
