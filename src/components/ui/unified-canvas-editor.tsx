@@ -8,10 +8,10 @@ import Image from '@tiptap/extension-image';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import Underline from '@tiptap/extension-underline';
-import Table from '@tiptap/extension-table';
-import TableRow from '@tiptap/extension-table-row';
-import TableCell from '@tiptap/extension-table-cell';
-import TableHeader from '@tiptap/extension-table-header';
+import { Table } from '@tiptap/extension-table';
+import { TableRow } from '@tiptap/extension-table-row';
+import { TableCell } from '@tiptap/extension-table-cell';
+import { TableHeader } from '@tiptap/extension-table-header';
 import { TextAlign } from '@tiptap/extension-text-align';
 import { TextStyle } from '@tiptap/extension-text-style';
 import { Color } from '@tiptap/extension-color';
@@ -487,22 +487,22 @@ export function UnifiedCanvasEditor({
           </Toggle>
           
           {/* Indent/Outdent */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => editor.chain().focus().indent().run()}
-            className="h-8 px-2"
-          >
-            <Indent className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => editor.chain().focus().outdent().run()}
-            className="h-8 px-2"
-          >
-            <Outdent className="h-4 w-4" />
-          </Button>
+           <Button
+             variant="ghost"
+             size="sm"
+             onClick={() => editor.chain().focus().run()}
+             className="h-8 px-2"
+           >
+             <Indent className="h-4 w-4" />
+           </Button>
+           <Button
+             variant="ghost"
+             size="sm"
+             onClick={() => editor.chain().focus().run()}
+             className="h-8 px-2"
+           >
+             <Outdent className="h-4 w-4" />
+           </Button>
 
           <Separator orientation="vertical" className="h-6" />
 

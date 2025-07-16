@@ -374,7 +374,7 @@ export function CanvasModuleManager({ courseId, courseDuration }: CanvasModuleMa
               {editingModule ? 'Save Changes' : 'Create Module'}
             </Button>
           </DialogFooter>
-        </Dialog>
+        </DialogContent>
       </Dialog>
     </div>
   );
