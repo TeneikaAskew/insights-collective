@@ -14,7 +14,7 @@ export const SecurityHeaders = () => {
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: https: blob:",
       "connect-src 'self' wss: https:",
-      "frame-src 'none'",
+      "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://youtube.com https://player.vimeo.com",
       "object-src 'none'",
       "base-uri 'self'"
     ].join('; ');
@@ -27,7 +27,7 @@ export const SecurityHeaders = () => {
     // Set additional security headers via meta tags
     const headers = [
       { name: 'X-Content-Type-Options', content: 'nosniff' },
-      { name: 'X-Frame-Options', content: 'DENY' },
+      { name: 'X-Frame-Options', content: 'SAMEORIGIN' },
       { name: 'X-XSS-Protection', content: '1; mode=block' },
       { name: 'Referrer-Policy', content: 'strict-origin-when-cross-origin' }
     ];

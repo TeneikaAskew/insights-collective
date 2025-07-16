@@ -30,7 +30,7 @@ export const securityConfig = {
     fontSrc: ["'self'", "https://fonts.gstatic.com"],
     imgSrc: ["'self'", "data:", "https:", "blob:"],
     connectSrc: ["'self'", "wss:", "https:"],
-    frameSrc: ["'none'"],
+    frameSrc: ["'self'", "https://www.youtube.com", "https://www.youtube-nocookie.com", "https://youtube.com", "https://player.vimeo.com"],
     objectSrc: ["'none'"],
     baseUri: ["'self'"]
   },
