@@ -122,19 +122,17 @@ const CanvasModuleDetail = () => {
       // Load content items
       const items = await CanvasContentService.getContentItems(moduleId);
       
-      // Debug logging
-      console.log('User roles:', user?.roles);
-      console.log('All content items:', items.map(item => ({ id: item.id, title: item.title, published: item.published })));
-      
-      // Filter out unpublished items for students
+      // CRITICAL: Filter out unpublished items for students
+      // RLS policies should already handle this, but we add an additional layer of security
       const visibleItems = items.filter(item => {
-        const canSeeUnpublished = isInstructor;
-        const shouldShow = item.published || canSeeUnpublished;
-        console.log(`Item "${item.title}": published=${item.published}, canSeeUnpublished=${canSeeUnpublished}, shouldShow=${shouldShow}`);
-        return shouldShow;
+        // Admins and instructors can see all content items
+        if (isInstructor) {
+          return true;
+        }
+        // Students can ONLY see published content items
+        return item.published === true;
       });
       
-      console.log('Visible items after filtering:', visibleItems.map(item => ({ id: item.id, title: item.title, published: item.published })));
       setContentItems(visibleItems);
 
       // Calculate progress based on actual completion
