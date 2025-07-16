@@ -13,6 +13,53 @@ import { Link } from 'react-router-dom';
 import { BookOpen, FileText, HelpCircle, Clock, ChevronRight, AlertCircle } from 'lucide-react';
 import { EditCourseButton } from '@/components/course/EditCourseButton';
 
+// Rich text renderer component for module descriptions
+const RichTextRenderer: React.FC<{ content: string }> = ({ content }) => {
+  const processContent = (text: string): string => {
+    if (!text) return '';
+    
+    // Process video embeds from ModernEditor format [VIDEO:url]
+    let processedText = text.replace(/\[VIDEO:([^\]]+)\]/gim, (match, videoUrl) => {
+      return `<div class="aspect-video mb-4"><iframe src="${videoUrl}" class="w-full h-full rounded-lg" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`;
+    });
+    
+    // Enhanced YouTube detection and embedding for direct URLs
+    const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})(?:\S+)?/g;
+    processedText = processedText.replace(youtubeRegex, (match, videoId) => {
+      return `<div class="aspect-video mb-4"><iframe src="https://www.youtube.com/embed/${videoId}" class="w-full h-full rounded-lg" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`;
+    });
+
+    // Convert markdown-style formatting to HTML
+    processedText = processedText
+      .replace(/^### (.*$)/gim, '<h3 class="text-lg font-semibold mb-2">$1</h3>')
+      .replace(/^## (.*$)/gim, '<h2 class="text-xl font-semibold mb-3">$1</h2>')
+      .replace(/^# (.*$)/gim, '<h1 class="text-2xl font-bold mb-4">$1</h1>')
+      .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/gim, '<em>$1</em>')
+      .replace(/~~(.*?)~~/gim, '<del>$1</del>')
+      .replace(/`([^`]+)`/gim, '<code class="bg-muted px-1 py-0.5 rounded text-sm">$1</code>')
+      .replace(/^\> (.*$)/gim, '<blockquote class="border-l-4 border-muted-foreground pl-4 italic">$1</blockquote>')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/gim, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">$1</a>')
+      .replace(/!\[([^\]]*)\]\(([^)]+)\)/gim, '<img src="$2" alt="$1" class="max-w-full h-auto rounded-lg my-4" />')
+      .replace(/^\* (.*$)/gim, '<li>$1</li>')
+      .replace(/^(\d+)\. (.*$)/gim, '<li>$1. $2</li>')
+      .replace(/\n/gim, '<br />');
+
+    // Wrap consecutive <li> tags with <ul> or <ol>
+    processedText = processedText.replace(/(<li>.*?<\/li>)/gis, '<ul class="list-disc list-inside space-y-1 my-2">$1</ul>');
+    processedText = processedText.replace(/(<li>\d+\..*?<\/li>)/gis, '<ol class="list-decimal list-inside space-y-1 my-2">$1</ol>');
+
+    return processedText;
+  };
+
+  return (
+    <div 
+      className="prose prose-sm max-w-none text-muted-foreground"
+      dangerouslySetInnerHTML={{ __html: processContent(content) }}
+    />
+  );
+};
+
 interface Module {
   id: string;
   title: string;
@@ -140,9 +187,9 @@ export function CourseModulesList({ courseId }: CourseModulesListProps) {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <p className="text-sm text-muted-foreground">
-                    {module.description}
-                  </p>
+                  <div className="text-sm">
+                    <RichTextRenderer content={module.description} />
+                  </div>
                   
                   {/* Content summary */}
                   <div className="flex flex-wrap gap-2 text-xs">

@@ -2,7 +2,7 @@
 // ABOUTME: Uses CourseLayout to maintain course context and provides editing interface
 
 import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { CourseLayout } from '@/components/course/CourseLayout';
 import { useCourseData } from '@/hooks/useCourseData';
 import { CourseDetailsForm } from '@/components/course/CourseDetailsForm';
@@ -10,7 +10,8 @@ import { CourseContentManager } from '@/components/course/CourseContentManager';
 import { Spinner } from '@/components/ui/spinner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AlertCircle, BookOpen, BookOpenCheck, FileText, HelpCircle, Settings } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { AlertCircle, BookOpen, BookOpenCheck, FileText, HelpCircle, Settings, ChevronLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
@@ -77,9 +78,17 @@ function CourseEdit() {
     <CourseLayout>
       <div className="max-w-6xl mx-auto">
         <div className="mb-6">
-          <div className="flex items-center gap-2 mb-2">
-            <BookOpen className="h-5 w-5 text-primary" />
-            <h1 className="text-2xl font-bold">Edit Course</h1>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <BookOpen className="h-5 w-5 text-primary" />
+              <h1 className="text-2xl font-bold">Edit Course</h1>
+            </div>
+            <Button asChild variant="outline">
+              <Link to={`/courses/${courseId}`}>
+                <ChevronLeft className="h-4 w-4 mr-2" />
+                Return to Course
+              </Link>
+            </Button>
           </div>
           <p className="text-muted-foreground">
             Manage course content, modules, assignments, and settings.

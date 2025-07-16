@@ -13,7 +13,10 @@ import {
   Users, 
   Settings,
   ChevronLeft,
-  User
+  User,
+  TrendingUp,
+  GraduationCap,
+  Layers
 } from 'lucide-react';
 import {
   Sidebar,
@@ -31,13 +34,17 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useCourseData } from '@/hooks/useCourseData';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCoursePermissions } from '@/hooks/useCoursePermissions';
 
 const courseNavItems = [
   { title: 'Home', url: '', icon: Home },
   { title: 'Modules', url: '/modules', icon: BookOpen },
   { title: 'Announcements', url: '/announcements', icon: MessageCircle },
   { title: 'Assignments', url: '/assignments', icon: FileText },
-  { title: 'Grades', url: '/grades', icon: BarChart3 },
+  { title: 'Grades', url: '/grades', icon: BarChart3, studentTitle: 'My Grades' },
+  { title: 'Progress', url: '/progress', icon: TrendingUp, studentOnly: true },
+  { title: 'Gradebook', url: '/gradebook', icon: GraduationCap, instructorOnly: true },
+  { title: 'Organize', url: '/organize', icon: Layers, instructorOnly: true },
   { title: 'Calendar', url: '/calendar', icon: Calendar },
   { title: 'People', url: '/people', icon: Users },
 ];
@@ -48,6 +55,7 @@ export function CourseSidebar() {
   const { courseId } = useParams();
   const { course, isLoading } = useCourseData(courseId);
   const { user } = useAuth();
+  const { isInstructor } = useCoursePermissions(courseId);
   
   const currentPath = location.pathname;
   const basePath = `/courses/${courseId}`;
@@ -62,6 +70,13 @@ export function CourseSidebar() {
       ? 'bg-primary/10 text-primary font-medium border-r-2 border-primary' 
       : 'hover:bg-muted/50';
   };
+
+  // Filter nav items based on user role
+  const filteredNavItems = courseNavItems.filter(item => {
+    if (item.instructorOnly && !isInstructor) return false;
+    if (item.studentOnly && isInstructor) return false;
+    return true;
+  });
 
   if (isLoading) {
     return (
@@ -104,7 +119,7 @@ export function CourseSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {courseNavItems.map((item) => (
+              {filteredNavItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <Link 
@@ -112,7 +127,9 @@ export function CourseSidebar() {
                       className={getNavClassName(item.url)}
                     >
                       <item.icon className="h-4 w-4" />
-                      {open && <span>{item.title}</span>}
+                      {open && <span>{
+                        (item.studentTitle && !isInstructor) ? item.studentTitle : item.title
+                      }</span>}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
