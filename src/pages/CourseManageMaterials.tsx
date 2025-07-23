@@ -27,15 +27,14 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-
-import { createLogger } from '@/utils/logger';
-
-const logger = createLogger('CourseManageMaterials');
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('CourseManageMaterials');
 
 const CourseManageMaterials = () => {
   const { courseId } = useParams<{ courseId: string }>();

@@ -6,7 +6,7 @@ import { useCoursePermissions } from '@/hooks/useCoursePermissions';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAssignments } from '@/hooks/useAssignments';
-import { useGradesByCourse, useUpsertGrade, useBulkUpdateGrades } from '@/hooks/useGrades';
+import { useUpsertGrade, useBulkUpdateGrades } from '@/hooks/useGrades';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Shield } from 'lucide-react';
@@ -24,19 +24,31 @@ const CourseGradebook = () => {
     queryKey: ['course-students', courseId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('course_enrollments')
-        .select(`
-          user:profiles!user_id(
-            id,
-            full_name,
-            email,
-            avatar_url
-          )
-        `)
+        .from('enrollments')
+        .select('user_id')
         .eq('course_id', courseId);
       
       if (error) throw error;
-      return data?.map(enrollment => enrollment.user).filter(Boolean).flat() || [];
+      
+      if (!data || data.length === 0) {
+        return [];
+      }
+
+      // Get profiles for enrolled users
+      const userIds = data.map(e => e.user_id).filter(Boolean);
+      const { data: profiles, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, avatar_url')
+        .in('id', userIds);
+      
+      if (profileError) throw profileError;
+
+      return profiles?.map(profile => ({
+        id: profile.id,
+        full_name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim(),
+        email: '', // Email not available in profiles for gradebook
+        avatar_url: profile.avatar_url
+      })) || [];
     },
     enabled: !!courseId && canEdit,
   });
@@ -50,8 +62,11 @@ const CourseGradebook = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('quizzes')
-        .select('*')
-        .eq('course_id', courseId)
+        .select(`
+          *,
+          content_items!inner(course_id)
+        `)
+        .eq('content_items.course_id', courseId)
         .order('created_at', { ascending: true });
       
       if (error) throw error;
@@ -60,8 +75,8 @@ const CourseGradebook = () => {
     enabled: !!courseId,
   });
 
-  // Get grades
-  const { data: grades = [], isLoading: gradesLoading } = useGradesByCourse(courseId || '');
+  // Get grades - temporarily disabled until grades table is implemented
+  const grades: any[] = [];
 
   // Get submissions
   const { data: submissions = [], isLoading: submissionsLoading } = useQuery({
@@ -148,7 +163,9 @@ const CourseGradebook = () => {
     );
   }
 
-  if (studentsLoading || assignmentsLoading || quizzesLoading || gradesLoading || submissionsLoading) {
+  const isLoading = studentsLoading || assignmentsLoading || quizzesLoading || submissionsLoading;
+
+  if (isLoading) {
     return (
       <CourseLayout>
         <div className="space-y-6">

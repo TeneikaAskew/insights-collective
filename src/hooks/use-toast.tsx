@@ -1,13 +1,12 @@
 
 import * as React from "react"
 import type {
-
-import { createLogger } from '@/utils/logger';
-
-const logger = createLogger('ToastProvider');
   ToastActionElement,
   ToastProps,
 } from "@/components/ui/toast"
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('ToastProvider');
 
 const TOAST_LIMIT = 1
 const TOAST_REMOVE_DELAY = 1000000

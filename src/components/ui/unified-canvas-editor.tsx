@@ -74,15 +74,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { sanitizeHtmlContent, isValidUrl } from '@/utils/securityUtils';
 import { cn } from '@/lib/utils';
 import { 
-
-import { createLogger } from '@/utils/logger';
-
-const logger = createLogger('UnifiedCanvasEditor');
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('UnifiedCanvasEditor');
 
 export interface UnifiedCanvasEditorProps {
   content: string;

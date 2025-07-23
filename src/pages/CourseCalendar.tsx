@@ -71,18 +71,19 @@ const CourseCalendar = () => {
         .gte('due_date', monthStart.toISOString())
         .lte('due_date', monthEnd.toISOString());
 
-      // Fetch quizzes
+      // Fetch quizzes - join through content_items to get course relationship
       const { data: quizzes } = await supabase
         .from('quizzes')
         .select(`
           id,
           title,
-          available_from,
-          available_until,
-          total_points,
-          module:modules(title)
+          unlock_at,
+          lock_at,
+          points_possible,
+          content_items!inner(course_id, module_id),
+          module:content_items(module:modules(title))
         `)
-        .eq('course_id', courseId);
+        .eq('content_items.course_id', courseId);
 
       // Fetch course info
       const { data: course } = await supabase
@@ -111,24 +112,24 @@ const CourseCalendar = () => {
 
       // Convert quizzes to events
       quizzes?.forEach(quiz => {
-        if (quiz.available_from) {
+        if (quiz.unlock_at) {
           calendarEvents.push({
             id: `quiz-${quiz.id}-start`,
             title: `${quiz.title} Opens`,
-            description: `Quiz opens: ${quiz.total_points || 0} points`,
-            start_date: quiz.available_from,
+            description: `Quiz opens: ${quiz.points_possible || 0} points`,
+            start_date: quiz.unlock_at,
             type: 'quiz',
             course_id: courseId,
             course_title: course?.title || '',
             related_id: quiz.id,
           });
         }
-        if (quiz.available_until) {
+        if (quiz.lock_at) {
           calendarEvents.push({
             id: `quiz-${quiz.id}-end`,
             title: `${quiz.title} Closes`,
-            description: `Quiz closes: ${quiz.total_points || 0} points`,
-            start_date: quiz.available_until,
+            description: `Quiz closes: ${quiz.points_possible || 0} points`,
+            start_date: quiz.lock_at,
             type: 'quiz',
             course_id: courseId,
             course_title: course?.title || '',

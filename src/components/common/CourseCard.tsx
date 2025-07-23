@@ -10,14 +10,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { 
-
-import { createLogger } from '@/utils/logger';
-
-const logger = createLogger('CourseCard');
   isWishlistedCourse, 
   toggleWishlistedCourse, 
   getMappedCourseUuid 
 } from '@/utils/idUtils';
+import { createLogger } from '@/utils/logger';
+
+const logger = createLogger('CourseCard');
 
 interface CourseCardProps {
   course: Course;
