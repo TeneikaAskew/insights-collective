@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { Plus, Edit, Trash2, Copy, FileText } from 'lucide-react';
 import { useRubrics } from '@/hooks/useRubrics';
-import { useAuth } from '@/hooks/use-auth';
+import { useAuth } from '@/hooks/useAuth';
 import { Rubric } from '@/types/course';
 
 interface RubricListProps {

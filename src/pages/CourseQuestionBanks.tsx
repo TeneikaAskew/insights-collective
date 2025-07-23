@@ -3,11 +3,11 @@ import { useParams } from 'react-router-dom';
 import { QuestionBankList } from '@/components/course/question-banks/QuestionBankList';
 import { QuestionBankManager } from '@/components/course/question-banks/QuestionBankManager';
 import { QuestionBank } from '@/types/course';
-import { useCourse } from '@/hooks/useCourse';
+import { useCourseData } from '@/hooks/useCourseData';
 
 export default function CourseQuestionBanks() {
   const { courseId } = useParams();
-  const { course, isLoading } = useCourse(courseId!);
+  const { course, isLoading } = useCourseData(courseId!);
   const [selectedBank, setSelectedBank] = useState<QuestionBank | null>(null);
 
   if (isLoading) {

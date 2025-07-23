@@ -3,12 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RubricList } from '@/components/course/rubrics/RubricList';
-import { useCourse } from '@/hooks/useCourse';
+import { useCourseData } from '@/hooks/useCourseData';
 
 export default function CourseRubrics() {
   const { courseId } = useParams();
   const navigate = useNavigate();
-  const { course, isLoading } = useCourse(courseId!);
+  const { course, isLoading } = useCourseData(courseId!);
 
   if (isLoading) {
     return <div>Loading...</div>;
