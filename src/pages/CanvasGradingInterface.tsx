@@ -31,12 +31,16 @@ import {
   ChevronLeft,
   ChevronRight,
   User,
-  Hash
+  Hash,
+  History,
+  Eye
 } from 'lucide-react';
 import { format } from 'date-fns';
 import type { ContentItem, Assignment, AssignmentSubmission } from '@/types/canvas';
 
 import { createLogger } from '@/utils/logger';
+import { GradeDetailView } from '@/components/course/grading/GradeDetailView';
+import { SubmissionComments } from '@/components/course/grading/SubmissionComments';
 
 const logger = createLogger('gradingSubmissions');
 
