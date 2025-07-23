@@ -16,7 +16,8 @@ import {
   User,
   TrendingUp,
   GraduationCap,
-  ClipboardCheck
+  ClipboardCheck,
+  Database
 } from 'lucide-react';
 import {
   Sidebar,
@@ -45,6 +46,7 @@ const courseNavItems = [
   { title: 'Progress', url: '/progress', icon: TrendingUp, studentOnly: true },
   { title: 'Gradebook', url: '/gradebook', icon: GraduationCap, instructorOnly: true },
   { title: 'Rubrics', url: '/rubrics', icon: ClipboardCheck, instructorOnly: true },
+  { title: 'Question Banks', url: '/question-banks', icon: Database, instructorOnly: true },
   { title: 'Calendar', url: '/calendar', icon: Calendar },
   { title: 'People', url: '/people', icon: Users },
 ];

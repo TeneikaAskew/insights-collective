@@ -312,3 +312,117 @@ export interface CourseCalendarEvent {
   location?: string;
   all_day?: boolean;
 }
+
+// Question Bank Types
+export interface QuestionBank {
+  id: string;
+  course_id: string;
+  title: string;
+  description?: string;
+  created_by: string;
+  is_shared: boolean;
+  created_at: string;
+  updated_at: string;
+  categories?: QuestionBankCategory[];
+  question_count?: number;
+}
+
+export interface QuestionBankQuestion {
+  id: string;
+  bank_id: string;
+  question_type: QuestionType;
+  question_text: string;
+  rich_content?: any;
+  points: number;
+  difficulty_level?: 'easy' | 'medium' | 'hard';
+  topic_tags?: string[];
+  options?: any;
+  correct_answer?: any;
+  explanation?: string;
+  feedback?: any;
+  usage_count: number;
+  success_rate?: number;
+  metadata?: any;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface QuestionBankCategory {
+  id: string;
+  bank_id: string;
+  name: string;
+  parent_id?: string;
+  created_at: string;
+  children?: QuestionBankCategory[];
+  question_count?: number;
+}
+
+export interface QuizQuestionPool {
+  id: string;
+  quiz_id: string;
+  bank_id: string;
+  category_id?: string;
+  number_of_questions: number;
+  points_per_question: number;
+  difficulty_filter?: 'easy' | 'medium' | 'hard' | 'mixed';
+  topic_tags_filter?: string[];
+  position: number;
+  created_at: string;
+}
+
+export type QuestionType = 
+  | 'multiple_choice' 
+  | 'true_false' 
+  | 'short_answer' 
+  | 'essay'
+  | 'matching'
+  | 'fill_blank'
+  | 'ordering'
+  | 'multiple_answer'
+  | 'calculated';
+
+export interface MatchingQuestion {
+  pairs: Array<{
+    id: string;
+    left: string;
+    right: string;
+  }>;
+}
+
+export interface FillBlankQuestion {
+  text: string; // Text with [blank] placeholders
+  blanks: Array<{
+    id: string;
+    answers: string[]; // Accepted answers
+    caseSensitive?: boolean;
+  }>;
+}
+
+export interface OrderingQuestion {
+  items: Array<{
+    id: string;
+    text: string;
+    correctOrder: number;
+  }>;
+}
+
+export interface MultipleAnswerQuestion {
+  options: Array<{
+    id: string;
+    text: string;
+    isCorrect: boolean;
+  }>;
+  partialCredit?: boolean;
+}
+
+export interface CalculatedQuestion {
+  formula: string;
+  variables: Array<{
+    name: string;
+    min: number;
+    max: number;
+    decimals?: number;
+  }>;
+  tolerance: number;
+  toleranceType: 'absolute' | 'percentage';
+}
