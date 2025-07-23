@@ -135,7 +135,8 @@ export const AssignmentForm: React.FC<AssignmentFormProps> = ({
   };
 
   return (
-    <Form {...form}>
+    <>
+      <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
         <Tabs defaultValue="details" className="w-full">
           <TabsList className="grid w-full grid-cols-4">
@@ -617,5 +618,6 @@ export const AssignmentForm: React.FC<AssignmentFormProps> = ({
         />
       </DialogContent>
     </Dialog>
+    </>
   );
 };

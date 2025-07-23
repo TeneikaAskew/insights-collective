@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { Plus, Edit, Trash2, FileQuestion, FolderOpen, Share2 } from 'lucide-react';
 import { useQuestionBanks } from '@/hooks/useQuestionBanks';
-import { useAuth } from '@/hooks/use-auth';
+import { useAuth } from '@/hooks/useAuth';
 import { QuestionBank } from '@/types/course';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';

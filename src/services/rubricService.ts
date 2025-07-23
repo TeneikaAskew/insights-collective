@@ -149,6 +149,6 @@ export const rubricService = {
       .eq('assignment_id', assignmentId);
 
     if (error) throw error;
-    return data?.map(item => item.rubric) || [];
+    return (data?.map((item: any) => item.rubric).filter(Boolean) || []) as unknown as Rubric[];
   }
 };
