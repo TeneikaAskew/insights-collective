@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Calendar, Clock, FileText, Settings, Users } from 'lucide-react';
+import { Calendar, Clock, FileText, Settings, Users, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -26,9 +26,17 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CanvasEditor } from '@/components/ui/canvas-editor';
-import { EnhancedAssignment } from '@/types/course';
+import { EnhancedAssignment, Rubric } from '@/types/course';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useRubrics } from '@/hooks/useRubrics';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { RubricList } from '@/components/course/rubrics/RubricList';
 
 const assignmentSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -51,6 +59,7 @@ const assignmentSchema = z.object({
     maximum_deduction: z.number().optional(),
     grace_period_hours: z.number().optional(),
   }).optional(),
+  rubric_id: z.string().optional(),
 });
 
 type AssignmentFormValues = z.infer<typeof assignmentSchema>;
@@ -91,6 +100,9 @@ export const AssignmentForm: React.FC<AssignmentFormProps> = ({
   const [selectedSubmissionTypes, setSelectedSubmissionTypes] = useState<string[]>(
     assignment?.submission_types || ['file_upload']
   );
+  const [selectedRubric, setSelectedRubric] = useState<Rubric | null>(null);
+  const [showRubricDialog, setShowRubricDialog] = useState(false);
+  const { rubrics } = useRubrics(courseId);
 
   const form = useForm<AssignmentFormValues>({
     resolver: zodResolver(assignmentSchema),
@@ -118,6 +130,7 @@ export const AssignmentForm: React.FC<AssignmentFormProps> = ({
     onSubmit({
       ...values,
       course_id: courseId,
+      rubric_id: selectedRubric?.id,
     } as any);
   };
 
@@ -465,6 +478,47 @@ export const AssignmentForm: React.FC<AssignmentFormProps> = ({
                     )}
                   />
                 </div>
+
+                <div className="space-y-4 border rounded-lg p-4">
+                  <h4 className="font-medium">Rubric</h4>
+                  {selectedRubric ? (
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">{selectedRubric.title}</p>
+                        {selectedRubric.description && (
+                          <p className="text-sm text-gray-500">{selectedRubric.description}</p>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setShowRubricDialog(true)}
+                        >
+                          Change
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setSelectedRubric(null)}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setShowRubricDialog(true)}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Attach Rubric
+                    </Button>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -547,5 +601,21 @@ export const AssignmentForm: React.FC<AssignmentFormProps> = ({
         </div>
       </form>
     </Form>
+
+    <Dialog open={showRubricDialog} onOpenChange={setShowRubricDialog}>
+      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Select Rubric</DialogTitle>
+        </DialogHeader>
+        <RubricList
+          courseId={courseId}
+          selectable
+          onSelectRubric={(rubric) => {
+            setSelectedRubric(rubric);
+            setShowRubricDialog(false);
+          }}
+        />
+      </DialogContent>
+    </Dialog>
   );
 };
