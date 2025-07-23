@@ -216,6 +216,42 @@ export type Database = {
         }
         Relationships: []
       }
+      assignment_rubrics: {
+        Row: {
+          assignment_id: string
+          created_at: string | null
+          id: string
+          rubric_id: string
+        }
+        Insert: {
+          assignment_id: string
+          created_at?: string | null
+          id?: string
+          rubric_id: string
+        }
+        Update: {
+          assignment_id?: string
+          created_at?: string | null
+          id?: string
+          rubric_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assignment_rubrics_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assignment_rubrics_rubric_id_fkey"
+            columns: ["rubric_id"]
+            isOneToOne: false
+            referencedRelation: "rubrics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assignment_submissions: {
         Row: {
           assignment_id: string
@@ -2606,6 +2642,94 @@ export type Database = {
           },
         ]
       }
+      question_bank_questions: {
+        Row: {
+          answers: Json | null
+          correct_answer: Json | null
+          created_at: string | null
+          difficulty: string | null
+          id: string
+          points: number | null
+          question_bank_id: string
+          question_text: string
+          question_type: string
+          topic_tags: string[] | null
+          updated_at: string | null
+        }
+        Insert: {
+          answers?: Json | null
+          correct_answer?: Json | null
+          created_at?: string | null
+          difficulty?: string | null
+          id?: string
+          points?: number | null
+          question_bank_id: string
+          question_text: string
+          question_type?: string
+          topic_tags?: string[] | null
+          updated_at?: string | null
+        }
+        Update: {
+          answers?: Json | null
+          correct_answer?: Json | null
+          created_at?: string | null
+          difficulty?: string | null
+          id?: string
+          points?: number | null
+          question_bank_id?: string
+          question_text?: string
+          question_type?: string
+          topic_tags?: string[] | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_bank_questions_question_bank_id_fkey"
+            columns: ["question_bank_id"]
+            isOneToOne: false
+            referencedRelation: "question_banks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      question_banks: {
+        Row: {
+          course_id: string
+          created_at: string | null
+          created_by: string
+          description: string | null
+          id: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          course_id: string
+          created_at?: string | null
+          created_by: string
+          description?: string | null
+          id?: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          course_id?: string
+          created_at?: string | null
+          created_by?: string
+          description?: string | null
+          id?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_banks_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quiz_attempts: {
         Row: {
           answers: Json
@@ -2959,6 +3083,85 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      rubric_criteria: {
+        Row: {
+          created_at: string | null
+          criterion: string
+          description: string | null
+          id: string
+          order_index: number | null
+          points: number
+          rubric_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          criterion: string
+          description?: string | null
+          id?: string
+          order_index?: number | null
+          points?: number
+          rubric_id: string
+        }
+        Update: {
+          created_at?: string | null
+          criterion?: string
+          description?: string | null
+          id?: string
+          order_index?: number | null
+          points?: number
+          rubric_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rubric_criteria_rubric_id_fkey"
+            columns: ["rubric_id"]
+            isOneToOne: false
+            referencedRelation: "rubrics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rubrics: {
+        Row: {
+          course_id: string
+          created_at: string | null
+          created_by: string
+          description: string | null
+          id: string
+          points_possible: number | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          course_id: string
+          created_at?: string | null
+          created_by: string
+          description?: string | null
+          id?: string
+          points_possible?: number | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          course_id?: string
+          created_at?: string | null
+          created_by?: string
+          description?: string | null
+          id?: string
+          points_possible?: number | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rubrics_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       scrape_metadata: {
         Row: {
