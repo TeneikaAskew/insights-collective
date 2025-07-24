@@ -36,7 +36,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useSubmissionComments } from '@/hooks/useGradeHistory';
 import { SubmissionComment } from '@/services/gradeHistoryService';
-import { useAuth } from '@/hooks/use-auth';
+import { useAuth } from '@/contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
 
 interface SubmissionCommentsProps {
