@@ -16,8 +16,6 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { withCourseEditPermission } from '@/components/course/withCoursePermission';
-import { AssignmentManager } from '@/components/course/management/AssignmentManager';
-import { QuizManager } from '@/components/course/management/QuizManager';
 
 import { createLogger } from '@/utils/logger';
 
@@ -172,11 +170,19 @@ function CourseEdit() {
             </TabsContent>
 
             <TabsContent value="assignments" className="mt-6">
-              <AssignmentManager courseId={courseId!} />
+              <div className="text-center py-12">
+                <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-medium mb-2">Assignments</h3>
+                <p className="text-muted-foreground">Assignment management coming soon</p>
+              </div>
             </TabsContent>
 
             <TabsContent value="quizzes" className="mt-6">
-              <QuizManager courseId={courseId!} />
+              <div className="text-center py-12">
+                <HelpCircle className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-medium mb-2">Quizzes</h3>
+                <p className="text-muted-foreground">Quiz management coming soon</p>
+              </div>
             </TabsContent>
           </Tabs>
         )}
