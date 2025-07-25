@@ -2642,50 +2642,107 @@ export type Database = {
           },
         ]
       }
-      question_bank_questions: {
+      question_bank_categories: {
         Row: {
-          answers: Json | null
-          correct_answer: Json | null
+          bank_id: string
           created_at: string | null
-          difficulty: string | null
           id: string
-          points: number | null
-          question_bank_id: string
-          question_text: string
-          question_type: string
-          topic_tags: string[] | null
-          updated_at: string | null
+          name: string
+          parent_id: string | null
         }
         Insert: {
-          answers?: Json | null
-          correct_answer?: Json | null
+          bank_id: string
           created_at?: string | null
-          difficulty?: string | null
           id?: string
-          points?: number | null
-          question_bank_id: string
-          question_text: string
-          question_type?: string
-          topic_tags?: string[] | null
-          updated_at?: string | null
+          name: string
+          parent_id?: string | null
         }
         Update: {
-          answers?: Json | null
-          correct_answer?: Json | null
+          bank_id?: string
           created_at?: string | null
-          difficulty?: string | null
           id?: string
-          points?: number | null
-          question_bank_id?: string
-          question_text?: string
-          question_type?: string
-          topic_tags?: string[] | null
-          updated_at?: string | null
+          name?: string
+          parent_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "question_bank_questions_question_bank_id_fkey"
-            columns: ["question_bank_id"]
+            foreignKeyName: "question_bank_categories_bank_id_fkey"
+            columns: ["bank_id"]
+            isOneToOne: false
+            referencedRelation: "question_banks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_bank_categories_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "question_bank_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      question_bank_questions: {
+        Row: {
+          bank_id: string
+          correct_answer: Json | null
+          created_at: string | null
+          difficulty_level: string | null
+          explanation: string | null
+          feedback: Json | null
+          id: string
+          metadata: Json | null
+          options: Json | null
+          points: number | null
+          question_text: string
+          question_type: string
+          rich_content: Json | null
+          success_rate: number | null
+          topic_tags: string[] | null
+          updated_at: string | null
+          usage_count: number | null
+        }
+        Insert: {
+          bank_id: string
+          correct_answer?: Json | null
+          created_at?: string | null
+          difficulty_level?: string | null
+          explanation?: string | null
+          feedback?: Json | null
+          id?: string
+          metadata?: Json | null
+          options?: Json | null
+          points?: number | null
+          question_text: string
+          question_type: string
+          rich_content?: Json | null
+          success_rate?: number | null
+          topic_tags?: string[] | null
+          updated_at?: string | null
+          usage_count?: number | null
+        }
+        Update: {
+          bank_id?: string
+          correct_answer?: Json | null
+          created_at?: string | null
+          difficulty_level?: string | null
+          explanation?: string | null
+          feedback?: Json | null
+          id?: string
+          metadata?: Json | null
+          options?: Json | null
+          points?: number | null
+          question_text?: string
+          question_type?: string
+          rich_content?: Json | null
+          success_rate?: number | null
+          topic_tags?: string[] | null
+          updated_at?: string | null
+          usage_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_bank_questions_bank_id_fkey"
+            columns: ["bank_id"]
             isOneToOne: false
             referencedRelation: "question_banks"
             referencedColumns: ["id"]
@@ -2699,6 +2756,7 @@ export type Database = {
           created_by: string
           description: string | null
           id: string
+          is_shared: boolean | null
           title: string
           updated_at: string | null
         }
@@ -2708,6 +2766,7 @@ export type Database = {
           created_by: string
           description?: string | null
           id?: string
+          is_shared?: boolean | null
           title: string
           updated_at?: string | null
         }
@@ -2717,6 +2776,7 @@ export type Database = {
           created_by?: string
           description?: string | null
           id?: string
+          is_shared?: boolean | null
           title?: string
           updated_at?: string | null
         }
@@ -2726,6 +2786,94 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_banks_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      question_category_links: {
+        Row: {
+          category_id: string
+          question_id: string
+        }
+        Insert: {
+          category_id: string
+          question_id: string
+        }
+        Update: {
+          category_id?: string
+          question_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_category_links_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "question_bank_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_category_links_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "question_bank_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quiz_attempt_questions: {
+        Row: {
+          attempt_id: string
+          created_at: string | null
+          id: string
+          is_correct: boolean | null
+          points_earned: number | null
+          question_id: string
+          question_order: number
+          student_answer: Json | null
+          time_spent: number | null
+        }
+        Insert: {
+          attempt_id: string
+          created_at?: string | null
+          id?: string
+          is_correct?: boolean | null
+          points_earned?: number | null
+          question_id: string
+          question_order: number
+          student_answer?: Json | null
+          time_spent?: number | null
+        }
+        Update: {
+          attempt_id?: string
+          created_at?: string | null
+          id?: string
+          is_correct?: boolean | null
+          points_earned?: number | null
+          question_id?: string
+          question_order?: number
+          student_answer?: Json | null
+          time_spent?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_attempt_questions_attempt_id_fkey"
+            columns: ["attempt_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_attempts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_attempt_questions_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "question_bank_questions"
             referencedColumns: ["id"]
           },
         ]
@@ -2762,6 +2910,67 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      quiz_question_pools: {
+        Row: {
+          bank_id: string
+          category_id: string | null
+          created_at: string | null
+          difficulty_filter: string | null
+          id: string
+          number_of_questions: number
+          points_per_question: number | null
+          position: number
+          quiz_id: string
+          topic_tags_filter: string[] | null
+        }
+        Insert: {
+          bank_id: string
+          category_id?: string | null
+          created_at?: string | null
+          difficulty_filter?: string | null
+          id?: string
+          number_of_questions: number
+          points_per_question?: number | null
+          position: number
+          quiz_id: string
+          topic_tags_filter?: string[] | null
+        }
+        Update: {
+          bank_id?: string
+          category_id?: string | null
+          created_at?: string | null
+          difficulty_filter?: string | null
+          id?: string
+          number_of_questions?: number
+          points_per_question?: number | null
+          position?: number
+          quiz_id?: string
+          topic_tags_filter?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_question_pools_bank_id_fkey"
+            columns: ["bank_id"]
+            isOneToOne: false
+            referencedRelation: "question_banks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_question_pools_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "question_bank_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_question_pools_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       quiz_questions: {
         Row: {
