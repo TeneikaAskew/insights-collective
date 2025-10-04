@@ -1,0 +1,107 @@
+name: Nightly Full Test Suite
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # Run at 2 AM UTC daily
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  comprehensive-tests:
+    name: Comprehensive Testing
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Use Node.js 20.x
+      uses: actions/setup-node@v3
+      with:
+        node-version: 20.x
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm install --legacy-peer-deps
+    
+    - name: Run all tests with coverage
+      run: npm run test:coverage -- --run
+    
+    - name: Generate detailed coverage report
+      run: |
+        echo "## Test Coverage Report" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        cat coverage/coverage-summary.json | jq >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+    
+    - name: Performance benchmarks
+      run: |
+        echo "Running performance benchmarks..."
+        time npm run test -- --run
+    
+    - name: Upload comprehensive coverage
+      uses: codecov/codecov-action@v3
+      with:
+        files: ./coverage/coverage-final.json
+        flags: nightly
+        fail_ci_if_error: true
+
+  dependency-check:
+    name: Dependency Updates Check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Use Node.js 20.x
+      uses: actions/setup-node@v3
+      with:
+        node-version: 20.x
+    
+    - name: Check for outdated dependencies
+      run: npm outdated || true
+    
+    - name: Install latest compatible versions
+      run: npm update --legacy-peer-deps
+    
+    - name: Run tests with updated dependencies
+      run: npm run test -- --run
+    
+    - name: Create issue if dependencies fail
+      if: failure()
+      uses: actions/github-script@v6
+      with:
+        script: |
+          github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: 'Nightly: Dependency update tests failed',
+            body: 'The nightly dependency update check has failed. Please review the workflow logs.',
+            labels: ['dependencies', 'automated']
+          })
+
+  test-metrics:
+    name: Test Execution Metrics
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Use Node.js 20.x
+      uses: actions/setup-node@v3
+      with:
+        node-version: 20.x
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm install --legacy-peer-deps
+    
+    - name: Track test execution time
+      run: |
+        START_TIME=$(date +%s)
+        npm run test -- --run
+        END_TIME=$(date +%s)
+        DURATION=$((END_TIME - START_TIME))
+        echo "Test execution time: ${DURATION}s" >> $GITHUB_STEP_SUMMARY
+        
+        if [ $DURATION -gt 300 ]; then
+          echo "::warning::Test execution is taking longer than 5 minutes (${DURATION}s)"
+        fi
