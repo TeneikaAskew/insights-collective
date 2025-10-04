@@ -1,0 +1,336 @@
+// ABOUTME: Unit tests for Canvas Content Service
+// ABOUTME: Tests CRUD operations for content items, assignments, quizzes, and progress tracking
+
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { CanvasContentService } from '../canvasContentService';
+import { mockSupabaseClient } from '@/test/mocks/supabase';
+
+describe('CanvasContentService', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe('Content Items', () => {
+    it('should get content items for a module', async () => {
+      const mockItems = [
+        { id: '1', title: 'Lesson 1', type: 'page', module_id: 'mod-1' },
+        { id: '2', title: 'Assignment 1', type: 'assignment', module_id: 'mod-1' }
+      ];
+
+      mockSupabaseClient.from().select().eq().order.mockResolvedValue({
+        data: mockItems,
+        error: null
+      });
+
+      const result = await CanvasContentService.getContentItems('mod-1');
+
+      expect(result).toEqual(mockItems);
+      expect(mockSupabaseClient.from).toHaveBeenCalledWith('content_items');
+    });
+
+    it('should get a single content item with relations', async () => {
+      const mockItem = {
+        id: '1',
+        title: 'Test Assignment',
+        type: 'assignment',
+        assignment: { id: 'a1', points_possible: 100 }
+      };
+
+      mockSupabaseClient.from().select().eq().single.mockResolvedValue({
+        data: mockItem,
+        error: null
+      });
+
+      const result = await CanvasContentService.getContentItem('1');
+
+      expect(result).toEqual(mockItem);
+    });
+
+    it('should create a content item with correct position', async () => {
+      mockSupabaseClient.from().select().eq().order().limit.mockResolvedValue({
+        data: [{ position: 2 }],
+        error: null
+      });
+
+      const newItem = { id: 'new-1', position: 3 };
+      mockSupabaseClient.from().insert().select().single.mockResolvedValue({
+        data: newItem,
+        error: null
+      });
+
+      mockSupabaseClient.from().select().eq().single.mockResolvedValue({
+        data: newItem,
+        error: null
+      });
+
+      const result = await CanvasContentService.createContentItem({
+        course_id: 'c1',
+        module_id: 'm1',
+        type: 'page',
+        title: 'New Page',
+        content: 'Content here'
+      });
+
+      expect(result.position).toBe(3);
+    });
+
+    it('should create assignment with content item', async () => {
+      mockSupabaseClient.from().select().eq().order().limit.mockResolvedValue({
+        data: [],
+        error: null
+      });
+
+      const contentItem = { id: 'ci-1', type: 'assignment', settings: {} };
+      mockSupabaseClient.from().insert().select().single
+        .mockResolvedValueOnce({ data: contentItem, error: null })
+        .mockResolvedValueOnce({ 
+          data: { id: 'a1', points_possible: 100 }, 
+          error: null 
+        });
+
+      mockSupabaseClient.from().select().eq().single.mockResolvedValue({
+        data: { ...contentItem, assignment: { id: 'a1' } },
+        error: null
+      });
+
+      const result = await CanvasContentService.createContentItem({
+        course_id: 'c1',
+        module_id: 'm1',
+        type: 'assignment',
+        title: 'Test Assignment',
+        content: 'Do this',
+        settings: {
+          assignment: {
+            points_possible: 100,
+            due_at: '2025-12-31'
+          }
+        }
+      });
+
+      expect(result.assignment).toBeDefined();
+    });
+
+    it('should update a content item', async () => {
+      const updated = { id: '1', title: 'Updated Title' };
+      mockSupabaseClient.from().update().eq().select().single.mockResolvedValue({
+        data: updated,
+        error: null
+      });
+
+      const result = await CanvasContentService.updateContentItem('1', {
+        title: 'Updated Title'
+      });
+
+      expect(result.title).toBe('Updated Title');
+    });
+
+    it('should delete a content item', async () => {
+      mockSupabaseClient.from().delete().eq.mockResolvedValue({
+        error: null
+      });
+
+      await expect(
+        CanvasContentService.deleteContentItem('1')
+      ).resolves.not.toThrow();
+    });
+
+    it('should reorder content items', async () => {
+      mockSupabaseClient.from().upsert.mockResolvedValue({
+        error: null
+      });
+
+      await expect(
+        CanvasContentService.reorderContentItems('m1', ['i1', 'i2', 'i3'])
+      ).resolves.not.toThrow();
+    });
+  });
+
+  describe('Assignments', () => {
+    it('should get assignment by content item id', async () => {
+      const assignment = { id: 'a1', points_possible: 100 };
+      mockSupabaseClient.from().select().eq().single.mockResolvedValue({
+        data: assignment,
+        error: null
+      });
+
+      const result = await CanvasContentService.getAssignment('ci-1');
+
+      expect(result).toEqual(assignment);
+    });
+
+    it('should handle missing assignment gracefully', async () => {
+      mockSupabaseClient.from().select().eq().single.mockResolvedValue({
+        data: null,
+        error: { code: 'PGRST116' }
+      });
+
+      const result = await CanvasContentService.getAssignment('ci-1');
+
+      expect(result).toBeNull();
+    });
+
+    it('should update assignment', async () => {
+      const updated = { id: 'a1', points_possible: 150 };
+      mockSupabaseClient.from().update().eq().select().single.mockResolvedValue({
+        data: updated,
+        error: null
+      });
+
+      const result = await CanvasContentService.updateAssignment('ci-1', {
+        points_possible: 150
+      });
+
+      expect(result.points_possible).toBe(150);
+    });
+
+    it('should submit assignment with correct attempt number', async () => {
+      mockSupabaseClient.from().select().eq().eq().order().limit.mockResolvedValue({
+        data: [{ attempt: 1 }],
+        error: null
+      });
+
+      mockSupabaseClient.auth.getUser.mockResolvedValue({
+        data: { user: { id: 'u1' } },
+        error: null
+      });
+
+      const submission = { id: 's1', attempt: 2 };
+      mockSupabaseClient.from().insert().select().single.mockResolvedValue({
+        data: submission,
+        error: null
+      });
+
+      const result = await CanvasContentService.submitAssignment('a1', {
+        submission_type: 'online_text_entry',
+        body: 'My submission'
+      });
+
+      expect(result.attempt).toBe(2);
+    });
+  });
+
+  describe('Quizzes', () => {
+    it('should get quiz with questions', async () => {
+      const quiz = {
+        id: 'q1',
+        questions: [
+          { id: 'qq1', question_text: 'What is 2+2?' }
+        ]
+      };
+
+      mockSupabaseClient.from().select().eq().single.mockResolvedValue({
+        data: quiz,
+        error: null
+      });
+
+      const result = await CanvasContentService.getQuiz('ci-1');
+
+      expect(result?.questions).toHaveLength(1);
+    });
+
+    it('should update quiz', async () => {
+      const updated = { id: 'q1', time_limit: 60 };
+      mockSupabaseClient.from().update().eq().select().single.mockResolvedValue({
+        data: updated,
+        error: null
+      });
+
+      const result = await CanvasContentService.updateQuiz('ci-1', {
+        time_limit: 60
+      });
+
+      expect(result.time_limit).toBe(60);
+    });
+
+    it('should add quiz question with correct position', async () => {
+      mockSupabaseClient.from().select().eq().order().limit.mockResolvedValue({
+        data: [{ position: 1 }],
+        error: null
+      });
+
+      const question = { id: 'qq2', position: 2 };
+      mockSupabaseClient.from().insert().select().single.mockResolvedValue({
+        data: question,
+        error: null
+      });
+
+      const result = await CanvasContentService.addQuizQuestion('q1', {
+        question_type: 'multiple_choice',
+        question_text: 'New question?',
+        points: 10,
+        answers: [],
+        position: 0,
+        correct_comments: '',
+        incorrect_comments: '',
+        neutral_comments: ''
+      });
+
+      expect(result.position).toBe(2);
+    });
+  });
+
+  describe('Progress Tracking', () => {
+    it('should mark content item as read', async () => {
+      mockSupabaseClient.auth.getUser.mockResolvedValue({
+        data: { user: { id: 'u1' } },
+        error: null
+      });
+
+      mockSupabaseClient.from().upsert.mockResolvedValue({
+        error: null
+      });
+
+      await expect(
+        CanvasContentService.markContentItemAsRead('ci-1')
+      ).resolves.not.toThrow();
+    });
+
+    it('should mark content item as completed', async () => {
+      mockSupabaseClient.auth.getUser.mockResolvedValue({
+        data: { user: { id: 'u1' } },
+        error: null
+      });
+
+      mockSupabaseClient.from().upsert.mockResolvedValue({
+        error: null
+      });
+
+      await expect(
+        CanvasContentService.markContentItemAsCompleted('ci-1')
+      ).resolves.not.toThrow();
+    });
+
+    it('should throw error if user not authenticated', async () => {
+      mockSupabaseClient.auth.getUser.mockResolvedValue({
+        data: { user: null },
+        error: null
+      });
+
+      await expect(
+        CanvasContentService.markContentItemAsRead('ci-1')
+      ).rejects.toThrow('User not authenticated');
+    });
+  });
+
+  describe('Publishing', () => {
+    it('should publish content item', async () => {
+      mockSupabaseClient.from().update().eq.mockResolvedValue({
+        error: null
+      });
+
+      await expect(
+        CanvasContentService.publishContentItem('ci-1')
+      ).resolves.not.toThrow();
+    });
+
+    it('should unpublish content item', async () => {
+      mockSupabaseClient.from().update().eq.mockResolvedValue({
+        error: null
+      });
+
+      await expect(
+        CanvasContentService.unpublishContentItem('ci-1')
+      ).resolves.not.toThrow();
+    });
+  });
+});
