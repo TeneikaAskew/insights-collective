@@ -218,8 +218,9 @@ export default function CourseDetails({ course }: CourseDetailsProps) {
             {/* Basic Information */}
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Basic Information</h3>
-              
+
               <div className="grid gap-4">
+                {/* Full width fields */}
                 <div className="grid gap-2">
                   <Label htmlFor="title">Course Title</Label>
                   <Input
@@ -230,7 +231,7 @@ export default function CourseDetails({ course }: CourseDetailsProps) {
                     required
                   />
                 </div>
-                
+
                 <div className="grid gap-2">
                   <Label htmlFor="description">Description</Label>
                   <Textarea
@@ -242,8 +243,9 @@ export default function CourseDetails({ course }: CourseDetailsProps) {
                     rows={4}
                   />
                 </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
+
+                {/* 3-column grid for Category, Level, Duration */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="grid gap-2">
                     <Label htmlFor="category">Category</Label>
                     <Select
@@ -278,17 +280,17 @@ export default function CourseDetails({ course }: CourseDetailsProps) {
                       </SelectContent>
                     </Select>
                   </div>
-                </div>
 
-                <div className="grid gap-2 max-w-md">
-                  <Label htmlFor="duration">Duration</Label>
-                  <Input
-                    id="duration"
-                    name="duration"
-                    value={formData.duration}
-                    onChange={handleChange}
-                    placeholder="e.g., 8 weeks, 40 hours"
-                  />
+                  <div className="grid gap-2">
+                    <Label htmlFor="duration">Duration</Label>
+                    <Input
+                      id="duration"
+                      name="duration"
+                      value={formData.duration}
+                      onChange={handleChange}
+                      placeholder="e.g., 8 weeks"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -296,26 +298,28 @@ export default function CourseDetails({ course }: CourseDetailsProps) {
             {/* Instructor Assignment */}
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Instructor</h3>
-              <div className="grid gap-2 max-w-md">
-                <Label htmlFor="instructor">Assign Instructor</Label>
-                <Select
-                  value={formData.instructor_id}
-                  onValueChange={(value) => handleSelectChange('instructor_id', value)}
-                  disabled={loadingInstructors}
-                >
-                  <SelectTrigger id="instructor">
-                    <SelectValue
-                      placeholder={loadingInstructors ? "Loading instructors..." : "Select an instructor"}
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {instructors.map((instructor) => (
-                      <SelectItem key={instructor.id} value={instructor.id}>
-                        {instructor.first_name} {instructor.last_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="instructor">Assign Instructor</Label>
+                  <Select
+                    value={formData.instructor_id}
+                    onValueChange={(value) => handleSelectChange('instructor_id', value)}
+                    disabled={loadingInstructors}
+                  >
+                    <SelectTrigger id="instructor">
+                      <SelectValue
+                        placeholder={loadingInstructors ? "Loading instructors..." : "Select an instructor"}
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {instructors.map((instructor) => (
+                        <SelectItem key={instructor.id} value={instructor.id}>
+                          {instructor.first_name} {instructor.last_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
 
@@ -408,7 +412,7 @@ export default function CourseDetails({ course }: CourseDetailsProps) {
             {/* Course Settings */}
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Course Settings</h3>
-              <div className="grid gap-4 max-w-md">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="enrollment_status">Enrollment Status</Label>
                   <Select
