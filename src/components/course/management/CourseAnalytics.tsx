@@ -64,18 +64,18 @@ export default function CourseAnalytics({ courseId }: CourseAnalyticsProps) {
       let contentProgress: any[] = [];
       if (moduleIds.length > 0) {
         const { data: progressData, error: progressError } = await supabase
-          .from('content_progress')
+          .from('content_item_progressions')
           .select(`
-            content_block_id, 
-            completed, 
-            time_spent,
+            content_item_id, 
+            workflow_state,
             user_id,
-            content_blocks!inner(
-              block_type,
+            content_items!inner(
+              type,
               module_id
             )
           `)
-          .in('content_blocks.module_id', moduleIds);
+          .in('content_items.module_id', moduleIds)
+          .eq('workflow_state', 'completed');
         
         if (progressError) throw progressError;
         contentProgress = progressData || [];
@@ -130,24 +130,17 @@ export default function CourseAnalytics({ courseId }: CourseAnalyticsProps) {
   };
 
   const calculateAverageTimeInCourse = (contentProgress: any[]) => {
-    if (contentProgress.length === 0) return 0;
-    
-    const totalTimeSpent = contentProgress.reduce((sum, progress) => 
-      sum + (progress.time_spent || 0), 0
-    );
-    
-    // Get unique users
-    const uniqueUsers = new Set(contentProgress.map(p => p.user_id)).size;
-    
-    return uniqueUsers > 0 ? Math.round(totalTimeSpent / uniqueUsers) : 0;
+    // Content item progressions don't track time_spent
+    // Return 0 or calculate based on other metrics
+    return 0;
   };
 
   const processContentEngagement = (contentProgress: any[]) => {
     const typeCount: { [key: string]: number } = {};
     
     contentProgress.forEach(progress => {
-      const blockType = progress.content_blocks?.block_type || 'other';
-      typeCount[blockType] = (typeCount[blockType] || 0) + 1;
+      const itemType = progress.content_items?.type || 'other';
+      typeCount[itemType] = (typeCount[itemType] || 0) + 1;
     });
     
     return Object.entries(typeCount).map(([name, value]) => ({
@@ -188,9 +181,9 @@ export default function CourseAnalytics({ courseId }: CourseAnalyticsProps) {
       const moduleViews = await Promise.all(
         (modules || []).map(async (module) => {
           const { data: progressData, error } = await supabase
-            .from('content_progress')
-            .select('id, content_blocks!inner(module_id)')
-            .eq('content_blocks.module_id', module.id);
+            .from('content_item_progressions')
+            .select('id, content_items!inner(module_id)')
+            .eq('content_items.module_id', module.id);
           
           return {
             name: module.title,

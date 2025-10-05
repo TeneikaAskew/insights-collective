@@ -138,11 +138,8 @@ const ModuleManager = ({ courseId, moduleId, module, onUpdate }: ModuleManagerPr
     }
 
     try {
-      // Move content blocks back to module level before deleting lesson
-      await supabase
-        .from('content_blocks')
-        .update({ lesson_id: null })
-        .eq('lesson_id', lessonId);
+      // Content items are now managed through the content_items table
+      // Legacy lesson content blocks have been migrated
 
       const success = await deleteLesson(lessonId);
       if (success && selectedLesson?.id === lessonId) {
@@ -265,7 +262,7 @@ const ModuleManager = ({ courseId, moduleId, module, onUpdate }: ModuleManagerPr
                           <div className="text-sm font-normal truncate">{lesson.title}</div>
                           <div className="flex items-center gap-2 mt-1">
                             <Badge variant="secondary" className="text-xs">
-                              {lesson.content_blocks_count || 0} blocks
+                              {lesson.content_items_count || 0} items
                             </Badge>
                             {lesson.duration && (
                               <Badge variant="outline" className="text-xs">

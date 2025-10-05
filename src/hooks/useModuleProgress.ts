@@ -23,7 +23,7 @@ export interface ModuleProgress {
 export interface AssignmentProgress {
   id: string;
   user_id: string;
-  content_block_id: string;
+  content_item_id: string;
   completed: boolean;
   submitted_at?: string;
   submission_data: any;
@@ -85,12 +85,13 @@ export function useModuleProgress(moduleId?: string) {
 
       // Fetch assignment progress for this module
       const { data: assignmentData, error: assignmentError } = await supabase
-        .from('assignment_progress')
+        .from('content_item_progressions')
         .select(`
           *,
-          content_blocks!inner(module_id)
+          content_items!inner(type, module_id)
         `)
-        .eq('content_blocks.module_id', moduleId)
+        .eq('content_items.module_id', moduleId)
+        .eq('content_items.type', 'assignment')
         .eq('user_id', user.id);
 
       if (assignmentError) throw assignmentError;
@@ -102,10 +103,11 @@ export function useModuleProgress(moduleId?: string) {
         .select(`
           *,
           quizzes!inner(
-            content_blocks!inner(module_id)
-          )
+            content_item_id
+          ),
+          content_items!inner(module_id)
         `)
-        .eq('quizzes.content_blocks.module_id', moduleId)
+        .eq('content_items.module_id', moduleId)
         .eq('user_id', user.id);
 
       if (quizError) throw quizError;
@@ -235,10 +237,10 @@ export function useModuleProgress(moduleId?: string) {
 
       // Update local state
       setAssignmentProgress(prev => {
-        const existingIndex = prev.findIndex(a => a.content_block_id === contentItemId);
+        const existingIndex = prev.findIndex(a => a.content_item_id === contentItemId);
         if (existingIndex >= 0) {
           const updated = [...prev];
-          updated[existingIndex] = { ...data, content_block_id: contentItemId };
+          updated[existingIndex] = { ...data, content_item_id: contentItemId };
           return updated;
         }
         return [...prev, data];
