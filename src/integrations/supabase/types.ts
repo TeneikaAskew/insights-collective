@@ -1046,87 +1046,6 @@ export type Database = {
         }
         Relationships: []
       }
-      content_blocks: {
-        Row: {
-          block_type: string
-          completion_required: boolean | null
-          content: string | null
-          created_at: string | null
-          created_by: string
-          duration: number | null
-          file_path: string | null
-          file_size: number | null
-          file_type: string | null
-          file_url: string | null
-          id: string
-          is_interactive: boolean | null
-          lesson_id: string | null
-          metadata: Json | null
-          module_id: string
-          position: number
-          thumbnail_url: string | null
-          title: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          block_type?: string
-          completion_required?: boolean | null
-          content?: string | null
-          created_at?: string | null
-          created_by: string
-          duration?: number | null
-          file_path?: string | null
-          file_size?: number | null
-          file_type?: string | null
-          file_url?: string | null
-          id?: string
-          is_interactive?: boolean | null
-          lesson_id?: string | null
-          metadata?: Json | null
-          module_id: string
-          position?: number
-          thumbnail_url?: string | null
-          title?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          block_type?: string
-          completion_required?: boolean | null
-          content?: string | null
-          created_at?: string | null
-          created_by?: string
-          duration?: number | null
-          file_path?: string | null
-          file_size?: number | null
-          file_type?: string | null
-          file_url?: string | null
-          id?: string
-          is_interactive?: boolean | null
-          lesson_id?: string | null
-          metadata?: Json | null
-          module_id?: string
-          position?: number
-          thumbnail_url?: string | null
-          title?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "content_blocks_lesson_id_fkey"
-            columns: ["lesson_id"]
-            isOneToOne: false
-            referencedRelation: "lessons"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "content_blocks_module_id_fkey"
-            columns: ["module_id"]
-            isOneToOne: false
-            referencedRelation: "modules"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       content_item_progressions: {
         Row: {
           content_item_id: string
@@ -1218,47 +1137,6 @@ export type Database = {
             columns: ["module_id"]
             isOneToOne: false
             referencedRelation: "modules"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      content_progress: {
-        Row: {
-          completed: boolean | null
-          completed_at: string | null
-          completion_percentage: number | null
-          content_block_id: string
-          id: string
-          last_accessed_at: string | null
-          time_spent: number | null
-          user_id: string
-        }
-        Insert: {
-          completed?: boolean | null
-          completed_at?: string | null
-          completion_percentage?: number | null
-          content_block_id: string
-          id?: string
-          last_accessed_at?: string | null
-          time_spent?: number | null
-          user_id: string
-        }
-        Update: {
-          completed?: boolean | null
-          completed_at?: string | null
-          completion_percentage?: number | null
-          content_block_id?: string
-          id?: string
-          last_accessed_at?: string | null
-          time_spent?: number | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "content_progress_content_block_id_fkey"
-            columns: ["content_block_id"]
-            isOneToOne: false
-            referencedRelation: "content_blocks"
             referencedColumns: ["id"]
           },
         ]
