@@ -23,8 +23,9 @@ export function useCoursesManagement() {
       logger.log('Fetching courses...');
 
       if (!user) {
-        logger.warn('No user found, skipping course fetch');
+        logger.error('CRITICAL: No user found in course management (should be impossible on protected route)');
         setCourses([]);
+        setError('Authentication error: No user session found');
         return;
       }
 
@@ -357,8 +358,11 @@ export function useCoursesManagement() {
   };
 
   useEffect(() => {
-    fetchCourses();
-  }, []);
+    // Only fetch courses when user is loaded
+    if (user) {
+      fetchCourses();
+    }
+  }, [user]);
 
   return {
     courses,
