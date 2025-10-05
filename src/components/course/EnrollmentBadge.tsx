@@ -73,7 +73,7 @@ const EnrollmentBadge = ({
     navigate(`/courses/${courseId}/materials`);
   };
   const handleManageCourse = () => {
-    navigate(`/course-management?courseId=${courseId}`);
+    navigate(`/courses/${courseId}/management`);
   };
   if (!isEnrolled && !isInstructor) {
     return null;

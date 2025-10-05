@@ -109,7 +109,7 @@ const CourseManagementDashboard = () => {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => navigate(`/course-management?courseId=${course.id}`)}
+                        onClick={() => navigate(`/courses/${course.id}/management`)}
                       >
                         <Pencil className="h-4 w-4 mr-2" />
                         Manage
