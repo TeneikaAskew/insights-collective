@@ -5,9 +5,10 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Filter } from 'lucide-react';
+import { Search, Filter, ArrowUpDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Course } from '@/types';
+import { CourseDifficulty } from '@/types/course';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthenticatedNavigation } from '@/hooks/useAuthenticatedNavigation';
 import EnrollmentBadge from '@/components/course/EnrollmentBadge';
@@ -24,9 +25,11 @@ const CourseList = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [levelFilter, setLevelFilter] = useState('all');
+  const [difficultyFilter, setDifficultyFilter] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<string>('newest');
   const { toast } = useToast();
   const navigate = useNavigate();
-  
+
   const categories = [...new Set(courses.map(course => course.category))];
   const levels = [...new Set(courses.map(course => course.level))];
   
@@ -91,16 +94,59 @@ const CourseList = () => {
     navigate(`/courses/${courseId}`);
   };
   
-  const filteredCourses = courses.filter(course => {
-    const matchesSearch = 
-      course.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      course.description.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesCategory = categoryFilter === 'all' || course.category === categoryFilter;
-    const matchesLevel = levelFilter === 'all' || course.level === levelFilter;
-    
-    return matchesSearch && matchesCategory && matchesLevel;
-  });
+  const filteredAndSortedCourses = courses
+    .filter(course => {
+      const matchesSearch =
+        course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        course.description.toLowerCase().includes(searchQuery.toLowerCase());
+
+      const matchesCategory = categoryFilter === 'all' || course.category === categoryFilter;
+      const matchesLevel = levelFilter === 'all' || course.level === levelFilter;
+      const matchesDifficulty = difficultyFilter === 'all' ||
+        (course.difficulty_level || course.difficultyLevel)?.toLowerCase() === difficultyFilter.toLowerCase();
+
+      return matchesSearch && matchesCategory && matchesLevel && matchesDifficulty;
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case 'title-asc':
+          return a.title.localeCompare(b.title);
+        case 'title-desc':
+          return b.title.localeCompare(a.title);
+        case 'difficulty-asc': {
+          const difficultyOrder: Record<string, number> = { beginner: 1, intermediate: 2, advanced: 3 };
+          const aDiff = (a.difficulty_level || a.difficultyLevel)?.toLowerCase();
+          const bDiff = (b.difficulty_level || b.difficultyLevel)?.toLowerCase();
+          const aOrder = aDiff ? (difficultyOrder[aDiff] ?? 999) : 999;
+          const bOrder = bDiff ? (difficultyOrder[bDiff] ?? 999) : 999;
+          return aOrder - bOrder;
+        }
+        case 'difficulty-desc': {
+          const difficultyOrder: Record<string, number> = { beginner: 1, intermediate: 2, advanced: 3 };
+          const aDiff = (a.difficulty_level || a.difficultyLevel)?.toLowerCase();
+          const bDiff = (b.difficulty_level || b.difficultyLevel)?.toLowerCase();
+          const aOrder = aDiff ? (difficultyOrder[aDiff] ?? 0) : 0;
+          const bOrder = bDiff ? (difficultyOrder[bDiff] ?? 0) : 0;
+          return bOrder - aOrder;
+        }
+        case 'hours-asc': {
+          const aHours = a.estimated_hours || a.estimatedHours || 999;
+          const bHours = b.estimated_hours || b.estimatedHours || 999;
+          return aHours - bHours;
+        }
+        case 'hours-desc': {
+          const aHours = a.estimated_hours || a.estimatedHours || 0;
+          const bHours = b.estimated_hours || b.estimatedHours || 0;
+          return bHours - aHours;
+        }
+        case 'newest':
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        case 'oldest':
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        default:
+          return 0;
+      }
+    });
   
   return (
     <AppLayout>
@@ -123,7 +169,7 @@ const CourseList = () => {
             />
           </div>
           
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
               <SelectTrigger className="w-[180px]">
                 <Filter className="h-4 w-4 mr-2" />
@@ -138,7 +184,7 @@ const CourseList = () => {
                 ))}
               </SelectContent>
             </Select>
-            
+
             <Select value={levelFilter} onValueChange={setLevelFilter}>
               <SelectTrigger className="w-[180px]">
                 <Filter className="h-4 w-4 mr-2" />
@@ -151,6 +197,36 @@ const CourseList = () => {
                     {level}
                   </SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
+              <SelectTrigger className="w-[180px]">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Difficulty" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Difficulties</SelectItem>
+                <SelectItem value="beginner">Beginner</SelectItem>
+                <SelectItem value="intermediate">Intermediate</SelectItem>
+                <SelectItem value="advanced">Advanced</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="w-[180px]">
+                <ArrowUpDown className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="newest">Newest First</SelectItem>
+                <SelectItem value="oldest">Oldest First</SelectItem>
+                <SelectItem value="title-asc">Title (A-Z)</SelectItem>
+                <SelectItem value="title-desc">Title (Z-A)</SelectItem>
+                <SelectItem value="difficulty-asc">Difficulty (Easy First)</SelectItem>
+                <SelectItem value="difficulty-desc">Difficulty (Hard First)</SelectItem>
+                <SelectItem value="hours-asc">Duration (Shortest First)</SelectItem>
+                <SelectItem value="hours-desc">Duration (Longest First)</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -178,9 +254,9 @@ const CourseList = () => {
                   Try Again
                 </Button>
               </div>
-            ) : filteredCourses.length > 0 ? (
+            ) : filteredAndSortedCourses.length > 0 ? (
               <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                {filteredCourses.map((course) => (
+                {filteredAndSortedCourses.map((course) => (
                   <div key={course.id} className="relative cursor-pointer" onClick={() => handleCourseClick(course.id)}>
                     <CourseCard course={course} />
                     <div className="mt-2">
@@ -197,6 +273,8 @@ const CourseList = () => {
                   setSearchQuery('');
                   setCategoryFilter('all');
                   setLevelFilter('all');
+                  setDifficultyFilter('all');
+                  setSortBy('newest');
                 }}>
                   Clear Filters
                 </Button>

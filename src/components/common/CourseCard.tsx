@@ -4,8 +4,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Heart } from 'lucide-react';
+import { Heart, Clock, TrendingUp, Award, Target } from 'lucide-react';
 import { Course } from '@/types';
+import { CourseDifficulty } from '@/types/course';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -17,6 +18,36 @@ import {
 import { createLogger } from '@/utils/logger';
 
 const logger = createLogger('CourseCard');
+
+// Helper function to get difficulty icon and color
+const getDifficultyConfig = (difficulty?: CourseDifficulty | string) => {
+  switch (difficulty?.toLowerCase()) {
+    case 'beginner':
+      return {
+        icon: Target,
+        color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+        label: 'Beginner'
+      };
+    case 'intermediate':
+      return {
+        icon: TrendingUp,
+        color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+        label: 'Intermediate'
+      };
+    case 'advanced':
+      return {
+        icon: Award,
+        color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+        label: 'Advanced'
+      };
+    default:
+      return {
+        icon: Target,
+        color: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200',
+        label: difficulty || 'Not specified'
+      };
+  }
+};
 
 interface CourseCardProps {
   course: Course;
@@ -177,11 +208,34 @@ const CourseCard: React.FC<CourseCardProps> = ({
           </div>
           
           <h3 className="text-lg font-semibold mb-2 line-clamp-2">{course.title}</h3>
-          
+
           <p className="text-muted-foreground text-sm mb-4 line-clamp-2">
             {course.description}
           </p>
-          
+
+          {/* Difficulty and Estimated Hours */}
+          <div className="flex flex-wrap gap-2 mb-3">
+            {(course.difficulty_level || course.difficultyLevel) && (() => {
+              const difficulty = course.difficulty_level || course.difficultyLevel;
+              const config = getDifficultyConfig(difficulty);
+              const DifficultyIcon = config.icon;
+
+              return (
+                <Badge variant="secondary" className={`${config.color} flex items-center gap-1`}>
+                  <DifficultyIcon className="h-3 w-3" />
+                  {config.label}
+                </Badge>
+              );
+            })()}
+
+            {(course.estimated_hours || course.estimatedHours) && (
+              <Badge variant="outline" className="flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                {(course.estimated_hours || course.estimatedHours).toFixed(1)} hours
+              </Badge>
+            )}
+          </div>
+
           <div className="flex justify-between items-center text-sm">
             <span className="text-primary">{course.level}</span>
             <span>{course.duration}</span>
