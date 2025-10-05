@@ -2,7 +2,7 @@
 FROM node:18-slim
 
 # Set the working directory in the container
-WORKDIR /app
+WORKDIR /workspace
 
 # Install claude-code globally
 RUN npm install -g @anthropic-ai/claude-code

@@ -6,58 +6,29 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Toggle } from '@/components/ui/toggle';
-import { Calendar as CalendarIcon, GraduationCap, BookOpen, FileText } from 'lucide-react';
-
-// Mock calendar events
-const mockEvents = [
-  {
-    id: '1',
-    title: 'Data Science Quiz',
-    date: new Date(2025, 3, 10), // April 10, 2025
-    type: 'quiz',
-    courseId: 'course1',
-    courseName: 'Introduction to Data Science'
-  },
-  {
-    id: '2',
-    title: 'Machine Learning Assignment Due',
-    date: new Date(2025, 3, 15), // April 15, 2025
-    type: 'assignment',
-    courseId: 'course2',
-    courseName: 'Advanced Machine Learning'
-  },
-  {
-    id: '3',
-    title: 'Data Engineering Live Session',
-    date: new Date(2025, 3, 18), // April 18, 2025
-    type: 'event',
-    courseId: 'course3',
-    courseName: 'Data Engineering Fundamentals'
-  },
-  {
-    id: '4',
-    title: 'Business Intelligence Project Deadline',
-    date: new Date(2025, 3, 20), // April 20, 2025
-    type: 'assignment',
-    courseId: 'course4',
-    courseName: 'Business Intelligence with Power BI'
-  },
-  {
-    id: '5',
-    title: 'NLP Course Final Exam',
-    date: new Date(2025, 3, 25), // April 25, 2025
-    type: 'quiz',
-    courseId: 'course5',
-    courseName: 'Natural Language Processing'
-  }
-];
+import { Calendar as CalendarIcon, GraduationCap, BookOpen, FileText, Clock } from 'lucide-react';
+import { useUserCalendar } from '@/hooks/useCourseCalendar';
+import { useAuth } from '@/hooks/use-auth';
+import { format, isSameDay, isAfter } from 'date-fns';
+import { Link } from 'react-router-dom';
 
 const CalendarPage = () => {
+  const { user } = useAuth();
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [activeFilters, setActiveFilters] = useState({
     quiz: true,
     assignment: true,
-    event: true
+    event: true,
+    announcement: true
+  });
+  
+  // Fetch user's calendar events
+  const filterTypes = Object.entries(activeFilters)
+    .filter(([_, enabled]) => enabled)
+    .map(([type, _]) => type);
+
+  const { events = [], isLoading } = useUserCalendar(user?.id, {
+    types: filterTypes,
   });
   
   const toggleFilter = (filter: keyof typeof activeFilters) => {
@@ -67,31 +38,41 @@ const CalendarPage = () => {
     }));
   };
   
-  // Filter events based on selected date and active filters
-  const eventsForSelectedDate = mockEvents.filter(event => {
-    const isSameDay = date && 
-      event.date.getDate() === date.getDate() &&
-      event.date.getMonth() === date.getMonth() &&
-      event.date.getFullYear() === date.getFullYear();
-    
-    return isSameDay && activeFilters[event.type as keyof typeof activeFilters];
+  // Filter events based on selected date
+  const eventsForSelectedDate = events.filter(event => {
+    return date && isSameDay(new Date(event.start_date), date);
   });
   
   // Get all upcoming events (filtered)
-  const upcomingEvents = mockEvents
-    .filter(event => {
-      const isUpcoming = event.date >= new Date();
-      return isUpcoming && activeFilters[event.type as keyof typeof activeFilters];
-    })
-    .sort((a, b) => a.date.getTime() - b.date.getTime());
+  const upcomingEvents = events
+    .filter(event => isAfter(new Date(event.start_date), new Date()))
+    .sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime());
   
-  // Function to get date with events - corrected to return boolean
-  const getDatesWithEvents = (date: Date): boolean => {
-    return mockEvents.some(event => 
-      event.date.getDate() === date.getDate() &&
-      event.date.getMonth() === date.getMonth() &&
-      event.date.getFullYear() === date.getFullYear()
+  // Function to get date with events
+  const getDatesWithEvents = (checkDate: Date): boolean => {
+    return events.some(event => 
+      isSameDay(new Date(event.start_date), checkDate)
     );
+  };
+
+  const getEventColor = (type: string) => {
+    switch (type) {
+      case 'assignment': return 'bg-blue-100 text-blue-800';
+      case 'quiz': return 'bg-purple-100 text-purple-800';
+      case 'event': return 'bg-green-100 text-green-800';
+      case 'announcement': return 'bg-orange-100 text-orange-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getNavigationUrl = (event: any) => {
+    if (event.type === 'assignment' && event.related_id) {
+      return `/courses/${event.course_id}/assignments/${event.related_id}`;
+    }
+    if (event.type === 'quiz' && event.related_id) {
+      return `/courses/${event.course_id}/quizzes/${event.related_id}`;
+    }
+    return `/courses/${event.course_id}/calendar`;
   };
   
   return (
@@ -127,7 +108,15 @@ const CalendarPage = () => {
             className="data-[state=on]:bg-primary/20"
           >
             <GraduationCap className="h-4 w-4 mr-2" />
-            Live Sessions
+            Events
+          </Toggle>
+          <Toggle 
+            pressed={activeFilters.announcement} 
+            onPressedChange={() => toggleFilter('announcement')}
+            className="data-[state=on]:bg-primary/20"
+          >
+            <CalendarIcon className="h-4 w-4 mr-2" />
+            Announcements
           </Toggle>
         </div>
         
@@ -162,23 +151,46 @@ const CalendarPage = () => {
                   {date ? date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : 'Select a date'}
                 </h2>
                 
-                {eventsForSelectedDate.length > 0 ? (
+                {isLoading ? (
                   <div className="space-y-3">
-                    {eventsForSelectedDate.map(event => (
-                      <Card key={event.id}>
+                    {[1, 2, 3].map(i => (
+                      <Card key={i}>
                         <CardContent className="p-4">
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <h3 className="font-medium">{event.title}</h3>
-                              <p className="text-sm text-muted-foreground">{event.courseName}</p>
-                            </div>
-                            <Badge>
-                              {event.type === 'quiz' ? 'Quiz' : 
-                               event.type === 'assignment' ? 'Assignment' : 'Live Session'}
-                            </Badge>
+                          <div className="animate-pulse">
+                            <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                            <div className="h-3 bg-gray-200 rounded w-1/2"></div>
                           </div>
                         </CardContent>
                       </Card>
+                    ))}
+                  </div>
+                ) : eventsForSelectedDate.length > 0 ? (
+                  <div className="space-y-3">
+                    {eventsForSelectedDate.map(event => (
+                      <Link key={event.id} to={getNavigationUrl(event)}>
+                        <Card className="hover:shadow-md transition-shadow">
+                          <CardContent className="p-4">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <h3 className="font-medium">{event.title}</h3>
+                                <p className="text-sm text-muted-foreground">{event.course_title}</p>
+                                {event.description && (
+                                  <p className="text-xs text-gray-500 mt-1 line-clamp-2">{event.description}</p>
+                                )}
+                                <div className="flex items-center gap-2 mt-2">
+                                  <Clock className="h-3 w-3 text-gray-400" />
+                                  <span className="text-xs text-gray-500">
+                                    {format(new Date(event.start_date), 'h:mm a')}
+                                  </span>
+                                </div>
+                              </div>
+                              <Badge className={getEventColor(event.type)}>
+                                {event.type}
+                              </Badge>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </Link>
                     ))}
                   </div>
                 ) : (
@@ -189,31 +201,47 @@ const CalendarPage = () => {
               <TabsContent value="upcoming" className="space-y-4 mt-4">
                 <h2 className="text-xl font-medium">Upcoming Events</h2>
                 
-                {upcomingEvents.length > 0 ? (
+                {isLoading ? (
                   <div className="space-y-3">
-                    {upcomingEvents.slice(0, 5).map(event => (
-                      <Card key={event.id}>
+                    {[1, 2, 3, 4, 5].map(i => (
+                      <Card key={i}>
                         <CardContent className="p-4">
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <h3 className="font-medium">{event.title}</h3>
-                              <p className="text-sm text-muted-foreground">{event.courseName}</p>
-                              <div className="flex items-center text-sm text-muted-foreground mt-1">
-                                <CalendarIcon className="h-3 w-3 mr-1" />
-                                {event.date.toLocaleDateString('en-US', { 
-                                  weekday: 'short',
-                                  month: 'short', 
-                                  day: 'numeric'
-                                })}
-                              </div>
-                            </div>
-                            <Badge>
-                              {event.type === 'quiz' ? 'Quiz' : 
-                               event.type === 'assignment' ? 'Assignment' : 'Live Session'}
-                            </Badge>
+                          <div className="animate-pulse">
+                            <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                            <div className="h-3 bg-gray-200 rounded w-1/2 mb-2"></div>
+                            <div className="h-3 bg-gray-200 rounded w-1/3"></div>
                           </div>
                         </CardContent>
                       </Card>
+                    ))}
+                  </div>
+                ) : upcomingEvents.length > 0 ? (
+                  <div className="space-y-3">
+                    {upcomingEvents.slice(0, 10).map(event => (
+                      <Link key={event.id} to={getNavigationUrl(event)}>
+                        <Card className="hover:shadow-md transition-shadow">
+                          <CardContent className="p-4">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <h3 className="font-medium">{event.title}</h3>
+                                <p className="text-sm text-muted-foreground">{event.course_title}</p>
+                                {event.description && (
+                                  <p className="text-xs text-gray-500 mt-1 line-clamp-2">{event.description}</p>
+                                )}
+                                <div className="flex items-center text-sm text-muted-foreground mt-2">
+                                  <CalendarIcon className="h-3 w-3 mr-1" />
+                                  {format(new Date(event.start_date), 'EEE, MMM d')}
+                                  <Clock className="h-3 w-3 ml-2 mr-1" />
+                                  {format(new Date(event.start_date), 'h:mm a')}
+                                </div>
+                              </div>
+                              <Badge className={getEventColor(event.type)}>
+                                {event.type}
+                              </Badge>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </Link>
                     ))}
                   </div>
                 ) : (

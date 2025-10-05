@@ -18,8 +18,7 @@ import {
   Plus,
   Filter
 } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useCourseCalendar, useCalendarEventMutations } from '@/hooks/useCourseCalendar';
 import { CourseCalendarEvent } from '@/types/course';
 import { format, isAfter, isBefore, isToday, isSameDay, startOfMonth, endOfMonth } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -48,101 +47,15 @@ const CourseCalendar = () => {
     event: true,
   });
 
-  // Fetch calendar events for the course
-  const { data: events = [], isLoading } = useQuery({
-    queryKey: ['course-calendar', courseId, date],
-    queryFn: async () => {
-      if (!courseId || !date) return [];
+  // Fetch calendar events using the new service
+  const filterTypes = Object.entries(activeFilters)
+    .filter(([_, enabled]) => enabled)
+    .map(([type, _]) => type);
 
-      const monthStart = startOfMonth(date);
-      const monthEnd = endOfMonth(date);
-
-      // Fetch assignments
-      const { data: assignments } = await supabase
-        .from('assignments')
-        .select(`
-          id,
-          title,
-          due_date,
-          points,
-          module:modules(title)
-        `)
-        .eq('course_id', courseId)
-        .gte('due_date', monthStart.toISOString())
-        .lte('due_date', monthEnd.toISOString());
-
-      // Fetch quizzes - join through content_items to get course relationship
-      const { data: quizzes } = await supabase
-        .from('quizzes')
-        .select(`
-          id,
-          title,
-          unlock_at,
-          lock_at,
-          points_possible,
-          content_items!inner(course_id, module_id),
-          module:content_items(module:modules(title))
-        `)
-        .eq('content_items.course_id', courseId);
-
-      // Fetch course info
-      const { data: course } = await supabase
-        .from('courses')
-        .select('title')
-        .eq('id', courseId)
-        .single();
-
-      const calendarEvents: CourseCalendarEvent[] = [];
-
-      // Convert assignments to events
-      assignments?.forEach(assignment => {
-        if (assignment.due_date) {
-          calendarEvents.push({
-            id: `assignment-${assignment.id}`,
-            title: assignment.title,
-            description: `Due: ${assignment.points || 0} points`,
-            start_date: assignment.due_date,
-            type: 'assignment',
-            course_id: courseId,
-            course_title: course?.title || '',
-            related_id: assignment.id,
-          });
-        }
-      });
-
-      // Convert quizzes to events
-      quizzes?.forEach(quiz => {
-        if (quiz.unlock_at) {
-          calendarEvents.push({
-            id: `quiz-${quiz.id}-start`,
-            title: `${quiz.title} Opens`,
-            description: `Quiz opens: ${quiz.points_possible || 0} points`,
-            start_date: quiz.unlock_at,
-            type: 'quiz',
-            course_id: courseId,
-            course_title: course?.title || '',
-            related_id: quiz.id,
-          });
-        }
-        if (quiz.lock_at) {
-          calendarEvents.push({
-            id: `quiz-${quiz.id}-end`,
-            title: `${quiz.title} Closes`,
-            description: `Quiz closes: ${quiz.points_possible || 0} points`,
-            start_date: quiz.lock_at,
-            type: 'quiz',
-            course_id: courseId,
-            course_title: course?.title || '',
-            related_id: quiz.id,
-          });
-        }
-      });
-
-      return calendarEvents.sort((a, b) => 
-        new Date(a.start_date).getTime() - new Date(b.start_date).getTime()
-      );
-    },
-    enabled: !!courseId,
+  const { events = [], isLoading } = useCourseCalendar(courseId, {
+    types: filterTypes,
+    startDate: date ? startOfMonth(date) : undefined,
+    endDate: date ? endOfMonth(date) : undefined,
   });
 
   const toggleFilter = (filter: keyof typeof activeFilters) => {
