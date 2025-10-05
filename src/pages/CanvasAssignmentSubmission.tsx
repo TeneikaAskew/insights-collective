@@ -56,16 +56,40 @@ export default function CanvasAssignmentSubmission() {
   }, [contentItemId]);
 
   const loadAssignmentData = async () => {
-    if (!contentItemId || !user) return;
+    if (!contentItemId || !user) {
+      logger.warn('Missing contentItemId or user', { contentItemId, userId: user?.id });
+      return;
+    }
 
     try {
       setLoading(true);
-      
-      // Load assignment details
+
+      logger.info('Loading assignment data for content item:', contentItemId);
+
+      // Load assignment details using the content item ID
       const item = await CanvasContentService.getContentItem(contentItemId);
-      if (!item || item.type !== 'assignment') {
+
+      if (!item) {
+        logger.error('Content item not found:', contentItemId);
         throw new Error('Assignment not found');
       }
+
+      if (item.type !== 'assignment') {
+        logger.error('Content item is not an assignment:', { type: item.type, id: contentItemId });
+        throw new Error('This is not an assignment');
+      }
+
+      if (!item.assignment) {
+        logger.error('Assignment data missing for content item:', contentItemId);
+        throw new Error('Assignment details not found');
+      }
+
+      logger.info('Assignment loaded successfully:', {
+        contentItemId: item.id,
+        assignmentId: item.assignment.id,
+        title: item.title
+      });
+
       setContentItem(item);
 
       // Load existing submission

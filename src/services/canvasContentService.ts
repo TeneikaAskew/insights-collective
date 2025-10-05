@@ -40,26 +40,58 @@ export class CanvasContentService {
   }
 
   static async getContentItem(id: string): Promise<ContentItem | null> {
-    const { data, error } = await supabase
-      .from('content_items')
-      .select(`
-        *,
-        assignment:assignments!content_item_id(*),
-        quiz:quizzes!content_item_id(*, questions:quiz_questions(*))
-      `)
-      .eq('id', id)
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('content_items')
+        .select(`
+          *,
+          assignment:assignments!content_item_id(*),
+          quiz:quizzes!content_item_id(*, questions:quiz_questions(*))
+        `)
+        .eq('id', id)
+        .single();
 
-    if (error) throw error;
-    
-    if (!data) return null;
-    
-    // Transform the data to ensure assignment and quiz are single objects, not arrays
-    return {
-      ...data,
-      assignment: Array.isArray(data.assignment) && data.assignment.length > 0 ? data.assignment[0] : data.assignment,
-      quiz: Array.isArray(data.quiz) && data.quiz.length > 0 ? data.quiz[0] : data.quiz
-    };
+      if (error) {
+        console.error('Error fetching content item:', { id, error });
+        throw new Error(`Failed to load content item: ${error.message}`);
+      }
+
+      if (!data) {
+        console.warn('Content item not found:', id);
+        return null;
+      }
+
+      // Transform the data to ensure assignment and quiz are single objects, not arrays
+      const transformedItem = {
+        ...data,
+        assignment: Array.isArray(data.assignment) && data.assignment.length > 0 ? data.assignment[0] : data.assignment,
+        quiz: Array.isArray(data.quiz) && data.quiz.length > 0 ? data.quiz[0] : data.quiz
+      };
+
+      // Validate assignment data if it's an assignment type
+      if (transformedItem.type === 'assignment' && !transformedItem.assignment) {
+        console.error('Assignment data missing for assignment content item:', id);
+        throw new Error('Assignment details are missing. Please contact your instructor.');
+      }
+
+      // Validate quiz data if it's a quiz type
+      if (transformedItem.type === 'quiz' && !transformedItem.quiz) {
+        console.error('Quiz data missing for quiz content item:', id);
+        throw new Error('Quiz details are missing. Please contact your instructor.');
+      }
+
+      console.log('Content item loaded successfully:', {
+        id: transformedItem.id,
+        type: transformedItem.type,
+        hasAssignment: !!transformedItem.assignment,
+        hasQuiz: !!transformedItem.quiz
+      });
+
+      return transformedItem;
+    } catch (error) {
+      console.error('Exception in getContentItem:', error);
+      throw error;
+    }
   }
 
   static async createContentItem(input: CreateContentItemInput): Promise<ContentItem> {
