@@ -73,30 +73,18 @@ export default function CanvasAssignmentSubmission() {
         logger.error('Content item not found:', contentItemId);
         throw new Error('Assignment not found');
       }
-
-      if (item.type !== 'assignment') {
-        logger.error('Content item is not an assignment:', { type: item.type, id: contentItemId });
-        throw new Error('This is not an assignment');
+      
+      if (!item.assignment?.id) {
+        throw new Error('Assignment data not loaded. Please contact your instructor.');
       }
-
-      if (!item.assignment) {
-        logger.error('Assignment data missing for content item:', contentItemId);
-        throw new Error('Assignment details not found');
-      }
-
-      logger.info('Assignment loaded successfully:', {
-        contentItemId: item.id,
-        assignmentId: item.assignment.id,
-        title: item.title
-      });
-
+      
       setContentItem(item);
 
       // Load existing submission
       const { data: submissions, error } = await supabase
         .from('assignment_submissions')
         .select('*')
-        .eq('assignment_id', item.assignment?.id)
+        .eq('assignment_id', item.assignment.id)
         .eq('user_id', user.id)
         .order('attempt', { ascending: false })
         .limit(1);

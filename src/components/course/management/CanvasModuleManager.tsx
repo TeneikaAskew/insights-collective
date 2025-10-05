@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -22,7 +23,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Plus, BookOpen, Clock, Settings, ChevronRight, Edit, Trash2, GripVertical } from 'lucide-react';
+import { Plus, BookOpen, Clock, Settings, ChevronRight, Edit, Trash2, GripVertical, Eye, EyeOff } from 'lucide-react';
 import { UnifiedCanvasEditor } from '@/components/ui/unified-canvas-editor';
 import { CanvasModuleContent } from '../canvas/CanvasModuleContent';
 import { Module } from '@/types/canvas';
@@ -45,7 +46,8 @@ export function CanvasModuleManager({ courseId, courseDuration }: CanvasModuleMa
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    week: 1
+    week: 1,
+    published: true
   });
 
   useEffect(() => {
@@ -91,6 +93,7 @@ export function CanvasModuleManager({ courseId, courseDuration }: CanvasModuleMa
             title: formData.title,
             description: formData.description,
             week: formData.week,
+            published: formData.published,
             updated_at: new Date().toISOString()
           })
           .eq('id', editingModule.id);
@@ -110,6 +113,7 @@ export function CanvasModuleManager({ courseId, courseDuration }: CanvasModuleMa
             title: formData.title,
             description: formData.description,
             week: formData.week,
+            published: formData.published,
             position: modules.length
           })
           .select()
@@ -219,7 +223,8 @@ export function CanvasModuleManager({ courseId, courseDuration }: CanvasModuleMa
     setFormData({
       title: module.title,
       description: module.description || '',
-      week: module.week
+      week: module.week,
+      published: module.published ?? true
     });
     setShowAddDialog(true);
   };
@@ -228,9 +233,37 @@ export function CanvasModuleManager({ courseId, courseDuration }: CanvasModuleMa
     setFormData({
       title: '',
       description: '',
-      week: modules.length + 1
+      week: modules.length + 1,
+      published: true
     });
     setEditingModule(null);
+  };
+
+  const toggleModulePublished = async (module: Module) => {
+    try {
+      const newPublishedStatus = !module.published;
+      const { error } = await supabase
+        .from('modules')
+        .update({ published: newPublishedStatus, updated_at: new Date().toISOString() })
+        .eq('id', module.id);
+
+      if (error) throw error;
+
+      toast({
+        title: newPublishedStatus ? 'Module published' : 'Module unpublished',
+        description: newPublishedStatus
+          ? 'Students can now see this module'
+          : 'Module is now hidden from students'
+      });
+
+      loadModules();
+    } catch (error: any) {
+      toast({
+        title: 'Error updating module',
+        description: error.message,
+        variant: 'destructive'
+      });
+    }
   };
 
   if (loading) {
@@ -308,12 +341,40 @@ export function CanvasModuleManager({ courseId, courseDuration }: CanvasModuleMa
                                   >
                                     <div className="flex justify-between items-start">
                                       <div>
-                                        <Badge variant="secondary" className="mb-2">
-                                          Week {module.week}
-                                        </Badge>
+                                        <div className="flex gap-2 mb-2">
+                                          <Badge variant="secondary">
+                                            Week {module.week}
+                                          </Badge>
+                                          {module.published === false ? (
+                                            <Badge variant="outline" className="text-muted-foreground">
+                                              <EyeOff className="h-3 w-3 mr-1" />
+                                              Unpublished
+                                            </Badge>
+                                          ) : (
+                                            <Badge variant="default" className="bg-green-600">
+                                              <Eye className="h-3 w-3 mr-1" />
+                                              Published
+                                            </Badge>
+                                          )}
+                                        </div>
                                         <CardTitle className="text-lg">{module.title}</CardTitle>
                                       </div>
                                       <div className="flex gap-1">
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            toggleModulePublished(module);
+                                          }}
+                                          title={module.published === false ? 'Publish module' : 'Unpublish module'}
+                                        >
+                                          {module.published === false ? (
+                                            <Eye className="h-4 w-4" />
+                                          ) : (
+                                            <EyeOff className="h-4 w-4" />
+                                          )}
+                                        </Button>
                                         <Button
                                           variant="ghost"
                                           size="sm"
@@ -443,6 +504,24 @@ export function CanvasModuleManager({ courseId, courseDuration }: CanvasModuleMa
                 minHeight="200px"
                 showAdvancedFeatures={false}
               />
+            </div>
+
+            <div className="flex items-center space-x-2 pt-4 border-t">
+              <Checkbox
+                id="published"
+                checked={formData.published}
+                onCheckedChange={(checked) => setFormData({ ...formData, published: checked as boolean })}
+              />
+              <div className="space-y-1">
+                <Label htmlFor="published" className="cursor-pointer font-medium">
+                  Publish this module
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  {formData.published
+                    ? 'Students can see this module and its content'
+                    : 'Module will be hidden from students until published'}
+                </p>
+              </div>
             </div>
           </div>
 
