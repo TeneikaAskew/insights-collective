@@ -79,8 +79,23 @@ export function useCoursesManagement() {
         } : undefined,
       }));
 
-      logger.log('Transformed courses with enrollment counts:', transformedCourses);
-      setCourses(transformedCourses);
+      // Filter courses based on user role
+      const { data: userProfile } = await supabase
+        .from('profiles')
+        .select('roles')
+        .eq('id', user.id)
+        .single();
+
+      const isAdmin = userProfile?.roles?.includes('admin');
+
+      // Admins see all courses, instructors see only their courses
+      const filteredCourses = isAdmin
+        ? transformedCourses
+        : transformedCourses.filter(c => c.instructor_id === user.id);
+
+      logger.log('User is admin:', isAdmin);
+      logger.log('Filtered courses for user:', filteredCourses);
+      setCourses(filteredCourses);
     } catch (err: any) {
       logger.error('Error fetching courses:', err);
       setError(err.message);

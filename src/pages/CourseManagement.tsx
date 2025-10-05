@@ -1,11 +1,14 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import CourseDetails from '@/components/course/management/CourseDetails';
 import CourseStudents from '@/components/course/management/CourseStudents';
 import CourseAnalytics from '@/components/course/management/CourseAnalytics';
 import CourseSettings from '@/components/course/management/CourseSettings';
+import CanvasModuleManager from '@/components/course/management/CanvasModuleManager';
+import { AssignmentManager } from '@/components/course/management/AssignmentManager';
+import { QuizManager } from '@/components/course/management/QuizManager';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useCourseData } from '@/hooks/useCourseData';
 import { Button } from '@/components/ui/button';
@@ -14,21 +17,33 @@ import { Link } from 'react-router-dom';
 import { Spinner } from '@/components/ui/spinner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { withCourseEditPermission } from '@/components/course/withCoursePermission';
+import { supabase } from '@/integrations/supabase/client';
 
 function CourseManagement() {
   const { courseId } = useParams<{ courseId: string }>();
   const { course, isLoading, error } = useCourseData(courseId);
   const [activeTab, setActiveTab] = useState('details');
+  const [modules, setModules] = useState<Array<{ id: string; title: string }>>([]);
   const navigate = useNavigate();
 
-  // Handle tab change to redirect to materials page when content tab is clicked
-  const handleTabChange = (value: string) => {
-    if (value === 'content') {
-      navigate(`/courses/${courseId}/manage-materials`);
-      return;
-    }
-    setActiveTab(value);
-  };
+  // Fetch modules for assignment/quiz assignment
+  useEffect(() => {
+    const fetchModules = async () => {
+      if (!courseId) return;
+
+      const { data, error } = await supabase
+        .from('modules')
+        .select('id, title')
+        .eq('course_id', courseId)
+        .order('position');
+
+      if (data && !error) {
+        setModules(data);
+      }
+    };
+
+    fetchModules();
+  }, [courseId]);
 
   if (isLoading) {
     return (
@@ -90,10 +105,12 @@ function CourseManagement() {
             </div>
           </div>
 
-        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="mb-6">
             <TabsTrigger value="details">Course Details</TabsTrigger>
-            <TabsTrigger value="content">Materials</TabsTrigger>
+            <TabsTrigger value="content">Content</TabsTrigger>
+            <TabsTrigger value="assignments">Assignments</TabsTrigger>
+            <TabsTrigger value="quizzes">Quizzes</TabsTrigger>
             <TabsTrigger value="students">Students</TabsTrigger>
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
@@ -103,7 +120,20 @@ function CourseManagement() {
             <CourseDetails course={course} />
           </TabsContent>
 
-          {/* Content tab is handled by redirect in handleTabChange */}
+          <TabsContent value="content" className="w-full">
+            <CanvasModuleManager
+              courseId={courseId!}
+              courseDuration={parseInt(course.duration?.toString() || '12')}
+            />
+          </TabsContent>
+
+          <TabsContent value="assignments" className="w-full">
+            <AssignmentManager courseId={courseId!} modules={modules} />
+          </TabsContent>
+
+          <TabsContent value="quizzes" className="w-full">
+            <QuizManager courseId={courseId!} modules={modules} />
+          </TabsContent>
 
           <TabsContent value="students" className="w-full">
             <CourseStudents courseId={courseId} />

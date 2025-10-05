@@ -224,7 +224,6 @@ function App() {
                      <Route path="/courses/:courseId/certificate" element={<CourseCertificate />} />
                      <Route path="/courses/:courseId/calendar" element={<CourseCalendar />} />
                      <Route path="/courses/:courseId/people" element={<CourseDetail />} />
-                     <Route path="/courses/:courseId/edit" element={<CourseEdit />} />
                      <Route path="/courses/:courseId/management" element={<CourseManagement />} />
                      <Route path="/courses/:courseId/manage-materials" element={<CourseManageMaterials />} />
                      <Route path="/courses/:courseId/organize" element={<CourseOrganizer />} />

@@ -57,7 +57,7 @@ export default function AdminCourses() {
   const navigate = useNavigate();
 
   const handleEditCourse = (course: Course) => {
-    navigate(`/course/${course.id}/management`);
+    navigate(`/courses/${course.id}/management`);
   };
 
   const handleDeleteCourse = async (course: Course) => {
@@ -82,9 +82,9 @@ export default function AdminCourses() {
         status: 'draft',
         published: false,
       });
-      
+
       if (newCourse?.id) {
-        navigate(`/course/${newCourse.id}/management`);
+        navigate(`/courses/${newCourse.id}/management`);
       }
     } catch (error) {
       toast({
