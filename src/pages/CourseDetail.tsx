@@ -535,7 +535,7 @@ const CourseDetail = () => {
                   </p>
                   <Button asChild className="w-full">
                     <Link to={`/courses/${courseId}/modules`}>
-                      View Modules
+                      View Items
                     </Link>
                   </Button>
                 </CardContent>

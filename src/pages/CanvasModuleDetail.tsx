@@ -109,8 +109,21 @@ const CanvasModuleDetail = () => {
       if (courseError) throw courseError;
       setCourse(courseData);
 
-      // Check user role early
-      const isInstructor = user?.roles?.includes('instructor') || user?.roles?.includes('admin');
+      // Check user role early - use RPC for reliable role checking
+      logger.info('Current user roles:', user?.roles);
+      
+      const { data: hasInstructorAccess } = await supabase
+        .rpc('is_course_instructor', { 
+          user_id_param: user?.id, 
+          course_id_param: courseId 
+        });
+      
+      const { data: hasAdminAccess } = await supabase
+        .rpc('has_admin_access', { user_id_param: user?.id });
+      
+      const isInstructor = hasInstructorAccess || hasAdminAccess;
+      
+      logger.info('Instructor/Admin access check:', { hasInstructorAccess, hasAdminAccess, isInstructor });
 
       // Load module with published filter for non-instructors
       const moduleQuery = supabase

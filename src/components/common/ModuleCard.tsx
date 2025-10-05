@@ -78,7 +78,7 @@ const ModuleCard = ({
               <div className="flex flex-col items-center justify-center p-2 rounded-lg bg-amber-500">
                 <BookOpen className="h-4 w-4 mb-1" />
                 <span className="text-xs">
-                  {loading ? '...' : publishedContentCount} {publishedContentCount === 1 ? 'Activity' : 'Activities'}
+                  {loading ? '...' : publishedContentCount} {publishedContentCount === 1 ? 'Item' : 'Items'}
                 </span>
               </div>
               
