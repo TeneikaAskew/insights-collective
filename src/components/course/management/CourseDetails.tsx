@@ -243,7 +243,7 @@ export default function CourseDetails({ course }: CourseDetailsProps) {
                   />
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
                   <div className="grid gap-2">
                     <Label htmlFor="category">Category</Label>
                     <Select
@@ -261,7 +261,7 @@ export default function CourseDetails({ course }: CourseDetailsProps) {
                       </SelectContent>
                     </Select>
                   </div>
-                  
+
                   <div className="grid gap-2">
                     <Label htmlFor="level">Level</Label>
                     <Select
@@ -280,7 +280,7 @@ export default function CourseDetails({ course }: CourseDetailsProps) {
                   </div>
                 </div>
 
-                <div className="grid gap-2">
+                <div className="grid gap-2 max-w-md">
                   <Label htmlFor="duration">Duration</Label>
                   <Input
                     id="duration"
@@ -296,7 +296,7 @@ export default function CourseDetails({ course }: CourseDetailsProps) {
             {/* Instructor Assignment */}
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Instructor</h3>
-              <div className="grid gap-2">
+              <div className="grid gap-2 max-w-md">
                 <Label htmlFor="instructor">Assign Instructor</Label>
                 <Select
                   value={formData.instructor_id}
@@ -304,7 +304,7 @@ export default function CourseDetails({ course }: CourseDetailsProps) {
                   disabled={loadingInstructors}
                 >
                   <SelectTrigger id="instructor">
-                    <SelectValue 
+                    <SelectValue
                       placeholder={loadingInstructors ? "Loading instructors..." : "Select an instructor"}
                     />
                   </SelectTrigger>
@@ -408,7 +408,7 @@ export default function CourseDetails({ course }: CourseDetailsProps) {
             {/* Course Settings */}
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Course Settings</h3>
-              <div className="grid gap-4">
+              <div className="grid gap-4 max-w-md">
                 <div className="grid gap-2">
                   <Label htmlFor="enrollment_status">Enrollment Status</Label>
                   <Select
@@ -425,7 +425,7 @@ export default function CourseDetails({ course }: CourseDetailsProps) {
                     </SelectContent>
                   </Select>
                 </div>
-                
+
                 <div className="grid gap-2">
                   <Label htmlFor="status">Course Status</Label>
                   <Select
