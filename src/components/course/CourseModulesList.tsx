@@ -93,6 +93,18 @@ export function CourseModulesList({ courseId }: CourseModulesListProps) {
       try {
         setLoading(true);
         
+        // Check if user is instructor or admin
+        const { data: hasInstructorAccess } = await supabase
+          .rpc('is_course_instructor', { 
+            user_id_param: user?.id, 
+            course_id_param: courseId 
+          });
+        
+        const { data: hasAdminAccess } = await supabase
+          .rpc('has_admin_access', { user_id_param: user?.id });
+        
+        const isInstructor = hasInstructorAccess || hasAdminAccess;
+        
         // Fetch modules
         const { data: modulesData, error: modulesError } = await supabase
           .from('modules')
@@ -107,7 +119,7 @@ export function CourseModulesList({ courseId }: CourseModulesListProps) {
         // For each module, fetch content items and calculate progress
         const processedModules = await Promise.all((modulesData || []).map(async (module) => {
           // Fetch content items for this module
-          const { data: contentItems } = await supabase
+          const contentItemsQuery = supabase
             .from('content_items')
             .select(`
               id,
@@ -117,8 +129,14 @@ export function CourseModulesList({ courseId }: CourseModulesListProps) {
               assignment:assignments(id),
               quiz:quizzes(id)
             `)
-            .eq('module_id', module.id)
-            .eq('published', true);
+            .eq('module_id', module.id);
+          
+          // Only filter by published for non-instructors
+          if (!isInstructor) {
+            contentItemsQuery.eq('published', true);
+          }
+          
+          const { data: contentItems } = await contentItemsQuery;
 
           // Calculate progress if user is logged in
           let completionStatus = 0;
