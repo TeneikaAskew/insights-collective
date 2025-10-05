@@ -71,49 +71,52 @@ export function useProgressTracking(courseId?: string, moduleId?: string) {
 
       if (!course) throw new Error('Course not found');
 
-      // Get modules with their content blocks
+      // Get modules
       const { data: modules } = await supabase
         .from('modules')
-        .select(`
-          id, title, week,
-          content_blocks(id, completion_required)
-        `)
+        .select('id, title, week')
         .eq('course_id', courseId)
         .order('week');
 
-      // Get user's progress for all content blocks in this course
-      const contentBlockIds = modules?.flatMap(m => 
-        m.content_blocks?.map(cb => cb.id) || []
-      ) || [];
+      // Get content items for this course
+      const { data: contentItems } = await supabase
+        .from('content_items')
+        .select('id, module_id')
+        .eq('course_id', courseId);
 
+      const contentItemIds = contentItems?.map(item => item.id) || [];
+
+      // Get user's progress using content_item_progressions
       const { data: progressData } = await supabase
-        .from('content_progress')
+        .from('content_item_progressions')
         .select('*')
         .eq('user_id', user.id)
-        .in('content_block_id', contentBlockIds);
+        .in('content_item_id', contentItemIds);
 
       // Calculate module progress
       const moduleProgress: ModuleProgress[] = modules?.map(module => {
-        const moduleBlocks = module.content_blocks || [];
+        const moduleItems = contentItems?.filter(item => item.module_id === module.id) || [];
         const moduleProgressData = progressData?.filter(p => 
-          moduleBlocks.some(cb => cb.id === p.content_block_id)
+          moduleItems.some(item => item.id === p.content_item_id)
         ) || [];
         
-        const completedBlocks = moduleProgressData.filter(p => p.completed).length;
-        const totalTimeSpent = moduleProgressData.reduce((sum, p) => sum + p.time_spent, 0);
+        const completedItems = moduleProgressData.filter(p => 
+          p.workflow_state === 'completed' || p.workflow_state === 'graded'
+        ).length;
+        const totalTimeSpent = 0; // Not tracked in content_item_progressions yet
         const lastAccessed = moduleProgressData.reduce((latest, p) => 
-          !latest || new Date(p.last_accessed_at) > new Date(latest) 
-            ? p.last_accessed_at 
+          !latest || new Date(p.updated_at) > new Date(latest) 
+            ? p.updated_at 
             : latest
         , '');
 
         return {
           module_id: module.id,
           module_title: module.title,
-          total_blocks: moduleBlocks.length,
-          completed_blocks: completedBlocks,
-          completion_percentage: moduleBlocks.length > 0 
-            ? Math.round((completedBlocks / moduleBlocks.length) * 100) 
+          total_blocks: moduleItems.length,
+          completed_blocks: completedItems,
+          completion_percentage: moduleItems.length > 0 
+            ? Math.round((completedItems / moduleItems.length) * 100) 
             : 0,
           time_spent: totalTimeSpent,
           last_accessed: lastAccessed
@@ -154,44 +157,61 @@ export function useProgressTracking(courseId?: string, moduleId?: string) {
     try {
       setLoading(true);
 
-      // Get module info with content blocks
+      // Get module info
       const { data: module } = await supabase
         .from('modules')
-        .select(`
-          id, title,
-          content_blocks(id, title, completion_required)
-        `)
+        .select('id, title')
         .eq('id', moduleId)
         .single();
 
       if (!module) throw new Error('Module not found');
 
-      // Get user's progress for this module's content blocks
-      const contentBlockIds = module.content_blocks?.map(cb => cb.id) || [];
+      // Get content items for this module
+      const { data: contentItems } = await supabase
+        .from('content_items')
+        .select('id, title')
+        .eq('module_id', moduleId);
+
+      const contentItemIds = contentItems?.map(item => item.id) || [];
       
+      // Get user's progress using content_item_progressions
       const { data: progressData } = await supabase
-        .from('content_progress')
+        .from('content_item_progressions')
         .select('*')
         .eq('user_id', user.id)
-        .in('content_block_id', contentBlockIds);
+        .in('content_item_id', contentItemIds);
 
-      setContentProgress(progressData || []);
+      // Map to legacy format for compatibility
+      const legacyProgress = progressData?.map(p => ({
+        id: p.id,
+        user_id: p.user_id,
+        content_block_id: p.content_item_id,
+        completed: p.workflow_state === 'completed' || p.workflow_state === 'graded',
+        completion_percentage: p.workflow_state === 'completed' ? 100 : 0,
+        time_spent: 0,
+        last_accessed_at: p.updated_at,
+        completed_at: p.workflow_state === 'completed' ? p.updated_at : undefined
+      })) || [];
 
-      const completedBlocks = progressData?.filter(p => p.completed).length || 0;
-      const totalTimeSpent = progressData?.reduce((sum, p) => sum + p.time_spent, 0) || 0;
+      setContentProgress(legacyProgress as any);
+
+      const completedItems = progressData?.filter(p => 
+        p.workflow_state === 'completed' || p.workflow_state === 'graded'
+      ).length || 0;
+      const totalTimeSpent = 0;
       const lastAccessed = progressData?.reduce((latest, p) => 
-        !latest || new Date(p.last_accessed_at) > new Date(latest) 
-          ? p.last_accessed_at 
+        !latest || new Date(p.updated_at) > new Date(latest) 
+          ? p.updated_at 
           : latest
       , '') || '';
 
       setModuleProgress({
         module_id: moduleId,
         module_title: module.title,
-        total_blocks: module.content_blocks?.length || 0,
-        completed_blocks: completedBlocks,
-        completion_percentage: module.content_blocks?.length 
-          ? Math.round((completedBlocks / module.content_blocks.length) * 100) 
+        total_blocks: contentItems?.length || 0,
+        completed_blocks: completedItems,
+        completion_percentage: contentItems?.length 
+          ? Math.round((completedItems / contentItems.length) * 100) 
           : 0,
         time_spent: totalTimeSpent,
         last_accessed: lastAccessed
@@ -210,7 +230,7 @@ export function useProgressTracking(courseId?: string, moduleId?: string) {
   };
 
   const updateContentProgress = async (
-    contentBlockId: string, 
+    contentItemId: string, 
     completed: boolean, 
     completionPercentage: number = 0,
     timeSpent: number = 0
@@ -218,38 +238,40 @@ export function useProgressTracking(courseId?: string, moduleId?: string) {
     if (!user) return false;
 
     try {
-      const updateData = {
-        user_id: user.id,
-        content_block_id: contentBlockId,
-        completed,
-        completion_percentage: completionPercentage,
-        time_spent: timeSpent,
-        last_accessed_at: new Date().toISOString(),
-        ...(completed && { completed_at: new Date().toISOString() })
-      };
+      const workflowState = completed ? 'completed' : 'unread';
 
       const { error } = await supabase
-        .from('content_progress')
-        .upsert(updateData, { 
-          onConflict: 'user_id,content_block_id' 
+        .from('content_item_progressions')
+        .upsert({
+          user_id: user.id,
+          content_item_id: contentItemId,
+          workflow_state: workflowState
+        }, { 
+          onConflict: 'user_id,content_item_id' 
         });
 
       if (error) throw error;
 
-      // Update local state
+      // Update local state (mapped to legacy format)
       setContentProgress(prev => {
-        const existing = prev.find(p => p.content_block_id === contentBlockId);
+        const existing = prev.find(p => p.content_block_id === contentItemId);
+        const updatedItem = {
+          id: existing?.id || crypto.randomUUID(),
+          user_id: user.id,
+          content_block_id: contentItemId,
+          completed,
+          completion_percentage: completionPercentage,
+          time_spent: timeSpent,
+          last_accessed_at: new Date().toISOString(),
+          ...(completed && { completed_at: new Date().toISOString() })
+        } as ContentProgress;
+
         if (existing) {
           return prev.map(p => 
-            p.content_block_id === contentBlockId 
-              ? { ...p, ...updateData } 
-              : p
+            p.content_block_id === contentItemId ? updatedItem : p
           );
         } else {
-          return [...prev, { 
-            id: crypto.randomUUID(), // Temporary ID
-            ...updateData 
-          } as ContentProgress];
+          return [...prev, updatedItem];
         }
       });
 

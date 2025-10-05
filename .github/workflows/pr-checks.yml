@@ -1,0 +1,63 @@
+name: PR Checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  pr-validation:
+    name: Validate Pull Request
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    
+    - name: Use Node.js 20.x
+      uses: actions/setup-node@v3
+      with:
+        node-version: 20.x
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm install --legacy-peer-deps
+    
+    - name: Get changed files
+      id: changed-files
+      uses: tj-actions/changed-files@v40
+      with:
+        files: |
+          src/**/*.ts
+          src/**/*.tsx
+    
+    - name: Run linter on changed files
+      if: steps.changed-files.outputs.any_changed == 'true'
+      run: npm run lint
+    
+    - name: Run tests
+      run: npm run test -- --run
+    
+    - name: Generate coverage
+      run: npm run test:coverage -- --run
+    
+    - name: Comment PR with coverage
+      uses: davelosert/vitest-coverage-report-action@v2
+      if: always()
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        json-summary-path: ./coverage/coverage-summary.json
+    
+    - name: Check for breaking changes
+      run: |
+        echo "Checking for potential breaking changes..."
+        git diff origin/${{ github.base_ref }} --name-only | grep -E "src/integrations|src/services" || echo "No critical files changed"
+    
+    - name: Build verification
+      run: npm run build
+    
+    - name: Check bundle size
+      uses: andresz1/size-limit-action@v1
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        skip_step: install

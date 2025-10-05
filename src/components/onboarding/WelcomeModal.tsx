@@ -4,11 +4,20 @@ import { Sparkles, Users, TrendingUp, BookOpen, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useOnboarding } from '@/contexts/OnboardingContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const WelcomeModal: React.FC = () => {
   const { isFirstVisit, startTour, skipTour } = useOnboarding();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Don't show modal on course edit pages or other management pages
+  const isManagementPage = location.pathname.includes('/edit') || 
+                          location.pathname.includes('/manage') ||
+                          location.pathname.includes('/settings');
+  
+  // Only show on home page for first-time visitors
+  const shouldShow = isFirstVisit && location.pathname === '/' && !isManagementPage;
 
   const handleStartTour = () => {
     // First close the welcome modal by marking it as dismissed
@@ -30,7 +39,7 @@ const WelcomeModal: React.FC = () => {
 
   return (
     <AnimatePresence>
-      {isFirstVisit && (
+      {shouldShow && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

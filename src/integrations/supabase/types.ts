@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
@@ -2642,50 +2642,107 @@ export type Database = {
           },
         ]
       }
-      question_bank_questions: {
+      question_bank_categories: {
         Row: {
-          answers: Json | null
-          correct_answer: Json | null
+          bank_id: string
           created_at: string | null
-          difficulty: string | null
           id: string
-          points: number | null
-          question_bank_id: string
-          question_text: string
-          question_type: string
-          topic_tags: string[] | null
-          updated_at: string | null
+          name: string
+          parent_id: string | null
         }
         Insert: {
-          answers?: Json | null
-          correct_answer?: Json | null
+          bank_id: string
           created_at?: string | null
-          difficulty?: string | null
           id?: string
-          points?: number | null
-          question_bank_id: string
-          question_text: string
-          question_type?: string
-          topic_tags?: string[] | null
-          updated_at?: string | null
+          name: string
+          parent_id?: string | null
         }
         Update: {
-          answers?: Json | null
-          correct_answer?: Json | null
+          bank_id?: string
           created_at?: string | null
-          difficulty?: string | null
           id?: string
-          points?: number | null
-          question_bank_id?: string
-          question_text?: string
-          question_type?: string
-          topic_tags?: string[] | null
-          updated_at?: string | null
+          name?: string
+          parent_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "question_bank_questions_question_bank_id_fkey"
-            columns: ["question_bank_id"]
+            foreignKeyName: "question_bank_categories_bank_id_fkey"
+            columns: ["bank_id"]
+            isOneToOne: false
+            referencedRelation: "question_banks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_bank_categories_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "question_bank_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      question_bank_questions: {
+        Row: {
+          bank_id: string
+          correct_answer: Json | null
+          created_at: string | null
+          difficulty_level: string | null
+          explanation: string | null
+          feedback: Json | null
+          id: string
+          metadata: Json | null
+          options: Json | null
+          points: number | null
+          question_text: string
+          question_type: string
+          rich_content: Json | null
+          success_rate: number | null
+          topic_tags: string[] | null
+          updated_at: string | null
+          usage_count: number | null
+        }
+        Insert: {
+          bank_id: string
+          correct_answer?: Json | null
+          created_at?: string | null
+          difficulty_level?: string | null
+          explanation?: string | null
+          feedback?: Json | null
+          id?: string
+          metadata?: Json | null
+          options?: Json | null
+          points?: number | null
+          question_text: string
+          question_type: string
+          rich_content?: Json | null
+          success_rate?: number | null
+          topic_tags?: string[] | null
+          updated_at?: string | null
+          usage_count?: number | null
+        }
+        Update: {
+          bank_id?: string
+          correct_answer?: Json | null
+          created_at?: string | null
+          difficulty_level?: string | null
+          explanation?: string | null
+          feedback?: Json | null
+          id?: string
+          metadata?: Json | null
+          options?: Json | null
+          points?: number | null
+          question_text?: string
+          question_type?: string
+          rich_content?: Json | null
+          success_rate?: number | null
+          topic_tags?: string[] | null
+          updated_at?: string | null
+          usage_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_bank_questions_bank_id_fkey"
+            columns: ["bank_id"]
             isOneToOne: false
             referencedRelation: "question_banks"
             referencedColumns: ["id"]
@@ -2699,6 +2756,7 @@ export type Database = {
           created_by: string
           description: string | null
           id: string
+          is_shared: boolean | null
           title: string
           updated_at: string | null
         }
@@ -2708,6 +2766,7 @@ export type Database = {
           created_by: string
           description?: string | null
           id?: string
+          is_shared?: boolean | null
           title: string
           updated_at?: string | null
         }
@@ -2717,6 +2776,7 @@ export type Database = {
           created_by?: string
           description?: string | null
           id?: string
+          is_shared?: boolean | null
           title?: string
           updated_at?: string | null
         }
@@ -2726,6 +2786,94 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_banks_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      question_category_links: {
+        Row: {
+          category_id: string
+          question_id: string
+        }
+        Insert: {
+          category_id: string
+          question_id: string
+        }
+        Update: {
+          category_id?: string
+          question_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_category_links_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "question_bank_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_category_links_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "question_bank_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quiz_attempt_questions: {
+        Row: {
+          attempt_id: string
+          created_at: string | null
+          id: string
+          is_correct: boolean | null
+          points_earned: number | null
+          question_id: string
+          question_order: number
+          student_answer: Json | null
+          time_spent: number | null
+        }
+        Insert: {
+          attempt_id: string
+          created_at?: string | null
+          id?: string
+          is_correct?: boolean | null
+          points_earned?: number | null
+          question_id: string
+          question_order: number
+          student_answer?: Json | null
+          time_spent?: number | null
+        }
+        Update: {
+          attempt_id?: string
+          created_at?: string | null
+          id?: string
+          is_correct?: boolean | null
+          points_earned?: number | null
+          question_id?: string
+          question_order?: number
+          student_answer?: Json | null
+          time_spent?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_attempt_questions_attempt_id_fkey"
+            columns: ["attempt_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_attempts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_attempt_questions_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "question_bank_questions"
             referencedColumns: ["id"]
           },
         ]
@@ -2762,6 +2910,67 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      quiz_question_pools: {
+        Row: {
+          bank_id: string
+          category_id: string | null
+          created_at: string | null
+          difficulty_filter: string | null
+          id: string
+          number_of_questions: number
+          points_per_question: number | null
+          position: number
+          quiz_id: string
+          topic_tags_filter: string[] | null
+        }
+        Insert: {
+          bank_id: string
+          category_id?: string | null
+          created_at?: string | null
+          difficulty_filter?: string | null
+          id?: string
+          number_of_questions: number
+          points_per_question?: number | null
+          position: number
+          quiz_id: string
+          topic_tags_filter?: string[] | null
+        }
+        Update: {
+          bank_id?: string
+          category_id?: string | null
+          created_at?: string | null
+          difficulty_filter?: string | null
+          id?: string
+          number_of_questions?: number
+          points_per_question?: number | null
+          position?: number
+          quiz_id?: string
+          topic_tags_filter?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_question_pools_bank_id_fkey"
+            columns: ["bank_id"]
+            isOneToOne: false
+            referencedRelation: "question_banks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_question_pools_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "question_bank_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_question_pools_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       quiz_questions: {
         Row: {
@@ -3606,9 +3815,9 @@ export type Database = {
         Args: { lesson_id_param: string; user_id_param: string }
         Returns: {
           completed: boolean
+          completed_blocks: number
           completion_percentage: number
           total_blocks: number
-          completed_blocks: number
         }[]
       }
       clean_old_security_events: {
@@ -3620,7 +3829,7 @@ export type Database = {
         Returns: undefined
       }
       delete_resume_records: {
-        Args: { user_id_param: string; problem_id_param: string }
+        Args: { problem_id_param: string; user_id_param: string }
         Returns: undefined
       }
       find_one_on_one_conversation: {
@@ -3636,56 +3845,56 @@ export type Database = {
       get_blog_post_with_tags: {
         Args: { post_slug: string }
         Returns: {
-          id: string
-          title: string
-          content: string
-          excerpt: string
-          slug: string
           author_id: string
-          image_url: string
-          status: string
-          featured: boolean
-          seo_title: string
-          seo_description: string
           category_name: string
-          view_count: number
-          read_time: number
-          published_at: string
+          content: string
           created_at: string
-          updated_at: string
+          excerpt: string
+          featured: boolean
+          id: string
+          image_url: string
+          published_at: string
+          read_time: number
+          seo_description: string
+          seo_title: string
+          slug: string
+          status: string
           tags: string[]
+          title: string
+          updated_at: string
+          view_count: number
         }[]
       }
       get_course_stats: {
         Args: { course_id_param: string }
         Returns: {
-          enrollment_count: number
           completion_rate: number
+          enrollment_count: number
         }[]
       }
       get_user_conversations: {
         Args: { user_id_param: string }
         Returns: {
-          id: string
-          subject: string
-          is_group: boolean
           archived: boolean
           created_at: string
-          updated_at: string
           created_by: string
+          id: string
+          is_group: boolean
           participants: Json
+          subject: string
+          updated_at: string
         }[]
       }
       get_user_conversations_secure: {
         Args: { user_id_param: string }
         Returns: {
-          id: string
-          subject: string
-          is_group: boolean
           archived: boolean
           created_at: string
-          updated_at: string
           created_by: string
+          id: string
+          is_group: boolean
+          subject: string
+          updated_at: string
           user_id: string
         }[]
       }
@@ -3706,31 +3915,31 @@ export type Database = {
         Returns: boolean
       }
       is_conversation_participant: {
-        Args: { user_id_param: string; conversation_id_param: string }
+        Args: { conversation_id_param: string; user_id_param: string }
         Returns: boolean
       }
       is_course_instructor: {
-        Args: { user_id_param: string; course_id_param: string }
+        Args: { course_id_param: string; user_id_param: string }
         Returns: boolean
       }
       log_audit_event: {
         Args: {
-          p_user_id: string
           p_action: string
-          p_table_name: string
-          p_record_id?: string
-          p_old_values?: Json
           p_new_values?: Json
+          p_old_values?: Json
+          p_record_id?: string
+          p_table_name: string
+          p_user_id: string
         }
         Returns: undefined
       }
       log_security_event: {
         Args: {
-          p_user_id: string
-          p_event_type: string
-          p_severity: string
           p_description: string
+          p_event_type: string
           p_metadata?: Json
+          p_severity: string
+          p_user_id: string
         }
         Returns: undefined
       }

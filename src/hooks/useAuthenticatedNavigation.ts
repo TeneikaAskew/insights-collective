@@ -26,15 +26,16 @@ export const useAuthenticatedNavigation = () => {
   ) => {
     const { requireAuth = false, message, title } = options || {};
     
-    // Always store the destination path
-    if (requireAuth) {
-      localStorage.setItem('redirectAfterLogin', path);
-      storeRedirectPath?.(path);
-      logger.log('[useAuthenticatedNavigation] Stored redirect path:', path);
-    }
-    
     // Check if we need authentication
     if (requireAuth && !isAuthenticated) {
+      // Only store path if not already on login/register pages
+      const currentPath = window.location.pathname;
+      if (!['/login', '/register', '/auth/callback'].includes(currentPath)) {
+        localStorage.setItem('redirectAfterLogin', path);
+        storeRedirectPath?.(path);
+        logger.log('[useAuthenticatedNavigation] Stored redirect path:', path);
+      }
+      
       // Show toast if message provided
       if (message) {
         toast({

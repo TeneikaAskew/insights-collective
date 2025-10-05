@@ -24,7 +24,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Plus, BookOpen, Clock, Pencil, Trash2, Edit } from 'lucide-react';
-import EnhancedModuleContentEditor from './EnhancedModuleContentEditor';
+// EnhancedModuleContentEditor removed - using Canvas system now
 
 import { createLogger } from '@/utils/logger';
 
@@ -333,7 +333,10 @@ const ModuleManager = ({ courseId, moduleId, module, onUpdate }: ModuleManagerPr
                 </div>
               </CardHeader>
               <CardContent>
-                <EnhancedModuleContentEditor moduleId={moduleId} lessonId={selectedLesson.id} />
+                <div className="p-6 text-center text-muted-foreground">
+                  <p>Content management for lessons is now handled through the Canvas-style content system.</p>
+                  <p className="mt-2">Use the module detail page to manage content items.</p>
+                </div>
               </CardContent>
             </Card>
           ) : (
@@ -345,7 +348,10 @@ const ModuleManager = ({ courseId, moduleId, module, onUpdate }: ModuleManagerPr
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <EnhancedModuleContentEditor moduleId={moduleId} />
+                <div className="p-6 text-center text-muted-foreground">
+                  <p>Content management is now handled through the Canvas-style content system.</p>
+                  <p className="mt-2">Use the module detail page to manage content items.</p>
+                </div>
               </CardContent>
             </Card>
           )}

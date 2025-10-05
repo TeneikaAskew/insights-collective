@@ -14,24 +14,16 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const auth = useAuthProvider();
 
-  // Monitor session integrity
+  // Security event logging - only on initial auth, not on every change
   useEffect(() => {
-    if (auth.session && !validateSessionIntegrity(auth.session)) {
-      logger.warn('[AuthProvider] Invalid session detected, signing out user');
-      auth.logout();
-    }
-  }, [auth.session]);
-
-  // Security event logging
-  useEffect(() => {
-    if (auth.isAuthenticated) {
+    if (auth.isAuthenticated && auth.user) {
       logger.log('[AuthProvider] User authenticated:', {
-        userId: auth.user?.id,
-        roles: auth.user?.roles,
+        userId: auth.user.id,
+        roles: auth.user.roles,
         timestamp: new Date().toISOString()
       });
     }
-  }, [auth.isAuthenticated, auth.user]);
+  }, [auth.isAuthenticated]);
 
   return (
     <AuthContext.Provider value={auth}>

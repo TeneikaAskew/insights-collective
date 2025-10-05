@@ -1,12 +1,14 @@
 // ABOUTME: Course edit page for instructors and admins to edit course content within course context
 // ABOUTME: Uses CourseLayout to maintain course context and provides editing interface
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { CourseLayout } from '@/components/course/CourseLayout';
 import { useCourseData } from '@/hooks/useCourseData';
 import { CourseDetailsForm } from '@/components/course/CourseDetailsForm';
 import CanvasModuleManager from '@/components/course/management/CanvasModuleManager';
+import { AssignmentManager } from '@/components/course/management/AssignmentManager';
+import { QuizManager } from '@/components/course/management/QuizManager';
 import { Spinner } from '@/components/ui/spinner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -27,6 +29,26 @@ function CourseEdit() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('details');
+  const [modules, setModules] = useState<Array<{ id: string; title: string }>>([]);
+
+  // Fetch modules for assignment/quiz assignment
+  useEffect(() => {
+    const fetchModules = async () => {
+      if (!courseId) return;
+      
+      const { data, error } = await supabase
+        .from('modules')
+        .select('id, title')
+        .eq('course_id', courseId)
+        .order('position');
+      
+      if (data && !error) {
+        setModules(data);
+      }
+    };
+    
+    fetchModules();
+  }, [courseId]);
 
   const handleSave = async (updatedCourse: any) => {
     if (!courseId) return;
@@ -170,19 +192,11 @@ function CourseEdit() {
             </TabsContent>
 
             <TabsContent value="assignments" className="mt-6">
-              <div className="text-center py-12">
-                <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium mb-2">Assignments</h3>
-                <p className="text-muted-foreground">Assignment management coming soon</p>
-              </div>
+              <AssignmentManager courseId={courseId!} modules={modules} />
             </TabsContent>
 
             <TabsContent value="quizzes" className="mt-6">
-              <div className="text-center py-12">
-                <HelpCircle className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium mb-2">Quizzes</h3>
-                <p className="text-muted-foreground">Quiz management coming soon</p>
-              </div>
+              <QuizManager courseId={courseId!} modules={modules} />
             </TabsContent>
           </Tabs>
         )}

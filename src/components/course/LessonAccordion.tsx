@@ -1,5 +1,5 @@
 // ABOUTME: Collapsible lesson display component that shows lessons in an accordion format
-// ABOUTME: Each lesson can be expanded to show its content blocks with progress tracking
+// ABOUTME: Each lesson can be expanded to show its Canvas content items with progress tracking
 
 import React from 'react';
 import { Link } from 'react-router-dom';
@@ -7,14 +7,13 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Card, CardContent } from '@/components/ui/card';
-import { Clock, BookOpen, CheckCircle2, PlayCircle } from 'lucide-react';
+import { Clock, BookOpen, CheckCircle2, PlayCircle, FileText, ClipboardList, HelpCircle } from 'lucide-react';
 import { Lesson } from '@/types/lesson';
-import { ContentBlock } from '@/types/moduleContent';
-import StudentContentRenderer from '@/components/course/content/StudentContentRenderer';
+import { ContentItem } from '@/types/canvas';
 
 interface LessonAccordionProps {
   lessons: Lesson[];
-  contentBlocks: ContentBlock[];
+  contentItems: ContentItem[];
   lessonProgress?: Record<string, any>;
   courseId: string;
   moduleId: string;
@@ -22,14 +21,21 @@ interface LessonAccordionProps {
 
 export function LessonAccordion({ 
   lessons, 
-  contentBlocks, 
+  contentItems, 
   lessonProgress = {}, 
   courseId, 
   moduleId 
 }: LessonAccordionProps) {
-  // Group content blocks by lesson
-  const getLessonContentBlocks = (lessonId: string) => {
-    return contentBlocks.filter(block => block.lesson_id === lessonId);
+  // Group content items by lesson
+  const getLessonContentItems = (lessonId: string) => {
+    return contentItems
+      .filter(item => item.module_id === moduleId)
+      .filter(item => {
+        // For now, we'll show all items in the module since lesson_id isn't in content_items yet
+        // This can be enhanced when lesson_id is added to content_items table
+        return true;
+      })
+      .sort((a, b) => a.position - b.position);
   };
 
   // Calculate lesson progress
@@ -41,6 +47,20 @@ export function LessonAccordion({
   const isLessonCompleted = (lessonId: string) => {
     const progress = lessonProgress[lessonId];
     return progress?.completed || false;
+  };
+
+  // Get icon for content type
+  const getContentIcon = (type: string) => {
+    switch (type) {
+      case 'page':
+        return <FileText className="h-4 w-4" />;
+      case 'assignment':
+        return <ClipboardList className="h-4 w-4" />;
+      case 'quiz':
+        return <HelpCircle className="h-4 w-4" />;
+      default:
+        return <FileText className="h-4 w-4" />;
+    }
   };
 
   // Sort lessons by order_num
@@ -69,7 +89,7 @@ export function LessonAccordion({
       
       <Accordion type="multiple" className="space-y-4">
         {sortedLessons.map((lesson, index) => {
-          const lessonBlocks = getLessonContentBlocks(lesson.id);
+          const lessonItems = getLessonContentItems(lesson.id);
           const progress = getLessonProgress(lesson.id);
           const isCompleted = isLessonCompleted(lesson.id);
           
@@ -121,7 +141,7 @@ export function LessonAccordion({
                     </div>
                     
                     <Badge variant={isCompleted ? "default" : "secondary"}>
-                      {lessonBlocks.length} items
+                      {lessonItems.length} items
                     </Badge>
                   </div>
                 </div>
@@ -138,24 +158,31 @@ export function LessonAccordion({
                     </div>
                   )}
                   
-                  {lessonBlocks.length > 0 ? (
+                  {lessonItems.length > 0 ? (
                     <div className="space-y-4">
                       <h5 className="font-medium">Lesson Content</h5>
-                      <div className="space-y-4">
-                        {lessonBlocks
-                          .sort((a, b) => a.position - b.position)
-                          .map((block) => (
-                            <div key={block.id} className="border-l-4 border-primary/20 pl-4">
-                              <StudentContentRenderer block={block} />
+                      <div className="space-y-2">
+                        {lessonItems.map((item) => (
+                          <Link
+                            key={item.id}
+                            to={`/courses/${courseId}/modules/${moduleId}/content/${item.id}`}
+                            className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-accent transition-colors"
+                          >
+                            <div className="flex items-center gap-2 flex-1">
+                              {getContentIcon(item.type)}
+                              <span className="font-medium">{item.title}</span>
                             </div>
-                          ))
-                        }
+                            <Badge variant="outline" className="capitalize">
+                              {item.type}
+                            </Badge>
+                          </Link>
+                        ))}
                       </div>
                     </div>
                   ) : (
                     <div className="text-center py-8 text-muted-foreground">
                       <BookOpen className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                      <p className="text-sm">No content blocks in this lesson yet.</p>
+                      <p className="text-sm">No content items in this lesson yet.</p>
                     </div>
                   )}
                   
@@ -166,7 +193,7 @@ export function LessonAccordion({
                       </h5>
                       <p className="text-sm text-blue-700 dark:text-blue-300">
                         {lesson.completion_criteria.type === 'all_blocks' 
-                          ? 'Complete all content blocks in this lesson'
+                          ? 'Complete all content items in this lesson'
                           : 'Custom completion criteria apply'
                         }
                       </p>

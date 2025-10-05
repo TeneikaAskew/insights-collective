@@ -31,6 +31,17 @@ export const useAuthRedirect = () => {
       return;
     }
 
+    // Clear immediately to prevent loops
+    localStorage.removeItem('redirectAfterLogin');
+
+    // Validate redirect path to prevent loops
+    const currentPath = window.location.pathname;
+    if (storedPath === currentPath) {
+      logger.log('[useAuthRedirect] Already on target path, skipping redirect');
+      setHasRedirected(true);
+      return;
+    }
+
     let redirectTo = storedPath;
 
     // Check admin access
@@ -44,7 +55,6 @@ export const useAuthRedirect = () => {
     }
 
     logger.log('[useAuthRedirect] Executing redirect to:', redirectTo);
-    localStorage.removeItem('redirectAfterLogin');
     setHasRedirected(true);
     navigate(redirectTo, { replace: true });
   }, [navigate, toast, hasRedirected]);
