@@ -451,7 +451,7 @@ const CanvasModuleDetail = () => {
                 <CardTitle className="text-lg">
                   Module Content
                   <span className="text-sm font-normal text-muted-foreground ml-2">
-                    {contentItems.length} {contentItems.length === 1 ? 'Activity' : 'Activities'}
+                    {contentItems.length} {contentItems.length === 1 ? 'Item' : 'Items'}
                   </span>
                 </CardTitle>
               </CardHeader>

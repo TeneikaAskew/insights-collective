@@ -256,7 +256,7 @@ export function CourseModulesList({ courseId }: CourseModulesListProps) {
                     </div>
                     <Button asChild size="sm">
                       <Link to={`/courses/${courseId}/modules/${module.id}`}>
-                        View Module
+                        View Items
                         <ChevronRight className="h-4 w-4 ml-1" />
                       </Link>
                     </Button>
