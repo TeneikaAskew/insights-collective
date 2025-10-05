@@ -21,14 +21,22 @@ export class CanvasContentService {
       .from('content_items')
       .select(`
         *,
-        assignment:assignments(*),
-        quiz:quizzes(*)
+        assignment:assignments!content_item_id(*),
+        quiz:quizzes!content_item_id(*, questions:quiz_questions(*))
       `)
       .eq('module_id', moduleId)
       .order('position');
 
     if (error) throw error;
-    return data || [];
+    
+    // Transform the data to ensure assignment and quiz are single objects, not arrays
+    const transformedData = data?.map(item => ({
+      ...item,
+      assignment: Array.isArray(item.assignment) && item.assignment.length > 0 ? item.assignment[0] : item.assignment,
+      quiz: Array.isArray(item.quiz) && item.quiz.length > 0 ? item.quiz[0] : item.quiz
+    }));
+    
+    return transformedData || [];
   }
 
   static async getContentItem(id: string): Promise<ContentItem | null> {
@@ -36,14 +44,22 @@ export class CanvasContentService {
       .from('content_items')
       .select(`
         *,
-        assignment:assignments(*),
-        quiz:quizzes(*, questions:quiz_questions(*))
+        assignment:assignments!content_item_id(*),
+        quiz:quizzes!content_item_id(*, questions:quiz_questions(*))
       `)
       .eq('id', id)
       .single();
 
     if (error) throw error;
-    return data;
+    
+    if (!data) return null;
+    
+    // Transform the data to ensure assignment and quiz are single objects, not arrays
+    return {
+      ...data,
+      assignment: Array.isArray(data.assignment) && data.assignment.length > 0 ? data.assignment[0] : data.assignment,
+      quiz: Array.isArray(data.quiz) && data.quiz.length > 0 ? data.quiz[0] : data.quiz
+    };
   }
 
   static async createContentItem(input: CreateContentItemInput): Promise<ContentItem> {
