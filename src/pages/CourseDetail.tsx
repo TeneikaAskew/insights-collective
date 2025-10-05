@@ -85,21 +85,21 @@ const CourseDetail = () => {
           .from('modules')
           .select(`
             *,
-            content_blocks(block_type)
+            content_items(type)
           `)
           .eq('course_id', courseId)
           .order('week', { ascending: true });
 
         if (modulesError) throw modulesError;
 
-        // Process modules to include content block counts
+        // Process modules to include content item counts
         const processedModules = (modulesData || []).map(module => {
-          const contentBlocks = module.content_blocks || [];
-          const textBlocks = contentBlocks.filter(block => 
-            ['text', 'image', 'video', 'file', 'quote', 'code', 'embed'].includes(block.block_type)
+          const contentItems = module.content_items || [];
+          const textBlocks = contentItems.filter(item => 
+            ['page', 'discussion', 'external_url', 'external_tool'].includes(item.type)
           );
-          const assignmentBlocks = contentBlocks.filter(block => block.block_type === 'assignment');
-          const quizBlocks = contentBlocks.filter(block => block.block_type === 'quiz');
+          const assignmentBlocks = contentItems.filter(item => item.type === 'assignment');
+          const quizBlocks = contentItems.filter(item => item.type === 'quiz');
           
           return {
             ...module,
@@ -535,7 +535,7 @@ const CourseDetail = () => {
                   </p>
                   <Button asChild className="w-full">
                     <Link to={`/courses/${courseId}/modules`}>
-                      View Modules
+                      View Items
                     </Link>
                   </Button>
                 </CardContent>

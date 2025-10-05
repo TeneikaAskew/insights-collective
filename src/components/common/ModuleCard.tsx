@@ -73,7 +73,7 @@ const ModuleCard = ({
               <span>{module.completionStatus || 0}%</span>
             </div>
             <Progress value={module.completionStatus || 0} className="h-2" />
-            
+
             <div className="grid grid-cols-3 gap-2 mt-2">
               <div className="flex flex-col items-center justify-center p-2 rounded-lg bg-amber-500">
                 <BookOpen className="h-4 w-4 mb-1" />
@@ -81,12 +81,12 @@ const ModuleCard = ({
                   {loading ? '...' : publishedContentCount} {publishedContentCount === 1 ? 'Activity' : 'Activities'}
                 </span>
               </div>
-              
+
               <div className="flex flex-col items-center justify-center p-2 rounded-lg bg-amber-500">
                 <FileText className="h-4 w-4 mb-1" />
                 <span className="text-xs">{assignments.length} Assignments</span>
               </div>
-              
+
               <div className="flex flex-col items-center justify-center p-2 rounded-lg bg-amber-500">
                 <Clock className="h-4 w-4 mb-1" />
                 <span className="text-xs">{quizzes.length} Quizzes</span>

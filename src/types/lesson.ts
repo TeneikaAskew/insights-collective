@@ -12,7 +12,7 @@ export interface Lesson {
   estimated_duration?: number;
   completion_required: boolean;
   completion_criteria: Record<string, any>;
-  content_blocks_count: number;
+  content_items_count: number;
   created_at: string;
   updated_at: string;
 }

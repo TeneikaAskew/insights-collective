@@ -212,9 +212,9 @@ const CourseManageMaterials = () => {
     }
     
     try {
-      // Delete content blocks first
+      // Delete content items first
       await supabase
-        .from('content_blocks')
+        .from('content_items')
         .delete()
         .eq('module_id', moduleId);
       
