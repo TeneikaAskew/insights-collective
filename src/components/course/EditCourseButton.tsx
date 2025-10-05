@@ -28,9 +28,9 @@ export function EditCourseButton({
 
   return (
     <Button variant={variant} size={size} className={className} asChild>
-      <Link to={`/courses/${courseId}/edit`}>
+      <Link to={`/courses/${courseId}/management`}>
         <Edit className="h-4 w-4 mr-2" />
-        Edit Course
+        Manage Course
       </Link>
     </Button>
   );

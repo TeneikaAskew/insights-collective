@@ -95,15 +95,9 @@ export function ProfileMenu() {
                       Instructor Tools
                     </DropdownMenuLabel>
                     <DropdownMenuItem asChild>
-                      <Link to={`/courses/${params.courseId}/edit`} className="flex items-center gap-2">
-                        <Edit className="h-4 w-4" />
-                        Edit Course
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
                       <Link to={`/courses/${params.courseId}/management`} className="flex items-center gap-2">
                         <Settings className="h-4 w-4" />
-                        Course Management
+                        Manage Course
                       </Link>
                     </DropdownMenuItem>
                   </>
