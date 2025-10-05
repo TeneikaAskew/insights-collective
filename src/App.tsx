@@ -27,7 +27,6 @@ const CourseList = lazy(() => import('@/pages/CourseList'));
 const CourseDetail = lazy(() => import('@/pages/CourseDetail'));
 const CourseManagement = lazy(() => import('@/pages/CourseManagement'));
 const CourseManagementDashboard = lazy(() => import('@/components/course/management/CourseManagementDashboard'));
-const CourseManageMaterials = lazy(() => import('@/pages/CourseManageMaterials'));
 const AssignmentDetail = lazy(() => import('@/pages/AssignmentDetail'));
 const LessonDetail = lazy(() => import('@/pages/LessonDetail'));
 const CanvasModuleDetail = lazy(() => import('@/pages/CanvasModuleDetail'));
@@ -38,7 +37,6 @@ const RubricEdit = lazy(() => import('@/pages/RubricEdit'));
 const CourseQuestionBanks = lazy(() => import('@/pages/CourseQuestionBanks'));
 const CourseProgress = lazy(() => import('@/pages/CourseProgress'));
 const CourseCertificate = lazy(() => import('@/pages/CourseCertificate'));
-const CourseOrganizer = lazy(() => import('@/pages/CourseOrganizer'));
 const CourseCalendar = lazy(() => import('@/pages/CourseCalendar'));
 
 // Canvas-style Pages
@@ -227,8 +225,6 @@ function App() {
                      <Route path="/courses/:courseId/calendar" element={<CourseCalendar />} />
                      <Route path="/courses/:courseId/people" element={<CourseDetail />} />
                      <Route path="/courses/:courseId/management" element={<CourseManagement />} />
-                     <Route path="/courses/:courseId/manage-materials" element={<CourseManageMaterials />} />
-                     <Route path="/courses/:courseId/organize" element={<CourseOrganizer />} />
                      <Route path="/courses/:courseId/modules/:moduleId/assignments/:assignmentId" element={<AssignmentDetail />} />
                      <Route path="/courses/:courseId/modules/:moduleId/lessons/:lessonId" element={<LessonDetail />} />
                      <Route path="/courses/:courseId/modules/:moduleId" element={<CanvasModuleDetail />} />
