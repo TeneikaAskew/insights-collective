@@ -82,6 +82,8 @@ export default function CourseDetails({ course }: CourseDetailsProps) {
   // Update form data when course changes
   useEffect(() => {
     if (course) {
+      logger.log('CourseDetails - course data received:', course);
+      logger.log('CourseDetails - category value:', course.category);
       setFormData({
         title: course.title || '',
         description: course.description || '',
