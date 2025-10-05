@@ -21,8 +21,8 @@ export class CanvasContentService {
       .from('content_items')
       .select(`
         *,
-        assignment:assignments!content_item_id(*),
-        quiz:quizzes!content_item_id(*, questions:quiz_questions(*))
+        assignment:assignments!assignments_content_item_id_fkey(*),
+        quiz:quizzes!quizzes_content_item_id_fkey(*, questions:quiz_questions(*))
       `)
       .eq('module_id', moduleId)
       .order('position');
@@ -45,8 +45,8 @@ export class CanvasContentService {
         .from('content_items')
         .select(`
           *,
-          assignment:assignments!content_item_id(*),
-          quiz:quizzes!content_item_id(*, questions:quiz_questions(*))
+          assignment:assignments!assignments_content_item_id_fkey(*),
+          quiz:quizzes!quizzes_content_item_id_fkey(*, questions:quiz_questions(*))
         `)
         .eq('id', id)
         .single();
