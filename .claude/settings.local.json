@@ -52,7 +52,12 @@
       "Bash(npx tsc:*)",
       "Bash(rg:*)",
       "Bash(chmod:*)",
-      "Bash(npx tsx:*)"
+      "Bash(npx tsx:*)",
+      "Bash(psql:*)",
+      "Bash(supabase status:*)",
+      "Bash(supabase db reset:*)",
+      "Bash(supabase migration:*)",
+      "Bash(npm run build:*)"
     ],
     "deny": []
   }

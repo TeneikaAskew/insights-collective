@@ -1,4 +1,6 @@
 
+export type CourseDifficulty = 'beginner' | 'intermediate' | 'advanced';
+
 export interface Course {
   id: string;
   title: string;
@@ -24,6 +26,10 @@ export interface Course {
   };
   enrollment_count?: number;
   enrollmentCount?: number;
+  difficulty_level?: CourseDifficulty;
+  difficultyLevel?: CourseDifficulty;
+  estimated_hours?: number;
+  estimatedHours?: number;
   created_at: string;
   updated_at: string;
   createdAt?: string;
@@ -42,6 +48,8 @@ export interface CourseFormData {
   published?: boolean;
   status?: 'draft' | 'published' | 'archived';
   instructor_id?: string;
+  difficulty_level?: CourseDifficulty;
+  estimated_hours?: number;
 }
 
 export interface CourseEnrollment {
@@ -77,6 +85,11 @@ export interface CourseInstructor {
 export interface CourseStats {
   enrollment_count: number;
   completion_rate: number;
+  difficulty_level?: CourseDifficulty;
+  estimated_hours?: number;
+  module_count?: number;
+  assignment_count?: number;
+  lesson_count?: number;
 }
 
 export interface Module {
@@ -271,6 +284,8 @@ export interface EnhancedCourse {
   duration?: string;
   instructor_id: string;
   is_published: boolean;
+  difficulty_level?: CourseDifficulty;
+  estimated_hours?: number;
   grading_scheme?: {
     A: number;
     B: number;
