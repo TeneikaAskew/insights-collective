@@ -18,10 +18,16 @@ export function useCoursesManagement() {
   const fetchCourses = async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       logger.log('Fetching courses...');
-      
+
+      if (!user) {
+        logger.warn('No user found, skipping course fetch');
+        setCourses([]);
+        return;
+      }
+
       // Fetch courses with instructor data - now using new RLS policies
       const { data: coursesData, error: coursesError } = await supabase
         .from('courses')
@@ -46,7 +52,7 @@ export function useCoursesManagement() {
       // Fetch enrollment counts for all courses
       const courseIds = coursesData?.map(course => course.id) || [];
       let enrollmentCounts: Record<string, number> = {};
-      
+
       if (courseIds.length > 0) {
         const { data: enrollmentData, error: enrollmentError } = await supabase
           .from('enrollments')

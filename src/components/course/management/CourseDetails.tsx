@@ -58,12 +58,19 @@ export default function CourseDetails({ course }: CourseDetailsProps) {
       try {
         const { data, error } = await supabase
           .from('profiles')
-          .select('id, first_name, last_name')
-          .or('role.eq.instructor,role.eq.admin')
+          .select('id, first_name, last_name, roles')
           .order('first_name');
 
         if (error) throw error;
-        setInstructors(data || []);
+
+        // Filter profiles that have instructor or admin role
+        const instructorProfiles = (data || []).filter(profile => {
+          if (!profile.roles) return false;
+          const roles = Array.isArray(profile.roles) ? profile.roles : [profile.roles];
+          return roles.includes('instructor') || roles.includes('admin');
+        });
+
+        setInstructors(instructorProfiles);
       } catch (error) {
         logger.error('Error fetching instructors:', error);
         toast({
