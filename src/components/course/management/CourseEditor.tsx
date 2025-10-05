@@ -249,7 +249,7 @@ const CourseEditor = () => {
         });
       }
       
-      navigate(`/admin/courses/${result.id}/edit`);
+      navigate(`/courses/${result.id}/management`);
     } catch (error: any) {
       logger.error('Error saving course:', error);
       toast({

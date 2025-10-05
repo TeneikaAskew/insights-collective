@@ -239,8 +239,8 @@ const AdminCourseEdit = () => {
           description: 'Course created successfully',
         });
         
-        // Redirect to edit the newly created course
-        navigate(`/admin/courses/${data.id}/edit`);
+        // Redirect to manage the newly created course
+        navigate(`/courses/${data.id}/management`);
       } else {
         // Update existing course
         const { data, error } = await supabase

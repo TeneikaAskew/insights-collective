@@ -28,7 +28,6 @@ const CourseDetail = lazy(() => import('@/pages/CourseDetail'));
 const CourseManagement = lazy(() => import('@/pages/CourseManagement'));
 const CourseManagementDashboard = lazy(() => import('@/components/course/management/CourseManagementDashboard'));
 const CourseManageMaterials = lazy(() => import('@/pages/CourseManageMaterials'));
-const CourseEdit = lazy(() => import('@/pages/CourseEdit'));
 const AssignmentDetail = lazy(() => import('@/pages/AssignmentDetail'));
 const LessonDetail = lazy(() => import('@/pages/LessonDetail'));
 const CanvasModuleDetail = lazy(() => import('@/pages/CanvasModuleDetail'));

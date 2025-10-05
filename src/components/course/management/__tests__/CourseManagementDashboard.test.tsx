@@ -123,7 +123,7 @@ describe('CourseManagementDashboard', () => {
     expect(screen.getByText(/no courses/i)).toBeInTheDocument();
   });
 
-  it('should navigate to edit course', () => {
+  it('should navigate to manage course', () => {
     vi.mocked(useCoursesManagement).mockReturnValue({
       courses: mockCourses,
       loading: false,
@@ -132,10 +132,10 @@ describe('CourseManagementDashboard', () => {
     } as any);
 
     render(<CourseManagementDashboard />);
-    
-    const editButtons = screen.getAllByRole('button', { name: /edit/i });
-    fireEvent.click(editButtons[0]);
-    
-    expect(mockNavigate).toHaveBeenCalledWith('/admin/courses/1/edit');
+
+    const manageButtons = screen.getAllByRole('button', { name: /manage/i });
+    fireEvent.click(manageButtons[0]);
+
+    expect(mockNavigate).toHaveBeenCalledWith('/courses/1/management');
   });
 });
