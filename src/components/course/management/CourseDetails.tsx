@@ -91,7 +91,10 @@ export default function CourseDetails({ course }: CourseDetailsProps) {
     if (course) {
       logger.log('CourseDetails - course data received:', course);
       logger.log('CourseDetails - category value:', course.category);
-      setFormData({
+      logger.log('CourseDetails - category type:', typeof course.category);
+      logger.log('CourseDetails - category length:', course.category?.length);
+
+      const newFormData = {
         title: course.title || '',
         description: course.description || '',
         category: course.category || '',
@@ -102,7 +105,10 @@ export default function CourseDetails({ course }: CourseDetailsProps) {
         instructor_id: course.instructor_id || '',
         tags: course.tags || [],
         image_url: course.imageUrl || course.thumbnail || '',
-      });
+      };
+
+      logger.log('CourseDetails - new formData:', newFormData);
+      setFormData(newFormData);
       setImagePreview(course.imageUrl || course.thumbnail || null);
     }
   }, [course]);
@@ -259,10 +265,19 @@ export default function CourseDetails({ course }: CourseDetailsProps) {
                     <Label htmlFor="category">Category</Label>
                     <Select
                       value={formData.category}
-                      onValueChange={(value) => handleSelectChange('category', value)}
+                      onValueChange={(value) => {
+                        logger.log('Category changed to:', value);
+                        handleSelectChange('category', value);
+                      }}
                     >
                       <SelectTrigger id="category">
-                        <SelectValue placeholder="Select a category" />
+                        <SelectValue placeholder="Select a category">
+                          {formData.category && (
+                            <span className="text-xs text-muted-foreground">
+                              Current: {formData.category}
+                            </span>
+                          )}
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Data Science">Data Science</SelectItem>
@@ -271,6 +286,9 @@ export default function CourseDetails({ course }: CourseDetailsProps) {
                         <SelectItem value="Machine Learning & Artificial Intelligence">Machine Learning & Artificial Intelligence</SelectItem>
                       </SelectContent>
                     </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Value: "{formData.category}" (len: {formData.category?.length || 0})
+                    </p>
                   </div>
 
                   <div className="grid gap-2">
