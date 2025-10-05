@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Save, Upload, X } from 'lucide-react';
 import CourseInstructorAccess from '@/components/course/CourseInstructorAccess';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { VALID_CATEGORIES } from '@/constants/courseCategories';
 
 import { createLogger } from '@/utils/logger';
 
@@ -89,12 +90,7 @@ export default function CourseDetails({ course }: CourseDetailsProps) {
   // Update form data when course changes
   useEffect(() => {
     if (course) {
-      logger.log('CourseDetails - course data received:', course);
-      logger.log('CourseDetails - category value:', course.category);
-      logger.log('CourseDetails - category type:', typeof course.category);
-      logger.log('CourseDetails - category length:', course.category?.length);
-
-      const newFormData = {
+      setFormData({
         title: course.title || '',
         description: course.description || '',
         category: course.category || '',
@@ -105,10 +101,7 @@ export default function CourseDetails({ course }: CourseDetailsProps) {
         instructor_id: course.instructor_id || '',
         tags: course.tags || [],
         image_url: course.imageUrl || course.thumbnail || '',
-      };
-
-      logger.log('CourseDetails - new formData:', newFormData);
-      setFormData(newFormData);
+      });
       setImagePreview(course.imageUrl || course.thumbnail || null);
     }
   }, [course]);
@@ -265,30 +258,19 @@ export default function CourseDetails({ course }: CourseDetailsProps) {
                     <Label htmlFor="category">Category</Label>
                     <Select
                       value={formData.category}
-                      onValueChange={(value) => {
-                        logger.log('Category changed to:', value);
-                        handleSelectChange('category', value);
-                      }}
+                      onValueChange={(value) => handleSelectChange('category', value)}
                     >
                       <SelectTrigger id="category">
-                        <SelectValue placeholder="Select a category">
-                          {formData.category && (
-                            <span className="text-xs text-muted-foreground">
-                              Current: {formData.category}
-                            </span>
-                          )}
-                        </SelectValue>
+                        <SelectValue placeholder="Select a category" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Data Science">Data Science</SelectItem>
-                        <SelectItem value="Analytics & Business Intelligence">Analytics & Business Intelligence</SelectItem>
-                        <SelectItem value="Data Engineering">Data Engineering</SelectItem>
-                        <SelectItem value="Machine Learning & Artificial Intelligence">Machine Learning & Artificial Intelligence</SelectItem>
+                        {VALID_CATEGORIES.map((category) => (
+                          <SelectItem key={category} value={category}>
+                            {category}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-muted-foreground">
-                      Value: "{formData.category}" (len: {formData.category?.length || 0})
-                    </p>
                   </div>
 
                   <div className="grid gap-2">
