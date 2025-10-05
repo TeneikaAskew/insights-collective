@@ -205,6 +205,7 @@ function App() {
 
                      {/* Course & Learning Routes - Canvas/Blackboard Style */}
                      <Route path="/courses" element={<CourseList />} />
+                     {/* Legacy route for backward compatibility with PageVisibilityContext */}
                      <Route path="/course-list" element={<CourseList />} />
                      <Route path="/course-management" element={<CourseManagementDashboard />} />
                      
