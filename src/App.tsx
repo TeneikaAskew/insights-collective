@@ -26,6 +26,7 @@ const AuthCallback = lazy(() => import('@/pages/AuthCallback'));
 const CourseList = lazy(() => import('@/pages/CourseList'));
 const CourseDetail = lazy(() => import('@/pages/CourseDetail'));
 const CourseManagement = lazy(() => import('@/pages/CourseManagement'));
+const CourseManagementDashboard = lazy(() => import('@/components/course/management/CourseManagementDashboard'));
 const CourseManageMaterials = lazy(() => import('@/pages/CourseManageMaterials'));
 const CourseEdit = lazy(() => import('@/pages/CourseEdit'));
 const AssignmentDetail = lazy(() => import('@/pages/AssignmentDetail'));
@@ -206,6 +207,7 @@ function App() {
                      {/* Course & Learning Routes - Canvas/Blackboard Style */}
                      <Route path="/courses" element={<CourseList />} />
                      <Route path="/course-list" element={<CourseList />} />
+                     <Route path="/course-management" element={<CourseManagementDashboard />} />
                      
                      {/* Redirect singular /course to plural /courses */}
                      <Route path="/course/:courseId" element={<CourseRedirect />} />
