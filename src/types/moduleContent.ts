@@ -1,6 +1,13 @@
-// ABOUTME: Content block type definitions for the Supabase content_blocks table
-// ABOUTME: Provides TypeScript interfaces for content blocks that can belong to modules or lessons
+// ABOUTME: Legacy module content types - DEPRECATED
+// ABOUTME: This file is kept for backward compatibility only. Use Canvas types from @/types/canvas instead.
 
+// All content blocks are now managed through the content_items table
+// See src/types/canvas.ts for the current type definitions
+// Legacy code should be migrated to use ContentItem type from canvas.ts
+
+/**
+ * @deprecated Use ContentItem from @/types/canvas instead
+ */
 export interface ContentBlock {
   id: string;
   module_id: string;
@@ -23,6 +30,9 @@ export interface ContentBlock {
   updated_at: string;
 }
 
+/**
+ * @deprecated Use CreateContentItemInput from @/types/canvas instead
+ */
 export interface ContentBlockInput {
   module_id: string;
   lesson_id?: string | null;
@@ -41,7 +51,9 @@ export interface ContentBlockInput {
   metadata?: Record<string, any>;
 }
 
-// Legacy module content interface for backward compatibility
+/**
+ * @deprecated Legacy interface - no longer used
+ */
 export interface ModuleContent {
   id: string;
   module_id: string;
@@ -53,6 +65,9 @@ export interface ModuleContent {
   updated_at: string;
 }
 
+/**
+ * @deprecated Legacy interface - no longer used
+ */
 export interface ModuleContentInput {
   module_id: string;
   content: string;

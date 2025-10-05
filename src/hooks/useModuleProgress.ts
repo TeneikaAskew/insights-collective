@@ -193,34 +193,52 @@ export function useModuleProgress(moduleId?: string) {
     }
   };
 
-  const submitAssignment = async (contentBlockId: string, submissionData: any): Promise<boolean> => {
+  const submitAssignment = async (contentItemId: string, submissionData: any): Promise<boolean> => {
     if (!user) return false;
 
     try {
-      const assignmentData = {
-        user_id: user.id,
-        content_block_id: contentBlockId,
-        completed: true,
-        submitted_at: new Date().toISOString(),
-        submission_data: submissionData
-      };
-
+      // Use content_item_progressions instead of assignment_progress
       const { data, error } = await supabase
-        .from('assignment_progress')
-        .upsert(assignmentData, {
-          onConflict: 'user_id,content_block_id'
+        .from('content_item_progressions')
+        .upsert({
+          user_id: user.id,
+          content_item_id: contentItemId,
+          workflow_state: 'submitted'
+        }, {
+          onConflict: 'user_id,content_item_id'
         })
         .select()
         .single();
 
       if (error) throw error;
 
+      // Also update assignment_submissions if it's an assignment
+      const { data: contentItem } = await supabase
+        .from('content_items')
+        .select('type, settings')
+        .eq('id', contentItemId)
+        .single();
+
+      if (contentItem?.type === 'assignment') {
+        await supabase
+          .from('assignment_submissions')
+          .upsert({
+            user_id: user.id,
+            assignment_id: contentItemId,
+            submitted_at: new Date().toISOString(),
+            workflow_state: 'submitted',
+            body: JSON.stringify(submissionData)
+          }, {
+            onConflict: 'user_id,assignment_id'
+          });
+      }
+
       // Update local state
       setAssignmentProgress(prev => {
-        const existingIndex = prev.findIndex(a => a.content_block_id === contentBlockId);
+        const existingIndex = prev.findIndex(a => a.content_block_id === contentItemId);
         if (existingIndex >= 0) {
           const updated = [...prev];
-          updated[existingIndex] = data;
+          updated[existingIndex] = { ...data, content_block_id: contentItemId };
           return updated;
         }
         return [...prev, data];
