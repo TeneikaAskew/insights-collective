@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
@@ -3815,9 +3815,9 @@ export type Database = {
         Args: { lesson_id_param: string; user_id_param: string }
         Returns: {
           completed: boolean
+          completed_blocks: number
           completion_percentage: number
           total_blocks: number
-          completed_blocks: number
         }[]
       }
       clean_old_security_events: {
@@ -3829,7 +3829,7 @@ export type Database = {
         Returns: undefined
       }
       delete_resume_records: {
-        Args: { user_id_param: string; problem_id_param: string }
+        Args: { problem_id_param: string; user_id_param: string }
         Returns: undefined
       }
       find_one_on_one_conversation: {
@@ -3845,56 +3845,56 @@ export type Database = {
       get_blog_post_with_tags: {
         Args: { post_slug: string }
         Returns: {
-          id: string
-          title: string
-          content: string
-          excerpt: string
-          slug: string
           author_id: string
-          image_url: string
-          status: string
-          featured: boolean
-          seo_title: string
-          seo_description: string
           category_name: string
-          view_count: number
-          read_time: number
-          published_at: string
+          content: string
           created_at: string
-          updated_at: string
+          excerpt: string
+          featured: boolean
+          id: string
+          image_url: string
+          published_at: string
+          read_time: number
+          seo_description: string
+          seo_title: string
+          slug: string
+          status: string
           tags: string[]
+          title: string
+          updated_at: string
+          view_count: number
         }[]
       }
       get_course_stats: {
         Args: { course_id_param: string }
         Returns: {
-          enrollment_count: number
           completion_rate: number
+          enrollment_count: number
         }[]
       }
       get_user_conversations: {
         Args: { user_id_param: string }
         Returns: {
-          id: string
-          subject: string
-          is_group: boolean
           archived: boolean
           created_at: string
-          updated_at: string
           created_by: string
+          id: string
+          is_group: boolean
           participants: Json
+          subject: string
+          updated_at: string
         }[]
       }
       get_user_conversations_secure: {
         Args: { user_id_param: string }
         Returns: {
-          id: string
-          subject: string
-          is_group: boolean
           archived: boolean
           created_at: string
-          updated_at: string
           created_by: string
+          id: string
+          is_group: boolean
+          subject: string
+          updated_at: string
           user_id: string
         }[]
       }
@@ -3915,31 +3915,31 @@ export type Database = {
         Returns: boolean
       }
       is_conversation_participant: {
-        Args: { user_id_param: string; conversation_id_param: string }
+        Args: { conversation_id_param: string; user_id_param: string }
         Returns: boolean
       }
       is_course_instructor: {
-        Args: { user_id_param: string; course_id_param: string }
+        Args: { course_id_param: string; user_id_param: string }
         Returns: boolean
       }
       log_audit_event: {
         Args: {
-          p_user_id: string
           p_action: string
-          p_table_name: string
-          p_record_id?: string
-          p_old_values?: Json
           p_new_values?: Json
+          p_old_values?: Json
+          p_record_id?: string
+          p_table_name: string
+          p_user_id: string
         }
         Returns: undefined
       }
       log_security_event: {
         Args: {
-          p_user_id: string
-          p_event_type: string
-          p_severity: string
           p_description: string
+          p_event_type: string
           p_metadata?: Json
+          p_severity: string
+          p_user_id: string
         }
         Returns: undefined
       }
