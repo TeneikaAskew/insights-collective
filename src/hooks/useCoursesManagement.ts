@@ -20,22 +20,10 @@ export function useCoursesManagement() {
     setError(null);
     
     try {
-      logger.log('Fetching courses for user:', user?.id);
+      logger.log('Fetching courses...');
       
-      if (!user) {
-        logger.log('No user, skipping fetch');
-        setLoading(false);
-        return;
-      }
-      
-      // Check if user is admin
-      const { data: isAdmin } = await supabase
-        .rpc('has_admin_access', { user_id_param: user.id });
-      
-      logger.log('User is admin:', isAdmin);
-      
-      // Build query based on user role
-      let query = supabase
+      // Fetch courses with instructor data - now using new RLS policies
+      const { data: coursesData, error: coursesError } = await supabase
         .from('courses')
         .select(`
           *,
@@ -45,29 +33,7 @@ export function useCoursesManagement() {
             last_name,
             avatar_url
           )
-        `);
-      
-      // If not admin, filter to only courses where user is instructor
-      if (!isAdmin) {
-        // Get courses where user is instructor_id OR has instructor assignment
-        const { data: instructorCourseIds, error: assignmentError } = await supabase
-          .from('course_assignments')
-          .select('course_id')
-          .eq('user_id', user.id)
-          .eq('role', 'instructor');
-        
-        if (assignmentError) {
-          logger.error('Error fetching course assignments:', assignmentError);
-        }
-        
-        const assignedCourseIds = instructorCourseIds?.map(a => a.course_id) || [];
-        logger.log('Assigned course IDs:', assignedCourseIds);
-        
-        // Filter to courses where user is instructor_id OR in assignedCourseIds
-        query = query.or(`instructor_id.eq.${user.id},id.in.(${assignedCourseIds.join(',')})`);
-      }
-      
-      const { data: coursesData, error: coursesError } = await query
+        `)
         .order('created_at', { ascending: false });
 
       if (coursesError) {
