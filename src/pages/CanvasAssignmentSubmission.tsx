@@ -66,13 +66,18 @@ export default function CanvasAssignmentSubmission() {
       if (!item || item.type !== 'assignment') {
         throw new Error('Assignment not found');
       }
+      
+      if (!item.assignment?.id) {
+        throw new Error('Assignment data not loaded. Please contact your instructor.');
+      }
+      
       setContentItem(item);
 
       // Load existing submission
       const { data: submissions, error } = await supabase
         .from('assignment_submissions')
         .select('*')
-        .eq('assignment_id', item.assignment?.id)
+        .eq('assignment_id', item.assignment.id)
         .eq('user_id', user.id)
         .order('attempt', { ascending: false })
         .limit(1);

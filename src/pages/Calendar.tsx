@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Toggle } from '@/components/ui/toggle';
 import { Calendar as CalendarIcon, GraduationCap, BookOpen, FileText, Clock } from 'lucide-react';
 import { useUserCalendar } from '@/hooks/useCourseCalendar';
-import { useAuth } from '@/hooks/use-auth';
+import { useAuth } from '@/contexts/AuthContext';
 import { format, isSameDay, isAfter } from 'date-fns';
 import { Link } from 'react-router-dom';
 

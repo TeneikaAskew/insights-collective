@@ -149,19 +149,10 @@ const CanvasModuleDetail = () => {
       // Load content items
       const items = await CanvasContentService.getContentItems(moduleId);
       
-      // CRITICAL: Filter out unpublished content in the student/viewing context
-      // Only show published content to everyone, including instructors
-      // Unpublished content should only be visible in the editing interface
-      const visibleItems = items.filter(item => {
-        // If content has no published status (null/undefined), hide from everyone
-        if (item.published === null || item.published === undefined) {
-          return false;
-        }
-        
-        // Only show explicitly published content in the viewing interface
-        // Instructors will see unpublished content in the edit mode only
-        return item.published === true;
-      });
+      // Filter content based on user role
+      const visibleItems = isInstructor 
+        ? items // Instructors see all content items in viewing mode
+        : items.filter(item => item.published === true); // Students only see published content
       
       setContentItems(visibleItems);
 
