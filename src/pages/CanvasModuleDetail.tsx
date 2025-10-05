@@ -230,7 +230,7 @@ const CanvasModuleDetail = () => {
           <CardContent className="text-center py-12">
             <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <p className="text-muted-foreground">
-              Select an item from the module to view its content.
+              Select an activity from the module to view its content.
             </p>
           </CardContent>
         </Card>

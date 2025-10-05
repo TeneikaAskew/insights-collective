@@ -212,7 +212,7 @@ export function CourseModulesList({ courseId }: CourseModulesListProps) {
                       </div>
                     </div>
                     <Badge variant="outline">
-                      {module.contentItems?.length || 0} items
+                      {module.contentItems?.length || 0} activities
                     </Badge>
                   </div>
                 </CardHeader>
@@ -226,7 +226,7 @@ export function CourseModulesList({ courseId }: CourseModulesListProps) {
                     {module.contentItems && module.contentItems.length > 0 && (
                       <div className="flex items-center gap-1 text-muted-foreground">
                         <BookOpen className="h-3 w-3" />
-                        <span>{module.contentItems.length} items</span>
+                        <span>{module.contentItems.length} activities</span>
                       </div>
                     )}
                   </div>
@@ -256,7 +256,7 @@ export function CourseModulesList({ courseId }: CourseModulesListProps) {
                     </div>
                     <Button asChild size="sm">
                       <Link to={`/courses/${courseId}/modules/${module.id}`}>
-                        View Module
+                        View Activities
                         <ChevronRight className="h-4 w-4 ml-1" />
                       </Link>
                     </Button>

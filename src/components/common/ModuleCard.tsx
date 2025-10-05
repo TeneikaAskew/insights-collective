@@ -100,7 +100,7 @@ const ModuleCard = ({
               <CheckCircle className="h-4 w-4 mr-1" />
               <span>Completed</span>
             </div> : <div className="text-muted-foreground text-sm">
-              {totalItems} items total
+              {totalItems} activities total
             </div>}
         </CardFooter>
       </Card>
