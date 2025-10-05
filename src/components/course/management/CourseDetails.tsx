@@ -304,34 +304,6 @@ export default function CourseDetails({ course }: CourseDetailsProps) {
               </div>
             </div>
 
-            {/* Instructor Assignment */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium">Instructor</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="instructor">Assign Instructor</Label>
-                  <Select
-                    value={formData.instructor_id}
-                    onValueChange={(value) => handleSelectChange('instructor_id', value)}
-                    disabled={loadingInstructors}
-                  >
-                    <SelectTrigger id="instructor">
-                      <SelectValue
-                        placeholder={loadingInstructors ? "Loading instructors..." : "Select an instructor"}
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {instructors.map((instructor) => (
-                        <SelectItem key={instructor.id} value={instructor.id}>
-                          {instructor.first_name} {instructor.last_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </div>
-
             {/* Course Image */}
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Course Image</h3>
@@ -422,6 +394,28 @@ export default function CourseDetails({ course }: CourseDetailsProps) {
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Course Settings</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="instructor">Assign Instructor</Label>
+                  <Select
+                    value={formData.instructor_id}
+                    onValueChange={(value) => handleSelectChange('instructor_id', value)}
+                    disabled={loadingInstructors}
+                  >
+                    <SelectTrigger id="instructor">
+                      <SelectValue
+                        placeholder={loadingInstructors ? "Loading instructors..." : "Select an instructor"}
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {instructors.map((instructor) => (
+                        <SelectItem key={instructor.id} value={instructor.id}>
+                          {instructor.first_name} {instructor.last_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <div className="grid gap-2">
                   <Label htmlFor="enrollment_status">Enrollment Status</Label>
                   <Select
