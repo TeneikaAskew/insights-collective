@@ -84,9 +84,9 @@ DECLARE
   v_quiz_count INTEGER := 0;
   v_content_item_count INTEGER := 0;
 BEGIN
-  -- Sum duration or estimated_duration from lessons (both are INTEGER minutes)
+  -- Sum estimated_duration from lessons (INTEGER minutes, duration is TEXT and mostly empty)
   SELECT COALESCE(SUM(
-    COALESCE(duration, estimated_duration, 30)
+    COALESCE(estimated_duration, 30)
   ), 0) INTO v_lesson_minutes
   FROM lessons l
   JOIN modules m ON l.module_id = m.id
