@@ -65,9 +65,9 @@ export function CanvasModuleManager({ courseId, courseDuration }: CanvasModuleMa
         .order('week', { ascending: true });
 
       if (error) throw error;
-
+      
       setModules(data || []);
-
+      
       // Auto-select first module if none selected
       if (data && data.length > 0 && !selectedModule) {
         setSelectedModule(data[0]);
@@ -189,25 +189,30 @@ export function CanvasModuleManager({ courseId, courseDuration }: CanvasModuleMa
     const [reorderedItem] = items.splice(result.source.index, 1);
     items.splice(result.destination.index, 0, reorderedItem);
 
+    // Update local state immediately for responsive UI
     setModules(items);
 
     // Update positions in database
     try {
-      const updates = items.map((item, index) => ({
-        id: item.id,
-        position: index
+      const updates = items.map((module, index) => ({
+        id: module.id,
+        position: index,
+        week: index + 1 // Update week numbers based on position
       }));
 
+      // Update each module's position
       for (const update of updates) {
-        await supabase
+        const { error } = await supabase
           .from('modules')
-          .update({ position: update.position })
+          .update({ position: update.position, week: update.week })
           .eq('id', update.id);
+
+        if (error) throw error;
       }
 
       toast({
         title: 'Modules reordered',
-        description: 'Module order has been updated.'
+        description: 'Module order has been updated successfully.'
       });
     } catch (error: any) {
       toast({
@@ -215,36 +220,47 @@ export function CanvasModuleManager({ courseId, courseDuration }: CanvasModuleMa
         description: error.message,
         variant: 'destructive'
       });
-      loadModules(); // Reload on error
+      // Reload to get correct order
+      loadModules();
     }
+  };
+
+  const openEditDialog = (module: Module) => {
+    setEditingModule(module);
+    setFormData({
+      title: module.title,
+      description: module.description || '',
+      week: module.week,
+      published: module.published ?? true
+    });
+    setShowAddDialog(true);
+  };
+
+  const resetForm = () => {
+    setFormData({
+      title: '',
+      description: '',
+      week: modules.length + 1,
+      published: true
+    });
+    setEditingModule(null);
   };
 
   const toggleModulePublished = async (module: Module) => {
     try {
-      const newPublishedState = !module.published;
-
-      const { data, error } = await supabase
+      const newPublishedStatus = !module.published;
+      const { error } = await supabase
         .from('modules')
-        .update({
-          published: newPublishedState,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', module.id)
-        .select()
-        .single();
+        .update({ published: newPublishedStatus, updated_at: new Date().toISOString() })
+        .eq('id', module.id);
 
       if (error) throw error;
 
-      // Update selectedModule if it's the one being toggled
-      if (selectedModule?.id === module.id) {
-        setSelectedModule(data);
-      }
-
       toast({
-        title: newPublishedState ? 'Module published' : 'Module unpublished',
-        description: newPublishedState
-          ? 'This module is now visible to students.'
-          : 'This module is now hidden from students.'
+        title: newPublishedStatus ? 'Module published' : 'Module unpublished',
+        description: newPublishedStatus
+          ? 'Students can now see this module'
+          : 'Module is now hidden from students'
       });
 
       loadModules();
@@ -255,27 +271,6 @@ export function CanvasModuleManager({ courseId, courseDuration }: CanvasModuleMa
         variant: 'destructive'
       });
     }
-  };
-
-  const openEditDialog = (module: Module) => {
-    setEditingModule(module);
-    setFormData({
-      title: module.title,
-      description: module.description || '',
-      week: module.week,
-      published: module.published !== false
-    });
-    setShowAddDialog(true);
-  };
-
-  const resetForm = () => {
-    setEditingModule(null);
-    setFormData({
-      title: '',
-      description: '',
-      week: 1,
-      published: true
-    });
   };
 
   if (loading) {
@@ -302,7 +297,7 @@ export function CanvasModuleManager({ courseId, courseDuration }: CanvasModuleMa
         </Button>
       </div>
 
-      {/* Empty State or Side-by-Side Layout */}
+      {/* Two Column Layout: Module List (Left) | Module Content (Right) */}
       {modules.length === 0 ? (
         <Card>
           <CardContent className="text-center py-12">
@@ -318,194 +313,182 @@ export function CanvasModuleManager({ courseId, courseDuration }: CanvasModuleMa
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          {/* Left Column: Module List (2/5 width) */}
-          <div className="lg:col-span-2">
-            <DragDropContext onDragEnd={handleDragEnd}>
-              <Droppable droppableId="modules">
-                {(provided) => (
-                  <div
-                    {...provided.droppableProps}
-                    ref={provided.innerRef}
-                    className="space-y-2"
+        <DragDropContext onDragEnd={handleDragEnd}>
+          <Droppable droppableId="modules">
+            {(provided) => (
+              <div
+                {...provided.droppableProps}
+                ref={provided.innerRef}
+                className="space-y-2"
+              >
+                {modules.map((module, index) => (
+                  <Draggable
+                    key={module.id}
+                    draggableId={module.id}
+                    index={index}
                   >
-                    {modules.map((module, index) => (
-                      <Draggable
-                        key={module.id}
-                        draggableId={module.id}
-                        index={index}
+                    {(provided, snapshot) => (
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.draggableProps}
+                        className={snapshot.isDragging ? 'opacity-50' : ''}
                       >
-                        {(provided, snapshot) => (
-                          <div
-                            ref={provided.innerRef}
-                            {...provided.draggableProps}
-                            className={snapshot.isDragging ? 'opacity-50' : ''}
-                          >
-                            <div
-                              className={`group bg-card rounded-lg border transition-all cursor-pointer ${
-                                selectedModule?.id === module.id
-                                  ? 'border-primary shadow-md bg-primary/5'
-                                  : 'border-border hover:border-primary/50 hover:shadow-sm'
-                              }`}
-                              onClick={() => setSelectedModule(module)}
-                            >
-                              <div className="p-3">
-                                <div className="flex items-start gap-2">
-                                  {/* Drag Handle */}
-                                  <div
-                                    {...provided.dragHandleProps}
-                                    className="mt-0.5 cursor-grab active:cursor-grabbing p-1 -ml-1 hover:bg-muted rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                                    title="Drag to reorder"
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    <GripVertical className="h-4 w-4 text-muted-foreground" />
-                                  </div>
+                        <div
+                          className={`group bg-card rounded-lg border transition-all ${
+                            selectedModule?.id === module.id
+                              ? 'border-primary shadow-md'
+                              : 'border-border hover:border-primary/50 hover:shadow-sm'
+                          }`}
+                        >
+                          <div className="p-4">
+                            <div className="flex items-start gap-3">
+                              {/* Drag Handle */}
+                              <div
+                                {...provided.dragHandleProps}
+                                className="mt-1 cursor-grab active:cursor-grabbing p-1 -ml-1 hover:bg-muted rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                                title="Drag to reorder"
+                              >
+                                <GripVertical className="h-5 w-5 text-muted-foreground" />
+                              </div>
 
-                                  {/* Module Info */}
+                              {/* Module Content */}
+                              <div
+                                className="flex-1 cursor-pointer min-w-0"
+                                onClick={() => setSelectedModule(module)}
+                              >
+                                <div className="flex items-start justify-between gap-4">
                                   <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 mb-1">
+                                    <div className="flex items-center gap-2 mb-1.5">
                                       <Badge
                                         variant="secondary"
-                                        className="text-xs font-medium px-1.5 py-0"
+                                        className="text-xs font-medium px-2 py-0.5"
                                       >
                                         Week {module.week}
                                       </Badge>
                                       {module.published === false ? (
                                         <Badge
                                           variant="outline"
-                                          className="text-xs font-normal text-muted-foreground border-muted-foreground/30 px-1.5 py-0"
+                                          className="text-xs font-normal text-muted-foreground border-muted-foreground/30"
                                         >
-                                          <EyeOff className="h-2.5 w-2.5 mr-1" />
+                                          <EyeOff className="h-3 w-3 mr-1" />
                                           Unpublished
                                         </Badge>
                                       ) : (
                                         <Badge
-                                          className="text-xs font-normal bg-green-600 hover:bg-green-700 px-1.5 py-0"
+                                          className="text-xs font-normal bg-green-600 hover:bg-green-700"
                                         >
-                                          <Eye className="h-2.5 w-2.5 mr-1" />
+                                          <Eye className="h-3 w-3 mr-1" />
                                           Published
                                         </Badge>
                                       )}
                                     </div>
-                                    <h4 className="font-semibold text-sm mb-0.5 line-clamp-2">{module.title}</h4>
+                                    <h3 className="font-semibold text-base mb-1">{module.title}</h3>
                                     {module.description && (
                                       <div
-                                        className="text-xs text-muted-foreground line-clamp-1 prose-sm"
+                                        className="text-sm text-muted-foreground line-clamp-2 prose-sm"
                                         dangerouslySetInnerHTML={{ __html: module.description }}
                                       />
                                     )}
                                   </div>
 
                                   {/* Action Buttons */}
-                                  <div className="flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <Button
                                       variant="ghost"
                                       size="icon"
-                                      className="h-6 w-6"
+                                      className="h-8 w-8"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         toggleModulePublished(module);
                                       }}
-                                      title={module.published === false ? 'Publish' : 'Unpublish'}
+                                      title={module.published === false ? 'Publish module' : 'Unpublish module'}
                                     >
                                       {module.published === false ? (
-                                        <Eye className="h-3.5 w-3.5" />
+                                        <Eye className="h-4 w-4" />
                                       ) : (
-                                        <EyeOff className="h-3.5 w-3.5" />
+                                        <EyeOff className="h-4 w-4" />
                                       )}
                                     </Button>
                                     <Button
                                       variant="ghost"
                                       size="icon"
-                                      className="h-6 w-6"
+                                      className="h-8 w-8"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         openEditDialog(module);
                                       }}
-                                      title="Edit"
+                                      title="Edit module"
                                     >
-                                      <Edit className="h-3.5 w-3.5" />
+                                      <Edit className="h-4 w-4" />
                                     </Button>
                                     <Button
                                       variant="ghost"
                                       size="icon"
-                                      className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                      className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         handleDeleteModule(module.id);
                                       }}
-                                      title="Delete"
+                                      title="Delete module"
                                     >
-                                      <Trash2 className="h-3.5 w-3.5" />
+                                      <Trash2 className="h-4 w-4" />
                                     </Button>
                                   </div>
                                 </div>
                               </div>
                             </div>
                           </div>
-                        )}
-                      </Draggable>
-                    ))}
-                    {provided.placeholder}
-                  </div>
-                )}
-              </Droppable>
-            </DragDropContext>
+                        </div>
+                      </div>
+                    )}
+                  </Draggable>
+                ))}
+                {provided.placeholder}
+              </div>
+            )}
+          </Droppable>
+        </DragDropContext>
+      )}
+
+      {/* Selected Module Content */}
+      {selectedModule && (
+        <div className="mt-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <Badge variant="secondary" className="text-xs">
+                Week {selectedModule.week}
+              </Badge>
+              <h3 className="text-xl font-semibold">{selectedModule.title}</h3>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => openEditDialog(selectedModule)}>
+              <Settings className="h-4 w-4 mr-2" />
+              Module Settings
+            </Button>
           </div>
 
-          {/* Right Column: Selected Module Content (3/5 width) */}
-          <div className="lg:col-span-3">
-            {selectedModule ? (
-              <div className="sticky top-4">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <Badge variant="secondary" className="text-xs">
-                      Week {selectedModule.week}
-                    </Badge>
-                    <h3 className="text-xl font-semibold">{selectedModule.title}</h3>
-                  </div>
-                  <Button variant="outline" size="sm" onClick={() => openEditDialog(selectedModule)}>
-                    <Settings className="h-4 w-4 mr-2" />
-                    Module Settings
-                  </Button>
-                </div>
+          {selectedModule.description && (
+            <div
+              className="text-sm text-muted-foreground mb-4 prose prose-sm max-w-none"
+              dangerouslySetInnerHTML={{ __html: selectedModule.description }}
+            />
+          )}
 
-                {selectedModule.description && (
-                  <div
-                    className="text-sm text-muted-foreground mb-4 prose prose-sm max-w-none"
-                    dangerouslySetInnerHTML={{ __html: selectedModule.description }}
-                  />
-                )}
-
-                <div className="bg-muted/30 rounded-lg border p-6">
-                  <h4 className="text-sm font-medium mb-4 uppercase tracking-wide text-muted-foreground">
-                    Module Content
-                  </h4>
-                  <CanvasModuleContent
-                    moduleId={selectedModule.id}
-                    courseId={courseId}
-                    isInstructor={true}
-                  />
-                </div>
-              </div>
-            ) : (
-              <Card>
-                <CardContent className="text-center py-12">
-                  <ChevronRight className="h-16 w-16 mx-auto text-muted-foreground/50 mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Select a module</h3>
-                  <p className="text-muted-foreground">
-                    Click on a module from the list to view and manage its content.
-                  </p>
-                </CardContent>
-              </Card>
-            )}
+          <div className="bg-muted/30 rounded-lg border p-6">
+            <h4 className="text-sm font-medium mb-4 uppercase tracking-wide text-muted-foreground">
+              Module Content
+            </h4>
+            <CanvasModuleContent
+              moduleId={selectedModule.id}
+              courseId={courseId}
+              isInstructor={true}
+            />
           </div>
         </div>
       )}
 
       {/* Add/Edit Module Dialog */}
-      <Dialog
-        open={showAddDialog}
+      <Dialog 
+        open={showAddDialog} 
         onOpenChange={(open) => {
           setShowAddDialog(open);
           if (!open) resetForm();
@@ -517,13 +500,13 @@ export function CanvasModuleManager({ courseId, courseDuration }: CanvasModuleMa
               {editingModule ? 'Edit Module' : 'Create New Module'}
             </DialogTitle>
             <DialogDescription>
-              {editingModule
+              {editingModule 
                 ? 'Update the module information below.'
                 : 'Add a new module to organize your course content.'
               }
             </DialogDescription>
           </DialogHeader>
-
+          
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="week">Week Number</Label>
@@ -569,7 +552,9 @@ export function CanvasModuleManager({ courseId, courseDuration }: CanvasModuleMa
                   Publish this module
                 </Label>
                 <p className="text-sm text-muted-foreground">
-                  Students will be able to see and access this module
+                  {formData.published
+                    ? 'Students can see this module and its content'
+                    : 'Module will be hidden from students until published'}
                 </p>
               </div>
             </div>
@@ -579,8 +564,8 @@ export function CanvasModuleManager({ courseId, courseDuration }: CanvasModuleMa
             <Button variant="outline" onClick={() => setShowAddDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSaveModule} disabled={!formData.title.trim()}>
-              {editingModule ? 'Update Module' : 'Create Module'}
+            <Button onClick={handleSaveModule}>
+              {editingModule ? 'Save Changes' : 'Create Module'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -588,3 +573,5 @@ export function CanvasModuleManager({ courseId, courseDuration }: CanvasModuleMa
     </div>
   );
 }
+
+export default CanvasModuleManager;
