@@ -32,11 +32,22 @@ ALTER TABLE blog_posts ADD COLUMN IF NOT EXISTS allow_comments BOOLEAN DEFAULT T
 ALTER TABLE blog_posts ADD COLUMN IF NOT EXISTS custom_slug VARCHAR(200);
 
 -- Create blog_post_tags junction table
-CREATE TABLE IF NOT EXISTS blog_post_tags (
-  blog_post_id UUID REFERENCES blog_posts(id) ON DELETE CASCADE,
-  tag_id UUID REFERENCES blog_tags(id) ON DELETE CASCADE,
-  PRIMARY KEY (blog_post_id, tag_id)
-);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'blog_post_tags') THEN
+    CREATE TABLE blog_post_tags (
+      blog_post_id UUID REFERENCES blog_posts(id) ON DELETE CASCADE,
+      tag_id UUID REFERENCES blog_tags(id) ON DELETE CASCADE,
+      PRIMARY KEY (blog_post_id, tag_id)
+    );
+  ELSE
+    -- Table exists, ensure columns are named correctly
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'blog_post_tags' AND column_name = 'tag_id') THEN
+      -- If using old schema, might have different column names - add tag_id if missing
+      ALTER TABLE blog_post_tags ADD COLUMN IF NOT EXISTS tag_id UUID REFERENCES blog_tags(id) ON DELETE CASCADE;
+    END IF;
+  END IF;
+END $$;
 
 -- Create blog_media table
 CREATE TABLE IF NOT EXISTS blog_media (

@@ -1,8 +1,9 @@
 
 import { Link } from 'react-router-dom';
-import { ArrowRight, Star, Clock, BookOpen, Sparkles } from 'lucide-react';
+import { ArrowRight, Star, Clock, BookOpen, Sparkles, Target, TrendingUp, Award } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Course } from '@/types';
+import { CourseDifficulty } from '@/types/course';
 import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
 
@@ -72,6 +73,32 @@ const FeaturedCourses = ({ courses }: FeaturedCoursesProps) => {
     }
   };
 
+  // Get difficulty badge configuration
+  const getDifficultyConfig = (difficulty?: CourseDifficulty | string) => {
+    switch (difficulty?.toLowerCase()) {
+      case 'beginner':
+        return {
+          icon: Target,
+          color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 border-green-200',
+          label: 'Beginner'
+        };
+      case 'intermediate':
+        return {
+          icon: TrendingUp,
+          color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 border-yellow-200',
+          label: 'Intermediate'
+        };
+      case 'advanced':
+        return {
+          icon: Award,
+          color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 border-red-200',
+          label: 'Advanced'
+        };
+      default:
+        return null;
+    }
+  };
+
   return (
     <section className="py-20 bg-white dark:bg-gray-900">
       <div className="container mx-auto px-4">
@@ -135,7 +162,36 @@ const FeaturedCourses = ({ courses }: FeaturedCoursesProps) => {
                     
                     <h3 className="text-xl font-semibold mb-3 line-clamp-1 group-hover:text-primary transition-colors duration-300">{course.title}</h3>
                     <p className="text-muted-foreground mb-4 line-clamp-2">{course.description}</p>
-                    
+
+                    {/* Difficulty and Estimated Hours Badges */}
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {(() => {
+                        const difficulty = (course as any).difficulty_level || (course as any).difficultyLevel;
+                        const config = getDifficultyConfig(difficulty);
+                        if (!config) return null;
+                        const DifficultyIcon = config.icon;
+
+                        return (
+                          <Badge variant="outline" className={`${config.color} flex items-center gap-1 font-medium`}>
+                            <DifficultyIcon className="h-3 w-3" />
+                            {config.label}
+                          </Badge>
+                        );
+                      })()}
+
+                      {(() => {
+                        const estimatedHours = (course as any).estimated_hours || (course as any).estimatedHours;
+                        if (!estimatedHours) return null;
+
+                        return (
+                          <Badge variant="outline" className="flex items-center gap-1 border-blue-200 bg-blue-50 text-blue-700 dark:bg-blue-900 dark:text-blue-200">
+                            <Clock className="h-3 w-3" />
+                            {estimatedHours.toFixed(1)} hours
+                          </Badge>
+                        );
+                      })()}
+                    </div>
+
                     <div className="mt-auto flex justify-between items-center text-sm">
                       <Badge variant="outline" className={`${getLevelStyle(course.level)} font-medium`}>
                         {course.level}
