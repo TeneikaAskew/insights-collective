@@ -1,5 +1,6 @@
 -- Apply difficulty_level and estimated_hours migration directly
 -- This can be run in Supabase SQL Editor
+-- Updated to work with content_items table (no content_blocks)
 
 -- Step 1: Create ENUM type for difficulty levels
 DO $$ BEGIN
@@ -26,7 +27,7 @@ DECLARE
   v_module_count INTEGER;
   v_assignment_count INTEGER;
   v_quiz_count INTEGER;
-  v_content_block_count INTEGER;
+  v_content_item_count INTEGER;
   v_total_complexity INTEGER;
 BEGIN
   -- Count modules
@@ -34,29 +35,29 @@ BEGIN
   FROM modules
   WHERE course_id = course_id_param;
 
-  -- Count assignments across all modules
+  -- Count assignments (via content_items)
   SELECT COUNT(*) INTO v_assignment_count
-  FROM assignments
-  WHERE course_id = course_id_param;
+  FROM assignments a
+  JOIN content_items ci ON a.content_item_id = ci.id
+  WHERE ci.course_id = course_id_param;
 
-  -- Count quizzes across all modules
+  -- Count quizzes (via content_items)
   SELECT COUNT(DISTINCT q.id) INTO v_quiz_count
   FROM quizzes q
   JOIN content_items ci ON q.content_item_id = ci.id
   WHERE ci.course_id = course_id_param;
 
-  -- Count content blocks
-  SELECT COUNT(*) INTO v_content_block_count
-  FROM content_blocks cb
-  JOIN modules m ON cb.module_id = m.id
-  WHERE m.course_id = course_id_param;
+  -- Count all content items (pages, assignments, quizzes, etc.)
+  SELECT COUNT(*) INTO v_content_item_count
+  FROM content_items
+  WHERE course_id = course_id_param;
 
   -- Calculate complexity score
   v_total_complexity :=
     (v_module_count * 5) +
     (v_assignment_count * 10) +
     (v_quiz_count * 8) +
-    (v_content_block_count * 2);
+    (v_content_item_count * 2);
 
   -- Determine difficulty based on complexity
   IF v_total_complexity < 50 THEN
@@ -81,21 +82,24 @@ DECLARE
   v_lesson_minutes NUMERIC := 0;
   v_assignment_count INTEGER := 0;
   v_quiz_count INTEGER := 0;
-  v_content_block_count INTEGER := 0;
+  v_content_item_count INTEGER := 0;
 BEGIN
-  -- Sum estimated time from lessons
-  SELECT COALESCE(SUM(estimated_time_minutes), 0) INTO v_lesson_minutes
-  FROM lessons l
-  JOIN modules m ON l.module_id = m.id
-  WHERE m.course_id = course_id_param
-    AND l.estimated_time_minutes IS NOT NULL;
+  -- Sum estimated time from lessons (if lessons table exists)
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'lessons') THEN
+    SELECT COALESCE(SUM(estimated_time_minutes), 0) INTO v_lesson_minutes
+    FROM lessons l
+    JOIN modules m ON l.module_id = m.id
+    WHERE m.course_id = course_id_param
+      AND l.estimated_time_minutes IS NOT NULL;
 
-  v_total_minutes := v_total_minutes + v_lesson_minutes;
+    v_total_minutes := v_total_minutes + v_lesson_minutes;
+  END IF;
 
   -- Count assignments (estimate 60 minutes each)
   SELECT COUNT(*) INTO v_assignment_count
-  FROM assignments
-  WHERE course_id = course_id_param;
+  FROM assignments a
+  JOIN content_items ci ON a.content_item_id = ci.id
+  WHERE ci.course_id = course_id_param;
 
   v_total_minutes := v_total_minutes + (v_assignment_count * 60);
 
@@ -107,13 +111,13 @@ BEGIN
 
   v_total_minutes := v_total_minutes + (v_quiz_count * 30);
 
-  -- Count content blocks (estimate 15 minutes each)
-  SELECT COUNT(*) INTO v_content_block_count
-  FROM content_blocks cb
-  JOIN modules m ON cb.module_id = m.id
-  WHERE m.course_id = course_id_param;
+  -- Count content items (estimate 15 minutes each for pages/materials)
+  SELECT COUNT(*) INTO v_content_item_count
+  FROM content_items
+  WHERE course_id = course_id_param
+    AND type IN ('page', 'external_url', 'external_tool');
 
-  v_total_minutes := v_total_minutes + (v_content_block_count * 15);
+  v_total_minutes := v_total_minutes + (v_content_item_count * 15);
 
   -- If no content exists, return minimum of 1 hour
   IF v_total_minutes = 0 THEN
@@ -125,7 +129,7 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION calculate_course_hours IS 'Estimates total course hours based on lessons, assignments, quizzes, and content blocks';
+COMMENT ON FUNCTION calculate_course_hours IS 'Estimates total course hours based on lessons, assignments, quizzes, and content items';
 
 -- Step 6: Migrate existing courses data
 UPDATE courses
@@ -166,7 +170,8 @@ SELECT
 FROM courses c
 LEFT JOIN modules m ON c.id = m.course_id
 LEFT JOIN enrollments e ON c.id = e.course_id
-LEFT JOIN assignments a ON c.id = a.course_id
+LEFT JOIN content_items ci ON c.id = ci.course_id AND ci.type = 'assignment'
+LEFT JOIN assignments a ON ci.id = a.content_item_id
 LEFT JOIN lessons l ON m.id = l.module_id
 GROUP BY c.id, c.title, c.difficulty_level, c.estimated_hours,
          c.published, c.status, c.enrollment_status;
