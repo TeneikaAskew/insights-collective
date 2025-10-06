@@ -21,21 +21,21 @@ export class CanvasContentService {
       .from('content_items')
       .select(`
         *,
-        assignment:assignments!assignments_content_item_id_fkey(*),
-        quiz:quizzes!quizzes_content_item_id_fkey(*, questions:quiz_questions(*))
+        assignment:assignments(*),
+        quiz:quizzes(*, questions:quiz_questions(*))
       `)
       .eq('module_id', moduleId)
       .order('position');
 
     if (error) throw error;
-    
+
     // Transform the data to ensure assignment and quiz are single objects, not arrays
     const transformedData = data?.map(item => ({
       ...item,
       assignment: Array.isArray(item.assignment) && item.assignment.length > 0 ? item.assignment[0] : item.assignment,
       quiz: Array.isArray(item.quiz) && item.quiz.length > 0 ? item.quiz[0] : item.quiz
     }));
-    
+
     return transformedData || [];
   }
 
@@ -45,8 +45,8 @@ export class CanvasContentService {
         .from('content_items')
         .select(`
           *,
-          assignment:assignments!assignments_content_item_id_fkey(*),
-          quiz:quizzes!quizzes_content_item_id_fkey(*, questions:quiz_questions(*))
+          assignment:assignments(*),
+          quiz:quizzes(*, questions:quiz_questions(*))
         `)
         .eq('id', id)
         .single();
