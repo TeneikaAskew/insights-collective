@@ -11,8 +11,6 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Save, Upload, X } from 'lucide-react';
-import CourseInstructorAccess from '@/components/course/CourseInstructorAccess';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { VALID_CATEGORIES } from '@/constants/courseCategories';
 
 import { createLogger } from '@/utils/logger';
@@ -452,21 +450,7 @@ export default function CourseDetails({ course }: CourseDetailsProps) {
               </div>
             </div>
           </div>
-          
-          {course?.enrollmentCount !== undefined && (
-            <div className="mt-4">
-              <Alert>
-                <AlertTitle>Course Statistics</AlertTitle>
-                <AlertDescription>
-                  <div className="flex justify-between items-center">
-                    <span>Enrollments</span>
-                    <span className="font-bold">{course.enrollmentCount}</span>
-                  </div>
-                </AlertDescription>
-              </Alert>
-            </div>
-          )}
-          
+
           <div className="mt-6 flex justify-end">
             <Button onClick={handleSave} disabled={isLoading}>
               {isLoading ? 'Saving...' : (
@@ -479,15 +463,6 @@ export default function CourseDetails({ course }: CourseDetailsProps) {
           </div>
         </CardContent>
       </Card>
-      
-      {course?.id && (
-        <Card>
-          <CardContent className="pt-6">
-            <h3 className="text-lg font-semibold mb-4">Course Instructors</h3>
-            <CourseInstructorAccess courseId={course.id} />
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }
