@@ -60,7 +60,9 @@
       "Bash(npm run build:*)",
       "Bash(supabase link:*)",
       "Bash(supabase db:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(python test:*)",
+      "Bash(python:*)"
     ],
     "deny": []
   }
