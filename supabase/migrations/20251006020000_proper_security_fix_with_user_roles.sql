@@ -7,6 +7,7 @@
 -- 3. Breaking the recursion cycle by using direct queries in user_roles policies
 
 -- STEP 1: Clean up any existing broken objects
+-- Drop all known policy variations that might exist
 DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
 DROP POLICY IF EXISTS "View instructor profiles in enrolled courses" ON public.profiles;
 DROP POLICY IF EXISTS "Instructors view student profiles" ON public.profiles;
@@ -25,6 +26,9 @@ DROP POLICY IF EXISTS "Users can view all profiles" ON public.profiles;
 DROP POLICY IF EXISTS "Enable read access for all users" ON public.profiles;
 DROP POLICY IF EXISTS "Users can insert their own profile" ON public.profiles;
 DROP POLICY IF EXISTS "Users can update their own profile" ON public.profiles;
+-- Drop Lovable's attempt at fixing it
+DROP POLICY IF EXISTS "Users can update own profile v2" ON public.profiles;
+DROP POLICY IF EXISTS "Users can insert own profile v2" ON public.profiles;
 
 -- Drop existing user_roles policies and objects
 DROP POLICY IF EXISTS "Admins manage all roles" ON public.user_roles;
