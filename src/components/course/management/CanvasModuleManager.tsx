@@ -275,180 +275,208 @@ export function CanvasModuleManager({ courseId, courseDuration }: CanvasModuleMa
   }
 
   return (
-    <div className="space-y-6">
-      {/* Module Overview */}
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <div>
-              <CardTitle>Course Modules</CardTitle>
-              <CardDescription>
-                Organize your course content into weekly modules
-              </CardDescription>
-            </div>
-            <Button onClick={() => setShowAddDialog(true)}>
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Course Modules</h2>
+          <p className="text-muted-foreground">
+            Organize your course content into weekly modules
+          </p>
+        </div>
+        <Button onClick={() => setShowAddDialog(true)} size="lg">
+          <Plus className="h-4 w-4 mr-2" />
+          Add Module
+        </Button>
+      </div>
+
+      {/* Module List */}
+      {modules.length === 0 ? (
+        <Card>
+          <CardContent className="text-center py-12">
+            <BookOpen className="h-16 w-16 mx-auto text-muted-foreground/50 mb-4" />
+            <h3 className="text-lg font-semibold mb-2">No modules yet</h3>
+            <p className="text-muted-foreground mb-4">
+              Create your first module to get started organizing your course content.
+            </p>
+            <Button onClick={() => setShowAddDialog(true)} variant="outline">
               <Plus className="h-4 w-4 mr-2" />
-              Add Module
+              Create First Module
             </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {modules.length === 0 ? (
-            <div className="text-center py-8">
-              <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">
-                No modules yet. Create your first module to get started.
-              </p>
-            </div>
-          ) : (
-            <DragDropContext onDragEnd={handleDragEnd}>
-              <Droppable droppableId="modules">
-                {(provided) => (
-                  <div 
-                    {...provided.droppableProps} 
-                    ref={provided.innerRef}
-                    className="space-y-3"
+          </CardContent>
+        </Card>
+      ) : (
+        <DragDropContext onDragEnd={handleDragEnd}>
+          <Droppable droppableId="modules">
+            {(provided) => (
+              <div
+                {...provided.droppableProps}
+                ref={provided.innerRef}
+                className="space-y-2"
+              >
+                {modules.map((module, index) => (
+                  <Draggable
+                    key={module.id}
+                    draggableId={module.id}
+                    index={index}
                   >
-                    {modules.map((module, index) => (
-                      <Draggable 
-                        key={module.id} 
-                        draggableId={module.id} 
-                        index={index}
+                    {(provided, snapshot) => (
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.draggableProps}
+                        className={snapshot.isDragging ? 'opacity-50' : ''}
                       >
-                        {(provided, snapshot) => (
-                          <div
-                            ref={provided.innerRef}
-                            {...provided.draggableProps}
-                            className={snapshot.isDragging ? 'opacity-50' : ''}
-                          >
-                            <Card 
-                              className={`transition-all hover:shadow-md ${
-                                selectedModule?.id === module.id ? 'ring-2 ring-primary' : ''
-                              }`}
-                            >
-                              <CardHeader className="pb-3">
-                                <div className="flex items-center gap-3">
-                                  <div 
-                                    {...provided.dragHandleProps}
-                                    className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted rounded"
-                                    title="Drag to reorder"
-                                  >
-                                    <GripVertical className="h-5 w-5 text-muted-foreground" />
-                                  </div>
-                                  <div 
-                                    className="flex-1 cursor-pointer"
-                                    onClick={() => setSelectedModule(module)}
-                                  >
-                                    <div className="flex justify-between items-start">
-                                      <div>
-                                        <div className="flex gap-2 mb-2">
-                                          <Badge variant="secondary">
-                                            Week {module.week}
-                                          </Badge>
-                                          {module.published === false ? (
-                                            <Badge variant="outline" className="text-muted-foreground">
-                                              <EyeOff className="h-3 w-3 mr-1" />
-                                              Unpublished
-                                            </Badge>
-                                          ) : (
-                                            <Badge variant="default" className="bg-green-600">
-                                              <Eye className="h-3 w-3 mr-1" />
-                                              Published
-                                            </Badge>
-                                          )}
-                                        </div>
-                                        <CardTitle className="text-lg">{module.title}</CardTitle>
-                                      </div>
-                                      <div className="flex gap-1">
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            toggleModulePublished(module);
-                                          }}
-                                          title={module.published === false ? 'Publish module' : 'Unpublish module'}
+                        <div
+                          className={`group bg-card rounded-lg border transition-all ${
+                            selectedModule?.id === module.id
+                              ? 'border-primary shadow-md'
+                              : 'border-border hover:border-primary/50 hover:shadow-sm'
+                          }`}
+                        >
+                          <div className="p-4">
+                            <div className="flex items-start gap-3">
+                              {/* Drag Handle */}
+                              <div
+                                {...provided.dragHandleProps}
+                                className="mt-1 cursor-grab active:cursor-grabbing p-1 -ml-1 hover:bg-muted rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                                title="Drag to reorder"
+                              >
+                                <GripVertical className="h-5 w-5 text-muted-foreground" />
+                              </div>
+
+                              {/* Module Content */}
+                              <div
+                                className="flex-1 cursor-pointer min-w-0"
+                                onClick={() => setSelectedModule(module)}
+                              >
+                                <div className="flex items-start justify-between gap-4">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-1.5">
+                                      <Badge
+                                        variant="secondary"
+                                        className="text-xs font-medium px-2 py-0.5"
+                                      >
+                                        Week {module.week}
+                                      </Badge>
+                                      {module.published === false ? (
+                                        <Badge
+                                          variant="outline"
+                                          className="text-xs font-normal text-muted-foreground border-muted-foreground/30"
                                         >
-                                          {module.published === false ? (
-                                            <Eye className="h-4 w-4" />
-                                          ) : (
-                                            <EyeOff className="h-4 w-4" />
-                                          )}
-                                        </Button>
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            openEditDialog(module);
-                                          }}
+                                          <EyeOff className="h-3 w-3 mr-1" />
+                                          Unpublished
+                                        </Badge>
+                                      ) : (
+                                        <Badge
+                                          className="text-xs font-normal bg-green-600 hover:bg-green-700"
                                         >
-                                          <Edit className="h-4 w-4" />
-                                        </Button>
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDeleteModule(module.id);
-                                          }}
-                                        >
-                                          <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                      </div>
+                                          <Eye className="h-3 w-3 mr-1" />
+                                          Published
+                                        </Badge>
+                                      )}
                                     </div>
+                                    <h3 className="font-semibold text-base mb-1">{module.title}</h3>
+                                    {module.description && (
+                                      <div
+                                        className="text-sm text-muted-foreground line-clamp-2 prose-sm"
+                                        dangerouslySetInnerHTML={{ __html: module.description }}
+                                      />
+                                    )}
+                                  </div>
+
+                                  {/* Action Buttons */}
+                                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        toggleModulePublished(module);
+                                      }}
+                                      title={module.published === false ? 'Publish module' : 'Unpublish module'}
+                                    >
+                                      {module.published === false ? (
+                                        <Eye className="h-4 w-4" />
+                                      ) : (
+                                        <EyeOff className="h-4 w-4" />
+                                      )}
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        openEditDialog(module);
+                                      }}
+                                      title="Edit module"
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteModule(module.id);
+                                      }}
+                                      title="Delete module"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
                                   </div>
                                 </div>
-                                {module.description && (
-                                  <p className="text-sm text-muted-foreground line-clamp-2 mt-2 ml-8">
-                                    {module.description}
-                                  </p>
-                                )}
-                              </CardHeader>
-                            </Card>
+                              </div>
+                            </div>
                           </div>
-                        )}
-                      </Draggable>
-                    ))}
-                    {provided.placeholder}
-                  </div>
-                )}
-              </Droppable>
-            </DragDropContext>
-          )}
-        </CardContent>
-      </Card>
+                        </div>
+                      </div>
+                    )}
+                  </Draggable>
+                ))}
+                {provided.placeholder}
+              </div>
+            )}
+          </Droppable>
+        </DragDropContext>
+      )}
 
       {/* Selected Module Content */}
       {selectedModule && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <Badge variant="outline">Week {selectedModule.week}</Badge>
-                </div>
-                <CardTitle>{selectedModule.title}</CardTitle>
-                {selectedModule.description && (
-                  <CardDescription className="mt-2">
-                    {selectedModule.description}
-                  </CardDescription>
-                )}
-              </div>
-              <Button variant="outline" onClick={() => openEditDialog(selectedModule)}>
-                <Settings className="h-4 w-4 mr-2" />
-                Module Settings
-              </Button>
+        <div className="mt-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <Badge variant="secondary" className="text-xs">
+                Week {selectedModule.week}
+              </Badge>
+              <h3 className="text-xl font-semibold">{selectedModule.title}</h3>
             </div>
-          </CardHeader>
-          <CardContent>
+            <Button variant="outline" size="sm" onClick={() => openEditDialog(selectedModule)}>
+              <Settings className="h-4 w-4 mr-2" />
+              Module Settings
+            </Button>
+          </div>
+
+          {selectedModule.description && (
+            <div
+              className="text-sm text-muted-foreground mb-4 prose prose-sm max-w-none"
+              dangerouslySetInnerHTML={{ __html: selectedModule.description }}
+            />
+          )}
+
+          <div className="bg-muted/30 rounded-lg border p-6">
+            <h4 className="text-sm font-medium mb-4 uppercase tracking-wide text-muted-foreground">
+              Module Content
+            </h4>
             <CanvasModuleContent
               moduleId={selectedModule.id}
               courseId={courseId}
               isInstructor={true}
             />
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
       {/* Add/Edit Module Dialog */}
