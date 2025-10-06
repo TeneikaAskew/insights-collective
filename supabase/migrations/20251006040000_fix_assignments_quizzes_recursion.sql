@@ -231,29 +231,19 @@ COMMENT ON FUNCTION public.can_access_submission IS 'SECURITY DEFINER function t
 -- STEP 17: Add UNIQUE constraint to assignments.content_item_id
 -- This ensures one content_item can only have one assignment (one-to-one relationship)
 -- Required for PostgREST singular alias syntax: assignment:assignments(*)
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint
-    WHERE conname = 'assignments_content_item_id_unique'
-  ) THEN
-    ALTER TABLE public.assignments
-    ADD CONSTRAINT assignments_content_item_id_unique
-    UNIQUE (content_item_id);
-  END IF;
-END $$;
+ALTER TABLE public.assignments
+DROP CONSTRAINT IF EXISTS assignments_content_item_id_unique;
+
+ALTER TABLE public.assignments
+ADD CONSTRAINT assignments_content_item_id_unique
+UNIQUE (content_item_id);
 
 -- STEP 18: Add UNIQUE constraint to quizzes.content_item_id
 -- This ensures one content_item can only have one quiz (one-to-one relationship)
 -- Required for PostgREST singular alias syntax: quiz:quizzes(*)
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint
-    WHERE conname = 'quizzes_content_item_id_unique'
-  ) THEN
-    ALTER TABLE public.quizzes
-    ADD CONSTRAINT quizzes_content_item_id_unique
-    UNIQUE (content_item_id);
-  END IF;
-END $$;
+ALTER TABLE public.quizzes
+DROP CONSTRAINT IF EXISTS quizzes_content_item_id_unique;
+
+ALTER TABLE public.quizzes
+ADD CONSTRAINT quizzes_content_item_id_unique
+UNIQUE (content_item_id);
