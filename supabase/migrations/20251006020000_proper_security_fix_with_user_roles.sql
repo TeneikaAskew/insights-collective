@@ -31,6 +31,7 @@ DROP POLICY IF EXISTS "Admins manage all roles" ON public.user_roles;
 DROP POLICY IF EXISTS "Users view own roles" ON public.user_roles;
 DROP TABLE IF EXISTS public.user_roles CASCADE;
 DROP FUNCTION IF EXISTS public.has_role(UUID, app_role) CASCADE;
+DROP FUNCTION IF EXISTS public.get_user_roles(UUID) CASCADE; -- Drop old version with different return type
 DROP FUNCTION IF EXISTS public.get_user_roles_new(UUID) CASCADE;
 DROP FUNCTION IF EXISTS public.update_user_roles(UUID, TEXT[]) CASCADE;
 DROP FUNCTION IF EXISTS public.get_all_users_with_roles() CASCADE;
