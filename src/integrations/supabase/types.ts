@@ -373,7 +373,7 @@ export type Database = {
           {
             foreignKeyName: "assignments_content_item_id_fkey"
             columns: ["content_item_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "content_items"
             referencedColumns: ["id"]
           },
@@ -2890,7 +2890,15 @@ export type Database = {
           question_type?: string
           quiz_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "quiz_questions_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       quiz_submissions: {
         Row: {
@@ -3014,7 +3022,7 @@ export type Database = {
           {
             foreignKeyName: "quizzes_content_item_id_fkey"
             columns: ["content_item_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "content_items"
             referencedColumns: ["id"]
           },
@@ -3659,6 +3667,30 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          granted_at: string | null
+          granted_by: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          granted_at?: string | null
+          granted_by?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          granted_at?: string | null
+          granted_by?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       quiz_analytics: {
@@ -3697,6 +3729,34 @@ export type Database = {
           completion_percentage: number
           total_blocks: number
         }[]
+      }
+      can_access_assignment: {
+        Args: { assignment_id: string; viewer_id: string }
+        Returns: boolean
+      }
+      can_access_content_item: {
+        Args: { content_item_id: string; viewer_id: string }
+        Returns: boolean
+      }
+      can_access_module: {
+        Args: { module_id: string; viewer_id: string }
+        Returns: boolean
+      }
+      can_access_quiz: {
+        Args: { quiz_id: string; viewer_id: string }
+        Returns: boolean
+      }
+      can_access_quiz_question: {
+        Args: { question_id: string; viewer_id: string }
+        Returns: boolean
+      }
+      can_access_submission: {
+        Args: { submission_id: string; viewer_id: string }
+        Returns: boolean
+      }
+      can_view_profile: {
+        Args: { profile_id: string; viewer_id: string }
+        Returns: boolean
       }
       clean_old_security_events: {
         Args: Record<PropertyKey, never>
@@ -3785,11 +3845,18 @@ export type Database = {
         Returns: string
       }
       get_user_roles: {
-        Args: { user_id_param: string }
-        Returns: string[]
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["app_role"][]
       }
       has_admin_access: {
         Args: { user_id_param: string }
+        Returns: boolean
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
         Returns: boolean
       }
       is_conversation_participant: {
@@ -3821,8 +3888,13 @@ export type Database = {
         }
         Returns: undefined
       }
+      update_user_roles: {
+        Args: { new_roles: string[]; target_user_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
+      app_role: "student" | "instructor" | "admin"
       content_item_type:
         | "page"
         | "assignment"
@@ -3960,6 +4032,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["student", "instructor", "admin"],
       content_item_type: [
         "page",
         "assignment",
