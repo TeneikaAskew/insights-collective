@@ -174,9 +174,17 @@ GROUP BY c.id, c.title, c.difficulty_level, c.estimated_hours,
 COMMENT ON VIEW course_statistics IS 'Aggregated statistics for courses including difficulty and time estimates';
 
 -- Step 10: Add validation constraint
-ALTER TABLE courses
-  ADD CONSTRAINT IF NOT EXISTS check_estimated_hours_positive
-  CHECK (estimated_hours > 0);
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'check_estimated_hours_positive'
+    AND conrelid = 'courses'::regclass
+  ) THEN
+    ALTER TABLE courses
+      ADD CONSTRAINT check_estimated_hours_positive
+      CHECK (estimated_hours > 0);
+  END IF;
+END $$;
 
 -- Step 11: Create helper function for filtering courses by difficulty
 CREATE OR REPLACE FUNCTION get_courses_by_difficulty(diff_level course_difficulty)
