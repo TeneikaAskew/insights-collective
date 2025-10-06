@@ -7,7 +7,7 @@ import CourseDetails from '@/components/course/management/CourseDetails';
 import CourseStudents from '@/components/course/management/CourseStudents';
 import CourseAnalytics from '@/components/course/management/CourseAnalytics';
 import CourseSettings from '@/components/course/management/CourseSettings';
-import CanvasModuleManager from '@/components/course/management/CanvasModuleManager';
+import { CanvasModuleManager } from '@/components/course/management/CanvasModuleManager';
 import { AssignmentManager } from '@/components/course/management/AssignmentManager';
 import { QuizManager } from '@/components/course/management/QuizManager';
 import { useParams, useNavigate } from 'react-router-dom';
