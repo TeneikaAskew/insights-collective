@@ -7,28 +7,19 @@
 -- 3. Breaking the recursion cycle by using direct queries in user_roles policies
 
 -- STEP 1: Clean up any existing broken objects
--- Drop all known policy variations that might exist
-DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
-DROP POLICY IF EXISTS "View instructor profiles in enrolled courses" ON public.profiles;
-DROP POLICY IF EXISTS "Instructors view student profiles" ON public.profiles;
-DROP POLICY IF EXISTS "View conversation participant profiles" ON public.profiles;
-DROP POLICY IF EXISTS "Admins view all profiles" ON public.profiles;
-DROP POLICY IF EXISTS "Admins view all profiles v2" ON public.profiles;
-DROP POLICY IF EXISTS "Course members view each other" ON public.profiles;
-DROP POLICY IF EXISTS "Conversation members view each other" ON public.profiles;
-DROP POLICY IF EXISTS "View profiles in same courses" ON public.profiles;
-DROP POLICY IF EXISTS "Users update own profile" ON public.profiles;
-DROP POLICY IF EXISTS "Users insert own profile" ON public.profiles;
-DROP POLICY IF EXISTS "Anyone can view profiles" ON public.profiles;
-DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON public.profiles;
-DROP POLICY IF EXISTS "Profiles are viewable by everyone" ON public.profiles;
-DROP POLICY IF EXISTS "Users can view all profiles" ON public.profiles;
-DROP POLICY IF EXISTS "Enable read access for all users" ON public.profiles;
-DROP POLICY IF EXISTS "Users can insert their own profile" ON public.profiles;
-DROP POLICY IF EXISTS "Users can update their own profile" ON public.profiles;
--- Drop Lovable's attempt at fixing it
-DROP POLICY IF EXISTS "Users can update own profile v2" ON public.profiles;
-DROP POLICY IF EXISTS "Users can insert own profile v2" ON public.profiles;
+-- Drop ALL existing policies on profiles table dynamically
+DO $$
+DECLARE
+  pol record;
+BEGIN
+  FOR pol IN
+    SELECT policyname
+    FROM pg_policies
+    WHERE tablename = 'profiles' AND schemaname = 'public'
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.profiles', pol.policyname);
+  END LOOP;
+END $$;
 
 -- Drop existing user_roles policies and objects
 DROP POLICY IF EXISTS "Admins manage all roles" ON public.user_roles;
