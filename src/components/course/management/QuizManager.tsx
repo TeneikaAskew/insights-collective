@@ -84,37 +84,62 @@ export function QuizManager({ courseId, modules = [] }: QuizManagerProps) {
 
       console.log('[QuizManager] Fetching quizzes for courseId:', courseId);
 
-      // Fetch content items of type 'quiz' for this course
-      const { data: contentItems, error: contentError } = await supabase
-        .from('content_items')
-        .select('*')
-        .eq('course_id', courseId)
-        .eq('type', 'quiz')
+      // Fetch quizzes that belong to content_items in this course
+      const { data: quizzesData, error: quizzesError } = await supabase
+        .from('quizzes')
+        .select(`
+          *,
+          content_item:content_items!inner(
+            id,
+            course_id,
+            module_id,
+            title,
+            published,
+            created_at,
+            updated_at
+          )
+        `)
+        .eq('content_items.course_id', courseId)
         .order('created_at', { ascending: false });
 
-      console.log('[QuizManager] Content items query result:', {
-        count: contentItems?.length || 0,
-        items: contentItems,
-        error: contentError
+      console.log('[QuizManager] Quizzes query result:', {
+        count: quizzesData?.length || 0,
+        items: quizzesData,
+        error: quizzesError
       });
 
-      if (contentError) {
-        console.error('[QuizManager] Content items query error:', contentError);
-        throw contentError;
+      if (quizzesError) {
+        console.error('[QuizManager] Quizzes query error:', quizzesError);
+        throw quizzesError;
       }
 
       // For each quiz, get question count
       const quizzesWithCounts = await Promise.all(
-        (contentItems || []).map(async (item) => {
+        (quizzesData || []).map(async (quiz) => {
           const { count, error: countError } = await supabase
             .from('quiz_questions')
             .select('*', { count: 'exact', head: true })
-            .eq('quiz_id', item.id);
+            .eq('quiz_id', quiz.id);
 
-          console.log('[QuizManager] Question count for quiz', item.id, ':', { count, error: countError });
+          console.log('[QuizManager] Question count for quiz', quiz.id, ':', { count, error: countError });
 
+          // Merge quiz data with content_item data
           return {
-            ...item,
+            id: quiz.id,
+            content_item_id: quiz.content_item_id,
+            title: quiz.title,
+            description: quiz.description,
+            quiz_type: quiz.quiz_type,
+            points_possible: quiz.points_possible,
+            time_limit: quiz.time_limit,
+            allowed_attempts: quiz.allowed_attempts,
+            shuffle_answers: quiz.shuffle_answers,
+            shuffle_questions: quiz.shuffle_questions,
+            show_correct_answers: quiz.show_correct_answers,
+            due_at: quiz.due_at,
+            published: (quiz.content_item as any)?.published || false,
+            created_at: quiz.created_at,
+            updated_at: quiz.updated_at,
             question_count: count || 0,
           };
         })
