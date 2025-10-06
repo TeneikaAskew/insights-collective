@@ -3659,6 +3659,30 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          granted_at: string | null
+          granted_by: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          granted_at?: string | null
+          granted_by?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          granted_at?: string | null
+          granted_by?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       quiz_analytics: {
@@ -3788,8 +3812,19 @@ export type Database = {
         Args: { user_id_param: string }
         Returns: string[]
       }
+      get_user_roles_new: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["app_role"][]
+      }
       has_admin_access: {
         Args: { user_id_param: string }
+        Returns: boolean
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
         Returns: boolean
       }
       is_conversation_participant: {
@@ -3823,6 +3858,7 @@ export type Database = {
       }
     }
     Enums: {
+      app_role: "student" | "instructor" | "admin"
       content_item_type:
         | "page"
         | "assignment"
@@ -3960,6 +3996,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["student", "instructor", "admin"],
       content_item_type: [
         "page",
         "assignment",
