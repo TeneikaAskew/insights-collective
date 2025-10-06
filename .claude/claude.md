@@ -3,155 +3,357 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
-The Investigative Workload Application (IWA) is a Case Assignment Model (CAM) optimization system that distributes investigative cases across multiple organizations using OR-Tools optimization. It runs as a Flask web application with offline deployment capabilities.
+
+Insights Collective is a full-stack educational platform built with React, TypeScript, and Supabase. It provides course management, AI-powered career assistance, portfolio building, and interactive learning experiences for students and instructors.
 
 ## Development Commands
 
-### Running the Application
+### Installation
 ```bash
-# Development server
-python app.py
+npm install              # Install all dependencies
+npm install vite --save-dev  # Install Vite if needed
+```
 
-# Run CAM optimization with performance comparison
-python runcam_enhanced.py         # Default: compares original vs enhanced
-python runcam_enhanced.py compare  # Explicit comparison mode
-python runcam_enhanced.py enhanced # Run only enhanced parallel version
-python runcam_enhanced.py original # Run only original version
-
-# Standard CAM execution with diagnostics
-python runcam_standard.py
+### Development
+```bash
+npm run dev              # Start development server on http://localhost:8080
+npm run build            # Production build with Vite
+npm run build:dev        # Development build with Vite
+npm run preview          # Preview production build locally
+npm run lint             # Run ESLint for code quality checks
 ```
 
 ### Testing
 ```bash
 # Run all tests
-make test
+npm run test             # Run tests in watch mode
+npm run test:ui          # Run tests with Vitest UI
+npm run test:coverage    # Run tests with coverage report
 
-# Run specific test categories
-make test-unit       # Unit tests only
-make test-integration # Integration tests
-make test-e2e        # End-to-end tests
-make test-performance # Performance benchmarks
+# Run specific test file
+npm run test src/components/auth/__tests__/Login.test.tsx
 
-# Run tests with coverage
-make coverage
+# Run tests matching pattern
+npm run test -- --grep "authentication"
 
-# Run tests in parallel
-make test-parallel
-
-# Run only failed tests from last run
-make test-failed
-
-# Run single test file
-pytest app/pipeline/test_pipeline.py -v
+# Run tests in CI mode (no watch)
+npm run test -- --run
 ```
 
-### Linting and Formatting
+### Supabase Local Development
 ```bash
-# Run linting checks
-make lint  # Runs flake8 and mypy
-
-# Format code with black
-make format
-
-# Clean generated files
-make clean
-```
-
-### Installation
-```bash
-# For users WITH Python already installed
-install.bat              # Install for Python 3.11 (default)
-install.bat 313          # Install for Python 3.13
-install.bat both         # Install for both versions
-install.bat offline      # Offline installation from pre-downloaded packages
-install.bat download     # Download packages for offline use
-
-# For users WITHOUT Python (no admin rights required)
-install_pyenv.bat        # Installs pyenv-win + Python 3.11.9 + creates venv
-```
-
-### Build and Deployment
-```bash
-# Build executable (Windows)
-build_app.bat            # Main build script with system specs logging
-                         # Outputs: Investigative Workload Application.exe (project root)
-                         #          _internal/ folder (dependencies)
-
-# Run the built executable
-RUN_EXE.bat              # Launcher with pre-flight checks
-# Or double-click: Investigative Workload Application.exe
-
-# Build structure:
-# build Version 1.6.2/
-# ├── Investigative Workload Application.exe  ← Runs from here
-# ├── _internal/                              ← Dependencies
-# ├── app/                                    ← Data files (not bundled)
-# ├── templates/                              ← Flask templates
-# └── static/                                 ← Static assets
+supabase start           # Start local Supabase instance
+supabase db push         # Push migrations to local database
+supabase db reset        # Reset database with migrations
+supabase migration new <name>  # Create new migration
+supabase functions serve <name> # Test Edge Functions locally
+supabase link --project-ref siuqvhscuiycvdrtiqsh
 ```
 
 ## Architecture
 
-### Core Components
+### Tech Stack
 
-#### CAM Pipeline (`app/pipeline/`)
-The modular pipeline architecture consists of:
-- **DataLoader**: Handles data ingestion from CSV and Excel files
-- **DataProcessor**: Processes and validates case data, handles constraints
-- **CAMSolver**: Core optimization engine using OR-Tools
-- **ResultEvaluator**: Validates and evaluates optimization results
-- **ReportGenerator**: Creates Excel reports with assignment results
-- **PerformanceMonitor**: Tracks performance metrics and bottlenecks
-- **Orchestrator**: Coordinates the entire pipeline execution
+**Frontend**
+- **Framework**: React 18 + TypeScript
+- **Build Tool**: Vite 5
+- **Styling**: TailwindCSS with custom animations
+- **UI Components**: shadcn/ui (Radix UI primitives)
+- **Routing**: React Router v6
+- **State Management**: React Context API + TanStack Query (React Query)
 
-#### CAM Scripts (`app/CAM_Scripts/`)
-- **CAM.py**: Original CAM implementation
-- **CAM_optimized.py**: Performance-optimized version with parallel processing
-- **input_transformer.py**: Transforms input data for optimization
-- **Model_Reports.py**: Generates detailed assignment reports
+**Backend**
+- **Database**: Supabase PostgreSQL with Row Level Security (RLS)
+- **Authentication**: Supabase Auth (supports Google, GitHub, Twitter)
+- **Edge Functions**: Deno runtime for serverless functions
+- **Storage**: Supabase Storage for file uploads
 
-#### Data Flow
-1. **Input**: IWA_Data CSV files (~30MB, 4,953 cases) + FWM Excel files (capacity data)
-2. **Processing**: Data validation, constraint building, matrix operations
-3. **Optimization**: OR-Tools solver with multiple constraint types
-4. **Caching**: Matrix cache (73MB) and solution cache for performance
-5. **Output**: Excel reports with case assignments and metrics
+**AI Integration**
+- Together AI API for assistant responses
+- Streaming support for real-time AI responses
+- Multiple specialized assistants (career, resume, interview prep)
 
-### Performance Optimizations
-- **Parallel Processing**: Enhanced parallel processor (`enhanced_parallel_processor.py`)
-- **Vectorized Operations**: NumPy-based matrix operations
-- **Caching Strategy**: Pre-computed matrices and solution caching
-- **Sparse Matrices**: Memory-efficient sparse matrix operations
+### Application Architecture
 
-### Key Files and Directories
-- `app/IWA_Files/CommonFiles/`: Core data files and caches
-- `app/IWA_Files/DutyStations/`: Organization capacity Excel files
-- `app/IWA_Files/OutputFiles/`: Generated assignment reports
-- `performance_logs/`: JSON performance metrics from optimization runs
-- `constraint_config.json`: Optimization constraint configuration
+#### Provider Hierarchy
+```
+QueryClientProvider (TanStack Query - Server state)
+└── Router (React Router v6)
+    └── AuthProvider (Authentication state)
+        └── PageVisibilityProvider (Access control)
+            └── OnboardingProvider (User onboarding)
+                └── Application Routes
+```
 
-## Important Context
+#### Directory Structure
+```
+src/
+├── components/          # React components (feature-based organization)
+│   ├── ui/             # shadcn/ui components (Button, Dialog, etc.)
+│   ├── admin/          # Admin-specific components
+│   ├── assistants/     # AI assistant chat components
+│   ├── course/         # Course management components
+│   ├── events/         # Event system components
+│   ├── portfolio/      # Portfolio builder components
+│   └── resume/         # Resume analysis components
+├── contexts/           # React Context providers
+├── hooks/              # Custom React hooks
+├── services/           # API service layer (Supabase integration)
+├── types/              # TypeScript type definitions
+├── lib/                # Utility functions and helpers
+├── data/               # Static data and configurations
+└── pages/              # Top-level route components
 
-### Organizations Supported
-1. **IF01** (Federal) - Priority 1, 90% capacity limit
-2. **IC05** (Keypoint) - Priority 2
-3. **IC07** (CACI) - Priority 3
-4. **IC17** (SCIS) - Priority 4
-5. **IC16** (CSRA) - Additional organization
+supabase/
+├── functions/          # Edge Functions (Deno)
+└── migrations/         # Database migrations (SQL)
+```
 
-### Common Issues
-- **Zero Capacity Warning**: Check FWM Excel files for valid EMH_ONHAND values
-- **Cache Issues**: Run `python clear_cam_cache.py` to reset
-- **Memory Usage**: Monitor with `cli_performance_tracker.py`
+### Key Architectural Patterns
 
-### Environment
-- Python 3.11.9 (development) / Python 3.13 (production executable)
-- Flask web framework with Bootstrap 3.3.7
-- OR-Tools optimization library
-- Offline deployment support with local static assets
+#### 1. Feature-Based Component Organization
+- Components grouped by domain/feature in `/components/`
+- Each feature may have sub-directories: `modals/`, `forms/`, `hooks/`, `__tests__/`
+- Shared UI primitives in `/components/ui/` (shadcn/ui)
+
+#### 2. Service Layer Pattern
+- All Supabase queries abstracted in `/services/` directory
+- Services handle error handling, data transformation, and type safety
+- Examples: `blogService.ts`, `conversationService.ts`, `quizService.ts`, `eventService.ts`
+- Pattern: Services export typed functions for CRUD operations
+
+#### 3. Custom Hooks for Business Logic
+- Hooks in `/hooks/` encapsulate feature-specific logic
+- Use TanStack Query (`useQuery`, `useMutation`) for server state
+- Pattern: `use[Feature]` returns `{ data, isLoading, error, mutate }`
+- Examples: `useEvents`, `useCourseData`, `useEventRegistrations`
+
+#### 4. Type Safety with TypeScript
+- Supabase types auto-generated from database schema
+- Custom types in `/types/` directory
+- Note: TypeScript configured with relaxed rules (no strict null checks, implicit any allowed)
+
+### Core Application Flows
+
+#### 1. Authentication Flow
+- **Provider**: Supabase Auth with session persistence (localStorage)
+- **Roles**: `user` (default), `instructor`, `admin`
+- **Social Auth**: Google, GitHub, Twitter OAuth
+- **Protected Routes**: Redirect to login → return to intended destination
+- **Profile Creation**: Automatic profile record on signup via database trigger
+
+#### 2. Course System
+- **Hierarchy**: Courses → Modules → Lessons → Content Items
+- **Content Types**: Text blocks, video embeds, quizzes, assignments, resources
+- **Permissions**: Instructors can create/edit courses, students can enroll
+- **Progress Tracking**: Lesson completion, quiz scores, assignment submissions
+- **Enrollment**: Students enroll in courses, track progress per course
+
+#### 3. AI Assistant System
+- **Assistants**: Career advisor, resume analyzer, interview prep, skills assessor
+- **Configuration**: Defined in `/data/assistantData.ts`
+- **Chat Interface**: Real-time streaming responses via Edge Functions
+- **Persistence**: Message history stored in Supabase
+- **Structured Parsing**: Extract career reports and action items from AI responses
+- **Integration**: Together AI API via Supabase Edge Functions
+
+#### 4. Portfolio System
+- **Customization**: Drag-and-drop builder with multiple layout templates
+- **Templates**: Classic, Grid, Hero, Minimal, Bold
+- **Public Access**: Portfolio pages viewable without authentication
+- **URL Structure**: `/portfolio/[username]` for public viewing
+- **Content**: Projects, skills, education, experience, custom sections
+
+#### 5. Event System
+- **Types**: Workshops, webinars, networking, career fairs
+- **Registration**: Event signup with capacity limits
+- **Filtering**: By category, date range, registration status
+- **Management**: Admin/instructor creation and management
+
+### Important Contexts
+
+#### AuthContext (`src/contexts/AuthContext.tsx`)
+- Current user session and profile
+- User roles: `user`, `instructor`, `admin`
+- Login, logout, signup functionality
+- Session persistence and restoration
+
+#### PageVisibilityContext (`src/contexts/PageVisibilityContext.tsx`)
+- Page-level access control
+- User presence tracking (online/offline status)
+- Real-time updates for collaborative features
+
+#### OnboardingContext (`src/contexts/OnboardingContext.tsx`)
+- First-time user guidance
+- Interactive feature tours
+- Onboarding step completion tracking
+
+### Supabase Edge Functions
+
+Located in `/supabase/functions/`:
+
+- **`assistant-ai`**: Main AI assistant chat handler with streaming
+- **`resume-analyzer`**: Analyzes resume content and provides scoring
+- **`together-ai`**: Direct integration with Together AI API
+- **`generate-career-action-plan`**: Creates structured career guidance
+- **`openai-image-analysis`**: Image analysis using OpenAI Vision API
+
+### Database Schema Highlights
+
+**Key Tables**:
+- `profiles`: User profiles linked to auth.users
+- `courses`, `modules`, `lessons`, `content_items`: Course hierarchy
+- `enrollments`, `lesson_progress`: Student progress tracking
+- `quizzes`, `quiz_submissions`: Assessment system
+- `conversations`, `messages`: AI assistant chat history
+- `portfolios`, `portfolio_sections`: Portfolio builder data
+- `events`, `event_registrations`: Event management
+- `blog_posts`, `comments`: Blog system
+
+**Row Level Security (RLS)**:
+- All tables have RLS policies enabled
+- Policies enforce role-based access (user, instructor, admin)
+- Helper functions: `get_user_role()`, `is_instructor()`, `is_admin()`
+
+### Path Aliases
+
+The project uses `@/` as an alias for `./src/`:
+```typescript
+import { Button } from "@/components/ui/button"
+// Resolves to: ./src/components/ui/button
+```
+
+### Key Dependencies
+
+**UI & Styling**
+- `shadcn/ui`: Radix UI component library
+- `tailwindcss`: Utility-first CSS framework
+- `lucide-react`: Icon library
+- `framer-motion`: Animation library
+
+**Forms & Validation**
+- `react-hook-form`: Form state management
+- `zod`: Schema validation
+- `@hookform/resolvers`: Form validation integration
+
+**Rich Content**
+- `@tiptap/react`: Rich text editor
+- `@monaco-editor/react`: Code editor
+- `react-markdown`: Markdown rendering
+- `react-pdf`: PDF viewing
+
+**Data & State**
+- `@tanstack/react-query`: Server state management
+- `@supabase/supabase-js`: Supabase client
+- `date-fns`: Date manipulation
+- `lodash`: Utility functions
+
+**Drag & Drop**
+- `@dnd-kit/core`: Drag and drop utilities
+- `@hello-pangea/dnd`: Drag and drop components
+
+**Testing**
+- `vitest`: Test framework
+- `@testing-library/react`: Component testing
+- `@testing-library/user-event`: User interaction testing
+- `jsdom`: DOM implementation for testing
+- `msw`: API mocking
+
+### Testing Architecture
+
+#### Test Organization
+- Tests colocated in `__tests__/` directories next to source files
+- Test utilities and setup in `/src/test/`
+- Custom render function with all providers in `/src/test/test-utils.tsx`
+- Supabase mocks in `/src/test/supabase-mock.ts`
+
+#### Test Stack
+- **Framework**: Vitest (Vite-native, fast)
+- **React Testing**: @testing-library/react
+- **Mocking**: Vitest `vi.mock()` + Mock Service Worker (MSW)
+- **Coverage**: Vitest with v8 provider
+
+#### Test Patterns
+1. **Component Tests**:
+   - Use custom `render()` with QueryClientProvider + AuthProvider
+   - Test user interactions with `@testing-library/user-event`
+   - Assert on rendered output and state changes
+
+2. **Hook Tests**:
+   - Use `renderHook()` with proper wrapper (QueryClientProvider)
+   - Test data fetching, mutations, and state updates
+   - Mock Supabase responses
+
+3. **Service Tests**:
+   - Mock Supabase client methods
+   - Test error handling and data transformation
+   - Verify correct query parameters
+
+4. **Integration Tests**:
+   - Test full user flows (e.g., login → dashboard → course enrollment)
+   - Use MSW to mock API responses
+   - Test RLS policy enforcement
+
+#### Running Tests
+```bash
+# Watch mode (default)
+npm run test
+
+# With UI
+npm run test:ui
+
+# Coverage report
+npm run test:coverage
+
+# Specific file
+npm run test src/hooks/__tests__/useAuth.test.tsx
+
+# Pattern matching
+npm run test -- --grep "authentication"
+
+# CI mode (no watch)
+npm run test -- --run
+```
+
+### Development Notes
+
+1. **Lovable.dev Integration**: Project created with Lovable (AI-assisted platform)
+2. **Component Tagging**: Enabled in dev mode for Lovable integration
+3. **ESLint Configuration**: Relaxed rules (unused vars allowed as warnings)
+4. **Environment Variables**: Requires Supabase credentials in `.env.local`
+5. **Hot Module Replacement**: Enabled via Vite for fast refresh
+6. **TypeScript**: Configured with `"strict": false` for faster development
+
+### Common Issues & Solutions
+
+#### Build Issues
+- **Vite not found**: Run `npm install vite --save-dev`
+- **TypeScript errors**: Check `tsconfig.json` and ensure types are installed
+- **Import path errors**: Verify `@/` alias is configured in `vite.config.ts`
+
+#### Supabase Issues
+- **Auth errors**: Check `.env.local` for `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`
+- **RLS policy errors**: Review policies in Supabase dashboard or migrations
+- **Function errors**: Test locally with `supabase functions serve <name>`
+
+#### Testing Issues
+- **Provider errors**: Ensure components wrapped with `render()` from test-utils
+- **Supabase mock errors**: Verify mocks in `/src/test/supabase-mock.ts`
+- **Timeout errors**: Increase timeout or use `vi.setConfig({ testTimeout: 10000 })`
+
+### Performance Considerations
+
+- **Code Splitting**: Use React.lazy() for route-based splitting
+- **Query Optimization**: Use TanStack Query's staleTime and cacheTime
+- **Image Optimization**: Compress images before upload
+- **Bundle Size**: Monitor with `npm run build` and analyze bundle
+- **Database Queries**: Use indexes on frequently queried columns
+- **Edge Function Performance**: Keep functions lightweight, use caching
 
 ## Git Commit Guidelines
+
 - **NO Claude branding**: Do not add Claude Code branding, co-author tags, or generated-by comments to commit messages
 - Keep commit messages concise and focused on the actual changes
 - Follow conventional commit format when appropriate (e.g., `feat:`, `fix:`, `refactor:`)
+- Use present tense ("add feature" not "added feature")
+- Reference issue numbers when applicable (e.g., "fix: resolve login bug (#123)")
