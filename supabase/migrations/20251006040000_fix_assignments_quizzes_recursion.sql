@@ -62,7 +62,7 @@ AS $$
 $$;
 
 -- STEP 4: Create SECURITY DEFINER function to check quiz access
--- Handles both old schema (course_id) and new schema (content_item_id)
+-- Quizzes always use content_item_id (no fallback needed)
 CREATE OR REPLACE FUNCTION public.can_access_quiz(viewer_id UUID, quiz_id UUID)
 RETURNS BOOLEAN
 LANGUAGE SQL
@@ -72,8 +72,8 @@ SET search_path = public
 AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.quizzes q
-    LEFT JOIN public.content_items ci ON q.content_item_id = ci.id
-    LEFT JOIN public.courses c ON COALESCE(ci.course_id, q.course_id) = c.id
+    JOIN public.content_items ci ON q.content_item_id = ci.id
+    JOIN public.courses c ON ci.course_id = c.id
     LEFT JOIN public.enrollments e ON c.id = e.course_id AND e.user_id = viewer_id
     WHERE q.id = quiz_id
     AND (
@@ -85,8 +85,8 @@ AS $$
       OR
       public.is_course_instructor(viewer_id, c.id)
       OR
-      -- Students can access quizzes in enrolled courses (only if published or no content_item)
-      (e.user_id IS NOT NULL AND (ci.id IS NULL OR ci.published = true))
+      -- Students can access quizzes in enrolled courses (only if published)
+      (e.user_id IS NOT NULL AND ci.published = true)
     )
   );
 $$;
@@ -146,7 +146,7 @@ BEGIN
 END $$;
 
 -- STEP 11: Create SECURITY DEFINER function for quiz_questions access
--- Handles both old schema (course_id) and new schema (content_item_id)
+-- Quizzes always use content_item_id (no fallback needed)
 CREATE OR REPLACE FUNCTION public.can_access_quiz_question(viewer_id UUID, question_id UUID)
 RETURNS BOOLEAN
 LANGUAGE SQL
@@ -157,15 +157,15 @@ AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.quiz_questions qq
     JOIN public.quizzes q ON qq.quiz_id = q.id
-    LEFT JOIN public.content_items ci ON q.content_item_id = ci.id
-    LEFT JOIN public.courses c ON COALESCE(ci.course_id, q.course_id) = c.id
+    JOIN public.content_items ci ON q.content_item_id = ci.id
+    JOIN public.courses c ON ci.course_id = c.id
     LEFT JOIN public.enrollments e ON c.id = e.course_id AND e.user_id = viewer_id
     WHERE qq.id = question_id
     AND (
       public.has_role(viewer_id, 'admin')
       OR c.instructor_id = viewer_id
       OR public.is_course_instructor(viewer_id, c.id)
-      OR (e.user_id IS NOT NULL AND (ci.id IS NULL OR ci.published = true))
+      OR (e.user_id IS NOT NULL AND ci.published = true)
     )
   );
 $$;
