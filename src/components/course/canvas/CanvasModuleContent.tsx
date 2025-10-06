@@ -147,7 +147,7 @@ export function CanvasModuleContent({
 
     try {
       const updates: any = { title, content };
-      
+
       // Add assignment-specific updates
       if (editingItem.type === 'assignment') {
         updates.settings = { assignment: assignmentSettings };
@@ -158,7 +158,7 @@ export function CanvasModuleContent({
         updates
       );
 
-      setContentItems(contentItems.map(item => 
+      setContentItems(contentItems.map(item =>
         item.id === updated.id ? updated : item
       ));
       setShowAddDialog(false);
