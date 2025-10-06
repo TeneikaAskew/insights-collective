@@ -297,7 +297,7 @@ export function CanvasModuleManager({
                                           Published
                                         </Badge>}
                                     </div>
-                                    <h4 className="font-semibold text-sm mb-0.5 line-clamp-2">{module.title}</h4>
+                                    <h4 className="font-semibold text-sm mb-0.5 line-clamp-2 text-left">{module.title}</h4>
                                     {module.description && <div className="text-xs text-muted-foreground line-clamp-1 prose-sm" dangerouslySetInnerHTML={{
                             __html: module.description
                           }} />}
