@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useSidebar } from '@/components/ui/sidebar';
 import CourseDetails from '@/components/course/management/CourseDetails';
 import CourseStudents from '@/components/course/management/CourseStudents';
 import CourseAnalytics from '@/components/course/management/CourseAnalytics';
@@ -25,6 +26,15 @@ function CourseManagement() {
   const [activeTab, setActiveTab] = useState('details');
   const [modules, setModules] = useState<Array<{ id: string; title: string }>>([]);
   const navigate = useNavigate();
+  const { setOpen } = useSidebar();
+
+  // Handle tab change and close sidebar for Content tab
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    if (value === 'content') {
+      setOpen(false);
+    }
+  };
 
   // Fetch modules for assignment/quiz assignment
   useEffect(() => {
@@ -105,7 +115,7 @@ function CourseManagement() {
             </div>
           </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className="mb-6">
             <TabsTrigger value="details">Course Details</TabsTrigger>
             <TabsTrigger value="content">Content</TabsTrigger>
