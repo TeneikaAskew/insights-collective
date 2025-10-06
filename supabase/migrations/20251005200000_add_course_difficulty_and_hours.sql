@@ -85,12 +85,20 @@ DECLARE
   v_quiz_count INTEGER := 0;
   v_content_block_count INTEGER := 0;
 BEGIN
-  -- Sum estimated time from lessons
-  SELECT COALESCE(SUM(estimated_time_minutes), 0) INTO v_lesson_minutes
+  -- Sum duration or estimated_duration from lessons (TEXT fields need conversion)
+  SELECT COALESCE(SUM(
+    CASE
+      -- Extract numeric values from TEXT duration fields
+      WHEN duration IS NOT NULL AND duration ~ '^[0-9]+' THEN
+        (regexp_match(duration, '^([0-9]+\.?[0-9]*)'))[1]::NUMERIC
+      WHEN estimated_duration IS NOT NULL AND estimated_duration ~ '^[0-9]+' THEN
+        (regexp_match(estimated_duration, '^([0-9]+\.?[0-9]*)'))[1]::NUMERIC
+      ELSE 30  -- Default 30 minutes per lesson
+    END
+  ), 0) INTO v_lesson_minutes
   FROM lessons l
   JOIN modules m ON l.module_id = m.id
-  WHERE m.course_id = course_id_param
-    AND l.estimated_time_minutes IS NOT NULL;
+  WHERE m.course_id = course_id_param;
 
   v_total_minutes := v_total_minutes + v_lesson_minutes;
 

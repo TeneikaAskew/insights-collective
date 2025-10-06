@@ -85,10 +85,14 @@ DECLARE
   v_content_item_count INTEGER := 0;
 BEGIN
   -- Sum duration or estimated_duration from lessons (prefer duration, fallback to estimated_duration)
+  -- Duration fields are TEXT, so we need to extract numeric values
   SELECT COALESCE(SUM(
     CASE
-      WHEN duration IS NOT NULL THEN duration
-      WHEN estimated_duration IS NOT NULL THEN estimated_duration
+      -- Try to extract minutes from duration text (e.g., "45 mins", "1 hour", "1.5 hours")
+      WHEN duration IS NOT NULL AND duration ~ '^[0-9]+' THEN
+        (regexp_match(duration, '^([0-9]+\.?[0-9]*)'))[1]::NUMERIC
+      WHEN estimated_duration IS NOT NULL AND estimated_duration ~ '^[0-9]+' THEN
+        (regexp_match(estimated_duration, '^([0-9]+\.?[0-9]*)'))[1]::NUMERIC
       ELSE 30  -- Default 30 minutes per lesson if no duration set
     END
   ), 0) INTO v_lesson_minutes
