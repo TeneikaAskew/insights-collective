@@ -62,7 +62,8 @@
       "Bash(supabase db:*)",
       "Bash(git reset:*)",
       "Bash(python test:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(cat:*)"
     ],
     "deny": []
   }
