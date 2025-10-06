@@ -81,7 +81,9 @@ export function QuizManager({ courseId, modules = [] }: QuizManagerProps) {
   const fetchQuizzes = async () => {
     try {
       setLoading(true);
-      
+
+      console.log('[QuizManager] Fetching quizzes for courseId:', courseId);
+
       // Fetch content items of type 'quiz' for this course
       const { data: contentItems, error: contentError } = await supabase
         .from('content_items')
@@ -90,15 +92,26 @@ export function QuizManager({ courseId, modules = [] }: QuizManagerProps) {
         .eq('type', 'quiz')
         .order('created_at', { ascending: false });
 
-      if (contentError) throw contentError;
+      console.log('[QuizManager] Content items query result:', {
+        count: contentItems?.length || 0,
+        items: contentItems,
+        error: contentError
+      });
+
+      if (contentError) {
+        console.error('[QuizManager] Content items query error:', contentError);
+        throw contentError;
+      }
 
       // For each quiz, get question count
       const quizzesWithCounts = await Promise.all(
         (contentItems || []).map(async (item) => {
-          const { count } = await supabase
+          const { count, error: countError } = await supabase
             .from('quiz_questions')
             .select('*', { count: 'exact', head: true })
             .eq('quiz_id', item.id);
+
+          console.log('[QuizManager] Question count for quiz', item.id, ':', { count, error: countError });
 
           return {
             ...item,
@@ -107,9 +120,10 @@ export function QuizManager({ courseId, modules = [] }: QuizManagerProps) {
         })
       );
 
+      console.log('[QuizManager] Final quizzes with counts:', quizzesWithCounts);
       setQuizzes(quizzesWithCounts as Quiz[]);
     } catch (error: any) {
-      console.error('Error fetching quizzes:', error);
+      console.error('[QuizManager] Error fetching quizzes:', error);
       toast({
         title: 'Error',
         description: 'Failed to load quizzes',
