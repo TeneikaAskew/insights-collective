@@ -102,8 +102,8 @@ const CourseList = () => {
 
       const matchesCategory = categoryFilter === 'all' || course.category === categoryFilter;
       const matchesLevel = levelFilter === 'all' || course.level === levelFilter;
-      const matchesDifficulty = difficultyFilter === 'all' ||
-        (course.difficulty_level || course.difficultyLevel)?.toLowerCase() === difficultyFilter.toLowerCase();
+      const difficulty = ((course as any).difficulty_level || (course as any).difficultyLevel) as string | undefined;
+      const matchesDifficulty = difficultyFilter === 'all' || difficulty?.toLowerCase() === difficultyFilter.toLowerCase();
 
       return matchesSearch && matchesCategory && matchesLevel && matchesDifficulty;
     })
@@ -115,34 +115,34 @@ const CourseList = () => {
           return b.title.localeCompare(a.title);
         case 'difficulty-asc': {
           const difficultyOrder: Record<string, number> = { beginner: 1, intermediate: 2, advanced: 3 };
-          const aDiff = (a.difficulty_level || a.difficultyLevel)?.toLowerCase();
-          const bDiff = (b.difficulty_level || b.difficultyLevel)?.toLowerCase();
-          const aOrder = aDiff ? (difficultyOrder[aDiff] ?? 999) : 999;
-          const bOrder = bDiff ? (difficultyOrder[bDiff] ?? 999) : 999;
+          const aDiff = ((a as any).difficulty_level || (a as any).difficultyLevel) as string | undefined;
+          const bDiff = ((b as any).difficulty_level || (b as any).difficultyLevel) as string | undefined;
+          const aOrder = aDiff ? (difficultyOrder[aDiff.toLowerCase()] ?? 999) : 999;
+          const bOrder = bDiff ? (difficultyOrder[bDiff.toLowerCase()] ?? 999) : 999;
           return aOrder - bOrder;
         }
         case 'difficulty-desc': {
           const difficultyOrder: Record<string, number> = { beginner: 1, intermediate: 2, advanced: 3 };
-          const aDiff = (a.difficulty_level || a.difficultyLevel)?.toLowerCase();
-          const bDiff = (b.difficulty_level || b.difficultyLevel)?.toLowerCase();
-          const aOrder = aDiff ? (difficultyOrder[aDiff] ?? 0) : 0;
-          const bOrder = bDiff ? (difficultyOrder[bDiff] ?? 0) : 0;
+          const aDiff = ((a as any).difficulty_level || (a as any).difficultyLevel) as string | undefined;
+          const bDiff = ((b as any).difficulty_level || (b as any).difficultyLevel) as string | undefined;
+          const aOrder = aDiff ? (difficultyOrder[aDiff.toLowerCase()] ?? 0) : 0;
+          const bOrder = bDiff ? (difficultyOrder[bDiff.toLowerCase()] ?? 0) : 0;
           return bOrder - aOrder;
         }
         case 'hours-asc': {
-          const aHours = a.estimated_hours || a.estimatedHours || 999;
-          const bHours = b.estimated_hours || b.estimatedHours || 999;
+          const aHours = ((a as any).estimated_hours || (a as any).estimatedHours || 999) as number;
+          const bHours = ((b as any).estimated_hours || (b as any).estimatedHours || 999) as number;
           return aHours - bHours;
         }
         case 'hours-desc': {
-          const aHours = a.estimated_hours || a.estimatedHours || 0;
-          const bHours = b.estimated_hours || b.estimatedHours || 0;
+          const aHours = ((a as any).estimated_hours || (a as any).estimatedHours || 0) as number;
+          const bHours = ((b as any).estimated_hours || (b as any).estimatedHours || 0) as number;
           return bHours - aHours;
         }
         case 'newest':
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+          return new Date((b as any).createdAt || (b as any).created_at).getTime() - new Date((a as any).createdAt || (a as any).created_at).getTime();
         case 'oldest':
-          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+          return new Date((a as any).createdAt || (a as any).created_at).getTime() - new Date((b as any).createdAt || (b as any).created_at).getTime();
         default:
           return 0;
       }

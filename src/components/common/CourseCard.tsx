@@ -215,8 +215,10 @@ const CourseCard: React.FC<CourseCardProps> = ({
 
           {/* Difficulty and Estimated Hours */}
           <div className="flex flex-wrap gap-2 mb-3">
-            {(course.difficulty_level || course.difficultyLevel) && (() => {
-              const difficulty = course.difficulty_level || course.difficultyLevel;
+            {(() => {
+              const difficulty = (course as any).difficulty_level || (course as any).difficultyLevel;
+              if (!difficulty) return null;
+              
               const config = getDifficultyConfig(difficulty);
               const DifficultyIcon = config.icon;
 
@@ -228,12 +230,17 @@ const CourseCard: React.FC<CourseCardProps> = ({
               );
             })()}
 
-            {(course.estimated_hours || course.estimatedHours) && (
-              <Badge variant="outline" className="flex items-center gap-1">
-                <Clock className="h-3 w-3" />
-                {(course.estimated_hours || course.estimatedHours).toFixed(1)} hours
-              </Badge>
-            )}
+            {(() => {
+              const hours = (course as any).estimated_hours || (course as any).estimatedHours;
+              if (!hours) return null;
+              
+              return (
+                <Badge variant="outline" className="flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  {hours.toFixed(1)} hours
+                </Badge>
+              );
+            })()}
           </div>
 
           <div className="flex justify-between items-center text-sm">
