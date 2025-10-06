@@ -87,7 +87,7 @@ export function CanvasModuleManager({ courseId, courseDuration }: CanvasModuleMa
     try {
       if (editingModule) {
         // Update existing module
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('modules')
           .update({
             title: formData.title,
@@ -96,9 +96,16 @@ export function CanvasModuleManager({ courseId, courseDuration }: CanvasModuleMa
             published: formData.published,
             updated_at: new Date().toISOString()
           })
-          .eq('id', editingModule.id);
+          .eq('id', editingModule.id)
+          .select()
+          .single();
 
         if (error) throw error;
+
+        // Update selectedModule if it's the one being edited
+        if (selectedModule?.id === editingModule.id) {
+          setSelectedModule(data);
+        }
 
         toast({
           title: 'Module updated',
@@ -132,7 +139,7 @@ export function CanvasModuleManager({ courseId, courseDuration }: CanvasModuleMa
 
       setShowAddDialog(false);
       resetForm();
-      loadModules();
+      await loadModules();
     } catch (error: any) {
       toast({
         title: 'Error saving module',
@@ -277,7 +284,7 @@ export function CanvasModuleManager({ courseId, courseDuration }: CanvasModuleMa
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center mb-6">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Course Modules</h2>
           <p className="text-muted-foreground">
@@ -290,7 +297,7 @@ export function CanvasModuleManager({ courseId, courseDuration }: CanvasModuleMa
         </Button>
       </div>
 
-      {/* Module List */}
+      {/* Two Column Layout: Module List (Left) | Module Content (Right) */}
       {modules.length === 0 ? (
         <Card>
           <CardContent className="text-center py-12">
