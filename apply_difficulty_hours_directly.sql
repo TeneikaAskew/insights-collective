@@ -84,16 +84,19 @@ DECLARE
   v_quiz_count INTEGER := 0;
   v_content_item_count INTEGER := 0;
 BEGIN
-  -- Sum estimated time from lessons (if lessons table exists)
-  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'lessons') THEN
-    SELECT COALESCE(SUM(estimated_time_minutes), 0) INTO v_lesson_minutes
-    FROM lessons l
-    JOIN modules m ON l.module_id = m.id
-    WHERE m.course_id = course_id_param
-      AND l.estimated_time_minutes IS NOT NULL;
+  -- Sum duration or estimated_duration from lessons (prefer duration, fallback to estimated_duration)
+  SELECT COALESCE(SUM(
+    CASE
+      WHEN duration IS NOT NULL THEN duration
+      WHEN estimated_duration IS NOT NULL THEN estimated_duration
+      ELSE 30  -- Default 30 minutes per lesson if no duration set
+    END
+  ), 0) INTO v_lesson_minutes
+  FROM lessons l
+  JOIN modules m ON l.module_id = m.id
+  WHERE m.course_id = course_id_param;
 
-    v_total_minutes := v_total_minutes + v_lesson_minutes;
-  END IF;
+  v_total_minutes := v_total_minutes + v_lesson_minutes;
 
   -- Count assignments (estimate 60 minutes each)
   SELECT COUNT(*) INTO v_assignment_count
@@ -129,7 +132,7 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION calculate_course_hours IS 'Estimates total course hours based on lessons, assignments, quizzes, and content items';
+COMMENT ON FUNCTION calculate_course_hours IS 'Estimates total course hours based on lesson durations, assignments, quizzes, and content items';
 
 -- Step 6: Migrate existing courses data
 UPDATE courses
