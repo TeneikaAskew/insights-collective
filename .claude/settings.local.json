@@ -59,7 +59,8 @@
       "Bash(supabase migration:*)",
       "Bash(npm run build:*)",
       "Bash(supabase link:*)",
-      "Bash(supabase db:*)"
+      "Bash(supabase db:*)",
+      "Bash(git reset:*)"
     ],
     "deny": []
   }
