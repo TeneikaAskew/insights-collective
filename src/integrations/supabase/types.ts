@@ -3744,6 +3744,18 @@ export type Database = {
         Args: { quiz_attempt_id: string }
         Returns: string
       }
+      get_all_users_with_roles: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          avatar_url: string
+          bio: string
+          created_at: string
+          first_name: string
+          id: string
+          last_name: string
+          roles: string[]
+        }[]
+      }
       get_blog_post_with_tags: {
         Args: { post_slug: string }
         Returns: {
@@ -3854,6 +3866,10 @@ export type Database = {
           p_severity: string
           p_user_id: string
         }
+        Returns: undefined
+      }
+      update_user_roles: {
+        Args: { new_roles: string[]; target_user_id: string }
         Returns: undefined
       }
     }

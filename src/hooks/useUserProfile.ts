@@ -43,6 +43,7 @@ export function useUserProfile(user: User | null) {
 
     const loadProfile = async () => {
       try {
+        // Fetch profile data
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('*')
@@ -57,28 +58,37 @@ export function useUserProfile(user: User | null) {
           throw profileError;
         }
 
-        // Enrich profile with consistent role information
-        const enrichedProfile = enrichProfileWithRoles(profile);
+        // Fetch roles from the new user_roles table
+        const { data: userRoles, error: rolesError } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id);
+
+        if (rolesError) {
+          logger.error('Error fetching user roles:', rolesError);
+        }
+
+        // Extract roles from the user_roles table
+        const roles = userRoles?.map(r => r.role) || ['student'];
         
         logger.log('[useUserProfile] Profile fetched for user:', user.id);
         logger.log('[useUserProfile] Raw profile data:', profile);
-        logger.log('[useUserProfile] Enriched profile data:', enrichedProfile);
-        logger.log('[useUserProfile] Profile roles:', enrichedProfile?.roles);
+        logger.log('[useUserProfile] User roles from user_roles table:', roles);
         
         // Generate a display name from first_name and last_name
-        const displayName = enrichedProfile?.first_name && enrichedProfile?.last_name 
-          ? `${enrichedProfile.first_name} ${enrichedProfile.last_name}`.trim()
-          : enrichedProfile?.first_name || user.email?.split('@')[0] || 'User';
+        const displayName = profile?.first_name && profile?.last_name 
+          ? `${profile.first_name} ${profile.last_name}`.trim()
+          : profile?.first_name || user.email?.split('@')[0] || 'User';
 
-        // Combine auth user data with profile data
+        // Combine auth user data with profile data and roles
         const finalEnrichedUser = {
           ...user,
-          ...enrichedProfile,
+          ...profile,
           // Ensure avatar and name are properly set
-          avatar: enrichedProfile?.avatar_url,
-          avatar_url: enrichedProfile?.avatar_url,
+          avatar: profile?.avatar_url,
+          avatar_url: profile?.avatar_url,
           name: displayName,
-          roles: enrichedProfile?.roles || ['student']
+          roles: roles
         };
         
         logger.log('[useUserProfile] Final enriched user:', finalEnrichedUser);

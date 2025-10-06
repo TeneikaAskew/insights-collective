@@ -36,20 +36,18 @@ export function useAdminUsers() {
         throw new Error("Admin privileges required");
       }
 
-      logger.log('[useAdminUsers] Fetching users from profiles table...');
+      logger.log('[useAdminUsers] Fetching users with roles via RPC...');
       
-      // Query profiles table directly
+      // Use the secure RPC function to get all users with roles
       const { data, error: queryError } = await supabase
-        .from('profiles')
-        .select('id, first_name, last_name, avatar_url, bio, roles, created_at')
-        .order('created_at', { ascending: false });
+        .rpc('get_all_users_with_roles');
 
       if (queryError) {
         logger.error('[useAdminUsers] Query error:', queryError);
         throw new Error(queryError.message || 'Failed to fetch users');
       }
 
-      logger.log('[useAdminUsers] Raw users from query:', data?.length || 0);
+      logger.log('[useAdminUsers] Raw users from RPC:', data?.length || 0);
 
       // Transform and validate data
       const transformedUsers = (data || []).map((profile: any) => {
