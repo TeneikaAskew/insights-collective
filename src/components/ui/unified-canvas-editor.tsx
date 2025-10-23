@@ -80,6 +80,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { createLogger } from '@/utils/logger';
+import { useFileUpload } from '@/hooks/useFileUpload';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Progress } from '@/components/ui/progress';
 
 const logger = createLogger('UnifiedCanvasEditor');
 
@@ -128,6 +131,8 @@ export function UnifiedCanvasEditor({
   const [linkText, setLinkText] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [imageAlt, setImageAlt] = useState('');
+  const [imageUploadTab, setImageUploadTab] = useState<'upload' | 'url'>('upload');
+  const { uploadFile, uploading: uploadingImage, progress: uploadProgress } = useFileUpload();
   const [videoUrl, setVideoUrl] = useState('');
   const [showLinkDialog, setShowLinkDialog] = useState(false);
   const [showImageDialog, setShowImageDialog] = useState(false);
@@ -231,6 +236,29 @@ export function UnifiedCanvasEditor({
       setImageUrl('');
       setImageAlt('');
       setShowImageDialog(false);
+    }
+  };
+
+  const handleImageFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !file.type.startsWith('image/')) {
+      return;
+    }
+
+    try {
+      const uploadedFile = await uploadFile(file, 'course-images');
+      if (uploadedFile) {
+        editor.chain().focus().setImage({ 
+          src: uploadedFile.url, 
+          alt: imageAlt || file.name 
+        }).run();
+        setImageUrl('');
+        setImageAlt('');
+        setShowImageDialog(false);
+        setImageUploadTab('upload');
+      }
+    } catch (error) {
+      logger.error('Image upload failed:', error);
     }
   };
 
@@ -687,37 +715,90 @@ export function UnifiedCanvasEditor({
       </Dialog>
 
       {/* Image Dialog */}
-      <Dialog open={showImageDialog} onOpenChange={setShowImageDialog}>
+      <Dialog open={showImageDialog} onOpenChange={(open) => {
+        setShowImageDialog(open);
+        if (!open) {
+          setImageUrl('');
+          setImageAlt('');
+          setImageUploadTab('upload');
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Insert Image</DialogTitle>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="image-url">Image URL</Label>
-              <Input
-                id="image-url"
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-                placeholder="https://example.com/image.jpg"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="image-alt">Alt Text</Label>
-              <Input
-                id="image-alt"
-                value={imageAlt}
-                onChange={(e) => setImageAlt(e.target.value)}
-                placeholder="Image description"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowImageDialog(false)}>
-              Cancel
-            </Button>
-            <Button onClick={addImage}>Insert</Button>
-          </DialogFooter>
+          <Tabs value={imageUploadTab} onValueChange={(v) => setImageUploadTab(v as 'upload' | 'url')} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="upload">Upload File</TabsTrigger>
+              <TabsTrigger value="url">Image URL</TabsTrigger>
+            </TabsList>
+            <TabsContent value="upload" className="space-y-4">
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="image-file">Select Image</Label>
+                  {uploadingImage ? (
+                    <div className="space-y-2">
+                      <p className="text-sm text-muted-foreground">Uploading...</p>
+                      <Progress value={uploadProgress} />
+                    </div>
+                  ) : (
+                    <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer">
+                      <Input
+                        id="image-file"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageFileUpload}
+                        className="cursor-pointer"
+                      />
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Click to select or drag and drop an image
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        JPG, PNG, GIF, WebP (max 50MB)
+                      </p>
+                    </div>
+                  )}
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="image-alt-upload">Alt Text (Optional)</Label>
+                  <Input
+                    id="image-alt-upload"
+                    value={imageAlt}
+                    onChange={(e) => setImageAlt(e.target.value)}
+                    placeholder="Image description"
+                  />
+                </div>
+              </div>
+            </TabsContent>
+            <TabsContent value="url" className="space-y-4">
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="image-url">Image URL</Label>
+                  <Input
+                    id="image-url"
+                    value={imageUrl}
+                    onChange={(e) => setImageUrl(e.target.value)}
+                    placeholder="https://example.com/image.jpg"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="image-alt">Alt Text</Label>
+                  <Input
+                    id="image-alt"
+                    value={imageAlt}
+                    onChange={(e) => setImageAlt(e.target.value)}
+                    placeholder="Image description"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowImageDialog(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={addImage} disabled={!imageUrl}>Insert</Button>
+              </DialogFooter>
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
 
