@@ -64,6 +64,7 @@ export function CanvasModuleContent({
   const [newItemType, setNewItemType] = useState<ContentItemType>('page');
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [activeTab, setActiveTab] = useState<'editor' | 'preview'>('editor');
   // Assignment-specific state
   const [assignmentSettings, setAssignmentSettings] = useState({
     points_possible: 100,
@@ -250,6 +251,7 @@ export function CanvasModuleContent({
     setTitle('');
     setContent('');
     setNewItemType('page');
+    setActiveTab('editor');
     setAssignmentSettings({
       points_possible: 100,
       due_at: '',
@@ -521,15 +523,57 @@ export function CanvasModuleContent({
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="content">Content</Label>
-              <UnifiedCanvasEditor
-                content={content}
-                onChange={setContent}
-                placeholder={`Write your ${newItemType} content here...`}
-                minHeight="400px"
-              />
-            </div>
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'editor' | 'preview')}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="editor">Editor</TabsTrigger>
+                <TabsTrigger value="preview">Preview</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="editor" className="space-y-2">
+                <Label htmlFor="content">Content</Label>
+                <UnifiedCanvasEditor
+                  content={content}
+                  onChange={setContent}
+                  placeholder={`Write your ${newItemType} content here...`}
+                  minHeight="400px"
+                />
+              </TabsContent>
+              
+              <TabsContent value="preview" className="space-y-2">
+                <div className="border rounded-lg p-6 min-h-[400px] bg-background">
+                  <div className="space-y-4">
+                    <div>
+                      <h2 className="text-2xl font-bold mb-2">
+                        {title || `Untitled ${newItemType}`}
+                      </h2>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={getContentBadgeColor(newItemType) as any}>
+                          {newItemType}
+                        </Badge>
+                        {newItemType === 'assignment' && assignmentSettings.points_possible > 0 && (
+                          <span className="text-sm text-muted-foreground">
+                            {assignmentSettings.points_possible} points
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="prose prose-sm max-w-none">
+                      {content ? (
+                        <div 
+                          dangerouslySetInnerHTML={{ __html: content }}
+                          className="leading-relaxed"
+                        />
+                      ) : (
+                        <p className="text-muted-foreground italic">
+                          No content to preview. Start writing in the editor tab.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
 
             {/* Assignment Settings */}
             {(newItemType === 'assignment' || editingItem?.type === 'assignment') && (
