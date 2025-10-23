@@ -589,9 +589,9 @@ const CourseDetail = () => {
       <div className="space-y-6">
         {/* Course Header with Breadcrumb */}
         <div className="bg-card border rounded-lg p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <Breadcrumb className="mb-2">
+          <div className="flex items-center justify-between mb-4 relative">
+            <div className="flex-1 min-w-0 pr-4">
+              <Breadcrumb className="mb-2 relative z-10">
                 <BreadcrumbList>
                   <BreadcrumbItem>
                     <BreadcrumbLink asChild>
@@ -600,7 +600,13 @@ const CourseDetail = () => {
                   </BreadcrumbItem>
                   <BreadcrumbSeparator />
                   <BreadcrumbItem>
-                    <BreadcrumbPage>{course.title}</BreadcrumbPage>
+                    {currentSection !== courseId && currentSection !== 'home' ? (
+                      <BreadcrumbLink asChild>
+                        <Link to={`/courses/${courseId}`}>{course.title}</Link>
+                      </BreadcrumbLink>
+                    ) : (
+                      <BreadcrumbPage>{course.title}</BreadcrumbPage>
+                    )}
                   </BreadcrumbItem>
                   {currentSection !== courseId && currentSection !== 'home' && (
                     <>
@@ -622,7 +628,7 @@ const CourseDetail = () => {
               </div>
             </div>
             
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 flex-shrink-0">
               <EditCourseButton courseId={courseId} />
             </div>
           </div>

@@ -507,7 +507,7 @@ export const InlineDiscussionWidget: React.FC<InlineDiscussionWidgetProps> = ({
             <div className="flex items-start gap-3">
               <Avatar className="h-8 w-8">
                 <AvatarImage src={user.avatar_url} />
-                <AvatarFallback>{user.full_name?.charAt(0).toUpperCase()}</AvatarFallback>
+                <AvatarFallback>{user.name?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase()}</AvatarFallback>
               </Avatar>
 
               <div className="flex-1 space-y-2">

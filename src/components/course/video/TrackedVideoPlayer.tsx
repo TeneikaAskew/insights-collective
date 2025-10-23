@@ -446,7 +446,7 @@ export const TrackedVideoPlayer: React.FC<VideoPlayerProps> = ({
               src={videoUrl.replace('vimeo.com/', 'player.vimeo.com/video/')}
               className="w-full h-full"
               allow="autoplay; fullscreen; picture-in-picture"
-              allowFullscreen
+              allowFullScreen
             />
           )}
         </div>
