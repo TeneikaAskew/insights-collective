@@ -159,6 +159,7 @@ export function CanvasModuleContent({
       setContentItems(contentItems.map(item => 
         item.id === updated.id ? updated : item
       ));
+      setShowAddDialog(false);
       setEditingItem(null);
       resetForm();
 
