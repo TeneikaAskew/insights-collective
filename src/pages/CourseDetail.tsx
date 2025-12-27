@@ -481,7 +481,7 @@ const CourseDetail = () => {
               <div className="aspect-[3/1] w-full overflow-hidden">
                 <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover" />
               </div>
-              <div className="p-6">
+              <div className="p-6 text-left">
                 <div className="flex flex-wrap gap-2 mb-4">
                   <Badge variant="secondary">{course.category}</Badge>
                   <Badge variant="outline">{course.level}</Badge>
@@ -490,20 +490,20 @@ const CourseDetail = () => {
                   </Badge>
                 </div>
                 
-                <h1 className="text-3xl font-bold mb-2">{course.title}</h1>
+                <h1 className="text-3xl font-bold mb-2 text-left">{course.title}</h1>
                 
                 <div className="flex items-center gap-3 mb-4">
                   <Avatar className="h-8 w-8">
                     <AvatarImage src={course.instructor.avatar} />
                     <AvatarFallback>{course.instructor.name.charAt(0)}</AvatarFallback>
                   </Avatar>
-                  <div>
+                  <div className="text-left">
                     <p className="font-medium">{course.instructor.name}</p>
                     <p className="text-sm text-muted-foreground">Instructor</p>
                   </div>
                 </div>
                 
-                <p className="text-lg mb-4">{course.description}</p>
+                <p className="text-lg mb-4 text-left">{course.description}</p>
                 
                 <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
                   <div className="flex items-center">

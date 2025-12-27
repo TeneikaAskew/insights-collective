@@ -27,7 +27,7 @@ export function CourseContentPreview({ modules }: CourseContentPreviewProps) {
         <BookOpen className="h-5 w-5 text-primary" />
         What You'll Learn
       </h3>
-      <p className="text-sm text-muted-foreground mb-4">
+      <p className="text-sm text-muted-foreground mb-4 text-left">
         This course includes {publishedModules.length} module{publishedModules.length !== 1 ? 's' : ''}
       </p>
       <ul className="space-y-3">
@@ -36,7 +36,7 @@ export function CourseContentPreview({ modules }: CourseContentPreviewProps) {
             <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium text-primary">
               {module.week || index + 1}
             </div>
-            <div className="flex-1 pt-1">
+            <div className="flex-1 pt-1 text-left">
               <p className="font-medium">{module.title}</p>
               <p className="text-sm text-muted-foreground">
                 Week {module.week || index + 1}
