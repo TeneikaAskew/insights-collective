@@ -21,6 +21,8 @@ import { useCoursePermissions } from '@/hooks/useCoursePermissions';
 import { EditCourseButton } from '@/components/course/EditCourseButton';
 import { CourseModulesList } from '@/components/course/CourseModulesList';
 import { CanvasAssignmentsList } from '@/components/course/canvas/CanvasAssignmentsList';
+import { CourseContentPreview } from '@/components/course/CourseContentPreview';
+import { LoginOverlayCard } from '@/components/course/LoginOverlayCard';
 
 import { createLogger } from '@/utils/logger';
 
@@ -517,68 +519,71 @@ const CourseDetail = () => {
                     <span>{course.rating.toFixed(1)} rating</span>
                   </div>
                 </div>
+                
+                {/* Course Content Preview - Module titles with week numbers */}
+                <CourseContentPreview modules={modules} />
               </div>
             </div>
             
             {/* Quick Actions */}
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <Card className="hover:shadow-md transition-shadow">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <BookOpen className="h-5 w-5 text-primary" />
-                    Course Modules
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    Access all course content and lessons
-                  </p>
-                  <Button asChild className="w-full">
-                    <Link to={`/courses/${courseId}/modules`}>
-                      View Items
-                    </Link>
-                  </Button>
-                </CardContent>
-              </Card>
+            {(() => {
+              const showLockedOverlay = !isEnrolled && !canEdit;
               
-              <Card className="hover:shadow-md transition-shadow">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <FileText className="h-5 w-5 text-primary" />
-                    Assignments
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    View and submit assignments
-                  </p>
-                  <Button asChild variant="outline" className="w-full">
-                    <Link to={`/courses/${courseId}/assignments`}>
-                      View Assignments
-                    </Link>
-                  </Button>
-                </CardContent>
-              </Card>
-              
-              <Card className="hover:shadow-md transition-shadow">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <BarChart3 className="h-5 w-5 text-primary" />
-                    Grades
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    Check your progress and grades
-                  </p>
-                  <Button asChild variant="outline" className="w-full">
-                    <Link to={`/courses/${courseId}/grades`}>
-                      View Grades
-                    </Link>
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
+              return (
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <LoginOverlayCard
+                    title="Course Modules"
+                    icon={<BookOpen className="h-5 w-5 text-primary" />}
+                    isLocked={showLockedOverlay}
+                    courseId={courseId}
+                    actionText="Login to View Modules"
+                  >
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Access all course content and lessons
+                    </p>
+                    <Button asChild className="w-full">
+                      <Link to={`/courses/${courseId}/modules`}>
+                        View Items
+                      </Link>
+                    </Button>
+                  </LoginOverlayCard>
+                  
+                  <LoginOverlayCard
+                    title="Assignments"
+                    icon={<FileText className="h-5 w-5 text-primary" />}
+                    isLocked={showLockedOverlay}
+                    courseId={courseId}
+                    actionText="Login to View Assignments"
+                  >
+                    <p className="text-sm text-muted-foreground mb-3">
+                      View and submit assignments
+                    </p>
+                    <Button asChild variant="outline" className="w-full">
+                      <Link to={`/courses/${courseId}/assignments`}>
+                        View Assignments
+                      </Link>
+                    </Button>
+                  </LoginOverlayCard>
+                  
+                  <LoginOverlayCard
+                    title="Grades"
+                    icon={<BarChart3 className="h-5 w-5 text-primary" />}
+                    isLocked={showLockedOverlay}
+                    courseId={courseId}
+                    actionText="Login to View Grades"
+                  >
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Check your progress and grades
+                    </p>
+                    <Button asChild variant="outline" className="w-full">
+                      <Link to={`/courses/${courseId}/grades`}>
+                        View Grades
+                      </Link>
+                    </Button>
+                  </LoginOverlayCard>
+                </div>
+              );
+            })()}
           </div>
         );
     }
