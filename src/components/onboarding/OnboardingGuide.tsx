@@ -150,23 +150,36 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ tourId }) => {
   const getTooltipPosition = () => {
     // Show tooltip in center if no target element or position
     if (!targetElement || !currentStepData?.position || elementNotFound) {
-      return { 
-        top: '50%', 
-        left: '50%', 
+      return {
+        top: '50%',
+        left: '50%',
         transform: 'translate(-50%, -50%)',
-        position: 'fixed' as const
+        position: 'fixed' as const,
       };
     }
 
     const rect = targetElement.getBoundingClientRect();
     const viewportHeight = window.innerHeight;
     const viewportWidth = window.innerWidth;
+
+    // Mobile: use a bottom-sheet style layout to avoid off-screen tooltips.
+    if (viewportWidth < 640) {
+      return {
+        position: 'fixed' as const,
+        left: 16,
+        right: 16,
+        bottom: 16,
+        top: 'auto',
+        transform: 'none',
+      };
+    }
+
     const tooltipWidth = 400; // Approximate tooltip width
     const tooltipHeight = 200; // Approximate tooltip height
     const padding = 20;
-    
+
     let position: any = {
-      position: 'fixed' as const
+      position: 'fixed' as const,
     };
 
     // Calculate base position based on target position preference
@@ -270,11 +283,11 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ tourId }) => {
         initial={{ opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.8 }}
-        className="fixed z-[1002] max-w-sm min-w-[320px]"
+        className="fixed z-[1002] w-[calc(100vw-32px)] sm:w-auto sm:max-w-sm sm:min-w-[320px]"
         style={getTooltipPosition()}
       >
-        <Card className="border-primary shadow-2xl">
-          <CardContent className="p-4">
+        <Card className="border-primary shadow-2xl max-h-[70vh] overflow-hidden">
+          <CardContent className="p-4 max-h-[70vh] overflow-y-auto">
             <div className="flex items-start justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Badge variant="secondary" className="text-xs">
