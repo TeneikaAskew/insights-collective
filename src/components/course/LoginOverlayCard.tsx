@@ -61,20 +61,20 @@ export function LoginOverlayCard({
           {title}
         </CardTitle>
       </CardHeader>
-      <CardContent className="relative">
-        {/* Blurred content */}
-        <div className="blur-[6px] pointer-events-none select-none opacity-50">
+      <CardContent className="relative min-h-[100px]">
+        {/* Blurred content - hidden but maintains structure */}
+        <div className="invisible">
           {children}
         </div>
         
         {/* Overlay */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/60 backdrop-blur-[2px]">
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
           <div className="text-center p-4">
-            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
-              <Lock className="h-6 w-6 text-primary" />
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-2">
+              <Lock className="h-5 w-5 text-primary" />
             </div>
-            <p className="text-sm text-muted-foreground mb-3">
-              Login or enroll to access this content
+            <p className="text-xs text-muted-foreground mb-2">
+              Login or enroll to access
             </p>
             <Button onClick={handleLoginClick} size="sm">
               {actionText}
