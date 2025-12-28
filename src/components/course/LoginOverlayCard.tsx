@@ -16,13 +16,13 @@ interface LoginOverlayCardProps {
   actionText?: string;
 }
 
-export function LoginOverlayCard({ 
-  children, 
-  title, 
-  icon, 
-  isLocked, 
+export function LoginOverlayCard({
+  children,
+  title,
+  icon,
+  isLocked,
   courseId,
-  actionText = "Login to Access"
+  actionText = 'Login to Access'
 }: LoginOverlayCardProps) {
   const navigate = useNavigate();
 
@@ -38,30 +38,30 @@ export function LoginOverlayCard({
   };
 
   return (
-    <Card className="hover:shadow-md transition-shadow relative overflow-hidden">
+    <Card className="hover:shadow-md transition-shadow relative">
       <CardHeader className="pb-3">
         <CardTitle className="text-lg flex items-center gap-2">
           {icon}
           {title}
         </CardTitle>
       </CardHeader>
-      <CardContent className="relative">
+      <CardContent className={isLocked ? 'relative min-h-[140px]' : 'relative'}>
         {/* Content - visible but blurred when locked */}
-        <div className={isLocked ? "blur-sm opacity-50 pointer-events-none select-none" : ""}>
+        <div className={isLocked ? 'blur-sm opacity-50 pointer-events-none select-none' : ''}>
           {children}
         </div>
-        
+
         {/* Overlay - only shown when locked */}
         {isLocked && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/30">
-            <div className="text-center p-4">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-2">
+          <div className="absolute inset-0 flex items-center justify-center p-4 bg-background/50 backdrop-blur-sm">
+            <div className="w-full max-w-[280px] text-center">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
                 <Lock className="h-5 w-5 text-primary" />
               </div>
-              <p className="text-xs text-muted-foreground mb-2">
+              <p className="text-xs text-muted-foreground mb-3">
                 Login or enroll to access
               </p>
-              <Button onClick={handleLoginClick} size="sm">
+              <Button onClick={handleLoginClick} size="sm" className="w-full">
                 {actionText}
               </Button>
             </div>
