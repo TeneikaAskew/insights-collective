@@ -1,3 +1,5 @@
+// ABOUTME: Login page for email/password and OAuth sign-in
+// ABOUTME: Preserves and executes post-login redirects (e.g., back to a course)
 
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -36,15 +38,38 @@ const Login = () => {
   const query = new URLSearchParams(location.search);
   const redirectParam = query.get('redirect');
 
-  // Simple redirect logic - just navigate directly when authenticated
+  const fromState = (location.state as any)?.from;
+  const fromPath =
+    typeof fromState === 'string'
+      ? fromState
+      : fromState?.pathname;
+
+  // Store redirect from query/state if present (do not overwrite an existing stored redirect)
   useEffect(() => {
-    if (isAuthenticated) {
-      logger.log('[Login] User authenticated, redirecting...');
-      const redirectTo = redirectParam || '/dashboard';
-      logger.log('[Login] Redirecting to:', redirectTo);
-      navigate(redirectTo, { replace: true });
+    const existing = localStorage.getItem('redirectAfterLogin');
+    const candidate = redirectParam || fromPath;
+
+    if (candidate && !existing) {
+      localStorage.setItem('redirectAfterLogin', candidate);
+      logger.log('[Login] Stored redirect path from navigation:', candidate);
     }
-  }, [isAuthenticated, navigate, redirectParam]);
+  }, [redirectParam, fromPath]);
+
+  // Redirect authenticated users back to where they came from
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const storedPath = localStorage.getItem('redirectAfterLogin');
+    const redirectTo = redirectParam || storedPath || fromPath || '/dashboard';
+
+    logger.log('[Login] User authenticated, redirecting to:', redirectTo);
+
+    if (storedPath) {
+      localStorage.removeItem('redirectAfterLogin');
+    }
+
+    navigate(redirectTo, { replace: true });
+  }, [isAuthenticated, navigate, redirectParam, fromPath]);
 
   const handleUserLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,10 +97,11 @@ const Login = () => {
       setSocialLoading(provider);
 
       // Store the redirect path BEFORE initiating social sign in
-      const redirectPath = redirectParam || '/dashboard';
+      const existingRedirect = localStorage.getItem('redirectAfterLogin');
+      const redirectPath = redirectParam || fromPath || existingRedirect || '/dashboard';
       localStorage.setItem('redirectAfterLogin', redirectPath);
       logger.log(`[handleSocialSignIn] Stored redirect path: ${redirectPath}`);
-      
+
       const signInMethod = {
         'google': googleSignIn,
         'github': githubSignIn,
