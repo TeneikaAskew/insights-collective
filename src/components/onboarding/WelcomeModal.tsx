@@ -22,9 +22,9 @@ const WelcomeModal: React.FC = () => {
   const handleStartTour = () => {
     // First close the welcome modal by marking it as dismissed
     skipTour();
-    // Then start the tour with a small delay to ensure the modal closes first
+    // Then force-start the tour (bypassing the dismissed check)
     setTimeout(() => {
-      startTour('home');
+      startTour('home', true);
     }, 100);
   };
 

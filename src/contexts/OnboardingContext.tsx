@@ -26,7 +26,7 @@ interface OnboardingContextType {
   currentStep: number;
   completedTours: string[];
   dismissedTours: string[];
-  startTour: (tourId: string) => void;
+  startTour: (tourId: string, force?: boolean) => void;
   nextStep: () => void;
   prevStep: () => void;
   skipTour: () => void;
@@ -80,9 +80,9 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }));
   };
 
-  const startTour = (tourId: string) => {
-    // Don't start if tour was already completed or dismissed
-    if (completedTours.includes(tourId) || dismissedTours.includes(tourId)) {
+  const startTour = (tourId: string, force = false) => {
+    // Don't start if tour was already completed or dismissed (unless forced)
+    if (!force && (completedTours.includes(tourId) || dismissedTours.includes(tourId))) {
       return;
     }
     
