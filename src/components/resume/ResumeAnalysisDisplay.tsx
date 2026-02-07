@@ -191,7 +191,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
             </div>
           )}
         </CardContent>
-        {resumeFile && !analysis && (
+        {resumeFile && (
           <CardFooter>
             <Button
               onClick={handleUpload}
