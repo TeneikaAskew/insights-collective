@@ -1,12 +1,10 @@
 // This function sets up Supabase client with service role key credentials from env
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
-import { encoding_for_model } from 'npm:@dqbd/tiktoken';
-async function countTokens(text, model = 'gpt-4o-mini') {
-  const enc = await encoding_for_model(model);
-  const tokenCount = enc.encode(text).length;
-  enc.free();
-  return tokenCount;
+// Simple token estimation without external dependency
+function countTokens(text: string): number {
+  // Approximate: ~4 characters per token for English text
+  return Math.ceil(text.length / 4);
 }
 // Call tracking system
 export const callTracking = {
@@ -347,7 +345,7 @@ const callQueue = {
 export async function callLLMAPI(system, user) {
   validateInput(system, user);
   callTracking.addCall();
-  const n = await countTokens(system + user, 'gpt-4o-mini');
+  const n = countTokens(system + user);
   console.log(`Prompt uses ${n} tokens`);
   
   // Get available endpoints
@@ -373,6 +371,12 @@ export async function callLLMAPI(system, user) {
               break;
             case 'TOGETHER2':
               result = await callTOGETHERAPI2(system, user);
+              break;
+            case 'GROQ':
+              result = await callGROQAPI(system, user);
+              break;
+            case 'ANWAN':
+              result = await callANWANAPI(system, user);
               break;
           }
           resolve(result);

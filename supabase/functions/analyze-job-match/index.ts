@@ -2,12 +2,10 @@
 // File path: supabase/functions/analyze-job-skills/index.ts
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { corsHeaders } from '../_shared/utils.ts';
-import { encoding_for_model } from 'npm:@dqbd/tiktoken';
-async function countTokens(text, model = 'gpt-4o-mini') {
-  const enc = await encoding_for_model(model);
-  const tokenCount = enc.encode(text).length;
-  enc.free();
-  return tokenCount;
+// Simple token estimation without external dependency
+function countTokens(text: string): number {
+  // Approximate: ~4 characters per token for English text
+  return Math.ceil(text.length / 4);
 }
 // Function to call LLM API specifically for skills and suggestions analysis
 async function callLLMForSkillsAnalysis(resume, jobDescription, preCalculatedKeywords) {
@@ -53,7 +51,7 @@ async function callLLMForSkillsAnalysis(resume, jobDescription, preCalculatedKey
     "improvementSuggestions": [string]
   }
   `;
-  const n = await countTokens(prompt, 'gpt-4o-mini');
+  const n = countTokens(prompt);
   console.log(`Prompt uses ${n} tokens`);
   // Use Mixtral or Llama model based on availability
   const model = 'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free'; // or 'mistralai/Mixtral-8x7B-Instruct-v0.1'
