@@ -482,6 +482,7 @@ const Resume = () => {
     if (file.type === 'application/pdf' || file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
       logDebug('UserAction', 'Setting valid resume file');
       setResumeFile(file);
+      setExtractedText(null); // Clear old extracted text so new file gets extracted
       setHasLoadedAnalysis(false);
 
       // Reset enhanced bullets flag when uploading a new file
@@ -526,6 +527,7 @@ const Resume = () => {
       const ok = await uploadResume(resumeFile, extractedText);
       if (ok) {
         logDebug('UserAction', 'Upload successful');
+        setResumeFile(null); // Clear selected file after successful upload
 
         // Store the current resume ID after upload
         if (resume && resume.id) {
