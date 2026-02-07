@@ -117,7 +117,7 @@ Using only this information, generate the Career Action Plan in the exact JSON f
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'meta-llama/Llama-3.3-70B-Instruct-Turbo',
+        model: 'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }

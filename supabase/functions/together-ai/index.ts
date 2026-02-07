@@ -55,7 +55,7 @@ Deno.serve(async (req)=>{
     const requestBody = await req.json();
     console.log('Request body:', JSON.stringify(requestBody));
     // Extract parameters with fallbacks
-    const { chatHistory, prompt, model = 'meta-llama/Llama-3.3-70B-Instruct-Turbo', max_tokens = 1024, stream = false } = requestBody;
+    const { chatHistory, prompt, model = 'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free', max_tokens = 1024, stream = false } = requestBody;
     // Validate we have either chatHistory or prompt mistralai/Mixtral-8x7B-Instruct-v0.1
     if (!chatHistory && !prompt) {
       throw new Error('Either chatHistory or prompt is required');

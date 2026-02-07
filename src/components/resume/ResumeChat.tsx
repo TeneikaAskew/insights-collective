@@ -100,7 +100,7 @@ const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
         conversation_id: conversationId,
         content: message.content,
         sender_type: senderType,
-        model: model || 'meta-llama/Llama-3.3-70B-Instruct-Turbo', // Default model
+        model: model || 'meta-llama/Llama-3-8b-chat-hf', // Default model
         max_tokens: maxTokens || 1024,
         stream: stream || false
       });
@@ -447,7 +447,7 @@ Let's start by discussing your experience: **What specific challenges did you ta
       
       logger.log('Invoking together-ai function with chat history');
       
-      const selectedModel = 'meta-llama/Llama-3.3-70B-Instruct-Turbo';
+      const selectedModel = 'meta-llama/Llama-3-8b-chat-hf';
       const maxTokens = 1024;
       
       const response = await supabase.functions.invoke('together-ai', {

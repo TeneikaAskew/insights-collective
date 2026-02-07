@@ -232,7 +232,7 @@ Keep your output format strictly as valid JSON without any additional explanatio
         Authorization: `Bearer ${TOGETHER_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+        model: "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
         messages: [
           {
             role: "system",

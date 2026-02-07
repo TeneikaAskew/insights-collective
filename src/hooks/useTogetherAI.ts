@@ -51,7 +51,7 @@ export function useTogetherAI(options: UseTogetherAIOptions = {}) {
       const { data, error } = await supabase.functions.invoke<TogetherAIResponse>('together-ai', {
         body: {
           prompt,
-          model: options.model || 'meta-llama/Llama-3.3-70B-Instruct-Turbo',
+          model: options.model || 'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free',//'mistralai/Mixtral-8x7B-Instruct-v0.1',
           max_tokens: options.maxTokens || 1024,
           stream: options.stream || false
         }
@@ -99,7 +99,7 @@ export function useTogetherAI(options: UseTogetherAIOptions = {}) {
       const { data, error } = await supabase.functions.invoke<TogetherAIResponse>('together-ai', {
         body: {
           chatHistory: messages,
-          model: options.model || 'meta-llama/Llama-3.3-70B-Instruct-Turbo',
+          model: options.model || 'meta-llama/Llama-3-8b-chat-hf',
           max_tokens: options.maxTokens || 1024,
           stream: options.stream || false
         }
