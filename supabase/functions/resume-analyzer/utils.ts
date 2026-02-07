@@ -246,7 +246,7 @@ async function callTOGETHERAPI(system, user) {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      model: 'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free',
+      model: 'meta-llama/Llama-3.3-70B-Instruct-Turbo',
       messages: [
         {
           role: 'system',
