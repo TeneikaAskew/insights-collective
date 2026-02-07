@@ -56,7 +56,7 @@ async function callLLMForSkillsAnalysis(resume, jobDescription, preCalculatedKey
   const n = await countTokens(prompt, 'gpt-4o-mini');
   console.log(`Prompt uses ${n} tokens`);
   // Use Mixtral or Llama model based on availability
-  const model = 'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free'; // or 'mistralai/Mixtral-8x7B-Instruct-v0.1'
+  const model = 'meta-llama/Llama-3.3-70B-Instruct-Turbo';
   console.log(`Using model: ${model}`);
   // *** FIXED: Updated the API request to use the correct chat completion format ***
   const response = await fetch('https://api.together.xyz/v1/chat/completions', {
