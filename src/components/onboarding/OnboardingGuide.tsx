@@ -147,14 +147,27 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ tourId }) => {
     }
   };
 
-  const getTooltipPosition = () => {
+  const isMobileViewport = typeof window !== 'undefined' && window.innerWidth < 640;
+
+  const getTooltipPosition = (): React.CSSProperties => {
+    // Mobile: always use bottom-sheet style (no transform to avoid framer-motion conflicts)
+    if (isMobileViewport) {
+      return {
+        position: 'fixed',
+        left: 16,
+        right: 16,
+        bottom: 16,
+        top: 'auto',
+      };
+    }
+
     // Show tooltip in center if no target element or position
     if (!targetElement || !currentStepData?.position || elementNotFound) {
       return {
         top: '50%',
         left: '50%',
         transform: 'translate(-50%, -50%)',
-        position: 'fixed' as const,
+        position: 'fixed',
       };
     }
 
@@ -162,24 +175,12 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ tourId }) => {
     const viewportHeight = window.innerHeight;
     const viewportWidth = window.innerWidth;
 
-    // Mobile: use a bottom-sheet style layout to avoid off-screen tooltips.
-    if (viewportWidth < 640) {
-      return {
-        position: 'fixed' as const,
-        left: 16,
-        right: 16,
-        bottom: 16,
-        top: 'auto',
-        transform: 'none',
-      };
-    }
-
     const tooltipWidth = 400; // Approximate tooltip width
     const tooltipHeight = 200; // Approximate tooltip height
     const padding = 20;
 
-    let position: any = {
-      position: 'fixed' as const,
+    let position: React.CSSProperties = {
+      position: 'fixed',
     };
 
     // Calculate base position based on target position preference
@@ -211,30 +212,28 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ tourId }) => {
     }
 
     // Adjust position to keep tooltip within viewport
+    const topVal = typeof position.top === 'number' ? position.top : 0;
+    const leftVal = typeof position.left === 'number' ? position.left : 0;
+
     // Check vertical bounds
-    if (position.top < padding) {
-      // If tooltip would go above viewport, position it below target
+    if (topVal < padding) {
       position.top = rect.bottom + padding;
       if (currentStepData.position === 'top') {
-        // Override the original position preference
         position.top = Math.min(rect.bottom + padding, viewportHeight - tooltipHeight - padding);
       }
-    } else if (position.top + tooltipHeight > viewportHeight - padding) {
-      // If tooltip would go below viewport, position it above target
+    } else if (topVal + tooltipHeight > viewportHeight - padding) {
       position.top = Math.max(padding, rect.top - tooltipHeight - padding);
     }
 
     // Check horizontal bounds
     if (currentStepData.position === 'left' || currentStepData.position === 'right') {
-      // For left/right positioned tooltips
-      if (position.left < padding) {
+      if (leftVal < padding) {
         position.left = rect.right + padding;
-      } else if (position.left + tooltipWidth > viewportWidth - padding) {
+      } else if (leftVal + tooltipWidth > viewportWidth - padding) {
         position.left = rect.left - tooltipWidth - padding;
       }
     } else {
-      // For top/bottom positioned tooltips (centered horizontally)
-      const centerX = position.left - tooltipWidth / 2;
+      const centerX = leftVal - tooltipWidth / 2;
       if (centerX < padding) {
         position.left = padding + tooltipWidth / 2;
       } else if (centerX + tooltipWidth > viewportWidth - padding) {
@@ -280,9 +279,9 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ tourId }) => {
 
       {/* Tooltip */}
       <motion.div
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.8 }}
+        initial={isMobileViewport ? { opacity: 0, y: 50 } : { opacity: 0, scale: 0.8 }}
+        animate={isMobileViewport ? { opacity: 1, y: 0 } : { opacity: 1, scale: 1 }}
+        exit={isMobileViewport ? { opacity: 0, y: 50 } : { opacity: 0, scale: 0.8 }}
         className="fixed z-[1002] w-[calc(100vw-32px)] sm:w-auto sm:max-w-sm sm:min-w-[320px]"
         style={getTooltipPosition()}
       >
@@ -309,7 +308,7 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ tourId }) => {
             <p className="text-sm text-muted-foreground mb-4">{currentStepData.description}</p>
 
             {elementNotFound && (
-              <div className="mb-4 p-2 bg-yellow-100 border border-yellow-300 rounded text-xs text-yellow-800">
+              <div className="mb-4 p-2 bg-accent border border-border rounded text-xs text-muted-foreground">
                 Section not currently visible. You can continue the tour or skip to explore on your own.
               </div>
             )}
