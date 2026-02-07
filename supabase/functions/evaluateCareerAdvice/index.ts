@@ -3,19 +3,10 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-import { encoding_for_model } from 'npm:@dqbd/tiktoken';
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Content-Type': 'application/json'
-};
-
-async function countTokens(text, model = 'gpt-4o-mini') {
-  const enc = await encoding_for_model(model);
-  const tokenCount = enc.encode(text).length;
-  enc.free();
-  return tokenCount;
+// Simple token estimation without external dependency
+function countTokens(text: string): number {
+  // Approximate: ~4 characters per token for English text
+  return Math.ceil(text.length / 4);
 }
 
 const togetherApiKey = Deno.env.get('TOGETHER_API_KEY');
@@ -124,7 +115,7 @@ serve(async (req) => {
     console.log("Messages:", messages);
     console.log("Making request to Together.ai API");
 
-    const n = await countTokens(systemPrompt + userContext, 'gpt-4o-mini');
+    const n = countTokens(systemPrompt + userContext);
     console.log(`Prompt uses ${n} tokens`);
 
     const response = await fetch('https://api.together.xyz/v1/chat/completions', {
