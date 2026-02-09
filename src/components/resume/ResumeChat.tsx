@@ -301,7 +301,7 @@ Provide helpful, specific advice as a resume coach. Be constructive, honest, and
           }
           
           // Create welcome message with assessment - NO TYPING ANIMATION
-          const fullWelcomeContent = `I've analyzed your resume and can help you improve it! Your resume currently has a grade of **${resumeAnalysis.letter_grade} (${resumeAnalysis.resume_percent}%)**.
+          const fullWelcomeContent = `I've analyzed your resume and can help you improve it! Your resume currently has a grade of **${resumeAnalysis.letter_grade} (${Number(resumeAnalysis.resume_percent).toFixed(2)}%)**.
 
 ${resumeRoast ? `**Here's my honest assessment:**
 ${resumeRoast}
@@ -336,7 +336,7 @@ ${resumeRoast}
           logger.error('Error with assessment:', error);
           
           // Fallback welcome message - NO TYPING ANIMATION
-          const fallbackContent = `I've analyzed your resume and can help you improve it! Your resume currently has a grade of **${resumeAnalysis.letter_grade} (${resumeAnalysis.resume_percent}%)**.
+          const fallbackContent = `I've analyzed your resume and can help you improve it! Your resume currently has a grade of **${resumeAnalysis.letter_grade} (${Number(resumeAnalysis.resume_percent).toFixed(2)}%)**.
 
 Let's start by discussing your experience: **What specific challenges did you tackle in your first listed role, what actions did you take, and what measurable results did you achieve?**`;
           

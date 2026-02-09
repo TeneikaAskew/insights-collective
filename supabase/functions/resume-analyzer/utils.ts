@@ -35,13 +35,13 @@ const API_CONFIG = {
     DAILY_LIMIT: 1000
   },
   TOGETHER: {
-    DELAY_MS: 10000, // 10 seconds between calls to stay under 6 RPM
+    DELAY_MS: 110000, // 110 seconds between calls to stay under 0.6 RPM free tier limit
     MAX_RETRIES: 3,
     DAILY_LIMIT: 1000,
     MAX_CONCURRENT: 1 // Only allow one concurrent request
   },
   TOGETHER2: {
-    DELAY_MS: 10000, // 10 seconds between calls to stay under 6 RPM
+    DELAY_MS: 110000, // 110 seconds between calls to stay under 0.6 RPM free tier limit
     MAX_RETRIES: 3,
     DAILY_LIMIT: 1000,
     MAX_CONCURRENT: 1 // Only allow one concurrent request
@@ -272,12 +272,12 @@ async function callTOGETHERAPI(system, user) {
   }
 }
 async function callTOGETHERAPI2(system, user) {
-  if (!canUseEndpoint('TOGETHER')) {
-    throw new Error('TOGETHER API is currently disabled');
+  if (!canUseEndpoint('TOGETHER2')) {
+    throw new Error('TOGETHER2 API is currently disabled');
   }
   const TOGETHER_API_KEY = Deno.env.get('TOGETHER_API_KEY');
   if (!TOGETHER_API_KEY) throw new Error('TOGETHER API key not found');
-  await enforceRateLimit('TOGETHER');
+  await enforceRateLimit('TOGETHER2');
   const resp = await fetch('https://api.together.xyz/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -301,7 +301,7 @@ async function callTOGETHERAPI2(system, user) {
     })
   });
   const responseText = await resp.text();
-  handleApiResponse('TOGETHER', resp, responseText);
+  handleApiResponse('TOGETHER2', resp, responseText);
   if (!resp.ok) {
     throw new Error(`TOGETHER API 2 failed: ${resp.status} ${responseText}`);
   }
@@ -336,8 +336,8 @@ const callQueue = {
         console.error('Error processing queue item:', error);
       }
     }
-    // Add delay between processing queue items to avoid rate limiting
-    await new Promise(resolve => setTimeout(resolve, 10000));
+    // Add delay between processing queue items to match Together.ai free tier rate limit
+    await new Promise(resolve => setTimeout(resolve, 110000));
     await this.process();
   }
 };

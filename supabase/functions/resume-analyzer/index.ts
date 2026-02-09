@@ -1058,7 +1058,7 @@ function calculateScoresAndGrades(analyzed) {
   return {
     bullets: sortedBullets,
     weightedAverage,
-    resume_percent: percent,    // Changed from percent
+    resume_percent: Math.round(percent * 100) / 100,    // Rounded to 2 decimal places
     letter_grade: letterGrade 
   };
 }
