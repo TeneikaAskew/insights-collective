@@ -4,7 +4,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
 import { corsHeaders, handleError, safeParseJSON } from "../_shared/utils.ts";
 
-const TOGETHER_API_KEY = Deno.env.get("TOGETHER_API_KEY");
+const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const GROQ_API_KEY = Deno.env.get("GROQ");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -225,14 +225,14 @@ Output a complete JSON object with the following structure:
 
 Keep your output format strictly as valid JSON without any additional explanation or text. Return ONLY the JSON object.`;
 
-    const originalResponse = await fetch("https://api.together.xyz/v1/chat/completions", {
+    const originalResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${TOGETHER_API_KEY}`,
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
+        model: "google/gemini-2.5-flash",
         messages: [
           {
             role: "system",

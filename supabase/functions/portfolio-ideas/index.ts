@@ -16,7 +16,7 @@ function getSupabaseClient() {
   return createClient(supabaseUrl, supabaseKey);
 }
 export const supabase = getSupabaseClient();
-const togetherApiKey = Deno.env.get('TOGETHER_API_KEY');
+const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
 serve(async (req)=>{
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -29,9 +29,9 @@ serve(async (req)=>{
     const requestBody = await req.json();
     console.log("Request body:", JSON.stringify(requestBody));
     const { resumeText, actionPlan, questionnaireAnswers, userId } = requestBody;
-    if (!togetherApiKey) {
-      console.error("No Together API key configured");
-      throw new Error('Together.ai API key not configured');
+    if (!lovableApiKey) {
+      console.error("No LOVABLE_API_KEY configured");
+      throw new Error('LOVABLE_API_KEY not configured');
     }
     console.log('User:', userId, 'RESUME:', resumeText?.length || 0, ' QUESTIONNAIRE: ', questionnaireAnswers);
     // Construct the prompt
@@ -95,15 +95,13 @@ serve(async (req)=>{
     Current role: ${questionnaireAnswers?.currentRole || "Not provided"}
     Hobbies/free time activities: ${questionnaireAnswers?.hobbies || "Not provided"}
     `;
-    // Use Mixtral or Llama model based on availability
-    const model = 'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free'; // or 'mistralai/Mixtral-8x7B-Instruct-v0.1'
+    const model = 'google/gemini-2.5-flash';
     console.log(`Using model: ${model}`);
-    // *** FIXED: Updated the API request to use the correct chat completion format ***
-    const response = await fetch('https://api.together.xyz/v1/chat/completions', {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${togetherApiKey}`
+        Authorization: `Bearer ${lovableApiKey}`
       },
       body: JSON.stringify({
         model,

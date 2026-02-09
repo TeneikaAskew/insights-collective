@@ -1,4 +1,6 @@
-// This function sets up Supabase client with service role key credentials from env
+// ABOUTME: Utility functions for the resume-analyzer edge function including LLM API calls
+// ABOUTME: Provides multi-provider fallback (Gemini primary, GROQ/ANWAN fallbacks) and rate limiting
+
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
 // Simple token estimation without external dependency
@@ -24,6 +26,11 @@ export const callTracking = {
 };
 // API Rate Limits Configuration
 const API_CONFIG = {
+  GEMINI: {
+    DELAY_MS: 1000,
+    MAX_RETRIES: 3,
+    DAILY_LIMIT: 5000
+  },
   ANWAN: {
     DELAY_MS: 2000,
     MAX_RETRIES: 3,
@@ -33,21 +40,16 @@ const API_CONFIG = {
     DELAY_MS: 1000,
     MAX_RETRIES: 3,
     DAILY_LIMIT: 1000
-  },
-  TOGETHER: {
-    DELAY_MS: 110000, // 110 seconds between calls to stay under 0.6 RPM free tier limit
-    MAX_RETRIES: 3,
-    DAILY_LIMIT: 1000,
-    MAX_CONCURRENT: 1 // Only allow one concurrent request
-  },
-  TOGETHER2: {
-    DELAY_MS: 110000, // 110 seconds between calls to stay under 0.6 RPM free tier limit
-    MAX_RETRIES: 3,
-    DAILY_LIMIT: 1000,
-    MAX_CONCURRENT: 1 // Only allow one concurrent request
   }
 };
 const endpointStatus = {
+  GEMINI: {
+    lastCallTime: 0,
+    dailyCallCount: 0,
+    failureCount: 0,
+    isDisabled: false,
+    resetTime: undefined
+  },
   ANWAN: {
     lastCallTime: 0,
     dailyCallCount: 0,
@@ -56,20 +58,6 @@ const endpointStatus = {
     resetTime: undefined
   },
   GROQ: {
-    lastCallTime: 0,
-    dailyCallCount: 0,
-    failureCount: 0,
-    isDisabled: false,
-    resetTime: undefined
-  },
-  TOGETHER: {
-    lastCallTime: 0,
-    dailyCallCount: 0,
-    failureCount: 0,
-    isDisabled: false,
-    resetTime: undefined
-  },
-  TOGETHER2: {
     lastCallTime: 0,
     dailyCallCount: 0,
     failureCount: 0,
@@ -143,6 +131,48 @@ function handleApiResponse(endpoint, response, responseText) {
     }
   } else if (!response.ok) {
     status.failureCount++;
+  }
+}
+// Gemini API call via Lovable AI Gateway
+async function callGeminiAPI(system, user) {
+  if (!canUseEndpoint('GEMINI')) {
+    throw new Error('Gemini API is currently disabled');
+  }
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not found');
+  await enforceRateLimit('GEMINI');
+  const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      model: 'google/gemini-2.5-flash',
+      messages: [
+        {
+          role: 'system',
+          content: system
+        },
+        {
+          role: 'user',
+          content: user
+        }
+      ],
+      temperature: 0.7,
+      max_tokens: 500
+    })
+  });
+  const responseText = await resp.text();
+  handleApiResponse('GEMINI', resp, responseText);
+  if (!resp.ok) {
+    throw new Error(`Gemini API failed: ${resp.status} ${responseText}`);
+  }
+  try {
+    const json = JSON.parse(responseText);
+    return json.choices?.[0]?.message?.content;
+  } catch (e) {
+    throw new Error(`Failed to parse Gemini response: ${e.message}`);
   }
 }
 // ANWAN API call
@@ -229,89 +259,6 @@ async function callGROQAPI(system, user) {
     throw new Error(`Failed to parse GROQ response: ${e.message}`);
   }
 }
-// TOGETHER API call
-async function callTOGETHERAPI(system, user) {
-  if (!canUseEndpoint('TOGETHER')) {
-    throw new Error('TOGETHER API is currently disabled');
-  }
-  const TOGETHER_API_KEY = Deno.env.get('TOGETHER_API_KEY');
-  if (!TOGETHER_API_KEY) throw new Error('TOGETHER API key not found');
-  await enforceRateLimit('TOGETHER');
-  const resp = await fetch('https://api.together.xyz/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${TOGETHER_API_KEY}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      model: 'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free',
-      messages: [
-        {
-          role: 'system',
-          content: system
-        },
-        {
-          role: 'user',
-          content: user
-        }
-      ],
-      temperature: 0.7,
-      max_tokens: 500
-    })
-  });
-  const responseText = await resp.text();
-  handleApiResponse('TOGETHER', resp, responseText);
-  if (!resp.ok) {
-    throw new Error(`TOGETHER API failed: ${resp.status} ${responseText}`);
-  }
-  try {
-    const json = JSON.parse(responseText);
-    return json.choices?.[0]?.message?.content;
-  } catch (e) {
-    throw new Error(`Failed to parse TOGETHER response: ${e.message}`);
-  }
-}
-async function callTOGETHERAPI2(system, user) {
-  if (!canUseEndpoint('TOGETHER2')) {
-    throw new Error('TOGETHER2 API is currently disabled');
-  }
-  const TOGETHER_API_KEY = Deno.env.get('TOGETHER_API_KEY');
-  if (!TOGETHER_API_KEY) throw new Error('TOGETHER API key not found');
-  await enforceRateLimit('TOGETHER2');
-  const resp = await fetch('https://api.together.xyz/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${TOGETHER_API_KEY}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      model: 'deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free',
-      messages: [
-        {
-          role: 'system',
-          content: system + 'Follow the instructions and do not speak in first person'
-        },
-        {
-          role: 'user',
-          content: user
-        }
-      ],
-      temperature: 0.7,
-      max_tokens: 500
-    })
-  });
-  const responseText = await resp.text();
-  handleApiResponse('TOGETHER2', resp, responseText);
-  if (!resp.ok) {
-    throw new Error(`TOGETHER API 2 failed: ${resp.status} ${responseText}`);
-  }
-  try {
-    const json = JSON.parse(responseText);
-    return json.choices?.[0]?.message?.content;
-  } catch (e) {
-    throw new Error(`Failed to parse TOGETHER response: ${e.message}`);
-  }
-}
 // Call queue system
 const callQueue = {
   queue: [] as Array<() => Promise<any>>,
@@ -336,8 +283,8 @@ const callQueue = {
         console.error('Error processing queue item:', error);
       }
     }
-    // Add delay between processing queue items to match Together.ai free tier rate limit
-    await new Promise(resolve => setTimeout(resolve, 110000));
+    // Short delay between processing queue items
+    await new Promise(resolve => setTimeout(resolve, 2000));
     await this.process();
   }
 };
@@ -348,8 +295,8 @@ export async function callLLMAPI(system, user) {
   const n = countTokens(system + user);
   console.log(`Prompt uses ${n} tokens`);
   
-  // Get available endpoints
-  const preferredOrder = ['TOGETHER', 'TOGETHER2', 'GROQ', 'ANWAN'];
+  // Get available endpoints - Gemini first, then fallbacks
+  const preferredOrder = ['GEMINI', 'GROQ', 'ANWAN'];
   
   // Filter available endpoints in the preferred order
   const availableEndpoints = preferredOrder.filter(canUseEndpoint);
@@ -361,24 +308,26 @@ export async function callLLMAPI(system, user) {
   // Wrap the API call in a queue
   return new Promise((resolve, reject) => {
     callQueue.add(async () => {
-      // Try each available endpoint
+      // Try each available endpoint with a per-call timeout
       for (const endpoint of availableEndpoints) {
         try {
-          let result;
+          const timeoutPromise = new Promise((_, timeoutReject) => 
+            setTimeout(() => timeoutReject(new Error(`${endpoint} timed out after 15s`)), 15000)
+          );
+          let resultPromise;
           switch(endpoint) {
-            case 'TOGETHER':
-              result = await callTOGETHERAPI(system, user);
-              break;
-            case 'TOGETHER2':
-              result = await callTOGETHERAPI2(system, user);
+            case 'GEMINI':
+              resultPromise = callGeminiAPI(system, user);
               break;
             case 'GROQ':
-              result = await callGROQAPI(system, user);
+              resultPromise = callGROQAPI(system, user);
               break;
             case 'ANWAN':
-              result = await callANWANAPI(system, user);
+              resultPromise = callANWANAPI(system, user);
               break;
           }
+          const result = await Promise.race([resultPromise, timeoutPromise]);
+          console.log(`Successfully used ${endpoint} endpoint`);
           resolve(result);
           return;
         } catch (error) {
