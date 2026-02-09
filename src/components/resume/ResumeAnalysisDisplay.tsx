@@ -23,6 +23,7 @@ interface ResumeAnalysisDisplayProps {
   uploading: boolean;
   isAnalyzing: boolean;
   isPollingForImprovements?: boolean; // Prop for polling state
+  isExtracting?: boolean; // Prop for text extraction state
   pdfPreviewUrl: string | null;
   fileError: string | null;
 }
@@ -41,6 +42,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
   uploading,
   isAnalyzing,
   isPollingForImprovements = false,
+  isExtracting = false,
   pdfPreviewUrl,
   fileError,
 }) => {
@@ -195,10 +197,12 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
           <CardFooter>
             <Button
               onClick={handleUpload}
-              disabled={!resumeFile || uploading || isAnalyzing}
+              disabled={!resumeFile || uploading || isAnalyzing || isExtracting}
               className="w-full"
             >
-              {uploading ? 'Uploading...' : isAnalyzing ? 'Analyzing...' : 'Upload & Analyze Resume'}
+              {isExtracting ? (
+                <><Loader2 className="h-4 w-4 animate-spin mr-2" />Extracting text...</>
+              ) : uploading ? 'Uploading...' : isAnalyzing ? 'Analyzing...' : 'Upload & Analyze Resume'}
             </Button>
           </CardFooter>
         )}
