@@ -2,7 +2,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const togetherApiKey = Deno.env.get('TOGETHER_API_KEY');
+const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -18,8 +18,8 @@ serve(async (req) => {
   try {
     const { conversationHistory, messageType } = await req.json();
 
-    if (!togetherApiKey) {
-      throw new Error('Together API key not configured');
+    if (!lovableApiKey) {
+      throw new Error('LOVABLE_API_KEY not configured');
     }
 
     // Build context based on conversation history
@@ -38,14 +38,14 @@ serve(async (req) => {
       { role: 'user', content: 'Generate a brief, friendly message for this conversation context.' }
     ];
 
-    const response = await fetch('https://api.together.xyz/v1/chat/completions', {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${togetherApiKey}`,
+        'Authorization': `Bearer ${lovableApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free',
+        model: 'google/gemini-2.5-flash',
         messages: messages,
         max_tokens: 100,
         temperature: 0.7,

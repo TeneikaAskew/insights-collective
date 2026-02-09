@@ -9,9 +9,9 @@ function countTokens(text: string): number {
 }
 // Function to call LLM API specifically for skills and suggestions analysis
 async function callLLMForSkillsAnalysis(resume, jobDescription, preCalculatedKeywords) {
-  const TOGETHER_API_KEY = Deno.env.get('TOGETHER_API_KEY');
-  if (!TOGETHER_API_KEY) {
-    throw new Error('Together API key not found');
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  if (!LOVABLE_API_KEY) {
+    throw new Error('LOVABLE_API_KEY not found');
   }
   // Create a prompt specifically for skills analysis, not keyword matching
   const prompt = `
@@ -53,15 +53,13 @@ async function callLLMForSkillsAnalysis(resume, jobDescription, preCalculatedKey
   `;
   const n = countTokens(prompt);
   console.log(`Prompt uses ${n} tokens`);
-  // Use Mixtral or Llama model based on availability
-  const model = 'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free'; // or 'mistralai/Mixtral-8x7B-Instruct-v0.1'
+  const model = 'google/gemini-2.5-flash';
   console.log(`Using model: ${model}`);
-  // *** FIXED: Updated the API request to use the correct chat completion format ***
-  const response = await fetch('https://api.together.xyz/v1/chat/completions', {
+  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${TOGETHER_API_KEY}`
+      Authorization: `Bearer ${LOVABLE_API_KEY}`
     },
     body: JSON.stringify({
       model,

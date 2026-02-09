@@ -9,7 +9,7 @@ function countTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
 
-const togetherApiKey = Deno.env.get('TOGETHER_API_KEY');
+const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -36,10 +36,10 @@ serve(async (req) => {
       );
     }
 
-    if (!togetherApiKey) {
-      console.error("Together AI API key not configured");
+    if (!lovableApiKey) {
+      console.error("LOVABLE_API_KEY not configured");
       return new Response(
-        JSON.stringify({ error: "Together AI API key not configured" }),
+        JSON.stringify({ error: "LOVABLE_API_KEY not configured" }),
         { status: 500, headers: corsHeaders }
       );
     }
@@ -118,14 +118,14 @@ serve(async (req) => {
     const n = countTokens(systemPrompt + userContext);
     console.log(`Prompt uses ${n} tokens`);
 
-    const response = await fetch('https://api.together.xyz/v1/chat/completions', {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${togetherApiKey}`,
+        'Authorization': `Bearer ${lovableApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free',
+        model: 'google/gemini-2.5-flash',
         messages: messages,
         temperature: 0.7,
         max_tokens: 5000,
