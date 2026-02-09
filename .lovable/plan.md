@@ -1,83 +1,69 @@
 
-# Fix Resume Analyzer: Rate Limits, Score Rounding, and Theme Extraction
 
-## Summary
+# Fix: "Upload & Analyze Resume" Button Not Responding
 
-Based on your research, the free Together.ai models (`Llama-3.3-70B-Instruct-Turbo-Free` and `DeepSeek-R1-Distill-Llama-70B-free`) are still available but with a very tight rate limit of **0.6 RPM** (1 request every ~100 seconds). The current code only waits 10 seconds between calls, causing rate limit failures. Combined with the unrounded score and missing theme extraction, there are 3 issues to fix.
+## Root Cause
 
----
+When you click "Upload & Analyze Resume," the code checks if text has been extracted from your file first (`extractedText`). If extraction hasn't completed yet (or failed silently for the DOCX file), clicking the button shows a brief toast message ("Still extracting text or no file selected") but otherwise appears to do nothing.
 
-## Issue 1: Rate Limit Too Aggressive (Root Cause of 400 Errors)
+There are two underlying problems:
 
-The `DELAY_MS` for TOGETHER endpoints is set to `10000` (10 seconds), but the free tier allows only 0.6 RPM = **1 request per 100 seconds**. This means most Together.ai calls will hit rate limits and fail.
+1. **No loading indicator during text extraction** -- After selecting a file, there's no visual feedback that text is being extracted. The button appears ready immediately, but internally it's waiting for extraction to finish.
 
-Additionally, `callTOGETHERAPI2` checks and tracks against the `TOGETHER` endpoint status instead of `TOGETHER2`, meaning both functions share the same rate limiter and failure counter -- so a failure on TOGETHER1 incorrectly disables TOGETHER2.
-
-**Fix in `supabase/functions/resume-analyzer/utils.ts`:**
-- Increase `TOGETHER.DELAY_MS` from `10000` to `110000` (110 seconds, safely under 0.6 RPM)
-- Increase `TOGETHER2.DELAY_MS` from `10000` to `110000` 
-- Fix `callTOGETHERAPI2` to use `TOGETHER2` for its `canUseEndpoint`, `enforceRateLimit`, and `handleApiResponse` calls instead of `TOGETHER`
-- Update the queue delay from `10000` to `110000` to match
+2. **DOCX extraction may fail silently** -- If mammoth fails to extract text, the error toast may appear briefly and be easy to miss, leaving `extractedText` as `null` permanently, which blocks the upload button forever.
 
 ---
 
-## Issue 2: Score Percentage Not Rounded
+## Plan
 
-The `resume_percent` of `79.7388888888889` is displayed raw.
+### Step 1: Add an `isExtracting` state to show extraction progress
 
-**Fix in `supabase/functions/resume-analyzer/index.ts` (~line 1061):**
+**File:** `src/pages/Resume.tsx`
+
+- Add a new state: `const [isExtracting, setIsExtracting] = useState(false);`
+- In the `useEffect` that extracts text (around line 416), wrap the extraction with `setIsExtracting(true)` before and `setIsExtracting(false)` after (in both success and error paths)
+- Pass `isExtracting` to `ResumeAnalysisDisplay`
+
+### Step 2: Disable button and show extraction status during text extraction
+
+**File:** `src/components/resume/ResumeAnalysisDisplay.tsx`
+
+- Accept new prop `isExtracting: boolean`
+- Update the "Upload & Analyze Resume" button:
+  - Add `isExtracting` to the `disabled` condition
+  - Show "Extracting text..." label when `isExtracting` is true
+  - Add a spinner icon during extraction
+
+Updated button:
 ```typescript
-resume_percent: Math.round(percent * 100) / 100,
+<Button
+  onClick={handleUpload}
+  disabled={!resumeFile || uploading || isAnalyzing || isExtracting}
+  className="w-full"
+>
+  {uploading ? 'Uploading...' 
+    : isAnalyzing ? 'Analyzing...' 
+    : isExtracting ? 'Extracting text...' 
+    : 'Upload & Analyze Resume'}
+</Button>
 ```
 
-**Fix in `src/components/resume/OverallScoreCard.tsx` (line 144):**
-```typescript
-<span className="text-xs text-muted-foreground">
-  {Number(resumePercent).toFixed(2)}%
-</span>
-```
+### Step 3: Improve error handling when extraction fails
 
-**Fix in `src/components/resume/ResumeChat.tsx` (lines 304, 339):**
-```typescript
-${Number(resumeAnalysis.resume_percent).toFixed(2)}%
-```
+**File:** `src/pages/Resume.tsx`
 
----
+- In the text extraction error handler (around line 427), after showing the error toast, also clear the `resumeFile` state so the user knows they need to re-select:
+  ```typescript
+  setResumeFile(null); // Force user to re-select since extraction failed
+  ```
+- Add a more prominent error message explaining what went wrong
 
-## Issue 3: Theme Extraction Missing "Improvement Theme N:" Format
+### Step 4: Add fallback text extraction for DOCX
 
-The AI returns themes formatted as:
-```
-Improvement Theme 1: Add concrete performance metrics...
-Improvement Theme 2: Revise weaker bullets...
-Improvement Theme 3: Enhance ATS optimization...
-```
+**File:** `src/pages/Resume.tsx`
 
-But no regex pattern in `aiEnhancer.ts` matches this "Improvement Theme N:" format.
-
-**Fix in `supabase/functions/resume-analyzer/aiEnhancer.ts`:**
-
-Add a new regex pattern to the `themePatterns` array:
-```typescript
-/Improvement Theme \d+:\s*(.*?)(?=\nImprovement Theme \d+:|\nGrade|The resume grade|$)/gi
-```
-
-Also add a dedicated fallback after the existing fallbacks (after line 377) that scans for lines starting with "Improvement Theme":
-```typescript
-if (extractedContent.themes.length === 0) {
-  const improvementThemeRegex = /Improvement Theme \d+:\s*(.*)/gi;
-  let match;
-  const themes = [];
-  while ((match = improvementThemeRegex.exec(text)) !== null) {
-    if (match[1].trim().length > 10) {
-      themes.push(match[1].trim());
-    }
-  }
-  if (themes.length > 0) {
-    extractedContent.themes = themes;
-  }
-}
-```
+- In the extraction `useEffect`, if mammoth extraction fails, try a fallback `FileReader.readAsText()` approach before giving up entirely
+- This matches the fallback pattern already used in `useResume.ts` `uploadResume` method (around line 238)
 
 ---
 
@@ -85,22 +71,5 @@ if (extractedContent.themes.length === 0) {
 
 | File | Change |
 |------|--------|
-| `supabase/functions/resume-analyzer/utils.ts` | Increase TOGETHER delay to 110s, fix TOGETHER2 endpoint tracking, update queue delay |
-| `supabase/functions/resume-analyzer/index.ts` | Round `resume_percent` to 2 decimal places |
-| `supabase/functions/resume-analyzer/aiEnhancer.ts` | Add "Improvement Theme N:" regex pattern and fallback |
-| `src/components/resume/OverallScoreCard.tsx` | Display score with `.toFixed(2)` |
-| `src/components/resume/ResumeChat.tsx` | Display score with `.toFixed(2)` in welcome messages |
-
-**No model name changes needed** -- the free model identifiers are confirmed correct. The failures were caused by rate limiting, not model deprecation.
-
----
-
-## Technical Detail: Rate Limit Math
-
-| Tier | RPM | Min delay between calls |
-|------|-----|------------------------|
-| Free (no card) | 0.6 | 100 seconds |
-| Free (with card) | 3.0 | 20 seconds |
-| Current code | ~6.0 | 10 seconds |
-
-The 110-second delay provides a safety margin for the worst case (no credit card). If you have a credit card on file with Together.ai, this could be reduced to ~25 seconds.
+| `src/pages/Resume.tsx` | Add `isExtracting` state, wrap extraction in loading state, improve error handling, add fallback extraction |
+| `src/components/resume/ResumeAnalysisDisplay.tsx` | Accept `isExtracting` prop, disable button during extraction, show "Extracting text..." label |
