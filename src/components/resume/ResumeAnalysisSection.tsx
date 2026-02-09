@@ -30,6 +30,7 @@ interface ResumeAnalysisSectionProps {
   handleDelete: () => Promise<void>;
   handleDownload: () => void;
   fileError: string | null;
+  isExtracting?: boolean;
 }
 
 const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
@@ -50,6 +51,7 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
   showCareerChat,
   isPollingForImprovements = false,
   handleRefreshData,
+  isExtracting = false,
 }) => {
   // State to track active tab
   const [activeTab, setActiveTab] = useState("overview");
@@ -168,6 +170,7 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
                   isPollingForImprovements={isPollingForImprovements}
                   pdfPreviewUrl={pdfPreviewUrl}
                   fileError={fileError}
+                  isExtracting={isExtracting}
                 />
               </TabsContent>
               
@@ -207,6 +210,7 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
             isAnalyzing={isAnalyzing}
             pdfPreviewUrl={pdfPreviewUrl}
             fileError={fileError}
+            isExtracting={isExtracting}
           />
         )}
         

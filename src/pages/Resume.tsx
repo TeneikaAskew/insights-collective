@@ -108,6 +108,7 @@ const Resume = () => {
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const [storageError, setStorageError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isExtracting, setIsExtracting] = useState(false);
   const [isLoadingEnhancedBullets, setIsLoadingEnhancedBullets] = useState(false);
   const [showAnalysisOverlay, setShowAnalysisOverlay] = useState(false);
   const subscriptionRef = useRef(null);
@@ -415,6 +416,7 @@ const Resume = () => {
     }
     if (!extractedText) {
       logDebug('FileHandler', 'No extracted text, starting extraction');
+      setIsExtracting(true);
       (async () => {
         try {
           logDebug('FileHandler', 'Extracting text from file');
@@ -426,11 +428,41 @@ const Resume = () => {
         } catch (err) {
           logDebug('FileHandler', 'Error extracting text:', err);
           logger.error(err);
-          toast({
-            title: 'Extraction failed',
-            description: 'Could not extract text from your resume.',
-            variant: 'destructive'
-          });
+          // Try fallback extraction for DOCX files
+          if (resumeFile.name.toLowerCase().endsWith('.docx')) {
+            logDebug('FileHandler', 'Attempting fallback text extraction for DOCX');
+            try {
+              const fallbackText = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result as string);
+                reader.onerror = () => reject(reader.error);
+                reader.readAsText(resumeFile);
+              });
+              if (fallbackText && fallbackText.trim().length > 0) {
+                setExtractedText(fallbackText);
+                logDebug('FileHandler', 'Fallback extraction successful');
+              } else {
+                throw new Error('Fallback extraction returned empty text');
+              }
+            } catch (fallbackErr) {
+              logDebug('FileHandler', 'Fallback extraction also failed:', fallbackErr);
+              toast({
+                title: 'Extraction failed',
+                description: 'Could not extract text from your resume. Please try a PDF file instead.',
+                variant: 'destructive'
+              });
+              setResumeFile(null);
+            }
+          } else {
+            toast({
+              title: 'Extraction failed',
+              description: 'Could not extract text from your resume.',
+              variant: 'destructive'
+            });
+            setResumeFile(null);
+          }
+        } finally {
+          setIsExtracting(false);
         }
       })();
     }
@@ -789,6 +821,7 @@ const Resume = () => {
           fileError={storageError}
           showCareerChat={showCareerChat}
           handleRefreshData={handleRefreshData}
+          isExtracting={isExtracting}
         />
       </div>
     </AppLayout>;
