@@ -293,8 +293,8 @@ function formatResponse(raw) {
     /Three\s+specific\s+improvement\s+themes\s+are:\s*([\s\S]*?)(?=\n\s*(?:The resume|Resume Grade|$))/i,
     /Three\s+specific\s+improvement\s+themes\s+are\s*:\s*([\s\S]*?)(?=\n\s*(?:The resume|Resume Grade|$))/i,  
     /Three\s+specific\s+improvement\s+themes\s+based\s+on\s+the\s+resume\s+text\s+are:?\s*([\s\S]*?)(?=\n{2,}|\n+The\s+resume\s+grade|\n+\*\*|$)/i,
-
-    
+    // Match "Improvement Theme 1: ...", "Improvement Theme 2: ..." format
+    /Improvement Theme \d+:\s*(.*?)(?=\nImprovement Theme \d+:|\nGrade|The resume grade|$)/gi,
   ];
   
   for (const pattern of themePatterns){
@@ -374,6 +374,21 @@ function formatResponse(raw) {
           break;
         }
       }
+    }
+  }
+
+  // Dedicated fallback for "Improvement Theme N:" format
+  if (extractedContent.themes.length === 0) {
+    const improvementThemeRegex = /Improvement Theme \d+:\s*(.*)/gi;
+    let match;
+    const themes = [];
+    while ((match = improvementThemeRegex.exec(text)) !== null) {
+      if (match[1].trim().length > 10) {
+        themes.push(match[1].trim());
+      }
+    }
+    if (themes.length > 0) {
+      extractedContent.themes = themes;
     }
   }
   

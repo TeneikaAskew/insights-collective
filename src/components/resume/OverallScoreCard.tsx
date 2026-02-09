@@ -141,7 +141,7 @@ const logger = createLogger('handleButtonClick');
           <div className="flex items-center gap-3">
             <div className="text-center">
               <Progress value={resumePercent} className="h-2 w-16" />
-              <span className="text-xs text-muted-foreground">{resumePercent}%</span>
+              <span className="text-xs text-muted-foreground">{Number(resumePercent).toFixed(2)}%</span>
             </div>
             <div className={`text-4xl font-bold ${getLetterGradeColor(letterGrade)} bg-muted/20 h-16 w-16 rounded-full flex items-center justify-center`}>
               {letterGrade}
