@@ -1,100 +1,53 @@
 
-# Replace Together.ai with Gemini 2.5 Flash via Lovable AI Gateway
+# Add Context-Aware AI Endpoint Logging
 
-## Overview
+## Problem
+Currently, `utils.ts` logs `"Successfully used GEMINI endpoint"` but there's no indication of **which analysis step** triggered the call (e.g., was it the elevator pitch enhancer, the bullet improver, or the career action plan?). This makes it hard to monitor which providers handle which tasks.
 
-Replace all Together.ai API calls across 8 edge functions with Google Gemini 2.5 Flash, using the **Lovable AI Gateway** (`https://ai.gateway.lovable.dev/v1/chat/completions`) which is already configured via `LOVABLE_API_KEY`. No new API key is needed.
+## Solution
+Add an optional `label` parameter to `callLLMAPI` and `callLLMWithRetry` that gets included in all log messages for that call.
 
-The Lovable AI Gateway uses the same OpenAI-compatible chat completions format, so the migration is straightforward -- change the URL, the auth header, and the model name.
+## Changes
 
----
+### File: `supabase/functions/resume-analyzer/utils.ts`
 
-## Changes by File
+1. Add optional `label` parameter to `callLLMAPI(system, user, label?)`:
+   - Line 296: Log becomes `[${label}] Prompt uses ${n} tokens`
+   - Line 330: Log becomes `[${label}] Successfully used ${endpoint} endpoint`
+   - Line 334: Error log becomes `[${label}] ${endpoint} API call failed:`
+   - Default label to `"LLM"` if not provided
 
-### 1. `supabase/functions/resume-analyzer/utils.ts`
+2. Add optional `label` parameter to `callLLMWithRetry(system, user, attempt, maxAttempts, label?)`:
+   - Pass it through to `callLLMAPI`
+   - Line 355: Log becomes `[${label}] Attempt ${attempt} failed, retrying in ${delay}ms`
 
-**The most critical file.** Replace the entire multi-provider fallback system (TOGETHER, TOGETHER2, GROQ, ANWAN) with a single Gemini call via the Lovable AI Gateway.
+### File: `supabase/functions/resume-analyzer/aiEnhancer.ts`
 
-- Replace `callTOGETHERAPI` and `callTOGETHERAPI2` with a single `callGeminiAPI` function
-- Keep GROQ and ANWAN as fallbacks (they still work)
-- Reorder preferred endpoints to: `['GEMINI', 'GROQ', 'ANWAN']`
-- Replace TOGETHER/TOGETHER2 config entries with a single `GEMINI` entry (low delay since Gemini has generous rate limits)
-- Reduce queue delay from 110000 to 2000ms
-- New `callGeminiAPI` function:
-  - URL: `https://ai.gateway.lovable.dev/v1/chat/completions`
-  - Auth: `Bearer ${LOVABLE_API_KEY}`
-  - Model: `google/gemini-2.5-flash`
+3. Pass label `"AI_ENHANCER"` when calling `callLLMWithRetry` from `enhanceWithGroq`
 
-### 2. `supabase/functions/together-ai/index.ts`
+### File: `supabase/functions/resume-analyzer/bulletImprover.ts`
 
-The generic Together.ai edge function used by `useTogetherAI` hook.
+4. Pass label `"BULLET_IMPROVER"` when calling `callLLMWithRetry` from bullet improvement logic
 
-- Replace `TOGETHER_API_KEY` with `LOVABLE_API_KEY`
-- Change fetch URL from `https://api.together.xyz/v1/chat/completions` to `https://ai.gateway.lovable.dev/v1/chat/completions`
-- Change default model from `Llama-3.3-70B-Instruct-Turbo-Free` to `google/gemini-2.5-flash`
-- Remove the non-LLaMa completions API path (Gemini only supports chat completions)
-- Update error messages to reference "Gemini" instead of "Together"
+### File: `supabase/functions/resume-analyzer/bulletSuggestions.ts`
 
-### 3. `supabase/functions/generate-study-guide/index.ts`
+5. Pass label `"THEME_GENERATOR"` when calling `callLLMWithRetry` from `generateThemes`
 
-- Replace `TOGETHER_API_KEY` with `LOVABLE_API_KEY`
-- Change fetch URL to Lovable AI Gateway
-- Change model to `google/gemini-2.5-flash`
+### File: `supabase/functions/resume-analyzer/index.ts`
 
-### 4. `supabase/functions/generate-message/index.ts`
-
-- Replace `TOGETHER_API_KEY` with `LOVABLE_API_KEY`
-- Change fetch URL to Lovable AI Gateway
-- Change model to `google/gemini-2.5-flash`
-
-### 5. `supabase/functions/generate-career-action-plan/index.ts`
-
-- Replace `TOGETHER_API_KEY` with `LOVABLE_API_KEY`
-- Change fetch URL to Lovable AI Gateway
-- Change model to `google/gemini-2.5-flash`
-
-### 6. `supabase/functions/evaluateCareerAdvice/index.ts`
-
-- Replace `TOGETHER_API_KEY` with `LOVABLE_API_KEY`
-- Change fetch URL to Lovable AI Gateway
-- Change model to `google/gemini-2.5-flash`
-
-### 7. `supabase/functions/analyze-job-match/index.ts`
-
-- Replace `TOGETHER_API_KEY` with `LOVABLE_API_KEY`
-- Change fetch URL to Lovable AI Gateway
-- Change model to `google/gemini-2.5-flash`
-
-### 8. `supabase/functions/portfolio-ideas/index.ts`
-
-- Replace `TOGETHER_API_KEY` with `LOVABLE_API_KEY`
-- Change fetch URL to Lovable AI Gateway
-- Change model to `google/gemini-2.5-flash`
-
-### 9. `supabase/functions/evaluate-star-response/index.ts`
-
-- Replace `TOGETHER_API_KEY` with `LOVABLE_API_KEY`
-- Change fetch URL to Lovable AI Gateway
-- Change model to `google/gemini-2.5-flash`
-
-### 10. `src/hooks/useTogetherAI.ts` (client-side)
-
-- Update default model from `Llama-3.3-70B-Instruct-Turbo-Free` to `google/gemini-2.5-flash`
-- The hook calls the `together-ai` edge function which will now route to Gemini
+6. Any direct `callLLMWithRetry` calls in the main handler get label `"RESUME_ANALYZER"`
 
 ---
 
-## What stays the same
+## Result
 
-- GROQ and ANWAN remain as fallback providers in the resume-analyzer
-- All prompt content and system messages stay identical
-- The OpenAI-compatible request/response format is the same
-- No database changes needed
-- No new secrets needed (`LOVABLE_API_KEY` already exists)
+Logs will look like:
+```
+[AI_ENHANCER] Prompt uses 842 tokens
+[AI_ENHANCER] Successfully used GEMINI endpoint
+[BULLET_IMPROVER] Prompt uses 320 tokens
+[BULLET_IMPROVER] GEMINI API call failed: ...
+[BULLET_IMPROVER] Successfully used GROQ endpoint
+```
 
-## Benefits
-
-- No more rate limit issues (Gemini has generous limits vs Together.ai's 0.6 RPM)
-- Faster responses (no 110-second delays between calls)
-- Better model quality (Gemini 2.5 Flash is strong at structured output)
-- Simpler codebase (removes TOGETHER/TOGETHER2 dual-endpoint complexity)
+This makes it clear at a glance which analysis step used which provider, and where failures occur.
