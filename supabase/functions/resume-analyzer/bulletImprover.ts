@@ -36,7 +36,7 @@ export async function improveBullet(bulletData) {
       console.log(`[PBIP]Constructing prompt for bullet ${bulletData.id}: ${bulletData.original}`);
       const { system, prompt } = constructGroqPrompt(bulletData);
       console.log(`[IB]Calling LLM for bullet ${bulletData.id}: ${bulletData.original}`);
-      const result = await callLLMWithRetry(system, prompt);
+      const result = await callLLMWithRetry(system, prompt, 1, 3, "BULLET_IMPROVER");
       // Validate result before processing
       if (!result || typeof result !== 'string') {
         throw new Error('Empty or invalid response from LLM');

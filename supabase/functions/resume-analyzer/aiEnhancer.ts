@@ -512,7 +512,7 @@ try {
  const user = `Resume text (truncated): ${truncatedResume}\n\nBasic Analysis: ${JSON.stringify(condensedAnalysis)}`
  
   
-  const aiResponse = await callLLMWithRetry(system, user);
+  const aiResponse = await callLLMWithRetry(system, user, 1, 3, "AI_ENHANCER");
   clearTimeout(timeoutId);
   
   // const aiResponse = data.choices[0].message.content;
