@@ -289,11 +289,11 @@ const callQueue = {
   }
 };
 // Main LLM API call function with smart endpoint selection
-export async function callLLMAPI(system, user) {
+export async function callLLMAPI(system, user, label = "LLM") {
   validateInput(system, user);
   callTracking.addCall();
   const n = countTokens(system + user);
-  console.log(`Prompt uses ${n} tokens`);
+  console.log(`[${label}] Prompt uses ${n} tokens`);
   
   // Get available endpoints - Gemini first, then fallbacks
   const preferredOrder = ['GEMINI', 'GROQ', 'ANWAN'];
@@ -327,11 +327,11 @@ export async function callLLMAPI(system, user) {
               break;
           }
           const result = await Promise.race([resultPromise, timeoutPromise]);
-          console.log(`Successfully used ${endpoint} endpoint`);
+          console.log(`[${label}] Successfully used ${endpoint} endpoint`);
           resolve(result);
           return;
         } catch (error) {
-          console.error(`${endpoint} API call failed:`, error);
+          console.error(`[${label}] ${endpoint} API call failed:`, error);
           if (endpoint === availableEndpoints[availableEndpoints.length - 1]) {
             reject(error);
           }
@@ -341,9 +341,9 @@ export async function callLLMAPI(system, user) {
   });
 }
 // Retry wrapper with exponential backoff
-export async function callLLMWithRetry(system, user, attempt = 1, maxAttempts = 3) {
+export async function callLLMWithRetry(system, user, attempt = 1, maxAttempts = 3, label = "LLM") {
   try {
-    return await callLLMAPI(system, user);
+    return await callLLMAPI(system, user, label);
   } catch (error) {
     if (attempt >= maxAttempts) {
       throw error;
@@ -352,9 +352,9 @@ export async function callLLMWithRetry(system, user, attempt = 1, maxAttempts = 
     const baseDelay = Math.min(1000 * Math.pow(2, attempt), 10000);
     const jitter = Math.random() * 1000;
     const delay = baseDelay + jitter;
-    console.log(`Attempt ${attempt} failed, retrying in ${delay}ms`);
+    console.log(`[${label}] Attempt ${attempt} failed, retrying in ${delay}ms`);
     await new Promise((resolve)=>setTimeout(resolve, delay));
-    return callLLMWithRetry(system, user, attempt + 1, maxAttempts);
+    return callLLMWithRetry(system, user, attempt + 1, maxAttempts, label);
   }
 }
 // Export other utility functions

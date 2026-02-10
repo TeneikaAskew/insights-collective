@@ -1317,7 +1317,7 @@ async function getResumeRoast(resumeText, userId) {
     `.trim();
     
     // Call LLM with timeout
-    const roastTextPromise = callLLMWithRetry(system, user);
+    const roastTextPromise = callLLMWithRetry(system, user, 1, 3, "RESUME_ANALYZER");
     const roastText = await Promise.race([roastTextPromise, timeoutPromise]);
     
     // Clean up the response
