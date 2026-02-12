@@ -299,6 +299,34 @@ export function useResumeAnalysis() {
   useEffect(() => {
     const tryLoadAnalysis = async () => {
       if (!user || hasLoadedAnalysis || analysis) return;
+
+      // First check if a resume actually exists in the DB
+      try {
+        const { data: resumeCheck, error: resumeError } = await supabase
+          .from('resumes')
+          .select('id')
+          .eq('user_id', user.id)
+          .order('uploaded_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (resumeError) {
+          logger.error('Error checking for resume existence:', resumeError);
+        }
+
+        // If no resume exists in DB, clear any stale localStorage cache
+        if (!resumeCheck) {
+          logger.log('No resume found in DB, clearing stale localStorage cache');
+          localStorage.removeItem(`resume_analysis_${user.id}`);
+          localStorage.removeItem(`resume_text_${user.id}`);
+          localStorage.removeItem(`resume_data_${user.id}`);
+          localStorage.removeItem(`analysis_complete_time_${user.id}`);
+          return;
+        }
+      } catch (err) {
+        logger.error('Error checking resume existence:', err);
+      }
+
       // Try localStorage first
       const savedAnalysis = localStorage.getItem(`resume_analysis_${user.id}`);
       if (savedAnalysis) {
