@@ -160,7 +160,7 @@ async function callGeminiAPI(system, user) {
         }
       ],
       temperature: 0.7,
-      max_tokens: 500
+      max_tokens: 2000
     })
   });
   const responseText = await resp.text();
