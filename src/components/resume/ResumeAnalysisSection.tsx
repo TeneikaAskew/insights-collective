@@ -6,7 +6,7 @@ import type { Resume } from '../../hooks/resume/useResume'; // Adjusted import p
 import BulletPointsAnalysisCard from './BulletPointsAnalysisCard';
 import ResumeAnalysisDisplay from './ResumeAnalysisDisplay';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FileCheck, ChartBar, Target, MessageCircle, RefreshCw } from 'lucide-react';
+import { FileCheck, ChartBar, Target, MessageCircle, RefreshCw, RotateCcw } from 'lucide-react';
 import ATSScoreCard from './ATSScoreCard';
 import ResumeChat from './ResumeChat';
 
@@ -21,6 +21,7 @@ interface ResumeAnalysisSectionProps {
   showCareerChat: boolean;
   isPollingForImprovements?: boolean; // New prop for polling state
   handleRefreshData?: () => Promise<void>; // New prop for refresh functionality
+  handleReanalyze?: () => Promise<void>; // Re-analyze with fresh AI call
 
   // Props for upload functionality, passed to ResumeAnalysisDisplay
   resumeFile: File | null;
@@ -51,6 +52,7 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
   showCareerChat,
   isPollingForImprovements = false,
   handleRefreshData,
+  handleReanalyze,
   isExtracting = false,
 }) => {
   // State to track active tab
@@ -106,10 +108,10 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
               Get personalized insights and recommendations based on your resume and career goals.
             </CardDescription>
           </div>
-          <div className="flex items-center gap-2">
-            {analysis && ( // Show award badge only if analysis is available
-              <div className="flex items-center bg-[#9b87f5]/10 rounded-full px-4 py-1">
-                <span className="text-sm font-medium text-[#9b87f5]">Industry-Leading Analysis</span>
+          <div className="flex items-center gap-1 sm:gap-2 flex-wrap justify-end">
+            {analysis && (
+              <div className="hidden sm:flex items-center bg-[#9b87f5]/10 rounded-full px-3 py-1">
+                <span className="text-xs sm:text-sm font-medium text-[#9b87f5]">Industry-Leading Analysis</span>
               </div>
             )}
             {handleRefreshData && (
@@ -118,10 +120,11 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
                 size="sm" 
                 onClick={handleRefreshData} 
                 disabled={loading || isAnalyzing || isPollingForImprovements}
-                className="whitespace-nowrap"
+                className="whitespace-nowrap text-xs sm:text-sm px-2 sm:px-3"
               >
-                <RefreshCw className={`h-4 w-4 mr-2 ${loading || isAnalyzing ? 'animate-spin' : ''}`} />
-                Refresh Data
+                <RefreshCw className={`h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 ${loading || isAnalyzing ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">Refresh Data</span>
+                <span className="sm:hidden">Refresh</span>
               </Button>
             )}
           </div>
@@ -165,6 +168,7 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
                   handleUpload={handleUpload}
                   handleDelete={handleDelete}
                   handleDownload={handleDownload}
+                  handleReanalyze={handleReanalyze}
                   uploading={uploading}
                   isAnalyzing={isAnalyzing}
                   isPollingForImprovements={isPollingForImprovements}
@@ -206,6 +210,7 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
             handleUpload={handleUpload}
             handleDelete={handleDelete}
             handleDownload={handleDownload}
+            handleReanalyze={handleReanalyze}
             uploading={uploading}
             isAnalyzing={isAnalyzing}
             pdfPreviewUrl={pdfPreviewUrl}
