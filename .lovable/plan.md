@@ -1,77 +1,50 @@
 
 
-# Fix: Key Improvement Themes via Tool Calling
+# Improve Elevator Pitch Quality
 
 ## Problem
 
-The `enhanceWithGroq` function in `aiEnhancer.ts` asks the AI for free-text output, then attempts to parse it with 400+ lines of regex patterns (`formatResponse`). The AI frequently returns themes as a single paragraph, which none of the regex fallbacks can split into separate items.
+The tool calling schema constrains the elevator pitch to "max 2 sentences," producing a generic summary like *"This Machine Learning Engineer excels in computer vision..."*. The previous version generated a rich, detailed pitch that covered the candidate's expertise, key achievements, deployment experience, and professional passions -- ending with language like *"...drives advancements in trustworthy AI through hands-on experimentation and interdisciplinary collaboration."*
 
-## Solution
+## Root Cause
 
-Use the Lovable AI Gateway's **tool calling** feature to force the AI to return structured JSON. This eliminates all regex parsing.
-
-## Changes
-
-### 1. Update `callGeminiAPI` in `supabase/functions/resume-analyzer/utils.ts`
-
-- Add optional `tools` and `tool_choice` parameters to the function signature
-- Include them in the request body when provided
-- When the response contains `tool_calls`, extract and return the parsed `arguments` JSON instead of `message.content`
-
-### 2. Rewrite the AI call in `supabase/functions/resume-analyzer/aiEnhancer.ts`
-
-- Replace the free-text system prompt (lines 487-492) with a prompt that works alongside tool calling
-- Add a tool definition for `analyze_resume` with this schema:
-  - `elevator_pitch`: string (max 2 sentences)
-  - `themes`: array of exactly 3 strings (one sentence each)
-  - `explanation`: string (max 2 sentences)
-- Set `tool_choice` to force the model to use `analyze_resume`
-- Replace the `formatResponse(aiResponse)` call (line 522) with direct JSON extraction from the tool call response
-- The `formatResponse` and `jsonFormatResponse` functions (lines 199-457) and all commented-out regex code (lines 46-196) will be removed
-
-### 3. Update `callLLMWithRetry` and `callLLMAPI` in `utils.ts`
-
-- Pass through `tools` and `tool_choice` from callers to the underlying API call functions
-- Update `callGROQAPI` similarly so the fallback chain also supports tool calling
-
-### 4. Redeploy the `resume-analyzer` edge function
-
-## Technical Detail: Tool Definition
-
-```text
-{
-  type: "function",
-  function: {
-    name: "analyze_resume",
-    description: "Return structured resume analysis with elevator pitch, improvement themes, and grade explanation.",
-    parameters: {
-      type: "object",
-      properties: {
-        elevator_pitch: { type: "string", description: "Professional elevator pitch, max 2 sentences" },
-        themes: {
-          type: "array",
-          items: { type: "string" },
-          minItems: 3,
-          maxItems: 3,
-          description: "Three specific improvement themes, one sentence each"
-        },
-        explanation: { type: "string", description: "Brief explanation of the resume grade, max 2 sentences" }
-      },
-      required: ["elevator_pitch", "themes", "explanation"],
-      additionalProperties: false
-    }
-  }
-}
+Line 17 in `aiEnhancer.ts`:
+```
+description: "Professional elevator pitch summarizing the candidate, max 2 sentences"
 ```
 
-## What Gets Removed
+And line 88 in the system prompt:
+```
+1. A professional elevator pitch (max 2 sentences)
+```
 
-- `formatResponse` function (~240 lines of regex patterns)
-- `jsonFormatResponse` function (~18 lines)
-- All commented-out regex code (~150 lines)
-- The `stripPhrases` helper and `capitalizeFirstWord` helper
+## Fix
 
-## Risk
+Update two places in `supabase/functions/resume-analyzer/aiEnhancer.ts`:
 
-Low. Tool calling is the documented approach for structured output with the Lovable AI Gateway. The fallback chain (Gemini to GROQ to ANWAN) will all receive the same tool definitions.
+### 1. Tool schema description (line 17)
+
+Change from:
+```
+"Professional elevator pitch summarizing the candidate, max 2 sentences"
+```
+To:
+```
+"Detailed professional elevator pitch summarizing the candidate's core expertise, key achievements, deployment experience, and professional passions. Should be 4-5 sentences and read like a polished introduction a recruiter could use."
+```
+
+### 2. System prompt (line 88)
+
+Change from:
+```
+1. A professional elevator pitch (max 2 sentences)
+```
+To:
+```
+1. A detailed professional elevator pitch (4-5 sentences) covering their core expertise, standout achievements, hands-on experience, and what drives them professionally
+```
+
+### 3. Redeploy the `resume-analyzer` edge function
+
+No other files change. After redeployment, clicking the Re-analyze button will produce a richer pitch matching the quality of the previous version.
 
