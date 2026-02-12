@@ -1,57 +1,77 @@
 
-# Fix Resume Upload Not Working
 
-## Root Cause Analysis
+# Fix: Key Improvement Themes via Tool Calling
 
-The issue is in the PDF text extraction step. When a user selects a PDF file:
+## Problem
 
-1. `handleFileChange` sets the file in state
-2. A `useEffect` immediately triggers text extraction using `pdfjs-dist`
-3. If extraction **fails**, the code calls `setResumeFile(null)` -- which resets the UI back to the initial "no file" state
-4. The user sees the page "return to normal" with no error toast visible (it may flash briefly or be missed)
+The `enhanceWithGroq` function in `aiEnhancer.ts` asks the AI for free-text output, then attempts to parse it with 400+ lines of regex patterns (`formatResponse`). The AI frequently returns themes as a single paragraph, which none of the regex fallbacks can split into separate items.
 
-**Why extraction is likely failing:**
-- The PDF.js worker is loaded from `https://unpkg.com/pdfjs-dist@2.16.105/build/pdf.worker.min.js` -- this external CDN URL may be blocked, stale, or incompatible
-- The `pdfjs-dist` package installed is version `^2.16.105`, but worker/library version mismatches can cause silent failures
-- The error is caught and a toast is shown, but `setResumeFile(null)` immediately clears the file, making the UI snap back so fast the user doesn't notice the error
+## Solution
 
-**Secondary issue:** The Gemini API call in `callGeminiAPI` has `max_tokens: 500` hardcoded, which is too low for the AI enhancer that generates elevator pitches, themes, and explanations. This would cause truncated/invalid responses even if upload succeeds.
+Use the Lovable AI Gateway's **tool calling** feature to force the AI to return structured JSON. This eliminates all regex parsing.
 
-## Proposed Changes
+## Changes
 
-### 1. Fix PDF.js Worker Configuration (`src/hooks/resume/useResumeStorage.ts`)
+### 1. Update `callGeminiAPI` in `supabase/functions/resume-analyzer/utils.ts`
 
-Replace the external CDN worker URL with a more reliable approach:
-- Use `pdfjs.GlobalWorkerOptions.workerSrc` pointing to a local worker or a versioned CDN URL that matches the installed package
-- Add error handling for worker loading failures
+- Add optional `tools` and `tool_choice` parameters to the function signature
+- Include them in the request body when provided
+- When the response contains `tool_calls`, extract and return the parsed `arguments` JSON instead of `message.content`
 
-### 2. Improve Error Visibility (`src/pages/Resume.tsx`)
+### 2. Rewrite the AI call in `supabase/functions/resume-analyzer/aiEnhancer.ts`
 
-- When text extraction fails, do NOT clear `resumeFile` immediately -- instead, keep the file selected and show a clear error state
-- Add a visible error message in the UI (not just a toast) so users know extraction failed
-- Allow retry of extraction without re-selecting the file
+- Replace the free-text system prompt (lines 487-492) with a prompt that works alongside tool calling
+- Add a tool definition for `analyze_resume` with this schema:
+  - `elevator_pitch`: string (max 2 sentences)
+  - `themes`: array of exactly 3 strings (one sentence each)
+  - `explanation`: string (max 2 sentences)
+- Set `tool_choice` to force the model to use `analyze_resume`
+- Replace the `formatResponse(aiResponse)` call (line 522) with direct JSON extraction from the tool call response
+- The `formatResponse` and `jsonFormatResponse` functions (lines 199-457) and all commented-out regex code (lines 46-196) will be removed
 
-### 3. Increase Gemini max_tokens (`supabase/functions/resume-analyzer/utils.ts`)
+### 3. Update `callLLMWithRetry` and `callLLMAPI` in `utils.ts`
 
-- Change `max_tokens: 500` to `max_tokens: 2000` in `callGeminiAPI` so the AI enhancer, roast generator, and bullet improver have enough token budget for complete responses
+- Pass through `tools` and `tool_choice` from callers to the underlying API call functions
+- Update `callGROQAPI` similarly so the fallback chain also supports tool calling
 
-### 4. Add console logging for extraction failures (`src/pages/Resume.tsx`)
+### 4. Redeploy the `resume-analyzer` edge function
 
-- Add explicit `console.error` calls before clearing state so the issue is visible in logs for debugging
+## Technical Detail: Tool Definition
 
-## Technical Details
+```text
+{
+  type: "function",
+  function: {
+    name: "analyze_resume",
+    description: "Return structured resume analysis with elevator pitch, improvement themes, and grade explanation.",
+    parameters: {
+      type: "object",
+      properties: {
+        elevator_pitch: { type: "string", description: "Professional elevator pitch, max 2 sentences" },
+        themes: {
+          type: "array",
+          items: { type: "string" },
+          minItems: 3,
+          maxItems: 3,
+          description: "Three specific improvement themes, one sentence each"
+        },
+        explanation: { type: "string", description: "Brief explanation of the resume grade, max 2 sentences" }
+      },
+      required: ["elevator_pitch", "themes", "explanation"],
+      additionalProperties: false
+    }
+  }
+}
+```
 
-### File: `src/hooks/resume/useResumeStorage.ts`
-- Update `pdfjs.GlobalWorkerOptions.workerSrc` to use a CDN URL matching the installed version, or use the bundled worker
-- Add a try/catch around worker initialization
+## What Gets Removed
 
-### File: `src/pages/Resume.tsx` (lines 456-463)
-- When PDF extraction fails, keep `resumeFile` in state instead of calling `setResumeFile(null)`
-- Set a new `fileError` state to show the error inline
-- Show a "Retry Extraction" button
+- `formatResponse` function (~240 lines of regex patterns)
+- `jsonFormatResponse` function (~18 lines)
+- All commented-out regex code (~150 lines)
+- The `stripPhrases` helper and `capitalizeFirstWord` helper
 
-### File: `supabase/functions/resume-analyzer/utils.ts` (line 163)
-- Change `max_tokens: 500` to `max_tokens: 2000`
+## Risk
 
-### Edge Function Redeployment
-- Redeploy `resume-analyzer` after the max_tokens fix
+Low. Tool calling is the documented approach for structured output with the Lovable AI Gateway. The fallback chain (Gemini to GROQ to ANWAN) will all receive the same tool definitions.
+
