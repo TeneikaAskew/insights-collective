@@ -638,6 +638,41 @@ const Resume = () => {
     logDebug('UserAction', 'Career chat requested');
     setShowCareerChat(true);
   };
+  const handleReanalyze = async () => {
+    if (!resume?.text) {
+      toast({ title: 'No resume text', description: 'Upload a resume first.', variant: 'destructive' });
+      return;
+    }
+    logDebug('UserAction', 'Re-analyze requested — clearing analysis and re-running');
+
+    // Clear existing analysis state
+    setAnalysis(null);
+    setHasLoadedAnalysis(false);
+    hasLoadedEnhancedRef.current = false;
+
+    // Clear localStorage cache
+    if (user) {
+      localStorage.removeItem(`resume_analysis_${user.id}`);
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const key = localStorage.key(i);
+        if (key && (key.toLowerCase().includes('resume') || key.toLowerCase().includes('analysis'))) {
+          localStorage.removeItem(key);
+        }
+      }
+    }
+
+    // Trigger fresh analysis
+    const success = await analyzeResume(resume.text);
+    if (success) {
+      logDebug('UserAction', 'Re-analysis completed successfully');
+      setHasLoadedAnalysis(true);
+      toast({ title: 'Re-analysis complete', description: 'Your resume has been re-analyzed with the latest AI.' });
+    } else {
+      logDebug('UserAction', 'Re-analysis failed');
+      toast({ title: 'Re-analysis failed', description: 'Something went wrong. Please try again.', variant: 'destructive' });
+    }
+  };
+
   const handleRefreshData = async () => {
     logDebug('UserAction', 'Refresh data requested');
     setIsRefreshing(true);
@@ -823,6 +858,7 @@ const Resume = () => {
           fileError={storageError}
           showCareerChat={showCareerChat}
           handleRefreshData={handleRefreshData}
+          handleReanalyze={handleReanalyze}
           isExtracting={isExtracting}
         />
       </div>

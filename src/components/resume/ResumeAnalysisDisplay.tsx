@@ -3,7 +3,7 @@ import { ResumeAnalysis } from '@/components/assistants/types';
 import type { Resume } from '../../hooks/resume/useResume';
 import OverallScoreCard from './OverallScoreCard';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertTriangle, TrendingUp, Sparkles, FileUp, File, DownloadCloud, Trash2, AlertCircle, Loader2 } from 'lucide-react';
+import { AlertTriangle, TrendingUp, Sparkles, FileUp, File, DownloadCloud, Trash2, AlertCircle, Loader2, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -20,6 +20,7 @@ interface ResumeAnalysisDisplayProps {
   handleUpload: () => Promise<void>;
   handleDelete: () => Promise<void>;
   handleDownload: () => void;
+  handleReanalyze?: () => Promise<void>;
   uploading: boolean;
   isAnalyzing: boolean;
   isPollingForImprovements?: boolean; // Prop for polling state
@@ -39,6 +40,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
   handleUpload,
   handleDelete,
   handleDownload,
+  handleReanalyze,
   uploading,
   isAnalyzing,
   isPollingForImprovements = false,
@@ -186,6 +188,18 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
                       <label htmlFor="resume-replace-display">
                         <FileUp className="h-3 w-3 sm:h-4 sm:w-4" />
                       </label>
+                    </Button>
+                  )}
+                  {handleReanalyze && resume && !resumeFile && (
+                    <Button 
+                      variant="outline" 
+                      size="icon" 
+                      onClick={handleReanalyze} 
+                      disabled={isAnalyzing || isPollingForImprovements} 
+                      title="Re-analyze Resume" 
+                      className="h-8 w-8"
+                    >
+                      <RotateCcw className={`h-3 w-3 sm:h-4 sm:w-4 ${isAnalyzing ? 'animate-spin' : ''}`} />
                     </Button>
                   )}
                 </div>
