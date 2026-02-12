@@ -319,7 +319,7 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
                         Word Balance Score:
                         <span className="text-blue-900 font-bold">{selectedBullet?.word_balance?.word_balance_score ||  displayBullet?.word_balance?.word_balance_score || 0}%</span>
                       </h4>
-                      <ul className="text-xs sm:text-sm text-blue-700 space-y-0.5 sm:space-y-1 list-disc list-inside pl-1 sm:pl-2">
+                      <ul className="text-xs sm:text-sm text-blue-700 space-y-0.5 sm:space-y-1 list-disc list-outside pl-4 sm:pl-5 text-left">
                         <li>Industry-specific terms: <span className="font-semibold">35-45%</span></li>
                         <li>Action words: <span className="font-semibold">10-15%</span></li>
                         <li>Metrics: <span className="font-semibold">10-15%</span></li>
@@ -338,7 +338,7 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
                         XYZ Quality Score:
                         <span className="text-green-900 font-bold">{calculateXYZScore(displayBullet)}%</span>
                       </h4>
-                      <ul className="text-xs sm:text-sm text-green-700 space-y-0.5 sm:space-y-1 list-disc list-inside pl-1 sm:pl-2">
+                      <ul className="text-xs sm:text-sm text-green-700 space-y-0.5 sm:space-y-1 list-disc list-outside pl-4 sm:pl-5 text-left">
                         <li>Action Words <span className="font-semibold">(10 pts)</span></li>
                         <li>Metrics/Results <span className="font-semibold">(30 pts)</span></li>
                         <li>Clarity/Conciseness <span className="font-semibold">(15 pts)</span></li>
