@@ -10,8 +10,12 @@ import { createLogger } from '@/utils/logger';
 
 const logger = createLogger('useResumeStorage');
 
-// Configure PDF.js worker
-pdfjs.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@2.16.105/build/pdf.worker.min.js';
+// Configure PDF.js worker using versioned cdnjs URL matching installed pdfjs-dist@2.16.105
+try {
+  pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+} catch (workerError) {
+  console.error('[useResumeStorage] Failed to set PDF.js worker source:', workerError);
+}
 
 // Interface for upload result
 export interface UploadResult {

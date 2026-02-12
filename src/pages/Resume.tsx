@@ -445,21 +445,23 @@ const Resume = () => {
                 throw new Error('Fallback extraction returned empty text');
               }
             } catch (fallbackErr) {
+              console.error('[Resume] DOCX fallback extraction also failed:', fallbackErr);
               logDebug('FileHandler', 'Fallback extraction also failed:', fallbackErr);
               toast({
                 title: 'Extraction failed',
-                description: 'Could not extract text from your resume. Please try a PDF file instead.',
+                description: 'Could not extract text from your resume. The file is still selected — you can retry.',
                 variant: 'destructive'
               });
-              setResumeFile(null);
+              // Keep resumeFile in state so user can retry without re-selecting
             }
           } else {
+            console.error('[Resume] PDF text extraction failed:', err);
             toast({
               title: 'Extraction failed',
-              description: 'Could not extract text from your resume.',
+              description: 'Could not extract text from your resume. The file is still selected — you can retry.',
               variant: 'destructive'
             });
-            setResumeFile(null);
+            // Keep resumeFile in state so user can retry without re-selecting
           }
         } finally {
           setIsExtracting(false);
