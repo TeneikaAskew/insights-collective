@@ -1,6 +1,7 @@
 // Canvas-style module detail page for students
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import { sanitizeHTML } from '@/utils/sanitize';
 import AppLayout from '@/components/layout/AppLayout';
 import { CourseLayout } from '@/components/course/CourseLayout';
 import { supabase } from '@/integrations/supabase/client';
@@ -443,7 +444,7 @@ const CanvasModuleDetail = () => {
               {module.description && (
                 <div 
                   className="prose prose-sm max-w-none text-muted-foreground"
-                  dangerouslySetInnerHTML={{ __html: module.description }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeHTML(module.description) }}
                 />
               )}
             </div>

@@ -1,39 +1,72 @@
+// ABOUTME: Edge function that generates portfolio project ideas based on user's resume and career data
+// ABOUTME: Uses AI (Gemini) to analyze user background and suggest targeted portfolio projects
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type"
 };
-// This function sets up Supabase client with service role key credentials from env
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-function getSupabaseClient() {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-  if (!supabaseUrl || !supabaseKey) {
-    console.error('getSupabaseClient: Missing Supabase credentials in environment variables!');
-    throw new Error('Missing Supabase credentials');
-  }
-  return createClient(supabaseUrl, supabaseKey);
-}
-export const supabase = getSupabaseClient();
+
 const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
-serve(async (req)=>{
+
+serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      headers: corsHeaders
-    });
+    return new Response(null, { headers: corsHeaders });
   }
+
   try {
     console.log("Portfolio ideas function called");
+
+    // Authenticate the user from the Authorization header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      console.error('No Authorization header provided');
+      return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
+    
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.error('Missing Supabase credentials in environment variables');
+      throw new Error('Missing Supabase credentials');
+    }
+
+    // Create client with user's auth token to respect RLS
+    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    // Verify the user's identity
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+    if (authError || !user) {
+      console.error('Auth error:', authError?.message);
+      return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    const userId = user.id; // Use verified user ID, not client-supplied
+    console.log("Authenticated user:", userId);
+
     const requestBody = await req.json();
-    console.log("Request body:", JSON.stringify(requestBody));
-    const { resumeText, actionPlan, questionnaireAnswers, userId } = requestBody;
+    const { resumeText, actionPlan, questionnaireAnswers } = requestBody;
+
     if (!lovableApiKey) {
       console.error("No LOVABLE_API_KEY configured");
       throw new Error('LOVABLE_API_KEY not configured');
     }
+
     console.log('User:', userId, 'RESUME:', resumeText?.length || 0, ' QUESTIONNAIRE: ', questionnaireAnswers);
+
     // Construct the prompt
     const systemPrompt = `You are a career portfolio advisor helping someone identify project ideas and career paths based on their background. 
     Analyze the following information and provide a detailed analysis:
@@ -82,6 +115,7 @@ serve(async (req)=>{
         ]
       }
     }`;
+
     // Combine all user data into a user profile for the AI
     const userProfileText = `
     RESUME INFORMATION:
@@ -95,8 +129,10 @@ serve(async (req)=>{
     Current role: ${questionnaireAnswers?.currentRole || "Not provided"}
     Hobbies/free time activities: ${questionnaireAnswers?.hobbies || "Not provided"}
     `;
+
     const model = 'google/gemini-2.5-flash';
     console.log(`Using model: ${model}`);
+
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -106,14 +142,8 @@ serve(async (req)=>{
       body: JSON.stringify({
         model,
         messages: [
-          {
-            role: "system",
-            content: systemPrompt
-          },
-          {
-            role: "user",
-            content: userProfileText
-          }
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userProfileText }
         ],
         temperature: 0.2,
         max_tokens: 4000,
@@ -122,23 +152,24 @@ serve(async (req)=>{
         stream: false
       })
     });
+
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Together API error:', errorText);
-      throw new Error(`Together API returned status ${response.status}: ${errorText}`);
+      console.error('AI API error:', errorText);
+      throw new Error(`AI API returned status ${response.status}: ${errorText}`);
     }
+
     const data = await response.json();
-    console.log("API response: ", data);
+    console.log("API response received");
     const aiResponse = data.choices?.[0]?.message?.content || '';
+
     // Extract JSON from the AI response
     let portfolioData = {};
     try {
-      // Try to parse directly first
       portfolioData = JSON.parse(aiResponse);
       console.log("Successfully parsed JSON response");
     } catch (e) {
       console.log("Direct JSON parsing failed, trying to extract JSON from text");
-      // If direct parsing fails, try to extract JSON from text
       const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         try {
@@ -153,29 +184,35 @@ serve(async (req)=>{
         throw new Error('No valid JSON found in AI response');
       }
     }
-    // Store the recommendations in the portfolio table
-    if (userId) {
-      try {
-        const now = new Date().toISOString();
-        // First, check if we have an entry for this user
-        const { data: existingData, error: fetchError } = await supabase.from('portfolio').select('*').eq('user_id', userId).maybeSingle();
-        if (fetchError && fetchError.code !== 'PGRST116') {
-          console.error('Error fetching portfolio data:', fetchError);
-        }
-        if (existingData) {
-          // Update existing record
-          const { data: updatedData, error: updateError } = await supabase.from('portfolio').update({
-            recommendations: portfolioData,
-            updated_at: now
-          }).eq('user_id', userId);
-          if (updateError) {
-            console.error('Error updating portfolio data:', updateError);
-          } else {
-            console.log('Updated portfolio recommendations in database');
-          }
+
+    // Store the recommendations using authenticated client (respects RLS)
+    try {
+      const now = new Date().toISOString();
+      const { data: existingData, error: fetchError } = await supabaseClient
+        .from('portfolio')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        console.error('Error fetching portfolio data:', fetchError);
+      }
+
+      if (existingData) {
+        const { error: updateError } = await supabaseClient
+          .from('portfolio')
+          .update({ recommendations: portfolioData, updated_at: now })
+          .eq('user_id', userId);
+
+        if (updateError) {
+          console.error('Error updating portfolio data:', updateError);
         } else {
-          // Insert new record with questionnaire data if available
-          const { data: insertedData, error: insertError } = await supabase.from('portfolio').insert({
+          console.log('Updated portfolio recommendations in database');
+        }
+      } else {
+        const { error: insertError } = await supabaseClient
+          .from('portfolio')
+          .insert({
             user_id: userId,
             recommendations: portfolioData,
             current_role: questionnaireAnswers?.currentRole,
@@ -184,40 +221,42 @@ serve(async (req)=>{
             created_at: now,
             updated_at: now
           });
-          if (insertError) {
-            console.error('Error inserting portfolio data:', insertError);
-          } else {
-            console.log('Saved portfolio recommendations to database');
-          }
+
+        if (insertError) {
+          console.error('Error inserting portfolio data:', insertError);
+        } else {
+          console.log('Saved portfolio recommendations to database');
         }
-      } catch (dbError) {
-        console.error('Error storing portfolio data in database:', dbError);
       }
-      // For backward compatibility, also save to resumes table
-      try {
-        const { error: resumeError } = await supabase.from('resumes').insert({
+    } catch (dbError) {
+      console.error('Error storing portfolio data in database:', dbError);
+    }
+
+    // For backward compatibility, also save to resumes table
+    try {
+      const { error: resumeError } = await supabaseClient
+        .from('resumes')
+        .insert({
           user_id: userId,
           recommendation: portfolioData,
           created_at: new Date().toISOString()
         });
-        if (resumeError) {
-          console.error('Error saving to resumes table:', resumeError);
-        } else {
-          console.log('Also saved portfolio ideas to resumes table for compatibility');
-        }
-      } catch (error) {
-        console.error('Error in legacy resumes table storage:', error);
+
+      if (resumeError) {
+        console.error('Error saving to resumes table:', resumeError);
+      } else {
+        console.log('Also saved portfolio ideas to resumes table for compatibility');
       }
+    } catch (error) {
+      console.error('Error in legacy resumes table storage:', error);
     }
+
     console.log("Returning successful response");
     return new Response(JSON.stringify({
       success: true,
       data: portfolioData
     }), {
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'application/json'
-      }
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   } catch (error) {
     console.error('Error in portfolio-ideas function:', error);
@@ -226,10 +265,7 @@ serve(async (req)=>{
       error: error.message
     }), {
       status: 500,
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'application/json'
-      }
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }
 });

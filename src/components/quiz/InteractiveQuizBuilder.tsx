@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { sanitizeHTML } from '@/utils/sanitize';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -434,7 +435,7 @@ export function InteractiveQuizBuilder({
                         </div>
                         <div 
                           className="text-sm font-medium mb-2"
-                          dangerouslySetInnerHTML={{ __html: question.question_text }}
+                          dangerouslySetInnerHTML={{ __html: sanitizeHTML(question.question_text) }}
                         />
                         {question.options && (
                           <div className="text-xs text-muted-foreground">

@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { sanitizeHTML } from '@/utils/sanitize';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -299,7 +300,7 @@ export function CanvasModuleManager({
                                     </div>
                                     <h4 className="font-semibold text-sm mb-0.5 line-clamp-2 text-left">{module.title}</h4>
                                     {module.description && <div className="text-xs text-muted-foreground line-clamp-1 prose-sm" dangerouslySetInnerHTML={{
-                            __html: module.description
+                            __html: sanitizeHTML(module.description)
                           }} />}
                                   </div>
 
@@ -352,7 +353,7 @@ export function CanvasModuleManager({
                 </div>
 
                 {selectedModule.description && <div className="text-sm text-muted-foreground mb-4 prose prose-sm max-w-none" dangerouslySetInnerHTML={{
-            __html: selectedModule.description
+            __html: sanitizeHTML(selectedModule.description)
           }} />}
 
                 <div className="bg-muted/30 rounded-lg border p-6">

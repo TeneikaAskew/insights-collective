@@ -1,6 +1,7 @@
 // Canvas-style module content manager
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { sanitizeHTML } from '@/utils/sanitize';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
   Dialog, 
@@ -561,7 +562,7 @@ export function CanvasModuleContent({
                     <div className="prose prose-sm max-w-none">
                       {content ? (
                         <div 
-                          dangerouslySetInnerHTML={{ __html: content }}
+                          dangerouslySetInnerHTML={{ __html: sanitizeHTML(content) }}
                           className="leading-relaxed"
                         />
                       ) : (

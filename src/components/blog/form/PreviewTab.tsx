@@ -2,6 +2,7 @@
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Calendar, Clock, Eye } from 'lucide-react';
+import { sanitizeHTML } from '@/utils/sanitize';
 
 interface PreviewTabProps {
   title: string;
@@ -88,7 +89,7 @@ export function PreviewTab({ title, content, imageUrl }: PreviewTabProps) {
           <div className="prose prose-lg prose-gray max-w-none">
             {content ? (
               <div 
-                dangerouslySetInnerHTML={{ __html: renderContent }}
+                dangerouslySetInnerHTML={{ __html: sanitizeHTML(renderContent) }}
                 className="leading-relaxed"
               />
             ) : (

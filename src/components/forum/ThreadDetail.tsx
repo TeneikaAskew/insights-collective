@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { sanitizeHTML } from '@/utils/sanitize';
 import { useThreadPosts, useCreatePost, useThreadSubscription, useMarkThreadAsRead } from '@/hooks/useForums';
 import { MessageSquare, Reply, Bell, BellOff, ChevronDown, ChevronUp } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -55,7 +56,7 @@ const PostItem: React.FC<{
           </div>
         </CardHeader>
         <CardContent className="prose prose-sm max-w-none dark:prose-invert">
-          <div dangerouslySetInnerHTML={{ __html: post.content }} />
+          <div dangerouslySetInnerHTML={{ __html: sanitizeHTML(post.content) }} />
         </CardContent>
         <CardFooter className="pt-2 pb-4 flex justify-between items-center">
           <div className="text-sm text-muted-foreground">

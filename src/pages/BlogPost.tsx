@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Calendar, Clock, User, ArrowLeft, Share2, Bookmark, Edit } from 'lucide-react';
 import { getBlogPostBySlug } from '@/services/blogService';
+import { sanitizeHTML } from '@/utils/sanitize';
 import { BlogPost } from '@/types/blog';
 import AppLayout from '@/components/layout/AppLayout';
 import { useAuth } from '@/contexts/AuthContext';
@@ -223,7 +224,7 @@ export default function BlogPostPage() {
           {/* Content */}
           <div className="prose prose-lg max-w-none mb-8">
             <div 
-              dangerouslySetInnerHTML={{ __html: renderContent(post.content) }}
+              dangerouslySetInnerHTML={{ __html: sanitizeHTML(renderContent(post.content)) }}
               className="leading-relaxed"
             />
           </div>

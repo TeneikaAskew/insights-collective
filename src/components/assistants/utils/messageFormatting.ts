@@ -1,3 +1,4 @@
+import { sanitizeHTML } from '@/utils/sanitize';
 
 /**
  * Format message content to handle markdown-like syntax
@@ -100,5 +101,5 @@ export const formatMessage = (content: string): string => {
   
   formattedContent = formattedContent.replace(/\**/g, '');
   
-  return formattedContent;
+  return sanitizeHTML(formattedContent);
 };
