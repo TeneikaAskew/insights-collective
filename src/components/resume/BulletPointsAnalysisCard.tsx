@@ -311,41 +311,41 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
 
               <TabsContent value="analysis" className="space-y-4">
                 {/* Explanatory boxes for Word Balance and XYZ Quality */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
-                    <Scale className="h-8 w-8 text-blue-400 mt-1 flex-shrink-0" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-6 mb-4 sm:mb-6">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4 flex items-start gap-2 sm:gap-3">
+                    <Scale className="h-5 w-5 sm:h-8 sm:w-8 text-blue-400 mt-1 flex-shrink-0" />
                     <div>
-                      <h4 className="text-lg font-medium text-blue-800 mb-2 flex items-center gap-2">
+                      <h4 className="text-sm sm:text-lg font-medium text-blue-800 mb-1 sm:mb-2 flex items-center gap-1 sm:gap-2 flex-wrap">
                         Word Balance Score:
                         <span className="text-blue-900 font-bold">{selectedBullet?.word_balance?.word_balance_score ||  displayBullet?.word_balance?.word_balance_score || 0}%</span>
                       </h4>
-                      <ul className="text-sm text-blue-700 space-y-1 list-disc list-inside pl-2">
+                      <ul className="text-xs sm:text-sm text-blue-700 space-y-0.5 sm:space-y-1 list-disc list-inside pl-1 sm:pl-2">
                         <li>Industry-specific terms: <span className="font-semibold">35-45%</span></li>
                         <li>Action words: <span className="font-semibold">10-15%</span></li>
                         <li>Metrics: <span className="font-semibold">10-15%</span></li>
                         <li>Common words: <span className="font-semibold">25-35%</span></li>
                       </ul>
-                      <p className="text-xs text-blue-600 mt-2">
+                      <p className="text-xs text-blue-600 mt-1 sm:mt-2 hidden sm:block">
                         A good balance creates compelling, professional content that resonates with both ATS systems and hiring managers.
                       </p>
                     </div>
                   </div>
                   
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3">
-                    <BarChart2 className="h-8 w-8 text-green-400 mt-1 flex-shrink-0" />
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 sm:p-4 flex items-start gap-2 sm:gap-3">
+                    <BarChart2 className="h-5 w-5 sm:h-8 sm:w-8 text-green-400 mt-1 flex-shrink-0" />
                     <div>
-                      <h4 className="text-lg font-medium text-green-800 mb-2 flex items-center gap-2">
+                      <h4 className="text-sm sm:text-lg font-medium text-green-800 mb-1 sm:mb-2 flex items-center gap-1 sm:gap-2 flex-wrap">
                         XYZ Quality Score:
                         <span className="text-green-900 font-bold">{calculateXYZScore(displayBullet)}%</span>
                       </h4>
-                      <ul className="text-sm text-green-700 space-y-1 list-disc list-inside pl-2">
+                      <ul className="text-xs sm:text-sm text-green-700 space-y-0.5 sm:space-y-1 list-disc list-inside pl-1 sm:pl-2">
                         <li>Action Words <span className="font-semibold">(10 pts)</span></li>
                         <li>Metrics/Results <span className="font-semibold">(30 pts)</span></li>
                         <li>Clarity/Conciseness <span className="font-semibold">(15 pts)</span></li>
                         <li>Industry Keywords <span className="font-semibold">(25 pts)</span></li>
                         <li>Achievement Focus <span className="font-semibold">(20 pts)</span></li>
                       </ul>
-                      <p className="text-xs text-green-600 mt-2">
+                      <p className="text-xs text-green-600 mt-1 sm:mt-2 hidden sm:block">
                         This framework ensures your bullet points tell compelling stories that demonstrate impact and expertise.
                       </p>
                     </div>
