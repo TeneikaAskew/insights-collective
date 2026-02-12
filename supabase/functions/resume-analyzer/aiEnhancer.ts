@@ -14,7 +14,7 @@ const ANALYZE_RESUME_TOOL = {
       properties: {
         elevator_pitch: {
           type: "string",
-          description: "Professional elevator pitch summarizing the candidate, max 2 sentences"
+          description: "Detailed professional elevator pitch summarizing the candidate's core expertise, key achievements, deployment experience, and professional passions. Should be 4-5 sentences and read like a polished introduction a recruiter could use."
         },
         themes: {
           type: "array",
@@ -85,7 +85,7 @@ export async function enhanceWithGroq(resumeText, analysis) {
 
     try {
       const system = `You are an expert resume analyst. Based on the provided resume text and basic analysis, analyze the resume and call the analyze_resume function with:
-1. A professional elevator pitch (max 2 sentences)
+1. A detailed professional elevator pitch (4-5 sentences) covering their core expertise, standout achievements, hands-on experience, and what drives them professionally
 2. Three specific improvement themes (one sentence each)
 3. A brief explanation of the resume grade (max 2 sentences)
 Be specific, professional, and concise. Focus on actionable advice.`;
