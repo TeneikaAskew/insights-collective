@@ -133,35 +133,55 @@ function handleApiResponse(endpoint, response, responseText) {
     status.failureCount++;
   }
 }
+
+// Options for tool calling support
+export interface LLMCallOptions {
+  tools?: any[];
+  tool_choice?: any;
+}
+
+// Extract tool call result from response JSON
+function extractToolCallResult(json: any): string {
+  const toolCalls = json.choices?.[0]?.message?.tool_calls;
+  if (toolCalls && toolCalls.length > 0) {
+    const args = toolCalls[0].function?.arguments;
+    if (typeof args === 'string') {
+      return args; // Return raw JSON string for caller to parse
+    }
+    return JSON.stringify(args);
+  }
+  // Fallback to regular content
+  return json.choices?.[0]?.message?.content;
+}
+
 // Gemini API call via Lovable AI Gateway
-async function callGeminiAPI(system, user) {
+async function callGeminiAPI(system, user, options?: LLMCallOptions) {
   if (!canUseEndpoint('GEMINI')) {
     throw new Error('Gemini API is currently disabled');
   }
   const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
   if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not found');
   await enforceRateLimit('GEMINI');
+
+  const body: any = {
+    model: 'google/gemini-2.5-flash',
+    messages: [
+      { role: 'system', content: system },
+      { role: 'user', content: user }
+    ],
+    temperature: 0.7,
+    max_tokens: 2000
+  };
+  if (options?.tools) body.tools = options.tools;
+  if (options?.tool_choice) body.tool_choice = options.tool_choice;
+
   const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${LOVABLE_API_KEY}`,
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
-      messages: [
-        {
-          role: 'system',
-          content: system
-        },
-        {
-          role: 'user',
-          content: user
-        }
-      ],
-      temperature: 0.7,
-      max_tokens: 2000
-    })
+    body: JSON.stringify(body)
   });
   const responseText = await resp.text();
   handleApiResponse('GEMINI', resp, responseText);
@@ -170,40 +190,39 @@ async function callGeminiAPI(system, user) {
   }
   try {
     const json = JSON.parse(responseText);
-    return json.choices?.[0]?.message?.content;
+    return extractToolCallResult(json);
   } catch (e) {
     throw new Error(`Failed to parse Gemini response: ${e.message}`);
   }
 }
 // ANWAN API call
-async function callANWANAPI(system, user) {
+async function callANWANAPI(system, user, options?: LLMCallOptions) {
   if (!canUseEndpoint('ANWAN')) {
     throw new Error('ANWAN API is currently disabled');
   }
   const ANWAN_API_KEY = Deno.env.get('ANWAN');
   if (!ANWAN_API_KEY) throw new Error('ANWAN API key not found');
   await enforceRateLimit('ANWAN');
+
+  const body: any = {
+    model: 'Meta-Llama-3-8B-Instruct',
+    messages: [
+      { role: 'system', content: system },
+      { role: 'user', content: user }
+    ],
+    temperature: 0.7,
+    max_tokens: 500
+  };
+  if (options?.tools) body.tools = options.tools;
+  if (options?.tool_choice) body.tool_choice = options.tool_choice;
+
   const resp = await fetch('https://api.awanllm.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${ANWAN_API_KEY}`,
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({
-      model: 'Meta-Llama-3-8B-Instruct',
-      messages: [
-        {
-          role: 'system',
-          content: system
-        },
-        {
-          role: 'user',
-          content: user
-        }
-      ],
-      temperature: 0.7,
-      max_tokens: 500
-    })
+    body: JSON.stringify(body)
   });
   const responseText = await resp.text();
   handleApiResponse('ANWAN', resp, responseText);
@@ -212,40 +231,39 @@ async function callANWANAPI(system, user) {
   }
   try {
     const json = JSON.parse(responseText);
-    return json.choices?.[0]?.message?.content;
+    return extractToolCallResult(json);
   } catch (e) {
     throw new Error(`Failed to parse ANWAN response: ${e.message}`);
   }
 }
 // GROQ API call
-async function callGROQAPI(system, user) {
+async function callGROQAPI(system, user, options?: LLMCallOptions) {
   if (!canUseEndpoint('GROQ')) {
     throw new Error('GROQ API is currently disabled');
   }
   const GROQ_API_KEY = Deno.env.get('GROQ');
   if (!GROQ_API_KEY) throw new Error('GROQ API key not found');
   await enforceRateLimit('GROQ');
+
+  const body: any = {
+    model: 'compound-beta-mini',
+    messages: [
+      { role: 'system', content: system },
+      { role: 'user', content: user }
+    ],
+    temperature: 0.7,
+    max_tokens: 500
+  };
+  if (options?.tools) body.tools = options.tools;
+  if (options?.tool_choice) body.tool_choice = options.tool_choice;
+
   const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${GROQ_API_KEY}`,
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({
-      model: 'compound-beta-mini',
-      messages: [
-        {
-          role: 'system',
-          content: system
-        },
-        {
-          role: 'user',
-          content: user
-        }
-      ],
-      temperature: 0.7,
-      max_tokens: 500
-    })
+    body: JSON.stringify(body)
   });
   const responseText = await resp.text();
   handleApiResponse('GROQ', resp, responseText);
@@ -254,7 +272,7 @@ async function callGROQAPI(system, user) {
   }
   try {
     const json = JSON.parse(responseText);
-    return json.choices?.[0]?.message?.content;
+    return extractToolCallResult(json);
   } catch (e) {
     throw new Error(`Failed to parse GROQ response: ${e.message}`);
   }
@@ -289,7 +307,7 @@ const callQueue = {
   }
 };
 // Main LLM API call function with smart endpoint selection
-export async function callLLMAPI(system, user, label = "LLM") {
+export async function callLLMAPI(system, user, label = "LLM", options?: LLMCallOptions) {
   validateInput(system, user);
   callTracking.addCall();
   const n = countTokens(system + user);
@@ -317,13 +335,13 @@ export async function callLLMAPI(system, user, label = "LLM") {
           let resultPromise;
           switch(endpoint) {
             case 'GEMINI':
-              resultPromise = callGeminiAPI(system, user);
+              resultPromise = callGeminiAPI(system, user, options);
               break;
             case 'GROQ':
-              resultPromise = callGROQAPI(system, user);
+              resultPromise = callGROQAPI(system, user, options);
               break;
             case 'ANWAN':
-              resultPromise = callANWANAPI(system, user);
+              resultPromise = callANWANAPI(system, user, options);
               break;
           }
           const result = await Promise.race([resultPromise, timeoutPromise]);
@@ -341,9 +359,9 @@ export async function callLLMAPI(system, user, label = "LLM") {
   });
 }
 // Retry wrapper with exponential backoff
-export async function callLLMWithRetry(system, user, attempt = 1, maxAttempts = 3, label = "LLM") {
+export async function callLLMWithRetry(system, user, attempt = 1, maxAttempts = 3, label = "LLM", options?: LLMCallOptions) {
   try {
-    return await callLLMAPI(system, user, label);
+    return await callLLMAPI(system, user, label, options);
   } catch (error) {
     if (attempt >= maxAttempts) {
       throw error;
@@ -354,7 +372,7 @@ export async function callLLMWithRetry(system, user, attempt = 1, maxAttempts = 
     const delay = baseDelay + jitter;
     console.log(`[${label}] Attempt ${attempt} failed, retrying in ${delay}ms`);
     await new Promise((resolve)=>setTimeout(resolve, delay));
-    return callLLMWithRetry(system, user, attempt + 1, maxAttempts, label);
+    return callLLMWithRetry(system, user, attempt + 1, maxAttempts, label, options);
   }
 }
 // Export other utility functions
