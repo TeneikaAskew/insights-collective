@@ -208,9 +208,9 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
     <Card className="relative">
       {renderLoadingOverlay()}
       <CardHeader className={`${isAnalyzing ? "opacity-50" : ""}`}>
-        <div className="flex justify-between items-start mb-4">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-4">
           <div>
-            <CardTitle>Resume Storytelling Analysis</CardTitle>
+            <CardTitle className="text-lg sm:text-xl">Resume Storytelling Analysis</CardTitle>
             <CardDescription>Transform your experience into compelling stories</CardDescription>
           </div>
           <Tabs defaultValue={viewMode} onValueChange={(value) => setViewMode(value as 'list' | 'detail')}>
@@ -228,39 +228,39 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
         </div>
 
         {/* Improved stats card grid with better centering */}
-        <div className="grid grid-cols-5 gap-4">
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-4">
           <Card className="bg-purple-50 border-purple-100">
-            <CardContent className="p-4 flex flex-col items-center justify-center h-full">
-              <p className="text-sm font-medium text-purple-800 text-center mb-1">Total Bullets</p>
-              <p className="text-2xl font-bold text-purple-900">{bulletCount}</p>
+            <CardContent className="p-2 sm:p-4 flex flex-col items-center justify-center h-full">
+              <p className="text-xs sm:text-sm font-medium text-purple-800 text-center mb-1">Total Bullets</p>
+              <p className="text-xl sm:text-2xl font-bold text-purple-900">{bulletCount}</p>
             </CardContent>
           </Card>
 
           <Card className="bg-green-50 border-green-200">
-            <CardContent className="p-4 flex flex-col items-center justify-center h-full">
-              <p className="text-sm font-medium text-green-800 text-center mb-1">XYZ Average</p>
-              <p className="text-2xl font-bold text-green-900">{averageXYZScore}%</p>
+            <CardContent className="p-2 sm:p-4 flex flex-col items-center justify-center h-full">
+              <p className="text-xs sm:text-sm font-medium text-green-800 text-center mb-1">XYZ Average</p>
+              <p className="text-xl sm:text-2xl font-bold text-green-900">{averageXYZScore}%</p>
             </CardContent>
           </Card>
 
           <Card className="bg-blue-50 border-blue-200">
-            <CardContent className="p-4 flex flex-col items-center justify-center h-full">
-              <p className="text-sm font-medium text-blue-800 text-center mb-1">Balance Rating</p>
-              <p className="text-2xl font-bold text-blue-900">{averageBalanceRating}%</p>
+            <CardContent className="p-2 sm:p-4 flex flex-col items-center justify-center h-full">
+              <p className="text-xs sm:text-sm font-medium text-blue-800 text-center mb-1">Balance Rating</p>
+              <p className="text-xl sm:text-2xl font-bold text-blue-900">{averageBalanceRating}%</p>
             </CardContent>
           </Card>
 
           <Card className="bg-indigo-50 border-indigo-100">
-            <CardContent className="p-4 flex flex-col items-center justify-center h-full">
-              <p className="text-sm font-medium text-indigo-800 text-center mb-1">Strong Points</p>
-              <p className="text-2xl font-bold text-indigo-900">{strongBullets}</p>
+            <CardContent className="p-2 sm:p-4 flex flex-col items-center justify-center h-full">
+              <p className="text-xs sm:text-sm font-medium text-indigo-800 text-center mb-1">Strong Points</p>
+              <p className="text-xl sm:text-2xl font-bold text-indigo-900">{strongBullets}</p>
             </CardContent>
           </Card>
 
           <Card className="bg-amber-50 border-amber-100">
-            <CardContent className="p-4 flex flex-col items-center justify-center h-full">
-              <p className="text-sm font-medium text-amber-800 text-center mb-1">Need Work</p>
-              <p className="text-2xl font-bold text-amber-900">{improvableBullets}</p>
+            <CardContent className="p-2 sm:p-4 flex flex-col items-center justify-center h-full">
+              <p className="text-xs sm:text-sm font-medium text-amber-800 text-center mb-1">Need Work</p>
+              <p className="text-xl sm:text-2xl font-bold text-amber-900">{improvableBullets}</p>
             </CardContent>
           </Card>
         </div>
