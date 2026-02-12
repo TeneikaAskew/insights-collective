@@ -1,53 +1,57 @@
 
-# Add Context-Aware AI Endpoint Logging
+# Fix Resume Upload Not Working
 
-## Problem
-Currently, `utils.ts` logs `"Successfully used GEMINI endpoint"` but there's no indication of **which analysis step** triggered the call (e.g., was it the elevator pitch enhancer, the bullet improver, or the career action plan?). This makes it hard to monitor which providers handle which tasks.
+## Root Cause Analysis
 
-## Solution
-Add an optional `label` parameter to `callLLMAPI` and `callLLMWithRetry` that gets included in all log messages for that call.
+The issue is in the PDF text extraction step. When a user selects a PDF file:
 
-## Changes
+1. `handleFileChange` sets the file in state
+2. A `useEffect` immediately triggers text extraction using `pdfjs-dist`
+3. If extraction **fails**, the code calls `setResumeFile(null)` -- which resets the UI back to the initial "no file" state
+4. The user sees the page "return to normal" with no error toast visible (it may flash briefly or be missed)
 
-### File: `supabase/functions/resume-analyzer/utils.ts`
+**Why extraction is likely failing:**
+- The PDF.js worker is loaded from `https://unpkg.com/pdfjs-dist@2.16.105/build/pdf.worker.min.js` -- this external CDN URL may be blocked, stale, or incompatible
+- The `pdfjs-dist` package installed is version `^2.16.105`, but worker/library version mismatches can cause silent failures
+- The error is caught and a toast is shown, but `setResumeFile(null)` immediately clears the file, making the UI snap back so fast the user doesn't notice the error
 
-1. Add optional `label` parameter to `callLLMAPI(system, user, label?)`:
-   - Line 296: Log becomes `[${label}] Prompt uses ${n} tokens`
-   - Line 330: Log becomes `[${label}] Successfully used ${endpoint} endpoint`
-   - Line 334: Error log becomes `[${label}] ${endpoint} API call failed:`
-   - Default label to `"LLM"` if not provided
+**Secondary issue:** The Gemini API call in `callGeminiAPI` has `max_tokens: 500` hardcoded, which is too low for the AI enhancer that generates elevator pitches, themes, and explanations. This would cause truncated/invalid responses even if upload succeeds.
 
-2. Add optional `label` parameter to `callLLMWithRetry(system, user, attempt, maxAttempts, label?)`:
-   - Pass it through to `callLLMAPI`
-   - Line 355: Log becomes `[${label}] Attempt ${attempt} failed, retrying in ${delay}ms`
+## Proposed Changes
 
-### File: `supabase/functions/resume-analyzer/aiEnhancer.ts`
+### 1. Fix PDF.js Worker Configuration (`src/hooks/resume/useResumeStorage.ts`)
 
-3. Pass label `"AI_ENHANCER"` when calling `callLLMWithRetry` from `enhanceWithGroq`
+Replace the external CDN worker URL with a more reliable approach:
+- Use `pdfjs.GlobalWorkerOptions.workerSrc` pointing to a local worker or a versioned CDN URL that matches the installed package
+- Add error handling for worker loading failures
 
-### File: `supabase/functions/resume-analyzer/bulletImprover.ts`
+### 2. Improve Error Visibility (`src/pages/Resume.tsx`)
 
-4. Pass label `"BULLET_IMPROVER"` when calling `callLLMWithRetry` from bullet improvement logic
+- When text extraction fails, do NOT clear `resumeFile` immediately -- instead, keep the file selected and show a clear error state
+- Add a visible error message in the UI (not just a toast) so users know extraction failed
+- Allow retry of extraction without re-selecting the file
 
-### File: `supabase/functions/resume-analyzer/bulletSuggestions.ts`
+### 3. Increase Gemini max_tokens (`supabase/functions/resume-analyzer/utils.ts`)
 
-5. Pass label `"THEME_GENERATOR"` when calling `callLLMWithRetry` from `generateThemes`
+- Change `max_tokens: 500` to `max_tokens: 2000` in `callGeminiAPI` so the AI enhancer, roast generator, and bullet improver have enough token budget for complete responses
 
-### File: `supabase/functions/resume-analyzer/index.ts`
+### 4. Add console logging for extraction failures (`src/pages/Resume.tsx`)
 
-6. Any direct `callLLMWithRetry` calls in the main handler get label `"RESUME_ANALYZER"`
+- Add explicit `console.error` calls before clearing state so the issue is visible in logs for debugging
 
----
+## Technical Details
 
-## Result
+### File: `src/hooks/resume/useResumeStorage.ts`
+- Update `pdfjs.GlobalWorkerOptions.workerSrc` to use a CDN URL matching the installed version, or use the bundled worker
+- Add a try/catch around worker initialization
 
-Logs will look like:
-```
-[AI_ENHANCER] Prompt uses 842 tokens
-[AI_ENHANCER] Successfully used GEMINI endpoint
-[BULLET_IMPROVER] Prompt uses 320 tokens
-[BULLET_IMPROVER] GEMINI API call failed: ...
-[BULLET_IMPROVER] Successfully used GROQ endpoint
-```
+### File: `src/pages/Resume.tsx` (lines 456-463)
+- When PDF extraction fails, keep `resumeFile` in state instead of calling `setResumeFile(null)`
+- Set a new `fileError` state to show the error inline
+- Show a "Retry Extraction" button
 
-This makes it clear at a glance which analysis step used which provider, and where failures occur.
+### File: `supabase/functions/resume-analyzer/utils.ts` (line 163)
+- Change `max_tokens: 500` to `max_tokens: 2000`
+
+### Edge Function Redeployment
+- Redeploy `resume-analyzer` after the max_tokens fix
