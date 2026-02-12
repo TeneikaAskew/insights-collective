@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { sanitizeHTML } from '@/utils/sanitize';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -244,7 +245,7 @@ export const QuizQuestionBankSelector: React.FC<QuizQuestionBankSelectorProps> =
                               </div>
                               <div
                                 className="text-sm line-clamp-2"
-                                dangerouslySetInnerHTML={{ __html: question.question_text }}
+                                dangerouslySetInnerHTML={{ __html: sanitizeHTML(question.question_text) }}
                               />
                             </div>
                           </div>

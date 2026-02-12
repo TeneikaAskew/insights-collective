@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { sanitizeHTML } from '@/utils/sanitize';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -204,7 +205,7 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({ bank, 
                         </div>
                         <div 
                           className="prose prose-sm max-w-none mb-2"
-                          dangerouslySetInnerHTML={{ __html: question.question_text }}
+                          dangerouslySetInnerHTML={{ __html: sanitizeHTML(question.question_text) }}
                         />
                         {question.topic_tags && question.topic_tags.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-2">

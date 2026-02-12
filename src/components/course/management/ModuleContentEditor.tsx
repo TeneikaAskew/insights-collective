@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { sanitizeHTML } from '@/utils/sanitize';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -195,7 +196,7 @@ const ModuleContentEditor: React.FC<ModuleContentEditorProps> = ({
         </CardHeader>
         <CardContent>
           {content.type === 'text' && (
-            <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: content.content }} />
+            <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeHTML(content.content) }} />
           )}
           {content.type === 'video' && (
             <div className="aspect-w-16 aspect-h-9">

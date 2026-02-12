@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { sanitizeHTML } from '@/utils/sanitize';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -59,7 +60,7 @@ const RichTextRenderer: React.FC<{ content: string }> = ({ content }) => {
   return (
     <div 
       className="prose prose-sm max-w-none text-muted-foreground"
-      dangerouslySetInnerHTML={{ __html: processContent(content) }}
+      dangerouslySetInnerHTML={{ __html: sanitizeHTML(processContent(content)) }}
     />
   );
 };

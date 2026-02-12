@@ -1,4 +1,5 @@
 import React from 'react';
+import { sanitizeHTML } from '@/utils/sanitize';
 
 interface MarkdownPreviewProps {
   content: string;
@@ -117,12 +118,13 @@ export const MarkdownPreview: React.FC<MarkdownPreviewProps> = ({ content }) => 
     };
 
     const processInlineMarkdown = (text: string): string => {
-      return text
+      const result = text
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
         .replace(/\*(.*?)\*/g, '<em>$1</em>')
         .replace(/~~(.*?)~~/g, '<del>$1</del>')
         .replace(/`([^`]+)`/g, '<code class="bg-muted px-1 py-0.5 rounded text-sm">$1</code>')
         .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">$1</a>');
+      return sanitizeHTML(result);
     };
 
     const processLineForVideosAndContent = (line: string) => {
