@@ -550,7 +550,7 @@ export type Database = {
       }
       blog_analytics: {
         Row: {
-          avg_time_on_page: unknown
+          avg_time_on_page: string | null
           blog_post_id: string | null
           bounce_rate: number | null
           created_at: string | null
@@ -561,7 +561,7 @@ export type Database = {
           views: number | null
         }
         Insert: {
-          avg_time_on_page?: unknown
+          avg_time_on_page?: string | null
           blog_post_id?: string | null
           bounce_rate?: number | null
           created_at?: string | null
@@ -572,7 +572,7 @@ export type Database = {
           views?: number | null
         }
         Update: {
-          avg_time_on_page?: unknown
+          avg_time_on_page?: string | null
           blog_post_id?: string | null
           bounce_rate?: number | null
           created_at?: string | null
