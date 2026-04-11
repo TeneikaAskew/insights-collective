@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { Navigate } from 'react-router-dom';
 import HeroSection from '@/components/home/HeroSection';
 import BlueprintBanner from '@/components/home/BlueprintBanner';
 import QuizSection from '@/components/quiz/QuizSection';
@@ -22,8 +23,16 @@ import OnboardingGuide from '@/components/onboarding/OnboardingGuide';
 import OnboardingTrigger from '@/components/onboarding/OnboardingTrigger';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useRecentEvents } from '@/hooks/useEvents';
+import { useAuth } from '@/hooks/useAuth';
 
 const Index = () => {
+  const { enrichedUser, loading } = useAuth();
+
+  // Redirect authenticated users to dashboard
+  if (!loading && enrichedUser) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   const { courses } = useCoursesManagement();
   const featuredCourses = courses.filter(course => course.published).slice(0, 3);
   const { data: upcomingEvents = [], isLoading: eventsLoading } = useRecentEvents(3);
