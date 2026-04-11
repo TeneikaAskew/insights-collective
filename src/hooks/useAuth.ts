@@ -116,6 +116,7 @@ export const useAuthProvider = () => {
         description: error.message,
         variant: 'destructive',
       });
+      throw error;
     } finally {
       setLoading(false);
     }

@@ -197,6 +197,7 @@ function App() {
                     <Route path="/register" element={<Register />} />
                     <Route path="/reset-password" element={<ResetPassword />} />
                     <Route path="/auth-callback" element={<AuthCallback />} />
+                    <Route path="/auth/callback" element={<AuthCallback />} />
 
                     {/* Profile & User Routes */}
                     <Route path="/profile" element={<Profile />} />

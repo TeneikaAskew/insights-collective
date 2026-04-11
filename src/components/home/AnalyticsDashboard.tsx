@@ -10,8 +10,8 @@ const AnalyticsDashboard = () => {
     <section className="py-16 bg-background">
       <div className="container mx-auto px-4">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
-          <div>
-            <div className="inline-flex items-center justify-center mb-4 px-4 py-1 bg-amber-100 rounded-full">
+          <div className="text-left">
+            <div className="inline-flex items-center mb-4 px-4 py-1 bg-amber-100 rounded-full">
               <BarChart className="w-4 h-4 mr-2 text-amber-600" />
               <span className="text-sm font-medium text-amber-600">Intuitive Dashboard</span>
             </div>

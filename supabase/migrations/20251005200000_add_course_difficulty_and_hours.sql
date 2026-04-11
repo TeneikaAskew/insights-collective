@@ -28,7 +28,7 @@ DECLARE
   v_module_count INTEGER;
   v_assignment_count INTEGER;
   v_quiz_count INTEGER;
-  v_content_block_count INTEGER;
+  v_content_item_count INTEGER;
   v_total_complexity INTEGER;
 BEGIN
   -- Count modules
@@ -47,18 +47,17 @@ BEGIN
   JOIN content_items ci ON q.content_item_id = ci.id
   WHERE ci.course_id = course_id_param;
 
-  -- Count content blocks
-  SELECT COUNT(*) INTO v_content_block_count
-  FROM content_blocks cb
-  JOIN modules m ON cb.module_id = m.id
-  WHERE m.course_id = course_id_param;
+  -- Count content items (replaces legacy content_blocks)
+  SELECT COUNT(*) INTO v_content_item_count
+  FROM content_items
+  WHERE course_id = course_id_param;
 
   -- Calculate complexity score
   v_total_complexity :=
     (v_module_count * 5) +
     (v_assignment_count * 10) +
     (v_quiz_count * 8) +
-    (v_content_block_count * 2);
+    (v_content_item_count * 2);
 
   -- Determine difficulty based on complexity
   IF v_total_complexity < 50 THEN
@@ -83,7 +82,7 @@ DECLARE
   v_lesson_minutes NUMERIC := 0;
   v_assignment_count INTEGER := 0;
   v_quiz_count INTEGER := 0;
-  v_content_block_count INTEGER := 0;
+  v_content_item_count INTEGER := 0;
 BEGIN
   -- Sum estimated_duration from lessons (INTEGER minutes, duration is TEXT and mostly empty)
   SELECT COALESCE(SUM(
@@ -110,13 +109,13 @@ BEGIN
 
   v_total_minutes := v_total_minutes + (v_quiz_count * 30);
 
-  -- Count content blocks (estimate 15 minutes each)
-  SELECT COUNT(*) INTO v_content_block_count
-  FROM content_blocks cb
-  JOIN modules m ON cb.module_id = m.id
-  WHERE m.course_id = course_id_param;
+  -- Count content items (estimate 15 minutes each, replaces legacy content_blocks)
+  SELECT COUNT(*) INTO v_content_item_count
+  FROM content_items
+  WHERE course_id = course_id_param
+    AND type IN ('page', 'external_url', 'external_tool');
 
-  v_total_minutes := v_total_minutes + (v_content_block_count * 15);
+  v_total_minutes := v_total_minutes + (v_content_item_count * 15);
 
   -- If no content exists, return minimum of 1 hour
   IF v_total_minutes = 0 THEN

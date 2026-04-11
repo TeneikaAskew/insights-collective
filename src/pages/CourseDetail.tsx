@@ -83,26 +83,51 @@ const CourseDetail = () => {
         if (courseError) throw courseError;
         if (!courseData) throw new Error("Course not found");
 
+        // Fetch modules without embedding content_items. Embedding via PostgREST
+        // relationship syntax is brittle when the schema cache is stale (e.g. after
+        // dropping the legacy content_blocks table). We still treat a failed
+        // modules fetch as a real error — modules are the primary payload for
+        // this page — but content_items failures are non-fatal so the course
+        // page renders with best-effort content metadata.
         const { data: modulesData, error: modulesError } = await supabase
           .from('modules')
-          .select(`
-            *,
-            content_items(type)
-          `)
+          .select('*')
           .eq('course_id', courseId)
           .order('week', { ascending: true });
 
         if (modulesError) throw modulesError;
 
+        const baseModules = modulesData || [];
+        const moduleIds = baseModules.map((m: any) => m.id).filter(Boolean);
+
+        let contentItemsByModule: Record<string, any[]> = {};
+        if (moduleIds.length > 0) {
+          const { data: contentItemsData, error: contentItemsError } = await supabase
+            .from('content_items')
+            .select('id, type, module_id')
+            .in('module_id', moduleIds);
+
+          if (contentItemsError) {
+            logger.warn('Failed to load content items (continuing without them):', contentItemsError);
+          } else {
+            contentItemsByModule = (contentItemsData || []).reduce((acc: Record<string, any[]>, item: any) => {
+              if (!item.module_id) return acc;
+              if (!acc[item.module_id]) acc[item.module_id] = [];
+              acc[item.module_id].push(item);
+              return acc;
+            }, {});
+          }
+        }
+
         // Process modules to include content item counts
-        const processedModules = (modulesData || []).map(module => {
-          const contentItems = module.content_items || [];
-          const textBlocks = contentItems.filter(item => 
+        const processedModules = baseModules.map((module: any) => {
+          const contentItems = contentItemsByModule[module.id] || [];
+          const textBlocks = contentItems.filter(item =>
             ['page', 'discussion', 'external_url', 'external_tool'].includes(item.type)
           );
           const assignmentBlocks = contentItems.filter(item => item.type === 'assignment');
           const quizBlocks = contentItems.filter(item => item.type === 'quiz');
-          
+
           return {
             ...module,
             lessons: textBlocks,
