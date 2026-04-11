@@ -14,6 +14,7 @@ const AuthCallback = () => {
   const [searchParams] = useSearchParams();
   const redirect = searchParams.get('redirect') || '/resources';
   const [error, setError] = useState<string | null>(null);
+  const [takingLonger, setTakingLonger] = useState(false);
 
   // Surface OAuth errors returned by the provider (e.g. invalid redirect URI)
   useEffect(() => {
@@ -61,18 +62,20 @@ const AuthCallback = () => {
       }
     });
 
-    // Fallback: if nothing happens within 5 seconds, assume the sign-in failed
-    // silently and send the user back to the login page with a message.
-    const fallbackTimer = setTimeout(() => {
+    // After 8s with no session event, show a softer "still working" hint with
+    // a manual retry. We intentionally do NOT mark the flow as failed — slow
+    // networks or providers can legitimately take longer, and Supabase may
+    // still complete the handshake after this point.
+    const hintTimer = setTimeout(() => {
       if (!navigated) {
-        logger.warn('[AuthCallback] No session after 5s, falling back to login');
-        setError('Authentication timed out. Please try signing in again.');
+        logger.warn('[AuthCallback] Session still pending after 8s');
+        setTakingLonger(true);
       }
-    }, 5000);
+    }, 8000);
 
     return () => {
       authListener.subscription?.unsubscribe();
-      clearTimeout(fallbackTimer);
+      clearTimeout(hintTimer);
     };
   }, [navigate, redirect, error]);
 
@@ -88,10 +91,20 @@ const AuthCallback = () => {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen">
+    <div className="flex flex-col items-center justify-center min-h-screen p-6 text-center">
       <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
       <h1 className="text-2xl font-semibold">Finishing authentication...</h1>
       <p className="text-muted-foreground">You will be redirected shortly</p>
+      {takingLonger && (
+        <div className="mt-6 max-w-md">
+          <p className="text-sm text-muted-foreground mb-3">
+            This is taking longer than usual. You can keep waiting, or try signing in again.
+          </p>
+          <Button variant="outline" onClick={() => navigate('/login', { replace: true })}>
+            Back to login
+          </Button>
+        </div>
+      )}
     </div>
   );
 };

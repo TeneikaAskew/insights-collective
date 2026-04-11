@@ -85,17 +85,17 @@ const CourseDetail = () => {
 
         // Fetch modules without embedding content_items. Embedding via PostgREST
         // relationship syntax is brittle when the schema cache is stale (e.g. after
-        // dropping the legacy content_blocks table). Fetch content_items separately
-        // and treat failures as non-fatal so the course page still loads.
+        // dropping the legacy content_blocks table). We still treat a failed
+        // modules fetch as a real error — modules are the primary payload for
+        // this page — but content_items failures are non-fatal so the course
+        // page renders with best-effort content metadata.
         const { data: modulesData, error: modulesError } = await supabase
           .from('modules')
           .select('*')
           .eq('course_id', courseId)
           .order('week', { ascending: true });
 
-        if (modulesError) {
-          logger.warn('Failed to load modules (continuing with empty list):', modulesError);
-        }
+        if (modulesError) throw modulesError;
 
         const baseModules = modulesData || [];
         const moduleIds = baseModules.map((m: any) => m.id).filter(Boolean);
