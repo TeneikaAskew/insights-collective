@@ -158,7 +158,7 @@ export const CalendarWidget: React.FC<CalendarWidgetProps> = ({
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-lg">{getEventIcon(event.type)}</span>
                         <span className="font-medium text-sm line-clamp-1">
-                          {event.title.replace(/^[📝📊📢📅] /, '')} {/* Remove emoji prefix */}
+                          {event.title.replace(/^[📝📊📢📅] /u, '')} {/* Remove emoji prefix */}
                         </span>
                       </div>
                       {event.description && variant === 'full' && (
