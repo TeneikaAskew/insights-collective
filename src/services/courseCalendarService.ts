@@ -173,7 +173,7 @@ export const courseCalendarService = {
     if (!filters?.types || filters.types.includes('event')) {
       const { data: customEvents } = await supabase
         .from('events')
-        .select('id, title, description, date, end_date, location')
+        .select('id, title, description, date, location')
         .eq('course_id' as any, courseId);
 
       customEvents?.forEach(e => {
@@ -260,9 +260,7 @@ export const courseCalendarService = {
         title: event.title,
         description: event.description || '',
         date: event.start_date,
-        end_date: event.end_date,
         location: event.location,
-        created_by: event.created_by,
         type: event.event_type || 'event',
         format: 'in-person',
         course_id: event.course_id,
