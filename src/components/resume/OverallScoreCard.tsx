@@ -21,8 +21,9 @@ const logger = createLogger('handleButtonClick');
     explanation: string;
     onStartCareerChat: () => void;
     hasAnalysis?: boolean;
+    analysisDate?: string;
   }
-  
+
   const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
     letterGrade,
     resumePercent,
@@ -30,7 +31,8 @@ const logger = createLogger('handleButtonClick');
     themes,
     explanation,
     onStartCareerChat,
-    hasAnalysis = false
+    hasAnalysis = false,
+    analysisDate
   }) => {
     const [isFlashing, setIsFlashing] = useState(false);
     const [hasBeenClicked, setHasBeenClicked] = useState(false);
@@ -157,7 +159,7 @@ const logger = createLogger('handleButtonClick');
         
         <div className="space-y-3">
           <h3 className="font-medium mb-2">Key Improvement Themes</h3>
-          {themes && themes.length > 0 ? <ul className="space-y-1 text-sm pl-4 list-disc">
+          {themes && themes.length > 0 ? <ul className="space-y-1 text-sm pl-4 list-disc text-left">
               {themes.map((theme, index) => <li key={index}>{theme}</li>)}
             </ul> : <p className="text-sm text-muted-foreground">
               No key improvement themes available.
@@ -180,9 +182,9 @@ const logger = createLogger('handleButtonClick');
         
         <Card className="bg-blue-50 border-blue-100">
           <CardContent className="p-4">
-            <div className="flex items-start space-x-3">
-              <MessageSquare className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
-              <div>
+            <div className="flex flex-col items-center text-center gap-2">
+              <MessageSquare className="h-6 w-6 text-blue-600" />
+              <div className="w-full">
                 <h4 className="font-medium text-blue-900">Get Personalized Coaching and a Resume Roast!</h4>
                 <p className="text-sm text-blue-700 mb-3">
                   Speak with our AI career coach for detailed guidance on how to address these improvement areas.
@@ -199,7 +201,7 @@ const logger = createLogger('handleButtonClick');
       <CardFooter className="bg-muted/20 pt-3 pb-3 px-6">
         <div className="flex justify-between items-center w-full">
           <p className="text-xs text-muted-foreground">
-            {new Date().toLocaleDateString()} Analysis
+            {analysisDate ? new Date(analysisDate).toLocaleDateString() : new Date().toLocaleDateString()} Analysis
           </p>
           <Button size="sm" variant="ghost" className="h-8 gap-1">
             <Download className="h-3.5 w-3.5" />
