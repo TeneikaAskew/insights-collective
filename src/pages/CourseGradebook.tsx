@@ -75,8 +75,19 @@ const CourseGradebook = () => {
     enabled: !!courseId,
   });
 
-  // Get grades - temporarily disabled until grades table is implemented
-  const grades: any[] = [];
+  // Get grades
+  const { data: grades = [] } = useQuery({
+    queryKey: ['course-grades', courseId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('grades')
+        .select('*')
+        .eq('course_id', courseId);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!courseId && canEdit,
+  });
 
   // Get submissions
   const { data: submissions = [], isLoading: submissionsLoading } = useQuery({

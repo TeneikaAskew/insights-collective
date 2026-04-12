@@ -12,7 +12,6 @@ import { Spinner } from '@/components/ui/spinner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Link } from 'react-router-dom';
 import { BookOpen, FileText, HelpCircle, Clock, ChevronRight, AlertCircle } from 'lucide-react';
-import { EditCourseButton } from '@/components/course/EditCourseButton';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCourseProgress } from '@/hooks/useCourseProgress';
 import { createLogger } from '@/utils/logger';
@@ -191,7 +190,6 @@ export function CourseModulesList({ courseId }: CourseModulesListProps) {
       <div className="bg-card border rounded-lg p-6">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-2xl font-bold">Course Modules</h2>
-          <EditCourseButton courseId={courseId} />
         </div>
         <p className="text-muted-foreground mb-6">
           This course contains {modules.length} modules organized by week. Click on any module to view its content.
