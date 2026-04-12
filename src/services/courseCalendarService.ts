@@ -169,6 +169,30 @@ export const courseCalendarService = {
       }
     }
 
+    // Fetch custom course events if not filtered out
+    if (!filters?.types || filters.types.includes('event')) {
+      const { data: customEvents } = await supabase
+        .from('events')
+        .select('id, title, description, date, end_date, location')
+        .eq('course_id' as any, courseId);
+
+      customEvents?.forEach(e => {
+        if (e.date) {
+          events.push({
+            id: `event-${e.id}`,
+            title: `📅 ${e.title}`,
+            description: e.description,
+            start_date: e.date,
+            type: 'event',
+            course_id: courseId,
+            course_title: courseTitle,
+            related_id: e.id,
+            course_color: '#06b6d4',
+          });
+        }
+      });
+    }
+
     // Filter by date range if provided
     let filteredEvents = events;
     if (filters?.startDate || filters?.endDate) {
@@ -234,12 +258,15 @@ export const courseCalendarService = {
       .from('events')
       .insert({
         title: event.title,
-        description: event.description,
+        description: event.description || '',
         date: event.start_date,
         end_date: event.end_date,
         location: event.location,
         created_by: event.created_by,
-      })
+        type: event.event_type || 'event',
+        format: 'in-person',
+        course_id: event.course_id,
+      } as any)
       .select()
       .single();
 

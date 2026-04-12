@@ -28,9 +28,13 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { useNavigate } from 'react-router-dom';
 
 const CourseCalendar = () => {
@@ -46,6 +50,15 @@ const CourseCalendar = () => {
     quiz: true,
     event: true,
   });
+
+  // Add Event dialog state
+  const [showAddEvent, setShowAddEvent] = useState(false);
+  const [newEventTitle, setNewEventTitle] = useState('');
+  const [newEventDate, setNewEventDate] = useState('');
+  const [newEventDescription, setNewEventDescription] = useState('');
+  const [newEventLocation, setNewEventLocation] = useState('');
+
+  const { createEvent, isCreating } = useCalendarEventMutations(courseId);
 
   // Fetch calendar events using the new service
   const filterTypes = Object.entries(activeFilters)
@@ -143,7 +156,7 @@ const CourseCalendar = () => {
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold">Course Calendar</h1>
           {canEdit && (
-            <Button>
+            <Button onClick={() => setShowAddEvent(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Add Event
             </Button>
@@ -286,6 +299,77 @@ const CourseCalendar = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Add Event Dialog */}
+        <Dialog open={showAddEvent} onOpenChange={setShowAddEvent}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add Event</DialogTitle>
+              <DialogDescription>Add a custom event to the course calendar.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="event-title">Title *</Label>
+                <Input
+                  id="event-title"
+                  value={newEventTitle}
+                  onChange={(e) => setNewEventTitle(e.target.value)}
+                  placeholder="Event title"
+                />
+              </div>
+              <div>
+                <Label htmlFor="event-date">Date *</Label>
+                <Input
+                  id="event-date"
+                  type="date"
+                  value={newEventDate}
+                  onChange={(e) => setNewEventDate(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="event-location">Location</Label>
+                <Input
+                  id="event-location"
+                  value={newEventLocation}
+                  onChange={(e) => setNewEventLocation(e.target.value)}
+                  placeholder="Optional location"
+                />
+              </div>
+              <div>
+                <Label htmlFor="event-description">Description</Label>
+                <Textarea
+                  id="event-description"
+                  value={newEventDescription}
+                  onChange={(e) => setNewEventDescription(e.target.value)}
+                  placeholder="Optional description"
+                  rows={3}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowAddEvent(false)}>Cancel</Button>
+              <Button
+                disabled={!newEventTitle.trim() || !newEventDate || isCreating}
+                onClick={() => {
+                  createEvent({
+                    course_id: courseId!,
+                    title: newEventTitle.trim(),
+                    start_date: newEventDate,
+                    description: newEventDescription,
+                    location: newEventLocation,
+                  });
+                  setShowAddEvent(false);
+                  setNewEventTitle('');
+                  setNewEventDate('');
+                  setNewEventDescription('');
+                  setNewEventLocation('');
+                }}
+              >
+                {isCreating ? 'Saving...' : 'Add Event'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Event Detail Dialog */}
         <Dialog open={!!selectedEvent} onOpenChange={() => setSelectedEvent(null)}>

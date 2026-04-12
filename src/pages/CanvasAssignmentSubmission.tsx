@@ -100,10 +100,12 @@ export default function CanvasAssignmentSubmission() {
         }
       }
 
-      // Set default submission type
+      // Set default submission type — normalize DB values to Canvas naming
+      const normalizeType = (t: string) => t === 'file_upload' ? 'online_upload' : t;
       if (item.assignment?.submission_types && item.assignment.submission_types.length > 0) {
-        setSubmissionType(item.assignment.submission_types[0]);
+        setSubmissionType(normalizeType(item.assignment.submission_types[0]));
       }
+      // else stays at initial 'online_text_entry'
 
     } catch (error: any) {
       logger.error('Error loading assignment:', error);
@@ -327,7 +329,7 @@ export default function CanvasAssignmentSubmission() {
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Submission Type Selector */}
-              {contentItem.assignment?.submission_types && contentItem.assignment.submission_types.length > 1 && (
+              {contentItem.assignment?.submission_types && contentItem.assignment.submission_types.length >= 1 && (
                 <div className="space-y-2">
                   <Label>Submission Type</Label>
                   <Tabs value={submissionType} onValueChange={setSubmissionType}>
@@ -344,7 +346,8 @@ export default function CanvasAssignmentSubmission() {
                           Website URL
                         </TabsTrigger>
                       )}
-                      {contentItem.assignment.submission_types.includes('online_upload') && (
+                      {(contentItem.assignment.submission_types.includes('online_upload') ||
+                        contentItem.assignment.submission_types.includes('file_upload')) && (
                         <TabsTrigger value="online_upload">
                           <Upload className="h-4 w-4 mr-2" />
                           File Upload
