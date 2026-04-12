@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useResume } from '@/hooks/resume/useResume';
 import { useToast } from '@/hooks/use-toast';
@@ -12,7 +13,8 @@ import {
   careerAdvicePrompt,
   PathwayQuestion
 } from '@/data/careerPathwayData';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { Map } from 'lucide-react';
 // CareerAgent.tsx
 import { formatCareerPathwayReport } from '@/components/assistants/utils/CareerReportParser';
 
@@ -259,10 +261,37 @@ const CareerAgent: React.FC = () => {
   if (!isAuthenticated) {
     return (
       <AppLayout>
-        <div className="container mx-auto max-w-3xl p-6 flex flex-col min-h-screen justify-center items-center">
-          <p className="text-lg text-center text-muted-foreground">
-            Please log in to access Building Your Career Roadmap.
-          </p>
+        <div className="container mx-auto py-12">
+          <Card className="mx-auto max-w-md">
+            <CardHeader>
+              <CardTitle>Career Roadmap</CardTitle>
+              <CardDescription>
+                Sign in to build your personalized career roadmap with AI-powered guidance
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col items-center justify-center p-8 space-y-6">
+              <div className="bg-accent/20 rounded-full p-6">
+                <Map className="h-12 w-12 text-accent" />
+              </div>
+              <div className="text-center">
+                <h3 className="text-lg font-medium mb-2">
+                  Build Your Career Roadmap
+                </h3>
+                <p className="text-muted-foreground mb-4">
+                  Our AI will help you explore career paths, identify skill gaps,
+                  and create a personalized action plan for your professional growth.
+                </p>
+              </div>
+            </CardContent>
+            <CardFooter className="flex flex-col">
+              <Button asChild className="w-full">
+                <Link to="/login?redirect=%2Fcareer-agent" state={{ from: { pathname: '/career-agent' } }}>Sign In to Continue</Link>
+              </Button>
+              <p className="text-sm text-muted-foreground mt-4 text-center">
+                Don't have an account? <Link to="/register" className="text-primary hover:underline">Register</Link>
+              </p>
+            </CardFooter>
+          </Card>
         </div>
       </AppLayout>
     );
