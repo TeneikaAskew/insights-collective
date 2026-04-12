@@ -221,9 +221,9 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
             >
               <div className="p-4">
                 <div className="flex justify-between items-start gap-3">
-                  <div className="flex gap-3 items-center"> {/* Centered avatar and text */}
+                  <div className="flex gap-3 items-center flex-1 min-w-0">
                     {conversation.is_group ? (
-                      <div className="relative">
+                      <div className="relative h-10 w-10 shrink-0">
                          <Avatar className="h-10 w-10">
                             {/* Generic Group Icon or Creator Avatar */}
                             <AvatarImage src={avatarUrl || "https://api.dicebear.com/6.x/initials/svg?seed=Group"} />
@@ -240,14 +240,14 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
                            )}
                       </div>
                     ) : (
-                       <Avatar className="h-10 w-10">
+                       <Avatar className="h-10 w-10 shrink-0">
                          <AvatarImage src={avatarUrl} />
                          <AvatarFallback className="bg-amber-100 text-amber-800">
                            {avatarFallback}
                          </AvatarFallback>
                        </Avatar>
                     )}
-                    <div className="space-y-1">
+                    <div className="space-y-1 flex-1 min-w-0">
                       <p className={`font-medium line-clamp-1 text-gray-800 ${isUnread ? 'font-semibold' : ''}`}>
                          {displayName}
                       </p>
