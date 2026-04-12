@@ -1,50 +1,66 @@
 
 
-# Improve Elevator Pitch Quality
+# Plan: Run Full E2E Test Suite
 
-## Problem
+## What exists
+You already have **60+ E2E spec files** covering every major area of the app — admin, auth, courses, career, interviews, portfolio, blog, survey, events, messages, navigation, and more. The infrastructure (Playwright config, global setup/teardown, fixtures for member/admin/instructor roles) is all in place.
 
-The tool calling schema constrains the elevator pitch to "max 2 sentences," producing a generic summary like *"This Machine Learning Engineer excels in computer vision..."*. The previous version generated a rich, detailed pitch that covered the candidate's expertise, key achievements, deployment experience, and professional passions -- ending with language like *"...drives advancements in trustworthy AI through hands-on experimentation and interdisciplinary collaboration."*
+## What needs to happen
 
-## Root Cause
-
-Line 17 in `aiEnhancer.ts`:
-```
-description: "Professional elevator pitch summarizing the candidate, max 2 sentences"
-```
-
-And line 88 in the system prompt:
-```
-1. A professional elevator pitch (max 2 sentences)
+### 1. Install Playwright browsers
+```bash
+npx playwright install --with-deps chromium firefox
 ```
 
-## Fix
+### 2. Start the dev server
+The tests expect the app running at `http://localhost:8080`.
 
-Update two places in `supabase/functions/resume-analyzer/aiEnhancer.ts`:
+### 3. Seed test credentials
+Global setup (`e2e/global-setup.ts`) logs in as member, admin, and instructor using `E2E_*` environment variables and saves session files to `.playwright-sessions/`.
 
-### 1. Tool schema description (line 17)
+### 4. Run all tests
+```bash
+npx playwright test --reporter=list
+```
+This runs all 60+ specs across 5 projects: chromium-member, chromium-admin, chromium-instructor, chromium-public, and firefox.
 
-Change from:
+### 5. Generate report
+```bash
+npx playwright show-report
 ```
-"Professional elevator pitch summarizing the candidate, max 2 sentences"
-```
-To:
-```
-"Detailed professional elevator pitch summarizing the candidate's core expertise, key achievements, deployment experience, and professional passions. Should be 4-5 sentences and read like a polished introduction a recruiter could use."
-```
+Export the HTML report to `/mnt/documents/` for review.
 
-### 2. System prompt (line 88)
+## Coverage summary (already written)
 
-Change from:
-```
-1. A professional elevator pitch (max 2 sentences)
-```
-To:
-```
-1. A detailed professional elevator pitch (4-5 sentences) covering their core expertise, standout achievements, hands-on experience, and what drives them professionally
-```
+| Area | Specs | Routes covered |
+|------|-------|---------------|
+| Admin | 11 specs | /admin, /admin/activity, users, courses, events, blog, forms, page-visibility, local-storage-debug |
+| Auth | 5 specs | /login, /register, /reset-password, /auth/callback, redirect flows |
+| Courses | 13 specs | /courses, /enrolled-courses, /course-management, detail, builder, learn, gradebook, rubrics, question-banks, progress, certificate, calendar |
+| Assignments | 4 specs | submission, grading, quiz taking, quiz results |
+| Career/AI | 6 specs | /career-agent, /career-pathway, /assistants, /assistant/:id, /explore-data-careers, /resume |
+| Interview | 6 specs | /interview-prep, code-practice, mock-interviews, mock-interview-room, star-practice, job-description |
+| Portfolio | 3 specs | explorer, editor, public portfolio |
+| Events | 2 specs | /events, /events/:id |
+| Messages | 1 spec | /messages |
+| Blog | 2 specs | /blog/:slug, /data-blueprint-series |
+| Survey | 3 specs | /survey, /survey/:slug, /survey-confirmation |
+| Navigation | 4 specs | layout, sidebar, route parity, session flows |
+| Dashboard | 1 spec | /dashboard |
+| Calendar | 1 spec | /calendar |
+| Notifications | 1 spec | /notifications |
+| Profile | 1 spec | /profile |
+| Resources | 2 specs | /resources, social archives |
+| Legal | 2 specs | /privacy-policy, /terms-of-service |
+| Landing | 1 spec | / |
 
-### 3. Redeploy the `resume-analyzer` edge function
+**Total: 69 spec files covering all routes and major functionality.**
 
-No other files change. After redeployment, clicking the Re-analyze button will produce a richer pitch matching the quality of the previous version.
+## Missing pages (not yet covered)
+- `/user-dashboard` — no dedicated spec
+- `/create-blog-post` and `/edit-blog-post/:slug` — no specs
+- `/courses/:courseId/insights` (StudentInsights) — no spec
+
+## Deliverable
+After running, I will provide a full pass/fail report with error details for any failures, plus the HTML report as a downloadable artifact.
 
