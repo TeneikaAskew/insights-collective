@@ -255,6 +255,7 @@ function App() {
                      <Route path="/courses/:courseId/modules/:moduleId/assignments/:assignmentId" element={<AssignmentDetail />} />
                      <Route path="/courses/:courseId/modules/:moduleId/lessons/:lessonId" element={<LessonDetail />} />
                      <Route path="/courses/:courseId/modules/:moduleId" element={<CanvasModuleDetail />} />
+                     <Route path="/courses/:courseId/modules/:moduleId/content/:itemId" element={<CanvasModuleDetail />} />
                      
                      {/* Canvas-style Routes */}
                      <Route path="/courses/:courseId/modules/:moduleId/assignments/:contentItemId/submit" element={<CanvasAssignmentSubmission />} />
@@ -330,6 +331,7 @@ function App() {
                     <Route path="/survey-confirmation/:slug" element={<SurveyConfirmation />} />
                     <Route path="/survey/survey-form-create" element={<SurveyFormCreate />} />
                     <Route path="/survey/survey-form-edit/:id" element={<SurveyFormEdit />} />
+                    <Route path="/survey/:surveySlug/edit" element={<SurveyFormEdit />} />
 
                     {/* Admin Routes */}
                     <Route path="/admin" element={<AdminDashboard />} />
@@ -343,6 +345,8 @@ function App() {
                     <Route path="/admin/page-visibility" element={<AdminPageVisibility />} />
                     <Route path="/admin/form-management" element={<FormManagement />} />
                     <Route path="/admin/unified-form-management" element={<UnifiedFormManagement />} />
+                    <Route path="/admin/unified-form-management/submissions/:slug" element={<FormManagement />} />
+                    <Route path="/admin/unified-form-management/submissions/:slug/submission/:submissionId" element={<FormManagement />} />
                     <Route path="/admin/local-storage-debug" element={<LocalStorageDebug />} />
 
                     {/* Legal & Info Routes */}

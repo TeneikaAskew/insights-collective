@@ -305,7 +305,7 @@ export function FormList({ searchTerm }: FormListProps) {
                     <Button 
                       variant="outline" 
                       size="sm"
-                      onClick={() => window.open(`/survey/${form.slug}`, '_blank')}
+                      onClick={() => navigate(`/survey/${form.slug}`)}
                       className="flex items-center gap-1"
                     >
                       <Eye className="h-4 w-4" />
