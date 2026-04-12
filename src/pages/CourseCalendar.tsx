@@ -7,16 +7,17 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Toggle } from '@/components/ui/toggle';
 import { Button } from '@/components/ui/button';
-import { 
-  Calendar as CalendarIcon, 
-  GraduationCap, 
-  BookOpen, 
+import {
+  Calendar as CalendarIcon,
+  GraduationCap,
+  BookOpen,
   FileText,
   ClipboardList,
   Clock,
   MapPin,
   Plus,
-  Filter
+  Filter,
+  Video
 } from 'lucide-react';
 import { useCourseCalendar, useCalendarEventMutations } from '@/hooks/useCourseCalendar';
 import { CourseCalendarEvent } from '@/types/course';
@@ -36,6 +37,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 
 const CourseCalendar = () => {
   const { courseId } = useParams<{ courseId: string }>();
@@ -55,10 +57,42 @@ const CourseCalendar = () => {
   const [showAddEvent, setShowAddEvent] = useState(false);
   const [newEventTitle, setNewEventTitle] = useState('');
   const [newEventDate, setNewEventDate] = useState('');
+  const [newEventTime, setNewEventTime] = useState('');
   const [newEventDescription, setNewEventDescription] = useState('');
   const [newEventLocation, setNewEventLocation] = useState('');
+  const [zoomLink, setZoomLink] = useState('');
+  const [isCreatingZoom, setIsCreatingZoom] = useState(false);
 
   const { createEvent, isCreating } = useCalendarEventMutations(courseId);
+
+  const handleCreateZoomMeeting = async () => {
+    if (!newEventTitle.trim()) return;
+    setIsCreatingZoom(true);
+    try {
+      const start_time = newEventDate
+        ? `${newEventDate}T${newEventTime || '12:00:00'}`
+        : undefined;
+      const { data, error } = await supabase.functions.invoke('create-zoom-meeting', {
+        body: { title: newEventTitle.trim(), start_time, duration: 60, agenda: newEventDescription },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setZoomLink(data.join_url);
+    } catch (err: any) {
+      alert(`Zoom error: ${err.message}`);
+    } finally {
+      setIsCreatingZoom(false);
+    }
+  };
+
+  const resetAddEventForm = () => {
+    setNewEventTitle('');
+    setNewEventDate('');
+    setNewEventTime('');
+    setNewEventDescription('');
+    setNewEventLocation('');
+    setZoomLink('');
+  };
 
   // Fetch calendar events using the new service
   const filterTypes = Object.entries(activeFilters)
@@ -317,14 +351,25 @@ const CourseCalendar = () => {
                   placeholder="Event title"
                 />
               </div>
-              <div>
-                <Label htmlFor="event-date">Date *</Label>
-                <Input
-                  id="event-date"
-                  type="date"
-                  value={newEventDate}
-                  onChange={(e) => setNewEventDate(e.target.value)}
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="event-date">Date *</Label>
+                  <Input
+                    id="event-date"
+                    type="date"
+                    value={newEventDate}
+                    onChange={(e) => setNewEventDate(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="event-time">Time</Label>
+                  <Input
+                    id="event-time"
+                    type="time"
+                    value={newEventTime}
+                    onChange={(e) => setNewEventTime(e.target.value)}
+                  />
+                </div>
               </div>
               <div>
                 <Label htmlFor="event-location">Location</Label>
@@ -342,12 +387,47 @@ const CourseCalendar = () => {
                   value={newEventDescription}
                   onChange={(e) => setNewEventDescription(e.target.value)}
                   placeholder="Optional description"
-                  rows={3}
+                  rows={2}
                 />
+              </div>
+              {/* Zoom Meeting */}
+              <div className="border rounded-lg p-3 space-y-2 bg-muted/30">
+                <div className="flex items-center justify-between">
+                  <Label className="flex items-center gap-2">
+                    <Video className="h-4 w-4 text-blue-500" />
+                    Zoom Meeting
+                  </Label>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={!newEventTitle.trim() || isCreatingZoom}
+                    onClick={handleCreateZoomMeeting}
+                  >
+                    {isCreatingZoom ? 'Creating...' : 'Generate Zoom Link'}
+                  </Button>
+                </div>
+                {zoomLink ? (
+                  <div className="flex items-center gap-2">
+                    <Input value={zoomLink} readOnly className="text-sm bg-background" />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => navigator.clipboard.writeText(zoomLink)}
+                    >
+                      Copy
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Generate a Zoom meeting link to attach to this event.
+                  </p>
+                )}
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowAddEvent(false)}>Cancel</Button>
+              <Button variant="outline" onClick={() => { setShowAddEvent(false); resetAddEventForm(); }}>Cancel</Button>
               <Button
                 disabled={!newEventTitle.trim() || !newEventDate || isCreating}
                 onClick={() => {
@@ -357,12 +437,10 @@ const CourseCalendar = () => {
                     start_date: newEventDate,
                     description: newEventDescription,
                     location: newEventLocation,
+                    link: zoomLink || undefined,
                   });
                   setShowAddEvent(false);
-                  setNewEventTitle('');
-                  setNewEventDate('');
-                  setNewEventDescription('');
-                  setNewEventLocation('');
+                  resetAddEventForm();
                 }}
               >
                 {isCreating ? 'Saving...' : 'Add Event'}
@@ -383,6 +461,23 @@ const CourseCalendar = () => {
             <div className="space-y-4">
               {selectedEvent?.description && (
                 <p className="text-sm">{selectedEvent.description}</p>
+              )}
+              {selectedEvent?.location && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <MapPin className="h-4 w-4" />
+                  {selectedEvent.location}
+                </div>
+              )}
+              {selectedEvent?.link && (
+                <a
+                  href={selectedEvent.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-sm text-blue-600 hover:underline"
+                >
+                  <Video className="h-4 w-4" />
+                  Join Zoom Meeting
+                </a>
               )}
               <div className="flex items-center gap-2">
                 <Badge variant="outline">

@@ -11,6 +11,7 @@ export interface CalendarEventInput {
   event_type?: string;
   location?: string;
   created_by?: string;
+  link?: string;
 }
 
 export interface CalendarFilters {
@@ -173,7 +174,7 @@ export const courseCalendarService = {
     if (!filters?.types || filters.types.includes('event')) {
       const { data: customEvents } = await supabase
         .from('events')
-        .select('id, title, description, date, location')
+        .select('id, title, description, date, location, link')
         .eq('course_id' as any, courseId);
 
       customEvents?.forEach(e => {
@@ -188,6 +189,7 @@ export const courseCalendarService = {
             course_title: courseTitle,
             related_id: e.id,
             course_color: '#06b6d4',
+            link: e.link || undefined,
           });
         }
       });
@@ -261,8 +263,9 @@ export const courseCalendarService = {
         description: event.description || '',
         date: event.start_date,
         location: event.location,
-        type: event.event_type || 'event',
-        format: 'in-person',
+        link: event.link,
+        type: event.link ? 'virtual' : (event.event_type || 'event'),
+        format: event.link ? 'online' : 'in-person',
         course_id: event.course_id,
       } as any)
       .select()

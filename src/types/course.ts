@@ -326,6 +326,7 @@ export interface CourseCalendarEvent {
   related_id?: string; // assignment_id, quiz_id, etc.
   location?: string;
   all_day?: boolean;
+  link?: string; // meeting URL (e.g. Zoom join link)
 }
 
 // Question Bank Types
