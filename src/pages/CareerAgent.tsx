@@ -270,8 +270,8 @@ const CareerAgent: React.FC = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col items-center justify-center p-8 space-y-6">
-              <div className="bg-accent/20 rounded-full p-6">
-                <Map className="h-12 w-12 text-accent" />
+              <div className="bg-primary/10 rounded-full p-6">
+                <Map className="h-12 w-12 text-primary" />
               </div>
               <div className="text-center">
                 <h3 className="text-lg font-medium mb-2">
