@@ -7,7 +7,7 @@ test.describe('Course Learn Interface', () => {
 
   test('renders course learn interface', async ({ page }) => {
     await goto(page, learnUrl);
-    await expect(page.locator('main, [role="main"]')).toBeVisible();
+    await expect(page.locator('main, [role="main"]').first()).toBeVisible();
   });
 
   test('spinner resolves on load', async ({ page }) => {

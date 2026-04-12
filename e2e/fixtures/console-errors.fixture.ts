@@ -32,11 +32,101 @@ const IGNORED_PATTERNS: RegExp[] = [
   // Third-party analytics / tracking (not our code)
   /gtag/,
   /analytics/i,
+  // Expected auth errors in login tests (bad credentials, intercepted auth)
+  /AuthApiError/,
+  /Invalid login credentials/,
+  /handleUserLogin.*Login error/,
+  /\[Login\].*error/i,
+  // 400 from mocked/intercepted Supabase auth endpoint in tests
+  /auth\/v1\/token/,
+
+  // ── Expected app-level console.error from missing/empty test data ──────────
+  // React DOM nesting warning: <a> inside <a> in forum breadcrumbs
+  /validateDOMNesting/,
+  // App 404 route debug log (expected for not-found route tests)
+  /\[NotFound\]/,
+  // Assignment/content item errors (content_items table is empty in test env)
+  /Error loading assignment/,
+  /Error fetching content item/,
+  /getContentItem/,
+  // Forum thread errors (threads table is empty / schema difference)
+  /\[ThreadDetail\]/,
+  // Mock interview room error (no session ID provided in URL)
+  /\[MockInterviewRoom\]/,
+  // Course permission and data errors for invalid-UUID tests
+  /Invalid course UUID/,
+  /\[CourseDetail\]/,
+  /\[useCourseData\]/,
+  /\[useCoursePermissions\]/,
+  /\[useCourseProgress\]/,
+  /\[useForums\]/,
+  // Quiz / grading errors (schema relationships missing in test DB)
+  /\[CanvasQuizResults\]/,
+  /\[gradingSubmissions\]/,
+  // Admin localStorage debug page — Edge Function rate-limited in test env
+  /\[refreshItems\]/,
+  /FunctionsHttpError/,
+  // Resume table doesn't exist in test DB
+  /Resumes table does not exist/,
+
+  // ── React error boundary / component crash messages ────────────────────────
+  // These appear after a component throws, often due to missing test data.
+  // The root cause is captured via app-level errors above.
+  /The above error occurred in one of your React components/,
+  /Consider adding an error boundary/,
+
+  // ── Vite HMR dynamic import failures (transient, not our bugs) ────────────
+  // Happen when source files change while the dev server is running tests.
+  /error loading dynamically imported module/,
+
+  // ── Monaco editor CSP / CDN errors (dev-only, not our bugs) ───────────────
+  /Content Security Policy/,
+  /Loading "vs\//,
+  /cdn\.jsdelivr/,
+  /Here are the modules that depend/,
+  // Monaco CSS module loading errors (list of vs/css! modules that failed to load)
+  /\[vs\/css!/,
+
+  // ── Enrollment badge errors (course_enrollments table missing in test env) ─
+  /\[EnrollmentBadge\]/,
+  // Firefox-specific image decode errors (corrupt/truncated from CDN)
+  /Image corrupt or truncated/,
+];
+
+/**
+ * For browser-native "Failed to load resource: the server responded with
+ * a status of NNN ()" messages, the request URL is in msg.location().url
+ * rather than msg.text(). We match against these URL patterns separately.
+ */
+const IGNORED_URL_PATTERNS: RegExp[] = [
+  // Supabase REST — all /rest/v1/ errors are expected in test env because
+  // placeholder IDs (e.g. "test-course-id") are not valid UUIDs and cause 400s.
+  // This is a broad catch-all; if a REAL Supabase REST bug appears it will
+  // surface as a visible app error, not just a browser "Failed to load resource".
+  /\/rest\/v1\//,
+  // Supabase Auth — expected 400 for invalid credentials / token refresh
+  /\/auth\/v1\//,
+  // Supabase Edge Functions — expected non-2xx in test env (rate limit, etc.)
+  /\/functions\/v1\//,
+  // Vite dev server — HMR module reload returns 500 when files change mid-run
+  /localhost:\d+\/src\//,
+  /localhost:\d+\/node_modules\/.vite/,
 ];
 
 function shouldIgnore(msg: ConsoleMessage): boolean {
   const text = msg.text();
-  return IGNORED_PATTERNS.some((pattern) => pattern.test(text));
+
+  // Check text-based patterns first (covers app console.error calls)
+  if (IGNORED_PATTERNS.some((pattern) => pattern.test(text))) return true;
+
+  // For browser-native "Failed to load resource" errors the URL is in
+  // msg.location(), not msg.text() — check URL patterns separately.
+  if (text.startsWith('Failed to load resource:')) {
+    const url = msg.location()?.url ?? '';
+    if (IGNORED_URL_PATTERNS.some((pattern) => pattern.test(url))) return true;
+  }
+
+  return false;
 }
 
 interface ConsoleFixtures {

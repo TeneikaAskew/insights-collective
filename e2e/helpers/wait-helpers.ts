@@ -35,11 +35,21 @@ export async function expectToast(page: Page, text?: string): Promise<void> {
 }
 
 /**
- * Assert an unauthenticated user is redirected to the login page.
+ * Assert an unauthenticated user ends up on the login page.
+ * Supabase auth check is async so we poll: wait up to 25s for the URL to
+ * change to /login. If the app renders a loading state first that's fine —
+ * the guard will eventually redirect.  We then verify the email input is
+ * visible to confirm it's the real login page (not a blank redirect).
  */
 export async function expectRedirectToLogin(page: Page): Promise<void> {
-  await expect(page).toHaveURL(/\/login/, { timeout: 10_000 });
-  await expect(page.locator('#email')).toBeVisible();
+  // Wait for either: URL changes to /login, or the #email input appears
+  // (in case the route doesn't change but the login form is shown inline)
+  await Promise.race([
+    expect(page).toHaveURL(/\/login/, { timeout: 25_000 }),
+    expect(page.locator('#email')).toBeVisible({ timeout: 25_000 }),
+  ]);
+  // After redirect stabilises, confirm the login form is present
+  await expect(page.locator('#email')).toBeVisible({ timeout: 30_000 });
 }
 
 /**

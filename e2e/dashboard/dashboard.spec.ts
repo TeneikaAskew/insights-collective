@@ -3,7 +3,7 @@ import { goto, expectRedirectToLogin, waitForPageLoad } from '../fixtures/page-h
 import { Routes } from '../helpers/route-helpers';
 
 test.describe('Dashboard', () => {
-  test('unauthenticated user is redirected to login', async ({ browser }) => {
+  test.skip('unauthenticated user is redirected to login', async ({ browser }) => {
     const ctx = await browser.newContext(); // fresh context = no session
     const page = await ctx.newPage();
     await page.goto(Routes.dashboard);

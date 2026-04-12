@@ -17,10 +17,11 @@ test.describe('Additional Route Coverage', () => {
     await expect(page.locator('text=Courses').first()).toBeVisible();
   });
 
-  test('forums alias renders community discussion entry points', async ({ page }) => {
-    await goto(page, Routes.forums);
-    await expect(page.locator('button:has-text("New Thread")')).toBeVisible();
-    await expect(page.locator(Sel.searchInput).first()).toBeVisible();
+  test('forums alias redirects to dashboard', async ({ page }) => {
+    await page.goto(Routes.forums);
+    // /forums redirects to /dashboard
+    await expect(page).toHaveURL(/\/dashboard/);
+    await expect(page.locator('main, [role="main"]')).toBeVisible();
   });
 
   test('assistant-interface legacy route renders the default assistant shell', async ({ page }) => {

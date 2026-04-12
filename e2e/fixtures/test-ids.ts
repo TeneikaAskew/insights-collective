@@ -7,7 +7,7 @@ export const Sel = {
   login: {
     email: '#email',
     password: '#password',
-    submit: 'button:has-text("Sign In")',
+    submit: 'button[type="submit"]:has-text("Sign In")',
     googleBtn: 'button:has-text("Google")',
     githubBtn: 'button:has-text("GitHub")',
     twitterBtn: 'button:has-text("Twitter")',
@@ -23,7 +23,7 @@ export const Sel = {
     email: '#email',
     password: '#password',
     confirmPassword: '#confirmPassword',
-    submit: 'button:has-text("Sign Up")',
+    submit: 'button[type="submit"]:has-text("Sign Up")',
     googleBtn: 'button:has-text("Google")',
     loginLink: 'a:has-text("Log in"), a:has-text("Sign in"), a:has-text("Already have")',
   },
@@ -32,7 +32,9 @@ export const Sel = {
   resetPassword: {
     email: 'input[type="email"]',
     submit: 'button[type="submit"]',
-    successMsg: ':has-text("Check your email"), :has-text("reset link")',
+    // Target the heading/title element specifically to avoid strict-mode violations
+    // (`:has-text` matches all ancestors; narrow to leaf-level heading elements)
+    successMsg: 'h1:has-text("Check your email"), h2:has-text("Check your email"), h3:has-text("Check your email")',
   },
 
   // ── Navigation ────────────────────────────────────────────────────────────
@@ -40,7 +42,7 @@ export const Sel = {
     sidebar: '[data-sidebar="sidebar"]',
     dashboardLink: 'a[href="/dashboard"]',
     coursesLink: 'a[href="/courses"]',
-    logoutBtn: 'button:has-text("Log out"), button:has-text("Sign out")',
+    logoutBtn: 'button:has-text("Log out"), button:has-text("Sign out"), button:has-text("Logout")',
     userRoleBadge: ':has-text("Administrator"), :has-text("Instructor"), :has-text("Member")',
   },
 

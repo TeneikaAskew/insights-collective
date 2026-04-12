@@ -61,31 +61,31 @@ async function saveSessionForRole(
   }
 
   const tokenData = await signInViaApi(creds.email, creds.password);
+
+  // Supabase JS v2 stores the session as a flat Session object directly at storageKey.
+  // Inject it via addInitScript so it exists in localStorage BEFORE the React app and
+  // Supabase client initialize — otherwise the client boots, finds nothing, and clears
+  // any value we write after the fact.
+  const sessionValue = JSON.stringify({
+    access_token: tokenData.access_token,
+    refresh_token: tokenData.refresh_token,
+    token_type: 'bearer',
+    expires_in: tokenData.expires_in,
+    expires_at: Math.floor(Date.now() / 1000) + tokenData.expires_in,
+    user: tokenData.user,
+  });
+
   const browser = await chromium.launch();
   const context = await browser.newContext();
-  const page = await context.newPage();
 
-  await page.goto(baseURL);
-
-  // Write the session in the exact format Supabase JS v2 reads from localStorage
-  // storageKey is 'supabase.auth.token' per src/integrations/supabase/client.ts
-  await page.evaluate(
-    ({ key, data }) => localStorage.setItem(key, JSON.stringify(data)),
-    {
-      key: 'supabase.auth.token',
-      data: {
-        currentSession: {
-          access_token: tokenData.access_token,
-          refresh_token: tokenData.refresh_token,
-          token_type: 'bearer',
-          expires_in: tokenData.expires_in,
-          expires_at: Math.floor(Date.now() / 1000) + tokenData.expires_in,
-          user: tokenData.user,
-        },
-        expiresAt: Math.floor(Date.now() / 1000) + tokenData.expires_in,
-      },
-    },
+  // Inject before any page script runs
+  await context.addInitScript(
+    ({ key, value }) => localStorage.setItem(key, value),
+    { key: 'supabase.auth.token', value: sessionValue },
   );
+
+  const page = await context.newPage();
+  await page.goto(baseURL, { waitUntil: 'domcontentloaded' });
 
   const sessionPath = path.join(SESSIONS_DIR, `${role}.json`);
   await context.storageState({ path: sessionPath });
@@ -100,12 +100,11 @@ async function globalSetup(config: FullConfig): Promise<void> {
     config.projects.find((p) => p.use?.baseURL)?.use?.baseURL ||
     'http://localhost:8080';
 
-  // Save sessions for all three roles (in parallel)
-  await Promise.all(
-    Object.entries(TEST_USERS).map(([role, creds]) =>
-      saveSessionForRole(role, creds, baseURL),
-    ),
-  );
+  // Save sessions for all three roles sequentially to avoid spawning
+  // multiple Chromium processes simultaneously (causes OOM crashes in CI/codespace).
+  for (const [role, creds] of Object.entries(TEST_USERS)) {
+    await saveSessionForRole(role, creds, baseURL);
+  }
 }
 
 export default globalSetup;

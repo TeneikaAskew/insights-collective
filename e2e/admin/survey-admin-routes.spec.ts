@@ -6,7 +6,7 @@ test.describe('Survey Admin Routes', () => {
   test('survey form create page auto-generates the slug from the title', async ({ page }) => {
     await goto(page, Routes.surveyFormCreate);
 
-    await expect(page.locator('h1, h2').filter({ hasText: 'Create New Form' }).first()).toBeVisible();
+    await expect(page.locator('h1, h2, h3').filter({ hasText: 'Create New Form' }).first()).toBeVisible();
     await page.fill('#title', 'Community Feedback Survey');
     await expect(page.locator('#slug')).toHaveValue('community-feedback-survey');
     await expect(page.locator('button:has-text("Create Form")')).toBeVisible();
