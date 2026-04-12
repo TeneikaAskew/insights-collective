@@ -46,7 +46,7 @@ export const courseCalendarService = {
           title,
           description,
           due_date,
-          points_possible,
+          points,
           course_id
         `)
         .eq('course_id', courseId)
