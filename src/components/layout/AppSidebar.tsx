@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const AppSidebar = () => {
   const location = useLocation();
@@ -119,6 +120,41 @@ const AppSidebar = () => {
     active: location.pathname === '/profile'
   }];
 
+  // Slim browse list for anonymous visitors — only pages they can meaningfully use before signing up
+  const browseMenuItems = [{
+    title: "Dashboard",
+    url: "/dashboard",
+    icon: Home,
+    active: location.pathname === '/dashboard'
+  }, {
+    title: "Courses",
+    url: "/courses",
+    icon: BookOpen,
+    active: location.pathname.startsWith('/course')
+  }, {
+    title: "Resources",
+    url: "/resources",
+    icon: FileText,
+    active: location.pathname === '/resources'
+  }, {
+    title: "Events",
+    url: "/events",
+    icon: Calendar,
+    active: location.pathname === '/events'
+  }, {
+    title: "Career Agent",
+    url: "/career-agent",
+    icon: Bot,
+    active: location.pathname === '/career-agent',
+    highlight: true
+  }, {
+    title: "Resume Analyzer",
+    url: "/resume",
+    icon: FileUp,
+    active: location.pathname === '/resume',
+    highlight: true
+  }];
+
   // Define admin menu items - removed Manage Resources
   const adminMenuItems = [{
     title: "Admin Dashboard",
@@ -137,9 +173,9 @@ const AppSidebar = () => {
     active: location.pathname === '/admin/users'
   }, {
     title: "Manage Forms",
-    url: "/admin/forms",
+    url: "/admin/unified-form-management",
     icon: FormInput,
-    active: location.pathname === '/admin/forms'
+    active: location.pathname.startsWith('/admin/unified-form-management') || location.pathname === '/admin/forms'
   }, {
     title: "Manage Blog",
     url: "/admin/blog",
@@ -165,16 +201,18 @@ const AppSidebar = () => {
   const isAdmin = user?.roles?.includes('admin');
   const isInstructor = user?.roles?.includes('instructor');
   
-  // Filter menu items based on page visibility settings
-  // For admin users, show all items immediately. For others, wait for data to load.
-  const visiblePublicMenuItems = isAdmin || !pageVisibilityLoading 
+  // Filter menu items based on page visibility settings.
+  // While loading, show all items so the sidebar doesn't go blank; hidden items
+  // disappear once the PageVisibility data arrives.
+  const visiblePublicMenuItems = isAdmin || !pageVisibilityLoading
     ? publicMenuItems.filter(item => isPageVisible(item.url))
-    : [];
+    : publicMenuItems;
   const visibleAdminMenuItems = isAdmin || !pageVisibilityLoading
     ? adminMenuItems.filter(item => isPageVisible(item.url))
     : [];
-  
-  const menuItems = [...visiblePublicMenuItems];
+
+  // Anonymous users get a slim browse list; authenticated users get the full nav
+  const menuItems = isAuthenticated ? [...visiblePublicMenuItems] : browseMenuItems;
 
   const menuItemVariants = {
     hidden: {
@@ -221,7 +259,21 @@ const AppSidebar = () => {
               </div>
             </div>
           </div>}
-      
+
+        {!isAuthenticated && (
+          <div className="mb-4 px-2 py-3 bg-[#9b87f5]/5 rounded-lg border border-[#9b87f5]/20">
+            <p className="text-[10px] text-muted-foreground mb-2 font-medium">Join to unlock all features</p>
+            <div className="space-y-1.5">
+              <Button asChild className="w-full h-8 text-xs bg-[#9b87f5] hover:bg-[#8B5CF6] text-white">
+                <Link to="/register">Create Free Account</Link>
+              </Button>
+              <Button asChild variant="ghost" className="w-full h-8 text-xs text-muted-foreground">
+                <Link to="/login">Sign In</Link>
+              </Button>
+            </div>
+          </div>
+        )}
+
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>

@@ -355,22 +355,24 @@ const AdminUsers = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-12">
-                          <Checkbox 
-                            checked={selectedUsers.length === filteredUsers.length && filteredUsers.length > 0}
-                            onCheckedChange={handleSelectAllUsers}
-                          />
+                        <TableHead className="text-left">
+                          <div className="flex items-center gap-3">
+                            <Checkbox
+                              checked={selectedUsers.length === filteredUsers.length && filteredUsers.length > 0}
+                              onCheckedChange={handleSelectAllUsers}
+                            />
+                            <span>Name</span>
+                          </div>
                         </TableHead>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Roles</TableHead>
-                        <TableHead>Joined</TableHead>
+                        <TableHead className="text-left">Roles</TableHead>
+                        <TableHead className="text-left">Joined</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filteredUsers.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={5} className="h-24 text-center">
+                          <TableCell colSpan={4} className="h-24 text-center">
                             {users.length === 0 ? 'No users found.' : 'No users match your search criteria.'}
                           </TableCell>
                         </TableRow>
@@ -380,14 +382,16 @@ const AdminUsers = () => {
                           const userRoles = user.roles || ['student'];
                           return (
                             <TableRow key={user.id}>
-                              <TableCell>
-                                <Checkbox 
-                                  checked={selectedUsers.includes(user.id)}
-                                  onCheckedChange={(checked) => handleSelectUser(user.id, checked as boolean)}
-                                />
+                              <TableCell className="text-left">
+                                <div className="flex items-center gap-3">
+                                  <Checkbox
+                                    checked={selectedUsers.includes(user.id)}
+                                    onCheckedChange={(checked) => handleSelectUser(user.id, checked as boolean)}
+                                  />
+                                  <span className="font-medium">{name || 'Unnamed User'}</span>
+                                </div>
                               </TableCell>
-                              <TableCell className="font-medium">{name || 'Unnamed User'}</TableCell>
-                              <TableCell>
+                              <TableCell className="text-left">
                                 <div className="flex flex-wrap gap-1">
                                   {userRoles.map(role => (
                                     <Badge key={role} variant={getRoleBadgeVariant(role)}>
@@ -396,7 +400,7 @@ const AdminUsers = () => {
                                   ))}
                                 </div>
                               </TableCell>
-                              <TableCell>
+                              <TableCell className="text-left">
                                 {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'Unknown'}
                               </TableCell>
                               <TableCell className="text-right">
