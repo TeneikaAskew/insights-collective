@@ -134,7 +134,7 @@ const DataBlueprintSeries = () => {
         </div>
 
         {/* What's Next Section */}
-        <div className="mb-16 bg-secondary/20 p-6 rounded-lg">
+        <div className="mb-16 bg-secondary/20 p-6 rounded-lg text-left">
           <h2 className="text-2xl font-bold mb-4">🧠 What's Next?</h2>
           <p className="text-lg mb-4">You'll also explore:</p>
           <ul className="space-y-2 pl-6 list-disc">

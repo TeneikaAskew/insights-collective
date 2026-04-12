@@ -91,7 +91,31 @@ export default function Events() {
   const pastEvents = sortedEvents.filter(event => event.date < today);
   
   const isSearching = searchQuery !== '' || typeFilter !== 'all' || formatFilter !== 'all';
-  
+
+  const handleClearFilters = () => {
+    setSearchQuery('');
+    setTypeFilter('all');
+    setFormatFilter('all');
+  };
+
+  const EventCardSkeleton = () => (
+    <div className="border rounded-lg overflow-hidden shadow-sm">
+      <Skeleton className="w-full h-48" />
+      <div className="p-4 space-y-2">
+        <Skeleton className="h-5 w-3/4" />
+        <Skeleton className="h-4 w-1/2" />
+        <Skeleton className="h-4 w-1/3" />
+      </div>
+      <div className="px-4 space-y-1.5">
+        <Skeleton className="h-3 w-full" />
+        <Skeleton className="h-3 w-5/6" />
+      </div>
+      <div className="p-4 mt-2">
+        <Skeleton className="h-10 w-full rounded-md" />
+      </div>
+    </div>
+  );
+
   // Show loading state while data is being fetched
   if (isLoading) {
     return (
@@ -102,7 +126,7 @@ export default function Events() {
             <Skeleton className="h-12 w-full" />
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               {[1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-64 w-full" />
+                <EventCardSkeleton key={i} />
               ))}
             </div>
           </div>
@@ -145,19 +169,19 @@ export default function Events() {
                 isRegistering={registerMutation.isPending}
               />
             ) : (
-              <NoEventsMessage isSearching={isSearching} />
+              <NoEventsMessage isSearching={isSearching} onClearFilters={handleClearFilters} />
             )}
           </TabsContent>
-          
+
           <TabsContent value="past" className="space-y-6">
             {pastEvents.length > 0 ? (
-              <EventsList 
-                events={pastEvents} 
-                isPast={true} 
+              <EventsList
+                events={pastEvents}
+                isPast={true}
                 registeredEvents={registeredEventIds}
               />
             ) : (
-              <NoEventsMessage isSearching={isSearching} isPast={true} />
+              <NoEventsMessage isSearching={isSearching} isPast={true} onClearFilters={handleClearFilters} />
             )}
           </TabsContent>
         </Tabs>

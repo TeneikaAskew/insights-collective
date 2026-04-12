@@ -74,11 +74,6 @@ const AppSidebar = () => {
     icon: FileCheck,
     active: location.pathname === '/survey' || location.pathname === '/survey/confirmation'
   }, {
-    title: "Forums",
-    url: "/forums",
-    icon: MessageSquare,
-    active: location.pathname === '/forums' || location.pathname.includes('/forums/') || location.pathname.includes('/thread/')
-  }, {
     title: "Events",
     url: "/events",
     icon: Calendar,
@@ -175,7 +170,7 @@ const AppSidebar = () => {
     title: "Manage Forms",
     url: "/admin/unified-form-management",
     icon: FormInput,
-    active: location.pathname.startsWith('/admin/unified-form-management') || location.pathname === '/admin/forms'
+    active: location.pathname.startsWith('/admin/unified-form-management')
   }, {
     title: "Manage Blog",
     url: "/admin/blog",

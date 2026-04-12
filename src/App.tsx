@@ -41,6 +41,7 @@ const CourseQuestionBanks = lazy(() => import('@/pages/CourseQuestionBanks'));
 const CourseProgress = lazy(() => import('@/pages/CourseProgress'));
 const CourseCertificate = lazy(() => import('@/pages/CourseCertificate'));
 const CourseCalendar = lazy(() => import('@/pages/CourseCalendar'));
+const StudentInsights = lazy(() => import('@/pages/StudentInsights'));
 
 // Canvas-style Pages
 const CanvasAssignmentSubmission = lazy(() => import('@/pages/CanvasAssignmentSubmission'));
@@ -243,6 +244,8 @@ function App() {
                      <Route path="/courses/:courseId/certificate" element={<CourseCertificate />} />
                      <Route path="/courses/:courseId/calendar" element={<CourseCalendar />} />
                      <Route path="/courses/:courseId/people" element={<CourseDetail />} />
+                     <Route path="/courses/:courseId/insights" element={<StudentInsights />} />
+                     <Route path="/courses/:courseId/insights/:studentId" element={<StudentInsights />} />
                      <Route path="/courses/:courseId/management" element={<CourseManagement />} />
                      {/* New Teachable/Kajabi-style builder + learner routes */}
                      <Route path="/courses/:courseId/builder" element={<CourseBuilder />} />
@@ -283,13 +286,14 @@ function App() {
                     <Route path="/events/:id" element={<EventDetail />} />
                     <Route path="/messages" element={<Messages />} />
                     <Route path="/messages/:conversationId" element={<Messages />} />
-                    <Route path="/forum" element={<Forum />} />
-                    <Route path="/forums" element={<Forum />} />
-                    <Route path="/forum/:forumId" element={<ForumDetail />} />
-                    <Route path="/courses/:courseId/forums" element={<Forum />} />
-                    <Route path="/courses/:courseId/forums/:forumId" element={<ForumDetail />} />
-                    <Route path="/thread/:threadId" element={<ThreadDetail />} />
-                    <Route path="/courses/:courseId/forums/:forumId/threads/:threadId" element={<ThreadDetail />} />
+                    {/* Forums disabled — redirect all forum routes to dashboard */}
+                    <Route path="/forum" element={<Navigate to="/dashboard" replace />} />
+                    <Route path="/forums" element={<Navigate to="/dashboard" replace />} />
+                    <Route path="/forum/:forumId" element={<Navigate to="/dashboard" replace />} />
+                    <Route path="/courses/:courseId/forums" element={<Navigate to="/dashboard" replace />} />
+                    <Route path="/courses/:courseId/forums/:forumId" element={<Navigate to="/dashboard" replace />} />
+                    <Route path="/thread/:threadId" element={<Navigate to="/dashboard" replace />} />
+                    <Route path="/courses/:courseId/forums/:forumId/threads/:threadId" element={<Navigate to="/dashboard" replace />} />
 
                     {/* Portfolio Routes */}
                     <Route path="/portfolio-explorer" element={
