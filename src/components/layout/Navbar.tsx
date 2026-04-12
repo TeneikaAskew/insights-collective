@@ -26,12 +26,6 @@ const Navbar = () => {
           </Button>
         </div>
         
-        <div className="flex items-center mr-4">
-          <Link to="/" className="flex items-center gap-2 font-bold text-lg">
-            <span>Insights Collective</span>
-          </Link>
-        </div>
-        
         <SiteSearch />
         
         <div className="flex items-center justify-end space-x-4">
