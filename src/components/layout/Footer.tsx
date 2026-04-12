@@ -59,6 +59,10 @@ const Footer = () => {
         
         <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400 text-sm">
           <p>© {new Date().getFullYear()} Insights Collective. All rights reserved.</p>
+          <div className="flex justify-center gap-4 mt-2">
+            <Link to="/privacy-policy" className="hover:text-white">Privacy Policy</Link>
+            <Link to="/terms-of-service" className="hover:text-white">Terms of Service</Link>
+          </div>
         </div>
       </div>
     </footer>

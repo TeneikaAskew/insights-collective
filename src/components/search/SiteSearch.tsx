@@ -10,7 +10,7 @@ type SearchResult = {
   title: string;
   description?: string;
   url: string;
-  type: 'course' | 'resource' | 'assistant' | 'event' | 'career' | 'blueprint';
+  type: 'course' | 'resource' | 'assistant' | 'event' | 'career' | 'blueprint' | 'page';
 };
 
 const SiteSearch = () => {
@@ -44,20 +44,32 @@ const SiteSearch = () => {
       }
     });
 
-    // Search events - TODO: Replace with real events data when available
-    const events: any[] = [];
-    events.forEach(event => {
+    // Static site pages
+    const pages = [
+      { id: 'dashboard', title: 'Dashboard', description: 'Your personal dashboard', url: '/dashboard' },
+      { id: 'resources', title: 'Resources', description: 'Browse all learning resources', url: '/resources' },
+      { id: 'events', title: 'Events', description: 'Upcoming events and webinars', url: '/events' },
+      { id: 'forum', title: 'Forum', description: 'Community discussions', url: '/forum' },
+      { id: 'resume', title: 'Resume Builder', description: 'Build and analyze your resume', url: '/resume' },
+      { id: 'career-agent', title: 'Career Agent', description: 'AI-powered career guidance', url: '/career-agent' },
+      { id: 'career-pathway', title: 'Career Pathway', description: 'Explore data career pathways', url: '/career-pathway' },
+      { id: 'explore-data-careers', title: 'Explore Data Careers', description: 'Browse data career roles', url: '/explore-data-careers' },
+      { id: 'assistants', title: 'AI Assistants', description: 'AI-powered learning assistants', url: '/assistants' },
+      { id: 'interview-prep', title: 'Interview Prep', description: 'Practice for technical interviews', url: '/interview-prep' },
+      { id: 'mock-interviews', title: 'Mock Interviews', description: 'Simulate real interviews', url: '/mock-interviews' },
+      { id: 'code-practice', title: 'Code Practice', description: 'Practice coding challenges', url: '/code-practice' },
+      { id: 'portfolio-explorer', title: 'Portfolio Explorer', description: 'Browse student portfolios', url: '/portfolio-explorer' },
+      { id: 'messages', title: 'Messages', description: 'Your messages', url: '/messages' },
+      { id: 'profile', title: 'Profile', description: 'Your profile settings', url: '/profile' },
+      { id: 'data-blueprint-series', title: 'Data Blueprint Series', description: 'Structured data learning series', url: '/data-blueprint-series' },
+    ];
+
+    pages.forEach(page => {
       if (
-        event.title.toLowerCase().includes(searchLower) ||
-        event.description.toLowerCase().includes(searchLower)
+        page.title.toLowerCase().includes(searchLower) ||
+        page.description.toLowerCase().includes(searchLower)
       ) {
-        results.push({
-          id: event.id,
-          title: event.title,
-          description: event.description,
-          url: `/events#${event.id}`,
-          type: 'event'
-        });
+        results.push({ ...page, type: 'page' });
       }
     });
 
@@ -186,6 +198,7 @@ const SiteSearch = () => {
       case 'blueprint': return 'Data Blueprint';
       case 'career': return 'Data Careers';
       case 'resource': return 'Resources';
+      case 'page': return 'Pages';
       default: return type.charAt(0).toUpperCase() + type.slice(1);
     }
   };
