@@ -247,11 +247,11 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
                          </AvatarFallback>
                        </Avatar>
                     )}
-                    <div className="space-y-1 flex-1 min-w-0">
-                      <p className={`font-medium line-clamp-1 text-gray-800 ${isUnread ? 'font-semibold' : ''}`}>
-                         {displayName}
+                    <div className="space-y-1 flex-1 min-w-0 text-left">
+                      <p className={`font-medium line-clamp-1 text-gray-800 text-left ${isUnread ? 'font-semibold' : ''}`}>
+                        {displayName}
                       </p>
-                      <p className={`text-sm text-gray-600 line-clamp-1 ${isUnread ? 'font-medium' : ''}`}>
+                      <p className={`text-sm text-gray-600 line-clamp-1 text-left ${isUnread ? 'font-medium' : ''}`}>
                         {conversation.last_message?.content || 'Start a conversation'}
                       </p>
                     </div>
