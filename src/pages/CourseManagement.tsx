@@ -44,7 +44,7 @@ function CourseManagementContent({ courseId, course }: { courseId: string; cours
   }, [courseId]);
 
   return (
-    <div className="container mx-auto py-8 max-w-full px-4">
+    <div className="py-8 max-w-5xl px-4">
       <div className="mb-6 flex items-center justify-between">
         <div>
           <Link to="/courses">
