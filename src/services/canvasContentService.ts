@@ -228,7 +228,7 @@ export class CanvasContentService {
   }
 
   static async reorderContentItems(
-    moduleId: string, 
+    moduleId: string,
     itemIds: string[]
   ): Promise<void> {
     const updates = itemIds.map((id, index) => ({
@@ -241,6 +241,75 @@ export class CanvasContentService {
       .from('content_items')
       .upsert(updates);
 
+    if (error) throw error;
+  }
+
+  // Reorder modules within a course. Used by the builder's CurriculumTree drag-drop.
+  static async reorderModules(courseId: string, moduleIds: string[]): Promise<void> {
+    const updates = moduleIds.map((id, index) => ({
+      id,
+      course_id: courseId,
+      position: index,
+    }));
+
+    const { error } = await supabase.from('modules').upsert(updates);
+
+    if (error) throw error;
+  }
+
+  // Modules CRUD (used by the builder)
+  static async getModules(courseId: string): Promise<Module[]> {
+    const { data, error } = await supabase
+      .from('modules')
+      .select('*')
+      .eq('course_id', courseId)
+      .order('position');
+
+    if (error) throw error;
+    return (data as Module[]) || [];
+  }
+
+  static async createModule(courseId: string, title: string): Promise<Module> {
+    // Find the next position at the end of the list
+    const { data: existing } = await supabase
+      .from('modules')
+      .select('position')
+      .eq('course_id', courseId)
+      .order('position', { ascending: false })
+      .limit(1);
+
+    const nextPosition =
+      existing && existing.length > 0 ? (existing[0].position ?? 0) + 1 : 0;
+
+    const { data, error } = await supabase
+      .from('modules')
+      .insert({
+        course_id: courseId,
+        title,
+        position: nextPosition,
+        published: true,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as Module;
+  }
+
+  static async updateModule(id: string, updates: Partial<Module>): Promise<Module> {
+    const { data, error } = await supabase
+      .from('modules')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as Module;
+  }
+
+  static async deleteModule(id: string): Promise<void> {
+    const { error } = await supabase.from('modules').delete().eq('id', id);
     if (error) throw error;
   }
 

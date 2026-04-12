@@ -7,36 +7,31 @@ import { CourseLayout } from '@/components/course/CourseLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Spinner } from '@/components/ui/spinner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { 
-  ChevronLeft, 
-  ChevronRight, 
-  FileText, 
-  ClipboardList, 
+import {
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+  ClipboardList,
   HelpCircle,
   ExternalLink,
   Settings,
-  Calendar,
-  Clock,
-  CheckCircle2,
-  Lock,
-  AlertCircle
 } from 'lucide-react';
-import { 
-  Breadcrumb, 
-  BreadcrumbItem, 
-  BreadcrumbLink, 
-  BreadcrumbList, 
-  BreadcrumbPage, 
-  BreadcrumbSeparator 
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import CanvasContentService from '@/services/canvasContentService';
-import { UnifiedCanvasEditor } from '@/components/ui/unified-canvas-editor';
+import { LessonViewer } from '@/components/course/learn/LessonViewer';
+import { useCourseProgress } from '@/hooks/useCourseProgress';
 import type { ContentItem, Module } from '@/types/canvas';
 import { format } from 'date-fns';
 
@@ -55,7 +50,9 @@ const CanvasModuleDetail = () => {
   const [contentItems, setContentItems] = useState<ContentItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<ContentItem | null>(null);
   const [loading, setLoading] = useState(true);
-  const [progress, setProgress] = useState(0);
+  // Canonical progress — replaces the ad-hoc per-module content_item_progressions query.
+  const { data: courseProgress, getModulePercent, markItemComplete } = useCourseProgress(courseId);
+  const moduleProgress = moduleId ? getModulePercent(moduleId) : 0;
 
   useEffect(() => {
     loadData();
@@ -176,22 +173,7 @@ const CanvasModuleDetail = () => {
       logger.info(`Loaded ${items.length} content items, showing ${visibleItems.length} (instructor: ${isInstructor})`);
 
       setContentItems(visibleItems);
-
-      // Calculate progress based on actual completion
-      if (visibleItems.length > 0) {
-        const { data: progressData } = await supabase
-          .from('content_item_progressions')
-          .select('workflow_state')
-          .eq('user_id', user?.id)
-          .in('content_item_id', visibleItems.map(item => item.id));
-        
-        const completedItems = progressData?.filter(p => p.workflow_state === 'read') || [];
-        const progressPercentage = Math.round((completedItems.length / visibleItems.length) * 100);
-        setProgress(progressPercentage);
-      } else {
-        setProgress(0);
-      }
-
+      // progress now comes from useCourseProgress (canonical)
     } catch (error: any) {
       logger.error('Error loading data:', error);
       toast({
@@ -206,23 +188,68 @@ const CanvasModuleDetail = () => {
 
   const handleItemClick = async (item: ContentItem) => {
     setSelectedItem(item);
-    
-    // Mark as read
     try {
-      await CanvasContentService.markContentItemAsRead(item.id);
-      
-      // Recalculate progress after marking as read
-      const { data: progressData } = await supabase
-        .from('content_item_progressions')
-        .select('workflow_state')
-        .eq('user_id', user?.id)
-        .in('content_item_id', contentItems.map(item => item.id));
-      
-      const completedItems = progressData?.filter(p => p.workflow_state === 'read') || [];
-      const progressPercentage = Math.round((completedItems.length / contentItems.length) * 100);
-      setProgress(progressPercentage);
+      // markItemComplete upserts the progression AND refreshes the canonical progress hook.
+      await markItemComplete(item.id);
     } catch (error) {
       logger.error('Error marking item as read:', error);
+    }
+  };
+
+  // Lesson-level Prev/Next navigation helpers
+  const currentIndex = selectedItem
+    ? contentItems.findIndex((i) => i.id === selectedItem.id)
+    : -1;
+  const prevItem = currentIndex > 0 ? contentItems[currentIndex - 1] : null;
+  const nextItem =
+    currentIndex >= 0 && currentIndex < contentItems.length - 1
+      ? contentItems[currentIndex + 1]
+      : null;
+
+  const completedItemIds = new Set<string>(
+    (courseProgress?.modules.find((m) => m.moduleId === moduleId)?.completedItems ?? 0) > 0
+      ? [] // fallback — detail below
+      : [],
+  );
+  // We need the concrete set of completed item ids for this module to drive LessonViewer's
+  // isCompleted badge. The hook gives us counts per module, but not the ids. Keep a lightweight
+  // side-query: items with workflow_state in ('read','completed') for the current module.
+  // (A future refactor can expose the id set from the hook directly.)
+  const [completedInModule, setCompletedInModule] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      if (!user?.id || contentItems.length === 0) {
+        if (!cancelled) setCompletedInModule(new Set());
+        return;
+      }
+      const { data } = await supabase
+        .from('content_item_progressions')
+        .select('content_item_id, workflow_state')
+        .eq('user_id', user.id)
+        .in(
+          'content_item_id',
+          contentItems.map((i) => i.id),
+        );
+      if (cancelled) return;
+      setCompletedInModule(
+        new Set(
+          (data || [])
+            .filter((p: any) => p.workflow_state === 'read' || p.workflow_state === 'completed')
+            .map((p: any) => p.content_item_id),
+        ),
+      );
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, contentItems, moduleProgress]);
+
+  const handleLessonNavigate = (itemId: string) => {
+    const target = contentItems.find((i) => i.id === itemId);
+    if (target) {
+      void handleItemClick(target);
     }
   };
 
@@ -237,153 +264,7 @@ const CanvasModuleDetail = () => {
     }
   };
 
-  const renderContentView = () => {
-    if (!selectedItem) {
-      return (
-        <Card>
-          <CardContent className="text-center py-12">
-            <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">
-              Select an activity from the module to view its content.
-            </p>
-          </CardContent>
-        </Card>
-      );
-    }
-
-    return (
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>{selectedItem.title}</CardTitle>
-              <div className="flex items-center gap-2 mt-2">
-                <Badge variant="outline">{selectedItem.type}</Badge>
-                {selectedItem.assignment?.due_at && (
-                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                    <Calendar className="h-3 w-3" />
-                    Due {format(new Date(selectedItem.assignment.due_at), 'MMM d, yyyy')}
-                  </div>
-                )}
-                {selectedItem.quiz?.time_limit && (
-                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                    <Clock className="h-3 w-3" />
-                    {selectedItem.quiz.time_limit} minutes
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {/* Render content based on type */}
-          {selectedItem.type === 'page' && (
-            <div className="prose prose-lg max-w-none">
-              <UnifiedCanvasEditor
-                content={selectedItem.content || ''}
-                onChange={() => {}}
-                readOnly={true}
-              />
-            </div>
-          )}
-
-          {selectedItem.type === 'assignment' && (
-            <div className="space-y-6">
-              <div className="prose prose-lg max-w-none">
-                <UnifiedCanvasEditor
-                  content={selectedItem.content || ''}
-                  onChange={() => {}}
-                  readOnly={true}
-                />
-              </div>
-              
-              {selectedItem.assignment && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Assignment Details</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Points Possible:</span>
-                      <span>{selectedItem.assignment.points_possible || 'Not graded'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Submission Types:</span>
-                      <span>{selectedItem.assignment.submission_types?.join(', ')}</span>
-                    </div>
-                    <div className="pt-4">
-                      <Button 
-                        className="w-full"
-                        onClick={() => navigate(`/courses/${courseId}/modules/${moduleId}/assignments/${selectedItem.id}/submit`)}
-                      >
-                        Submit Assignment
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-          )}
-
-          {selectedItem.type === 'quiz' && (
-            <div className="space-y-6">
-              <div className="prose prose-lg max-w-none">
-                <UnifiedCanvasEditor
-                  content={selectedItem.content || ''}
-                  onChange={() => {}}
-                  readOnly={true}
-                />
-              </div>
-              
-              {selectedItem.quiz && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Quiz Details</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Questions:</span>
-                      <span>{selectedItem.quiz.questions?.length || 0}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Time Limit:</span>
-                      <span>{selectedItem.quiz.time_limit ? `${selectedItem.quiz.time_limit} minutes` : 'No limit'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Attempts Allowed:</span>
-                      <span>{selectedItem.quiz.allowed_attempts}</span>
-                    </div>
-                    <div className="pt-4">
-                      <Button 
-                        className="w-full"
-                        onClick={() => navigate(`/courses/${courseId}/modules/${moduleId}/quizzes/${selectedItem.id}`)}
-                      >
-                        Take Quiz
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-          )}
-
-          {selectedItem.type === 'external_url' && (
-            <div className="text-center py-8">
-              <ExternalLink className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <p className="text-muted-foreground mb-4">
-                This links to an external resource.
-              </p>
-              <Button asChild>
-                <a href={selectedItem.settings?.url} target="_blank" rel="noopener noreferrer">
-                  Open External Link
-                </a>
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    );
-  };
+  // renderContentView used to be a 150-line type switch. It now lives in <LessonViewer />.
 
   if (loading) {
     return (
@@ -450,11 +331,11 @@ const CanvasModuleDetail = () => {
             </div>
             <div className="text-right">
               <div className="text-sm text-muted-foreground mb-1">Progress</div>
-              <div className="font-semibold">{progress}%</div>
+              <div className="font-semibold">{moduleProgress}%</div>
             </div>
           </div>
 
-          <Progress value={progress} className="mt-4" />
+          <Progress value={moduleProgress} className="mt-4" />
         </div>
 
         <div className="grid gap-6 lg:grid-cols-4">
@@ -558,7 +439,15 @@ const CanvasModuleDetail = () => {
 
           {/* Main Content Area */}
           <div className="lg:col-span-3">
-            {renderContentView()}
+            <LessonViewer
+              item={selectedItem}
+              prevItem={prevItem}
+              nextItem={nextItem}
+              isCompleted={selectedItem ? completedInModule.has(selectedItem.id) : false}
+              onNavigate={handleLessonNavigate}
+              onMarkDone={(itemId) => markItemComplete(itemId)}
+              actionBasePath={`/courses/${courseId}/modules/${moduleId}`}
+            />
           </div>
         </div>
       </div>

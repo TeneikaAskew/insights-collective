@@ -58,7 +58,9 @@ export function useCanvasContent(moduleId: string | null) {
         settings
       });
 
-      setContentItems([...contentItems, newItem]);
+      // Functional setState — avoids a stale-closure bug when createContentItem
+      // is called before React has re-rendered with the latest contentItems.
+      setContentItems(prev => [...prev, newItem]);
       return newItem;
     } catch (err: any) {
       toast({
@@ -73,7 +75,7 @@ export function useCanvasContent(moduleId: string | null) {
   const updateContentItem = async (id: string, updates: Partial<ContentItem>) => {
     try {
       const updated = await CanvasContentService.updateContentItem(id, updates);
-      setContentItems(contentItems.map(item => 
+      setContentItems(prev => prev.map(item =>
         item.id === id ? updated : item
       ));
       return updated;
@@ -90,7 +92,7 @@ export function useCanvasContent(moduleId: string | null) {
   const deleteContentItem = async (id: string) => {
     try {
       await CanvasContentService.deleteContentItem(id);
-      setContentItems(contentItems.filter(item => item.id !== id));
+      setContentItems(prev => prev.filter(item => item.id !== id));
     } catch (err: any) {
       toast({
         title: 'Error deleting content',
@@ -106,11 +108,13 @@ export function useCanvasContent(moduleId: string | null) {
 
     try {
       await CanvasContentService.reorderContentItems(moduleId, itemIds);
-      // Reorder local state
-      const reordered = itemIds.map(id => 
-        contentItems.find(item => item.id === id)!
-      ).filter(Boolean);
-      setContentItems(reordered);
+      // Reorder local state — functional form to avoid stale closure
+      setContentItems(prev => {
+        const reordered = itemIds
+          .map(id => prev.find(item => item.id === id))
+          .filter((item): item is ContentItem => !!item);
+        return reordered;
+      });
     } catch (err: any) {
       toast({
         title: 'Error reordering content',

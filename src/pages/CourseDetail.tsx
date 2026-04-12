@@ -18,6 +18,7 @@ import { isEnrolledInCourse, addEnrolledCourse, isWishlistedCourse, toggleWishli
 import { Course } from '@/types';
 import { useForums } from '@/hooks/useForums';
 import { useCoursePermissions } from '@/hooks/useCoursePermissions';
+import { useCourseProgress } from '@/hooks/useCourseProgress';
 import { EditCourseButton } from '@/components/course/EditCourseButton';
 import { CourseModulesList } from '@/components/course/CourseModulesList';
 import { CanvasAssignmentsList } from '@/components/course/canvas/CanvasAssignmentsList';
@@ -42,7 +43,10 @@ const CourseDetail = () => {
   const { toast } = useToast();
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  
+
+  // Canonical progress — replaces the ad-hoc reduce over module.completionStatus.
+  const { data: courseProgress } = useCourseProgress(courseId);
+
   // Determine current section from URL
   const currentSection = location.pathname.split('/').pop() || 'home';
   const isMainCourse = currentSection === courseId;
@@ -364,7 +368,7 @@ const CourseDetail = () => {
     }
   };
 
-  const overallProgress = course.modules.reduce((sum, module) => sum + (module.completionStatus || 0), 0) / (course.modules.length || 1);
+  const overallProgress = courseProgress?.percent ?? 0;
   
   // Render different content based on the current section
   const renderContent = () => {

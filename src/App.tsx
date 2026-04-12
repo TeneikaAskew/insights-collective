@@ -25,6 +25,8 @@ const AuthCallback = lazy(() => import('@/pages/AuthCallback'));
 // Course & Learning Pages
 const CourseList = lazy(() => import('@/pages/CourseList'));
 const CourseDetail = lazy(() => import('@/pages/CourseDetail'));
+const CourseBuilder = lazy(() => import('@/pages/CourseBuilder'));
+const CourseLearn = lazy(() => import('@/pages/CourseLearn'));
 const CourseManagement = lazy(() => import('@/pages/CourseManagement'));
 const CourseManagementDashboard = lazy(() => import('@/components/course/management/CourseManagementDashboard'));
 const AssignmentDetail = lazy(() => import('@/pages/AssignmentDetail'));
@@ -225,6 +227,11 @@ function App() {
                      <Route path="/courses/:courseId/calendar" element={<CourseCalendar />} />
                      <Route path="/courses/:courseId/people" element={<CourseDetail />} />
                      <Route path="/courses/:courseId/management" element={<CourseManagement />} />
+                     {/* New Teachable/Kajabi-style builder + learner routes */}
+                     <Route path="/courses/:courseId/builder" element={<CourseBuilder />} />
+                     <Route path="/courses/new/builder" element={<CourseBuilder />} />
+                     <Route path="/courses/:courseId/learn" element={<CourseLearn />} />
+                     <Route path="/courses/:courseId/learn/:moduleId/:itemId" element={<CourseLearn />} />
                      <Route path="/courses/:courseId/modules/:moduleId/assignments/:assignmentId" element={<AssignmentDetail />} />
                      <Route path="/courses/:courseId/modules/:moduleId/lessons/:lessonId" element={<LessonDetail />} />
                      <Route path="/courses/:courseId/modules/:moduleId" element={<CanvasModuleDetail />} />
