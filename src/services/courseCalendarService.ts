@@ -251,7 +251,7 @@ export const courseCalendarService = {
   ): Promise<CourseCalendarEvent[]> {
     // Get user's enrolled courses
     const { data: enrollments, error } = await supabase
-      .from('course_enrollments')
+      .from('enrollments')
       .select('course_id')
       .eq('user_id', userId);
 

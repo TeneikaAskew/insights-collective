@@ -387,7 +387,7 @@ export default function FormEditor({ initialFormData }: FormEditorProps) {
             <CardDescription>The form you are looking for does not exist.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button onClick={() => navigate('/admin/forms')}>
+            <Button onClick={() => navigate('/admin/unified-form-management')}>
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Forms
             </Button>
@@ -406,7 +406,7 @@ export default function FormEditor({ initialFormData }: FormEditorProps) {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            <Button variant="ghost" onClick={() => navigate('/admin/forms')}>
+            <Button variant="ghost" onClick={() => navigate('/admin/unified-form-management')}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
             {formData.title || 'Untitled Form'}

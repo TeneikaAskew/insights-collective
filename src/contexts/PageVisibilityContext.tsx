@@ -278,11 +278,9 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
         { page_path: '/admin/blog-posts', page_name: 'Admin Blog Posts' },
         { page_path: '/admin/courses', page_name: 'Admin Courses' },
         { page_path: '/admin/events', page_name: 'Admin Events' },
-        { page_path: '/admin/forms', page_name: 'Admin Forms' },
         { page_path: '/admin/users', page_name: 'Admin Users' },
         { page_path: '/admin/page-visibility', page_name: 'Admin Page Visibility' },
-        { page_path: '/admin/form-management', page_name: 'Admin Form Management' },
-        { page_path: '/admin/unified-form-management', page_name: 'Admin Unified Form Management' },
+        { page_path: '/admin/unified-form-management', page_name: 'Form Management' },
         { page_path: '/admin/local-storage-debug', page_name: 'Admin Debug Tools' },
         
         // Legal & Info Routes

@@ -182,7 +182,7 @@ export default function SurveyFormEdit() {
             <CardContent>
               <p className="text-red-500">{error}</p>
               <Button 
-                onClick={() => window.location.href = '/admin/forms'}
+                onClick={() => window.location.href = '/admin/unified-form-management'}
                 className="mt-4"
               >
                 <ArrowLeft className="mr-2 h-4 w-4" />

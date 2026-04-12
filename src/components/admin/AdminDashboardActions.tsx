@@ -21,7 +21,7 @@ const adminActions = [
     title: "Form Management",
     description: "Create, edit, and manage forms and surveys",
     icon: <FormInput className="h-5 w-5" />,
-    href: "/admin/forms",
+    href: "/admin/unified-form-management",
     color: "bg-blue-100 dark:bg-blue-900",
     iconColor: "text-blue-600 dark:text-blue-300",
   },
@@ -78,7 +78,7 @@ export const AdminDashboardActions = () => {
             </Button>
           </IssueCertificatesModal>
           
-          <Button variant="outline" className="w-full justify-start" onClick={() => navigate('/admin/forms')}>
+          <Button variant="outline" className="w-full justify-start" onClick={() => navigate('/admin/unified-form-management')}>
             <FormInput className="mr-2 h-4 w-4" />
             <span>Manage Forms</span>
           </Button>
