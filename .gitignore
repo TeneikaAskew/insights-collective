@@ -25,3 +25,8 @@ dist-ssr
 
 # Screenshots
 screenshots/
+
+# Playwright E2E
+.playwright-sessions/
+playwright-report/
+test-results/
