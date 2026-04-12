@@ -39,9 +39,9 @@ const CTASection = () => {
                 Create Free Account <ArrowRight className="ml-2 h-5 w-5" />
               </Link>
             </Button>
-            <Button 
-              size="lg" 
-              className="bg-accent/20 hover:bg-accent/30 backdrop-blur-sm border border-white/20 text-white px-8 py-7 h-auto text-lg rounded-full shadow-lg hover:shadow-accent/20 transform transition-all duration-300 hover:-translate-y-1" 
+            <Button
+              size="lg"
+              className="bg-white/15 hover:bg-white/25 backdrop-blur-sm border-2 border-white text-white px-8 py-7 h-auto text-lg rounded-full shadow-lg transform transition-all duration-300 hover:-translate-y-1"
               asChild
             >
               <Link to="/login">
