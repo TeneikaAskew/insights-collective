@@ -183,10 +183,10 @@ export const courseCalendarService = {
 
     // Fetch custom course events if not filtered out
     if (!filters?.types || filters.types.includes('event')) {
-      const { data: customEvents } = await supabase
+      const { data: customEvents } = await (supabase
         .from('events')
-        .select('id, title, description, date, location, link, zoom_meeting_id, zoom_start_url, zoom_recurrence')
-        .eq('course_id' as any, courseId);
+        .select('id, title, description, date, location, link, zoom_meeting_id, zoom_start_url, zoom_recurrence') as any)
+        .eq('course_id', courseId);
 
       customEvents?.forEach((e: any) => {
         if (e.date) {

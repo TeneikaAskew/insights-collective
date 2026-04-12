@@ -26,10 +26,10 @@ import { useRecentEvents } from '@/hooks/useEvents';
 import { useAuth } from '@/hooks/useAuth';
 
 const Index = () => {
-  const { enrichedUser, loading } = useAuth();
+  const { user, loading } = useAuth();
 
   // Redirect authenticated users — restore last visited path if available
-  if (!loading && enrichedUser) {
+  if (!loading && user) {
     const lastPath = sessionStorage.getItem('lastVisitedPath');
     if (lastPath) {
       sessionStorage.removeItem('lastVisitedPath');
