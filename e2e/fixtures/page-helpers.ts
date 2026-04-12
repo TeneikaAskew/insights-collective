@@ -1,6 +1,7 @@
 import { Page, expect } from '@playwright/test';
 import { waitForPageLoad, expectToast, expectRedirectToLogin, clickTab, interceptOAuth } from '../helpers/wait-helpers';
-
+// Re-export the console-error-aware test and expect so callers only need one import
+export { test, expect } from './console-errors.fixture';
 export { waitForPageLoad, expectToast, expectRedirectToLogin, clickTab, interceptOAuth };
 
 /**

@@ -1,7 +1,7 @@
-import { test as base } from '@playwright/test';
 import type { Page, BrowserContext } from '@playwright/test';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { test as baseWithConsole } from './console-errors.fixture';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,9 +20,10 @@ interface AuthFixtures {
 
 /**
  * Extended Playwright test fixture that injects pre-authenticated pages
- * for each role. Sessions are created once in global-setup.ts.
+ * for each role AND automatically checks for console errors after every test.
+ * Sessions are created once in global-setup.ts.
  */
-export const test = base.extend<AuthFixtures>({
+export const test = baseWithConsole.extend<AuthFixtures>({
   adminPage: async ({ browser }, use) => {
     const context: BrowserContext = await browser.newContext({
       storageState: path.join(SESSIONS_DIR, 'admin.json'),

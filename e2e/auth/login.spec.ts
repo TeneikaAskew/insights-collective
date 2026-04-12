@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures/page-helpers';
 import { goto, expectToast, interceptOAuth } from '../fixtures/page-helpers';
 import { Sel } from '../fixtures/test-ids';
 import { Routes } from '../helpers/route-helpers';
