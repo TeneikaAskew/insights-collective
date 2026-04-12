@@ -94,6 +94,7 @@ export function LessonViewer({
         {(item.type === 'page' || item.type === 'assignment' || item.type === 'quiz') && (
           <div className="prose prose-lg max-w-none">
             <UnifiedCanvasEditor
+              key={item.id}
               content={item.content || ''}
               onChange={() => {}}
               readOnly={true}

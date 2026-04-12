@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import AppLayout from '@/components/layout/AppLayout';
+import { CourseLayout } from '@/components/course/CourseLayout';
 import { Spinner } from '@/components/ui/spinner';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
@@ -112,7 +112,7 @@ const CourseLearn = () => {
     return () => {
       cancelled = true;
     };
-  }, [courseId, itemId, navigate, toast]);
+  }, [courseId, navigate, toast]);
 
   // --- Load completion state across the course --------------------------
   useEffect(() => {
@@ -196,26 +196,26 @@ const CourseLearn = () => {
 
   if (loading) {
     return (
-      <AppLayout>
+      <CourseLayout>
         <div className="flex justify-center items-center h-[60vh]">
           <Spinner size="lg" />
         </div>
-      </AppLayout>
+      </CourseLayout>
     );
   }
 
   if (!course) {
     return (
-      <AppLayout>
+      <CourseLayout>
         <div className="text-center py-24">
           <h1 className="text-2xl font-semibold mb-2">Course not found</h1>
         </div>
-      </AppLayout>
+      </CourseLayout>
     );
   }
 
   return (
-    <AppLayout>
+    <CourseLayout>
       <div className="flex flex-col h-[calc(100vh-4rem)]">
         {/* Minimal header — the curriculum tree is the primary nav */}
         <div className="border-b bg-background px-4 py-3 flex items-center gap-4">
@@ -256,7 +256,7 @@ const CourseLearn = () => {
           </main>
         </div>
       </div>
-    </AppLayout>
+    </CourseLayout>
   );
 };
 

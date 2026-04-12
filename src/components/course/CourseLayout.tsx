@@ -11,11 +11,26 @@ interface CourseLayoutProps {
   children: ReactNode;
 }
 
+// SidebarProvider writes to this cookie when toggled but doesn't read it back on mount.
+// We read it here so the sidebar state persists across page navigations.
+function getSidebarStateFromCookie(): boolean {
+  if (typeof document === 'undefined') return true;
+  const match = document.cookie
+    .split('; ')
+    .find(row => row.startsWith('sidebar:state='));
+  if (match) {
+    return match.split('=')[1] === 'true';
+  }
+  return true;
+}
+
 export function CourseLayout({ children }: CourseLayoutProps) {
   return (
-    <SidebarProvider defaultOpen={true}>
+    <SidebarProvider defaultOpen={getSidebarStateFromCookie()}>
       <div className="min-h-screen flex flex-col w-full bg-background">
-        <Navbar />
+        <div className="sticky top-0 z-50">
+          <Navbar />
+        </div>
         
         <div className="flex flex-1 w-full">
           <CourseSidebar />

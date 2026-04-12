@@ -3,21 +3,22 @@
 
 import { useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
-import { 
-  Home, 
-  BookOpen, 
-  MessageCircle, 
-  Calendar, 
-  FileText, 
-  BarChart3, 
-  Users, 
+import {
+  Home,
+  BookOpen,
+  MessageCircle,
+  Calendar,
+  FileText,
+  BarChart3,
+  Users,
   Settings,
   ChevronLeft,
   User,
   TrendingUp,
   GraduationCap,
   ClipboardCheck,
-  Database
+  Database,
+  Lock
 } from 'lucide-react';
 import {
   Sidebar,
@@ -29,6 +30,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarHeader,
+  SidebarFooter,
   useSidebar,
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
@@ -38,7 +40,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCoursePermissions } from '@/hooks/useCoursePermissions';
 
 const courseNavItems = [
-  { title: 'Home', url: '', icon: Home },
+  { title: 'Course Home', url: '', icon: Home },
   { title: 'Modules', url: '/modules', icon: BookOpen },
   { title: 'Announcements', url: '/announcements', icon: MessageCircle },
   { title: 'Assignments', url: '/assignments', icon: FileText },
@@ -128,13 +130,20 @@ export function CourseSidebar() {
                     asChild
                     className={`${getNavClassName(item.url)} group`}
                   >
-                    <Link 
+                    <Link
                       to={`${basePath}${item.url}`}
                     >
                       <item.icon className={`h-4 w-4 ${!isActive(item.url) ? 'group-hover:!text-primary' : ''}`} />
-                      {open && <span className={!isActive(item.url) ? 'group-hover:!text-primary' : ''}>{
-                        (item.studentTitle && !isInstructor) ? item.studentTitle : item.title
-                      }</span>}
+                      {open && (
+                        <>
+                          <span className={`flex-1 ${!isActive(item.url) ? 'group-hover:!text-primary' : ''}`}>
+                            {(item.studentTitle && !isInstructor) ? item.studentTitle : item.title}
+                          </span>
+                          {item.instructorOnly && (
+                            <Lock className="h-3 w-3 ml-1 text-muted-foreground/60 flex-shrink-0" />
+                          )}
+                        </>
+                      )}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -155,12 +164,9 @@ export function CourseSidebar() {
                       {course.instructor.name.charAt(0)}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 text-left">
                     <p className="text-sm font-medium truncate">
                       {course.instructor.name}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Instructor
                     </p>
                   </div>
                 </div>
@@ -169,6 +175,19 @@ export function CourseSidebar() {
           </SidebarGroup>
         )}
       </SidebarContent>
+
+      <SidebarFooter className="border-t">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild className="hover:!bg-primary/10 hover:!text-primary transition-all duration-200">
+              <Link to="/dashboard">
+                <Home className="h-4 w-4" />
+                {open && <span>Home</span>}
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
     </Sidebar>
   );
 }

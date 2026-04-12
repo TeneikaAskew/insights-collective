@@ -1,4 +1,4 @@
-import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, ChevronRight, Bot, MessageSquare, FileUp, Eye, Compass, FileCheck, FormInput, Newspaper, Bug, Lightbulb, Twitter } from 'lucide-react';
+import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, Bot, MessageSquare, FileUp, Eye, Compass, FileCheck, FormInput, Newspaper, Bug, Lightbulb, Twitter } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarTrigger, SidebarFooter, SidebarRail } from '@/components/ui/sidebar';
 import { useAuth } from '@/contexts/AuthContext';
@@ -202,7 +202,6 @@ const AppSidebar = () => {
             <span className="font-bold text-base">Insights Collective</span>
           </Link>
         </div>
-        <SidebarTrigger className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 absolute right-2 top-2" />
       </SidebarHeader>
       
       <SidebarContent className="py-2 px-2 bg-gray-50 dark:bg-gray-900">
@@ -228,7 +227,7 @@ const AppSidebar = () => {
             <SidebarMenu>
               {menuItems.map((item, index) => <motion.div key={item.title} custom={index} initial="hidden" animate="visible" variants={menuItemVariants}>
                   <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={item.active} className={`transition-all duration-200 ${item.active ? 'bg-[#9b87f5]/10 text-[#9b87f5] font-medium' : 'text-gray-700 dark:text-gray-300 hover:text-[#9b87f5] hover:bg-[#9b87f5]/5'}`}>
+                    <SidebarMenuButton asChild isActive={item.active} className={`transition-all duration-200 ${item.active ? 'bg-[#9b87f5]/10 text-[#9b87f5] font-medium border-r-2 border-[#9b87f5]' : 'text-gray-700 dark:text-gray-300 hover:text-[#9b87f5] hover:bg-[#9b87f5]/5'}`}>
                       <Link to={item.url} className={`flex items-center space-x-2 rounded-md px-2 py-1.5 ${item.highlight ? 'bg-[#9b87f5]/5 border border-[#9b87f5]/20' : ''}`}>
                         <item.icon className={`h-3.5 w-3.5 flex-shrink-0 ${item.active ? 'text-[#9b87f5]' : 'text-gray-500 dark:text-gray-400'}`} />
                         <span className="text-xs truncate">{item.title}</span>
@@ -236,11 +235,6 @@ const AppSidebar = () => {
                           <Badge className="ml-auto h-4 text-[10px] bg-[#9b87f5]/20 text-[#9b87f5] hover:bg-[#9b87f5]/30">
                             New
                           </Badge>
-                        )}
-                        {item.active && (
-                          <div className="ml-auto">
-                            <ChevronRight className="h-3 w-3 text-[#9b87f5]" />
-                          </div>
                         )}
                       </Link>
                     </SidebarMenuButton>
@@ -257,13 +251,10 @@ const AppSidebar = () => {
             <SidebarGroupContent>
               <SidebarMenu>
                 {isAdmin && visibleAdminMenuItems.map(item => <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild isActive={item.active} className={`transition-all duration-200 ${item.active ? 'bg-[#9b87f5]/10 text-[#9b87f5] font-medium' : 'text-gray-700 dark:text-gray-400 hover:text-[#9b87f5] hover:bg-[#9b87f5]/5'}`}>
+                    <SidebarMenuButton asChild isActive={item.active} className={`transition-all duration-200 ${item.active ? 'bg-[#9b87f5]/10 text-[#9b87f5] font-medium border-r-2 border-[#9b87f5]' : 'text-gray-700 dark:text-gray-400 hover:text-[#9b87f5] hover:bg-[#9b87f5]/5'}`}>
                       <Link to={item.url} className="flex items-center space-x-2 rounded-md px-2 py-1.5">
                         <item.icon className={`h-3.5 w-3.5 flex-shrink-0 ${item.active ? 'text-[#9b87f5]' : 'text-gray-500'}`} />
                         <span className="text-xs truncate">{item.title}</span>
-                        {item.active && <div className="ml-auto">
-                          <ChevronRight className="h-3 w-3 text-[#9b87f5]" />
-                        </div>}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>)}
