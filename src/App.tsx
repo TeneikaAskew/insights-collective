@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Link, useParams, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { OnboardingProvider } from '@/contexts/OnboardingContext';
@@ -7,6 +7,7 @@ import { PageVisibilityProvider } from '@/contexts/PageVisibilityContext';
 import { Toaster } from '@/components/ui/toaster';
 import WelcomeModal from '@/components/onboarding/WelcomeModal';
 import { Spinner } from '@/components/ui/spinner';
+import { Button } from '@/components/ui/button';
 
 // Critical pages loaded immediately
 import Index from '@/pages/Index';
@@ -103,7 +104,6 @@ const AdminBlogPosts = lazy(() => import('@/pages/AdminBlogPosts'));
 const AdminCourses = lazy(() => import('@/pages/AdminCourses'));
 const AdminCourseEdit = lazy(() => import('@/pages/AdminCourseEdit'));
 const AdminEvents = lazy(() => import('@/pages/AdminEvents'));
-const AdminForms = lazy(() => import('@/pages/AdminForms'));
 const AdminUsers = lazy(() => import('@/pages/AdminUsers'));
 const BlogAdmin = lazy(() => import('@/pages/admin/BlogAdmin'));
 const AdminPageVisibility = lazy(() => import('@/pages/AdminPageVisibility'));
@@ -128,8 +128,9 @@ import '@/App.css';
 
 // Loading component for Suspense fallback
 const PageLoader = () => (
-  <div className="flex justify-center items-center h-96">
+  <div className="flex flex-col justify-center items-center h-96 gap-3">
     <Spinner size="lg" />
+    <p className="text-sm text-muted-foreground">Loading...</p>
   </div>
 );
 
@@ -148,16 +149,18 @@ function PortfolioEditorWrapper() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-96">
+      <div className="flex flex-col justify-center items-center h-96 gap-3">
         <Spinner size="lg" />
+        <p className="text-sm text-muted-foreground">Loading portfolio...</p>
       </div>
     );
   }
 
   if (!portfolioPage) {
     return (
-      <div className="text-center py-12">
-        <p className="text-muted-foreground">Portfolio page not found</p>
+      <div className="flex flex-col justify-center items-center h-96 gap-3 text-center">
+        <p className="text-muted-foreground">Portfolio page not found.</p>
+        <Button variant="outline" asChild><Link to="/portfolio-explorer">Back to Explorer</Link></Button>
       </div>
     );
   }
@@ -266,6 +269,7 @@ function App() {
                     <Route path="/events" element={<Events />} />
                     <Route path="/events/:id" element={<EventDetail />} />
                     <Route path="/messages" element={<Messages />} />
+                    <Route path="/messages/:conversationId" element={<Messages />} />
                     <Route path="/forum" element={<Forum />} />
                     <Route path="/forums" element={<Forum />} />
                     <Route path="/forum/:forumId" element={<ForumDetail />} />
@@ -318,7 +322,6 @@ function App() {
                     <Route path="/admin/courses" element={<AdminCourses />} />
                     <Route path="/admin/course-edit/:id" element={<AdminCourseEdit />} />
                     <Route path="/admin/events" element={<AdminEvents />} />
-                    <Route path="/admin/forms" element={<AdminForms />} />
                     <Route path="/admin/users" element={<AdminUsers />} />
                     <Route path="/admin/page-visibility" element={<AdminPageVisibility />} />
                     <Route path="/admin/form-management" element={<FormManagement />} />
