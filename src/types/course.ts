@@ -313,6 +313,14 @@ export interface ModuleProgress {
   progress_percentage: number;
 }
 
+export interface ZoomRecurrence {
+  type: 'daily' | 'weekly' | 'biweekly' | 'monthly';
+  repeat_interval?: number;
+  end_date?: string;
+  end_times?: number;
+  weekly_days?: number[];
+}
+
 export interface CourseCalendarEvent {
   id: string;
   title: string;
@@ -326,7 +334,10 @@ export interface CourseCalendarEvent {
   related_id?: string; // assignment_id, quiz_id, etc.
   location?: string;
   all_day?: boolean;
-  link?: string; // meeting URL (e.g. Zoom join link)
+  link?: string;
+  zoom_meeting_id?: number;
+  zoom_start_url?: string;
+  zoom_recurrence?: ZoomRecurrence;
 }
 
 // Question Bank Types

@@ -1,6 +1,14 @@
 import { supabase } from '@/integrations/supabase/client';
 import { CourseCalendarEvent } from '@/types/course';
 
+export interface ZoomRecurrence {
+  type: 'daily' | 'weekly' | 'biweekly' | 'monthly';
+  repeat_interval?: number;
+  end_date?: string;
+  end_times?: number;
+  weekly_days?: number[];
+}
+
 export interface CalendarEventInput {
   course_id: string;
   title: string;
@@ -12,6 +20,9 @@ export interface CalendarEventInput {
   location?: string;
   created_by?: string;
   link?: string;
+  zoom_meeting_id?: number;
+  zoom_start_url?: string;
+  zoom_recurrence?: ZoomRecurrence;
 }
 
 export interface CalendarFilters {
@@ -174,10 +185,10 @@ export const courseCalendarService = {
     if (!filters?.types || filters.types.includes('event')) {
       const { data: customEvents } = await supabase
         .from('events')
-        .select('id, title, description, date, location, link')
+        .select('id, title, description, date, location, link, zoom_meeting_id, zoom_start_url, zoom_recurrence')
         .eq('course_id' as any, courseId);
 
-      customEvents?.forEach(e => {
+      customEvents?.forEach((e: any) => {
         if (e.date) {
           events.push({
             id: `event-${e.id}`,
@@ -190,6 +201,9 @@ export const courseCalendarService = {
             related_id: e.id,
             course_color: '#06b6d4',
             link: e.link || undefined,
+            zoom_meeting_id: e.zoom_meeting_id || undefined,
+            zoom_start_url: e.zoom_start_url || undefined,
+            zoom_recurrence: e.zoom_recurrence || undefined,
           });
         }
       });
@@ -267,6 +281,9 @@ export const courseCalendarService = {
         type: event.link ? 'virtual' : (event.event_type || 'event'),
         format: event.link ? 'online' : 'in-person',
         course_id: event.course_id,
+        zoom_meeting_id: event.zoom_meeting_id,
+        zoom_start_url: event.zoom_start_url,
+        zoom_recurrence: event.zoom_recurrence,
       } as any)
       .select()
       .single();
