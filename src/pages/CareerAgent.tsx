@@ -270,8 +270,8 @@ const CareerAgent: React.FC = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col items-center justify-center p-8 space-y-6">
-              <div className="bg-accent/20 rounded-full p-6">
-                <Map className="h-12 w-12 text-accent" />
+              <div className="bg-primary/10 rounded-full p-6">
+                <Map className="h-12 w-12 text-primary" />
               </div>
               <div className="text-center">
                 <h3 className="text-lg font-medium mb-2">
@@ -284,7 +284,7 @@ const CareerAgent: React.FC = () => {
               </div>
             </CardContent>
             <CardFooter className="flex flex-col">
-              <Button asChild className="w-full">
+              <Button asChild className="w-full bg-primary hover:bg-primary/90">
                 <Link to="/login?redirect=%2Fcareer-agent" state={{ from: { pathname: '/career-agent' } }}>Sign In to Continue</Link>
               </Button>
               <p className="text-sm text-muted-foreground mt-4 text-center">
