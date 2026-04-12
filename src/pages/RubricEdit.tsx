@@ -4,6 +4,7 @@ import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RubricBuilder } from '@/components/course/rubrics/RubricBuilder';
 import { useRubric } from '@/hooks/useRubrics';
+import { CourseLayout } from '@/components/course/CourseLayout';
 
 export default function RubricEdit() {
   const { courseId, rubricId } = useParams();
@@ -11,14 +12,15 @@ export default function RubricEdit() {
   const { rubric, isLoading } = useRubric(rubricId!);
 
   if (isLoading) {
-    return <div>Loading...</div>;
+    return <CourseLayout><div className="p-8">Loading...</div></CourseLayout>;
   }
 
   if (!rubric) {
-    return <div>Rubric not found</div>;
+    return <CourseLayout><div className="p-8">Rubric not found</div></CourseLayout>;
   }
 
   return (
+    <CourseLayout>
     <div className="container mx-auto px-4 py-8">
       <div className="mb-6">
         <Button
@@ -38,5 +40,6 @@ export default function RubricEdit() {
         onSave={() => navigate(`/courses/${courseId}/rubrics`)}
       />
     </div>
+    </CourseLayout>
   );
 }

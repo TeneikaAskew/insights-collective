@@ -185,6 +185,7 @@ const CourseCalendar = () => {
               <CardTitle>Calendar View</CardTitle>
             </CardHeader>
             <CardContent>
+              <div className="flex justify-center">
               <Calendar
                 mode="single"
                 selected={date}
@@ -200,6 +201,7 @@ const CourseCalendar = () => {
                   },
                 }}
               />
+              </div>
 
               {date && eventsForSelectedDate.length > 0 && (
                 <div className="mt-6 space-y-3">

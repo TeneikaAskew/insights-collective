@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import AppLayout from '@/components/layout/AppLayout';
+import { CourseLayout } from '@/components/course/CourseLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import CourseDetails from '@/components/course/management/CourseDetails';
 import CourseStudents from '@/components/course/management/CourseStudents';
@@ -127,19 +127,19 @@ function CourseManagement() {
 
   if (isLoading) {
     return (
-      <AppLayout>
+      <CourseLayout>
         <div className="container mx-auto py-8">
           <div className="flex justify-center items-center h-[50vh]">
             <Spinner size="lg" />
           </div>
         </div>
-      </AppLayout>
+      </CourseLayout>
     );
   }
 
   if (error) {
     return (
-      <AppLayout>
+      <CourseLayout>
         <div className="container mx-auto py-8">
           <div className="flex flex-col items-center justify-center h-[50vh]">
             <h2 className="text-2xl font-bold text-red-500 mb-4">Error loading course</h2>
@@ -149,14 +149,14 @@ function CourseManagement() {
             </Link>
           </div>
         </div>
-      </AppLayout>
+      </CourseLayout>
     );
   }
 
   return (
-    <AppLayout>
+    <CourseLayout>
       <CourseManagementContent courseId={courseId!} course={course} />
-    </AppLayout>
+    </CourseLayout>
   );
 }
 

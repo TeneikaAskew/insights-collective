@@ -4,6 +4,7 @@ import { QuestionBankList } from '@/components/course/question-banks/QuestionBan
 import { QuestionBankManager } from '@/components/course/question-banks/QuestionBankManager';
 import { QuestionBank } from '@/types/course';
 import { useCourseData } from '@/hooks/useCourseData';
+import { CourseLayout } from '@/components/course/CourseLayout';
 
 export default function CourseQuestionBanks() {
   const { courseId } = useParams();
@@ -11,14 +12,15 @@ export default function CourseQuestionBanks() {
   const [selectedBank, setSelectedBank] = useState<QuestionBank | null>(null);
 
   if (isLoading) {
-    return <div>Loading...</div>;
+    return <CourseLayout><div className="p-8">Loading...</div></CourseLayout>;
   }
 
   if (!course) {
-    return <div>Course not found</div>;
+    return <CourseLayout><div className="p-8">Course not found</div></CourseLayout>;
   }
 
   return (
+    <CourseLayout>
     <div className="container mx-auto px-4 py-8">
       {selectedBank ? (
         <QuestionBankManager
@@ -40,5 +42,6 @@ export default function CourseQuestionBanks() {
         </>
       )}
     </div>
+    </CourseLayout>
   );
 }

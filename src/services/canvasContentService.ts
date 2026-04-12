@@ -231,29 +231,22 @@ export class CanvasContentService {
     moduleId: string,
     itemIds: string[]
   ): Promise<void> {
-    const updates = itemIds.map((id, index) => ({
-      id,
-      module_id: moduleId,
-      position: index
-    }));
-
-    const { error } = await supabase
-      .from('content_items')
-      .upsert(updates);
-
+    // Uses the reorder_content_items RPC which defers the UNIQUE (module_id, position)
+    // constraint within a single transaction, avoiding 409 Conflict errors that occurred
+    // when sequential PATCHes temporarily violated the constraint mid-reorder.
+    const { error } = await supabase.rpc('reorder_content_items', {
+      p_module_id: moduleId,
+      p_item_ids: itemIds,
+    });
     if (error) throw error;
   }
 
   // Reorder modules within a course. Used by the builder's CurriculumTree drag-drop.
   static async reorderModules(courseId: string, moduleIds: string[]): Promise<void> {
-    const updates = moduleIds.map((id, index) => ({
-      id,
-      course_id: courseId,
-      position: index,
-    }));
-
-    const { error } = await supabase.from('modules').upsert(updates);
-
+    const { error } = await supabase.rpc('reorder_modules', {
+      p_course_id: courseId,
+      p_module_ids: moduleIds,
+    });
     if (error) throw error;
   }
 
