@@ -179,6 +179,18 @@ function SecurityManager() {
   return null;
 }
 
+// Track the current route in sessionStorage so a refresh-to-root can restore it
+function RouteTracker() {
+  const location = useLocation();
+  React.useEffect(() => {
+    const excluded = ['/', '/login', '/register', '/auth-callback', '/auth/callback', '/reset-password'];
+    if (!excluded.includes(location.pathname)) {
+      sessionStorage.setItem('lastVisitedPath', location.pathname + location.search);
+    }
+  }, [location]);
+  return null;
+}
+
 function App() {
   return (
     <Router>
@@ -187,6 +199,7 @@ function App() {
             <OnboardingProvider>
               <SecurityHeaders />
               <SecurityManager />
+              <RouteTracker />
               <div className="min-h-screen bg-gray-50">
                 <Suspense fallback={<PageLoader />}>
                   <Routes>

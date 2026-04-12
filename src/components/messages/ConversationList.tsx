@@ -13,6 +13,9 @@ import { createLogger } from '@/utils/logger';
 
 const logger = createLogger('getInitials');
 
+const sanitizeSubject = (subject?: string | null, fallback = 'Conversation') =>
+  !subject || /^(null\s*)+$/i.test(subject.trim()) ? fallback : subject;
+
 interface ConversationListProps {
   conversations: any[];
   loading: boolean;
@@ -165,12 +168,12 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
          // For groups, maybe show creator or just a generic group icon?
          // For 1-on-1, show the other person.
          let displayProfile = null;
-         let displayName = conversation.subject || 'Conversation';
+         let displayName = sanitizeSubject(conversation.subject, 'Conversation');
          let avatarFallback = '??';
          let avatarUrl = null;
 
          if (conversation.is_group) {
-             displayName = conversation.subject || `Group (${participants.length} participants)`;
+             displayName = sanitizeSubject(conversation.subject, `Group (${participants.length} participants)`);
              avatarFallback = 'GP';
              // Use a generic group avatar or maybe the creator's?
              const creatorProfile = participants.find((p:any) => p?.user_id === conversation.created_by)?.profile;
@@ -188,12 +191,12 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
                  avatarFallback = getInitials(displayProfile);
              } else {
                  // Handle case where profile might be missing for the other participant
-                 displayName = conversation.subject || 'Conversation';
+                 displayName = sanitizeSubject(conversation.subject, 'Conversation');
                  avatarFallback = 'U'; // Unknown user
              }
          } else {
             // Conversation likely with self or data issue
-            displayName = conversation.subject || 'Notes to self'; // Or similar
+            displayName = sanitizeSubject(conversation.subject, 'Notes to self'); // Or similar
             // Use current user's avatar
             avatarUrl = user.user_metadata?.avatar_url;
             avatarFallback = getInitials({first_name: user.user_metadata?.name?.split(' ')[0], last_name: user.user_metadata?.name?.split(' ')[1]});

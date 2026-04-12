@@ -110,7 +110,7 @@ export const StudentInsightsDashboard: React.FC<StudentInsightsProps> = ({
       // Load student profile
       const { data: profile } = await supabase
         .from('profiles')
-        .select('id, full_name, email, avatar_url')
+        .select('id, first_name, last_name, avatar_url')
         .eq('id', studentId)
         .single();
 
@@ -334,7 +334,7 @@ export const StudentInsightsDashboard: React.FC<StudentInsightsProps> = ({
           <h2 className="text-3xl font-bold">Student Performance Dashboard</h2>
           {studentInfo && (
             <p className="text-muted-foreground mt-1">
-              {studentInfo.full_name} • {courseInfo?.title}
+              {[studentInfo.first_name, studentInfo.last_name].filter(Boolean).join(' ')} • {courseInfo?.title}
             </p>
           )}
         </div>

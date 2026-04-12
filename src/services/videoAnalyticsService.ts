@@ -323,7 +323,7 @@ class VideoAnalyticsService {
           `
           *,
           content_items!inner(course_id),
-          profiles(email, full_name)
+          profiles(first_name, last_name)
         `
         )
         .eq('content_items.course_id', courseId)

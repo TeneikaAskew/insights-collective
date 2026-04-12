@@ -40,7 +40,6 @@ interface Profile {
   id: string;
   firstName: string;
   lastName: string;
-  email?: string;
   avatarUrl?: string;
 }
 
@@ -66,8 +65,7 @@ const CourseInstructorsTab = ({ courseId }: CourseInstructorsTabProps) => {
             id,
             first_name,
             last_name,
-            avatar_url,
-            email
+            avatar_url
           )
         `)
         .eq('course_id', courseId);
@@ -85,7 +83,6 @@ const CourseInstructorsTab = ({ courseId }: CourseInstructorsTabProps) => {
           id: instructor.profile.id,
           firstName: instructor.profile.first_name,
           lastName: instructor.profile.last_name,
-          email: instructor.profile.email,
           avatarUrl: instructor.profile.avatar_url,
         } : undefined
       }));
@@ -104,8 +101,7 @@ const CourseInstructorsTab = ({ courseId }: CourseInstructorsTabProps) => {
           id,
           first_name,
           last_name,
-          avatar_url,
-          email
+          avatar_url
         `);
 
       if (error) {
@@ -117,7 +113,6 @@ const CourseInstructorsTab = ({ courseId }: CourseInstructorsTabProps) => {
         id: profile.id,
         firstName: profile.first_name,
         lastName: profile.last_name,
-        email: profile.email,
         avatarUrl: profile.avatar_url,
       }));
 
@@ -248,7 +243,6 @@ const CourseInstructorsTab = ({ courseId }: CourseInstructorsTabProps) => {
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
-              <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
@@ -256,7 +250,7 @@ const CourseInstructorsTab = ({ courseId }: CourseInstructorsTabProps) => {
           <TableBody>
             {instructors.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground py-4">
+                <TableCell colSpan={3} className="text-center text-muted-foreground py-4">
                   No instructors assigned to this course
                 </TableCell>
               </TableRow>
@@ -266,7 +260,6 @@ const CourseInstructorsTab = ({ courseId }: CourseInstructorsTabProps) => {
                   <TableCell>
                     {instructor.profile?.firstName} {instructor.profile?.lastName}
                   </TableCell>
-                  <TableCell>{instructor.profile?.email}</TableCell>
                   <TableCell>{instructor.role}</TableCell>
                   <TableCell>
                     <Button
