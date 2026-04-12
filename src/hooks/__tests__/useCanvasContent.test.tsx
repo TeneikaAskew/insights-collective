@@ -98,7 +98,7 @@ describe('useCanvasContent', () => {
       expect(result.current.loading).toBe(false);
     });
 
-    let created: typeof newItem | undefined;
+    let created: any;
     await act(async () => {
       created = await result.current.createContentItem('page', 'New Item', 'Content');
     });
@@ -123,7 +123,7 @@ describe('useCanvasContent', () => {
       expect(result.current.loading).toBe(false);
     });
 
-    let updatedItem: typeof updated | undefined;
+    let updatedItem: any;
     await act(async () => {
       updatedItem = await result.current.updateContentItem('1', { title: 'Updated' });
     });

@@ -26,10 +26,14 @@ import { useRecentEvents } from '@/hooks/useEvents';
 import { useAuth } from '@/hooks/useAuth';
 
 const Index = () => {
-  const { enrichedUser, loading } = useAuth();
+  const { user, loading } = useAuth();
+  const { courses } = useCoursesManagement();
+  const featuredCourses = courses.filter(course => course.published).slice(0, 3);
+  const { data: upcomingEvents = [], isLoading: eventsLoading } = useRecentEvents(3);
+  const { isFirstVisit, completedTours, dismissedTours, startTour, isOnboardingActive, currentTour } = useOnboarding();
 
   // Redirect authenticated users — restore last visited path if available
-  if (!loading && enrichedUser) {
+  if (!loading && user) {
     const lastPath = sessionStorage.getItem('lastVisitedPath');
     if (lastPath) {
       sessionStorage.removeItem('lastVisitedPath');
@@ -37,11 +41,6 @@ const Index = () => {
     }
     return <Navigate to="/dashboard" replace />;
   }
-
-  const { courses } = useCoursesManagement();
-  const featuredCourses = courses.filter(course => course.published).slice(0, 3);
-  const { data: upcomingEvents = [], isLoading: eventsLoading } = useRecentEvents(3);
-  const { isFirstVisit, completedTours, dismissedTours, startTour, isOnboardingActive, currentTour } = useOnboarding();
   
   // Remove auto-start functionality to prevent conflicts
   // Users can manually trigger tours if needed
