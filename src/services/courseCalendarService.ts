@@ -46,10 +46,7 @@ export const courseCalendarService = {
           title,
           description,
           due_date,
-          unlock_at,
-          lock_at,
           points_possible,
-          submission_types,
           course_id
         `)
         .eq('course_id', courseId)
@@ -57,7 +54,6 @@ export const courseCalendarService = {
 
       if (!assignmentsError && assignments) {
         assignments.forEach(assignment => {
-          // Due date event
           if (assignment.due_date) {
             events.push({
               id: `assignment-due-${assignment.id}`,
@@ -68,37 +64,7 @@ export const courseCalendarService = {
               course_id: courseId,
               course_title: courseTitle,
               related_id: assignment.id,
-              course_color: '#3b82f6', // Blue for assignments
-            });
-          }
-
-          // Unlock date event
-          if (assignment.unlock_at) {
-            events.push({
-              id: `assignment-unlock-${assignment.id}`,
-              title: `🔓 ${assignment.title} - Available`,
-              description: `Assignment becomes available`,
-              start_date: assignment.unlock_at,
-              type: 'assignment',
-              course_id: courseId,
-              course_title: courseTitle,
-              related_id: assignment.id,
-              course_color: '#10b981', // Green for unlock
-            });
-          }
-
-          // Lock date event
-          if (assignment.lock_at) {
-            events.push({
-              id: `assignment-lock-${assignment.id}`,
-              title: `🔒 ${assignment.title} - Closes`,
-              description: `Assignment submissions close`,
-              start_date: assignment.lock_at,
-              type: 'assignment',
-              course_id: courseId,
-              course_title: courseTitle,
-              related_id: assignment.id,
-              course_color: '#ef4444', // Red for lock
+              course_color: '#3b82f6',
             });
           }
         });
@@ -203,32 +169,6 @@ export const courseCalendarService = {
       }
     }
 
-    // Fetch course events (custom events created by instructors)
-    if (!filters?.types || filters.types.includes('event')) {
-      const { data: courseEvents, error: eventsError } = await supabase
-        .from('events')
-        .select('*')
-        .eq('course_id', courseId);
-
-      if (!eventsError && courseEvents) {
-        courseEvents.forEach(event => {
-          events.push({
-            id: `event-${event.id}`,
-            title: `📅 ${event.title}`,
-            description: event.description || undefined,
-            start_date: event.date,
-            end_date: event.end_date || undefined,
-            type: 'event',
-            course_id: courseId,
-            course_title: courseTitle,
-            related_id: event.id,
-            location: event.location || undefined,
-            course_color: '#6b7280', // Gray for general events
-          });
-        });
-      }
-    }
-
     // Filter by date range if provided
     let filteredEvents = events;
     if (filters?.startDate || filters?.endDate) {
@@ -298,7 +238,6 @@ export const courseCalendarService = {
         date: event.start_date,
         end_date: event.end_date,
         location: event.location,
-        course_id: event.course_id,
         created_by: event.created_by,
       })
       .select()

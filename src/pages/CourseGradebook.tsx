@@ -75,19 +75,8 @@ const CourseGradebook = () => {
     enabled: !!courseId,
   });
 
-  // Get grades
-  const { data: grades = [] } = useQuery({
-    queryKey: ['course-grades', courseId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('grades')
-        .select('*')
-        .eq('course_id', courseId);
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!courseId && canEdit,
-  });
+  // grades table does not exist in the current schema — placeholder until migration is applied
+  const grades: any[] = [];
 
   // Get submissions
   const { data: submissions = [], isLoading: submissionsLoading } = useQuery({
