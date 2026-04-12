@@ -33,11 +33,6 @@ const questionTypes: { value: QuestionType; label: string }[] = [
   { value: 'true_false', label: 'True/False' },
   { value: 'short_answer', label: 'Short Answer' },
   { value: 'essay', label: 'Essay' },
-  { value: 'matching', label: 'Matching' },
-  { value: 'fill_blank', label: 'Fill in the Blank' },
-  { value: 'ordering', label: 'Ordering' },
-  { value: 'multiple_answer', label: 'Multiple Answer' },
-  { value: 'calculated', label: 'Calculated' },
 ];
 
 const difficultyLevels = [

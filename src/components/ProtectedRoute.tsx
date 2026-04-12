@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { validateSessionIntegrity, logSecurityEvent } from '@/utils/securityUtils';
 import { supabase } from '@/integrations/supabase/client';
+import { Spinner } from '@/components/ui/spinner';
 
 import { createLogger } from '@/utils/logger';
 
@@ -19,7 +20,7 @@ interface ProtectedRouteProps {
  * Enhanced ProtectedRoute with improved security validation using new database functions
  */
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireAdmin = false }) => {
-  const { isAuthenticated, user, session, storeRedirectPath } = useAuth();
+  const { isAuthenticated, user, session, storeRedirectPath, loading } = useAuth();
   const location = useLocation();
   const { toast } = useToast();
   const [hasAdminAccess, setHasAdminAccess] = React.useState<boolean | null>(null);
@@ -73,8 +74,13 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireAdmin 
     }
   }, [isAuthenticated, location.pathname, location.search, storeRedirectPath]);
 
-  if (isAuthenticated === undefined || (requireAdmin && hasAdminAccess === null)) {
-    return null;
+  if (loading || (session !== null && !isAuthenticated) || (requireAdmin && hasAdminAccess === null)) {
+    return (
+      <div className="flex flex-col justify-center items-center h-96 gap-3">
+        <Spinner size="lg" className="text-[#9b87f5]" />
+        <p className="text-sm text-muted-foreground">Verifying access...</p>
+      </div>
+    );
   }
 
   // Enhanced session validation

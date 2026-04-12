@@ -65,40 +65,6 @@ export const useUserRegistrations = () => {
       
       // Return the simple data for now
       return simpleData || [];
-      
-      // TODO: Re-enable the join query once we figure out why it's not working
-      /*
-      const { data, error } = await supabase
-        .from('event_registrations')
-        .select(`
-          *,
-          events:event_id (
-            id,
-            title,
-            description,
-            type,
-            format,
-            location,
-            link,
-            date,
-            start_time,
-            end_time,
-            image,
-            capacity,
-            calendly_link
-          )
-        `)
-        .eq('user_id', user!.id)
-        .order('registered_at', { ascending: false });
-      
-      logger.log('Join query result:', { data, error });
-      
-      if (error) {
-        logger.error('Error fetching user registrations:', error);
-        throw error;
-      }
-      return data || [];
-      */
     }
   });
 };

@@ -151,11 +151,6 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({ bank, 
                     <SelectItem value="true_false">True/False</SelectItem>
                     <SelectItem value="short_answer">Short Answer</SelectItem>
                     <SelectItem value="essay">Essay</SelectItem>
-                    <SelectItem value="matching">Matching</SelectItem>
-                    <SelectItem value="fill_blank">Fill in the Blank</SelectItem>
-                    <SelectItem value="ordering">Ordering</SelectItem>
-                    <SelectItem value="multiple_answer">Multiple Answer</SelectItem>
-                    <SelectItem value="calculated">Calculated</SelectItem>
                   </SelectContent>
                 </Select>
                 <Select value={selectedDifficulty} onValueChange={setSelectedDifficulty}>

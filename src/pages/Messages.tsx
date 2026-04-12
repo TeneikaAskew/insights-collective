@@ -20,6 +20,9 @@ import { useDeletedConversations } from '@/hooks/useDeletedConversations';
 import { useConversationMessages } from '@/hooks/useConversationMessages';
 import { useMessageSend } from '@/hooks/useMessageSend';
 
+const sanitizeSubject = (subject?: string | null, fallback = 'Conversation') =>
+  !subject || /^(null\s*)+$/i.test(subject.trim()) ? fallback : subject;
+
 export default function Messages() {
   const { conversationId } = useParams();
   const navigate = useNavigate();
@@ -122,7 +125,7 @@ export default function Messages() {
               </Button>
               <div>
                 <h1 className="text-2xl font-bold tracking-tight">
-                  {currentConversation?.subject || 'Conversation'}
+                  {sanitizeSubject(currentConversation?.subject)}
                 </h1>
                 <p className="text-muted-foreground">
                   {isDeleted ? 'Deleted conversation' : isArchived ? 'Archived conversation' : 'Active conversation'}

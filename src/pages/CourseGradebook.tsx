@@ -75,7 +75,7 @@ const CourseGradebook = () => {
     enabled: !!courseId,
   });
 
-  // Get grades - temporarily disabled until grades table is implemented
+  // grades table does not exist in the current schema — placeholder until migration is applied
   const grades: any[] = [];
 
   // Get submissions

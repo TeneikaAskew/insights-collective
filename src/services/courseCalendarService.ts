@@ -1,6 +1,14 @@
 import { supabase } from '@/integrations/supabase/client';
 import { CourseCalendarEvent } from '@/types/course';
 
+export interface ZoomRecurrence {
+  type: 'daily' | 'weekly' | 'biweekly' | 'monthly';
+  repeat_interval?: number;
+  end_date?: string;
+  end_times?: number;
+  weekly_days?: number[];
+}
+
 export interface CalendarEventInput {
   course_id: string;
   title: string;
@@ -11,6 +19,10 @@ export interface CalendarEventInput {
   event_type?: string;
   location?: string;
   created_by?: string;
+  link?: string;
+  zoom_meeting_id?: number;
+  zoom_start_url?: string;
+  zoom_recurrence?: ZoomRecurrence;
 }
 
 export interface CalendarFilters {
@@ -46,10 +58,7 @@ export const courseCalendarService = {
           title,
           description,
           due_date,
-          unlock_at,
-          lock_at,
-          points_possible,
-          submission_types,
+          points,
           course_id
         `)
         .eq('course_id', courseId)
@@ -57,7 +66,6 @@ export const courseCalendarService = {
 
       if (!assignmentsError && assignments) {
         assignments.forEach(assignment => {
-          // Due date event
           if (assignment.due_date) {
             events.push({
               id: `assignment-due-${assignment.id}`,
@@ -68,37 +76,7 @@ export const courseCalendarService = {
               course_id: courseId,
               course_title: courseTitle,
               related_id: assignment.id,
-              course_color: '#3b82f6', // Blue for assignments
-            });
-          }
-
-          // Unlock date event
-          if (assignment.unlock_at) {
-            events.push({
-              id: `assignment-unlock-${assignment.id}`,
-              title: `🔓 ${assignment.title} - Available`,
-              description: `Assignment becomes available`,
-              start_date: assignment.unlock_at,
-              type: 'assignment',
-              course_id: courseId,
-              course_title: courseTitle,
-              related_id: assignment.id,
-              course_color: '#10b981', // Green for unlock
-            });
-          }
-
-          // Lock date event
-          if (assignment.lock_at) {
-            events.push({
-              id: `assignment-lock-${assignment.id}`,
-              title: `🔒 ${assignment.title} - Closes`,
-              description: `Assignment submissions close`,
-              start_date: assignment.lock_at,
-              type: 'assignment',
-              course_id: courseId,
-              course_title: courseTitle,
-              related_id: assignment.id,
-              course_color: '#ef4444', // Red for lock
+              course_color: '#3b82f6',
             });
           }
         });
@@ -203,30 +181,32 @@ export const courseCalendarService = {
       }
     }
 
-    // Fetch course events (custom events created by instructors)
+    // Fetch custom course events if not filtered out
     if (!filters?.types || filters.types.includes('event')) {
-      const { data: courseEvents, error: eventsError } = await supabase
+      const { data: customEvents } = await supabase
         .from('events')
-        .select('*')
-        .eq('course_id', courseId);
+        .select('id, title, description, date, location, link, zoom_meeting_id, zoom_start_url, zoom_recurrence')
+        .eq('course_id' as any, courseId);
 
-      if (!eventsError && courseEvents) {
-        courseEvents.forEach(event => {
+      customEvents?.forEach((e: any) => {
+        if (e.date) {
           events.push({
-            id: `event-${event.id}`,
-            title: `📅 ${event.title}`,
-            description: event.description || undefined,
-            start_date: event.date,
-            end_date: event.end_date || undefined,
+            id: `event-${e.id}`,
+            title: `📅 ${e.title}`,
+            description: e.description,
+            start_date: e.date,
             type: 'event',
             course_id: courseId,
             course_title: courseTitle,
-            related_id: event.id,
-            location: event.location || undefined,
-            course_color: '#6b7280', // Gray for general events
+            related_id: e.id,
+            course_color: '#06b6d4',
+            link: e.link || undefined,
+            zoom_meeting_id: e.zoom_meeting_id || undefined,
+            zoom_start_url: e.zoom_start_url || undefined,
+            zoom_recurrence: e.zoom_recurrence || undefined,
           });
-        });
-      }
+        }
+      });
     }
 
     // Filter by date range if provided
@@ -271,7 +251,7 @@ export const courseCalendarService = {
   ): Promise<CourseCalendarEvent[]> {
     // Get user's enrolled courses
     const { data: enrollments, error } = await supabase
-      .from('course_enrollments')
+      .from('enrollments')
       .select('course_id')
       .eq('user_id', userId);
 
@@ -294,13 +274,17 @@ export const courseCalendarService = {
       .from('events')
       .insert({
         title: event.title,
-        description: event.description,
+        description: event.description || '',
         date: event.start_date,
-        end_date: event.end_date,
         location: event.location,
+        link: event.link,
+        type: event.link ? 'virtual' : (event.event_type || 'event'),
+        format: event.link ? 'online' : 'in-person',
         course_id: event.course_id,
-        created_by: event.created_by,
-      })
+        zoom_meeting_id: event.zoom_meeting_id,
+        zoom_start_url: event.zoom_start_url,
+        zoom_recurrence: event.zoom_recurrence,
+      } as any)
       .select()
       .single();
 

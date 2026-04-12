@@ -208,7 +208,7 @@ export default function FormSubmissionsList({ formId, formSlug }: FormSubmission
                         variant="ghost"
                         size="sm"
                         onClick={() => {
-                          window.location.href = `/admin/forms/submissions/${formSlug}/submission/${submission.id}`;
+                          window.location.href = `/admin/unified-form-management/submissions/${formSlug}/submission/${submission.id}`;
                         }}
                         className="flex items-center gap-1"
                       >

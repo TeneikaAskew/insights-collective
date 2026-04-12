@@ -13,6 +13,9 @@ import { createLogger } from '@/utils/logger';
 
 const logger = createLogger('getInitials');
 
+const sanitizeSubject = (subject?: string | null, fallback = 'Conversation') =>
+  !subject || /^(null\s*)+$/i.test(subject.trim()) ? fallback : subject;
+
 interface ConversationListProps {
   conversations: any[];
   loading: boolean;
@@ -165,12 +168,12 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
          // For groups, maybe show creator or just a generic group icon?
          // For 1-on-1, show the other person.
          let displayProfile = null;
-         let displayName = conversation.subject || 'Conversation';
+         let displayName = sanitizeSubject(conversation.subject, 'Conversation');
          let avatarFallback = '??';
          let avatarUrl = null;
 
          if (conversation.is_group) {
-             displayName = conversation.subject || `Group (${participants.length} participants)`;
+             displayName = sanitizeSubject(conversation.subject, `Group (${participants.length} participants)`);
              avatarFallback = 'GP';
              // Use a generic group avatar or maybe the creator's?
              const creatorProfile = participants.find((p:any) => p?.user_id === conversation.created_by)?.profile;
@@ -188,12 +191,12 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
                  avatarFallback = getInitials(displayProfile);
              } else {
                  // Handle case where profile might be missing for the other participant
-                 displayName = conversation.subject || 'Conversation';
+                 displayName = sanitizeSubject(conversation.subject, 'Conversation');
                  avatarFallback = 'U'; // Unknown user
              }
          } else {
             // Conversation likely with self or data issue
-            displayName = conversation.subject || 'Notes to self'; // Or similar
+            displayName = sanitizeSubject(conversation.subject, 'Notes to self'); // Or similar
             // Use current user's avatar
             avatarUrl = user.user_metadata?.avatar_url;
             avatarFallback = getInitials({first_name: user.user_metadata?.name?.split(' ')[0], last_name: user.user_metadata?.name?.split(' ')[1]});
@@ -218,9 +221,9 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
             >
               <div className="p-4">
                 <div className="flex justify-between items-start gap-3">
-                  <div className="flex gap-3 items-center"> {/* Centered avatar and text */}
+                  <div className="flex gap-3 items-center flex-1 min-w-0">
                     {conversation.is_group ? (
-                      <div className="relative">
+                      <div className="relative h-10 w-10 shrink-0">
                          <Avatar className="h-10 w-10">
                             {/* Generic Group Icon or Creator Avatar */}
                             <AvatarImage src={avatarUrl || "https://api.dicebear.com/6.x/initials/svg?seed=Group"} />
@@ -237,18 +240,18 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
                            )}
                       </div>
                     ) : (
-                       <Avatar className="h-10 w-10">
+                       <Avatar className="h-10 w-10 shrink-0">
                          <AvatarImage src={avatarUrl} />
                          <AvatarFallback className="bg-amber-100 text-amber-800">
                            {avatarFallback}
                          </AvatarFallback>
                        </Avatar>
                     )}
-                    <div className="space-y-1">
-                      <p className={`font-medium line-clamp-1 text-gray-800 ${isUnread ? 'font-semibold' : ''}`}>
-                         {displayName}
+                    <div className="space-y-1 flex-1 min-w-0 text-left">
+                      <p className={`font-medium line-clamp-1 text-gray-800 text-left ${isUnread ? 'font-semibold' : ''}`}>
+                        {displayName}
                       </p>
-                      <p className={`text-sm text-gray-600 line-clamp-1 ${isUnread ? 'font-medium' : ''}`}>
+                      <p className={`text-sm text-gray-600 line-clamp-1 text-left ${isUnread ? 'font-medium' : ''}`}>
                         {conversation.last_message?.content || 'Start a conversation'}
                       </p>
                     </div>

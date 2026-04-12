@@ -15,11 +15,12 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  let action = 'unknown';
   try {
     const requestBody = await req.json();
     console.log('[messages-helper] Request payload:', JSON.stringify(requestBody, null, 2));
 
-    const { action } = requestBody;
+    action = requestBody.action;
 
     // Initialize Supabase admin client
     const supabaseAdmin = createClient(
@@ -72,7 +73,7 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('[messages-helper] Error:', error);
+    console.error(`[messages-helper] Error in action '${action}':`, error?.message ?? String(error));
     return new Response(JSON.stringify({ error: error.message }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -80,28 +81,30 @@ serve(async (req) => {
   }
 });
 
+// Returns true if a stored subject is missing or was generated with null values
+function isBlankSubject(subject: string | null | undefined): boolean {
+  if (!subject || subject.trim() === '') return true;
+  // Catches "null null", "null", "null  null", etc. left by old subject-generation bugs
+  return /^(null\s*)+$/i.test(subject.trim());
+}
+
 async function getConversations(supabaseAdmin: any, userId: string) {
   console.log(`[messages-helper/getConversations] Starting for user: ${userId}`);
-  
-  // Use the new secure function instead of the removed view
-  const { data: conversationIds, error: conversationIdsError } = await supabaseAdmin
-    .rpc('get_user_conversations_secure', { user_id_param: userId });
 
-  if (conversationIdsError) {
-    console.error('[messages-helper/getConversations] Error fetching conversation IDs:', conversationIdsError);
-    throw new Error(`Failed to fetch conversation IDs: ${conversationIdsError.message}`);
+  const { data: participantData, error: participantError } = await supabaseAdmin
+    .from('conversation_participants')
+    .select('conversation_id')
+    .eq('user_id', userId)
+    .neq('archived', true)
+    .is('deleted_at', null);
+
+  if (participantError) {
+    console.error('[messages-helper/getConversations] Error fetching conversation IDs:', participantError);
+    throw new Error(`Failed to fetch conversation IDs: ${participantError.message}`);
   }
 
-  console.log(`[messages-helper/getConversations] Found ${conversationIds?.length || 0} conversations.`);
-
-  if (!conversationIds || conversationIds.length === 0) {
-    return { conversations: [] };
-  }
-
-  // Extract just the conversation IDs
-  const activeConversationIds = conversationIds
-    .filter((conv: any) => !conv.archived)
-    .map((conv: any) => conv.id);
+  const activeConversationIds = (participantData || []).map((p: any) => p.conversation_id);
+  console.log(`[messages-helper/getConversations] Found ${activeConversationIds.length} active conversations.`);
 
   if (activeConversationIds.length === 0) {
     return { conversations: [] };
@@ -130,8 +133,7 @@ async function getConversations(supabaseAdmin: any, userId: string) {
           id,
           first_name,
           last_name,
-          avatar_url,
-          role
+          avatar_url
         )
       ),
       last_message:messages(
@@ -156,7 +158,7 @@ async function getConversations(supabaseAdmin: any, userId: string) {
     let subject = conv.subject;
     
     // Generate subject for conversations without one
-    if (!subject || subject.trim() === '') {
+    if (isBlankSubject(subject)) {
       if (conv.is_group) {
         const participantNames = conv.participants
           ?.filter((p: any) => p.profile && p.profile.first_name && p.user_id !== userId)
@@ -187,21 +189,6 @@ async function getConversations(supabaseAdmin: any, userId: string) {
 
 async function getArchivedConversations(supabaseAdmin: any, userId: string) {
   console.log(`[messages-helper/getArchivedConversations] Starting for user: ${userId}`);
-  
-  // Use the new secure function instead of the removed view
-  const { data: conversationIds, error: conversationIdsError } = await supabaseAdmin
-    .rpc('get_user_conversations_secure', { user_id_param: userId });
-
-  if (conversationIdsError) {
-    console.error('[messages-helper/getArchivedConversations] Error fetching conversation IDs:', conversationIdsError);
-    throw new Error(`Failed to fetch conversation IDs: ${conversationIdsError.message}`);
-  }
-
-  console.log(`[messages-helper/getArchivedConversations] Found ${conversationIds?.length || 0} conversations.`);
-
-  if (!conversationIds || conversationIds.length === 0) {
-    return { conversations: [] };
-  }
 
   // Get conversation participants for this user that are archived but not deleted
   const { data: participantData, error: participantError } = await supabaseAdmin
@@ -245,8 +232,7 @@ async function getArchivedConversations(supabaseAdmin: any, userId: string) {
           id,
           first_name,
           last_name,
-          avatar_url,
-          role
+          avatar_url
         )
       ),
       last_message:messages(
@@ -270,7 +256,7 @@ async function getArchivedConversations(supabaseAdmin: any, userId: string) {
   const processedConversations = (conversationData || []).map(conv => {
     let subject = conv.subject;
     
-    if (!subject || subject.trim() === '') {
+    if (isBlankSubject(subject)) {
       if (conv.is_group) {
         const participantNames = conv.participants
           ?.filter((p: any) => p.profile && p.profile.first_name && p.user_id !== userId)
@@ -342,8 +328,7 @@ async function getDeletedConversations(supabaseAdmin: any, userId: string) {
           id,
           first_name,
           last_name,
-          avatar_url,
-          role
+          avatar_url
         )
       ),
       last_message:messages(
@@ -366,7 +351,7 @@ async function getDeletedConversations(supabaseAdmin: any, userId: string) {
   const processedConversations = (conversationData || []).map(conv => {
     let subject = conv.subject;
     
-    if (!subject || subject.trim() === '') {
+    if (isBlankSubject(subject)) {
       if (conv.is_group) {
         const participantNames = conv.participants
           ?.filter((p: any) => p.profile && p.profile.first_name && p.user_id !== userId)

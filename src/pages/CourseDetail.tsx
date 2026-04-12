@@ -9,7 +9,10 @@ import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { BookOpen, Clock, Users, Star, Calendar, ChevronLeft, Share, MessageSquare, Edit, Bell, FileText, BarChart3 } from 'lucide-react';
+import { BookOpen, Clock, Users, Star, Calendar, ChevronLeft, Share, MessageSquare, Edit, Bell, FileText, BarChart3, Pin, PlusCircle, Trash2 } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -18,6 +21,7 @@ import { isEnrolledInCourse, addEnrolledCourse, isWishlistedCourse, toggleWishli
 import { Course } from '@/types';
 import { useForums } from '@/hooks/useForums';
 import { useCoursePermissions } from '@/hooks/useCoursePermissions';
+import { useCourseProgress } from '@/hooks/useCourseProgress';
 import { EditCourseButton } from '@/components/course/EditCourseButton';
 import { CourseModulesList } from '@/components/course/CourseModulesList';
 import { CanvasAssignmentsList } from '@/components/course/canvas/CanvasAssignmentsList';
@@ -41,8 +45,20 @@ const CourseDetail = () => {
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const { user, isAuthenticated } = useAuth();
+
+  // Announcements state
+  const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [announcementsLoading, setAnnouncementsLoading] = useState(false);
+  const [showAnnouncementForm, setShowAnnouncementForm] = useState(false);
+  const [announcementTitle, setAnnouncementTitle] = useState('');
+  const [announcementContent, setAnnouncementContent] = useState('');
+  const [announcementPinned, setAnnouncementPinned] = useState(false);
+  const [submittingAnnouncement, setSubmittingAnnouncement] = useState(false);
   const navigate = useNavigate();
-  
+
+  // Canonical progress — replaces the ad-hoc reduce over module.completionStatus.
+  const { data: courseProgress } = useCourseProgress(courseId);
+
   // Determine current section from URL
   const currentSection = location.pathname.split('/').pop() || 'home';
   const isMainCourse = currentSection === courseId;
@@ -51,7 +67,70 @@ const CourseDetail = () => {
   // The hook itself will handle the case when courseId is undefined
   const { forums, isLoadingForums } = useForums(courseId);
   const { canEdit, isAdmin, isInstructor } = useCoursePermissions(courseId);
-  
+
+  // Load announcements
+  const fetchAnnouncements = async () => {
+    if (!courseId) return;
+    setAnnouncementsLoading(true);
+    try {
+      const { data, error: err } = await supabase
+        .from('course_announcements')
+        .select('id, title, content, is_pinned, created_at, created_by')
+        .eq('course_id', courseId)
+        .order('is_pinned', { ascending: false })
+        .order('created_at', { ascending: false });
+      if (!err) setAnnouncements(data || []);
+    } catch {
+      // table may not exist yet; silently ignore
+    } finally {
+      setAnnouncementsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (currentSection === 'announcements') void fetchAnnouncements();
+  }, [courseId, currentSection]);
+
+  const handleCreateAnnouncement = async () => {
+    if (!courseId || !user?.id || !announcementTitle.trim()) return;
+    setSubmittingAnnouncement(true);
+    try {
+      const { error: err } = await supabase
+        .from('course_announcements')
+        .insert({
+          course_id: courseId,
+          title: announcementTitle.trim(),
+          content: announcementContent.trim() || null,
+          is_pinned: announcementPinned,
+          created_by: user.id,
+        });
+      if (err) throw err;
+      toast({ title: 'Announcement posted' });
+      setAnnouncementTitle('');
+      setAnnouncementContent('');
+      setAnnouncementPinned(false);
+      setShowAnnouncementForm(false);
+      void fetchAnnouncements();
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setSubmittingAnnouncement(false);
+    }
+  };
+
+  const handleDeleteAnnouncement = async (id: string) => {
+    try {
+      const { error: err } = await supabase
+        .from('course_announcements')
+        .delete()
+        .eq('id', id);
+      if (err) throw err;
+      setAnnouncements((prev) => prev.filter((a) => a.id !== id));
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    }
+  };
+
   useEffect(() => {
     const fetchCourseData = async () => {
       if (!courseId) {
@@ -389,7 +468,7 @@ const CourseDetail = () => {
     }
   };
 
-  const overallProgress = course.modules.reduce((sum, module) => sum + (module.completionStatus || 0), 0) / (course.modules.length || 1);
+  const overallProgress = courseProgress?.percent ?? 0;
   
   // Render different content based on the current section
   const renderContent = () => {
@@ -401,16 +480,123 @@ const CourseDetail = () => {
         return (
           <div className="space-y-6">
             <div className="bg-card border rounded-lg p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <Bell className="h-5 w-5 text-primary" />
-                <h2 className="text-2xl font-bold">Announcements</h2>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Bell className="h-5 w-5 text-primary" />
+                  <h2 className="text-2xl font-bold">Announcements</h2>
+                </div>
+                {(canEdit || isInstructor || isAdmin) && (
+                  <Button
+                    size="sm"
+                    onClick={() => setShowAnnouncementForm((v) => !v)}
+                    variant={showAnnouncementForm ? 'secondary' : 'default'}
+                  >
+                    <PlusCircle className="h-4 w-4 mr-1" />
+                    {showAnnouncementForm ? 'Cancel' : 'New Announcement'}
+                  </Button>
+                )}
               </div>
-              <div className="text-center p-8 border rounded-lg bg-muted/20">
-                <p className="text-muted-foreground">No announcements yet.</p>
-                <p className="text-sm text-muted-foreground mt-2">
-                  Check back later for course updates and announcements.
-                </p>
-              </div>
+
+              {/* Create form */}
+              {showAnnouncementForm && (
+                <div className="border rounded-lg p-4 mb-6 bg-muted/10 space-y-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="ann-title">Title</Label>
+                    <Input
+                      id="ann-title"
+                      placeholder="Announcement title"
+                      value={announcementTitle}
+                      onChange={(e) => setAnnouncementTitle(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="ann-content">Message (optional)</Label>
+                    <Textarea
+                      id="ann-content"
+                      placeholder="Write your announcement here..."
+                      rows={4}
+                      value={announcementContent}
+                      onChange={(e) => setAnnouncementContent(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      id="ann-pinned"
+                      type="checkbox"
+                      checked={announcementPinned}
+                      onChange={(e) => setAnnouncementPinned(e.target.checked)}
+                      className="h-4 w-4"
+                    />
+                    <Label htmlFor="ann-pinned" className="cursor-pointer">Pin this announcement</Label>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowAnnouncementForm(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={handleCreateAnnouncement}
+                      disabled={submittingAnnouncement || !announcementTitle.trim()}
+                    >
+                      {submittingAnnouncement ? 'Posting...' : 'Post'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* List */}
+              {announcementsLoading ? (
+                <div className="text-center py-8 text-muted-foreground">Loading announcements…</div>
+              ) : announcements.length === 0 ? (
+                <div className="text-center p-8 border rounded-lg bg-muted/20">
+                  <p className="text-muted-foreground">No announcements yet.</p>
+                  {!(canEdit || isInstructor || isAdmin) && (
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Check back later for course updates and announcements.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {announcements.map((ann) => (
+                    <div
+                      key={ann.id}
+                      className="border rounded-lg p-4 bg-card relative"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          {ann.is_pinned && (
+                            <Pin className="h-4 w-4 text-primary shrink-0" />
+                          )}
+                          <h3 className="font-semibold truncate">{ann.title}</h3>
+                        </div>
+                        {(canEdit || isInstructor || isAdmin) && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+                            onClick={() => handleDeleteAnnouncement(ann.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                      {ann.content && (
+                        <p className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">{ann.content}</p>
+                      )}
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        {new Date(ann.created_at).toLocaleDateString(undefined, {
+                          year: 'numeric', month: 'short', day: 'numeric',
+                        })}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         );

@@ -50,6 +50,29 @@ npm run dev
 - Click on "New codespace" to launch a new Codespace environment.
 - Edit files directly within the Codespace and commit and push your changes once you're done.
 
+## Codespaces Secrets
+
+Codespaces are not a good place to keep untracked secrets by hand because a rebuild or a fresh Codespace can leave you without your local files.
+
+This repo includes a bootstrap flow for Codespaces:
+
+- Store real secret values in GitHub `Codespaces secrets`
+- Keep safe placeholders and variable names in [.env.example](/workspaces/insights-collective/.env.example)
+- Let [.devcontainer/devcontainer.json](/workspaces/insights-collective/.devcontainer/devcontainer.json) run [scripts/setup-env.sh](/workspaces/insights-collective/scripts/setup-env.sh) after the Codespace is created
+- The script creates `.env.local` and `.env` only if they do not already exist
+
+Recommended Codespaces secrets:
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+- `E2E_BASE_URL`
+- `E2E_ADMIN_EMAIL`
+- `E2E_ADMIN_PASSWORD`
+- `E2E_INSTRUCTOR_EMAIL`
+- `E2E_INSTRUCTOR_PASSWORD`
+- `E2E_MEMBER_EMAIL`
+- `E2E_MEMBER_PASSWORD`
+
 ## What technologies are used for this project?
 
 This project is built with:

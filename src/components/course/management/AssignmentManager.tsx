@@ -111,6 +111,11 @@ export function AssignmentManager({ courseId, modules = [] }: AssignmentManagerP
       setEditingAssignment(undefined);
     } catch (error) {
       console.error('Error saving assignment:', error);
+      toast({
+        title: 'Error saving assignment',
+        description: error instanceof Error ? error.message : 'An unexpected error occurred',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -131,12 +136,12 @@ export function AssignmentManager({ courseId, modules = [] }: AssignmentManagerP
     return <Badge variant="default">Published</Badge>;
   };
 
-  const getSubmissionStats = (assignment: EnhancedAssignment) => {
-    // TODO: Fetch actual submission counts from database
+  const getSubmissionStats = (assignment: any) => {
+    const count = assignment.submission_count?.[0]?.count ?? 0;
     return {
-      submitted: 0,
+      submitted: count,
       graded: 0,
-      total: 0,
+      total: count,
     };
   };
 

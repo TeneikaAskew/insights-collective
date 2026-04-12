@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Link, useParams, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { OnboardingProvider } from '@/contexts/OnboardingContext';
@@ -7,6 +7,7 @@ import { PageVisibilityProvider } from '@/contexts/PageVisibilityContext';
 import { Toaster } from '@/components/ui/toaster';
 import WelcomeModal from '@/components/onboarding/WelcomeModal';
 import { Spinner } from '@/components/ui/spinner';
+import { Button } from '@/components/ui/button';
 
 // Critical pages loaded immediately
 import Index from '@/pages/Index';
@@ -25,6 +26,8 @@ const AuthCallback = lazy(() => import('@/pages/AuthCallback'));
 // Course & Learning Pages
 const CourseList = lazy(() => import('@/pages/CourseList'));
 const CourseDetail = lazy(() => import('@/pages/CourseDetail'));
+const CourseBuilder = lazy(() => import('@/pages/CourseBuilder'));
+const CourseLearn = lazy(() => import('@/pages/CourseLearn'));
 const CourseManagement = lazy(() => import('@/pages/CourseManagement'));
 const CourseManagementDashboard = lazy(() => import('@/components/course/management/CourseManagementDashboard'));
 const AssignmentDetail = lazy(() => import('@/pages/AssignmentDetail'));
@@ -38,6 +41,7 @@ const CourseQuestionBanks = lazy(() => import('@/pages/CourseQuestionBanks'));
 const CourseProgress = lazy(() => import('@/pages/CourseProgress'));
 const CourseCertificate = lazy(() => import('@/pages/CourseCertificate'));
 const CourseCalendar = lazy(() => import('@/pages/CourseCalendar'));
+const StudentInsights = lazy(() => import('@/pages/StudentInsights'));
 
 // Canvas-style Pages
 const CanvasAssignmentSubmission = lazy(() => import('@/pages/CanvasAssignmentSubmission'));
@@ -101,7 +105,6 @@ const AdminBlogPosts = lazy(() => import('@/pages/AdminBlogPosts'));
 const AdminCourses = lazy(() => import('@/pages/AdminCourses'));
 const AdminCourseEdit = lazy(() => import('@/pages/AdminCourseEdit'));
 const AdminEvents = lazy(() => import('@/pages/AdminEvents'));
-const AdminForms = lazy(() => import('@/pages/AdminForms'));
 const AdminUsers = lazy(() => import('@/pages/AdminUsers'));
 const BlogAdmin = lazy(() => import('@/pages/admin/BlogAdmin'));
 const AdminPageVisibility = lazy(() => import('@/pages/AdminPageVisibility'));
@@ -126,8 +129,9 @@ import '@/App.css';
 
 // Loading component for Suspense fallback
 const PageLoader = () => (
-  <div className="flex justify-center items-center h-96">
+  <div className="flex flex-col justify-center items-center h-96 gap-3">
     <Spinner size="lg" />
+    <p className="text-sm text-muted-foreground">Loading...</p>
   </div>
 );
 
@@ -146,16 +150,18 @@ function PortfolioEditorWrapper() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-96">
+      <div className="flex flex-col justify-center items-center h-96 gap-3">
         <Spinner size="lg" />
+        <p className="text-sm text-muted-foreground">Loading portfolio...</p>
       </div>
     );
   }
 
   if (!portfolioPage) {
     return (
-      <div className="text-center py-12">
-        <p className="text-muted-foreground">Portfolio page not found</p>
+      <div className="flex flex-col justify-center items-center h-96 gap-3 text-center">
+        <p className="text-muted-foreground">Portfolio page not found.</p>
+        <Button variant="outline" asChild><Link to="/portfolio-explorer">Back to Explorer</Link></Button>
       </div>
     );
   }
@@ -174,6 +180,18 @@ function SecurityManager() {
   return null;
 }
 
+// Track the current route in sessionStorage so a refresh-to-root can restore it
+function RouteTracker() {
+  const location = useLocation();
+  React.useEffect(() => {
+    const excluded = ['/', '/login', '/register', '/auth-callback', '/auth/callback', '/reset-password'];
+    if (!excluded.includes(location.pathname)) {
+      sessionStorage.setItem('lastVisitedPath', location.pathname + location.search);
+    }
+  }, [location]);
+  return null;
+}
+
 function App() {
   return (
     <Router>
@@ -182,6 +200,7 @@ function App() {
             <OnboardingProvider>
               <SecurityHeaders />
               <SecurityManager />
+              <RouteTracker />
               <div className="min-h-screen bg-gray-50">
                 <Suspense fallback={<PageLoader />}>
                   <Routes>
@@ -225,10 +244,18 @@ function App() {
                      <Route path="/courses/:courseId/certificate" element={<CourseCertificate />} />
                      <Route path="/courses/:courseId/calendar" element={<CourseCalendar />} />
                      <Route path="/courses/:courseId/people" element={<CourseDetail />} />
+                     <Route path="/courses/:courseId/insights" element={<StudentInsights />} />
+                     <Route path="/courses/:courseId/insights/:studentId" element={<StudentInsights />} />
                      <Route path="/courses/:courseId/management" element={<CourseManagement />} />
+                     {/* New Teachable/Kajabi-style builder + learner routes */}
+                     <Route path="/courses/:courseId/builder" element={<CourseBuilder />} />
+                     <Route path="/courses/new/builder" element={<CourseBuilder />} />
+                     <Route path="/courses/:courseId/learn" element={<CourseLearn />} />
+                     <Route path="/courses/:courseId/learn/:moduleId/:itemId" element={<CourseLearn />} />
                      <Route path="/courses/:courseId/modules/:moduleId/assignments/:assignmentId" element={<AssignmentDetail />} />
                      <Route path="/courses/:courseId/modules/:moduleId/lessons/:lessonId" element={<LessonDetail />} />
                      <Route path="/courses/:courseId/modules/:moduleId" element={<CanvasModuleDetail />} />
+                     <Route path="/courses/:courseId/modules/:moduleId/content/:itemId" element={<CanvasModuleDetail />} />
                      
                      {/* Canvas-style Routes */}
                      <Route path="/courses/:courseId/modules/:moduleId/assignments/:contentItemId/submit" element={<CanvasAssignmentSubmission />} />
@@ -259,13 +286,15 @@ function App() {
                     <Route path="/events" element={<Events />} />
                     <Route path="/events/:id" element={<EventDetail />} />
                     <Route path="/messages" element={<Messages />} />
-                    <Route path="/forum" element={<Forum />} />
-                    <Route path="/forums" element={<Forum />} />
-                    <Route path="/forum/:forumId" element={<ForumDetail />} />
-                    <Route path="/courses/:courseId/forums" element={<Forum />} />
-                    <Route path="/courses/:courseId/forums/:forumId" element={<ForumDetail />} />
-                    <Route path="/thread/:threadId" element={<ThreadDetail />} />
-                    <Route path="/courses/:courseId/forums/:forumId/threads/:threadId" element={<ThreadDetail />} />
+                    <Route path="/messages/:conversationId" element={<Messages />} />
+                    {/* Forums disabled — redirect all forum routes to dashboard */}
+                    <Route path="/forum" element={<Navigate to="/dashboard" replace />} />
+                    <Route path="/forums" element={<Navigate to="/dashboard" replace />} />
+                    <Route path="/forum/:forumId" element={<Navigate to="/dashboard" replace />} />
+                    <Route path="/courses/:courseId/forums" element={<Navigate to="/dashboard" replace />} />
+                    <Route path="/courses/:courseId/forums/:forumId" element={<Navigate to="/dashboard" replace />} />
+                    <Route path="/thread/:threadId" element={<Navigate to="/dashboard" replace />} />
+                    <Route path="/courses/:courseId/forums/:forumId/threads/:threadId" element={<Navigate to="/dashboard" replace />} />
 
                     {/* Portfolio Routes */}
                     <Route path="/portfolio-explorer" element={
@@ -302,6 +331,7 @@ function App() {
                     <Route path="/survey-confirmation/:slug" element={<SurveyConfirmation />} />
                     <Route path="/survey/survey-form-create" element={<SurveyFormCreate />} />
                     <Route path="/survey/survey-form-edit/:id" element={<SurveyFormEdit />} />
+                    <Route path="/survey/:surveySlug/edit" element={<SurveyFormEdit />} />
 
                     {/* Admin Routes */}
                     <Route path="/admin" element={<AdminDashboard />} />
@@ -311,11 +341,12 @@ function App() {
                     <Route path="/admin/courses" element={<AdminCourses />} />
                     <Route path="/admin/course-edit/:id" element={<AdminCourseEdit />} />
                     <Route path="/admin/events" element={<AdminEvents />} />
-                    <Route path="/admin/forms" element={<AdminForms />} />
                     <Route path="/admin/users" element={<AdminUsers />} />
                     <Route path="/admin/page-visibility" element={<AdminPageVisibility />} />
                     <Route path="/admin/form-management" element={<FormManagement />} />
                     <Route path="/admin/unified-form-management" element={<UnifiedFormManagement />} />
+                    <Route path="/admin/unified-form-management/submissions/:slug" element={<FormManagement />} />
+                    <Route path="/admin/unified-form-management/submissions/:slug/submission/:submissionId" element={<FormManagement />} />
                     <Route path="/admin/local-storage-debug" element={<LocalStorageDebug />} />
 
                     {/* Legal & Info Routes */}

@@ -172,9 +172,13 @@ describe('rubricService', () => {
     });
 
     it('should detach rubric from assignment', async () => {
-      mockSupabaseClient.from().delete().eq().eq.mockResolvedValue({
-        error: null
-      });
+      // The service calls `.from('...').delete().eq('assignment_id', a1).eq('rubric_id', r1)`,
+      // then awaits the result. We want the FIRST .eq() to return the builder (so the
+      // second .eq is callable) and the SECOND .eq() to resolve with `{ error: null }`.
+      // mockReturnValueOnce chains in call order.
+      const builder = mockSupabaseClient.from();
+      (builder.eq as any).mockImplementationOnce(() => builder);
+      (builder.eq as any).mockResolvedValueOnce({ error: null });
 
       await expect(
         rubricService.detachRubricFromAssignment('a1', 'r1')

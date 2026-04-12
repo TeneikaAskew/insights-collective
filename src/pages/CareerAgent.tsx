@@ -773,7 +773,7 @@ const CareerAgent: React.FC = () => {
                     )}
 
                     <div
-                      className={`relative max-w-[75%] px-4 py-2 rounded-2xl text-sm
+                      className={`relative max-w-[75%] px-4 py-2 rounded-2xl text-sm text-left
                         ${isBot
                           ? "bg-gray-100 text-gray-900 rounded-bl-none"
                           : "bg-blue-500 text-white rounded-br-none"
@@ -931,7 +931,7 @@ const CareerAgent: React.FC = () => {
                 </Button>
               )}
               {structuredReport && !structuredReport.error && (
-                <div ref={reportRef} className="career-advice-report p-6 mt-6 rounded-lg bg-white border border-blue-300 max-w-3xl mx-auto text-gray-900 text-sm shadow-lg hover:shadow-xl transition-shadow duration-300">
+                <div ref={reportRef} className="career-advice-report p-6 mt-6 rounded-lg bg-white border border-blue-300 max-w-3xl mx-auto text-left text-gray-900 text-sm shadow-lg hover:shadow-xl transition-shadow duration-300">
                   <h1 className="text-xl font-bold text-blue-600 mb-4">Personalized Career Pathway Report</h1>
                   <section className="mb-6">
                     <h2 className="text-lg font-semibold text-blue-700 mb-2">Summary</h2>

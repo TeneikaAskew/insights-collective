@@ -28,8 +28,13 @@ import { useAuth } from '@/hooks/useAuth';
 const Index = () => {
   const { enrichedUser, loading } = useAuth();
 
-  // Redirect authenticated users to dashboard
+  // Redirect authenticated users — restore last visited path if available
   if (!loading && enrichedUser) {
+    const lastPath = sessionStorage.getItem('lastVisitedPath');
+    if (lastPath) {
+      sessionStorage.removeItem('lastVisitedPath');
+      return <Navigate to={lastPath} replace />;
+    }
     return <Navigate to="/dashboard" replace />;
   }
 

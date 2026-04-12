@@ -78,7 +78,6 @@ interface BlogPost {
   created_at: string;
   updated_at: string;
   author: {
-    email: string;
     full_name?: string;
   };
   category?: {
@@ -144,7 +143,7 @@ export function BlogManagementV2() {
       // Get all authors
       const { data: authorsData } = await supabase
         .from('profiles')
-        .select('id, first_name, last_name, email');
+        .select('id, first_name, last_name');
 
       // Combine the data
       const enrichedPosts = (postsData || []).map(post => ({
@@ -165,8 +164,7 @@ export function BlogManagementV2() {
         created_at: post.created_at,
         updated_at: post.updated_at,
         author: {
-          email: authorsData?.find(a => a.id === post.author_id)?.email || '',
-          full_name: authorsData?.find(a => a.id === post.author_id) 
+          full_name: authorsData?.find(a => a.id === post.author_id)
             ? `${authorsData.find(a => a.id === post.author_id)?.first_name || ''} ${authorsData.find(a => a.id === post.author_id)?.last_name || ''}`.trim()
             : ''
         },
@@ -296,7 +294,6 @@ export function BlogManagementV2() {
     return (
       post.title.toLowerCase().includes(searchLower) ||
       post.excerpt?.toLowerCase().includes(searchLower) ||
-      post.author.email.toLowerCase().includes(searchLower) ||
       post.author.full_name?.toLowerCase().includes(searchLower)
     );
   });
@@ -485,7 +482,7 @@ export function BlogManagementV2() {
                               </p>
                             )}
                             <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                              <span>{post.author.full_name || post.author.email}</span>
+                              <span>{post.author.full_name}</span>
                               {post.category && (
                                 <>
                                   <span>•</span>

@@ -27,7 +27,7 @@ export default function UnifiedFormManagement() {
       <div className="container py-8">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Unified Form Management</h1>
+            <h1 className="text-3xl font-bold tracking-tight">Form Management</h1>
             <p className="text-muted-foreground mt-2">
               Create, manage, and analyze your forms
             </p>

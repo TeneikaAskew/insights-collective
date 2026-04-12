@@ -1,6 +1,79 @@
 import { vi } from 'vitest';
 
-// Mock Supabase client
+// Builds a fresh supabase query builder — a new set of chainable vi.fn()s.
+// Every builder method returns `this` by default so tests can chain
+// .from().select().eq().order().limit.mockResolvedValue({...}) and have the
+// ride-along chain in the service under test see the same object.
+function buildQueryBuilder() {
+  const builder: any = {
+    select: vi.fn(),
+    insert: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+    upsert: vi.fn(),
+    eq: vi.fn(),
+    neq: vi.fn(),
+    gt: vi.fn(),
+    gte: vi.fn(),
+    lt: vi.fn(),
+    lte: vi.fn(),
+    like: vi.fn(),
+    ilike: vi.fn(),
+    is: vi.fn(),
+    in: vi.fn(),
+    contains: vi.fn(),
+    containedBy: vi.fn(),
+    range: vi.fn(),
+    overlaps: vi.fn(),
+    match: vi.fn(),
+    not: vi.fn(),
+    or: vi.fn(),
+    filter: vi.fn(),
+    order: vi.fn(),
+    limit: vi.fn(),
+    single: vi.fn().mockResolvedValue({ data: null, error: null }),
+    maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    then: vi.fn(),
+  };
+
+  // Wire every chainable method to return the same builder instance.
+  for (const key of [
+    'select',
+    'insert',
+    'update',
+    'delete',
+    'upsert',
+    'eq',
+    'neq',
+    'gt',
+    'gte',
+    'lt',
+    'lte',
+    'like',
+    'ilike',
+    'is',
+    'in',
+    'contains',
+    'containedBy',
+    'range',
+    'overlaps',
+    'match',
+    'not',
+    'or',
+    'filter',
+    'order',
+    'limit',
+  ] as const) {
+    (builder[key] as ReturnType<typeof vi.fn>).mockReturnValue(builder);
+  }
+
+  return builder;
+}
+
+// The exported mock client. `from` is a vi.fn so tests can still call
+// `.from()` multiple times. The underlying builder is swapped out between
+// tests via `resetSupabaseMock()` (invoked from setup.ts beforeEach) so
+// mockResolvedValue overrides from one test cannot leak into the next.
 export const mockSupabaseClient = {
   auth: {
     getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: null }),
@@ -14,42 +87,17 @@ export const mockSupabaseClient = {
       data: { subscription: { unsubscribe: vi.fn() } },
     }),
   },
-  from: vi.fn().mockReturnValue({
-    select: vi.fn().mockReturnThis(),
-    insert: vi.fn().mockReturnThis(),
-    update: vi.fn().mockReturnThis(),
-    delete: vi.fn().mockReturnThis(),
-    eq: vi.fn().mockReturnThis(),
-    neq: vi.fn().mockReturnThis(),
-    gt: vi.fn().mockReturnThis(),
-    gte: vi.fn().mockReturnThis(),
-    lt: vi.fn().mockReturnThis(),
-    lte: vi.fn().mockReturnThis(),
-    like: vi.fn().mockReturnThis(),
-    ilike: vi.fn().mockReturnThis(),
-    is: vi.fn().mockReturnThis(),
-    in: vi.fn().mockReturnThis(),
-    contains: vi.fn().mockReturnThis(),
-    containedBy: vi.fn().mockReturnThis(),
-    range: vi.fn().mockReturnThis(),
-    overlaps: vi.fn().mockReturnThis(),
-    match: vi.fn().mockReturnThis(),
-    not: vi.fn().mockReturnThis(),
-    or: vi.fn().mockReturnThis(),
-    filter: vi.fn().mockReturnThis(),
-    order: vi.fn().mockReturnThis(),
-    limit: vi.fn().mockReturnThis(),
-    single: vi.fn().mockResolvedValue({ data: null, error: null }),
-    maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-    then: vi.fn(),
-  }),
+  from: vi.fn(),
+  rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
   storage: {
     from: vi.fn().mockReturnValue({
       upload: vi.fn(),
       download: vi.fn(),
       remove: vi.fn(),
       list: vi.fn(),
-      getPublicUrl: vi.fn().mockReturnValue({ data: { publicUrl: 'https://example.com/file.jpg' } }),
+      getPublicUrl: vi
+        .fn()
+        .mockReturnValue({ data: { publicUrl: 'https://example.com/file.jpg' } }),
     }),
   },
   functions: {
@@ -57,7 +105,18 @@ export const mockSupabaseClient = {
   },
 };
 
-// Mock the entire module
-vi.mock('@/integrations/supabase/client', () => ({
-  supabase: mockSupabaseClient,
-}));
+// Rebuild the query builder so mock state does not leak between tests.
+// Called from src/test/setup.ts in a beforeEach.
+export function resetSupabaseMock() {
+  const fresh = buildQueryBuilder();
+  (mockSupabaseClient.from as ReturnType<typeof vi.fn>).mockReturnValue(fresh);
+}
+
+// Seed an initial builder so the very first test has a working `from()`
+// before any beforeEach has run.
+resetSupabaseMock();
+
+// NOTE: The `vi.mock('@/integrations/supabase/client', ...)` call lives in
+// src/test/setup.ts. Vitest only auto-hoists vi.mock calls that live in the
+// test file itself or in the setup file — a vi.mock buried inside this
+// imported module runs AFTER the real client has already been loaded.

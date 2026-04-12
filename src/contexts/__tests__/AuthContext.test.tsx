@@ -1,13 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
-import { useAuth, AuthProvider } from '../AuthContext';
-import { mockSupabaseClient } from '@/test/mocks/supabase';
 import React from 'react';
 
-// Mock the modules
-vi.mock('@/integrations/supabase/client', () => ({
-  supabase: mockSupabaseClient,
-}));
+// IMPORTANT: setup.ts registers a global mock for @/contexts/AuthContext so
+// other tests don't have to. This test file is the ONE exception — it wants
+// to exercise the real AuthContext module. Unmock it BEFORE importing.
+vi.unmock('@/contexts/AuthContext');
+
+// eslint-disable-next-line import/first
+import { useAuth, AuthProvider } from '../AuthContext';
 
 vi.mock('@/utils/securityUtils', () => ({
   validateSessionIntegrity: vi.fn().mockReturnValue(true),

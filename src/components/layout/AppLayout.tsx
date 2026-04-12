@@ -1,9 +1,7 @@
-
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import AppSidebar from './AppSidebar';
 import Navbar from './Navbar';
-import { useAuthenticatedNavigation } from '@/hooks/useAuthenticatedNavigation';
 import { UserPresenceBar } from '@/components/presence/UserPresenceBar';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLocation } from 'react-router-dom';
@@ -13,24 +11,68 @@ type AppLayoutProps = {
   fullWidth?: boolean;
 };
 
+function readSidebarCookie(cookieName: string, fallback: boolean): boolean {
+  if (typeof document === 'undefined') return fallback;
+
+  const match = document.cookie
+    .split('; ')
+    .find(row => row.startsWith(`${cookieName}=`));
+
+  if (!match) return fallback;
+
+  return match.split('=')[1] === 'true';
+}
+
+function writeSidebarCookie(cookieName: string, value: boolean) {
+  if (typeof document === 'undefined') return;
+
+  document.cookie = `${cookieName}=${value}; path=/; max-age=${60 * 60 * 24 * 7}`;
+}
+
 const AppLayout = ({ children, fullWidth = false }: AppLayoutProps) => {
-  const { navigateWithAuth } = useAuthenticatedNavigation();
   const { isAuthenticated, isAdmin } = useAuth();
   const location = useLocation();
-  
-  // Check if the current path is one of the interview prep pages
+  const cookieName = useMemo(() => 'app-sidebar:state', []);
+
   const isInterviewPrepPage = [
     '/interview-prep/code-practice',
     '/interview-prep/star-practice',
     '/interview-prep/job-description',
     '/interview-prep/mock-interviews'
   ].some(path => location.pathname.includes(path));
-  
-  // Default sidebar state - closed for interview prep pages
-  const defaultOpen = !isInterviewPrepPage;
+  const routeContext = isInterviewPrepPage ? 'app-sidebar-default-closed' : 'app-sidebar-persistent';
+  const previousRouteContextRef = useRef(routeContext);
+
+  const [sidebarOpen, setSidebarOpen] = useState(() =>
+    isInterviewPrepPage ? false : readSidebarCookie(cookieName, true)
+  );
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    if (previousRouteContextRef.current === routeContext) {
+      return;
+    }
+
+    setSidebarOpen(isInterviewPrepPage ? false : readSidebarCookie(cookieName, true));
+    setMobileSidebarOpen(false);
+    previousRouteContextRef.current = routeContext;
+  }, [cookieName, isInterviewPrepPage, routeContext]);
+
+  const handleSidebarOpenChange = useCallback((open: boolean) => {
+    setSidebarOpen(open);
+
+    if (!isInterviewPrepPage) {
+      writeSidebarCookie(cookieName, open);
+    }
+  }, [cookieName, isInterviewPrepPage]);
 
   return (
-    <SidebarProvider defaultOpen={defaultOpen} key={`sidebar-${isInterviewPrepPage}`}>
+    <SidebarProvider
+      open={sidebarOpen}
+      onOpenChange={handleSidebarOpenChange}
+      mobileOpen={mobileSidebarOpen}
+      onMobileOpenChange={setMobileSidebarOpen}
+    >
       <div className="flex h-screen w-full overflow-hidden">
         <AppSidebar />
         <div className="flex flex-col flex-1 w-full h-full overflow-hidden">

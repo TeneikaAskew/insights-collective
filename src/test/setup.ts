@@ -1,7 +1,8 @@
 import '@testing-library/jest-dom';
-import { expect, afterEach, vi } from 'vitest';
+import { expect, afterEach, beforeEach, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
 import * as matchers from '@testing-library/jest-dom/matchers';
+import { resetSupabaseMock } from './mocks/supabase';
 
 // Extend Vitest's expect with jest-dom matchers
 expect.extend(matchers);
@@ -9,6 +10,15 @@ expect.extend(matchers);
 // Cleanup after each test
 afterEach(() => {
   cleanup();
+});
+
+// Rebuild the supabase query builder before every test so .mockResolvedValue
+// overrides from one test can't leak into the next. Without this, running a
+// test that did `.from().update().eq().select.mockResolvedValue(...)` would
+// leave `.update()` returning a Promise for the next test, breaking chains
+// like `.update(...).eq(...).select(...)` with "select is not a function".
+beforeEach(() => {
+  resetSupabaseMock();
 });
 
 // Mock window.matchMedia
@@ -106,6 +116,23 @@ vi.mock('@/contexts/AuthContext', () => {
       handleRedirectAfterLogin: vi.fn(),
     })),
   };
+});
+
+// Mock Supabase client GLOBALLY.
+// A `vi.mock` call only reliably hoists when it lives in the test file itself or
+// in this setup file. The mock object previously lived in src/test/mocks/supabase.ts
+// and its inline `vi.mock` call ran too late — the real @supabase/postgrest-js was
+// already loaded by the modules under test, producing "Cannot read properties of
+// undefined (reading 'status')" errors from PostgrestBuilder. Registering the mock
+// here guarantees it replaces the real client before any test module is imported.
+//
+// We reuse the single `mockSupabaseClient` factory from mocks/supabase.ts so test
+// files can still do `mockSupabaseClient.from().select().eq().single.mockResolvedValue(...)`.
+vi.mock('@/integrations/supabase/client', async () => {
+  const { mockSupabaseClient } = await vi.importActual<
+    typeof import('./mocks/supabase')
+  >('./mocks/supabase');
+  return { supabase: mockSupabaseClient };
 });
 
 // Mock eventService module globally

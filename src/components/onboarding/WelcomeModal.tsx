@@ -16,8 +16,8 @@ const WelcomeModal: React.FC = () => {
                           location.pathname.includes('/manage') ||
                           location.pathname.includes('/settings');
   
-  // Only show on home page for first-time visitors
-  const shouldShow = isFirstVisit && location.pathname === '/' && !isManagementPage;
+  // Disabled — modal temporarily turned off
+  const shouldShow = false;
 
   const handleStartTour = () => {
     // First close the welcome modal by marking it as dismissed

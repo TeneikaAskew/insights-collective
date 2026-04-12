@@ -18,7 +18,7 @@ interface AdminGuardProps {
  * Enhanced AdminGuard with improved security checks using new database functions
  */
 const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
-  const { isAuthenticated, user, session } = useAuth();
+  const { isAuthenticated, user, session, loading } = useAuth();
   const location = useLocation();
   const [hasAdminAccess, setHasAdminAccess] = React.useState<boolean | null>(null);
 
@@ -60,7 +60,7 @@ const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
   }, [isAuthenticated, user, location.pathname]);
 
   // Enhanced security checks
-  if (isAuthenticated === undefined || hasAdminAccess === null) {
+  if (loading || (session !== null && !isAuthenticated) || hasAdminAccess === null) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen">
         <Shield className="h-16 w-16 text-primary animate-pulse" />

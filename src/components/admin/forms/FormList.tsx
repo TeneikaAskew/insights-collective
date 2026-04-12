@@ -245,7 +245,7 @@ export function FormList({ searchTerm }: FormListProps) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Form Name</TableHead>
+              <TableHead className="text-left">Form Name</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Last Updated</TableHead>
               <TableHead>Submissions</TableHead>
@@ -255,10 +255,10 @@ export function FormList({ searchTerm }: FormListProps) {
           <TableBody>
             {filteredForms.map((form) => (
               <TableRow key={form.id}>
-                <TableCell>
-                  <div className="font-medium">{form.title}</div>
+                <TableCell className="text-left">
+                  <div className="font-medium text-left">{form.title}</div>
                   {form.description && (
-                    <div className="text-sm text-muted-foreground line-clamp-1">{form.description}</div>
+                    <div className="text-sm text-muted-foreground line-clamp-1 text-left">{form.description}</div>
                   )}
                 </TableCell>
                 <TableCell>
@@ -274,7 +274,7 @@ export function FormList({ searchTerm }: FormListProps) {
                     variant="ghost" 
                     size="sm" 
                     className="flex items-center gap-1"
-                    onClick={() => navigate(`/admin/forms/submissions/${form.slug}`)}
+                    onClick={() => navigate(`/admin/unified-form-management/submissions/${form.slug}`)}
                   >
                     <BarChart className="h-4 w-4" />
                     <span>View</span>
@@ -305,7 +305,7 @@ export function FormList({ searchTerm }: FormListProps) {
                     <Button 
                       variant="outline" 
                       size="sm"
-                      onClick={() => window.open(`/survey/${form.slug}`, '_blank')}
+                      onClick={() => navigate(`/survey/${form.slug}`)}
                       className="flex items-center gap-1"
                     >
                       <Eye className="h-4 w-4" />
