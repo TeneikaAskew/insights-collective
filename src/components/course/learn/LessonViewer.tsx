@@ -1,6 +1,7 @@
 // ABOUTME: Renders a single content_item (lesson) for the learner.
 // ABOUTME: Replaces the 100-line type switch in CanvasModuleDetail and adds lesson-level Prev/Next + Mark done.
 
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,6 +18,7 @@ import {
 import { UnifiedCanvasEditor } from '@/components/ui/unified-canvas-editor';
 import { format } from 'date-fns';
 import type { ContentItem } from '@/types/canvas';
+import { InlineQuizPlayer } from '@/components/course/learn/InlineQuizPlayer';
 
 export interface LessonViewerProps {
   item: ContentItem | null;
@@ -44,6 +46,45 @@ export function LessonViewer({
   actionBasePath,
 }: LessonViewerProps) {
   const navigate = useNavigate();
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const autoCompletedRef = useRef<string | null>(null);
+  const [autoCompleted, setAutoCompleted] = useState(false);
+
+  // Auto-mark content as complete when user scrolls to bottom (non-quiz items only)
+  useEffect(() => {
+    if (!item || item.type === 'quiz' || isCompleted) return;
+    // Reset when item changes
+    if (autoCompletedRef.current !== item.id) {
+      setAutoCompleted(false);
+    }
+
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && autoCompletedRef.current !== item.id) {
+          // Delay to avoid accidental triggers on fast scrolls
+          timer = setTimeout(() => {
+            autoCompletedRef.current = item.id;
+            setAutoCompleted(true);
+            void onMarkDone(item.id);
+          }, 1500);
+        } else if (timer) {
+          clearTimeout(timer);
+          timer = null;
+        }
+      },
+      { threshold: 0.5 },
+    );
+    observer.observe(sentinel);
+
+    return () => {
+      observer.disconnect();
+      if (timer) clearTimeout(timer);
+    };
+  }, [item?.id, item?.type, isCompleted, onMarkDone]);
 
   if (!item) {
     return (
@@ -65,7 +106,6 @@ export function LessonViewer({
           <div className="min-w-0">
             <CardTitle className="truncate">{item.title}</CardTitle>
             <div className="flex flex-wrap items-center gap-2 mt-2">
-              <Badge variant="outline">{item.type}</Badge>
               {item.assignment?.due_at && (
                 <div className="flex items-center gap-1 text-sm text-muted-foreground">
                   <Calendar className="h-3 w-3" />
@@ -91,13 +131,14 @@ export function LessonViewer({
 
       <CardContent className="space-y-6">
         {/* Rendered body for page/assignment/quiz (reuses the rich-text editor read-only) */}
-        {(item.type === 'page' || item.type === 'assignment' || item.type === 'quiz') && (
+        {(item.type === 'page' || item.type === 'assignment' || item.type === 'quiz') && item.content && (
           <div className="prose prose-lg max-w-none">
             <UnifiedCanvasEditor
               key={item.id}
-              content={item.content || ''}
+              content={item.content}
               onChange={() => {}}
               readOnly={true}
+              minHeight="auto"
             />
           </div>
         )}
@@ -131,35 +172,9 @@ export function LessonViewer({
           </Card>
         )}
 
-        {/* Quiz metadata + take-quiz CTA */}
+        {/* Quiz player */}
         {item.type === 'quiz' && item.quiz && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Quiz Details</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Questions:</span>
-                <span>{item.quiz.questions?.length || 0}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Time Limit:</span>
-                <span>{item.quiz.time_limit ? `${item.quiz.time_limit} minutes` : 'No limit'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Attempts Allowed:</span>
-                <span>{item.quiz.allowed_attempts}</span>
-              </div>
-              <div className="pt-4">
-                <Button
-                  className="w-full"
-                  onClick={() => navigate(`${actionBasePath}/quizzes/${item.id}`)}
-                >
-                  Take Quiz
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <InlineQuizPlayer item={item} quiz={item.quiz} onCompleted={onMarkDone} />
         )}
 
         {/* External URL */}
@@ -179,6 +194,9 @@ export function LessonViewer({
           </div>
         )}
 
+        {/* Scroll sentinel for auto-completion */}
+        {item.type !== 'quiz' && <div ref={sentinelRef} className="h-1" aria-hidden />}
+
         {/* Lesson-level Prev / Mark done / Next footer */}
         <div className="flex items-center justify-between gap-3 pt-4 border-t">
           <Button
@@ -191,12 +209,12 @@ export function LessonViewer({
           </Button>
 
           <Button
-            variant={isCompleted ? 'secondary' : 'default'}
+            variant={isCompleted || autoCompleted ? 'secondary' : 'default'}
             onClick={() => onMarkDone(item.id)}
-            disabled={isCompleted}
+            disabled={isCompleted || autoCompleted}
           >
             <CheckCircle2 className="h-4 w-4 mr-1" />
-            {isCompleted ? 'Completed' : 'Mark as done'}
+            {isCompleted || autoCompleted ? 'Completed' : 'Mark as done'}
           </Button>
 
           <Button

@@ -11,8 +11,9 @@ import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Link } from 'react-router-dom';
-import { BookOpen, FileText, HelpCircle, Clock, ChevronRight, AlertCircle } from 'lucide-react';
+import { BookOpen, FileText, HelpCircle, Clock, ChevronRight, AlertCircle, RotateCcw } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 import { useCourseProgress } from '@/hooks/useCourseProgress';
 import { createLogger } from '@/utils/logger';
 
@@ -84,9 +85,55 @@ export function CourseModulesList({ courseId }: CourseModulesListProps) {
   const [modules, setModules] = useState<Module[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [resettingModuleId, setResettingModuleId] = useState<string | null>(null);
+  const [confirmingResetId, setConfirmingResetId] = useState<string | null>(null);
   const { user } = useAuth();
+  const { toast } = useToast();
   // Progress is now owned by the canonical hook, not recomputed inline.
-  const { data: progress, getModulePercent } = useCourseProgress(courseId);
+  const { data: progress, getModulePercent, refetch: refetchProgress } = useCourseProgress(courseId);
+
+  const handleResetProgress = async (moduleId: string) => {
+    if (!user?.id) return;
+
+    // First click: show confirmation state; second click: execute
+    if (confirmingResetId !== moduleId) {
+      setConfirmingResetId(moduleId);
+      // Auto-clear confirmation after 3 seconds
+      setTimeout(() => setConfirmingResetId(prev => prev === moduleId ? null : prev), 3000);
+      return;
+    }
+
+    setConfirmingResetId(null);
+    setResettingModuleId(moduleId);
+    try {
+      // Get content item IDs for this module
+      const { data: items, error: itemsError } = await supabase
+        .from('content_items')
+        .select('id')
+        .eq('module_id', moduleId);
+
+      if (itemsError) throw itemsError;
+      const itemIds = (items || []).map(i => i.id);
+
+      if (itemIds.length > 0) {
+        const { error: deleteError } = await supabase
+          .from('content_item_progressions')
+          .delete()
+          .eq('user_id', user.id)
+          .in('content_item_id', itemIds);
+
+        if (deleteError) throw deleteError;
+      }
+
+      await refetchProgress();
+      toast({ title: 'Progress reset', description: 'Module progress has been reset.' });
+    } catch (err: any) {
+      logger.error('Error resetting progress:', err);
+      toast({ title: 'Error', description: 'Failed to reset progress.', variant: 'destructive' });
+    } finally {
+      setResettingModuleId(null);
+    }
+  };
 
   useEffect(() => {
     const fetchModules = async () => {
@@ -255,12 +302,34 @@ export function CourseModulesList({ courseId }: CourseModulesListProps) {
                         )}
                       </span>
                     </div>
-                    <Button asChild size="sm">
-                      <Link to={`/courses/${courseId}/modules/${module.id}`}>
-                        View Activities
-                        <ChevronRight className="h-4 w-4 ml-1" />
-                      </Link>
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      {getModulePercent(module.id) > 0 && (
+                        <Button
+                          variant={confirmingResetId === module.id ? "destructive" : "ghost"}
+                          size={confirmingResetId === module.id ? "sm" : "icon"}
+                          className={confirmingResetId === module.id
+                            ? "h-8 text-xs"
+                            : "h-8 w-8 text-muted-foreground hover:text-destructive"}
+                          title="Reset progress"
+                          disabled={resettingModuleId === module.id}
+                          onClick={() => handleResetProgress(module.id)}
+                        >
+                          {resettingModuleId === module.id ? (
+                            <RotateCcw className="h-4 w-4 animate-spin" />
+                          ) : confirmingResetId === module.id ? (
+                            "Reset?"
+                          ) : (
+                            <RotateCcw className="h-4 w-4" />
+                          )}
+                        </Button>
+                      )}
+                      <Button asChild size="sm">
+                        <Link to={`/courses/${courseId}/modules/${module.id}`}>
+                          View Activities
+                          <ChevronRight className="h-4 w-4 ml-1" />
+                        </Link>
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

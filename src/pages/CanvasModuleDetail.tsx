@@ -11,13 +11,8 @@ import { Progress } from '@/components/ui/progress';
 import { Spinner } from '@/components/ui/spinner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
-  ChevronLeft,
-  ChevronRight,
-  FileText,
-  ClipboardList,
-  HelpCircle,
-  ExternalLink,
-  Settings,
+  CheckCircle2,
+  Circle,
 } from 'lucide-react';
 import {
   Breadcrumb,
@@ -40,7 +35,11 @@ import { createLogger } from '@/utils/logger';
 const logger = createLogger('CanvasModuleDetail');
 
 const CanvasModuleDetail = () => {
-  const { courseId, moduleId } = useParams<{ courseId: string; moduleId: string }>();
+  const { courseId, moduleId, itemId } = useParams<{
+    courseId: string;
+    moduleId: string;
+    itemId?: string;
+  }>();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { isAuthenticated, user } = useAuth();
@@ -59,11 +58,25 @@ const CanvasModuleDetail = () => {
   }, [courseId, moduleId]);
 
   useEffect(() => {
-    // Auto-select first content item if none selected
-    if (contentItems.length > 0 && !selectedItem) {
-      setSelectedItem(contentItems[0]);
+    if (contentItems.length === 0) {
+      setSelectedItem(null);
+      return;
     }
-  }, [contentItems]);
+
+    if (itemId) {
+      const matchedItem = contentItems.find((item) => item.id === itemId);
+      if (matchedItem) {
+        setSelectedItem(matchedItem);
+        return;
+      }
+    }
+
+    const firstItem = contentItems[0];
+    setSelectedItem(firstItem);
+    navigate(`/courses/${courseId}/modules/${moduleId}/content/${firstItem.id}`, {
+      replace: true,
+    });
+  }, [contentItems, courseId, itemId, moduleId, navigate]);
 
   const loadData = async () => {
     // Validate that both courseId and moduleId are valid UUIDs
@@ -188,6 +201,7 @@ const CanvasModuleDetail = () => {
 
   const handleItemClick = async (item: ContentItem) => {
     setSelectedItem(item);
+    navigate(`/courses/${courseId}/modules/${moduleId}/content/${item.id}`);
     try {
       // markItemComplete upserts the progression AND refreshes the canonical progress hook.
       await markItemComplete(item.id);
@@ -206,11 +220,6 @@ const CanvasModuleDetail = () => {
       ? contentItems[currentIndex + 1]
       : null;
 
-  const completedItemIds = new Set<string>(
-    (courseProgress?.modules.find((m) => m.moduleId === moduleId)?.completedItems ?? 0) > 0
-      ? [] // fallback — detail below
-      : [],
-  );
   // We need the concrete set of completed item ids for this module to drive LessonViewer's
   // isCompleted badge. The hook gives us counts per module, but not the ids. Keep a lightweight
   // side-query: items with workflow_state in ('read','completed') for the current module.
@@ -246,21 +255,10 @@ const CanvasModuleDetail = () => {
     };
   }, [user?.id, contentItems, moduleProgress]);
 
-  const handleLessonNavigate = (itemId: string) => {
-    const target = contentItems.find((i) => i.id === itemId);
+  const handleLessonNavigate = (targetItemId: string) => {
+    const target = contentItems.find((i) => i.id === targetItemId);
     if (target) {
       void handleItemClick(target);
-    }
-  };
-
-  const getIcon = (type: string) => {
-    switch (type) {
-      case 'page': return <FileText className="h-5 w-5" />;
-      case 'assignment': return <ClipboardList className="h-5 w-5" />;
-      case 'quiz': return <HelpCircle className="h-5 w-5" />;
-      case 'external_url': return <ExternalLink className="h-5 w-5" />;
-      case 'external_tool': return <Settings className="h-5 w-5" />;
-      default: return <FileText className="h-5 w-5" />;
     }
   };
 
@@ -362,7 +360,13 @@ const CanvasModuleDetail = () => {
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      {getIcon(item.type)}
+                      <span className="flex h-4 w-4 items-center justify-center shrink-0">
+                        {completedInModule.has(item.id) ? (
+                          <CheckCircle2 className="h-4 w-4 stroke-[2.5] text-green-600" />
+                        ) : (
+                          <Circle className="h-4 w-4 stroke-[2.5] text-muted-foreground" />
+                        )}
+                      </span>
                       <span className="text-sm font-medium truncate">
                         {item.title}
                       </span>
@@ -374,65 +378,6 @@ const CanvasModuleDetail = () => {
                     )}
                   </button>
                 ))}
-              </CardContent>
-            </Card>
-
-            {/* Module Navigation */}
-            <Card className="mt-4">
-              <CardHeader>
-                <CardTitle className="text-lg">Course Navigation</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Button variant="outline" className="w-full" asChild>
-                  <Link to={`/courses/${courseId}`}>
-                    <ChevronLeft className="h-4 w-4 mr-2" />
-                    Back to Course
-                  </Link>
-                </Button>
-
-                {/* Previous/Next Module */}
-                <div className="grid grid-cols-2 gap-2">
-                  {(() => {
-                    const currentIndex = modules.findIndex(m => m.id === module.id);
-                    const prevModule = currentIndex > 0 ? modules[currentIndex - 1] : null;
-                    if (prevModule) {
-                      return (
-                        <Button variant="outline" size="sm" asChild>
-                          <Link to={`/courses/${courseId}/modules/${prevModule.id}`}>
-                            <ChevronLeft className="h-3 w-3 mr-1" />
-                            Prev
-                          </Link>
-                        </Button>
-                      );
-                    }
-                    return (
-                      <Button variant="outline" size="sm" disabled>
-                        <ChevronLeft className="h-3 w-3 mr-1" />
-                        Prev
-                      </Button>
-                    );
-                  })()}
-                  {(() => {
-                    const currentIndex = modules.findIndex(m => m.id === module.id);
-                    const nextModule = currentIndex < modules.length - 1 ? modules[currentIndex + 1] : null;
-                    if (nextModule) {
-                      return (
-                        <Button variant="outline" size="sm" asChild>
-                          <Link to={`/courses/${courseId}/modules/${nextModule.id}`}>
-                            Next
-                            <ChevronRight className="h-3 w-3 ml-1" />
-                          </Link>
-                        </Button>
-                      );
-                    }
-                    return (
-                      <Button variant="outline" size="sm" disabled>
-                        Next
-                        <ChevronRight className="h-3 w-3 ml-1" />
-                      </Button>
-                    );
-                  })()}
-                </div>
               </CardContent>
             </Card>
           </div>
