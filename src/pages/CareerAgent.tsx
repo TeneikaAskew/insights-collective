@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useResume } from '@/hooks/resume/useResume';
 import { useToast } from '@/hooks/use-toast';
@@ -12,7 +13,8 @@ import {
   careerAdvicePrompt,
   PathwayQuestion
 } from '@/data/careerPathwayData';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { Map } from 'lucide-react';
 // CareerAgent.tsx
 import { formatCareerPathwayReport } from '@/components/assistants/utils/CareerReportParser';
 
