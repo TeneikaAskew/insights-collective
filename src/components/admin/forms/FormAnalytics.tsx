@@ -1,3 +1,5 @@
+// ABOUTME: Form analytics dashboard displaying real metrics from forms and form_submissions tables.
+// ABOUTME: Shows total forms, submissions, per-form submission counts, and submission trends over time.
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,12 +10,25 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { Skeleton } from '@/components/ui/skeleton';
+import { format, subDays, subHours, subMonths, startOfDay, parseISO } from 'date-fns';
 
 import { createLogger } from '@/utils/logger';
 
 const logger = createLogger('FormAnalytics');
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
+const COLORS = ['hsl(var(--primary))', 'hsl(var(--accent))', '#FFBB28', '#FF8042', '#8884d8'];
+
+const getTimeframeStart = (timeframe: string): Date => {
+  const now = new Date();
+  switch (timeframe) {
+    case 'day': return subHours(now, 24);
+    case 'week': return subDays(now, 7);
+    case 'month': return subDays(now, 30);
+    case 'quarter': return subDays(now, 90);
+    case 'year': return subMonths(now, 12);
+    default: return subDays(now, 7);
+  }
+};
 
 const FormAnalytics = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -23,7 +38,7 @@ const FormAnalytics = () => {
     totalForms: 0,
     activeForms: 0,
     totalSubmissions: 0,
-    averageCompletionRate: 0
+    submissionsInPeriod: 0,
   });
   const [submissionData, setSubmissionData] = useState<any[]>([]);
   const [formDistribution, setFormDistribution] = useState<any[]>([]);
@@ -32,6 +47,9 @@ const FormAnalytics = () => {
     const fetchAnalytics = async () => {
       setIsLoading(true);
       try {
+        const timeframeStart = getTimeframeStart(selectedTimeframe);
+        const timeframeISO = timeframeStart.toISOString();
+
         // Fetch forms
         const { data: forms, error: formsError } = await supabase
           .from('forms')
@@ -39,7 +57,7 @@ const FormAnalytics = () => {
         
         if (formsError) throw formsError;
         
-        // Fetch submissions
+        // Fetch all submissions
         const { data: submissions, error: submissionsError } = await supabase
           .from('form_submissions')
           .select('id, form_id, created_at');
@@ -48,37 +66,74 @@ const FormAnalytics = () => {
         
         // Calculate stats
         const activeForms = forms?.filter(form => form.status) || [];
-        
+        const submissionsInPeriod = submissions?.filter(
+          s => s.created_at && s.created_at >= timeframeISO
+        ) || [];
+
         setFormStats({
           totalForms: forms?.length || 0,
           activeForms: activeForms.length,
           totalSubmissions: submissions?.length || 0,
-          averageCompletionRate: 75 // This would be calculated from real data
+          submissionsInPeriod: submissionsInPeriod.length,
         });
+
+        // Build real submission trends grouped by day
+        const dayMap: Record<string, number> = {};
+        const days = selectedTimeframe === 'day' ? 1 : selectedTimeframe === 'week' ? 7 : selectedTimeframe === 'month' ? 30 : selectedTimeframe === 'quarter' ? 90 : 365;
         
-        // Generate mock submission data
-        const mockSubmissionData = [
-          { name: 'Monday', submissions: 12 },
-          { name: 'Tuesday', submissions: 19 },
-          { name: 'Wednesday', submissions: 15 },
-          { name: 'Thursday', submissions: 8 },
-          { name: 'Friday', submissions: 22 },
-          { name: 'Saturday', submissions: 6 },
-          { name: 'Sunday', submissions: 4 }
-        ];
-        
-        setSubmissionData(mockSubmissionData);
-        
-        // Generate mock distribution data
-        const mockDistribution = [
-          { name: 'Feedback Forms', value: 35 },
-          { name: 'Application Forms', value: 25 },
-          { name: 'Event Registrations', value: 20 },
-          { name: 'Surveys', value: 15 },
-          { name: 'Other', value: 5 }
-        ];
-        
-        setFormDistribution(mockDistribution);
+        for (let i = days - 1; i >= 0; i--) {
+          const day = startOfDay(subDays(new Date(), i));
+          const label = days <= 7 
+            ? format(day, 'EEE') 
+            : days <= 30 
+              ? format(day, 'MMM d') 
+              : format(day, 'MMM d');
+          dayMap[label] = 0;
+        }
+
+        submissionsInPeriod.forEach(s => {
+          if (!s.created_at) return;
+          const day = startOfDay(parseISO(s.created_at));
+          const label = days <= 7
+            ? format(day, 'EEE')
+            : format(day, 'MMM d');
+          if (label in dayMap) {
+            dayMap[label]++;
+          }
+        });
+
+        setSubmissionData(
+          Object.entries(dayMap).map(([name, submissions]) => ({ name, submissions }))
+        );
+
+        // Build real form distribution (submissions per form)
+        const formSubmissionCounts: Record<string, number> = {};
+        const formNameMap: Record<string, string> = {};
+        forms?.forEach(f => { formNameMap[f.id] = f.title; });
+
+        submissions?.forEach(s => {
+          if (!s.form_id) return;
+          formSubmissionCounts[s.form_id] = (formSubmissionCounts[s.form_id] || 0) + 1;
+        });
+
+        const distribution = Object.entries(formSubmissionCounts)
+          .map(([formId, value]) => ({
+            name: formNameMap[formId] || 'Unknown Form',
+            value,
+          }))
+          .sort((a, b) => b.value - a.value)
+          .slice(0, 5);
+
+        // Include forms with 0 submissions if we have fewer than 5 entries
+        if (distribution.length < 5 && forms) {
+          const includedIds = new Set(Object.keys(formSubmissionCounts));
+          forms
+            .filter(f => !includedIds.has(f.id))
+            .slice(0, 5 - distribution.length)
+            .forEach(f => distribution.push({ name: f.title, value: 0 }));
+        }
+
+        setFormDistribution(distribution);
       } catch (error) {
         logger.error('Error fetching analytics:', error);
         toast({
@@ -97,8 +152,8 @@ const FormAnalytics = () => {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {[...Array(4)].map((_, i) => (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {[...Array(3)].map((_, i) => (
             <Card key={i}>
               <CardHeader className="pb-2">
                 <Skeleton className="h-4 w-1/2 mb-2" />
@@ -144,7 +199,7 @@ const FormAnalytics = () => {
         </div>
       </div>
       
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Total Forms</CardTitle>
@@ -164,31 +219,23 @@ const FormAnalytics = () => {
           <CardContent>
             <div className="text-2xl font-bold">{formStats.totalSubmissions}</div>
             <p className="text-xs text-muted-foreground">
-              +{Math.floor(Math.random() * 20)}% from last period
+              {formStats.submissionsInPeriod} in selected period
             </p>
           </CardContent>
         </Card>
         
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Avg. Completion Rate</CardTitle>
+            <CardTitle className="text-sm font-medium">Avg. Submissions per Form</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formStats.averageCompletionRate}%</div>
+            <div className="text-2xl font-bold">
+              {formStats.totalForms > 0 
+                ? (formStats.totalSubmissions / formStats.totalForms).toFixed(1) 
+                : '0'}
+            </div>
             <p className="text-xs text-muted-foreground">
-              {formStats.averageCompletionRate > 70 ? '+' : '-'}{Math.floor(Math.random() * 10)}% from last period
-            </p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Avg. Completion Time</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">3m 24s</div>
-            <p className="text-xs text-muted-foreground">
-              -12s from last period
+              Across all forms
             </p>
           </CardContent>
         </Card>
@@ -196,16 +243,15 @@ const FormAnalytics = () => {
       
       <Tabs defaultValue="submissions" className="w-full">
         <TabsList>
-          <TabsTrigger value="submissions">Submissions</TabsTrigger>
-          <TabsTrigger value="distribution">Form Types</TabsTrigger>
-          <TabsTrigger value="engagement">User Engagement</TabsTrigger>
+          <TabsTrigger value="submissions">Submission Trends</TabsTrigger>
+          <TabsTrigger value="distribution">Submissions by Form</TabsTrigger>
         </TabsList>
         
         <TabsContent value="submissions">
           <Card>
             <CardHeader>
               <CardTitle>Submission Trends</CardTitle>
-              <CardDescription>Form submissions over time</CardDescription>
+              <CardDescription>Real submissions over the selected period</CardDescription>
             </CardHeader>
             <CardContent className="h-80">
               <ResponsiveContainer width="100%" height="100%">
@@ -220,10 +266,10 @@ const FormAnalytics = () => {
                 >
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" />
-                  <YAxis />
+                  <YAxis allowDecimals={false} />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="submissions" fill="#8884d8" name="Submissions" />
+                  <Bar dataKey="submissions" fill="hsl(var(--primary))" name="Submissions" />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
@@ -233,44 +279,36 @@ const FormAnalytics = () => {
         <TabsContent value="distribution">
           <Card>
             <CardHeader>
-              <CardTitle>Form Type Distribution</CardTitle>
-              <CardDescription>Distribution of form types</CardDescription>
+              <CardTitle>Submissions by Form</CardTitle>
+              <CardDescription>How submissions are distributed across your forms</CardDescription>
             </CardHeader>
             <CardContent className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={formDistribution}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {formDistribution.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="engagement">
-          <Card>
-            <CardHeader>
-              <CardTitle>User Engagement</CardTitle>
-              <CardDescription>Form completion rates and user engagement metrics</CardDescription>
-            </CardHeader>
-            <CardContent className="h-80">
-              <div className="flex justify-center items-center h-full">
-                <p className="text-muted-foreground">Engagement metrics will be available soon</p>
-              </div>
+              {formDistribution.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={formDistribution}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                      outerRadius={80}
+                      fill="hsl(var(--primary))"
+                      dataKey="value"
+                    >
+                      {formDistribution.map((_, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex justify-center items-center h-full">
+                  <p className="text-muted-foreground">No submission data available yet</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
