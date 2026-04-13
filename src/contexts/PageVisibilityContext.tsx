@@ -297,11 +297,11 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
           .upsert({
             page_path: page.page_path,
             page_name: page.page_name,
-            visible_to_users: true, // Default to visible for new pages
+            visible_to_users: true,
             visible_to_instructors: true
           }, {
             onConflict: 'page_path',
-            ignoreDuplicates: false
+            ignoreDuplicates: true
           });
 
         if (error) {
