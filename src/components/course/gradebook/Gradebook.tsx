@@ -285,14 +285,14 @@ export const Gradebook: React.FC<GradebookProps> = ({
       {/* Header */}
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-start">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
             <div>
               <CardTitle>Gradebook</CardTitle>
               <CardDescription>
                 Manage grades for all students and assignments
               </CardDescription>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-shrink-0">
               <Button variant="outline" size="sm" onClick={exportGrades}>
                 <Download className="h-4 w-4 mr-2" />
                 Export
