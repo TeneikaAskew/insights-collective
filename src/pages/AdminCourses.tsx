@@ -161,7 +161,7 @@ export default function AdminCourses() {
               Enrollments
             </TabsTrigger>
             <TabsTrigger value="certificates">
-              <BadgeIcon className="mr-2 h-4 w-4" />
+              <Award className="mr-2 h-4 w-4" />
               Certificates
             </TabsTrigger>
           </TabsList>
@@ -559,7 +559,7 @@ function CertificatesTab({ courses }: { courses: Course[] }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <BadgeIcon className="h-5 w-5" />
+          <Award className="h-5 w-5" />
           Course Certificates
         </CardTitle>
         <CardDescription>
