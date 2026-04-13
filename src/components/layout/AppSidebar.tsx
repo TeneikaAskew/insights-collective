@@ -187,6 +187,11 @@ const AppSidebar = () => {
     url: "/admin/page-visibility",
     icon: Eye,
     active: location.pathname === '/admin/page-visibility'
+  }, {
+    title: "Debug Tools",
+    url: "/admin/local-storage-debug",
+    icon: Database,
+    active: location.pathname === '/admin/local-storage-debug'
   }];
 
   const isAdmin = user?.roles?.includes('admin');
