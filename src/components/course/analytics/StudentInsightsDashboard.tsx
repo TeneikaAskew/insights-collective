@@ -343,16 +343,16 @@ export const StudentInsightsDashboard: React.FC<StudentInsightsProps> = ({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-start">
-        <div>
-          <h2 className="text-3xl font-bold">Student Performance Dashboard</h2>
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+        <div className="min-w-0">
+          <h2 className="text-2xl sm:text-3xl font-bold break-words">Student Performance Dashboard</h2>
           {studentInfo && (
             <p className="text-muted-foreground mt-1">
               {[studentInfo.first_name, studentInfo.last_name].filter(Boolean).join(' ')} • {courseInfo?.title}
             </p>
           )}
         </div>
-        <Badge variant="outline" className={`text-lg px-4 py-2 ${performanceLevel.color}`}>
+        <Badge variant="outline" className={`text-lg px-4 py-2 flex-shrink-0 ${performanceLevel.color}`}>
           {performanceLevel.label}
         </Badge>
       </div>

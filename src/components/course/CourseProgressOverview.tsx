@@ -217,15 +217,15 @@ export const CourseProgressOverview: React.FC<CourseProgressOverviewProps> = ({
       {/* Course Header */}
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-start">
-            <div>
-              <CardTitle>{course?.title}</CardTitle>
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+            <div className="min-w-0">
+              <CardTitle className="break-words">{course?.title}</CardTitle>
               <CardDescription className="mt-2">
                 Track your progress and achievements in this course
               </CardDescription>
             </div>
             {isCompleted && (
-              <Button onClick={onViewCertificate} className="gap-2">
+              <Button onClick={onViewCertificate} className="gap-2 flex-shrink-0">
                 <Award className="h-4 w-4" />
                 View Certificate
               </Button>
