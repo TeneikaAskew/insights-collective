@@ -84,9 +84,14 @@ const TeneikaTweets = () => {
         throw error;
       }
 
+      // Handle structured error payloads (edge function returns 200 with success: false)
+      if (data && data.success === false) {
+        throw new Error(data.error || data.message || 'Scraping failed');
+      }
+
       toast({
         title: 'Scraping Complete',
-        description: data.message || 'Successfully scraped tweets',
+        description: data?.message || 'Successfully scraped tweets',
       });
 
       // Refetch the tweets to show new data

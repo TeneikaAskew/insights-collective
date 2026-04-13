@@ -171,7 +171,9 @@ const AdminPageVisibility = () => {
               <div>
                 <CardTitle>Page Visibility Settings</CardTitle>
                 <CardDescription>
-                  Configure which user roles can access each page in the application.
+                  <strong>All Users</strong> = visible to every signed-in user (students and instructors). 
+                  <strong>Instructors</strong> = instructor-only access when "All Users" is off. 
+                  Admins always see all pages regardless of these settings.
                 </CardDescription>
               </div>
               <div className="flex flex-col md:flex-row gap-2 items-end">
