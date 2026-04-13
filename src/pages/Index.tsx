@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { Navigate } from 'react-router-dom';
 import HeroSection from '@/components/home/HeroSection';
 import BlueprintBanner from '@/components/home/BlueprintBanner';
@@ -11,7 +11,6 @@ import Footer from '@/components/layout/Footer';
 import LearningJourney from '@/components/home/LearningJourney';
 import AnalyticsDashboard from '@/components/home/AnalyticsDashboard';
 import { useInView } from 'react-intersection-observer';
-import { useEffect } from 'react';
 import { useCoursesManagement } from '@/hooks/useCoursesManagement';
 import PersonalizedPathway from '@/components/home/PersonalizedPathway';
 import InteractiveShowcase from '@/components/home/InteractiveShowcase';
@@ -25,12 +24,50 @@ import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useRecentEvents } from '@/hooks/useEvents';
 import { useAuth } from '@/hooks/useAuth';
 
+// Individual section wrapper to safely use useInView per-section
+function SectionItem({ id, Component, threshold, isOnboardingActive }: {
+  id: string;
+  Component: React.ComponentType;
+  threshold: number;
+  isOnboardingActive: boolean;
+}) {
+  const { ref, inView } = useInView({
+    triggerOnce: !isOnboardingActive,
+    threshold,
+    rootMargin: '-50px 0px',
+  });
+
+  const shouldBeVisible = inView || isOnboardingActive;
+
+  return (
+    <div
+      ref={ref}
+      data-tour={id}
+      className={`transition-opacity duration-700 ${shouldBeVisible ? 'opacity-100' : 'opacity-0'}`}
+    >
+      <Component />
+    </div>
+  );
+}
+
 const Index = () => {
   const { user, loading } = useAuth();
   const { courses } = useCoursesManagement();
   const featuredCourses = courses.filter(course => course.published).slice(0, 3);
   const { data: upcomingEvents = [], isLoading: eventsLoading } = useRecentEvents(3);
   const { isFirstVisit, completedTours, dismissedTours, startTour, isOnboardingActive, currentTour } = useOnboarding();
+
+  // Smooth scrolling effect
+  useEffect(() => {
+    const handleScroll = () => {
+      document.documentElement.style.setProperty(
+        '--scroll',
+        (window.scrollY / (document.body.offsetHeight - window.innerHeight)).toString()
+      );
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Redirect authenticated users — restore last visited path if available
   if (!loading && user) {
@@ -41,9 +78,6 @@ const Index = () => {
     }
     return <Navigate to="/dashboard" replace />;
   }
-  
-  // Remove auto-start functionality to prevent conflicts
-  // Users can manually trigger tours if needed
 
   // Create sections array with reordered sections - career quiz before personalized pathway
   const sections = [
@@ -61,35 +95,7 @@ const Index = () => {
     { id: 'events', Component: () => <UpcomingEvents events={upcomingEvents} />, threshold: 0.2 },
     { id: 'cta', Component: CTASection, threshold: 0.3 },
   ];
-  
-  // Create refs for sections
-  const sectionRefs = sections.map(section => {
-    const { ref, inView } = useInView({
-      triggerOnce: !isOnboardingActive, // Don't trigger once during tour
-      threshold: section.threshold,
-      rootMargin: '-50px 0px',
-    });
-    
-    return { 
-      id: section.id, 
-      ref, 
-      inView, 
-      Component: section.Component 
-    };
-  });
-  
-  // Smooth scrolling effect
-  useEffect(() => {
-    const handleScroll = () => {
-      document.documentElement.style.setProperty(
-        '--scroll',
-        (window.scrollY / (document.body.offsetHeight - window.innerHeight)).toString()
-      );
-    };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-  
+
   return (
     <div className="min-h-screen flex flex-col overflow-x-hidden">
       <WelcomeModal />
@@ -102,21 +108,15 @@ const Index = () => {
         </div>
       )}
       
-      {sectionRefs.map(({ id, ref, inView, Component }) => {
-        // Force visibility during active tour to ensure all sections are visible
-        const shouldBeVisible = inView || isOnboardingActive;
-        
-        return (
-          <div 
-            key={id} 
-            ref={ref} 
-            data-tour={id}
-            className={`transition-opacity duration-700 ${shouldBeVisible ? 'opacity-100' : 'opacity-0'}`}
-          >
-            <Component />
-          </div>
-        );
-      })}
+      {sections.map(({ id, Component, threshold }) => (
+        <SectionItem
+          key={id}
+          id={id}
+          Component={Component}
+          threshold={threshold}
+          isOnboardingActive={isOnboardingActive}
+        />
+      ))}
       <Footer />
     </div>
   );
