@@ -198,13 +198,13 @@ const AppSidebar = () => {
   const isInstructor = user?.roles?.includes('instructor');
   
   // Filter menu items based on page visibility settings.
-  // While loading, show all items so the sidebar doesn't go blank; hidden items
-  // disappear once the PageVisibility data arrives.
-  const visiblePublicMenuItems = isAdmin || !pageVisibilityLoading
-    ? publicMenuItems.filter(item => isPageVisible(item.url))
-    : publicMenuItems;
-  const visibleAdminMenuItems = isAdmin || !pageVisibilityLoading
-    ? adminMenuItems.filter(item => isPageVisible(item.url))
+  // While loading, hide managed items for non-admin users (fail-closed).
+  // Admins always see everything.
+  const visiblePublicMenuItems = isAdmin
+    ? publicMenuItems
+    : publicMenuItems.filter(item => isPageVisible(item.url));
+  const visibleAdminMenuItems = isAdmin
+    ? adminMenuItems
     : [];
 
   // Anonymous users get a slim browse list; authenticated users get the full nav

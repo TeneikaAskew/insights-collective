@@ -3,31 +3,14 @@ import { useState, useEffect } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { EnrichedUser } from './useAuth';
-import { enrichProfileWithRoles } from '@/utils/profileUtils';
 
 import { createLogger } from '@/utils/logger';
 
 const logger = createLogger('useUserProfile');
 
-interface UserProfile {
-  id: string;
-  first_name: string;
-  last_name: string;
-  roles: string[];
-  email: string;
-  avatar_url?: string;
-  title?: string;
-  company?: string;
-  bio?: string;
-  social_links?: {
-    github?: string;
-    linkedin?: string;
-    twitter?: string;
-  };
-}
-
 /**
- * Enriches a Supabase auth user with profile data from the database
+ * Enriches a Supabase auth user with profile data and roles from the database.
+ * Roles are loaded from the user_roles table via get_user_roles RPC (canonical source).
  */
 export function useUserProfile(user: User | null) {
   const [enrichedUser, setEnrichedUser] = useState<EnrichedUser | null>(null);
@@ -43,55 +26,71 @@ export function useUserProfile(user: User | null) {
 
     const loadProfile = async () => {
       try {
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
+        // Fetch profile and roles in parallel
+        const [profileResult, rolesResult] = await Promise.all([
+          supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .single(),
+          supabase.rpc('get_user_roles', { _user_id: user.id })
+        ]);
+
+        const { data: profile, error: profileError } = profileResult;
+        const { data: rolesData, error: rolesError } = rolesResult;
 
         if (profileError && profileError.code !== 'PGRST116') {
-          // Only log error if it's not a "no profile found" error
-          if (profileError.code !== 'PGRST116') {
-            logger.error('Error fetching profile:', profileError);
-          }
+          logger.error('Error fetching profile:', profileError);
           throw profileError;
         }
 
-        // Enrich profile with consistent role information
-        const enrichedProfile = enrichProfileWithRoles(profile);
-        
-        logger.log('[useUserProfile] Profile fetched for user:', user.id);
-        logger.log('[useUserProfile] Raw profile data:', profile);
-        logger.log('[useUserProfile] Enriched profile data:', enrichedProfile);
-        logger.log('[useUserProfile] Profile roles:', enrichedProfile?.roles);
-        
-        // Generate a display name from first_name and last_name
-        const displayName = enrichedProfile?.first_name && enrichedProfile?.last_name 
-          ? `${enrichedProfile.first_name} ${enrichedProfile.last_name}`.trim()
-          : enrichedProfile?.first_name || user.email?.split('@')[0] || 'User';
+        if (rolesError) {
+          logger.error('Error fetching roles from user_roles:', rolesError);
+        }
 
-        // Combine auth user data with profile data
+        // Canonical roles from user_roles table, fall back to profile.roles, then default
+        let roles: string[] = ['student'];
+        if (rolesData && Array.isArray(rolesData) && rolesData.length > 0) {
+          roles = rolesData as string[];
+        } else if (profile?.roles) {
+          // Legacy fallback: parse roles from profiles table
+          let legacyRoles = profile.roles;
+          if (typeof legacyRoles === 'string') {
+            if (legacyRoles.startsWith('{') && legacyRoles.endsWith('}')) {
+              legacyRoles = legacyRoles.slice(1, -1).split(',').filter((r: string) => r.trim());
+            } else {
+              legacyRoles = [legacyRoles];
+            }
+          }
+          if (Array.isArray(legacyRoles) && legacyRoles.length > 0) {
+            roles = legacyRoles;
+          }
+        }
+
+        logger.log('[useUserProfile] Roles resolved:', roles);
+
+        // Generate a display name from first_name and last_name
+        const displayName = profile?.first_name && profile?.last_name
+          ? `${profile.first_name} ${profile.last_name}`.trim()
+          : profile?.first_name || user.email?.split('@')[0] || 'User';
+
         const finalEnrichedUser = {
           ...user,
-          ...enrichedProfile,
-          // Ensure avatar and name are properly set
-          avatar: enrichedProfile?.avatar_url,
-          avatar_url: enrichedProfile?.avatar_url,
+          ...profile,
+          avatar: profile?.avatar_url,
+          avatar_url: profile?.avatar_url,
           name: displayName,
-          roles: enrichedProfile?.roles || ['student']
+          roles
         };
-        
-        logger.log('[useUserProfile] Final enriched user:', finalEnrichedUser);
-        logger.log('[useUserProfile] Final user roles:', finalEnrichedUser.roles);
-        
+
+        logger.log('[useUserProfile] Final enriched user roles:', finalEnrichedUser.roles);
+
         setEnrichedUser(finalEnrichedUser);
       } catch (err) {
         logger.error('Error loading user profile:', err);
         setError(err as Error);
-        // Still set the basic user data even if profile fetch fails
         setEnrichedUser({
           ...user,
-          // Set default values for avatar and name
           avatar: undefined,
           avatar_url: undefined,
           name: user.email?.split('@')[0] || 'User',

@@ -85,9 +85,14 @@ const TeneikaLinkedIn = () => {
         throw error;
       }
 
+      // Handle structured error payloads (edge function returns 200 with success: false)
+      if (data && data.success === false) {
+        throw new Error(data.error || data.message || 'Scraping failed');
+      }
+
       toast({
         title: 'Scraping Complete',
-        description: data.message || 'Successfully scraped LinkedIn posts',
+        description: data?.message || 'Successfully scraped LinkedIn posts',
       });
 
       // Refetch the posts to show new data
