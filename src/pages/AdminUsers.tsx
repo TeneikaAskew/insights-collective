@@ -627,26 +627,28 @@ const AdminUsers = () => {
             <AlertDialogTitle className="text-destructive">
               Permanently Delete {deleteTargetIds.length === 1 ? 'User' : `${deleteTargetIds.length} Users`}
             </AlertDialogTitle>
-            <AlertDialogDescription className="space-y-3">
-              <p>
-                This action <strong>cannot be undone</strong>. This will permanently delete
-                {deleteTargetIds.length === 1 ? (
-                  <> <strong>{deleteTargetNames[0]}</strong></>
-                ) : (
-                  <> <strong>{deleteTargetIds.length} users</strong></>
-                )} and remove all associated data including profile, roles, enrollments, and submissions.
-              </p>
-              <div className="pt-2">
-                <Label htmlFor="delete-confirm" className="text-sm font-medium">
-                  Type <strong>DELETE</strong> to confirm:
-                </Label>
-                <Input
-                  id="delete-confirm"
-                  className="mt-1"
-                  value={deleteConfirmText}
-                  onChange={(e) => setDeleteConfirmText(e.target.value)}
-                  placeholder="DELETE"
-                />
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm text-muted-foreground">
+                <p>
+                  This action <strong>cannot be undone</strong>. This will permanently delete
+                  {deleteTargetIds.length === 1 ? (
+                    <> <strong>{deleteTargetNames[0]}</strong></>
+                  ) : (
+                    <> <strong>{deleteTargetIds.length} users</strong></>
+                  )} and remove all associated data including profile, roles, enrollments, and submissions.
+                </p>
+                <div className="pt-2">
+                  <Label htmlFor="delete-confirm" className="text-sm font-medium">
+                    Type <strong>DELETE</strong> to confirm:
+                  </Label>
+                  <Input
+                    id="delete-confirm"
+                    className="mt-1"
+                    value={deleteConfirmText}
+                    onChange={(e) => setDeleteConfirmText(e.target.value)}
+                    placeholder="DELETE"
+                  />
+                </div>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
