@@ -376,6 +376,7 @@ const LocalStorageDebugPage: React.FC = () => {
         </div>
       </div>
     </div>
+    </AppLayout>
   );
 };
 
