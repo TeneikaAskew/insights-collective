@@ -128,7 +128,6 @@ export const Routes = {
 
   // Blog
   blogPost: (slug = TestIds.blogSlug) => `/blog/${slug}`,
-  dataBlueprintSeries: '/data-blueprint-series',
 
   // Survey
   survey: '/survey',

@@ -10,7 +10,7 @@ type SearchResult = {
   title: string;
   description?: string;
   url: string;
-  type: 'course' | 'resource' | 'assistant' | 'event' | 'career' | 'blueprint' | 'page';
+  type: 'course' | 'resource' | 'assistant' | 'event' | 'career' | 'page';
 };
 
 const SiteSearch = () => {
@@ -61,7 +61,6 @@ const SiteSearch = () => {
       { id: 'portfolio-explorer', title: 'Portfolio Explorer', description: 'Browse student portfolios', url: '/portfolio-explorer' },
       { id: 'messages', title: 'Messages', description: 'Your messages', url: '/messages' },
       { id: 'profile', title: 'Profile', description: 'Your profile settings', url: '/profile' },
-      { id: 'data-blueprint-series', title: 'Data Blueprint Series', description: 'Structured data learning series', url: '/data-blueprint-series' },
     ];
 
     pages.forEach(page => {
@@ -85,71 +84,6 @@ const SiteSearch = () => {
           description: assistant.description,
           url: `/assistant/${assistant.id}`,
           type: 'assistant'
-        });
-      }
-    });
-
-    // Data Blueprint Series - updated to use correct route
-    const blueprintEntries = [
-      {
-        id: "1",
-        title: "What Is Data Science?",
-        url: "/data-blueprint-series",
-      },
-      {
-        id: "2",
-        title: "Core Roles in a Data Team",
-        url: "/data-blueprint-series",
-      },
-      {
-        id: "3",
-        title: "The Data Science Lifecycle",
-        url: "/data-blueprint-series",
-      },
-      {
-        id: "4",
-        title: "How to Start a Career in Data Science",
-        url: "/data-blueprint-series",
-      },
-      {
-        id: "5",
-        title: "Responsible AI & Ethics in Data Science",
-        url: "/data-blueprint-series",
-      },
-      {
-        id: "6",
-        title: "Wisdom From the Field – Career Lessons",
-        url: "/data-blueprint-series",
-      },
-      {
-        id: "7",
-        title: "Tools of the Trade",
-        url: "/data-blueprint-series",
-      },
-      {
-        id: "8",
-        title: "Data Science Career Paths",
-        url: "/data-blueprint-series",
-      },
-      {
-        id: "9",
-        title: "Resume & Portfolio Tips", 
-        url: "/data-blueprint-series",
-      },
-      {
-        id: "10",
-        title: "Case Studies That Inspire",
-        url: "/data-blueprint-series",
-      }
-    ];
-
-    blueprintEntries.forEach(entry => {
-      if (entry.title.toLowerCase().includes(searchLower)) {
-        results.push({
-          id: entry.id,
-          title: entry.title,
-          url: entry.url,
-          type: 'blueprint'
         });
       }
     });
@@ -195,7 +129,6 @@ const SiteSearch = () => {
       case 'course': return 'Courses';
       case 'event': return 'Events';
       case 'assistant': return 'Assistants';
-      case 'blueprint': return 'Data Blueprint';
       case 'career': return 'Data Careers';
       case 'resource': return 'Resources';
       case 'page': return 'Pages';

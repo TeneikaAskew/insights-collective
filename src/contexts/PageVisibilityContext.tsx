@@ -228,7 +228,6 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
         { page_path: '/forum', page_name: 'Forum' },
         { page_path: '/forums', page_name: 'Forums' },
         { page_path: '/portfolio-explorer', page_name: 'Portfolio Explorer' },
-        { page_path: '/data-blueprint-series', page_name: 'Data Blueprint Series' },
         { page_path: '/create-blog-post', page_name: 'Create Blog Post' },
         { page_path: '/resources', page_name: 'Resources' },
         { page_path: '/teneika-linkedin', page_name: "Teneika's LinkedIn" },

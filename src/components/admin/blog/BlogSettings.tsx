@@ -40,13 +40,7 @@ const blogSettingsSchema = z.object({
   blog_title: z.string().min(1, 'Blog title is required'),
   blog_description: z.string().max(500, 'Description must be under 500 characters'),
   blog_url: z.string().url('Must be a valid URL').optional().or(z.literal('')),
-  
-  // Data Blueprint Series Integration
-  series_title: z.string().min(1, 'Series title is required'),
-  series_description: z.string().max(500, 'Series description must be under 500 characters'),
-  series_url: z.string().min(1, 'Series URL is required'),
-  series_featured: z.boolean(),
-  
+
   // SEO Defaults
   default_meta_title: z.string().max(60, 'Meta title should be under 60 characters').optional(),
   default_meta_description: z.string().max(160, 'Meta description should be under 160 characters').optional(),
@@ -92,10 +86,6 @@ export function BlogSettings() {
       blog_title: '',
       blog_description: '',
       blog_url: '',
-      series_title: 'The Data Blueprint Series',
-      series_description: 'A 10-Part Guide to Breaking In, Leveling Up, and Leading in Data Careers',
-      series_url: '/data-blueprint-series',
-      series_featured: true,
       default_meta_title: '',
       default_meta_description: '',
       default_meta_keywords: '',
@@ -139,10 +129,6 @@ export function BlogSettings() {
           blog_title: data.blog_title || '',
           blog_description: data.blog_description || '',
           blog_url: data.blog_url || '',
-          series_title: data.series_title || 'The Data Blueprint Series',
-          series_description: data.series_description || 'A 10-Part Guide to Breaking In, Leveling Up, and Leading in Data Careers',
-          series_url: data.series_url || '/data-blueprint-series',
-          series_featured: data.series_featured ?? true,
           default_meta_title: data.default_meta_title || '',
           default_meta_description: data.default_meta_description || '',
           default_meta_keywords: data.default_meta_keywords || '',
@@ -376,79 +362,6 @@ export function BlogSettings() {
                       <FormMessage />
                     </FormItem>
                   )}
-                 />
-               </CardContent>
-             </Card>
-
-             <Card>
-               <CardHeader>
-                 <CardTitle>Data Blueprint Series Integration</CardTitle>
-                 <CardDescription>Configure the Data Blueprint Series feature</CardDescription>
-               </CardHeader>
-               <CardContent className="space-y-4">
-                 <FormField
-                   control={form.control}
-                   name="series_title"
-                   render={({ field }) => (
-                     <FormItem>
-                       <FormLabel>Series Title</FormLabel>
-                       <FormControl>
-                         <Input placeholder="The Data Blueprint Series" {...field} />
-                       </FormControl>
-                       <FormDescription>Title for the Data Blueprint Series</FormDescription>
-                       <FormMessage />
-                     </FormItem>
-                   )}
-                 />
-
-                 <FormField
-                   control={form.control}
-                   name="series_description"
-                   render={({ field }) => (
-                     <FormItem>
-                       <FormLabel>Series Description</FormLabel>
-                       <FormControl>
-                         <Textarea 
-                           placeholder="A comprehensive guide to data careers..."
-                           className="min-h-[100px]"
-                           {...field} 
-                         />
-                       </FormControl>
-                       <FormDescription>Description for the Data Blueprint Series</FormDescription>
-                       <FormMessage />
-                     </FormItem>
-                   )}
-                 />
-
-                 <FormField
-                   control={form.control}
-                   name="series_url"
-                   render={({ field }) => (
-                     <FormItem>
-                       <FormLabel>Series URL Path</FormLabel>
-                       <FormControl>
-                         <Input placeholder="/data-blueprint-series" {...field} />
-                       </FormControl>
-                       <FormDescription>URL path for the Data Blueprint Series page</FormDescription>
-                       <FormMessage />
-                     </FormItem>
-                   )}
-                 />
-
-                 <FormField
-                   control={form.control}
-                   name="series_featured"
-                   render={({ field }) => (
-                     <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                       <div className="space-y-0.5">
-                         <FormLabel>Feature Series</FormLabel>
-                         <FormDescription>Display the series prominently on the homepage</FormDescription>
-                       </div>
-                       <FormControl>
-                         <Switch checked={field.value} onCheckedChange={field.onChange} />
-                       </FormControl>
-                     </FormItem>
-                   )}
                  />
                </CardContent>
              </Card>

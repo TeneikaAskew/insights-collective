@@ -65,11 +65,6 @@ const AppSidebar = () => {
     icon: BookOpen,
     active: location.pathname.startsWith('/course')
   }, {
-    title: "Data Blueprint",
-    url: "/data-blueprint-series",
-    icon: FileText,
-    active: location.pathname === '/data-blueprint-series'
-  }, {
     title: "AI & Automation Fellowship",
     url: "/survey",
     icon: FileCheck,
