@@ -182,16 +182,6 @@ const AppSidebar = () => {
     url: "/admin/events",
     icon: Calendar,
     active: location.pathname === '/admin/events'
-  }, {
-    title: "Page Visibility",
-    url: "/admin/page-visibility",
-    icon: Eye,
-    active: location.pathname === '/admin/page-visibility'
-  }, {
-    title: "Debug Tools",
-    url: "/admin/localstorage-debug",
-    icon: Bug,
-    active: location.pathname.includes('/admin/debug') || location.pathname.includes('/admin/localstorage')
   }];
 
   const isAdmin = user?.roles?.includes('admin');
