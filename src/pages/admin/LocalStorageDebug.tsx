@@ -179,8 +179,8 @@ const LocalStorageDebugPage: React.FC = () => {
   };
 
   return (
+    <AppLayout>
     <div className="container max-w-4xl py-8">
-      <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold mb-1">LocalStorage Debug</h2>
