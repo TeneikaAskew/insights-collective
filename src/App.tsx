@@ -321,8 +321,16 @@ function App() {
 
                     {/* Resources & Tools Routes */}
                     <Route path="/resources" element={<Resources />} />
-                    <Route path="/teneika-linkedin" element={<TeneikaLinkedIn />} />
-                    <Route path="/teneika-tweets" element={<TeneikaTweets />} />
+                    <Route path="/teneika-linkedin" element={
+                      <PageVisibilityGuard>
+                        <TeneikaLinkedIn />
+                      </PageVisibilityGuard>
+                    } />
+                    <Route path="/teneika-tweets" element={
+                      <PageVisibilityGuard>
+                        <TeneikaTweets />
+                      </PageVisibilityGuard>
+                    } />
 
                     {/* Survey & Forms Routes */}
                     <Route path="/survey" element={<Survey />} />
