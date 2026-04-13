@@ -1,36 +1,33 @@
 
 
-## Problem
+## Analysis
 
-The "Program Commitment Agreement" checkbox on the fellowship survey's last section has two issues:
+The page visibility system **is actually working correctly**. Here's what's happening:
 
-1. **The checkbox appears invisible or not interactable** — The screenshot shows the label in error-red with "This field is required" but no visible checkbox control to click
-2. **Submit does nothing** — Because the checkbox field is required but has no value (undefined, not false), react-hook-form validation blocks the submission silently
+### What the DB shows
+The `/teneika-linkedin` page has `visible_to_users = false` and `visible_to_instructors = false` — your toggle settings are being saved properly.
 
-### Root Cause
+### Why you don't see "Coming Soon"
+You are logged in as **Nikki Askew, Administrator**. The visibility logic explicitly bypasses all checks for admin users (line 131 of `PageVisibilityContext.tsx`):
+```ts
+if (user?.roles?.includes('admin')) return true;
+```
 
-In `src/components/survey/SurveyField.tsx`, the checkbox case (lines 404-454) is missing the `<FormControl>` wrapper that all other field types have. Without it, the field may not properly connect to react-hook-form. Additionally, the validation rule `required: "This field is required"` treats `undefined` and `false` the same way for checkboxes — a custom `validate` function is needed to ensure the checkbox must be **checked** (truthy), not just present.
+This is intentional — admins should always be able to access every page regardless of visibility settings. The "Admins: Always" column in your Page Visibility Manager screenshot confirms this design.
 
-### Plan
+### What a non-admin user would see
+- The page **would not appear** in their sidebar
+- If they navigated directly to `/teneika-linkedin`, they'd see the **"Coming Soon" overlay** with a lock icon
 
-**File: `src/components/survey/SurveyField.tsx`**
+### No code changes needed
+The system is functioning as designed. To verify it works for non-admin users, you would need to:
+1. Create or use a test account with a "student" role (no admin privileges)
+2. Log in as that user
+3. Confirm `/teneika-linkedin` is hidden from the sidebar and shows "Coming Soon" if accessed directly
 
-1. **Add `<FormControl>` wrapper** around the checkbox div (matching other field types)
-2. **Add custom validation for single agreement checkboxes** — When the field is a required checkbox with no options (agreement-style), use a `validate` function instead of just `required`:
-   ```ts
-   validate: (value) => value === true || "This field is required"
-   ```
-   This ensures the user must actually check the box, not just have the field exist.
+### If you want admins to also see visibility restrictions
+If the intent is that admins should *also* see the "Coming Soon" page when visibility is toggled off (so you can preview what users see), I can add a "Preview as user" toggle to the admin UI. This would let you temporarily view the page as a non-admin would see it, without changing the core security model.
 
-3. **Set a default value of `false`** for checkbox fields so the form control is properly initialized (prevents undefined state that blocks interaction).
-
-**File: `src/pages/survey/SurveyPage.tsx`** (if needed)
-
-4. Verify that checkbox fields get a proper default value of `false` when initializing the form, so the control renders in an unchecked but interactable state.
-
-### Expected Result
-- The checkbox renders visibly with the agreement text
-- Users can check/uncheck it  
-- Submit only proceeds when the checkbox is checked
-- Clear error message shown if user tries to submit without checking
+### Regarding the LinkedIn scraping error
+The posts aren't loading because the LinkedIn OAuth refresh token stored in Supabase secrets has expired (`invalid_grant` error). This requires manually generating a new token from LinkedIn's developer portal and updating the `LINKEDIN_REFRESH_TOKEN` secret in Supabase dashboard. No code change can fix this.
 
