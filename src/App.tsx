@@ -347,7 +347,7 @@ function App() {
                     <Route path="/admin/unified-form-management" element={<UnifiedFormManagement />} />
                     <Route path="/admin/unified-form-management/submissions/:slug" element={<FormManagement />} />
                     <Route path="/admin/unified-form-management/submissions/:slug/submission/:submissionId" element={<FormManagement />} />
-                    <Route path="/admin/local-storage-debug" element={<LocalStorageDebug />} />
+                    <Route path="/admin/local-storage-debug" element={<ProtectedRoute requireAdmin><LocalStorageDebug /></ProtectedRoute>} />
 
                     {/* Legal & Info Routes */}
                     <Route path="/privacy-policy" element={<PrivacyPolicy />} />
