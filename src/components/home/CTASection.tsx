@@ -1,9 +1,35 @@
+// ABOUTME: CTA section on the homepage with dynamic platform statistics from the database
+// ABOUTME: Shows real course count, student count, and average completion rate
 
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Sparkles } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 const CTASection = () => {
+  const [stats, setStats] = useState({ courses: 0, students: 0, completionRate: 0 });
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      const [coursesRes, studentsRes, enrollmentsRes] = await Promise.all([
+        supabase.from('courses').select('id', { count: 'exact', head: true }).eq('published', true),
+        supabase.from('profiles').select('id', { count: 'exact', head: true }),
+        supabase.from('enrollments').select('completion_status'),
+      ]);
+
+      const courseCount = coursesRes.count || 0;
+      const studentCount = studentsRes.count || 0;
+      const enrollments = enrollmentsRes.data || [];
+      const avgCompletion = enrollments.length > 0
+        ? Math.round(enrollments.reduce((s, e) => s + (e.completion_status || 0), 0) / enrollments.length)
+        : 0;
+
+      setStats({ courses: courseCount, students: studentCount, completionRate: avgCompletion });
+    };
+    fetchStats();
+  }, []);
+
   return (
     <section className="py-24 bg-gradient-to-r from-primary to-accent text-white relative overflow-hidden">
       {/* Abstract shapes */}
@@ -20,7 +46,7 @@ const CTASection = () => {
         <div className="max-w-3xl mx-auto text-center">
           <div className="inline-flex items-center justify-center mb-6 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full">
             <Sparkles className="h-4 w-4 mr-2" />
-            <span className="text-sm font-medium">Join 10,000+ data professionals</span>
+            <span className="text-sm font-medium">Join {stats.students > 0 ? `${stats.students.toLocaleString()}+` : ''} data professionals</span>
           </div>
           
           <h2 className="text-4xl md:text-5xl font-bold mb-6 font-display">Ready to Start Learning?</h2>
@@ -50,19 +76,19 @@ const CTASection = () => {
             </Button>
           </div>
           
-          {/* Trust markers */}
+          {/* Trust markers - real data */}
           <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-8">
             <div className="flex flex-col items-center">
-              <div className="text-3xl font-bold mb-1">50+</div>
+              <div className="text-3xl font-bold mb-1">{stats.courses || '—'}</div>
               <div className="text-sm text-white/70">Expert-Led Courses</div>
             </div>
             <div className="flex flex-col items-center">
-              <div className="text-3xl font-bold mb-1">10k+</div>
+              <div className="text-3xl font-bold mb-1">{stats.students > 0 ? stats.students.toLocaleString() : '—'}</div>
               <div className="text-sm text-white/70">Active Students</div>
             </div>
             <div className="flex flex-col items-center">
-              <div className="text-3xl font-bold mb-1">98%</div>
-              <div className="text-sm text-white/70">Completion Rate</div>
+              <div className="text-3xl font-bold mb-1">{stats.completionRate > 0 ? `${stats.completionRate}%` : '—'}</div>
+              <div className="text-sm text-white/70">Avg. Completion</div>
             </div>
             <div className="flex flex-col items-center">
               <div className="text-3xl font-bold mb-1">24/7</div>
