@@ -25,7 +25,6 @@ const navigation = [
   { name: 'Home', href: '/', icon: Home },
   { name: 'Courses', href: '/courses', icon: BookOpen },
   { name: 'Events', href: '/events', icon: Calendar },
-  { name: 'Data Blueprint', href: '/data-blueprint-series', icon: Newspaper },
   { name: 'Messages', href: '/messages', icon: MessageSquare },
   { name: 'Interview Prep', href: '/interview-prep', icon: Briefcase },
   { name: 'Portfolio Explorer', href: '/portfolio-explorer', icon: PenTool },

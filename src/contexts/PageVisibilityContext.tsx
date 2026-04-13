@@ -260,7 +260,6 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
         { page_path: '/portfolio-explorer', page_name: 'Portfolio Explorer' },
         
         // Blog & Content Routes
-        { page_path: '/data-blueprint-series', page_name: 'Data Blueprint Series' },
         { page_path: '/create-blog-post', page_name: 'Create Blog Post' },
         
         // Resources & Tools Routes

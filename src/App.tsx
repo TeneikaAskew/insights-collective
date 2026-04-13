@@ -78,7 +78,6 @@ const PublicPortfolioView = lazy(() => import('@/components/portfolio/PublicPort
 
 // Blog & Content Pages
 const BlogPost = lazy(() => import('@/pages/BlogPost'));
-const DataBlueprintSeries = lazy(() => import('@/pages/DataBlueprintSeries'));
 const CreateBlogPost = lazy(() => import('@/pages/CreateBlogPost'));
 const EditBlogPost = lazy(() => import('@/pages/EditBlogPost'));
 
@@ -286,7 +285,6 @@ function App() {
 
                     {/* Blog & Content Routes */}
                     <Route path="/blog/:slug" element={<BlogPost />} />
-                    <Route path="/data-blueprint-series" element={<DataBlueprintSeries />} />
                     <Route path="/create-blog-post" element={<CreateBlogPost />} />
                     <Route path="/edit-blog-post/:slug" element={<EditBlogPost />} />
 
