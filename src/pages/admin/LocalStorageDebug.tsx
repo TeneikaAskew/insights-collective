@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
+import AppLayout from '@/components/layout/AppLayout';
 
 import { createLogger } from '@/utils/logger';
 
@@ -178,8 +179,8 @@ const LocalStorageDebugPage: React.FC = () => {
   };
 
   return (
-    <div className="container max-w-4xl py-8">
-      <div className="space-y-6">
+    <AppLayout>
+      <div className="container max-w-4xl py-8 space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold mb-1">LocalStorage Debug</h2>
@@ -374,7 +375,7 @@ const LocalStorageDebugPage: React.FC = () => {
           </div>
         </div>
       </div>
-    </div>
+    </AppLayout>
   );
 };
 
