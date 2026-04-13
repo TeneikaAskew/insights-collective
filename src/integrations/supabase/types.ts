@@ -2710,6 +2710,39 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          is_read: boolean
+          link: string | null
+          message: string
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          link?: string | null
+          message: string
+          title: string
+          type?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          link?: string | null
+          message?: string
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       page_visibility: {
         Row: {
           created_at: string | null
@@ -3061,6 +3094,48 @@ export type Database = {
             columns: ["lesson_id"]
             isOneToOne: false
             referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      progress_snapshots: {
+        Row: {
+          completion_percentage: number
+          course_id: string
+          created_at: string
+          id: string
+          snapshot_date: string
+          user_id: string
+        }
+        Insert: {
+          completion_percentage?: number
+          course_id: string
+          created_at?: string
+          id?: string
+          snapshot_date?: string
+          user_id: string
+        }
+        Update: {
+          completion_percentage?: number
+          course_id?: string
+          created_at?: string
+          id?: string
+          snapshot_date?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "progress_snapshots_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "course_statistics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "progress_snapshots_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
             referencedColumns: ["id"]
           },
         ]
@@ -4647,6 +4722,7 @@ export type Database = {
         Args: { p_course_id: string; p_module_ids: string[] }
         Returns: undefined
       }
+      snapshot_enrollment_progress: { Args: never; Returns: undefined }
       update_user_roles: {
         Args: { new_roles: string[]; target_user_id: string }
         Returns: undefined

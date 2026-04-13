@@ -1,28 +1,64 @@
+// ABOUTME: Admin activity log page showing real security events from the database
+// ABOUTME: Replaces hardcoded mock data with live security_events table queries
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Search } from 'lucide-react';
-import { mockService } from '@/lib/mockData';
+import { supabase } from '@/integrations/supabase/client';
+import { formatDistanceToNow } from 'date-fns';
+
+interface ActivityEntry {
+  id: string;
+  user_id: string | null;
+  event_type: string;
+  severity: string;
+  description: string;
+  created_at: string;
+}
 
 const AdminActivity = () => {
-  // Mock activity data
-  const activities = [
-    { id: 1, user: "John Doe", action: "enrolled in Introduction to Data Science", timestamp: "2 hours ago" },
-    { id: 2, user: "Jane Smith", action: "created a new course Data Engineering Fundamentals", timestamp: "5 hours ago" },
-    { id: 3, user: "John Doe", action: "completed a module in Advanced Machine Learning", timestamp: "1 day" },
-    { id: 4, user: "Admin User", action: "issued a certificate to John Doe", timestamp: "2 days ago" },
-    { id: 5, user: "Jane Smith", action: "uploaded a new resource", timestamp: "3 days ago" },
-    { id: 6, user: "Admin User", action: "approved a new instructor", timestamp: "4 days ago" },
-    { id: 7, user: "John Doe", action: "submitted an assignment", timestamp: "5 days ago" },
-    { id: 8, user: "Jane Smith", action: "created a new quiz", timestamp: "6 days ago" },
-    { id: 9, user: "John Doe", action: "updated profile information", timestamp: "1 week ago" },
-    { id: 10, user: "Admin User", action: "deleted an expired event", timestamp: "1 week ago" },
-  ];
-  
+  const [activities, setActivities] = useState<ActivityEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    const fetchActivities = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('security_events')
+          .select('id, user_id, event_type, severity, description, created_at')
+          .order('created_at', { ascending: false })
+          .limit(50);
+
+        if (error) throw error;
+        setActivities(data || []);
+      } catch (err) {
+        console.error('Error fetching activities:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchActivities();
+  }, []);
+
+  const filteredActivities = activities.filter(a =>
+    a.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    a.event_type?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const getSeverityVariant = (severity: string) => {
+    switch (severity) {
+      case 'critical': return 'destructive';
+      case 'warning': return 'secondary';
+      default: return 'outline';
+    }
+  };
+
   return (
     <AppLayout>
       <div className="space-y-6">
@@ -42,39 +78,56 @@ const AdminActivity = () => {
               type="search"
               placeholder="Search activities..."
               className="pl-8"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          <Button variant="outline" size="sm">
-            Filter
-          </Button>
         </div>
         
         <Card>
           <CardHeader className="py-4">
             <CardTitle className="text-xl">Recent Activity</CardTitle>
             <CardDescription>
-              A log of all recent actions and events on the platform.
+              A log of all recent security events on the platform.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>User</TableHead>
-                  <TableHead>Action</TableHead>
-                  <TableHead>Time</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {activities.map((activity) => (
-                  <TableRow key={activity.id}>
-                    <TableCell className="font-medium">{activity.user}</TableCell>
-                    <TableCell>{activity.action}</TableCell>
-                    <TableCell>{activity.timestamp}</TableCell>
+            {loading ? (
+              <div className="text-center py-8 text-muted-foreground">Loading activities...</div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Event Type</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Severity</TableHead>
+                    <TableHead>Time</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filteredActivities.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                        No activities found
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredActivities.map((activity) => (
+                      <TableRow key={activity.id}>
+                        <TableCell className="font-medium">{activity.event_type}</TableCell>
+                        <TableCell className="max-w-md truncate">{activity.description}</TableCell>
+                        <TableCell>
+                          <Badge variant={getSeverityVariant(activity.severity) as any}>
+                            {activity.severity}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{formatDistanceToNow(new Date(activity.created_at), { addSuffix: true })}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       </div>

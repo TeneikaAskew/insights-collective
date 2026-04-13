@@ -1026,12 +1026,7 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
         <TabsContent value="results" className="space-y-6 pt-5" ref={resultRef}>
           {isAnalyzing ? (
             <div className="flex flex-col items-center justify-center p-8 space-y-4">
-              <div className="relative">
-                <Spinner size="lg" className="text-primary" />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-xs font-semibold text-primary">{Math.floor(Math.random() * 30) + 70}%</span>
-                </div>
-              </div>
+              <Spinner size="lg" className="text-primary" />
               <p className="text-lg font-medium text-center">
                 Analyzing your resume against the job description...
               </p>

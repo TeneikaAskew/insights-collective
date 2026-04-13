@@ -136,7 +136,7 @@ const HeroSection = () => {
           >
             <div className="flex items-center">
               <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
-              <span>50+ Professional Courses</span>
+              <span>Professional Courses</span>
             </div>
             <div className="flex items-center">
               <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>

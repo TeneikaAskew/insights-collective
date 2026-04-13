@@ -269,19 +269,33 @@ export const StudentInsightsDashboard: React.FC<StudentInsightsProps> = ({
     }
   };
 
-  const generateActivityTimeline = () => {
-    // Mock data - in production, this would come from actual activity logs
-    const mockData: ActivityData[] = [];
+  const generateActivityTimeline = async () => {
+    if (!studentId) return;
+    
+    // Query real content_item_progressions for the last 7 days
+    const timelineData: ActivityData[] = [];
     for (let i = 6; i >= 0; i--) {
       const date = new Date();
       date.setDate(date.getDate() - i);
-      mockData.push({
+      const dayStart = new Date(date);
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(date);
+      dayEnd.setHours(23, 59, 59, 999);
+
+      const { count } = await supabase
+        .from('content_item_progressions')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', studentId)
+        .gte('updated_at', dayStart.toISOString())
+        .lte('updated_at', dayEnd.toISOString());
+
+      timelineData.push({
         date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        timeSpent: Math.floor(Math.random() * 120) + 30,
-        activitiesCompleted: Math.floor(Math.random() * 5),
+        timeSpent: 0, // No real time-tracking data available yet
+        activitiesCompleted: count || 0,
       });
     }
-    setActivityData(mockData);
+    setActivityData(timelineData);
   };
 
   const getPerformanceLevel = (score: number): { label: string; color: string } => {
