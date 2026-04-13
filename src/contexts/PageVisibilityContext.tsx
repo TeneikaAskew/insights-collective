@@ -67,7 +67,7 @@ interface PageVisibilityProviderProps {
 }
 
 export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ children }) => {
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const [dataLoading, setDataLoading] = useState(true);
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
