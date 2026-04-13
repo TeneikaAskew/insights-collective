@@ -1,33 +1,37 @@
 
 
-## Analysis
+## Plan: Wire Up User Delete and Role Update (Using Existing Edge Function)
 
-The page visibility system **is actually working correctly**. Here's what's happening:
+### What's already done
+- The `admin-users` edge function already supports `deleteUser` and `updateUserRole` actions
+- The `update_user_roles` RPC already exists and works
+- The UI has stub buttons that show toasts but don't call anything
 
-### What the DB shows
-The `/teneika-linkedin` page has `visible_to_users = false` and `visible_to_instructors = false` — your toggle settings are being saved properly.
+### What needs to happen
 
-### Why you don't see "Coming Soon"
-You are logged in as **Nikki Askew, Administrator**. The visibility logic explicitly bypasses all checks for admin users (line 131 of `PageVisibilityContext.tsx`):
-```ts
-if (user?.roles?.includes('admin')) return true;
-```
+**1. Wire up bulk delete in `AdminUsers.tsx`**
+- Replace the stub `handleBulkDelete` with a confirmation dialog
+- On confirm, call the existing `admin-users` edge function with `action: 'deleteUser'` for each selected user
+- Refresh the user list after completion
 
-This is intentional — admins should always be able to access every page regardless of visibility settings. The "Admins: Always" column in your Page Visibility Manager screenshot confirms this design.
+**2. Wire up bulk role update in `AdminUsers.tsx`**
+- Replace the stub `handleBulkRoleUpdate` with a role picker dialog
+- On confirm, call `updateUserRole` from `useAdminUsers` hook for each selected user
 
-### What a non-admin user would see
-- The page **would not appear** in their sidebar
-- If they navigated directly to `/teneika-linkedin`, they'd see the **"Coming Soon" overlay** with a lock icon
+**3. Add `deleteUsers` method to `useAdminUsers.ts`**
+- Add a function that invokes the existing `admin-users` edge function with `action: 'deleteUser'`
+- Handle errors and refresh the list
 
-### No code changes needed
-The system is functioning as designed. To verify it works for non-admin users, you would need to:
-1. Create or use a test account with a "student" role (no admin privileges)
-2. Log in as that user
-3. Confirm `/teneika-linkedin` is hidden from the sidebar and shows "Coming Soon" if accessed directly
+**4. Fix role data source in `useAdminUsers.ts`**
+- Change `fetchUsers` to read roles from the `user_roles` table (via `get_user_roles` RPC or a join) instead of the legacy `profiles.roles` column
+- This ensures role updates are immediately reflected in the UI
 
-### If you want admins to also see visibility restrictions
-If the intent is that admins should *also* see the "Coming Soon" page when visibility is toggled off (so you can preview what users see), I can add a "Preview as user" toggle to the admin UI. This would let you temporarily view the page as a non-admin would see it, without changing the core security model.
+### Files to modify
+| File | Change |
+|------|--------|
+| `src/hooks/useAdminUsers.ts` | Add `deleteUsers`, fix role fetching |
+| `src/pages/AdminUsers.tsx` | Replace stub handlers with real logic + confirmation dialogs |
 
-### Regarding the LinkedIn scraping error
-The posts aren't loading because the LinkedIn OAuth refresh token stored in Supabase secrets has expired (`invalid_grant` error). This requires manually generating a new token from LinkedIn's developer portal and updating the `LINKEDIN_REFRESH_TOKEN` secret in Supabase dashboard. No code change can fix this.
+### No new edge function needed
+The existing `admin-users` edge function handles deletion via `supabase.auth.admin.deleteUser()` with the service role key. We just need to call it from the frontend.
 
