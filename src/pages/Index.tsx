@@ -2,7 +2,6 @@
 import React, { useEffect, useMemo } from 'react';
 import { Navigate } from 'react-router-dom';
 import HeroSection from '@/components/home/HeroSection';
-import BlueprintBanner from '@/components/home/BlueprintBanner';
 import QuizSection from '@/components/quiz/QuizSection';
 import FeaturedCourses from '@/components/home/FeaturedCourses';
 import UpcomingEvents from '@/components/home/UpcomingEvents';
@@ -86,7 +85,6 @@ const Index = () => {
     { id: 'personalizedPathway', Component: PersonalizedPathway, threshold: 0.3 },
     { id: 'interactiveShowcase', Component: InteractiveShowcase, threshold: 0.2 },
     { id: 'features', Component: FeaturesSection, threshold: 0.3 },
-    { id: 'blueprint', Component: BlueprintBanner, threshold: 0.3 },
     { id: 'journey', Component: LearningJourney, threshold: 0.2 },
     { id: 'courses', Component: () => <FeaturedCourses courses={featuredCourses as any} />, threshold: 0.2 },
     { id: 'tools', Component: ExploreTools, threshold: 0.3 },

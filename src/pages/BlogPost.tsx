@@ -130,8 +130,8 @@ export default function BlogPostPage() {
       <AppLayout>
         <div className="container mx-auto py-8 px-4 text-center">
           <h1 className="text-2xl font-bold mb-4">Blog post not found</h1>
-          <Link to="/data-blueprint-series">
-            <Button>Back to Data Blueprint Series</Button>
+          <Link to="/blog">
+            <Button>Back to Blog</Button>
           </Link>
         </div>
       </AppLayout>
@@ -143,10 +143,10 @@ export default function BlogPostPage() {
       <div className="container mx-auto py-8 px-4 max-w-4xl">
         {/* Navigation */}
         <div className="mb-6">
-          <Link to="/data-blueprint-series">
+          <Link to="/blog">
             <Button variant="ghost" className="pl-0">
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Data Blueprint Series
+              Back to Blog
             </Button>
           </Link>
         </div>
@@ -235,9 +235,9 @@ export default function BlogPostPage() {
               <h3 className="text-sm font-medium text-gray-500 mb-3">Tags</h3>
               <div className="flex flex-wrap gap-2">
                 {post.tags.map(tag => (
-                  <Link 
-                    key={tag} 
-                    to={`/data-blueprint-series?tag=${encodeURIComponent(tag)}`}
+                  <Link
+                    key={tag}
+                    to={`/blog?tag=${encodeURIComponent(tag)}`}
                   >
                     <Badge 
                       variant="secondary" 
@@ -258,9 +258,9 @@ export default function BlogPostPage() {
             <div className="mb-6">
               <h3 className="text-lg font-semibold mb-2">Enjoyed this article?</h3>
               <p className="text-gray-600 mb-4">
-                Explore more insights from the Data Blueprint Series
+                Explore more insights on the blog
               </p>
-              <Link to="/data-blueprint-series">
+              <Link to="/blog">
                 <Button className="bg-[#9b87f5] hover:bg-[#8B5CF6]">
                   View All Articles
                 </Button>
