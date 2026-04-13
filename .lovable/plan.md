@@ -1,41 +1,68 @@
 
 
-## Problem Analysis
+## Problem Summary
 
-The LocalStorage Debug page is broken due to two cascading issues:
+Three distinct issues with the Teneika's LinkedIn page:
 
-1. **Rate limit RPC fails on invalid `inet` type**: The `check_debug_token_rate_limit` function expects an `inet` parameter, but the edge function passes `"unknown"` (a string) when IP headers are missing. This causes an RPC error, which the code treats as rate-limit exceeded, returning 429.
+### Issue 1: No "Coming Soon" overlay when page is hidden
+The `/teneika-linkedin` route in `src/App.tsx` (line 324) is not wrapped with `PageVisibilityGuard`. Other protected pages like Portfolio Explorer are wrapped, but this one is bare:
+```
+<Route path="/teneika-linkedin" element={<TeneikaLinkedIn />} />
+```
 
-2. **React StrictMode double-fires the effect**: The `useEffect` in `LocalStorageDebug.tsx` calls `autoAuthenticate` on mount, and StrictMode runs it twice — doubling requests and compounding the rate limit issue.
+**Fix**: Wrap the route with `PageVisibilityGuard` (and optionally `ProtectedRoute` if it should require login).
 
-3. **Overly complex auth flow**: The page already checks `user.roles.includes('admin')` on the client, then calls an edge function to get a debug token, then auto-authenticates. For admin users, this token roundtrip is unnecessary overhead that creates fragility.
+### Issue 2: Sidebar still shows the link even when page is hidden
+Looking at the sidebar filtering logic (lines 203-205), admins bypass the visibility filter entirely:
+```
+const visiblePublicMenuItems = isAdmin || !pageVisibilityLoading
+  ? publicMenuItems.filter(item => isPageVisible(item.url))
+  : publicMenuItems;
+```
+Since you are logged in as admin, `isAdmin` is true, but actually looking closer — the condition is `isAdmin || !pageVisibilityLoading` which still filters via `isPageVisible`. The `isPageVisible` function should handle admin bypass internally. This needs investigation of the `PageVisibilityContext` to confirm behavior, but the sidebar item should respect the same visibility toggle for non-admin users once the guard is in place.
+
+Actually, re-reading: the condition structure is `(isAdmin || !pageVisibilityLoading) ? filter : showAll`. So for admins, it still filters. The `isPageVisible` function likely returns `true` for admins regardless. This is correct behavior — admins always see everything. For non-admin users, if the page visibility is toggled off, the sidebar item should be hidden and the Coming Soon overlay should appear.
+
+**The user's screenshot shows they are an admin** — so the sidebar correctly shows the item. For regular users, the sidebar would hide it only if the `PageVisibilityGuard` is in place and `isPageVisible` returns false for that path.
+
+**Fix**: The sidebar behavior is actually correct for admins. The missing piece is the `PageVisibilityGuard` wrapper on the route.
+
+### Issue 3: LinkedIn posts not loading — edge function returns 500
+The edge function logs show the real error:
+```
+"invalid_grant" — "The provided authorization grant or refresh token is invalid, expired or revoked."
+```
+
+The LinkedIn refresh token stored in Supabase secrets (`LINKEDIN_REFRESH_TOKEN`) has expired. LinkedIn OAuth refresh tokens expire after a set period (typically 365 days) and must be re-generated.
+
+Additionally, the edge function returns HTTP 500 when the scrape fails (line 486), but the query to `linkedin_posts` table should still work independently — it just returns empty because no posts have been stored yet.
+
+**Fix for edge function**: 
+- Change the error response to return HTTP 200 with `success: false` so the client can read the error message
+- You will need to generate a new LinkedIn refresh token and update the `LINKEDIN_REFRESH_TOKEN` secret
 
 ## Plan
 
-### Step 1: Simplify the LocalStorageDebug page — remove edge function dependency
+### Step 1: Wrap `/teneika-linkedin` route with PageVisibilityGuard
+In `src/App.tsx`, wrap the route element:
+```tsx
+<Route path="/teneika-linkedin" element={
+  <PageVisibilityGuard>
+    <TeneikaLinkedIn />
+  </PageVisibilityGuard>
+} />
+```
+Do the same for `/teneika-tweets` for consistency.
 
-Since access is admin-only (confirmed by user), the page should rely on the existing client-side admin role check (`user.roles.includes('admin')`) which is already backed by the server-side `user_roles` table. The debug token edge function adds complexity without meaningful security benefit (the admin role is already verified server-side via RLS).
+### Step 2: Fix edge function error response
+In `supabase/functions/scrape-linkedin-posts/index.ts`, change line 486 from `status: result.error ? 500 : 200` to always return `status: 200`. This prevents the `FunctionsHttpError` on the client side and lets the UI display the actual error message.
 
-**Changes to `src/pages/admin/LocalStorageDebug.tsx`:**
-- Remove the `autoAuthenticate` function and its `useEffect`
-- Remove the `supabase.functions.invoke('get-debug-token')` calls
-- Remove the passcode input/verification UI
-- Set `isAuthenticated` based on `user?.roles?.includes('admin')` directly
-- Remove `isLoading` and `isTokenLoading` states (no async auth needed)
-- Keep all the localStorage inspection functionality intact
-
-### Step 2: Wrap the route with ProtectedRoute (requireAdmin)
-
-**Changes to `src/App.tsx`:**
-- Wrap the `<LocalStorageDebug />` route element with `<ProtectedRoute requireAdmin>` to enforce server-side admin validation, matching the pattern used by other admin routes.
-
-### Step 3: Keep the edge function and migration files unchanged
-
-Per the project's coding instructions ("DO NOT DELETE ANY FILES"), the `get-debug-token` edge function and related migration will remain in place but will no longer be called by the debug page.
+### Step 3: Update LinkedIn refresh token (manual step)
+You need to re-authorize your LinkedIn OAuth app and get a new refresh token. Update the `LINKEDIN_REFRESH_TOKEN` secret in Supabase with the new value. Without this, scraping will continue to fail.
 
 ## Technical Details
-
-- The `ProtectedRoute` component already performs server-side admin verification via `supabase.rpc('has_admin_access', ...)` — this provides the same security as the edge function without the rate limit fragility
-- No database changes needed
-- No edge function changes needed
+- The `PageVisibilityGuard` component checks visibility via `isPageVisible()` from context, which queries the `page_visibility` table
+- Admin users always see pages regardless of visibility settings (by design)
+- The LinkedIn API error `invalid_grant` means the OAuth token chain is broken — no code fix can resolve this; a new token is required
+- Changing the edge function to return 200 on error follows the pattern recommended for Supabase edge functions so the client can parse the response body
 
