@@ -1,66 +1,41 @@
 
 
-# Plan: Run Full E2E Test Suite
+## Problem Analysis
 
-## What exists
-You already have **60+ E2E spec files** covering every major area of the app — admin, auth, courses, career, interviews, portfolio, blog, survey, events, messages, navigation, and more. The infrastructure (Playwright config, global setup/teardown, fixtures for member/admin/instructor roles) is all in place.
+The LocalStorage Debug page is broken due to two cascading issues:
 
-## What needs to happen
+1. **Rate limit RPC fails on invalid `inet` type**: The `check_debug_token_rate_limit` function expects an `inet` parameter, but the edge function passes `"unknown"` (a string) when IP headers are missing. This causes an RPC error, which the code treats as rate-limit exceeded, returning 429.
 
-### 1. Install Playwright browsers
-```bash
-npx playwright install --with-deps chromium firefox
-```
+2. **React StrictMode double-fires the effect**: The `useEffect` in `LocalStorageDebug.tsx` calls `autoAuthenticate` on mount, and StrictMode runs it twice — doubling requests and compounding the rate limit issue.
 
-### 2. Start the dev server
-The tests expect the app running at `http://localhost:8080`.
+3. **Overly complex auth flow**: The page already checks `user.roles.includes('admin')` on the client, then calls an edge function to get a debug token, then auto-authenticates. For admin users, this token roundtrip is unnecessary overhead that creates fragility.
 
-### 3. Seed test credentials
-Global setup (`e2e/global-setup.ts`) logs in as member, admin, and instructor using `E2E_*` environment variables and saves session files to `.playwright-sessions/`.
+## Plan
 
-### 4. Run all tests
-```bash
-npx playwright test --reporter=list
-```
-This runs all 60+ specs across 5 projects: chromium-member, chromium-admin, chromium-instructor, chromium-public, and firefox.
+### Step 1: Simplify the LocalStorageDebug page — remove edge function dependency
 
-### 5. Generate report
-```bash
-npx playwright show-report
-```
-Export the HTML report to `/mnt/documents/` for review.
+Since access is admin-only (confirmed by user), the page should rely on the existing client-side admin role check (`user.roles.includes('admin')`) which is already backed by the server-side `user_roles` table. The debug token edge function adds complexity without meaningful security benefit (the admin role is already verified server-side via RLS).
 
-## Coverage summary (already written)
+**Changes to `src/pages/admin/LocalStorageDebug.tsx`:**
+- Remove the `autoAuthenticate` function and its `useEffect`
+- Remove the `supabase.functions.invoke('get-debug-token')` calls
+- Remove the passcode input/verification UI
+- Set `isAuthenticated` based on `user?.roles?.includes('admin')` directly
+- Remove `isLoading` and `isTokenLoading` states (no async auth needed)
+- Keep all the localStorage inspection functionality intact
 
-| Area | Specs | Routes covered |
-|------|-------|---------------|
-| Admin | 11 specs | /admin, /admin/activity, users, courses, events, blog, forms, page-visibility, local-storage-debug |
-| Auth | 5 specs | /login, /register, /reset-password, /auth/callback, redirect flows |
-| Courses | 13 specs | /courses, /enrolled-courses, /course-management, detail, builder, learn, gradebook, rubrics, question-banks, progress, certificate, calendar |
-| Assignments | 4 specs | submission, grading, quiz taking, quiz results |
-| Career/AI | 6 specs | /career-agent, /career-pathway, /assistants, /assistant/:id, /explore-data-careers, /resume |
-| Interview | 6 specs | /interview-prep, code-practice, mock-interviews, mock-interview-room, star-practice, job-description |
-| Portfolio | 3 specs | explorer, editor, public portfolio |
-| Events | 2 specs | /events, /events/:id |
-| Messages | 1 spec | /messages |
-| Blog | 2 specs | /blog/:slug, /data-blueprint-series |
-| Survey | 3 specs | /survey, /survey/:slug, /survey-confirmation |
-| Navigation | 4 specs | layout, sidebar, route parity, session flows |
-| Dashboard | 1 spec | /dashboard |
-| Calendar | 1 spec | /calendar |
-| Notifications | 1 spec | /notifications |
-| Profile | 1 spec | /profile |
-| Resources | 2 specs | /resources, social archives |
-| Legal | 2 specs | /privacy-policy, /terms-of-service |
-| Landing | 1 spec | / |
+### Step 2: Wrap the route with ProtectedRoute (requireAdmin)
 
-**Total: 69 spec files covering all routes and major functionality.**
+**Changes to `src/App.tsx`:**
+- Wrap the `<LocalStorageDebug />` route element with `<ProtectedRoute requireAdmin>` to enforce server-side admin validation, matching the pattern used by other admin routes.
 
-## Missing pages (not yet covered)
-- `/user-dashboard` — no dedicated spec
-- `/create-blog-post` and `/edit-blog-post/:slug` — no specs
-- `/courses/:courseId/insights` (StudentInsights) — no spec
+### Step 3: Keep the edge function and migration files unchanged
 
-## Deliverable
-After running, I will provide a full pass/fail report with error details for any failures, plus the HTML report as a downloadable artifact.
+Per the project's coding instructions ("DO NOT DELETE ANY FILES"), the `get-debug-token` edge function and related migration will remain in place but will no longer be called by the debug page.
+
+## Technical Details
+
+- The `ProtectedRoute` component already performs server-side admin verification via `supabase.rpc('has_admin_access', ...)` — this provides the same security as the edge function without the rate limit fragility
+- No database changes needed
+- No edge function changes needed
 
