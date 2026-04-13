@@ -231,9 +231,9 @@ export default function EnrolledCoursesDashboard() {
       <div className="space-y-6">
         {/* Header */}
         <div className="border-b pb-6">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
             <div>
-              <h1 className="text-3xl font-bold">My Courses</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold">My Courses</h1>
               <p className="text-muted-foreground">
                 Continue your learning journey
               </p>
@@ -243,7 +243,7 @@ export default function EnrolledCoursesDashboard() {
                 <Bell className="h-4 w-4 mr-2" />
                 Notifications
               </Button>
-              <Button asChild>
+              <Button asChild size="sm">
                 <Link to="/courses">
                   <Search className="h-4 w-4 mr-2" />
                   Browse Courses

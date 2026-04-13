@@ -315,9 +315,9 @@ const CanvasModuleDetail = () => {
             </BreadcrumbList>
           </Breadcrumb>
 
-          <div className="flex justify-between items-start">
-            <div>
-              <h1 className="text-2xl font-bold mb-2">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold mb-2 break-words">
                 Week {module.week}: {module.title}
               </h1>
               {module.description && (
@@ -327,7 +327,7 @@ const CanvasModuleDetail = () => {
                 />
               )}
             </div>
-            <div className="text-right">
+            <div className="text-right flex-shrink-0">
               <div className="text-sm text-muted-foreground mb-1">Progress</div>
               <div className="font-semibold">{moduleProgress}%</div>
             </div>
