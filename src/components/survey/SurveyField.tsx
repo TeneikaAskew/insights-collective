@@ -401,57 +401,72 @@ const SurveyField: React.FC<SurveyFieldProps> = ({ field, fieldName, defaultValu
           />
         );
       
-      case 'checkbox':
+      case 'checkbox': {
+        // For single agreement checkboxes, use validate instead of required
+        // so that `false` is rejected (required only checks for undefined/empty)
+        const isAgreementCheckbox = !field.options;
+        const checkboxRules = isAgreementCheckbox && field.required
+          ? { validate: (value: any) => value === true || "This field is required" }
+          : getValidationRules();
+
         return (
           <FormField
             control={control}
             name={fieldName}
-            rules={getValidationRules()}
+            defaultValue={isAgreementCheckbox ? false : []}
+            rules={checkboxRules}
             render={({ field: formField }) => (
               <FormItem className="space-y-3">
-                <FormLabel className="flex items-start gap-2">
-                  {field.label}
-                  {field.required && <span className="text-red-500">*</span>}
-                </FormLabel>
-                <div className="space-y-2">
-                  {field.options ? (
-                    // For multiple checkboxes (selecting from options)
-                    field.options.map(option => (
-                      <div key={option} className="flex items-center space-x-2">
+                {field.options && (
+                  <FormLabel className="flex items-start gap-2">
+                    {field.label}
+                    {field.required && <span className="text-red-500">*</span>}
+                  </FormLabel>
+                )}
+                <FormControl>
+                  <div className="space-y-2">
+                    {field.options ? (
+                      // For multiple checkboxes (selecting from options)
+                      field.options.map(option => (
+                        <div key={option} className="flex items-center space-x-2">
+                          <Checkbox 
+                            id={`${fieldName}-${option}`} 
+                            checked={formField.value?.includes(option)}
+                            onCheckedChange={(checked) => {
+                              const value = formField.value || [];
+                              if (checked) {
+                                formField.onChange([...value, option]);
+                              } else {
+                                formField.onChange(value.filter((v: string) => v !== option));
+                              }
+                            }}
+                          />
+                          <Label htmlFor={`${fieldName}-${option}`}>{option}</Label>
+                        </div>
+                      ))
+                    ) : (
+                      // For a single checkbox agreement
+                      <div className="flex items-start space-x-3">
                         <Checkbox 
-                          id={`${fieldName}-${option}`} 
-                          checked={formField.value?.includes(option)}
-                          onCheckedChange={(checked) => {
-                            const value = formField.value || [];
-                            if (checked) {
-                              formField.onChange([...value, option]);
-                            } else {
-                              formField.onChange(value.filter((v: string) => v !== option));
-                            }
-                          }}
+                          id={fieldName} 
+                          checked={!!formField.value}
+                          onCheckedChange={formField.onChange}
+                          className="mt-1"
                         />
-                        <Label htmlFor={`${fieldName}-${option}`}>{option}</Label>
+                        <Label className="leading-normal cursor-pointer" htmlFor={fieldName}>
+                          {field.text || field.label}
+                          {field.required && <span className="text-destructive ml-1">*</span>}
+                        </Label>
                       </div>
-                    ))
-                  ) : (
-                    // For a single checkbox agreement
-                    <div className="flex items-start space-x-2">
-                      <Checkbox 
-                        id={fieldName} 
-                        checked={formField.value}
-                        onCheckedChange={formField.onChange}
-                      />
-                      <Label className="leading-normal" htmlFor={fieldName}>
-                        {field.text || field.label}
-                      </Label>
-                    </div>
-                  )}
-                </div>
+                    )}
+                  </div>
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
         );
+      }
       
       case 'date':
         return (
