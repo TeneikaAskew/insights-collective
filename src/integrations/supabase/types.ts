@@ -325,47 +325,71 @@ export type Database = {
       }
       assignments: {
         Row: {
+          allowed_file_extensions: string[] | null
+          anonymous_grading: boolean | null
           content: string | null
           content_item_id: string | null
           course_id: string
           created_at: string
           description: string | null
           due_date: string | null
+          grading_type: string | null
           id: string
           instructions: string | null
           is_published: boolean | null
+          late_policy: Json | null
+          max_attempts: number | null
           module_id: string | null
+          peer_review_due_date: string | null
+          peer_review_enabled: boolean | null
           points: number | null
+          submission_types: string[] | null
           title: string
           updated_at: string
         }
         Insert: {
+          allowed_file_extensions?: string[] | null
+          anonymous_grading?: boolean | null
           content?: string | null
           content_item_id?: string | null
           course_id: string
           created_at?: string
           description?: string | null
           due_date?: string | null
+          grading_type?: string | null
           id?: string
           instructions?: string | null
           is_published?: boolean | null
+          late_policy?: Json | null
+          max_attempts?: number | null
           module_id?: string | null
+          peer_review_due_date?: string | null
+          peer_review_enabled?: boolean | null
           points?: number | null
+          submission_types?: string[] | null
           title: string
           updated_at?: string
         }
         Update: {
+          allowed_file_extensions?: string[] | null
+          anonymous_grading?: boolean | null
           content?: string | null
           content_item_id?: string | null
           course_id?: string
           created_at?: string
           description?: string | null
           due_date?: string | null
+          grading_type?: string | null
           id?: string
           instructions?: string | null
           is_published?: boolean | null
+          late_policy?: Json | null
+          max_attempts?: number | null
           module_id?: string | null
+          peer_review_due_date?: string | null
+          peer_review_enabled?: boolean | null
           points?: number | null
+          submission_types?: string[] | null
           title?: string
           updated_at?: string
         }
@@ -1624,6 +1648,71 @@ export type Database = {
         }
         Relationships: []
       }
+      course_announcements: {
+        Row: {
+          author_id: string | null
+          content: string | null
+          course_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_pinned: boolean
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          author_id?: string | null
+          content?: string | null
+          course_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_pinned?: boolean
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string | null
+          content?: string | null
+          course_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_pinned?: boolean
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_announcements_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_announcements_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "course_statistics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_announcements_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_announcements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       course_assignments: {
         Row: {
           course_id: string | null
@@ -1925,6 +2014,7 @@ export type Database = {
         Row: {
           calendly_link: string | null
           capacity: number | null
+          course_id: string | null
           created_at: string | null
           date: string
           description: string
@@ -1938,10 +2028,14 @@ export type Database = {
           title: string
           type: string
           updated_at: string | null
+          zoom_meeting_id: number | null
+          zoom_recurrence: Json | null
+          zoom_start_url: string | null
         }
         Insert: {
           calendly_link?: string | null
           capacity?: number | null
+          course_id?: string | null
           created_at?: string | null
           date: string
           description: string
@@ -1955,10 +2049,14 @@ export type Database = {
           title: string
           type: string
           updated_at?: string | null
+          zoom_meeting_id?: number | null
+          zoom_recurrence?: Json | null
+          zoom_start_url?: string | null
         }
         Update: {
           calendly_link?: string | null
           capacity?: number | null
+          course_id?: string | null
           created_at?: string | null
           date?: string
           description?: string
@@ -1972,8 +2070,26 @@ export type Database = {
           title?: string
           type?: string
           updated_at?: string | null
+          zoom_meeting_id?: number | null
+          zoom_recurrence?: Json | null
+          zoom_start_url?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "events_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "course_statistics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "events_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       form_submissions: {
         Row: {
@@ -2594,6 +2710,39 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          is_read: boolean
+          link: string | null
+          message: string
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          link?: string | null
+          message: string
+          title: string
+          type?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          link?: string | null
+          message?: string
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       page_visibility: {
         Row: {
           created_at: string | null
@@ -2945,6 +3094,48 @@ export type Database = {
             columns: ["lesson_id"]
             isOneToOne: false
             referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      progress_snapshots: {
+        Row: {
+          completion_percentage: number
+          course_id: string
+          created_at: string
+          id: string
+          snapshot_date: string
+          user_id: string
+        }
+        Insert: {
+          completion_percentage?: number
+          course_id: string
+          created_at?: string
+          id?: string
+          snapshot_date?: string
+          user_id: string
+        }
+        Update: {
+          completion_percentage?: number
+          course_id?: string
+          created_at?: string
+          id?: string
+          snapshot_date?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "progress_snapshots_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "course_statistics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "progress_snapshots_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
             referencedColumns: ["id"]
           },
         ]
@@ -3314,6 +3505,7 @@ export type Database = {
       }
       quiz_questions: {
         Row: {
+          answers: Json | null
           correct_answer: Json | null
           created_at: string | null
           explanation: string | null
@@ -3327,6 +3519,7 @@ export type Database = {
           quiz_id: string
         }
         Insert: {
+          answers?: Json | null
           correct_answer?: Json | null
           created_at?: string | null
           explanation?: string | null
@@ -3340,6 +3533,7 @@ export type Database = {
           quiz_id: string
         }
         Update: {
+          answers?: Json | null
           correct_answer?: Json | null
           created_at?: string | null
           explanation?: string | null
@@ -3358,6 +3552,54 @@ export type Database = {
             columns: ["quiz_id"]
             isOneToOne: false
             referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quiz_submission_answers: {
+        Row: {
+          answer_data: Json
+          correct: boolean | null
+          created_at: string | null
+          id: string
+          points: number | null
+          quiz_question_id: string
+          quiz_submission_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          answer_data: Json
+          correct?: boolean | null
+          created_at?: string | null
+          id?: string
+          points?: number | null
+          quiz_question_id: string
+          quiz_submission_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          answer_data?: Json
+          correct?: boolean | null
+          created_at?: string | null
+          id?: string
+          points?: number | null
+          quiz_question_id?: string
+          quiz_submission_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_submission_answers_quiz_question_id_fkey"
+            columns: ["quiz_question_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_submission_answers_quiz_submission_id_fkey"
+            columns: ["quiz_submission_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_submissions"
             referencedColumns: ["id"]
           },
         ]
@@ -3644,30 +3886,33 @@ export type Database = {
       rubric_criteria: {
         Row: {
           created_at: string | null
-          criterion: string
           description: string | null
           id: string
+          levels: Json
           order_index: number | null
           points: number
           rubric_id: string
+          title: string
         }
         Insert: {
           created_at?: string | null
-          criterion: string
           description?: string | null
           id?: string
+          levels?: Json
           order_index?: number | null
           points?: number
           rubric_id: string
+          title: string
         }
         Update: {
           created_at?: string | null
-          criterion?: string
           description?: string | null
           id?: string
+          levels?: Json
           order_index?: number | null
           points?: number
           rubric_id?: string
+          title?: string
         }
         Relationships: [
           {
@@ -4469,6 +4714,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      reorder_content_items: {
+        Args: { p_item_ids: string[]; p_module_id: string }
+        Returns: undefined
+      }
+      reorder_modules: {
+        Args: { p_course_id: string; p_module_ids: string[] }
+        Returns: undefined
+      }
+      snapshot_enrollment_progress: { Args: never; Returns: undefined }
       update_user_roles: {
         Args: { new_roles: string[]; target_user_id: string }
         Returns: undefined

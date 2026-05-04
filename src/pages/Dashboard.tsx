@@ -27,6 +27,7 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [teachingCourses, setTeachingCourses] = useState<Course[]>([]);
+  const [inProgressCount, setInProgressCount] = useState(0);
   
   // Redirect to login if not authenticated
   if (!isAuthenticated) {
@@ -42,8 +43,16 @@ const Dashboard = () => {
         
         const { data: enrollments, error: enrollmentsError } = await supabase
           .from('enrollments')
-          .select('course_id')
+          .select('course_id, completion_status')
           .eq('user_id', user.id);
+        
+        // Calculate in-progress count from real enrollment data
+        if (enrollments) {
+          const inProgress = enrollments.filter(e => 
+            (e.completion_status || 0) > 0 && (e.completion_status || 0) < 100
+          ).length;
+          setInProgressCount(inProgress);
+        }
         
         if (enrollmentsError) throw enrollmentsError;
         
@@ -167,24 +176,56 @@ const Dashboard = () => {
     fetchInstructorCourses();
   }, [user, toast]);
   
-  const notifications = []; // TODO: Replace with real notifications data when available
-  
-  const upcomingDeadlines = [
-    {
-      id: "deadline1",
-      title: "Style Your Webpage",
-      courseTitle: "Introduction to Web Development",
-      dueDate: "2023-01-29T23:59:59Z",
-      type: "assignment"
-    },
-    {
-      id: "deadline2",
-      title: "CSS Fundamentals Quiz",
-      courseTitle: "Introduction to Web Development",
-      dueDate: "2023-01-27T23:59:59Z",
-      type: "quiz"
-    }
-  ];
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [upcomingDeadlines, setUpcomingDeadlines] = useState<any[]>([]);
+
+  // Fetch real notifications from DB
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      if (!user) return;
+      try {
+        const { data } = await supabase
+          .from('notifications')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('is_read', false)
+          .order('created_at', { ascending: false })
+          .limit(10);
+        setNotifications(data || []);
+      } catch (err) {
+        logger.error('Error fetching notifications:', err);
+      }
+    };
+    fetchNotifications();
+  }, [user]);
+
+  // Fetch real upcoming deadlines from assignments
+  useEffect(() => {
+    const fetchDeadlines = async () => {
+      if (!user || enrolledCourses.length === 0) return;
+      try {
+        const courseIds = enrolledCourses.map(c => c.id);
+        const { data } = await supabase
+          .from('assignments')
+          .select('id, title, due_date, course_id, courses(title)')
+          .in('course_id', courseIds)
+          .gte('due_date', new Date().toISOString())
+          .order('due_date', { ascending: true })
+          .limit(5);
+        
+        setUpcomingDeadlines((data || []).map(d => ({
+          id: d.id,
+          title: d.title,
+          courseTitle: (d.courses as any)?.title || 'Course',
+          dueDate: d.due_date,
+          type: 'assignment'
+        })));
+      } catch (err) {
+        logger.error('Error fetching deadlines:', err);
+      }
+    };
+    fetchDeadlines();
+  }, [user, enrolledCourses]);
   
   const formatDueDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -237,7 +278,7 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between">
-                <div className="text-2xl font-bold">2</div>
+                <div className="text-2xl font-bold">{inProgressCount}</div>
                 <Clock className="h-5 w-5 text-muted-foreground" />
               </div>
             </CardContent>

@@ -2,7 +2,7 @@
 // ABOUTME: Tests content management hook functionality
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { useCanvasContent } from '../useCanvasContent';
 import { mockSupabaseClient } from '@/test/mocks/supabase';
 import CanvasContentService from '@/services/canvasContentService';
@@ -98,11 +98,10 @@ describe('useCanvasContent', () => {
       expect(result.current.loading).toBe(false);
     });
 
-    const created = await result.current.createContentItem(
-      'page',
-      'New Item',
-      'Content'
-    );
+    let created: any;
+    await act(async () => {
+      created = await result.current.createContentItem('page', 'New Item', 'Content');
+    });
 
     expect(created).toEqual(newItem);
     expect(result.current.contentItems).toHaveLength(2);
@@ -124,11 +123,12 @@ describe('useCanvasContent', () => {
       expect(result.current.loading).toBe(false);
     });
 
-    const updatedItem = await result.current.updateContentItem('1', {
-      title: 'Updated'
+    let updatedItem: any;
+    await act(async () => {
+      updatedItem = await result.current.updateContentItem('1', { title: 'Updated' });
     });
 
-    expect(updatedItem.title).toBe('Updated');
+    expect(updatedItem?.title).toBe('Updated');
     expect(result.current.contentItems[0].title).toBe('Updated');
   });
 
@@ -147,7 +147,9 @@ describe('useCanvasContent', () => {
       expect(result.current.loading).toBe(false);
     });
 
-    await result.current.deleteContentItem('1');
+    await act(async () => {
+      await result.current.deleteContentItem('1');
+    });
 
     expect(result.current.contentItems).toHaveLength(1);
     expect(result.current.contentItems[0].id).toBe('2');
@@ -169,7 +171,9 @@ describe('useCanvasContent', () => {
       expect(result.current.loading).toBe(false);
     });
 
-    await result.current.reorderContentItems(['3', '1', '2']);
+    await act(async () => {
+      await result.current.reorderContentItems(['3', '1', '2']);
+    });
 
     expect(result.current.contentItems[0].id).toBe('3');
     expect(result.current.contentItems[1].id).toBe('1');

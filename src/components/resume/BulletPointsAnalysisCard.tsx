@@ -292,7 +292,7 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
                     >
                       {bullets.map((bullet, idx) => (
                         <option key={idx} value={idx}>
-                          {bullet?.original?.substring(0, 100)}...
+                          {bullet?.original}
                         </option>
                       ))}
                     </select>

@@ -1,0 +1,14 @@
+{
+  "name": "insights-collective",
+  "postCreateCommand": "bash scripts/setup-env.sh",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "files.exclude": {
+          "**/.env": true,
+          "**/.env.local": true
+        }
+      }
+    }
+  }
+}

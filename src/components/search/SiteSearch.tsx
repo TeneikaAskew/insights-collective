@@ -10,7 +10,7 @@ type SearchResult = {
   title: string;
   description?: string;
   url: string;
-  type: 'course' | 'resource' | 'assistant' | 'event' | 'career' | 'blueprint' | 'page';
+  type: 'course' | 'resource' | 'assistant' | 'event' | 'career' | 'page';
 };
 
 const SiteSearch = () => {
@@ -129,7 +129,6 @@ const SiteSearch = () => {
       case 'course': return 'Courses';
       case 'event': return 'Events';
       case 'assistant': return 'Assistants';
-      case 'blueprint': return 'Data Blueprint';
       case 'career': return 'Data Careers';
       case 'resource': return 'Resources';
       case 'page': return 'Pages';

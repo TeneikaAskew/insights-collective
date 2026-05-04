@@ -19,6 +19,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { ModuleProgressCard } from './ModuleProgressCard';
+import { useCourseProgress } from '@/hooks/useCourseProgress';
 import { cn } from '@/lib/utils';
 import {
   Accordion,
@@ -55,6 +56,10 @@ export const CourseProgressOverview: React.FC<CourseProgressOverviewProps> = ({
   onViewCertificate,
   onNavigateToLesson,
 }) => {
+  // Canonical progress: totals + percent come from useCourseProgress.
+  // This removes the old RPC-based aggregation and the legacy content_progress reads.
+  const { data: progress, isLoading: progressLoading } = useCourseProgress(courseId, studentId);
+
   // Get course details with modules
   const { data: course } = useQuery({
     queryKey: ['course-with-modules', courseId],
@@ -74,51 +79,66 @@ export const CourseProgressOverview: React.FC<CourseProgressOverviewProps> = ({
         `)
         .eq('id', courseId)
         .single();
-      
+
       if (error) throw error;
       return data;
     },
   });
 
-  // Get comprehensive course statistics
+  // Type-specific breakdown (lessons / assignments / quizzes) + grades.
+  // Uses content_items + content_item_progressions directly (no legacy tables).
   const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ['course-stats', courseId, studentId],
+    queryKey: ['course-stats', courseId, studentId, progress?.completedItems],
     queryFn: async () => {
-      // Get all module progress
-      const moduleProgressPromises = course?.modules.map(module =>
-        supabase.rpc('calculate_module_progress', {
-          p_module_id: module.id,
-          p_student_id: studentId,
-        }).single()
-      ) || [];
+      // Fetch published content items for this course's modules
+      const { data: modules } = await supabase
+        .from('modules')
+        .select('id')
+        .eq('course_id', courseId)
+        .eq('published', true);
 
-      const moduleProgressResults = await Promise.all(moduleProgressPromises);
-      
-      // Calculate aggregated stats
-      let totalLessons = 0;
-      let completedLessons = 0;
-      let totalAssignments = 0;
-      let completedAssignments = 0;
-      let totalQuizzes = 0;
-      let completedQuizzes = 0;
-      let completedModules = 0;
+      const moduleIds = (modules || []).map((m) => m.id);
+      const { data: items } = moduleIds.length > 0
+        ? await supabase
+            .from('content_items')
+            .select('id, type')
+            .in('module_id', moduleIds)
+            .eq('published', true)
+        : { data: [] as { id: string; type: string }[] };
 
-      moduleProgressResults.forEach((result) => {
-        if (result.data) {
-          totalLessons += result.data.total_lessons;
-          completedLessons += result.data.completed_lessons;
-          totalAssignments += result.data.total_assignments;
-          completedAssignments += result.data.completed_assignments;
-          totalQuizzes += result.data.total_quizzes;
-          completedQuizzes += result.data.completed_quizzes;
-          
-          if (result.data.progress_percentage === 100) {
-            completedModules++;
-          }
-        }
-      });
+      const contentItems = items || [];
+      const itemIds = contentItems.map((i) => i.id);
 
-      // Get average grade
+      // Completed progressions (read or completed)
+      const { data: progressions } = itemIds.length > 0
+        ? await supabase
+            .from('content_item_progressions')
+            .select('content_item_id, workflow_state')
+            .eq('user_id', studentId)
+            .in('content_item_id', itemIds)
+        : { data: [] as { content_item_id: string; workflow_state: string }[] };
+
+      const completedSet = new Set(
+        (progressions || [])
+          .filter((p) => p.workflow_state === 'read' || p.workflow_state === 'completed')
+          .map((p) => p.content_item_id),
+      );
+
+      const byType = (type: string) => contentItems.filter((c) => c.type === type);
+      const countCompleted = (type: string) =>
+        byType(type).filter((c) => completedSet.has(c.id)).length;
+
+      const totalLessons = byType('page').length;
+      const completedLessons = countCompleted('page');
+      const totalAssignments = byType('assignment').length;
+      const completedAssignments = countCompleted('assignment');
+      const totalQuizzes = byType('quiz').length;
+      const completedQuizzes = countCompleted('quiz');
+
+      // Module completion count (100%)
+      const completedModules = (progress?.modules || []).filter((m) => m.percent === 100).length;
+
+      // Grades (kept — not part of content_item_progressions)
       const { data: grades } = await supabase
         .from('grades')
         .select('percentage')
@@ -127,31 +147,8 @@ export const CourseProgressOverview: React.FC<CourseProgressOverviewProps> = ({
         .not('percentage', 'is', null);
 
       const averageGrade = grades && grades.length > 0
-        ? grades.reduce((sum, g) => sum + g.percentage!, 0) / grades.length
+        ? grades.reduce((sum, g) => sum + (g.percentage || 0), 0) / grades.length
         : 0;
-
-      // Get time spent (simplified - you might want to aggregate from content_progress)
-      const { data: progressData } = await supabase
-        .from('content_progress')
-        .select('time_spent')
-        .eq('user_id', studentId);
-      
-      const timeSpent = progressData
-        ? progressData.reduce((sum, p) => sum + (p.time_spent || 0), 0)
-        : 0;
-
-      // Get last activity
-      const { data: lastActivityData } = await supabase
-        .from('content_progress')
-        .select('last_accessed')
-        .eq('user_id', studentId)
-        .order('last_accessed', { ascending: false })
-        .limit(1)
-        .single();
-
-      const totalItems = totalLessons + totalAssignments + totalQuizzes;
-      const completedItems = completedLessons + completedAssignments + completedQuizzes;
-      const overallProgress = totalItems > 0 ? (completedItems / totalItems) * 100 : 0;
 
       return {
         totalModules: course?.modules.length || 0,
@@ -162,13 +159,13 @@ export const CourseProgressOverview: React.FC<CourseProgressOverviewProps> = ({
         completedAssignments,
         totalQuizzes,
         completedQuizzes,
-        overallProgress,
+        overallProgress: progress?.percent ?? 0,
         averageGrade,
-        timeSpent,
-        lastActivity: lastActivityData?.last_accessed || null,
+        timeSpent: 0, // legacy content_progress dropped; reintroduce when tracking is back
+        lastActivity: null,
       } as CourseStats;
     },
-    enabled: !!course,
+    enabled: !!course && !!progress,
   });
 
   // Check if course is completed
@@ -200,7 +197,7 @@ export const CourseProgressOverview: React.FC<CourseProgressOverviewProps> = ({
     return 'text-red-600';
   };
 
-  if (statsLoading || !stats) {
+  if (progressLoading || statsLoading || !stats) {
     return (
       <div className="space-y-6">
         <Card>
@@ -220,15 +217,15 @@ export const CourseProgressOverview: React.FC<CourseProgressOverviewProps> = ({
       {/* Course Header */}
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-start">
-            <div>
-              <CardTitle>{course?.title}</CardTitle>
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+            <div className="min-w-0">
+              <CardTitle className="break-words">{course?.title}</CardTitle>
               <CardDescription className="mt-2">
                 Track your progress and achievements in this course
               </CardDescription>
             </div>
             {isCompleted && (
-              <Button onClick={onViewCertificate} className="gap-2">
+              <Button onClick={onViewCertificate} className="gap-2 flex-shrink-0">
                 <Award className="h-4 w-4" />
                 View Certificate
               </Button>

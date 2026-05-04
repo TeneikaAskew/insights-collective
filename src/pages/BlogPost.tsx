@@ -258,7 +258,7 @@ export default function BlogPostPage() {
             <div className="mb-6">
               <h3 className="text-lg font-semibold mb-2">Enjoyed this article?</h3>
               <p className="text-gray-600 mb-4">
-                Explore more insights from our blog
+                Explore more insights on the blog
               </p>
               <Link to="/blog">
                 <Button className="bg-[#9b87f5] hover:bg-[#8B5CF6]">

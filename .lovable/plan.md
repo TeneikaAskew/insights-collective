@@ -1,50 +1,63 @@
 
 
-# Improve Elevator Pitch Quality
+## Plan: LessonDetail Fix + Responsive Audit via Playwright
 
-## Problem
+### Part 1: Replace mockService in LessonDetail.tsx
 
-The tool calling schema constrains the elevator pitch to "max 2 sentences," producing a generic summary like *"This Machine Learning Engineer excels in computer vision..."*. The previous version generated a rich, detailed pitch that covered the candidate's expertise, key achievements, deployment experience, and professional passions -- ending with language like *"...drives advancements in trustworthy AI through hands-on experimentation and interdisciplinary collaboration."*
+**File:** `src/pages/LessonDetail.tsx`
 
-## Root Cause
+Replace `mockService.getCourseById()`, `mockService.getModuleById()`, and the mock lesson lookup with Supabase queries using `useQuery` from TanStack Query:
 
-Line 17 in `aiEnhancer.ts`:
-```
-description: "Professional elevator pitch summarizing the candidate, max 2 sentences"
-```
+- Query `courses` table by `courseId`
+- Query `modules` table by `moduleId` 
+- Query `lessons` table by `lessonId` (with `module_id = moduleId`)
+- Query `lesson_progress` table for current user to determine completion status
+- Update `handleMarkComplete` to upsert into `lesson_progress`
+- Add loading spinner while data fetches
+- Keep the existing "Lesson Not Found" fallback for missing data
 
-And line 88 in the system prompt:
-```
-1. A professional elevator pitch (max 2 sentences)
-```
+**DB tables confirmed available:** `courses` (5 rows), `modules` (16 rows), `lessons` (4 rows), `lesson_progress` (schema confirmed with `completed`, `completed_at` columns).
 
-## Fix
+### Part 2: Responsive Audit via Playwright
 
-Update two places in `supabase/functions/resume-analyzer/aiEnhancer.ts`:
+Use Playwright browser automation to capture screenshots of all course-related pages at mobile (390x844), tablet (768x1024), and desktop (1280x720) viewports. The screenshot from the user shows the CanvasModuleDetail page with text overflow issues on mobile.
 
-### 1. Tool schema description (line 17)
+**Pages to test (course features first):**
 
-Change from:
-```
-"Professional elevator pitch summarizing the candidate, max 2 sentences"
-```
-To:
-```
-"Detailed professional elevator pitch summarizing the candidate's core expertise, key achievements, deployment experience, and professional passions. Should be 4-5 sentences and read like a polished introduction a recruiter could use."
-```
+1. `/courses` — Course list
+2. `/courses/:id` — Course detail (tabs, modules list, announcements)
+3. `/courses/:id/modules/:id` — Module detail (the page in the screenshot — grid layout, content sidebar, lesson viewer)
+4. `/courses/:id/modules/:id/content/:id` — Content item view
+5. `/courses/:id/progress` — Course progress
+6. `/courses/:id/calendar` — Course calendar
+7. `/courses/:id/certificate` — Certificate page
+8. `/courses/:id/learn` — Learn interface
+9. `/enrolled-courses` — Enrolled courses dashboard
+10. `/courses/:id/gradebook` — Gradebook
+11. `/dashboard` — Main dashboard
 
-### 2. System prompt (line 88)
+**Known responsive risk areas based on code inspection:**
+- `CanvasModuleDetail.tsx` line 318: `flex justify-between items-start` — the "Progress / 100%" text can collide with the module title on narrow screens
+- `CanvasModuleDetail.tsx` line 339: `grid lg:grid-cols-4` — stacks on mobile but the module content sidebar takes full width before the lesson content
+- `LessonDetail.tsx` line 78: Same `flex justify-between` pattern with badge potentially overlapping title
+- `CourseDetail.tsx`: 870-line page with tabs, forms, and multiple card layouts — likely has overflow issues on mobile
 
-Change from:
-```
-1. A professional elevator pitch (max 2 sentences)
-```
-To:
-```
-1. A detailed professional elevator pitch (4-5 sentences) covering their core expertise, standout achievements, hands-on experience, and what drives them professionally
-```
+**Process:**
+1. Log in using E2E credentials
+2. Navigate to each page at 3 viewport sizes
+3. Capture screenshots
+4. Identify overflow, truncation, overlapping, and layout issues
+5. Report findings with specific line numbers and fix recommendations
 
-### 3. Redeploy the `resume-analyzer` edge function
+### Files to modify
 
-No other files change. After redeployment, clicking the Re-analyze button will produce a richer pitch matching the quality of the previous version.
+| File | Change |
+|------|--------|
+| `src/pages/LessonDetail.tsx` | Replace mockService with Supabase queries + lesson_progress upsert |
+
+### Deliverables
+
+1. Working LessonDetail page with real DB data
+2. Screenshot-based responsive audit report covering all course pages at 3 breakpoints
+3. List of specific responsive issues found with fix recommendations
 

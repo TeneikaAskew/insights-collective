@@ -17,8 +17,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 
-const SIDEBAR_COOKIE_NAME = "sidebar:state"
-const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 const SIDEBAR_WIDTH = "16rem"
 const SIDEBAR_WIDTH_MOBILE = "18rem"
 const SIDEBAR_WIDTH_ICON = "3rem"
@@ -51,6 +49,8 @@ const SidebarProvider = React.forwardRef<
     defaultOpen?: boolean
     open?: boolean
     onOpenChange?: (open: boolean) => void
+    mobileOpen?: boolean
+    onMobileOpenChange?: (open: boolean) => void
   }
 >(
   (
@@ -58,6 +58,8 @@ const SidebarProvider = React.forwardRef<
       defaultOpen = true,
       open: openProp,
       onOpenChange: setOpenProp,
+      mobileOpen: mobileOpenProp,
+      onMobileOpenChange: setMobileOpenProp,
       className,
       style,
       children,
@@ -66,10 +68,11 @@ const SidebarProvider = React.forwardRef<
     ref
   ) => {
     const isMobile = useIsMobile()
-    const [openMobile, setOpenMobile] = React.useState(false)
+    const [_openMobile, _setOpenMobile] = React.useState(false)
 
     const [_open, _setOpen] = React.useState(defaultOpen)
     const open = openProp ?? _open
+    const openMobile = mobileOpenProp ?? _openMobile
     const setOpen = React.useCallback(
       (value: boolean | ((value: boolean) => boolean)) => {
         const openState = typeof value === "function" ? value(open) : value
@@ -78,10 +81,21 @@ const SidebarProvider = React.forwardRef<
         } else {
           _setOpen(openState)
         }
-
-        document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
       },
       [setOpenProp, open]
+    )
+    const setOpenMobile = React.useCallback(
+      (value: boolean | ((value: boolean) => boolean)) => {
+        const nextOpenMobile =
+          typeof value === "function" ? value(openMobile) : value
+
+        if (setMobileOpenProp) {
+          setMobileOpenProp(nextOpenMobile)
+        } else {
+          _setOpenMobile(nextOpenMobile)
+        }
+      },
+      [openMobile, setMobileOpenProp]
     )
 
     const toggleSidebar = React.useCallback(() => {

@@ -73,32 +73,65 @@ export default function EnrolledCoursesDashboard() {
             level,
             thumbnail,
             image_url,
-            instructor_id
+            instructor_id,
+            profiles:instructor_id (first_name, last_name)
           )
         `)
         .eq('user_id', user?.id);
 
       if (error) throw error;
 
-        // Transform the data
-        const enrolledCourses: EnrolledCourse[] = (enrollments || []).map(enrollment => {
-          const course = enrollment.courses as any;
-          
-          return {
-            id: course.id || '',
-            title: course.title || '',
-            category: course.category || '',
-            level: course.level || '',
-            thumbnail: course.thumbnail || course.image_url || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97',
-            instructor_name: 'Instructor', // Simplified for now
-            progress: enrollment.completion_status || 0,
-            enrollment_status: 'Active',
-            last_accessed: enrollment.enrolled_at,
-            total_modules: Math.floor(Math.random() * 8) + 4,
-            completed_modules: Math.floor((enrollment.completion_status || 0) / 100 * 8),
-            upcoming_due_date: '2024-01-20'
-          };
-        });
+      // Fetch module counts per course
+      const courseIds = (enrollments || []).map(e => (e.courses as any)?.id).filter(Boolean);
+      
+      const { data: moduleCounts } = await supabase
+        .from('modules')
+        .select('id, course_id')
+        .in('course_id', courseIds);
+
+      const moduleCountMap: Record<string, number> = {};
+      (moduleCounts || []).forEach(m => {
+        moduleCountMap[m.course_id] = (moduleCountMap[m.course_id] || 0) + 1;
+      });
+
+      // Fetch next upcoming due date per course
+      const { data: upcomingAssignments } = await supabase
+        .from('assignments')
+        .select('course_id, due_date')
+        .in('course_id', courseIds)
+        .gte('due_date', new Date().toISOString())
+        .order('due_date', { ascending: true });
+
+      const nextDueDateMap: Record<string, string> = {};
+      (upcomingAssignments || []).forEach(a => {
+        if (!nextDueDateMap[a.course_id]) {
+          nextDueDateMap[a.course_id] = a.due_date!;
+        }
+      });
+
+      // Transform the data
+      const enrolledCourses: EnrolledCourse[] = (enrollments || []).map(enrollment => {
+        const course = enrollment.courses as any;
+        const instructor = course.profiles;
+        const totalMods = moduleCountMap[course.id] || 0;
+        const progress = enrollment.completion_status || 0;
+        const completedMods = totalMods > 0 ? Math.round((progress / 100) * totalMods) : 0;
+        
+        return {
+          id: course.id || '',
+          title: course.title || '',
+          category: course.category || '',
+          level: course.level || '',
+          thumbnail: course.thumbnail || course.image_url || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97',
+          instructor_name: instructor ? `${instructor.first_name || ''} ${instructor.last_name || ''}`.trim() || 'Instructor' : 'Instructor',
+          progress,
+          enrollment_status: 'Active',
+          last_accessed: enrollment.enrolled_at,
+          total_modules: totalMods,
+          completed_modules: completedMods,
+          upcoming_due_date: nextDueDateMap[course.id] || undefined
+        };
+      });
 
       setCourses(enrolledCourses);
     } catch (error: any) {
@@ -118,17 +151,47 @@ export default function EnrolledCoursesDashboard() {
     course.category.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const recentActivity = [
-    { course: 'Machine Learning Foundations', activity: 'Completed Module 3', time: '2 hours ago' },
-    { course: 'Data Analysis Bootcamp', activity: 'Assignment submitted', time: '1 day ago' },
-    { course: 'Python for Data Science', activity: 'Started Module 5', time: '2 days ago' },
-  ];
+  const [recentActivity, setRecentActivity] = useState<{course: string; activity: string; time: string}[]>([]);
+  const [upcomingDeadlines, setUpcomingDeadlines] = useState<{course: string; task: string; due: string}[]>([]);
 
-  const upcomingDeadlines = [
-    { course: 'Machine Learning Foundations', task: 'Final Project', due: '2024-01-20' },
-    { course: 'Data Analysis Bootcamp', task: 'Quiz 4', due: '2024-01-22' },
-    { course: 'Statistics Fundamentals', task: 'Assignment 3', due: '2024-01-25' },
-  ];
+  useEffect(() => {
+    const fetchSidebarData = async () => {
+      if (!user || courses.length === 0) return;
+      const courseIds = courses.map(c => c.id);
+
+      // Fetch recent content_item_progressions as activity
+      const { data: progressions } = await supabase
+        .from('content_item_progressions')
+        .select('workflow_state, updated_at, content_items(title, course_id, courses(title))')
+        .eq('user_id', user.id)
+        .order('updated_at', { ascending: false })
+        .limit(5);
+
+      setRecentActivity((progressions || []).map(p => {
+        const ci = p.content_items as any;
+        const courseName = ci?.courses?.title || 'Course';
+        const action = p.workflow_state === 'completed' ? 'Completed' : 'In progress';
+        const timeAgo = p.updated_at ? new Date(p.updated_at).toLocaleDateString() : '';
+        return { course: courseName, activity: `${action}: ${ci?.title || 'Item'}`, time: timeAgo };
+      }));
+
+      // Fetch upcoming deadlines from assignments
+      const { data: deadlines } = await supabase
+        .from('assignments')
+        .select('title, due_date, courses(title)')
+        .in('course_id', courseIds)
+        .gte('due_date', new Date().toISOString())
+        .order('due_date', { ascending: true })
+        .limit(5);
+
+      setUpcomingDeadlines((deadlines || []).map(d => ({
+        course: (d.courses as any)?.title || 'Course',
+        task: d.title,
+        due: d.due_date ? new Date(d.due_date).toLocaleDateString() : 'No date'
+      })));
+    };
+    fetchSidebarData();
+  }, [user, courses]);
 
   if (!isAuthenticated) {
     return (
@@ -168,9 +231,9 @@ export default function EnrolledCoursesDashboard() {
       <div className="space-y-6">
         {/* Header */}
         <div className="border-b pb-6">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
             <div>
-              <h1 className="text-3xl font-bold">My Courses</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold">My Courses</h1>
               <p className="text-muted-foreground">
                 Continue your learning journey
               </p>
@@ -180,7 +243,7 @@ export default function EnrolledCoursesDashboard() {
                 <Bell className="h-4 w-4 mr-2" />
                 Notifications
               </Button>
-              <Button asChild>
+              <Button asChild size="sm">
                 <Link to="/courses">
                   <Search className="h-4 w-4 mr-2" />
                   Browse Courses
@@ -254,7 +317,7 @@ export default function EnrolledCoursesDashboard() {
                         <div className="flex justify-between text-sm text-muted-foreground">
                           <span>{course.completed_modules}/{course.total_modules} modules</span>
                           {course.upcoming_due_date && (
-                            <span className="text-orange-600">Due: Jan 20</span>
+                            <span className="text-orange-600">Due: {new Date(course.upcoming_due_date).toLocaleDateString()}</span>
                           )}
                         </div>
                       </div>

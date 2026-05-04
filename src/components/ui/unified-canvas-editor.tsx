@@ -521,7 +521,7 @@ export function UnifiedCanvasEditor({
            <Button
              variant="ghost"
              size="sm"
-             onClick={() => editor.chain().focus().run()}
+             onClick={() => editor.chain().focus().sinkListItem('listItem').run()}
              className="h-8 px-2"
            >
              <Indent className="h-4 w-4" />
@@ -529,7 +529,7 @@ export function UnifiedCanvasEditor({
            <Button
              variant="ghost"
              size="sm"
-             onClick={() => editor.chain().focus().run()}
+             onClick={() => editor.chain().focus().liftListItem('listItem').run()}
              className="h-8 px-2"
            >
              <Outdent className="h-4 w-4" />

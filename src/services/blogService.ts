@@ -458,8 +458,8 @@ export const getBlogPostAnalytics = async (
       views,
       uniqueVisitors,
       averageTimeOnPage,
-      bounceRate: Math.random() * 30 + 30, // Mock data for now
-      conversionRate: Math.random() * 5 + 1, // Mock data for now
+      bounceRate: 0, // No real data source for bounce rate yet
+      conversionRate: 0, // No real data source for conversion rate yet
     };
   } catch (error) {
     logger.error('Error fetching blog post analytics:', error);

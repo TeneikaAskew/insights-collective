@@ -11,9 +11,10 @@ import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Link } from 'react-router-dom';
-import { BookOpen, FileText, HelpCircle, Clock, ChevronRight, AlertCircle } from 'lucide-react';
-import { EditCourseButton } from '@/components/course/EditCourseButton';
+import { BookOpen, FileText, HelpCircle, Clock, ChevronRight, AlertCircle, RotateCcw } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+import { useCourseProgress } from '@/hooks/useCourseProgress';
 import { createLogger } from '@/utils/logger';
 
 const logger = createLogger('CourseModulesList');
@@ -73,7 +74,6 @@ interface Module {
   position: number;
   published: boolean;
   contentItems?: any[];
-  completionStatus: number;
   estimatedTime?: number;
 }
 
@@ -85,27 +85,75 @@ export function CourseModulesList({ courseId }: CourseModulesListProps) {
   const [modules, setModules] = useState<Module[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [resettingModuleId, setResettingModuleId] = useState<string | null>(null);
+  const [confirmingResetId, setConfirmingResetId] = useState<string | null>(null);
   const { user } = useAuth();
+  const { toast } = useToast();
+  // Progress is now owned by the canonical hook, not recomputed inline.
+  const { data: progress, getModulePercent, refetch: refetchProgress } = useCourseProgress(courseId);
+
+  const handleResetProgress = async (moduleId: string) => {
+    if (!user?.id) return;
+
+    // First click: show confirmation state; second click: execute
+    if (confirmingResetId !== moduleId) {
+      setConfirmingResetId(moduleId);
+      // Auto-clear confirmation after 3 seconds
+      setTimeout(() => setConfirmingResetId(prev => prev === moduleId ? null : prev), 3000);
+      return;
+    }
+
+    setConfirmingResetId(null);
+    setResettingModuleId(moduleId);
+    try {
+      // Get content item IDs for this module
+      const { data: items, error: itemsError } = await supabase
+        .from('content_items')
+        .select('id')
+        .eq('module_id', moduleId);
+
+      if (itemsError) throw itemsError;
+      const itemIds = (items || []).map(i => i.id);
+
+      if (itemIds.length > 0) {
+        const { error: deleteError } = await supabase
+          .from('content_item_progressions')
+          .delete()
+          .eq('user_id', user.id)
+          .in('content_item_id', itemIds);
+
+        if (deleteError) throw deleteError;
+      }
+
+      await refetchProgress();
+      toast({ title: 'Progress reset', description: 'Module progress has been reset.' });
+    } catch (err: any) {
+      logger.error('Error resetting progress:', err);
+      toast({ title: 'Error', description: 'Failed to reset progress.', variant: 'destructive' });
+    } finally {
+      setResettingModuleId(null);
+    }
+  };
 
   useEffect(() => {
     const fetchModules = async () => {
       if (!courseId) return;
-      
+
       try {
         setLoading(true);
-        
+
         // Check if user is instructor or admin
         const { data: hasInstructorAccess } = await supabase
-          .rpc('is_course_instructor', { 
-            user_id_param: user?.id, 
-            course_id_param: courseId 
+          .rpc('is_course_instructor', {
+            user_id_param: user?.id,
+            course_id_param: courseId
           });
-        
+
         const { data: hasAdminAccess } = await supabase
           .rpc('has_admin_access', { user_id_param: user?.id });
-        
+
         const isInstructor = hasInstructorAccess || hasAdminAccess;
-        
+
         // Fetch modules
         const { data: modulesData, error: modulesError } = await supabase
           .from('modules')
@@ -117,9 +165,9 @@ export function CourseModulesList({ courseId }: CourseModulesListProps) {
 
         if (modulesError) throw modulesError;
 
-        // For each module, fetch content items and calculate progress
+        // Fetch content items per module (still needed for display metadata).
+        // Progress comes from useCourseProgress; this loop no longer recomputes it.
         const processedModules = await Promise.all((modulesData || []).map(async (module) => {
-          // Fetch content items for this module
           const contentItemsQuery = supabase
             .from('content_items')
             .select(`
@@ -131,34 +179,17 @@ export function CourseModulesList({ courseId }: CourseModulesListProps) {
               quiz:quizzes(id)
             `)
             .eq('module_id', module.id);
-          
-          // Only filter by published for non-instructors
+
           if (!isInstructor) {
             contentItemsQuery.eq('published', true);
           }
-          
+
           const { data: contentItems } = await contentItemsQuery;
 
-          // Calculate progress if user is logged in
-          let completionStatus = 0;
-          if (user && contentItems && contentItems.length > 0) {
-            const { data: progressData } = await supabase
-              .from('content_item_progressions')
-              .select('workflow_state')
-              .eq('user_id', user.id)
-              .in('content_item_id', contentItems.map(item => item.id));
-
-            const completedItems = progressData?.filter(p => p.workflow_state === 'read') || [];
-            completionStatus = Math.round((completedItems.length / contentItems.length) * 100);
-          }
-
-          // Count content types
           const lessons = contentItems?.filter(item => item.type === 'page') || [];
           const assignments = contentItems?.filter(item => item.type === 'assignment') || [];
           const quizzes = contentItems?.filter(item => item.type === 'quiz') || [];
-
-          // Estimate time based on content
-          const estimatedTime = lessons.length * 15 + assignments.length * 30 + quizzes.length * 20; // minutes
+          const estimatedTime = lessons.length * 15 + assignments.length * 30 + quizzes.length * 20;
 
           return {
             ...module,
@@ -166,8 +197,7 @@ export function CourseModulesList({ courseId }: CourseModulesListProps) {
             lessons,
             assignments,
             quizzes,
-            completionStatus,
-            estimatedTime
+            estimatedTime,
           };
         }));
 
@@ -207,7 +237,6 @@ export function CourseModulesList({ courseId }: CourseModulesListProps) {
       <div className="bg-card border rounded-lg p-6">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-2xl font-bold">Course Modules</h2>
-          <EditCourseButton courseId={courseId} />
         </div>
         <p className="text-muted-foreground mb-6">
           This course contains {modules.length} modules organized by week. Click on any module to view its content.
@@ -250,13 +279,13 @@ export function CourseModulesList({ courseId }: CourseModulesListProps) {
                     )}
                   </div>
                   
-                  {/* Progress bar */}
+                  {/* Progress bar — fed by useCourseProgress (canonical) */}
                   <div className="space-y-2">
                     <div className="flex justify-between text-xs">
                       <span>Progress</span>
-                      <span>{Math.round(module.completionStatus)}%</span>
+                      <span>{getModulePercent(module.id)}%</span>
                     </div>
-                    <Progress value={module.completionStatus} className="h-2" />
+                    <Progress value={getModulePercent(module.id)} className="h-2" />
                   </div>
                   
                   {/* Action button */}
@@ -273,12 +302,34 @@ export function CourseModulesList({ courseId }: CourseModulesListProps) {
                         )}
                       </span>
                     </div>
-                    <Button asChild size="sm">
-                      <Link to={`/courses/${courseId}/modules/${module.id}`}>
-                        View Activities
-                        <ChevronRight className="h-4 w-4 ml-1" />
-                      </Link>
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      {getModulePercent(module.id) > 0 && (
+                        <Button
+                          variant={confirmingResetId === module.id ? "destructive" : "ghost"}
+                          size={confirmingResetId === module.id ? "sm" : "icon"}
+                          className={confirmingResetId === module.id
+                            ? "h-8 text-xs"
+                            : "h-8 w-8 text-muted-foreground hover:text-destructive"}
+                          title="Reset progress"
+                          disabled={resettingModuleId === module.id}
+                          onClick={() => handleResetProgress(module.id)}
+                        >
+                          {resettingModuleId === module.id ? (
+                            <RotateCcw className="h-4 w-4 animate-spin" />
+                          ) : confirmingResetId === module.id ? (
+                            "Reset?"
+                          ) : (
+                            <RotateCcw className="h-4 w-4" />
+                          )}
+                        </Button>
+                      )}
+                      <Button asChild size="sm">
+                        <Link to={`/courses/${courseId}/modules/${module.id}`}>
+                          View Activities
+                          <ChevronRight className="h-4 w-4 ml-1" />
+                        </Link>
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

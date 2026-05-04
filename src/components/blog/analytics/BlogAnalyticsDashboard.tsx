@@ -156,9 +156,26 @@ export function BlogAnalyticsDashboard({ postId }: BlogAnalyticsDashboardProps) 
         ? processedData.reduce((sum, item) => sum + item.bounce_rate, 0) / processedData.length
         : 0;
 
-      // Calculate changes (mock data for now)
-      const viewsChange = Math.random() * 20 - 10;
-      const visitorsChange = Math.random() * 20 - 10;
+      // Calculate changes — compare current period to prior period
+      const { start: priorStart, end: priorEnd } = (() => {
+        const range = getDateRange();
+        const duration = range.end.getTime() - range.start.getTime();
+        return { start: new Date(range.start.getTime() - duration), end: range.start };
+      })();
+
+      let priorQuery = supabase
+        .from('blog_analytics')
+        .select('views, unique_visitors')
+        .gte('date', format(priorStart, 'yyyy-MM-dd'))
+        .lte('date', format(priorEnd, 'yyyy-MM-dd'));
+      if (postId) priorQuery = priorQuery.eq('blog_post_id', postId);
+      const { data: priorData } = await priorQuery;
+
+      const priorViews = priorData?.reduce((s, i) => s + (i.views || 0), 0) || 0;
+      const priorVisitors = priorData?.reduce((s, i) => s + (i.unique_visitors || 0), 0) || 0;
+
+      const viewsChange = priorViews > 0 ? ((totalViews - priorViews) / priorViews) * 100 : 0;
+      const visitorsChange = priorVisitors > 0 ? ((totalVisitors - priorVisitors) / priorVisitors) * 100 : 0;
 
       setMetrics({
         totalViews,
@@ -180,25 +197,64 @@ export function BlogAnalyticsDashboard({ postId }: BlogAnalyticsDashboardProps) 
 
         if (postsError) throw postsError;
 
-        // Add mock data for demonstration
-        const topPostsData = posts?.map(post => ({
-          ...post,
-          comments_count: Math.floor(Math.random() * 50),
-          avg_time_on_page: Math.floor(Math.random() * 300) + 60,
-        })) || [];
+        // Use real blog_post_views for per-post metrics
+        const topPostsData: PostMetrics[] = [];
+        for (const post of posts || []) {
+          const { data: viewData } = await supabase
+            .from('blog_post_views')
+            .select('view_duration')
+            .eq('post_id', post.id);
 
+          const { count: commentCount } = await supabase
+            .from('blog_comments')
+            .select('id', { count: 'exact', head: true })
+            .eq('blog_post_id', post.id);
+
+          const avgTime = viewData && viewData.length > 0
+            ? Math.round(viewData.reduce((s, v) => s + (v.view_duration || 0), 0) / viewData.length)
+            : 0;
+
+          topPostsData.push({
+            ...post,
+            comments_count: commentCount || 0,
+            avg_time_on_page: avgTime,
+          });
+        }
         setTopPosts(topPostsData);
       }
 
-      // Mock referrer data
-      setReferrerData([
-        { source: 'Google', visits: 1234, percentage: 35.5 },
-        { source: 'Direct', visits: 987, percentage: 28.4 },
-        { source: 'Facebook', visits: 654, percentage: 18.8 },
-        { source: 'Twitter', visits: 321, percentage: 9.2 },
-        { source: 'LinkedIn', visits: 234, percentage: 6.7 },
-        { source: 'Others', visits: 48, percentage: 1.4 },
-      ]);
+      // Use real referrer data from blog_post_views if available, otherwise show empty
+      const { data: viewsWithReferrer } = await supabase
+        .from('blog_analytics')
+        .select('referrer_data')
+        .not('referrer_data', 'is', null)
+        .limit(100);
+
+      if (viewsWithReferrer && viewsWithReferrer.length > 0) {
+        // Aggregate referrer data from blog_analytics
+        const referrerMap: Record<string, number> = {};
+        viewsWithReferrer.forEach(row => {
+          const data = row.referrer_data as Record<string, number> | null;
+          if (data) {
+            Object.entries(data).forEach(([source, count]) => {
+              referrerMap[source] = (referrerMap[source] || 0) + (typeof count === 'number' ? count : 0);
+            });
+          }
+        });
+        const totalReferrers = Object.values(referrerMap).reduce((s, v) => s + v, 0);
+        setReferrerData(
+          Object.entries(referrerMap)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 6)
+            .map(([source, visits]) => ({
+              source,
+              visits,
+              percentage: totalReferrers > 0 ? Math.round((visits / totalReferrers) * 1000) / 10 : 0,
+            }))
+        );
+      } else {
+        setReferrerData([]);
+      }
 
     } catch (error) {
       logger.error('Error loading analytics:', error);

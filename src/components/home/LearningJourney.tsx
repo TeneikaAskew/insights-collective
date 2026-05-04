@@ -43,7 +43,7 @@ const LearningJourney = () => {
       icon: Star,
       color: "orange",
       link: "/courses",
-      linkText: "View Blueprint"
+      linkText: "Browse Courses"
     },
     {
       number: 4,

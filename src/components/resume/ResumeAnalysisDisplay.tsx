@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ResumeAnalysis } from '@/components/assistants/types';
 import type { Resume } from '../../hooks/resume/useResume';
 import OverallScoreCard from './OverallScoreCard';
@@ -70,16 +70,34 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
 
   const [hasLoadedAnalysis, setHasLoadedAnalysis] = useState(false);
 
+  // Fetch stored PDF as a blob URL so the iframe can embed it without cross-origin restrictions
+  const [storedPdfBlobUrl, setStoredPdfBlobUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!resume?.file_url || !resume?.file_name?.toLowerCase().endsWith('.pdf') || resumeFile) {
+      setStoredPdfBlobUrl(null);
+      return;
+    }
+    let blobUrl: string | null = null;
+    const fetchPdf = async () => {
+      try {
+        const response = await fetch(resume.file_url);
+        if (!response.ok) return;
+        const blob = await response.blob();
+        blobUrl = URL.createObjectURL(blob);
+        setStoredPdfBlobUrl(blobUrl);
+      } catch {
+        // preview unavailable; user can still download
+      }
+    };
+    fetchPdf();
+    return () => { if (blobUrl) URL.revokeObjectURL(blobUrl); };
+  }, [resume?.file_url, resumeFile]);
+
   const renderFilePreviewLocal = () => {
-    if (resume?.file_url && resume?.file_name?.toLowerCase().endsWith('.pdf') && !resumeFile) {
-      // Always make sure the URL includes response-content-disposition=inline to prevent download
-      const pdfUrl = resume.file_url.includes('response-content-disposition=inline') 
-        ? resume.file_url 
-        : resume.file_url + (resume.file_url.includes('?') ? '&' : '?') + 'response-content-disposition=inline';
-      
+    if (storedPdfBlobUrl && !resumeFile) {
       return (
         <iframe
-          src={pdfUrl + "#toolbar=0&navpanes=0&view=FitH"}
+          src={storedPdfBlobUrl + "#toolbar=0&navpanes=0&view=FitH"}
           title="Resume Preview"
           className="w-full aspect-[8.5/11] border rounded-md"
           style={{ height: '250px', maxHeight: '60vh' }}
@@ -322,6 +340,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
                 explanation={explanation}
                 onStartCareerChat={onStartCareerChat}
                 hasAnalysis={hasAnalysis}
+                analysisDate={resume?.updated_at}
               />
             ) : (
               <Card className="h-full flex items-center justify-center min-h-[200px]">

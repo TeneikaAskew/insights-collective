@@ -1,3 +1,5 @@
+// ABOUTME: Admin user management page with bulk role update and delete functionality
+// ABOUTME: Reads roles from canonical user_roles table, supports single and bulk actions
 
 import { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
@@ -8,13 +10,17 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { 
   Search, MoreHorizontal, Filter, Download, Eye, PenSquare, Loader2, Trash2, UserX
 } from 'lucide-react';
 import { 
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle 
 } from '@/components/ui/dialog';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAdminUsers } from '@/hooks/useAdminUsers';
@@ -38,10 +44,17 @@ const AdminUsers = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isViewDetailsOpen, setIsViewDetailsOpen] = useState(false);
   const [isEditUserOpen, setIsEditUserOpen] = useState(false);
+  const [isBulkRoleOpen, setIsBulkRoleOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [deleteTargetIds, setDeleteTargetIds] = useState<string[]>([]);
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [updatedRoles, setUpdatedRoles] = useState<string[]>([]);
+  const [bulkRoles, setBulkRoles] = useState<string[]>(['student']);
   const [activeTab, setActiveTab] = useState('all');
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const { toast } = useToast();
   const authContext = useAuth();
   const user = authContext?.user;
@@ -51,7 +64,8 @@ const AdminUsers = () => {
     loading, 
     error,
     fetchUsers, 
-    updateUserRole
+    updateUserRole,
+    deleteUsers,
   } = useAdminUsers();
   
   useEffect(() => {
@@ -61,18 +75,11 @@ const AdminUsers = () => {
       fetchUsers();
     } else if (user && user.roles && !user.roles.includes('admin')) {
       logger.log('[AdminUsers] User is not admin, setting error...');
-      // setError('Admin access required');
     } else {
       logger.log('[AdminUsers] User not loaded yet, waiting...');
     }
   }, [user]);
 
-  useEffect(() => {
-    logger.log('[AdminUsers] Users state updated:', users);
-    logger.log('[AdminUsers] Loading state:', loading);
-    logger.log('[AdminUsers] Error state:', error);
-  }, [users, loading, error]);
-  
   const getHighestRole = (roles: string[] = ['student']): string => {
     if (roles.includes('admin')) return 'admin';
     if (roles.includes('instructor')) return 'instructor';
@@ -195,6 +202,18 @@ const AdminUsers = () => {
     });
   };
 
+  const toggleBulkRole = (role: string) => {
+    if (role === 'student') return;
+    
+    setBulkRoles(prev => {
+      if (prev.includes(role)) {
+        return prev.filter(r => r !== role);
+      } else {
+        return [...prev, role];
+      }
+    });
+  };
+
   const handleSelectUser = (userId: string, checked: boolean) => {
     if (checked) {
       setSelectedUsers(prev => [...prev, userId]);
@@ -211,74 +230,78 @@ const AdminUsers = () => {
     }
   };
 
-  const handleBulkDelete = () => {
-    // Add bulk delete functionality
-    logger.log('Bulk delete users:', selectedUsers);
-    toast({
-      title: 'Bulk Delete',
-      description: `Would delete ${selectedUsers.length} users`,
-    });
+  // Open delete confirmation for bulk or single user
+  const handleRequestDelete = (userIds: string[]) => {
+    setDeleteTargetIds(userIds);
+    setDeleteConfirmText('');
+    setIsDeleteConfirmOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (deleteConfirmText !== 'DELETE') return;
+    setIsDeleting(true);
+    try {
+      await deleteUsers(deleteTargetIds);
+      setSelectedUsers(prev => prev.filter(id => !deleteTargetIds.includes(id)));
+    } finally {
+      setIsDeleting(false);
+      setIsDeleteConfirmOpen(false);
+      setDeleteTargetIds([]);
+      setDeleteConfirmText('');
+    }
   };
 
   const handleBulkRoleUpdate = () => {
-    // Add bulk role update functionality
-    logger.log('Bulk role update for users:', selectedUsers);
-    toast({
-      title: 'Bulk Role Update',
-      description: `Would update roles for ${selectedUsers.length} users`,
-    });
+    setBulkRoles(['student']);
+    setIsBulkRoleOpen(true);
   };
 
-  // Debug user data to understand the issue
-  logger.log('[AdminUsers] Raw user data for debugging:');
-  users.forEach((user, index) => {
-    if (index < 5) { // Only log first 5 users to avoid spam
-      logger.log(`User ${index + 1}:`, {
-        name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
-        roles: user.roles,
-        id: user.id
-      });
-    }
-  });
+  const handleConfirmBulkRoleUpdate = async () => {
+    setIsBulkUpdating(true);
+    try {
+      const roles = [...bulkRoles];
+      if (!roles.includes('student')) roles.push('student');
 
-  // Get counts for each tab with detailed debugging
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const userId of selectedUsers) {
+        const result = await updateUserRole(userId, roles);
+        if (result.success) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+      }
+
+      if (failCount > 0) {
+        toast({
+          title: 'Partial Update',
+          description: `Updated ${successCount} user(s), ${failCount} failed.`,
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Roles Updated',
+          description: `Successfully updated roles for ${successCount} user(s).`,
+        });
+      }
+    } finally {
+      setIsBulkUpdating(false);
+      setIsBulkRoleOpen(false);
+    }
+  };
+
+  // Get counts for each tab
   const allUsersCount = users.length;
-  
-  const studentsCount = users.filter(u => {
-    const hasStudentRole = (u.roles || ['student']).includes('student');
-    return hasStudentRole;
-  }).length;
-  
-  const instructorsCount = users.filter(u => {
-    const hasInstructorRole = (u.roles || []).includes('instructor');
-    if (hasInstructorRole) {
-      logger.log('[AdminUsers] Found instructor:', {
-        name: `${u.first_name || ''} ${u.last_name || ''}`.trim(),
-        roles: u.roles
-      });
-    }
-    return hasInstructorRole;
-  }).length;
-  
-  const adminsCount = users.filter(u => {
-    const hasAdminRole = (u.roles || []).includes('admin');
-    if (hasAdminRole) {
-      logger.log('[AdminUsers] Found admin:', {
-        name: `${u.first_name || ''} ${u.last_name || ''}`.trim(),
-        roles: u.roles
-      });
-    }
-    return hasAdminRole;
-  }).length;
+  const studentsCount = users.filter(u => (u.roles || ['student']).includes('student')).length;
+  const instructorsCount = users.filter(u => (u.roles || []).includes('instructor')).length;
+  const adminsCount = users.filter(u => (u.roles || []).includes('admin')).length;
 
-  logger.log('[AdminUsers] Tab counts:', {
-    all: allUsersCount,
-    students: studentsCount,
-    instructors: instructorsCount,
-    admins: adminsCount
+  const deleteTargetNames = deleteTargetIds.map(id => {
+    const u = users.find(usr => usr.id === id);
+    return u ? `${u.first_name || ''} ${u.last_name || ''}`.trim() || 'Unnamed User' : id;
   });
-
-  logger.log('[AdminUsers] Rendering with users:', users.length, 'loading:', loading, 'error:', error);
   
   return (
     <AppLayout>
@@ -292,7 +315,7 @@ const AdminUsers = () => {
                   <PenSquare className="h-4 w-4 mr-2" />
                   Update Roles ({selectedUsers.length})
                 </Button>
-                <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
+                <Button variant="destructive" size="sm" onClick={() => handleRequestDelete(selectedUsers)}>
                   <Trash2 className="h-4 w-4 mr-2" />
                   Delete ({selectedUsers.length})
                 </Button>
@@ -355,39 +378,43 @@ const AdminUsers = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-12">
-                          <Checkbox 
-                            checked={selectedUsers.length === filteredUsers.length && filteredUsers.length > 0}
-                            onCheckedChange={handleSelectAllUsers}
-                          />
+                        <TableHead className="text-left">
+                          <div className="flex items-center gap-3">
+                            <Checkbox
+                              checked={selectedUsers.length === filteredUsers.length && filteredUsers.length > 0}
+                              onCheckedChange={handleSelectAllUsers}
+                            />
+                            <span>Name</span>
+                          </div>
                         </TableHead>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Roles</TableHead>
-                        <TableHead>Joined</TableHead>
+                        <TableHead className="text-left">Roles</TableHead>
+                        <TableHead className="text-left">Joined</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filteredUsers.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={5} className="h-24 text-center">
+                          <TableCell colSpan={4} className="h-24 text-center">
                             {users.length === 0 ? 'No users found.' : 'No users match your search criteria.'}
                           </TableCell>
                         </TableRow>
                       ) : (
-                        filteredUsers.map((user) => {
-                          const name = `${user.first_name || ''} ${user.last_name || ''}`.trim();
-                          const userRoles = user.roles || ['student'];
+                        filteredUsers.map((userData) => {
+                          const name = `${userData.first_name || ''} ${userData.last_name || ''}`.trim();
+                          const userRoles = userData.roles || ['student'];
                           return (
-                            <TableRow key={user.id}>
-                              <TableCell>
-                                <Checkbox 
-                                  checked={selectedUsers.includes(user.id)}
-                                  onCheckedChange={(checked) => handleSelectUser(user.id, checked as boolean)}
-                                />
+                            <TableRow key={userData.id}>
+                              <TableCell className="text-left">
+                                <div className="flex items-center gap-3">
+                                  <Checkbox
+                                    checked={selectedUsers.includes(userData.id)}
+                                    onCheckedChange={(checked) => handleSelectUser(userData.id, checked as boolean)}
+                                  />
+                                  <span className="font-medium">{name || 'Unnamed User'}</span>
+                                </div>
                               </TableCell>
-                              <TableCell className="font-medium">{name || 'Unnamed User'}</TableCell>
-                              <TableCell>
+                              <TableCell className="text-left">
                                 <div className="flex flex-wrap gap-1">
                                   {userRoles.map(role => (
                                     <Badge key={role} variant={getRoleBadgeVariant(role)}>
@@ -396,8 +423,8 @@ const AdminUsers = () => {
                                   ))}
                                 </div>
                               </TableCell>
-                              <TableCell>
-                                {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'Unknown'}
+                              <TableCell className="text-left">
+                                {userData.created_at ? new Date(userData.created_at).toLocaleDateString() : 'Unknown'}
                               </TableCell>
                               <TableCell className="text-right">
                                 <DropdownMenu>
@@ -408,13 +435,21 @@ const AdminUsers = () => {
                                     </Button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => handleOpenUserDetails(user)}>
+                                    <DropdownMenuItem onClick={() => handleOpenUserDetails(userData)}>
                                       <Eye className="mr-2 h-4 w-4" />
                                       View Details
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleOpenEditUser(user)}>
+                                    <DropdownMenuItem onClick={() => handleOpenEditUser(userData)}>
                                       <PenSquare className="mr-2 h-4 w-4" />
                                       Edit Roles
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      className="text-destructive focus:text-destructive"
+                                      onClick={() => handleRequestDelete([userData.id])}
+                                    >
+                                      <Trash2 className="mr-2 h-4 w-4" />
+                                      Delete User
                                     </DropdownMenuItem>
                                   </DropdownMenuContent>
                                 </DropdownMenu>
@@ -482,7 +517,7 @@ const AdminUsers = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Roles Dialog */}
+      {/* Edit Roles Dialog (single user) */}
       <Dialog open={isEditUserOpen} onOpenChange={setIsEditUserOpen}>
         <DialogContent>
           <DialogHeader>
@@ -532,6 +567,110 @@ const AdminUsers = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Bulk Role Update Dialog */}
+      <Dialog open={isBulkRoleOpen} onOpenChange={setIsBulkRoleOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Update Roles for {selectedUsers.length} User(s)</DialogTitle>
+            <DialogDescription>
+              Select the roles to apply to all selected users. This will replace their current roles.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>Roles</Label>
+              <div className="flex flex-col space-y-2">
+                <div className="flex items-center space-x-2">
+                  <Checkbox checked={true} disabled={true} />
+                  <Label>Student (required)</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    checked={bulkRoles.includes('instructor')}
+                    onCheckedChange={() => toggleBulkRole('instructor')}
+                  />
+                  <Label>Instructor</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    checked={bulkRoles.includes('admin')}
+                    onCheckedChange={() => toggleBulkRole('admin')}
+                  />
+                  <Label>Administrator</Label>
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsBulkRoleOpen(false)} disabled={isBulkUpdating}>
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmBulkRoleUpdate} disabled={isBulkUpdating}>
+              {isBulkUpdating ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                'Apply Roles'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-destructive">
+              Permanently Delete {deleteTargetIds.length === 1 ? 'User' : `${deleteTargetIds.length} Users`}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm text-muted-foreground">
+                <p>
+                  This action <strong>cannot be undone</strong>. This will permanently delete
+                  {deleteTargetIds.length === 1 ? (
+                    <> <strong>{deleteTargetNames[0]}</strong></>
+                  ) : (
+                    <> <strong>{deleteTargetIds.length} users</strong></>
+                  )} and remove all associated data including profile, roles, enrollments, and submissions.
+                </p>
+                <div className="pt-2">
+                  <Label htmlFor="delete-confirm" className="text-sm font-medium">
+                    Type <strong>DELETE</strong> to confirm:
+                  </Label>
+                  <Input
+                    id="delete-confirm"
+                    className="mt-1"
+                    value={deleteConfirmText}
+                    onChange={(e) => setDeleteConfirmText(e.target.value)}
+                    placeholder="DELETE"
+                  />
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              disabled={deleteConfirmText !== 'DELETE' || isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete Permanently'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 };

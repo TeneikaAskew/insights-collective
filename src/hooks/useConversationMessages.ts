@@ -44,8 +44,7 @@ export function useConversationMessages(conversationId?: string) {
               id,
               first_name,
               last_name,
-              avatar_url,
-              role
+              avatar_url
             )
           `)
           .eq('conversation_id', conversationId)

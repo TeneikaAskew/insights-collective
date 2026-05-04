@@ -20,7 +20,6 @@ type CourseAssignment = {
     first_name: string | null;
     last_name: string | null;
     avatar_url: string | null;
-    email?: string | null;
   };
 };
 
@@ -59,7 +58,7 @@ export function useCourseAssignments(courseId?: string) {
           .from('course_assignments')
           .select(`
             *,
-            profile:profiles(id, first_name, last_name, avatar_url, email)
+            profile:profiles(id, first_name, last_name, avatar_url)
           `)
           .eq('course_id', courseId);
         
@@ -131,7 +130,7 @@ export function useCourseAssignments(courseId?: string) {
       // Fetch the profile info for the newly added instructor
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('id, first_name, last_name, avatar_url, email')
+        .select('id, first_name, last_name, avatar_url')
         .eq('id', userId)
         .single();
       

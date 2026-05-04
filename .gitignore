@@ -25,3 +25,15 @@ dist-ssr
 
 # Screenshots
 screenshots/
+
+# Playwright E2E
+.playwright-sessions/
+playwright-report/
+test-results/
+
+# Environment variables
+.env
+.env.*
+
+# Supabase CLI cache
+supabase/.temp/
