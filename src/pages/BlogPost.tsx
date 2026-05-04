@@ -130,8 +130,8 @@ export default function BlogPostPage() {
       <AppLayout>
         <div className="container mx-auto py-8 px-4 text-center">
           <h1 className="text-2xl font-bold mb-4">Blog post not found</h1>
-          <Link to="/blog">
-            <Button>Back to Blog</Button>
+          <Link to="/courses">
+            <Button>Back to Courses</Button>
           </Link>
         </div>
       </AppLayout>
@@ -143,10 +143,10 @@ export default function BlogPostPage() {
       <div className="container mx-auto py-8 px-4 max-w-4xl">
         {/* Navigation */}
         <div className="mb-6">
-          <Link to="/blog">
+          <Link to="/courses">
             <Button variant="ghost" className="pl-0">
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Blog
+              Back to Courses
             </Button>
           </Link>
         </div>
@@ -237,7 +237,7 @@ export default function BlogPostPage() {
                 {post.tags.map(tag => (
                   <Link
                     key={tag}
-                    to={`/blog?tag=${encodeURIComponent(tag)}`}
+                    to={`/courses`}
                   >
                     <Badge 
                       variant="secondary" 
@@ -260,9 +260,9 @@ export default function BlogPostPage() {
               <p className="text-gray-600 mb-4">
                 Explore more insights on the blog
               </p>
-              <Link to="/blog">
+              <Link to="/courses">
                 <Button className="bg-[#9b87f5] hover:bg-[#8B5CF6]">
-                  View All Articles
+                  View All Courses
                 </Button>
               </Link>
             </div>
