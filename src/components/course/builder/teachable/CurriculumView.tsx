@@ -54,6 +54,7 @@ export function CurriculumView(props: CurriculumViewProps) {
     modules,
     onAddModule,
     onRenameModule,
+    onUpdateModuleDescription,
     onDeleteModule,
     onReorderModules,
     onAddLesson,
