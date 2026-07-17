@@ -9,7 +9,7 @@ import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { BookOpen, Clock, Users, Star, Calendar, ChevronLeft, Share, MessageSquare, Edit, Bell, FileText, BarChart3, Pin, PlusCircle, Trash2 } from 'lucide-react';
+import { BookOpen, Clock, Users, Star, Calendar, ChevronLeft, Share, MessageSquare, Edit, Bell, FileText, BarChart3, Pin, PlusCircle, Trash2, ArrowRight, PlayCircle } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
