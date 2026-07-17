@@ -217,7 +217,7 @@ const CourseLearn = () => {
           <div className="max-w-6xl mx-auto px-8 py-14">
             <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-10">
               <div>
-                <h1 className="tw-serif text-5xl mb-3">{course.title}</h1>
+                <h1 className="font-display text-5xl mb-3">{course.title}</h1>
                 <p className="text-sm text-gray-600 mb-8">
                   {flatItems.length} lessons · Continue where you left off
                 </p>
@@ -278,7 +278,7 @@ const CourseLearn = () => {
                       </span>
                     )}
                   </div>
-                  <div className="tw-serif text-xl">{course.title}</div>
+                  <div className="font-sans text-xl">{course.title}</div>
                 </div>
               </aside>
             </div>
@@ -441,7 +441,7 @@ const CourseLearn = () => {
                   : 'Lesson'}
               </span>
             </div>
-            <h1 className="tw-serif text-4xl mb-6">{selected.item.title}</h1>
+            <h1 className="font-display text-4xl mb-6">{selected.item.title}</h1>
             <LessonViewer
               item={selected.item}
               isCompleted={isSelectedComplete}

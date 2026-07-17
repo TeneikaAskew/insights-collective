@@ -58,7 +58,7 @@ export function AddContentPanel({ onAdd, onClose }: AddContentPanelProps) {
       style={{ border: '1px solid hsl(var(--tw-border))' }}
     >
       <div className="flex items-center justify-between mb-4">
-        <h3 className="tw-serif text-2xl">Add content</h3>
+        <h3 className="font-display text-2xl">Add content</h3>
         {onClose && (
           <button
             type="button"

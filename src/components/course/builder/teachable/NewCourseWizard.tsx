@@ -100,7 +100,7 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
         <div className="w-full max-w-2xl">
           {step === 0 && (
             <div>
-              <h2 className="tw-serif text-4xl text-center mb-2">Tell us about your course</h2>
+              <h2 className="font-display text-4xl text-center mb-2">Tell us about your course</h2>
               <p className="text-center text-sm text-gray-600 mb-8">
                 We'll use this information to customize your course. You can change it any time.
               </p>
@@ -135,7 +135,7 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
 
           {step === 1 && (
             <div>
-              <h2 className="tw-serif text-4xl text-center mb-2">Add a thumbnail image</h2>
+              <h2 className="font-display text-4xl text-center mb-2">Add a thumbnail image</h2>
               <p className="text-center text-sm text-gray-600 mb-8">
                 The thumbnail is displayed at checkout and throughout the member experience.
                 Upload one now or choose one later.
@@ -169,7 +169,7 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
                     background: thumbnailFile ? '#fff' : '#F9F9F9',
                   }}
                 >
-                  <div className="tw-serif text-xl">I don't have one</div>
+                  <div className="font-sans text-xl">I don't have one</div>
                   <div className="text-xs text-gray-500">Skip this step for now</div>
                 </button>
               </div>
@@ -178,7 +178,7 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
 
           {step === 2 && (
             <div>
-              <h2 className="tw-serif text-4xl text-center mb-2">Set a price</h2>
+              <h2 className="font-display text-4xl text-center mb-2">Set a price</h2>
               <p className="text-center text-sm text-gray-600 mb-8">
                 You can always change this later.
               </p>
@@ -212,7 +212,7 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
                           <Check className="h-3 w-3" strokeWidth={3} />
                         </div>
                       )}
-                      <div className="tw-serif text-xl">{label}</div>
+                      <div className="font-sans text-xl">{label}</div>
                       <div className="text-xs text-gray-500 mt-0.5">{sub}</div>
                     </button>
                   );
@@ -223,7 +223,7 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
 
           {step === 3 && (
             <div>
-              <h2 className="tw-serif text-4xl text-center mb-2">Outline your course</h2>
+              <h2 className="font-display text-4xl text-center mb-2">Outline your course</h2>
               <p className="text-center text-sm text-gray-600 mb-8">
                 Choose a method below to create your course curriculum.
               </p>
@@ -246,7 +246,7 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
                       <Check className="h-3 w-3" strokeWidth={3} />
                     </div>
                   )}
-                  <div className="tw-serif text-xl">Generate with AI</div>
+                  <div className="font-sans text-xl">Generate with AI</div>
                   <div className="text-xs text-gray-500">
                     Describe your course below and we'll generate an outline for you.
                   </div>
@@ -279,7 +279,7 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
                         background: '#FAFAFA',
                       }}
                     >
-                      <div className="tw-serif text-xl">
+                      <div className="font-sans text-xl">
                         {m === 'scratch' && 'Start from scratch'}
                         {m === 'bulk' && 'Bulk upload'}
                         {m === 'copy' && 'Copy from'}
@@ -298,7 +298,7 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
 
           {step === 4 && (
             <div className="text-center">
-              <h2 className="tw-serif text-4xl mb-4">You're all set</h2>
+              <h2 className="font-display text-4xl mb-4">You're all set</h2>
               <p className="text-sm text-gray-600 mb-8">
                 We'll create <strong>{title}</strong> and take you into the builder.
               </p>

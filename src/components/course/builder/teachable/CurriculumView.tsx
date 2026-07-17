@@ -88,7 +88,7 @@ export function CurriculumView(props: CurriculumViewProps) {
       </div>
 
       <div className="flex items-center justify-between mb-8">
-        <h2 className="tw-serif text-5xl">Curriculum</h2>
+        <h2 className="font-display text-5xl">Curriculum</h2>
       </div>
 
       {/* Toolbar */}
@@ -247,7 +247,7 @@ function SectionCard({
         {editing ? (
           <input
             autoFocus
-            className="flex-1 tw-serif text-2xl bg-transparent outline-none focus:ring-2 focus:ring-yellow-300 rounded px-1"
+            className="flex-1 font-display text-2xl bg-transparent outline-none focus:ring-2 focus:ring-yellow-300 rounded px-1"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onBlur={commit}
@@ -261,7 +261,7 @@ function SectionCard({
           />
         ) : (
           <h3
-            className="flex-1 tw-serif text-2xl truncate cursor-text"
+            className="flex-1 font-display text-2xl truncate cursor-text"
             onDoubleClick={() => setEditing(true)}
             title={module.title}
           >

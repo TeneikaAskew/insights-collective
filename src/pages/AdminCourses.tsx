@@ -125,7 +125,7 @@ export default function AdminCourses() {
           <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-4 pb-6 border-b border-neutral-200">
             <div>
               <p className="text-xs uppercase tracking-[0.15em] text-neutral-500 mb-2">Admin</p>
-              <h1 className="tw-serif text-4xl md:text-5xl text-neutral-900">Manage courses &amp; enrollments</h1>
+              <h1 className="font-display text-4xl md:text-5xl text-neutral-900">Manage courses &amp; enrollments</h1>
               <p className="text-neutral-600 mt-2 max-w-2xl">
                 Create courses with the guided builder, publish them, and keep an eye on enrollments and certificates.
               </p>
@@ -194,7 +194,7 @@ export default function AdminCourses() {
               {/* Card grid */}
               {filteredCourses.length === 0 ? (
                 <div className="text-center py-20 border border-dashed rounded-2xl">
-                  <h3 className="tw-serif text-2xl text-neutral-900 mb-2">No courses yet</h3>
+                  <h3 className="font-display text-2xl text-neutral-900 mb-2">No courses yet</h3>
                   <p className="text-neutral-500 mb-4">Get started by creating your first course.</p>
                   <Button
                     onClick={handleAddCourse}
@@ -245,7 +245,7 @@ export default function AdminCourses() {
                               </span>
                             )}
                           </div>
-                          <h3 className="tw-serif text-xl text-neutral-900 mb-2 line-clamp-2 leading-tight">
+                          <h3 className="font-display text-xl text-neutral-900 mb-2 line-clamp-2 leading-tight">
                             {course.title}
                           </h3>
                           <p className="text-sm text-neutral-600 line-clamp-2 mb-4">
