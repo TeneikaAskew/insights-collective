@@ -53,7 +53,7 @@ const AppLayout = ({ children, fullWidth = false }: AppLayoutProps) => {
       return;
     }
 
-    setSidebarOpen(isInterviewPrepPage ? false : readSidebarCookie(cookieName, true));
+    setSidebarOpen(isInterviewPrepPage ? false : readSidebarCookie(cookieName, false));
     setMobileSidebarOpen(false);
     previousRouteContextRef.current = routeContext;
   }, [cookieName, isInterviewPrepPage, routeContext]);
