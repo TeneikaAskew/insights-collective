@@ -44,7 +44,7 @@ const AppLayout = ({ children, fullWidth = false }: AppLayoutProps) => {
   const previousRouteContextRef = useRef(routeContext);
 
   const [sidebarOpen, setSidebarOpen] = useState(() =>
-    isInterviewPrepPage ? false : readSidebarCookie(cookieName, true)
+    isInterviewPrepPage ? false : readSidebarCookie(cookieName, false)
   );
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
