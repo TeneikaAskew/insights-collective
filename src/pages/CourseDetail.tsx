@@ -764,7 +764,7 @@ const CourseDetail = () => {
                     to={`/courses/${courseId}/learn`}
                     className="inline-flex items-center gap-2 text-sm font-semibold text-neutral-900 hover:underline mb-6"
                   >
-                    → Open course player
+                    <PlayCircle className="h-4 w-4" /> Open course player
                   </Link>
 
                   <div className="border-t border-neutral-200 pt-5">
