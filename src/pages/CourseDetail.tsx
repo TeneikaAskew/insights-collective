@@ -801,8 +801,8 @@ const CourseDetail = () => {
               <section className="rounded-2xl bg-white border border-neutral-200 p-6 md:p-8">
                 <div className="flex items-end justify-between mb-6">
                   <h2 className="font-display text-3xl text-neutral-900">Course curriculum</h2>
-                  <Link to={`/courses/${courseId}/learn`} className="text-sm font-medium text-neutral-700 hover:text-neutral-900 hover:underline">
-                    View all →
+                  <Link to={`/courses/${courseId}/learn`} className="inline-flex items-center gap-1 text-sm font-medium text-neutral-700 hover:text-neutral-900 hover:underline">
+                    View all <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                 </div>
                 {modules.length === 0 ? (
