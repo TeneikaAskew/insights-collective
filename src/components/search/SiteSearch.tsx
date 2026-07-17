@@ -200,7 +200,7 @@ const SiteSearch = () => {
         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input
           type="search"
-          placeholder="Search entire site... (Press ⌘K)"
+          placeholder="Search entire site... (Press Ctrl/Cmd + K)"
           className="w-full pl-8 bg-background"
           value={searchQuery}
           onChange={handleSearchChange}
