@@ -141,6 +141,12 @@ function CourseRedirect() {
   return <Navigate to={redirectPath} replace />;
 }
 
+// Redirect legacy admin course edit page to the unified builder
+function AdminCourseEditRedirect() {
+  const { id } = useParams<{ id: string }>();
+  return <Navigate to={`/courses/${id}/builder`} replace />;
+}
+
 // Redirect legacy course management routes to the unified builder
 function CourseBuilderRedirect() {
   const { courseId } = useParams<{ courseId: string }>();
