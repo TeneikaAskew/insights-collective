@@ -91,7 +91,7 @@ const CourseBuilder = () => {
       try {
         const { data: courseData, error } = await supabase
           .from('courses')
-          .select('id, title, description, thumbnail, published')
+          .select('id, title, description, thumbnail, image_url, published, category, level, tags, duration, estimated_hours, difficulty_level, settings')
           .eq('id', courseId)
           .single();
         if (error) throw error;
