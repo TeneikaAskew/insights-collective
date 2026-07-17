@@ -128,7 +128,7 @@ export function ClassicLayout({ portfolioPage }: ClassicLayoutProps) {
             {/* Contact Information */}
             {portfolioPage.profile_data.location && (
               <div className="mb-4">
-                <p style={{ color: themeStyles.accentColor }}>📍 You can find me in {portfolioPage.profile_data.location}</p>
+                <p style={{ color: themeStyles.accentColor }} className="inline-flex items-center gap-1"><MapPin className="h-4 w-4" /> You can find me in {portfolioPage.profile_data.location}</p>
               </div>
             )}
 
