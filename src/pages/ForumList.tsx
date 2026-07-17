@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
-import { MessageSquare, Users, Clock, Filter, Search, PlusCircle } from 'lucide-react';
+import { MessageSquare, Users, Clock, Filter, Search, PlusCircle, Wrench, Brain, BarChart3, TrendingUp, Briefcase, MessagesSquare } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
