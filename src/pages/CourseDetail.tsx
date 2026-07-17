@@ -693,7 +693,7 @@ const CourseDetail = () => {
                 <p className="text-xs uppercase tracking-[0.15em] text-neutral-500 mb-3">
                   {course.category || 'Course'}{course.level ? ` • ${course.level}` : ''}
                 </p>
-                <h1 className="tw-serif text-4xl md:text-5xl text-neutral-900 mb-4 leading-tight">
+                <h1 className="font-display text-4xl md:text-5xl text-neutral-900 mb-4 leading-tight">
                   {course.title}
                 </h1>
                 <p className="text-neutral-700 text-lg leading-relaxed mb-6 max-w-2xl">
@@ -727,7 +727,7 @@ const CourseDetail = () => {
 
                 {/* Curriculum */}
                 <div>
-                  <h2 className="tw-serif text-2xl text-neutral-900 mb-5">Course curriculum</h2>
+                  <h2 className="font-display text-2xl text-neutral-900 mb-5">Course curriculum</h2>
                   {modules.length === 0 ? (
                     <p className="text-sm text-neutral-500">Curriculum coming soon.</p>
                   ) : (

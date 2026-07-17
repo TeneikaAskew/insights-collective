@@ -86,7 +86,7 @@ const CourseList = () => {
         {/* Header */}
         <div className="max-w-7xl mx-auto mb-10">
           <p className="text-xs uppercase tracking-[0.15em] text-neutral-500 mb-3">Catalog</p>
-          <h1 className="tw-serif text-5xl md:text-6xl text-neutral-900 mb-3">Courses</h1>
+          <h1 className="font-display text-5xl md:text-6xl text-neutral-900 mb-3">Courses</h1>
           <p className="text-neutral-600 max-w-2xl">
             Browse the full library and jump into a lesson whenever you're ready.
           </p>
@@ -180,7 +180,7 @@ const CourseList = () => {
                       <span>{course.category || 'Course'}</span>
                       {course.level && <><span>•</span><span>{course.level}</span></>}
                     </div>
-                    <h3 className="tw-serif text-2xl text-neutral-900 mb-2 line-clamp-2 leading-tight">
+                    <h3 className="font-display text-2xl text-neutral-900 mb-2 line-clamp-2 leading-tight">
                       {course.title}
                     </h3>
                     <p className="text-sm text-neutral-600 line-clamp-2 mb-5">

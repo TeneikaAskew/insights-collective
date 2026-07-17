@@ -194,7 +194,7 @@ export default function AdminCourses() {
               {/* Card grid */}
               {filteredCourses.length === 0 ? (
                 <div className="text-center py-20 border border-dashed rounded-2xl">
-                  <h3 className="tw-serif text-2xl text-neutral-900 mb-2">No courses yet</h3>
+                  <h3 className="font-display text-2xl text-neutral-900 mb-2">No courses yet</h3>
                   <p className="text-neutral-500 mb-4">Get started by creating your first course.</p>
                   <Button
                     onClick={handleAddCourse}
@@ -245,7 +245,7 @@ export default function AdminCourses() {
                               </span>
                             )}
                           </div>
-                          <h3 className="tw-serif text-xl text-neutral-900 mb-2 line-clamp-2 leading-tight">
+                          <h3 className="font-display text-xl text-neutral-900 mb-2 line-clamp-2 leading-tight">
                             {course.title}
                           </h3>
                           <p className="text-sm text-neutral-600 line-clamp-2 mb-4">
