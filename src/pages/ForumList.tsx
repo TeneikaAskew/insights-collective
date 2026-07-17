@@ -274,7 +274,7 @@ const ForumListPage = () => {
                     <div className="flex items-start justify-between">
                       <div>
                         <CardTitle>
-                          <span className="mr-2">{category.icon}</span>
+                          <category.icon className="inline-block mr-2 h-5 w-5 text-primary align-text-bottom" />
                           {category.title}
                         </CardTitle>
                         <CardDescription>{category.description}</CardDescription>
