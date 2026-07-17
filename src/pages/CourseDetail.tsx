@@ -683,12 +683,164 @@ const CourseDetail = () => {
           </div>
         );
       
-      default:
-        // Home/Course Overview — Teachable-style enrollment landing
+      default: {
+        // Teachable-style course home
+        const nextModule = (modules as any[]).find((m: any) => (m.completionStatus ?? 0) < 100) || (modules as any[])[0];
+        const nextLessonTitle = nextModule?.lessons?.[0]?.title || nextModule?.title || 'Start your first lesson';
+
+        if (isEnrolled) {
+          return (
+            <div className="teachable-workspace space-y-8">
+              {/* Dark hero */}
+              <section className="relative rounded-2xl overflow-hidden bg-neutral-900 text-white p-8 md:p-12">
+                <div className="grid md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] gap-8 items-center">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.18em] text-white/50 mb-4">
+                      {course.category || 'Course'}{course.level ? ` · ${course.level}` : ''}
+                    </p>
+                    <h1 className="font-display text-4xl md:text-5xl leading-tight mb-4">
+                      {course.title}
+                    </h1>
+                    <p className="text-white/70 text-base md:text-lg leading-relaxed mb-6 max-w-xl">
+                      {course.description}
+                    </p>
+                    <Button
+                      asChild
+                      className="h-11 px-6 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-none"
+                    >
+                      <Link to={`/courses/${courseId}/learn`}>Continue learning</Link>
+                    </Button>
+                  </div>
+                  <div className="hidden md:block">
+                    <div className="aspect-[16/10] rounded-xl overflow-hidden bg-white/5">
+                      <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover" />
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              {/* Two-column: Jump back in + Additional links */}
+              <div className="grid lg:grid-cols-[minmax(0,1fr)_360px] gap-6">
+                {/* Jump back in */}
+                <section className="rounded-2xl bg-white border border-neutral-200 p-6 md:p-8">
+                  <h2 className="font-display text-3xl text-neutral-900 mb-6">Jump back in</h2>
+                  <div className="grid sm:grid-cols-[220px_minmax(0,1fr)] gap-6 items-center">
+                    <div className="aspect-video rounded-xl overflow-hidden bg-neutral-100">
+                      <img src={course.thumbnail} alt="" className="w-full h-full object-cover" />
+                    </div>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.15em] text-neutral-500 mb-1">
+                        {nextModule?.week ? `Week ${nextModule.week}` : 'Up next'}
+                      </p>
+                      <h3 className="font-display text-2xl text-neutral-900 mb-2 leading-tight">
+                        {nextModule?.title || 'Get started'}
+                      </h3>
+                      <p className="text-sm text-neutral-500 mb-4">Next lesson: {nextLessonTitle}</p>
+                      <div className="flex items-center gap-4 mb-5">
+                        <Progress value={overallProgress} className="h-1.5 flex-1" />
+                        <span className="text-sm font-medium text-neutral-700 tabular-nums">
+                          {Math.round(overallProgress)}%
+                        </span>
+                      </div>
+                      <Button
+                        asChild
+                        variant="outline"
+                        className="rounded-full border-neutral-900 text-neutral-900 hover:bg-neutral-900 hover:text-white"
+                      >
+                        <Link to={`/courses/${courseId}/learn`}>Learn more</Link>
+                      </Button>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Additional links / curriculum outline */}
+                <aside className="rounded-2xl bg-white border border-neutral-200 p-6 md:p-8">
+                  <h3 className="font-display text-2xl text-neutral-900 mb-1">Course compass</h3>
+                  <p className="text-sm text-neutral-500 mb-5">
+                    Explore modules, discussions, and course info.
+                  </p>
+
+                  <Link
+                    to={`/courses/${courseId}/learn`}
+                    className="inline-flex items-center gap-2 text-sm font-semibold text-neutral-900 hover:underline mb-6"
+                  >
+                    → Open course player
+                  </Link>
+
+                  <div className="border-t border-neutral-200 pt-5">
+                    <p className="text-[11px] uppercase tracking-[0.15em] text-neutral-500 mb-3">
+                      Additional links
+                    </p>
+                    <ul className="space-y-3 text-sm">
+                      <li>
+                        <Link to={`/courses/${courseId}/modules`} className="flex items-center gap-2 text-neutral-800 hover:text-neutral-900 hover:underline">
+                          <BookOpen className="h-4 w-4 text-neutral-400" /> Modules
+                        </Link>
+                      </li>
+                      <li>
+                        <Link to={`/courses/${courseId}/assignments`} className="flex items-center gap-2 text-neutral-800 hover:text-neutral-900 hover:underline">
+                          <FileText className="h-4 w-4 text-neutral-400" /> Assignments
+                        </Link>
+                      </li>
+                      <li>
+                        <Link to={`/courses/${courseId}/announcements`} className="flex items-center gap-2 text-neutral-800 hover:text-neutral-900 hover:underline">
+                          <Bell className="h-4 w-4 text-neutral-400" /> Announcements
+                        </Link>
+                      </li>
+                      <li>
+                        <Link to={`/courses/${courseId}/calendar`} className="flex items-center gap-2 text-neutral-800 hover:text-neutral-900 hover:underline">
+                          <Calendar className="h-4 w-4 text-neutral-400" /> Calendar
+                        </Link>
+                      </li>
+                    </ul>
+                  </div>
+                </aside>
+              </div>
+
+              {/* Curriculum modules list */}
+              <section className="rounded-2xl bg-white border border-neutral-200 p-6 md:p-8">
+                <div className="flex items-end justify-between mb-6">
+                  <h2 className="font-display text-3xl text-neutral-900">Course curriculum</h2>
+                  <Link to={`/courses/${courseId}/learn`} className="text-sm font-medium text-neutral-700 hover:text-neutral-900 hover:underline">
+                    View all →
+                  </Link>
+                </div>
+                {modules.length === 0 ? (
+                  <p className="text-sm text-neutral-500">Curriculum coming soon.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {(modules as any[]).map((m: any, idx: number) => {
+                      const lessonCount =
+                        (m.lessons?.length || 0) + (m.assignments?.length || 0) + (m.quizzes?.length || 0);
+                      return (
+                        <Link
+                          key={m.id}
+                          to={`/courses/${courseId}/learn`}
+                          className="flex items-center justify-between px-5 py-4 border border-neutral-200 rounded-lg hover:border-neutral-900 transition-colors"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-[11px] uppercase tracking-[0.15em] text-neutral-500 mb-1">
+                              {m.week ? `Week ${m.week}` : `Section ${idx + 1}`}
+                            </p>
+                            <h3 className="font-semibold text-neutral-900 truncate">{m.title}</h3>
+                          </div>
+                          <span className="text-xs text-neutral-500 whitespace-nowrap ml-4">
+                            {lessonCount} {lessonCount === 1 ? 'lesson' : 'lessons'}
+                          </span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+            </div>
+          );
+        }
+
+        // Non-enrolled landing (kept close to previous pre-enroll layout)
         return (
           <div className="teachable-workspace bg-white rounded-2xl border border-neutral-200 overflow-hidden">
             <div className="grid lg:grid-cols-[1fr_360px] gap-0">
-              {/* Left: hero + curriculum */}
               <div className="p-8 lg:p-12">
                 <p className="text-xs uppercase tracking-[0.15em] text-neutral-500 mb-3">
                   {course.category || 'Course'}{course.level ? ` • ${course.level}` : ''}
@@ -725,14 +877,13 @@ const CourseDetail = () => {
                   </span>
                 </div>
 
-                {/* Curriculum */}
                 <div>
                   <h2 className="font-display text-2xl text-neutral-900 mb-5">Course curriculum</h2>
                   {modules.length === 0 ? (
                     <p className="text-sm text-neutral-500">Curriculum coming soon.</p>
                   ) : (
                     <div className="space-y-3">
-                      {modules.map((m: any, idx: number) => {
+                      {(modules as any[]).map((m: any, idx: number) => {
                         const lessonCount =
                           (m.lessons?.length || 0) + (m.assignments?.length || 0) + (m.quizzes?.length || 0);
                         return (
@@ -756,49 +907,26 @@ const CourseDetail = () => {
                 </div>
               </div>
 
-              {/* Right: sticky enroll card */}
               <aside className="bg-neutral-50 border-t lg:border-t-0 lg:border-l border-neutral-200 p-8 lg:p-10">
                 <div className="lg:sticky lg:top-6">
                   <div className="aspect-[16/9] rounded-xl overflow-hidden mb-6 bg-neutral-200">
                     <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover" />
                   </div>
-
-                  {isEnrolled ? (
-                    <>
-                      <Button
-                        asChild
-                        className="w-full h-12 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-base shadow-none"
-                      >
-                        <Link to={`/courses/${courseId}/learn`}>Continue learning</Link>
-                      </Button>
-                      <div className="mt-5">
-                        <div className="flex justify-between text-xs text-neutral-600 mb-2">
-                          <span>Progress</span>
-                          <span>{Math.round(overallProgress)}%</span>
-                        </div>
-                        <Progress value={overallProgress} className="h-1.5" />
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <Button
-                        onClick={handleEnroll}
-                        disabled={enrolling}
-                        className="w-full h-12 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-base shadow-none"
-                      >
-                        {enrolling ? 'Enrolling…' : 'Enroll for free'}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={handleWishlist}
-                        disabled={addingToWishlist}
-                        className="w-full h-11 rounded-full mt-3 border-neutral-300"
-                      >
-                        {isWishlisted ? 'Saved to wishlist' : 'Save for later'}
-                      </Button>
-                    </>
-                  )}
-
+                  <Button
+                    onClick={handleEnroll}
+                    disabled={enrolling}
+                    className="w-full h-12 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-base shadow-none"
+                  >
+                    {enrolling ? 'Enrolling…' : 'Enroll for free'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleWishlist}
+                    disabled={addingToWishlist}
+                    className="w-full h-11 rounded-full mt-3 border-neutral-300"
+                  >
+                    {isWishlisted ? 'Saved to wishlist' : 'Save for later'}
+                  </Button>
                   <div className="mt-8 space-y-3 text-sm text-neutral-700">
                     <div className="flex items-center gap-3">
                       <BookOpen className="h-4 w-4 text-neutral-500" />
@@ -820,6 +948,7 @@ const CourseDetail = () => {
             </div>
           </div>
         );
+      }
     }
   };
   
