@@ -15,6 +15,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Trash2 } from 'lucide-react';
 import { UnifiedCanvasEditor } from '@/components/ui/unified-canvas-editor';
+import { QuizContentEditor } from '@/components/course/builder/QuizContentEditor';
 import type { ContentItem, ContentItemType } from '@/types/canvas';
 
 export interface LessonDraft {
