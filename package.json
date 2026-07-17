@@ -16,7 +16,10 @@
     "e2e:ui": "playwright test --ui",
     "e2e:debug": "playwright test --debug",
     "e2e:report": "playwright show-report",
-    "e2e:codegen": "playwright codegen http://localhost:8080"
+    "e2e:codegen": "playwright codegen http://localhost:8080",
+    "visual": "playwright test --project=visual-public --project=visual-member --project=visual-admin --project=visual-instructor",
+    "visual:update": "playwright test --project=visual-public --project=visual-member --project=visual-admin --project=visual-instructor --update-snapshots",
+    "visual:report": "playwright show-report"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
