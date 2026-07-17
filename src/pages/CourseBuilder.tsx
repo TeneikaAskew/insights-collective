@@ -205,13 +205,12 @@ const CourseBuilder = () => {
     [persistCourse, toast],
   );
 
-  const handleEditTitle = useCallback(() => {
-    if (!course) return;
-    const next = prompt('Course title', course.title);
-    if (next && next.trim() && next !== course.title) {
-      void persistCourse({ title: next.trim() });
-    }
-  }, [course, persistCourse]);
+  const renameCourse = useCallback(
+    async (title: string) => {
+      await persistCourse({ title });
+    },
+    [persistCourse],
+  );
 
   const handleUploadThumbnail = useCallback(
     async (file: File) => {
@@ -220,11 +219,11 @@ const CourseBuilder = () => {
         const ext = file.name.split('.').pop() || 'jpg';
         const path = `course-thumbnails/${course.id}-${Date.now()}.${ext}`;
         const { error } = await supabase.storage
-          .from('public-assets')
+          .from('course-materials')
           .upload(path, file, { upsert: true, contentType: file.type });
         if (error) throw error;
-        const { data: pub } = supabase.storage.from('public-assets').getPublicUrl(path);
-        await persistCourse({ thumbnail: pub.publicUrl });
+        const { data: pub } = supabase.storage.from('course-materials').getPublicUrl(path);
+        await persistCourse({ image_url: pub.publicUrl, thumbnail: pub.publicUrl });
         toast({ title: 'Thumbnail uploaded' });
       } catch (err: any) {
         toast({
@@ -236,6 +235,10 @@ const CourseBuilder = () => {
     },
     [course, persistCourse, toast],
   );
+
+  const handleRemoveThumbnail = useCallback(async () => {
+    await persistCourse({ image_url: null, thumbnail: null });
+  }, [persistCourse]);
 
   // --- Curriculum actions ---
   const addSection = useCallback(async () => {
