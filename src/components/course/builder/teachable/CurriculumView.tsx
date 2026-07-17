@@ -212,11 +212,21 @@ function SectionCard({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(module.title);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [descDraft, setDescDraft] = useState(module.description ?? '');
+  const [descEditing, setDescEditing] = useState(false);
 
   const commit = () => {
     setEditing(false);
     if (draft.trim() && draft !== module.title) onRenameModule(module.id, draft.trim());
     else setDraft(module.title);
+  };
+
+  const commitDesc = () => {
+    setDescEditing(false);
+    const next = descDraft.trim();
+    if ((module.description ?? '') !== next && onUpdateModuleDescription) {
+      onUpdateModuleDescription(module.id, next);
+    }
   };
 
   const itemIds = useMemo(() => module.items.map((i) => i.id), [module.items]);
