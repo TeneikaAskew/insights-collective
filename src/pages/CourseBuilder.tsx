@@ -514,6 +514,7 @@ const CourseBuilder = () => {
           modules={modules}
           onAddModule={addSection}
           onRenameModule={renameSection}
+          onUpdateModuleDescription={updateSectionDescription}
           onDeleteModule={deleteSection}
           onReorderModules={reorderSections}
           onAddLesson={(mid) => void addLesson(mid)}
