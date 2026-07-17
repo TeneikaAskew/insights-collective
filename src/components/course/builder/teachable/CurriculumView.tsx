@@ -156,6 +156,7 @@ export function CurriculumView(props: CurriculumViewProps) {
                   key={m.id}
                   module={m}
                   onRenameModule={onRenameModule}
+                  onUpdateModuleDescription={onUpdateModuleDescription}
                   onDeleteModule={onDeleteModule}
                   onAddLesson={onAddLesson}
                   onRenameLesson={onRenameLesson}
