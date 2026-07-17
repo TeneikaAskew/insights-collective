@@ -206,7 +206,7 @@ export function SidebarLayout({ portfolioPage }: SidebarLayoutProps) {
           {portfolioPage.profile_data?.experience && portfolioPage.profile_data.experience.length > 0 && (
             <div className="mb-6">
               <h2 className="text-xl font-semibold mb-3 flex items-center gap-2" style={{ color: themeStyles.color }}>
-                💼 Experience
+                <Briefcase className="h-5 w-5" /> Experience
               </h2>
               <div className="space-y-4">
                 {portfolioPage.profile_data.experience.slice(0, 2).map((exp, index) => (
