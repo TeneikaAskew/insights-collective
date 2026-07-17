@@ -188,7 +188,7 @@ import { Link } from 'react-router-dom';
 import { CareerTrack, getSkillLevel, getTrackPersona, getCourseRecommendations } from '@/data/careerQuizData';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, BarChart2, BarChart3, Brain, Database, Download, MessageCircle, Presentation, RefreshCw, Share2 } from 'lucide-react';
+import { ArrowRight, BarChart2, BarChart3, Brain, Database, Download, Loader2, MessageCircle, Presentation, RefreshCw, Share2 } from 'lucide-react';
 import { useCareerCoach } from '@/hooks/useCareerCoach';
 import { useAuth } from '@/contexts/AuthContext';
 import { storeQuizAttempt } from '@/services/quizService';
