@@ -14,7 +14,7 @@ import {
   PathwayQuestion
 } from '@/data/careerPathwayData';
 import { Link, useNavigate } from 'react-router-dom';
-import { Map } from 'lucide-react';
+import { Map, ThumbsUp, Heart, Lightbulb } from 'lucide-react';
 // CareerAgent.tsx
 import { formatCareerPathwayReport } from '@/components/assistants/utils/CareerReportParser';
 
