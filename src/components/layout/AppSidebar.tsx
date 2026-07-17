@@ -32,7 +32,14 @@ const AppSidebar = () => {
     title: "Resources",
     url: "/resources",
     icon: FileText,
-    active: location.pathname === '/resources'
+    active: location.pathname === '/resources',
+    hasSubmenu: true,
+    subItems: [{
+      title: "Courses",
+      url: "/courses",
+      icon: BookOpen,
+      active: location.pathname.startsWith('/course')
+    }]
   }, {
     title: "Resume Analyzer",
     url: "/resume",
@@ -63,11 +70,6 @@ const AppSidebar = () => {
     icon: Award,
     active: location.pathname === '/portfolio-explorer',
     highlight: true
-  }, {
-    title: "Courses",
-    url: "/courses",
-    icon: BookOpen,
-    active: location.pathname.startsWith('/course')
   }, {
     title: "AI & Automation Fellowship",
     url: "/survey",
