@@ -245,16 +245,18 @@ function App() {
                      <Route path="/courses/:courseId/people" element={<CourseDetail />} />
                      <Route path="/courses/:courseId/insights" element={<StudentInsights />} />
                      <Route path="/courses/:courseId/insights/:studentId" element={<StudentInsights />} />
-                     <Route path="/courses/:courseId/management" element={<CourseManagement />} />
+                     {/* Legacy management page now redirects to unified builder */}
+                     <Route path="/courses/:courseId/management" element={<CourseBuilderRedirect />} />
                      {/* New Teachable/Kajabi-style builder + learner routes */}
                      <Route path="/courses/:courseId/builder" element={<CourseBuilder />} />
                      <Route path="/courses/new/builder" element={<CourseBuilder />} />
                      <Route path="/courses/:courseId/learn" element={<CourseLearn />} />
                      <Route path="/courses/:courseId/learn/:moduleId/:itemId" element={<CourseLearn />} />
                      <Route path="/courses/:courseId/modules/:moduleId/assignments/:assignmentId" element={<AssignmentDetail />} />
-                     <Route path="/courses/:courseId/modules/:moduleId/lessons/:lessonId" element={<LessonDetail />} />
-                     <Route path="/courses/:courseId/modules/:moduleId" element={<CanvasModuleDetail />} />
-                     <Route path="/courses/:courseId/modules/:moduleId/content/:itemId" element={<CanvasModuleDetail />} />
+                     {/* Legacy student lesson/module routes now redirect to unified learner */}
+                     <Route path="/courses/:courseId/modules/:moduleId/lessons/:lessonId" element={<CourseLearnRedirect />} />
+                     <Route path="/courses/:courseId/modules/:moduleId" element={<CourseLearnRedirect />} />
+                     <Route path="/courses/:courseId/modules/:moduleId/content/:itemId" element={<CourseLearnRedirect />} />
                      
                      {/* Canvas-style Routes */}
                      <Route path="/courses/:courseId/modules/:moduleId/assignments/:contentItemId/submit" element={<CanvasAssignmentSubmission />} />
