@@ -29,8 +29,21 @@ import {
   Upload,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { sanitizeHTML } from '@/utils/sanitize';
 import type { ContentItem } from '@/types/canvas';
 import type { BuilderModule } from './types';
+
+function htmlToPlainText(html: string): string {
+  if (!html) return '';
+  if (typeof document === 'undefined') return html.replace(/<[^>]+>/g, '').trim();
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  return (tmp.textContent || tmp.innerText || '').trim();
+}
+
+function looksLikeHtml(text: string): boolean {
+  return /<\/?[a-z][\s\S]*>/i.test(text);
+}
 
 interface CurriculumViewProps {
   courseTitle: string;
