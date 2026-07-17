@@ -82,7 +82,7 @@ export function TeachableShell({
         <div className="px-5 pt-5 pb-4">
           <Link
             to="/admin/courses"
-            className="inline-flex items-center gap-1.5 text-xs uppercase tracking-widest font-semibold text-muted-foreground hover:text-foreground"
+            className="inline-flex items-center gap-1.5 text-xs uppercase tracking-widest font-semibold text-sidebar-foreground/80 hover:text-sidebar-foreground"
           >
             <ArrowLeft className="h-3 w-3" />
             Courses
