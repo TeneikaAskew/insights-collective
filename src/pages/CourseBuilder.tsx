@@ -25,7 +25,7 @@ import type { LessonDraft } from '@/components/course/builder/LessonEditorPane';
 const logger = createLogger('CourseBuilder');
 
 const PLACEHOLDER_COPY: Record<
-  Exclude<BuilderNavKey, 'setup' | 'curriculum'>,
+  Exclude<BuilderNavKey, 'setup' | 'curriculum' | 'lesson'>,
   { title: string; description: string }
 > = {
   design: {
