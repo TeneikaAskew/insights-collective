@@ -50,6 +50,8 @@ const CourseLearn = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const { canEdit } = useCoursePermissions(courseId);
+  const [previewAsStudent, setPreviewAsStudent] = useState(false);
+  const effectiveEdit = canEdit && !previewAsStudent;
 
   const [course, setCourse] = useState<CourseShell | null>(null);
   const [modules, setModules] = useState<CurriculumModule[]>([]);
@@ -84,11 +86,11 @@ const CourseLearn = () => {
         if (error) throw error;
 
         const rawModules = await CanvasContentService.getModules(courseId);
-        const visible = canEdit ? rawModules : rawModules.filter((m) => m.published);
+        const visible = effectiveEdit ? rawModules : rawModules.filter((m) => m.published);
         const withItems = await Promise.all(
           visible.map(async (m) => {
             const items = await CanvasContentService.getContentItems(m.id);
-            const filtered = canEdit ? items : items.filter((i) => i.published !== false);
+            const filtered = effectiveEdit ? items : items.filter((i) => i.published !== false);
             return { id: m.id, title: m.title, items: filtered } as CurriculumModule;
           }),
         );
@@ -108,7 +110,7 @@ const CourseLearn = () => {
     return () => {
       cancelled = true;
     };
-  }, [courseId, canEdit, toast]);
+  }, [courseId, effectiveEdit, toast]);
 
   // --- Progress fetch ---
   useEffect(() => {
@@ -212,7 +214,7 @@ const CourseLearn = () => {
         className="teachable-workspace fixed inset-0 flex flex-col"
         style={{ background: '#F5F5F0', color: 'hsl(var(--tw-text))' }}
       >
-        <AdminTopBar canEdit={canEdit} courseId={course.id} />
+        <AdminTopBar canEdit={canEdit} courseId={course.id} previewAsStudent={previewAsStudent} onPreviewChange={setPreviewAsStudent} />
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-6xl mx-auto px-8 py-14">
             <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-10">
@@ -293,7 +295,7 @@ const CourseLearn = () => {
     <div
       className="teachable-workspace fixed inset-0 flex flex-col bg-background text-foreground"
     >
-      <AdminTopBar canEdit={canEdit} courseId={course.id} />
+      <AdminTopBar canEdit={canEdit} courseId={course.id} previewAsStudent={previewAsStudent} onPreviewChange={setPreviewAsStudent} />
 
       {/* Player top bar with prev/next pills */}
       <div className="flex items-center justify-between px-6 py-3 flex-shrink-0 bg-card border-b border-border">
@@ -446,7 +448,18 @@ const CourseLearn = () => {
 };
 
 // --- Admin top strip ("Edit in Admin" / "Preview as admin") ---
-function AdminTopBar({ canEdit, courseId }: { canEdit: boolean; courseId: string }) {
+function AdminTopBar({
+  canEdit,
+  courseId,
+  previewAsStudent,
+  onPreviewChange,
+}: {
+  canEdit: boolean;
+  courseId: string;
+  previewAsStudent: boolean;
+  onPreviewChange: (v: boolean) => void;
+}) {
+  const [open, setOpen] = useState(false);
   if (!canEdit) return null;
   return (
     <div
@@ -460,15 +473,53 @@ function AdminTopBar({ canEdit, courseId }: { canEdit: boolean; courseId: string
         <ArrowLeft className="w-4 h-4" />
         Edit in Admin
       </Link>
-      <div
-        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold"
-        style={{ background: '#222' }}
-      >
-        Preview as admin
-        <ChevronDown className="w-3 h-3" />
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
+          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold hover:opacity-90"
+          style={{ background: '#222' }}
+        >
+          {previewAsStudent ? 'Preview as student' : 'Preview as admin'}
+          <ChevronDown className="w-3 h-3" />
+        </button>
+        {open && (
+          <div
+            className="absolute left-0 top-full mt-1 z-50 min-w-[200px] rounded-md shadow-lg overflow-hidden"
+            style={{ background: '#1a1a1a', border: '1px solid #333' }}
+          >
+            <button
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                onPreviewChange(false);
+                setOpen(false);
+              }}
+              className="block w-full text-left px-3 py-2 text-xs hover:bg-white/10"
+            >
+              Preview as admin
+              <div className="text-[10px] text-gray-400">See all content</div>
+            </button>
+            <button
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                onPreviewChange(true);
+                setOpen(false);
+              }}
+              className="block w-full text-left px-3 py-2 text-xs hover:bg-white/10"
+            >
+              Preview as student
+              <div className="text-[10px] text-gray-400">Published content only</div>
+            </button>
+          </div>
+        )}
       </div>
       <div className="text-xs text-gray-400">
-        You can see both published and unpublished content
+        {previewAsStudent
+          ? 'You are viewing only published content'
+          : 'You can see both published and unpublished content'}
       </div>
     </div>
   );
