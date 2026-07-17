@@ -106,7 +106,7 @@ export function GridLayout({ portfolioPage }: GridLayoutProps) {
         {/* Contact Information */}
         {portfolioPage.profile_data?.location && (
           <div className="text-center mb-6">
-            <p style={{ color: themeStyles.accentColor }}>📍 You can find me in {portfolioPage.profile_data.location}</p>
+            <p style={{ color: themeStyles.accentColor }} className="inline-flex items-center gap-1"><MapPin className="h-4 w-4" /> You can find me in {portfolioPage.profile_data.location}</p>
           </div>
         )}
 
