@@ -86,11 +86,11 @@ const CourseLearn = () => {
         if (error) throw error;
 
         const rawModules = await CanvasContentService.getModules(courseId);
-        const visible = canEdit ? rawModules : rawModules.filter((m) => m.published);
+        const visible = effectiveEdit ? rawModules : rawModules.filter((m) => m.published);
         const withItems = await Promise.all(
           visible.map(async (m) => {
             const items = await CanvasContentService.getContentItems(m.id);
-            const filtered = canEdit ? items : items.filter((i) => i.published !== false);
+            const filtered = effectiveEdit ? items : items.filter((i) => i.published !== false);
             return { id: m.id, title: m.title, items: filtered } as CurriculumModule;
           }),
         );
