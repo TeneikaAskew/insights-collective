@@ -29,8 +29,21 @@ import {
   Upload,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { sanitizeHTML } from '@/utils/sanitize';
 import type { ContentItem } from '@/types/canvas';
 import type { BuilderModule } from './types';
+
+function htmlToPlainText(html: string): string {
+  if (!html) return '';
+  if (typeof document === 'undefined') return html.replace(/<[^>]+>/g, '').trim();
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  return (tmp.textContent || tmp.innerText || '').trim();
+}
+
+function looksLikeHtml(text: string): boolean {
+  return /<\/?[a-z][\s\S]*>/i.test(text);
+}
 
 interface CurriculumViewProps {
   courseTitle: string;
@@ -221,10 +234,19 @@ function SectionCard({
     else setDraft(module.title);
   };
 
+  const beginEditDesc = () => {
+    const existing = module.description ?? '';
+    setDescDraft(looksLikeHtml(existing) ? htmlToPlainText(existing) : existing);
+    setDescEditing(true);
+  };
+
   const commitDesc = () => {
     setDescEditing(false);
     const next = descDraft.trim();
-    if ((module.description ?? '') !== next && onUpdateModuleDescription) {
+    const currentPlain = looksLikeHtml(module.description ?? '')
+      ? htmlToPlainText(module.description ?? '')
+      : (module.description ?? '');
+    if (currentPlain !== next && onUpdateModuleDescription) {
       onUpdateModuleDescription(module.id, next);
     }
   };
@@ -352,12 +374,19 @@ function SectionCard({
           ) : (
             <button
               type="button"
-              onClick={() => setDescEditing(true)}
+              onClick={beginEditDesc}
               className="w-full text-left text-sm text-gray-600 hover:text-black cursor-text px-1 py-1 rounded"
-              title="Edit section summary"
+              title="Click to edit section summary"
             >
               {module.description?.trim() ? (
-                <span className="whitespace-pre-wrap">{module.description}</span>
+                looksLikeHtml(module.description) ? (
+                  <div
+                    className="prose prose-sm max-w-none"
+                    dangerouslySetInnerHTML={{ __html: sanitizeHTML(module.description) }}
+                  />
+                ) : (
+                  <span className="whitespace-pre-wrap">{module.description}</span>
+                )
               ) : (
                 <span className="text-gray-400 italic">
                   + Add a section summary students will see on the course page
