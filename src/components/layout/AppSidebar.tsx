@@ -17,6 +17,9 @@ const AppSidebar = () => {
   } = useAuth();
   const { isPageVisible, isLoading: pageVisibilityLoading } = usePageVisibility();
   const { open } = useSidebar();
+  const [resourcesOpen, setResourcesOpen] = React.useState(() =>
+    location.pathname === '/resources' || location.pathname.startsWith('/course')
+  );
 
   // Define public menu items with corrected routes
   const publicMenuItems = [{
