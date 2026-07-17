@@ -1,7 +1,7 @@
 import React from 'react';
-import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, Bot, MessageSquare, FileUp, Eye, Compass, FileCheck, FormInput, Newspaper, Lightbulb, Twitter, Database, ChevronRight } from 'lucide-react';
+import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, Bot, MessageSquare, FileUp, Eye, Compass, FileCheck, FormInput, Newspaper, Lightbulb, Twitter, Database } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
-import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarTrigger, SidebarFooter, SidebarRail, useSidebar, SidebarMenuSub, SidebarMenuSubItem, SidebarMenuSubButton } from '@/components/ui/sidebar';
+import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarTrigger, SidebarFooter, SidebarRail, useSidebar } from '@/components/ui/sidebar';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePageVisibility } from '@/contexts/PageVisibilityContext';
 import { motion } from 'framer-motion';
@@ -18,9 +18,6 @@ const AppSidebar = () => {
   } = useAuth();
   const { isPageVisible, isLoading: pageVisibilityLoading } = usePageVisibility();
   const { open } = useSidebar();
-  const [resourcesOpen, setResourcesOpen] = React.useState(() =>
-    location.pathname === '/resources' || location.pathname.startsWith('/course')
-  );
 
   // Define public menu items with corrected routes
   const publicMenuItems = [{
@@ -32,14 +29,12 @@ const AppSidebar = () => {
     title: "Resources",
     url: "/resources",
     icon: FileText,
-    active: location.pathname === '/resources',
-    hasSubmenu: true,
-    subItems: [{
-      title: "Courses",
-      url: "/courses",
-      icon: BookOpen,
-      active: location.pathname.startsWith('/course')
-    }]
+    active: location.pathname === '/resources'
+  }, {
+    title: "Courses",
+    url: "/courses",
+    icon: BookOpen,
+    active: location.pathname.startsWith('/course')
   }, {
     title: "Resume Analyzer",
     url: "/resume",
@@ -127,14 +122,12 @@ const AppSidebar = () => {
     title: "Resources",
     url: "/resources",
     icon: FileText,
-    active: location.pathname === '/resources',
-    hasSubmenu: true,
-    subItems: [{
-      title: "Courses",
-      url: "/courses",
-      icon: BookOpen,
-      active: location.pathname.startsWith('/course')
-    }]
+    active: location.pathname === '/resources'
+  }, {
+    title: "Courses",
+    url: "/courses",
+    icon: BookOpen,
+    active: location.pathname.startsWith('/course')
   }, {
     title: "Events",
     url: "/events",
@@ -276,52 +269,7 @@ const AppSidebar = () => {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.map((item, index) => {
-                if (item.hasSubmenu && item.subItems) {
-                  const isResourcesActive = item.active || item.subItems.some(sub => sub.active);
-                  return (
-                    <motion.div key={item.title} custom={index} initial="hidden" animate="visible" variants={menuItemVariants}>
-                      <SidebarMenuItem>
-                        <SidebarMenuButton
-                          isActive={isResourcesActive}
-                          onClick={() => open && setResourcesOpen(!resourcesOpen)}
-                          className={`transition-all duration-200 ${isResourcesActive ? 'bg-[#9b87f5]/10 text-[#9b87f5] font-medium border-r-2 border-[#9b87f5]' : 'text-gray-700 dark:text-gray-300 hover:text-[#9b87f5] hover:bg-[#9b87f5]/5'}`}
-                        >
-                          <Link to={item.url} className={`flex items-center ${open ? 'space-x-2' : 'justify-center'} rounded-md px-2 py-1.5 w-full`}>
-                            <item.icon className={`h-3.5 w-3.5 flex-shrink-0 ${isResourcesActive ? 'text-[#9b87f5]' : 'text-gray-500 dark:text-gray-400'}`} />
-                            {open && <span className="text-xs truncate flex-1 text-left">{item.title}</span>}
-                            {open && (
-                              <ChevronRight
-                                className={`h-3 w-3 flex-shrink-0 transition-transform duration-200 ${resourcesOpen ? 'rotate-90' : ''}`}
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  setResourcesOpen(!resourcesOpen);
-                                }}
-                              />
-                            )}
-                          </Link>
-                        </SidebarMenuButton>
-                        {open && resourcesOpen && (
-                          <SidebarMenuSub>
-                            {item.subItems.map((sub) => (
-                              <SidebarMenuSubItem key={sub.title}>
-                                <SidebarMenuSubButton asChild isActive={sub.active}>
-                                  <Link to={sub.url} className={`flex items-center gap-2 ${sub.active ? 'text-[#9b87f5] font-medium' : 'text-gray-600 dark:text-gray-400'}`}>
-                                    <sub.icon className={`h-3.5 w-3.5 flex-shrink-0 ${sub.active ? 'text-[#9b87f5]' : 'text-gray-500 dark:text-gray-400'}`} />
-                                    <span className="text-xs truncate">{sub.title}</span>
-                                  </Link>
-                                </SidebarMenuSubButton>
-                              </SidebarMenuSubItem>
-                            ))}
-                          </SidebarMenuSub>
-                        )}
-                      </SidebarMenuItem>
-                    </motion.div>
-                  );
-                }
-
-                return (
+              {menuItems.map((item, index) => (
                   <motion.div key={item.title} custom={index} initial="hidden" animate="visible" variants={menuItemVariants}>
                     <SidebarMenuItem>
                       <SidebarMenuButton asChild isActive={item.active} className={`transition-all duration-200 ${item.active ? 'bg-[#9b87f5]/10 text-[#9b87f5] font-medium border-r-2 border-[#9b87f5]' : 'text-gray-700 dark:text-gray-300 hover:text-[#9b87f5] hover:bg-[#9b87f5]/5'}`}>
@@ -337,8 +285,7 @@ const AppSidebar = () => {
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   </motion.div>
-                );
-              })}
+              ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
