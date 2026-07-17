@@ -563,7 +563,7 @@ function HomeSection({
                 <button
                   type="button"
                   onClick={() => onSelect(it.id)}
-                  className="text-xs font-bold px-4 py-1.5 rounded-md bg-black text-white hover:bg-black/85"
+                  className="text-xs font-bold px-4 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
                 >
                   {done ? 'Review' : 'Start'}
                 </button>
