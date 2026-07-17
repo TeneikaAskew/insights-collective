@@ -141,6 +141,33 @@ function CourseRedirect() {
   return <Navigate to={redirectPath} replace />;
 }
 
+// Redirect legacy admin course edit page to the unified builder
+function AdminCourseEditRedirect() {
+  const { id } = useParams<{ id: string }>();
+  return <Navigate to={`/courses/${id}/builder`} replace />;
+}
+
+// Redirect legacy course management routes to the unified builder
+function CourseBuilderRedirect() {
+  const { courseId } = useParams<{ courseId: string }>();
+  return <Navigate to={`/courses/${courseId}/builder`} replace />;
+}
+
+// Redirect legacy per-module/lesson URLs to the unified learner
+function CourseLearnRedirect() {
+  const { courseId, moduleId, itemId, lessonId } = useParams<{
+    courseId: string;
+    moduleId?: string;
+    itemId?: string;
+    lessonId?: string;
+  }>();
+  const target = itemId || lessonId;
+  const dest = target
+    ? `/courses/${courseId}/learn/${moduleId}/${target}`
+    : `/courses/${courseId}/learn`;
+  return <Navigate to={dest} replace />;
+}
+
 // Portfolio Editor Wrapper Component
 function PortfolioEditorWrapper() {
   const { pageId } = useParams<{ pageId: string }>();
@@ -245,16 +272,18 @@ function App() {
                      <Route path="/courses/:courseId/people" element={<CourseDetail />} />
                      <Route path="/courses/:courseId/insights" element={<StudentInsights />} />
                      <Route path="/courses/:courseId/insights/:studentId" element={<StudentInsights />} />
-                     <Route path="/courses/:courseId/management" element={<CourseManagement />} />
+                     {/* Legacy management page now redirects to unified builder */}
+                     <Route path="/courses/:courseId/management" element={<CourseBuilderRedirect />} />
                      {/* New Teachable/Kajabi-style builder + learner routes */}
                      <Route path="/courses/:courseId/builder" element={<CourseBuilder />} />
                      <Route path="/courses/new/builder" element={<CourseBuilder />} />
                      <Route path="/courses/:courseId/learn" element={<CourseLearn />} />
                      <Route path="/courses/:courseId/learn/:moduleId/:itemId" element={<CourseLearn />} />
                      <Route path="/courses/:courseId/modules/:moduleId/assignments/:assignmentId" element={<AssignmentDetail />} />
-                     <Route path="/courses/:courseId/modules/:moduleId/lessons/:lessonId" element={<LessonDetail />} />
-                     <Route path="/courses/:courseId/modules/:moduleId" element={<CanvasModuleDetail />} />
-                     <Route path="/courses/:courseId/modules/:moduleId/content/:itemId" element={<CanvasModuleDetail />} />
+                     {/* Legacy student lesson/module routes now redirect to unified learner */}
+                     <Route path="/courses/:courseId/modules/:moduleId/lessons/:lessonId" element={<CourseLearnRedirect />} />
+                     <Route path="/courses/:courseId/modules/:moduleId" element={<CourseLearnRedirect />} />
+                     <Route path="/courses/:courseId/modules/:moduleId/content/:itemId" element={<CourseLearnRedirect />} />
                      
                      {/* Canvas-style Routes */}
                      <Route path="/courses/:courseId/modules/:moduleId/assignments/:contentItemId/submit" element={<CanvasAssignmentSubmission />} />
@@ -345,7 +374,7 @@ function App() {
                     <Route path="/admin/blog/*" element={<BlogAdmin />} />
                     <Route path="/admin/blog-posts" element={<AdminBlogPosts />} />
                     <Route path="/admin/courses" element={<AdminCourses />} />
-                    <Route path="/admin/course-edit/:id" element={<AdminCourseEdit />} />
+                    <Route path="/admin/course-edit/:id" element={<AdminCourseEditRedirect />} />
                     <Route path="/admin/events" element={<AdminEvents />} />
                     <Route path="/admin/users" element={<AdminUsers />} />
                     <Route path="/admin/page-visibility" element={<AdminPageVisibility />} />
