@@ -50,6 +50,8 @@ const CourseLearn = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const { canEdit } = useCoursePermissions(courseId);
+  const [previewAsStudent, setPreviewAsStudent] = useState(false);
+  const effectiveEdit = canEdit && !previewAsStudent;
 
   const [course, setCourse] = useState<CourseShell | null>(null);
   const [modules, setModules] = useState<CurriculumModule[]>([]);
