@@ -338,15 +338,12 @@ const CourseLearn = () => {
 
 
       <div className="flex-1 flex min-h-0">
-        {/* Left dark curriculum rail */}
-        <aside
-          className="w-72 flex-shrink-0 overflow-y-auto"
-          style={{ background: '#1A1A1A', color: '#F5F5F5' }}
-        >
+        {/* Left curriculum rail */}
+        <aside className="w-72 flex-shrink-0 overflow-y-auto bg-muted/40 border-r border-border">
           <nav className="p-3 space-y-5">
             {modules.map((m) => (
               <div key={m.id}>
-                <div className="text-[11px] font-bold uppercase tracking-widest text-gray-400 px-3 py-2">
+                <div className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground px-3 py-2">
                   {m.title || 'Untitled section'}
                 </div>
                 <ul className="space-y-0.5">
@@ -361,32 +358,28 @@ const CourseLearn = () => {
                           className={cn(
                             'w-full flex items-start gap-3 px-3 py-2 rounded-md text-left text-sm transition-colors',
                             active
-                              ? 'bg-white/10 text-white'
-                              : 'text-gray-300 hover:bg-white/5 hover:text-white',
+                              ? 'bg-primary/10 text-foreground'
+                              : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                           )}
                           style={
                             active
-                              ? { borderLeft: '2px solid hsl(var(--tw-accent))', paddingLeft: 10 }
+                              ? { borderLeft: '2px solid hsl(var(--primary))', paddingLeft: 10 }
                               : undefined
                           }
                         >
                           <span className="mt-0.5 flex-shrink-0">
                             {done ? (
-                              <div
-                                className="w-4 h-4 rounded-full"
-                                style={{ background: 'hsl(var(--tw-accent))' }}
-                              />
+                              <div className="w-4 h-4 rounded-full bg-primary" />
                             ) : active ? (
                               <div
-                                className="w-4 h-4 rounded-full border-2"
+                                className="w-4 h-4 rounded-full border-2 border-primary"
                                 style={{
-                                  borderColor: 'hsl(var(--tw-accent))',
                                   background:
-                                    'radial-gradient(circle, hsl(var(--tw-accent)) 40%, transparent 42%)',
+                                    'radial-gradient(circle, hsl(var(--primary)) 40%, transparent 42%)',
                                 }}
                               />
                             ) : (
-                              <Circle className="w-4 h-4 text-gray-500" />
+                              <Circle className="w-4 h-4 text-muted-foreground/60" />
                             )}
                           </span>
                           <div className="flex-1 min-w-0">
@@ -394,15 +387,13 @@ const CourseLearn = () => {
                               {it.title || 'Untitled lesson'}
                             </div>
                             {canEdit && !it.published && (
-                              <span
-                                className="inline-block mt-1 text-[9px] uppercase tracking-widest font-bold px-1.5 py-0.5 rounded"
-                                style={{ background: '#333', color: '#ccc' }}
-                              >
+                              <span className="inline-block mt-1 text-[9px] uppercase tracking-widest font-bold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
                                 Draft
                               </span>
                             )}
                           </div>
                         </button>
+
                       </li>
                     );
                   })}
