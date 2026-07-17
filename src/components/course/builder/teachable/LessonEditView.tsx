@@ -16,7 +16,7 @@ interface LessonEditViewProps {
   onSaveLesson: (id: string, draft: LessonDraft) => Promise<void> | void;
   onDeleteLesson: (id: string) => void;
   onTogglePublishLesson: (id: string, published: boolean) => void;
-  onAddContent: (type: ContentItemType, defaultTitle: string) => void;
+  onAddContent: (type: ContentItemType, defaultTitle: string, defaultContent?: string) => void;
   onSavingChange?: (saving: boolean) => void;
 }
 
