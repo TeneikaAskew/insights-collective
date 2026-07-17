@@ -184,7 +184,7 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({ bank, 
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
-                          <span className="text-2xl">{questionTypeIcons[question.question_type]}</span>
+                          {(() => { const Icon = questionTypeIcons[question.question_type] || HelpCircle; return <Icon className="h-5 w-5 text-muted-foreground" />; })()}
                           <Badge variant="outline">{question.question_type.replace('_', ' ')}</Badge>
                           {question.difficulty_level && (
                             <Badge 
