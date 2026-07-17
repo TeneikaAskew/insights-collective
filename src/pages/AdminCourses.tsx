@@ -70,30 +70,11 @@ export default function AdminCourses() {
     }
   };
 
-  const handleAddCourse = async () => {
-    try {
-      const newCourse = await createCourse({
-        title: 'New Course',
-        description: 'Course description',
-        category: 'Data Science',
-        level: 'Beginner',
-        duration: '',
-        enrollment_status: 'open',
-        status: 'draft',
-        published: false,
-      });
-
-      if (newCourse?.id) {
-        navigate(`/courses/${newCourse.id}/management`);
-      }
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to create new course',
-        variant: 'destructive',
-      });
-    }
+  const handleAddCourse = () => {
+    // Route into the Teachable-style course builder wizard
+    navigate('/courses/new/builder');
   };
+
 
 
   const handleTogglePublish = async (course: Course) => {
