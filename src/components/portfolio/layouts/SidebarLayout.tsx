@@ -110,8 +110,8 @@ export function SidebarLayout({ portfolioPage }: SidebarLayoutProps) {
           </h1>
           
           {portfolioPage.profile_data?.location && (
-            <p className="mb-4" style={{ color: themeStyles.accentColor }}>
-              📍 {portfolioPage.profile_data.location}
+            <p className="mb-4 inline-flex items-center gap-1" style={{ color: themeStyles.accentColor }}>
+              <MapPin className="h-4 w-4" /> {portfolioPage.profile_data.location}
             </p>
           )}
 
