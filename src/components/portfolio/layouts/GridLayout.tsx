@@ -3,7 +3,7 @@ import React from 'react';
 import { PortfolioPage } from '@/types/portfolio';
 import { EnhancedProjectCard } from '../EnhancedProjectCard';
 import { Badge } from '@/components/ui/badge';
-import { Mail } from 'lucide-react';
+import { Mail, MapPin, Briefcase, GraduationCap } from 'lucide-react';
 
 interface GridLayoutProps {
   portfolioPage: PortfolioPage;

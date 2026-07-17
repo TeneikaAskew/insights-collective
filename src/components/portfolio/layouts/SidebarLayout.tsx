@@ -3,7 +3,7 @@ import React from 'react';
 import { PortfolioPage } from '@/types/portfolio';
 import { EnhancedProjectCard } from '../EnhancedProjectCard';
 import { Badge } from '@/components/ui/badge';
-import { Mail, Github, Linkedin } from 'lucide-react';
+import { Mail, Github, Linkedin, MapPin, Briefcase, GraduationCap } from 'lucide-react';
 
 interface SidebarLayoutProps {
   portfolioPage: PortfolioPage;
