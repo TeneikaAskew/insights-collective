@@ -15,6 +15,9 @@ import { SetupGuideView } from '@/components/course/builder/teachable/SetupGuide
 import { CurriculumView } from '@/components/course/builder/teachable/CurriculumView';
 import { LessonEditView } from '@/components/course/builder/teachable/LessonEditView';
 import { PlaceholderView } from '@/components/course/builder/teachable/PlaceholderView';
+import { CourseInformationView } from '@/components/course/builder/teachable/CourseInformationView';
+import { CourseDesignView } from '@/components/course/builder/teachable/CourseDesignView';
+import { CourseCertificatesView } from '@/components/course/builder/teachable/CourseCertificatesView';
 import {
   NewCourseWizard,
   type NewCourseWizardResult,
