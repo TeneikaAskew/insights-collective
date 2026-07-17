@@ -286,7 +286,7 @@ const CreateFormDialog: React.FC<CreateFormDialogProps> = ({ open, onOpenChange 
                   onClick={() => setSelectedTemplate(template.id)}
                 >
                   <CardContent className="p-4">
-                    <div className="text-center mb-2 text-3xl">{template.icon}</div>
+                    <div className="flex justify-center mb-2"><template.icon className="h-8 w-8 text-primary" /></div>
                     <h3 className="font-semibold text-center">{template.name}</h3>
                     <p className="text-sm text-muted-foreground text-center mt-1">{template.description}</p>
                   </CardContent>
