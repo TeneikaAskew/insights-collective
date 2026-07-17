@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock, ExternalLink } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock, ExternalLink, FileText, BarChart3, Megaphone, Pin } from 'lucide-react';
 import { useUpcomingEvents, useCalendarStats } from '@/hooks/useCourseCalendar';
 import { CourseCalendarEvent } from '@/types/course';
 import { formatDistanceToNow, format, isToday, isTomorrow, isYesterday } from 'date-fns';
