@@ -684,117 +684,140 @@ const CourseDetail = () => {
         );
       
       default:
-        // Home/Course Overview
+        // Home/Course Overview — Teachable-style enrollment landing
         return (
-          <div className="space-y-6">
-            {/* Course Header */}
-            <div className="bg-card border rounded-lg overflow-hidden">
-              <div className="aspect-[3/1] w-full overflow-hidden">
-                <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover" />
-              </div>
-              <div className="p-6 text-left">
-                <div className="flex flex-wrap gap-2 mb-4">
-                  <Badge variant="secondary">{course.category}</Badge>
-                  <Badge variant="outline">{course.level}</Badge>
-                  <Badge variant="default">
-                    {course.enrollmentStatus || 'Active'}
-                  </Badge>
-                </div>
-                
-                <h1 className="text-3xl font-bold mb-2 text-left">{course.title}</h1>
-                
-                <div className="flex items-center gap-3 mb-4">
-                  <Avatar className="h-8 w-8">
+          <div className="teachable-workspace bg-white rounded-2xl border border-neutral-200 overflow-hidden">
+            <div className="grid lg:grid-cols-[1fr_360px] gap-0">
+              {/* Left: hero + curriculum */}
+              <div className="p-8 lg:p-12">
+                <p className="text-xs uppercase tracking-[0.15em] text-neutral-500 mb-3">
+                  {course.category || 'Course'}{course.level ? ` • ${course.level}` : ''}
+                </p>
+                <h1 className="tw-serif text-4xl md:text-5xl text-neutral-900 mb-4 leading-tight">
+                  {course.title}
+                </h1>
+                <p className="text-neutral-700 text-lg leading-relaxed mb-6 max-w-2xl">
+                  {course.description}
+                </p>
+
+                <div className="flex items-center gap-3 mb-8">
+                  <Avatar className="h-10 w-10">
                     <AvatarImage src={course.instructor.avatar} />
                     <AvatarFallback>{course.instructor.name.charAt(0)}</AvatarFallback>
                   </Avatar>
-                  <div className="text-left">
-                    <p className="font-medium">{course.instructor.name}</p>
-                    <p className="text-sm text-muted-foreground">Instructor</p>
+                  <div>
+                    <p className="text-sm font-medium text-neutral-900">{course.instructor.name}</p>
+                    <p className="text-xs text-neutral-500">Instructor</p>
                   </div>
                 </div>
-                
-                <p className="text-lg mb-4 text-left">{course.description}</p>
-                
-                <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-                  <div className="flex items-center">
-                    <Clock className="h-4 w-4 mr-1" />
-                    <span>{course.duration}</span>
-                  </div>
-                  <div className="flex items-center">
-                    <BookOpen className="h-4 w-4 mr-1" />
-                    <span>{modules.length} modules</span>
-                  </div>
-                  <div className="flex items-center">
-                    <Star className="h-4 w-4 mr-1 text-yellow-500" />
-                    <span>{course.rating.toFixed(1)} rating</span>
-                  </div>
+
+                <div className="flex flex-wrap items-center gap-6 text-sm text-neutral-600 mb-10 pb-8 border-b border-neutral-200">
+                  {course.duration && (
+                    <span className="inline-flex items-center gap-2">
+                      <Clock className="h-4 w-4" /> {course.duration}
+                    </span>
+                  )}
+                  <span className="inline-flex items-center gap-2">
+                    <BookOpen className="h-4 w-4" /> {modules.length} modules
+                  </span>
+                  <span className="inline-flex items-center gap-2">
+                    <Star className="h-4 w-4 text-yellow-500" /> {course.rating.toFixed(1)}
+                  </span>
                 </div>
-                
-                {/* Course Content Preview - Module titles with week numbers */}
-                <CourseContentPreview modules={modules} />
+
+                {/* Curriculum */}
+                <div>
+                  <h2 className="tw-serif text-2xl text-neutral-900 mb-5">Course curriculum</h2>
+                  {modules.length === 0 ? (
+                    <p className="text-sm text-neutral-500">Curriculum coming soon.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {modules.map((m: any, idx: number) => {
+                        const lessonCount =
+                          (m.lessons?.length || 0) + (m.assignments?.length || 0) + (m.quizzes?.length || 0);
+                        return (
+                          <div key={m.id} className="border border-neutral-200 rounded-lg bg-white overflow-hidden">
+                            <div className="flex items-center justify-between px-5 py-4">
+                              <div className="min-w-0">
+                                <p className="text-[11px] uppercase tracking-[0.15em] text-neutral-500 mb-1">
+                                  {m.week ? `Week ${m.week}` : `Section ${idx + 1}`}
+                                </p>
+                                <h3 className="font-semibold text-neutral-900 truncate">{m.title}</h3>
+                              </div>
+                              <span className="text-xs text-neutral-500 whitespace-nowrap ml-4">
+                                {lessonCount} {lessonCount === 1 ? 'lesson' : 'lessons'}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-            
-            {/* Quick Actions */}
-            {(() => {
-              const showLockedOverlay = !isEnrolled && !canEdit;
-              
-              return (
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <LoginOverlayCard
-                    title="Course Modules"
-                    icon={<BookOpen className="h-5 w-5 text-primary" />}
-                    isLocked={showLockedOverlay}
-                    courseId={courseId}
-                    actionText="Login to View Modules"
-                  >
-                    <p className="text-sm text-muted-foreground mb-3">
-                      Access all course content and lessons
-                    </p>
-                    <Button asChild className="w-full">
-                      <Link to={`/courses/${courseId}/modules`}>
-                        View Items
-                      </Link>
-                    </Button>
-                  </LoginOverlayCard>
-                  
-                  <LoginOverlayCard
-                    title="Assignments"
-                    icon={<FileText className="h-5 w-5 text-primary" />}
-                    isLocked={showLockedOverlay}
-                    courseId={courseId}
-                    actionText="Login to View Assignments"
-                  >
-                    <p className="text-sm text-muted-foreground mb-3">
-                      View and submit assignments
-                    </p>
-                    <Button asChild variant="outline" className="w-full">
-                      <Link to={`/courses/${courseId}/assignments`}>
-                        View Assignments
-                      </Link>
-                    </Button>
-                  </LoginOverlayCard>
-                  
-                  <LoginOverlayCard
-                    title="Grades"
-                    icon={<BarChart3 className="h-5 w-5 text-primary" />}
-                    isLocked={showLockedOverlay}
-                    courseId={courseId}
-                    actionText="Login to View Grades"
-                  >
-                    <p className="text-sm text-muted-foreground mb-3">
-                      Check your progress and grades
-                    </p>
-                    <Button asChild variant="outline" className="w-full">
-                      <Link to={`/courses/${courseId}/grades`}>
-                        View Grades
-                      </Link>
-                    </Button>
-                  </LoginOverlayCard>
+
+              {/* Right: sticky enroll card */}
+              <aside className="bg-neutral-50 border-t lg:border-t-0 lg:border-l border-neutral-200 p-8 lg:p-10">
+                <div className="lg:sticky lg:top-6">
+                  <div className="aspect-[16/9] rounded-xl overflow-hidden mb-6 bg-neutral-200">
+                    <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover" />
+                  </div>
+
+                  {isEnrolled ? (
+                    <>
+                      <Button
+                        asChild
+                        className="w-full h-12 rounded-full bg-[#DAFB3C] hover:bg-[#c8ea28] text-neutral-900 font-semibold text-base shadow-none"
+                      >
+                        <Link to={`/courses/${courseId}/learn`}>Continue learning</Link>
+                      </Button>
+                      <div className="mt-5">
+                        <div className="flex justify-between text-xs text-neutral-600 mb-2">
+                          <span>Progress</span>
+                          <span>{Math.round(overallProgress)}%</span>
+                        </div>
+                        <Progress value={overallProgress} className="h-1.5" />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <Button
+                        onClick={handleEnroll}
+                        disabled={enrolling}
+                        className="w-full h-12 rounded-full bg-[#DAFB3C] hover:bg-[#c8ea28] text-neutral-900 font-semibold text-base shadow-none"
+                      >
+                        {enrolling ? 'Enrolling…' : 'Enroll for free'}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={handleWishlist}
+                        disabled={addingToWishlist}
+                        className="w-full h-11 rounded-full mt-3 border-neutral-300"
+                      >
+                        {isWishlisted ? 'Saved to wishlist' : 'Save for later'}
+                      </Button>
+                    </>
+                  )}
+
+                  <div className="mt-8 space-y-3 text-sm text-neutral-700">
+                    <div className="flex items-center gap-3">
+                      <BookOpen className="h-4 w-4 text-neutral-500" />
+                      <span>{modules.length} modules</span>
+                    </div>
+                    {course.duration && (
+                      <div className="flex items-center gap-3">
+                        <Clock className="h-4 w-4 text-neutral-500" />
+                        <span>{course.duration}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-3">
+                      <Users className="h-4 w-4 text-neutral-500" />
+                      <span>{course.enrollmentCount || 0} enrolled</span>
+                    </div>
+                  </div>
                 </div>
-              );
-            })()}
+              </aside>
+            </div>
           </div>
         );
     }

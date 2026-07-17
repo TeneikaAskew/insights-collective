@@ -70,30 +70,11 @@ export default function AdminCourses() {
     }
   };
 
-  const handleAddCourse = async () => {
-    try {
-      const newCourse = await createCourse({
-        title: 'New Course',
-        description: 'Course description',
-        category: 'Data Science',
-        level: 'Beginner',
-        duration: '',
-        enrollment_status: 'open',
-        status: 'draft',
-        published: false,
-      });
-
-      if (newCourse?.id) {
-        navigate(`/courses/${newCourse.id}/management`);
-      }
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to create new course',
-        variant: 'destructive',
-      });
-    }
+  const handleAddCourse = () => {
+    // Route into the Teachable-style course builder wizard
+    navigate('/courses/new/builder');
   };
+
 
 
   const handleTogglePublish = async (course: Course) => {
@@ -139,231 +120,217 @@ export default function AdminCourses() {
 
   return (
     <AppLayout>
-      <div className="space-y-8">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Manage Courses & Enrollments</h1>
-            <p className="text-muted-foreground mt-2">
-              Create, edit, and manage your educational courses and track student enrollments.
-            </p>
+      <div className="teachable-workspace bg-white -mx-4 md:-mx-6 lg:-mx-8 -my-4 px-4 md:px-8 lg:px-12 py-10 min-h-[calc(100vh-4rem)]">
+        <div className="max-w-7xl mx-auto space-y-8">
+          <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-4 pb-6 border-b border-neutral-200">
+            <div>
+              <p className="text-xs uppercase tracking-[0.15em] text-neutral-500 mb-2">Admin</p>
+              <h1 className="tw-serif text-4xl md:text-5xl text-neutral-900">Manage courses &amp; enrollments</h1>
+              <p className="text-neutral-600 mt-2 max-w-2xl">
+                Create courses with the guided builder, publish them, and keep an eye on enrollments and certificates.
+              </p>
+            </div>
+            <Button
+              onClick={handleAddCourse}
+              className="h-11 rounded-full bg-[#DAFB3C] hover:bg-[#c8ea28] text-neutral-900 font-semibold px-6 shadow-none"
+            >
+              <Plus className="mr-2 h-4 w-4" /> New course
+            </Button>
           </div>
-          <Button onClick={handleAddCourse} className="bg-insightBlue hover:bg-insightBlue/90">
-            <Plus className="mr-2 h-4 w-4" /> Add Course
-          </Button>
-        </div>
 
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="mb-6 bg-neutral-100 rounded-full p-1 h-auto">
+              <TabsTrigger value="courses" className="rounded-full px-5 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
+                Courses
+              </TabsTrigger>
+              <TabsTrigger value="enrollments" className="rounded-full px-5 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
+                <Users className="mr-2 h-4 w-4" /> Enrollments
+              </TabsTrigger>
+              <TabsTrigger value="certificates" className="rounded-full px-5 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
+                <Award className="mr-2 h-4 w-4" /> Certificates
+              </TabsTrigger>
+            </TabsList>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="mb-6">
-            <TabsTrigger value="courses">Courses</TabsTrigger>
-            <TabsTrigger value="enrollments">
-              <Users className="mr-2 h-4 w-4" />
-              Enrollments
-            </TabsTrigger>
-            <TabsTrigger value="certificates">
-              <Award className="mr-2 h-4 w-4" />
-              Certificates
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="courses">
-            <Card>
-              <CardHeader>
-                <CardTitle>Courses ({filteredCourses.length})</CardTitle>
-                <CardDescription>
-                  View and manage all courses available on the platform.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex flex-col md:flex-row gap-4">
-                    <div className="flex-1 relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input 
-                        placeholder="Search courses..." 
-                        className="pl-10"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                      />
-                    </div>
-                    <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                      <SelectTrigger className="w-full md:w-[180px]">
-                        <SelectValue placeholder="Category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Categories</SelectItem>
-                        {categories.map(category => (
-                          <SelectItem key={category} value={category}>{category}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger className="w-full md:w-[180px]">
-                        <SelectValue placeholder="Status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Status</SelectItem>
-                        <SelectItem value="published">Published</SelectItem>
-                        <SelectItem value="draft">Draft</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  {(searchQuery || categoryFilter !== 'all' || statusFilter !== 'all') && (
-                    <div className="flex justify-end">
-                      <Button 
-                        variant="ghost" 
-                        className="h-8 px-2 lg:px-3" 
-                        onClick={clearFilters}
-                      >
-                        <FilterX className="mr-2 h-4 w-4" />
-                        Clear filters
-                      </Button>
-                    </div>
-                  )}
-
-                  <div className="rounded-md border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Course</TableHead>
-                          <TableHead>Category</TableHead>
-                          <TableHead>Level</TableHead>
-                          <TableHead>Students</TableHead>
-                          <TableHead>Instructor</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredCourses.length > 0 ? (
-                          filteredCourses.map((course) => (
-                            <TableRow key={course.id}>
-                              <TableCell className="font-medium">
-                                <div className="flex flex-col">
-                                  {course.title}
-                                  <span className="text-sm text-muted-foreground truncate max-w-[300px]">
-                                    {course.description}
-                                  </span>
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <Badge variant="outline" className="capitalize">
-                                  {course.category}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>{course.level}</TableCell>
-                              <TableCell>{course.enrollmentCount || 0}</TableCell>
-                              <TableCell>
-                                {course.instructor ? (
-                                  <span>{course.instructor.name}</span>
-                                ) : (
-                                  <span className="text-muted-foreground">Unassigned</span>
-                                )}
-                              </TableCell>
-                              <TableCell>
-                                <Badge 
-                                  variant={
-                                    course.status === 'published' ? "default" : 
-                                    course.status === 'draft' ? "secondary" : 
-                                    "outline"
-                                  }
-                                  className="capitalize"
-                                >
-                                  {course.status || 'Draft'}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" className="h-8 w-8 p-0">
-                                      <span className="sr-only">Open menu</span>
-                                      <svg 
-                                        xmlns="http://www.w3.org/2000/svg" 
-                                        width="24" 
-                                        height="24" 
-                                        viewBox="0 0 24 24" 
-                                        fill="none" 
-                                        stroke="currentColor" 
-                                        strokeWidth="2" 
-                                        strokeLinecap="round" 
-                                        strokeLinejoin="round" 
-                                        className="h-4 w-4"
-                                      >
-                                        <circle cx="12" cy="12" r="1" />
-                                        <circle cx="12" cy="5" r="1" />
-                                        <circle cx="12" cy="19" r="1" />
-                                      </svg>
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end">
-                                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem onClick={() => handleEditCourse(course)}>
-                                      <Edit className="mr-2 h-4 w-4" />
-                                      Edit
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleTogglePublish(course)}>
-                                      <Eye className="mr-2 h-4 w-4" />
-                                      {course.published ? 'Unpublish' : 'Publish'}
-                                    </DropdownMenuItem>
-                                    <AlertDialog>
-                                      <AlertDialogTrigger asChild>
-                                        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive">
-                                          <Trash2 className="mr-2 h-4 w-4" />
-                                          Delete
-                                        </DropdownMenuItem>
-                                      </AlertDialogTrigger>
-                                      <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                          <AlertDialogDescription>
-                                            This will permanently delete the course "{course.title}". This action cannot be undone.
-                                          </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                          <AlertDialogAction 
-                                            onClick={() => handleDeleteCourse(course)}
-                                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                          >
-                                            Delete
-                                          </AlertDialogAction>
-                                        </AlertDialogFooter>
-                                      </AlertDialogContent>
-                                    </AlertDialog>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        ) : (
-                          <TableRow>
-                            <TableCell colSpan={7} className="h-24 text-center">
-                              No courses found.
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
+            <TabsContent value="courses" className="space-y-6">
+              {/* Filters */}
+              <div className="flex flex-col md:flex-row gap-3">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+                  <Input
+                    placeholder="Search courses"
+                    className="pl-11 h-11 rounded-full border-neutral-300 bg-white"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
                 </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                  <SelectTrigger className="w-full md:w-[200px] h-11 rounded-full border-neutral-300 bg-white">
+                    <SelectValue placeholder="Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All categories</SelectItem>
+                    {categories.map((c) => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-full md:w-[180px] h-11 rounded-full border-neutral-300 bg-white">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All statuses</SelectItem>
+                    <SelectItem value="published">Published</SelectItem>
+                    <SelectItem value="draft">Draft</SelectItem>
+                  </SelectContent>
+                </Select>
+                {(searchQuery || categoryFilter !== 'all' || statusFilter !== 'all') && (
+                  <Button variant="ghost" onClick={clearFilters} className="h-11 rounded-full">
+                    <FilterX className="mr-2 h-4 w-4" /> Clear
+                  </Button>
+                )}
+              </div>
 
-          <TabsContent value="enrollments">
-            <EnrollmentsTab courses={courses} />
-          </TabsContent>
+              {/* Card grid */}
+              {filteredCourses.length === 0 ? (
+                <div className="text-center py-20 border border-dashed rounded-2xl">
+                  <h3 className="tw-serif text-2xl text-neutral-900 mb-2">No courses yet</h3>
+                  <p className="text-neutral-500 mb-4">Get started by creating your first course.</p>
+                  <Button
+                    onClick={handleAddCourse}
+                    className="h-11 rounded-full bg-[#DAFB3C] hover:bg-[#c8ea28] text-neutral-900 font-semibold shadow-none"
+                  >
+                    <Plus className="mr-2 h-4 w-4" /> New course
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                  {filteredCourses.map((course) => (
+                    <div
+                      key={course.id}
+                      className="group rounded-2xl border border-neutral-200 bg-white overflow-hidden hover:border-neutral-900 transition-all"
+                    >
+                      <button
+                        onClick={() => handleEditCourse(course)}
+                        className="block w-full text-left"
+                      >
+                        <div className="aspect-[16/9] bg-neutral-100 overflow-hidden">
+                          {(course as any).image_url || (course as any).thumbnail ? (
+                            <img
+                              src={(course as any).image_url || (course as any).thumbnail}
+                              alt={course.title}
+                              className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-neutral-300">
+                              <BookOpenIcon />
+                            </div>
+                          )}
+                        </div>
+                        <div className="p-5">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Badge
+                              variant={course.published ? 'default' : 'secondary'}
+                              className={
+                                course.published
+                                  ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-0'
+                                  : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-100 border-0'
+                              }
+                            >
+                              {course.published ? 'Published' : 'Draft'}
+                            </Badge>
+                            {course.category && (
+                              <span className="text-[11px] uppercase tracking-[0.15em] text-neutral-500">
+                                {course.category}
+                              </span>
+                            )}
+                          </div>
+                          <h3 className="tw-serif text-xl text-neutral-900 mb-2 line-clamp-2 leading-tight">
+                            {course.title}
+                          </h3>
+                          <p className="text-sm text-neutral-600 line-clamp-2 mb-4">
+                            {course.description}
+                          </p>
+                          <div className="flex items-center justify-between text-xs text-neutral-500">
+                            <span>{course.enrollmentCount || 0} enrolled</span>
+                            <span>{course.instructor?.name || 'Unassigned'}</span>
+                          </div>
+                        </div>
+                      </button>
+                      <div className="px-5 py-3 border-t border-neutral-100 flex items-center justify-between gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditCourse(course)}
+                          className="rounded-full"
+                        >
+                          <Edit className="h-3.5 w-3.5 mr-1.5" /> Edit
+                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleTogglePublish(course)}
+                            className="rounded-full text-neutral-600"
+                          >
+                            <Eye className="h-3.5 w-3.5 mr-1.5" />
+                            {course.published ? 'Unpublish' : 'Publish'}
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="sm" className="rounded-full text-destructive hover:text-destructive">
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete this course?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This permanently deletes "{course.title}" and cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDeleteCourse(course)}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
 
-          <TabsContent value="certificates">
-            <CertificatesTab courses={courses} />
-          </TabsContent>
-        </Tabs>
+            <TabsContent value="enrollments">
+              <EnrollmentsTab courses={courses} />
+            </TabsContent>
+
+            <TabsContent value="certificates">
+              <CertificatesTab courses={courses} />
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
     </AppLayout>
   );
 }
+
+function BookOpenIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="42" height="42" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+      <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+    </svg>
+  );
+}
+
 
 // Separate component for enrollments tab to keep the main component focused
 function EnrollmentsTab({ courses }: { courses: Course[] }) {

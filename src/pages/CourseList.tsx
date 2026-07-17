@@ -1,19 +1,15 @@
+// ABOUTME: Student-facing course catalog page.
+// ABOUTME: Teachable/Podia-style light card grid with serif titles and yellow CTAs.
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
-import CourseCard from '@/components/common/CourseCard';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Filter, ArrowUpDown } from 'lucide-react';
+import { Search, Clock, BookOpen, ArrowRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Course } from '@/types';
-import { CourseDifficulty } from '@/types/course';
 import { useToast } from '@/hooks/use-toast';
-import { useAuthenticatedNavigation } from '@/hooks/useAuthenticatedNavigation';
-import EnrollmentBadge from '@/components/course/EnrollmentBadge';
-import { useNavigate } from 'react-router-dom';
-
 import { createLogger } from '@/utils/logger';
 
 const logger = createLogger('CourseList');
@@ -25,325 +21,192 @@ const CourseList = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [levelFilter, setLevelFilter] = useState('all');
-  const [difficultyFilter, setDifficultyFilter] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<string>('newest');
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const categories = [...new Set(courses.map(course => course.category))];
-  const levels = [...new Set(courses.map(course => course.level))];
-  
+  const categories = [...new Set(courses.map(c => c.category).filter(Boolean))];
+  const levels = [...new Set(courses.map(c => c.level).filter(Boolean))];
+
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        let query = supabase
+        const { data, error } = await supabase
           .from('courses')
-          .select(`
-            *,
-            instructor:profiles(
-              id,
-              first_name,
-              last_name,
-              avatar_url
-            )
-          `)
+          .select(`*, instructor:profiles(id, first_name, last_name, avatar_url)`)
           .eq('status', 'published')
           .order('created_at', { ascending: false });
-          
-        const { data, error } = await query;
-        
         if (error) throw error;
-        
-        const formattedCourses = data.map(course => ({
-          ...course,
+        const formatted = (data || []).map((c: any) => ({
+          ...c,
           instructor: {
-            id: course.instructor?.id || course.instructor_id || '',
-            name: course.instructor 
-              ? `${course.instructor?.first_name || ''} ${course.instructor?.last_name || ''}`.trim()
+            id: c.instructor?.id || '',
+            name: c.instructor
+              ? `${c.instructor?.first_name || ''} ${c.instructor?.last_name || ''}`.trim() || 'Instructor'
               : 'Instructor',
             email: '',
             role: 'instructor',
-            avatar: course.instructor?.avatar_url || '',
+            avatar: c.instructor?.avatar_url || '',
           },
           enrollmentCount: 0,
           modules: [],
           rating: 4.5,
-          createdAt: course.created_at,
-          updatedAt: course.updated_at,
-          thumbnail: course.image_url || course.thumbnail || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97',
+          createdAt: c.created_at,
+          updatedAt: c.updated_at,
+          thumbnail:
+            c.image_url ||
+            c.thumbnail ||
+            'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=1200&q=70',
         }));
-        
-        setCourses(formattedCourses);
+        setCourses(formatted);
+      } catch (e: any) {
+        logger.error('Error fetching courses:', e);
+        setError(e.message);
+        toast({ title: 'Failed to load courses', description: e.message, variant: 'destructive' });
+      } finally {
         setLoading(false);
-      } catch (error: any) {
-        logger.error('Error fetching courses:', error);
-        setError(error.message);
-        setLoading(false);
-        toast({
-          title: "Failed to load courses",
-          description: error.message || "There was an error loading the courses",
-          variant: "destructive"
-        });
       }
     };
-    
     fetchCourses();
   }, [toast]);
-  
-  const handleCourseClick = (courseId: string) => {
-    navigate(`/courses/${courseId}`);
-  };
-  
-  const filteredAndSortedCourses = courses
-    .filter(course => {
-      const matchesSearch =
-        course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        course.description.toLowerCase().includes(searchQuery.toLowerCase());
 
-      const matchesCategory = categoryFilter === 'all' || course.category === categoryFilter;
-      const matchesLevel = levelFilter === 'all' || course.level === levelFilter;
-      const difficulty = ((course as any).difficulty_level || (course as any).difficultyLevel) as string | undefined;
-      const matchesDifficulty = difficultyFilter === 'all' || difficulty?.toLowerCase() === difficultyFilter.toLowerCase();
+  const filtered = courses.filter((c) => {
+    const s = searchQuery.toLowerCase();
+    const matchesSearch =
+      !s ||
+      c.title.toLowerCase().includes(s) ||
+      (c.description || '').toLowerCase().includes(s);
+    const matchesCategory = categoryFilter === 'all' || c.category === categoryFilter;
+    const matchesLevel = levelFilter === 'all' || c.level === levelFilter;
+    return matchesSearch && matchesCategory && matchesLevel;
+  });
 
-      return matchesSearch && matchesCategory && matchesLevel && matchesDifficulty;
-    })
-    .sort((a, b) => {
-      switch (sortBy) {
-        case 'title-asc':
-          return a.title.localeCompare(b.title);
-        case 'title-desc':
-          return b.title.localeCompare(a.title);
-        case 'difficulty-asc': {
-          const difficultyOrder: Record<string, number> = { beginner: 1, intermediate: 2, advanced: 3 };
-          const aDiff = ((a as any).difficulty_level || (a as any).difficultyLevel) as string | undefined;
-          const bDiff = ((b as any).difficulty_level || (b as any).difficultyLevel) as string | undefined;
-          const aOrder = aDiff ? (difficultyOrder[aDiff.toLowerCase()] ?? 999) : 999;
-          const bOrder = bDiff ? (difficultyOrder[bDiff.toLowerCase()] ?? 999) : 999;
-          return aOrder - bOrder;
-        }
-        case 'difficulty-desc': {
-          const difficultyOrder: Record<string, number> = { beginner: 1, intermediate: 2, advanced: 3 };
-          const aDiff = ((a as any).difficulty_level || (a as any).difficultyLevel) as string | undefined;
-          const bDiff = ((b as any).difficulty_level || (b as any).difficultyLevel) as string | undefined;
-          const aOrder = aDiff ? (difficultyOrder[aDiff.toLowerCase()] ?? 0) : 0;
-          const bOrder = bDiff ? (difficultyOrder[bDiff.toLowerCase()] ?? 0) : 0;
-          return bOrder - aOrder;
-        }
-        case 'hours-asc': {
-          const aHours = ((a as any).estimated_hours || (a as any).estimatedHours || 999) as number;
-          const bHours = ((b as any).estimated_hours || (b as any).estimatedHours || 999) as number;
-          return aHours - bHours;
-        }
-        case 'hours-desc': {
-          const aHours = ((a as any).estimated_hours || (a as any).estimatedHours || 0) as number;
-          const bHours = ((b as any).estimated_hours || (b as any).estimatedHours || 0) as number;
-          return bHours - aHours;
-        }
-        case 'newest':
-          return new Date((b as any).createdAt || (b as any).created_at).getTime() - new Date((a as any).createdAt || (a as any).created_at).getTime();
-        case 'oldest':
-          return new Date((a as any).createdAt || (a as any).created_at).getTime() - new Date((b as any).createdAt || (b as any).created_at).getTime();
-        default:
-          return 0;
-      }
-    });
-  
   return (
     <AppLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Courses</h1>
-          <p className="text-muted-foreground">
-            Explore our wide range of courses and start learning today.
+      <div className="teachable-workspace bg-white -mx-4 md:-mx-6 lg:-mx-8 -my-4 px-4 md:px-8 lg:px-12 py-10 min-h-[calc(100vh-4rem)]">
+        {/* Header */}
+        <div className="max-w-7xl mx-auto mb-10">
+          <p className="text-xs uppercase tracking-[0.15em] text-neutral-500 mb-3">Catalog</p>
+          <h1 className="tw-serif text-5xl md:text-6xl text-neutral-900 mb-3">Courses</h1>
+          <p className="text-neutral-600 max-w-2xl">
+            Browse the full library and jump into a lesson whenever you're ready.
           </p>
         </div>
-        
-        <div className="grid gap-4 md:grid-cols-[1fr_auto]">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+
+        {/* Filter bar */}
+        <div className="max-w-7xl mx-auto mb-8 flex flex-col md:flex-row gap-3 md:items-center">
+          <div className="relative flex-1">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
             <Input
-              className="pl-10"
-              placeholder="Search by course title or description"
+              className="pl-11 h-11 rounded-full border-neutral-300 bg-white focus-visible:ring-neutral-900"
+              placeholder="Search courses"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          
-          <div className="flex gap-2 flex-wrap">
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-[180px]">
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                {categories.map((category) => (
-                  <SelectItem key={category} value={category}>
-                    {category}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={levelFilter} onValueChange={setLevelFilter}>
-              <SelectTrigger className="w-[180px]">
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Level" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Levels</SelectItem>
-                {levels.map((level) => (
-                  <SelectItem key={level} value={level}>
-                    {level}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
-              <SelectTrigger className="w-[180px]">
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Difficulty" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Difficulties</SelectItem>
-                <SelectItem value="beginner">Beginner</SelectItem>
-                <SelectItem value="intermediate">Intermediate</SelectItem>
-                <SelectItem value="advanced">Advanced</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-[180px]">
-                <ArrowUpDown className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Sort by" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="newest">Newest First</SelectItem>
-                <SelectItem value="oldest">Oldest First</SelectItem>
-                <SelectItem value="title-asc">Title (A-Z)</SelectItem>
-                <SelectItem value="title-desc">Title (Z-A)</SelectItem>
-                <SelectItem value="difficulty-asc">Difficulty (Easy First)</SelectItem>
-                <SelectItem value="difficulty-desc">Difficulty (Hard First)</SelectItem>
-                <SelectItem value="hours-asc">Duration (Shortest First)</SelectItem>
-                <SelectItem value="hours-desc">Duration (Longest First)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-full md:w-[200px] h-11 rounded-full border-neutral-300 bg-white">
+              <SelectValue placeholder="Category" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All categories</SelectItem>
+              {categories.map((c) => (
+                <SelectItem key={c} value={c}>{c}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={levelFilter} onValueChange={setLevelFilter}>
+            <SelectTrigger className="w-full md:w-[180px] h-11 rounded-full border-neutral-300 bg-white">
+              <SelectValue placeholder="Level" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All levels</SelectItem>
+              {levels.map((l) => (
+                <SelectItem key={l} value={l}>{l}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-        
-        <Tabs defaultValue="all">
-          <TabsList>
-            <TabsTrigger value="all">All Courses</TabsTrigger>
-            <TabsTrigger value="popular">Popular</TabsTrigger>
-            <TabsTrigger value="new">New</TabsTrigger>
-            <TabsTrigger value="ai-ml">AI/ML</TabsTrigger>
-            <TabsTrigger value="data-engineering">Data Engineering</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="all" className="mt-6">
-            {loading ? (
-              <div className="flex justify-center p-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-              </div>
-            ) : error ? (
-              <div className="text-center py-12">
-                <h3 className="text-lg font-medium">Error loading courses</h3>
-                <p className="text-muted-foreground mt-1">{error}</p>
-                <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>
-                  Try Again
-                </Button>
-              </div>
-            ) : filteredAndSortedCourses.length > 0 ? (
-              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                {filteredAndSortedCourses.map((course) => (
-                  <div key={course.id} className="relative cursor-pointer" onClick={() => handleCourseClick(course.id)}>
-                    <CourseCard course={course} />
-                    <div className="mt-2">
-                      <EnrollmentBadge courseId={course.id} />
-                    </div>
+
+        {/* Grid */}
+        <div className="max-w-7xl mx-auto">
+          {loading ? (
+            <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+              {[0, 1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="rounded-2xl border border-neutral-200 overflow-hidden animate-pulse">
+                  <div className="aspect-[16/9] bg-neutral-100" />
+                  <div className="p-5 space-y-3">
+                    <div className="h-4 bg-neutral-100 rounded w-1/3" />
+                    <div className="h-6 bg-neutral-100 rounded w-4/5" />
+                    <div className="h-4 bg-neutral-100 rounded w-full" />
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12">
-                <h3 className="text-lg font-medium">No courses found</h3>
-                <p className="text-muted-foreground mt-1">Try adjusting your search or filters</p>
-                <Button variant="outline" className="mt-4" onClick={() => {
-                  setSearchQuery('');
-                  setCategoryFilter('all');
-                  setLevelFilter('all');
-                  setDifficultyFilter('all');
-                  setSortBy('newest');
-                }}>
-                  Clear Filters
-                </Button>
-              </div>
-            )}
-          </TabsContent>
-          
-          <TabsContent value="popular" className="mt-6">
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {courses
-                .sort((a, b) => b.enrollmentCount - a.enrollmentCount)
-                .slice(0, 6)
-                .map((course) => (
-                  <div key={course.id} className="relative" onClick={() => handleCourseClick(course.id)}>
-                    <CourseCard key={course.id} course={course} />
-                    <div className="mt-2">
-                      <EnrollmentBadge courseId={course.id} />
-                    </div>
-                  </div>
-                ))}
+                </div>
+              ))}
             </div>
-          </TabsContent>
-          
-          <TabsContent value="new" className="mt-6">
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {courses
-                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-                .slice(0, 6)
-                .map((course) => (
-                  <div key={course.id} className="relative" onClick={() => handleCourseClick(course.id)}>
-                    <CourseCard key={course.id} course={course} />
-                    <div className="mt-2">
-                      <EnrollmentBadge courseId={course.id} />
+          ) : error ? (
+            <div className="text-center py-16">
+              <p className="text-neutral-600">{error}</p>
+              <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>
+                Try again
+              </Button>
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="text-center py-20 border border-dashed rounded-2xl">
+              <h3 className="tw-serif text-2xl text-neutral-900 mb-2">No courses found</h3>
+              <p className="text-neutral-500 mb-4">Try adjusting your search or filters.</p>
+              <Button
+                variant="outline"
+                onClick={() => { setSearchQuery(''); setCategoryFilter('all'); setLevelFilter('all'); }}
+              >
+                Clear filters
+              </Button>
+            </div>
+          ) : (
+            <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+              {filtered.map((course) => (
+                <button
+                  key={course.id}
+                  onClick={() => navigate(`/courses/${course.id}`)}
+                  className="group text-left rounded-2xl border border-neutral-200 bg-white overflow-hidden hover:border-neutral-900 hover:shadow-[0_10px_30px_-10px_rgba(0,0,0,0.15)] transition-all"
+                >
+                  <div className="aspect-[16/9] overflow-hidden bg-neutral-100">
+                    <img
+                      src={course.thumbnail}
+                      alt={course.title}
+                      className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500"
+                    />
+                  </div>
+                  <div className="p-6">
+                    <div className="flex items-center gap-2 mb-3 text-[11px] uppercase tracking-[0.15em] text-neutral-500">
+                      <span>{course.category || 'Course'}</span>
+                      {course.level && <><span>•</span><span>{course.level}</span></>}
+                    </div>
+                    <h3 className="tw-serif text-2xl text-neutral-900 mb-2 line-clamp-2 leading-tight">
+                      {course.title}
+                    </h3>
+                    <p className="text-sm text-neutral-600 line-clamp-2 mb-5">
+                      {course.description}
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4 text-xs text-neutral-500">
+                        {course.duration && (
+                          <span className="inline-flex items-center gap-1">
+                            <Clock className="h-3.5 w-3.5" /> {course.duration}
+                          </span>
+                        )}
+                        <span className="inline-flex items-center gap-1">
+                          <BookOpen className="h-3.5 w-3.5" /> {course.instructor?.name}
+                        </span>
+                      </div>
+                      <span className="inline-flex items-center gap-1 text-sm font-medium text-neutral-900 group-hover:gap-2 transition-all">
+                        View <ArrowRight className="h-4 w-4" />
+                      </span>
                     </div>
                   </div>
-                ))}
+                </button>
+              ))}
             </div>
-          </TabsContent>
-          
-          <TabsContent value="ai-ml" className="mt-6">
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {courses
-                .filter(course => course.category === "AI/ML")
-                .map((course) => (
-                  <div key={course.id} className="relative" onClick={() => handleCourseClick(course.id)}>
-                    <CourseCard key={course.id} course={course} />
-                    <div className="mt-2">
-                      <EnrollmentBadge courseId={course.id} />
-                    </div>
-                  </div>
-                ))}
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="data-engineering" className="mt-6">
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {courses
-                .filter(course => course.category === "Data Engineering")
-                .map((course) => (
-                  <div key={course.id} className="relative" onClick={() => handleCourseClick(course.id)}>
-                    <CourseCard key={course.id} course={course} />
-                    <div className="mt-2">
-                      <EnrollmentBadge courseId={course.id} />
-                    </div>
-                  </div>
-                ))}
-            </div>
-          </TabsContent>
-        </Tabs>
+          )}
+        </div>
       </div>
     </AppLayout>
   );
