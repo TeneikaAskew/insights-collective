@@ -82,16 +82,16 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({ bank, 
     });
   };
 
-  const questionTypeIcons: Record<QuestionType, string> = {
-    multiple_choice: '🔘',
-    true_false: '✓✗',
-    short_answer: '📝',
-    essay: '📄',
-    matching: '🔗',
-    fill_blank: '___',
-    ordering: '123',
-    multiple_answer: '☑️',
-    calculated: '🔢',
+  const questionTypeIcons: Record<QuestionType, React.ComponentType<{ className?: string }>> = {
+    multiple_choice: CircleDot,
+    true_false: CheckSquare,
+    short_answer: FileText,
+    essay: FileEdit,
+    matching: Link2,
+    fill_blank: Type,
+    ordering: ListOrdered,
+    multiple_answer: ListChecks,
+    calculated: Calculator,
   };
 
   return (
