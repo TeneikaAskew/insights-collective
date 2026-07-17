@@ -151,7 +151,7 @@ const CourseList = () => {
             </div>
           ) : filtered.length === 0 ? (
             <div className="text-center py-20 border border-dashed rounded-2xl">
-              <h3 className="tw-serif text-2xl text-neutral-900 mb-2">No courses found</h3>
+              <h3 className="font-display text-2xl text-neutral-900 mb-2">No courses found</h3>
               <p className="text-neutral-500 mb-4">Try adjusting your search or filters.</p>
               <Button
                 variant="outline"
