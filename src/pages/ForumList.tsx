@@ -27,7 +27,7 @@ const forumCategories = [
     threads: 45,
     participants: 128,
     lastPost: '2 hours ago',
-    icon: '🔧'
+    icon: Wrench,
   },
   {
     id: '2',
@@ -36,7 +36,7 @@ const forumCategories = [
     threads: 63,
     participants: 214,
     lastPost: '30 minutes ago',
-    icon: '🧠'
+    icon: Brain,
   },
   {
     id: '3',
@@ -45,7 +45,7 @@ const forumCategories = [
     threads: 38,
     participants: 167,
     lastPost: '1 day ago',
-    icon: '📊'
+    icon: BarChart3,
   },
   {
     id: '4',
@@ -54,7 +54,7 @@ const forumCategories = [
     threads: 29,
     participants: 95,
     lastPost: '5 hours ago',
-    icon: '📈'
+    icon: TrendingUp,
   },
   {
     id: '5',
@@ -63,7 +63,7 @@ const forumCategories = [
     threads: 54,
     participants: 231,
     lastPost: '1 hour ago',
-    icon: '👔'
+    icon: Briefcase,
   },
   {
     id: '6',
@@ -72,8 +72,8 @@ const forumCategories = [
     threads: 42,
     participants: 187,
     lastPost: '45 minutes ago',
-    icon: '💬'
-  }
+    icon: MessagesSquare,
+  },
 ];
 
 const recentThreads = [
