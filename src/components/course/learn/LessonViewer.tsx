@@ -34,6 +34,8 @@ export interface LessonViewerProps {
   onMarkDone: (itemId: string) => void | Promise<void>;
   /** Base path used for Submit/Take-quiz buttons, e.g. `/courses/:courseId/learn/:moduleId`. */
   actionBasePath: string;
+  /** When true, hide the internal Prev/Mark done/Next footer (parent renders its own). */
+  hideFooter?: boolean;
 }
 
 export function LessonViewer({

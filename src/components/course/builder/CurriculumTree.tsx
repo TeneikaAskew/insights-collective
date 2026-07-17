@@ -1,5 +1,5 @@
-// ABOUTME: Teachable/Kajabi-style left-rail curriculum tree for the course builder.
-// ABOUTME: Drag to reorder modules + lessons, inline rename, inline add, click to select.
+// ABOUTME: Teachable-style left-rail curriculum tree with drag-reorder, inline rename, progress dots.
+// ABOUTME: Shared by the student learn player (readOnly) and the instructor course builder.
 
 import { useMemo, useState } from 'react';
 import {
@@ -20,8 +20,6 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import {
-  ChevronDown,
-  ChevronRight,
   FileText,
   ClipboardList,
   HelpCircle,
@@ -29,9 +27,10 @@ import {
   Plus,
   GripVertical,
   Trash2,
-  CheckCircle2,
+  Check,
+  Play,
+  Circle,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { ContentItem, Module } from '@/types/canvas';
 
@@ -41,14 +40,12 @@ export interface CurriculumModule extends Module {
 
 export interface CurriculumTreeProps {
   modules: CurriculumModule[];
-  /** The currently selected lesson, if any. */
   selectedItemId?: string | null;
-  /** Which modules are expanded in the UI. */
   expandedModuleIds?: Set<string>;
-  /** Lesson ids that have been completed (only relevant in learner mode). */
   completedItemIds?: Set<string>;
-  /** Read-only mode disables drag, add, delete, rename. Used by the learner view. */
   readOnly?: boolean;
+  /** Course-level percent complete (0-100), shown at top of tree in learner mode. */
+  progressPercent?: number;
   onToggleExpand: (moduleId: string) => void;
   onSelectItem: (moduleId: string, itemId: string) => void;
   onAddModule?: () => void;
@@ -64,15 +61,15 @@ export interface CurriculumTreeProps {
 const typeIcon = (type: string) => {
   switch (type) {
     case 'page':
-      return <FileText className="h-4 w-4" />;
+      return <FileText className="h-3.5 w-3.5" />;
     case 'assignment':
-      return <ClipboardList className="h-4 w-4" />;
+      return <ClipboardList className="h-3.5 w-3.5" />;
     case 'quiz':
-      return <HelpCircle className="h-4 w-4" />;
+      return <HelpCircle className="h-3.5 w-3.5" />;
     case 'external_url':
-      return <ExternalLink className="h-4 w-4" />;
+      return <ExternalLink className="h-3.5 w-3.5" />;
     default:
-      return <FileText className="h-4 w-4" />;
+      return <FileText className="h-3.5 w-3.5" />;
   }
 };
 
@@ -83,6 +80,7 @@ export function CurriculumTree(props: CurriculumTreeProps) {
     expandedModuleIds,
     completedItemIds,
     readOnly = false,
+    progressPercent,
     onToggleExpand,
     onSelectItem,
     onAddModule,
@@ -108,38 +106,62 @@ export function CurriculumTree(props: CurriculumTreeProps) {
     const oldIndex = moduleIds.indexOf(String(active.id));
     const newIndex = moduleIds.indexOf(String(over.id));
     if (oldIndex < 0 || newIndex < 0) return;
-    const next = arrayMove(moduleIds, oldIndex, newIndex);
-    onReorderModules(next);
+    onReorderModules(arrayMove(moduleIds, oldIndex, newIndex));
   };
+
+  const showProgress = readOnly && typeof progressPercent === 'number';
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-3 py-2 border-b">
-        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Curriculum
-        </span>
-        {!readOnly && onAddModule && (
-          <Button size="sm" variant="ghost" onClick={onAddModule}>
-            <Plus className="h-4 w-4 mr-1" />
-            Module
-          </Button>
+      {/* Sidebar Header */}
+      <div className="p-6" style={{ borderBottom: '1px solid hsl(var(--cw-border))' }}>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-bold text-base tracking-tight">Curriculum</h2>
+          {!readOnly && onAddModule && (
+            <button
+              type="button"
+              onClick={onAddModule}
+              className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Module
+            </button>
+          )}
+        </div>
+        {showProgress && (
+          <div className="space-y-2">
+            <div className="flex justify-between text-[11px] font-bold text-gray-400 uppercase tracking-widest">
+              <span>Progress</span>
+              <span style={{ color: 'hsl(var(--cw-accent-strong))' }}>
+                {Math.round(progressPercent!)}%
+              </span>
+            </div>
+            <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all"
+                style={{
+                  width: `${Math.min(100, Math.max(0, progressPercent!))}%`,
+                  background: 'hsl(var(--cw-accent))',
+                }}
+              />
+            </div>
+          </div>
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-2 space-y-1">
+      {/* Modules */}
+      <nav className="flex-1 overflow-y-auto p-4 space-y-6">
         {modules.length === 0 ? (
-          <div className="p-4 text-center text-sm text-muted-foreground">
+          <div className="p-4 text-center text-sm text-gray-500">
             No modules yet.
             {!readOnly && onAddModule && (
-              <Button
-                className="mt-3 block mx-auto"
-                size="sm"
-                variant="outline"
+              <button
                 onClick={onAddModule}
+                className="mt-3 mx-auto inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50"
               >
-                <Plus className="h-4 w-4 mr-1" />
+                <Plus className="h-3.5 w-3.5" />
                 Add your first module
-              </Button>
+              </button>
             )}
           </div>
         ) : (
@@ -170,12 +192,12 @@ export function CurriculumTree(props: CurriculumTreeProps) {
             </SortableContext>
           </DndContext>
         )}
-      </div>
+      </nav>
     </div>
   );
 }
 
-// --- Module row ------------------------------------------------------------
+// --- Module row ---
 interface SortableModuleProps {
   module: CurriculumModule;
   isExpanded: boolean;
@@ -246,36 +268,24 @@ function SortableModule({
   };
 
   return (
-    <div ref={setNodeRef} style={style} className="rounded-md border bg-card">
-      <div className="flex items-center gap-1 px-2 py-1.5 group">
+    <div ref={setNodeRef} style={style} className="space-y-2">
+      {/* Module Label */}
+      <div className="flex items-center gap-2 px-2 group">
         {!readOnly && (
           <button
             type="button"
-            className="cursor-grab text-muted-foreground hover:text-foreground"
+            className="cursor-grab text-gray-300 hover:text-gray-500"
             {...attributes}
             {...listeners}
             aria-label="Drag to reorder module"
           >
-            <GripVertical className="h-4 w-4" />
+            <GripVertical className="h-3.5 w-3.5" />
           </button>
         )}
-        <button
-          type="button"
-          className="text-muted-foreground hover:text-foreground"
-          onClick={() => onToggleExpand(module.id)}
-          aria-label={isExpanded ? 'Collapse module' : 'Expand module'}
-        >
-          {isExpanded ? (
-            <ChevronDown className="h-4 w-4" />
-          ) : (
-            <ChevronRight className="h-4 w-4" />
-          )}
-        </button>
-
         {editing && !readOnly ? (
           <input
             autoFocus
-            className="flex-1 bg-transparent text-sm font-medium outline-none focus:ring-2 focus:ring-primary rounded px-1"
+            className="flex-1 bg-transparent text-[11px] font-bold text-gray-500 uppercase tracking-widest outline-none focus:ring-2 focus:ring-teal-400 rounded px-1"
             value={draftTitle}
             onChange={(e) => setDraftTitle(e.target.value)}
             onBlur={commitRename}
@@ -290,47 +300,47 @@ function SortableModule({
         ) : (
           <button
             type="button"
-            className="flex-1 text-left text-sm font-medium truncate"
-            onClick={() => (readOnly ? onToggleExpand(module.id) : setEditing(true))}
+            className="flex-1 text-left text-[11px] font-bold text-gray-500 uppercase tracking-widest truncate hover:text-gray-800"
+            onClick={() =>
+              readOnly ? onToggleExpand(module.id) : setEditing(true)
+            }
             title={module.title}
           >
             {module.title || 'Untitled module'}
           </button>
         )}
-
         {!readOnly && onAddItem && (
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
+          <button
+            type="button"
             onClick={() => onAddItem(module.id)}
-            aria-label="Add lesson to module"
+            className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-all"
+            aria-label="Add lesson"
           >
-            <Plus className="h-4 w-4" />
-          </Button>
+            <Plus className="h-3.5 w-3.5" />
+          </button>
         )}
         {!readOnly && onDeleteModule && (
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 hover:text-destructive"
+          <button
+            type="button"
             onClick={() => onDeleteModule(module.id)}
+            className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-600 transition-all"
             aria-label="Delete module"
           >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
         )}
       </div>
 
+      {/* Lessons */}
       {isExpanded && (
-        <div className="pb-1">
+        <div className="space-y-1">
           {module.items.length === 0 ? (
-            <div className="pl-8 pr-2 pb-2 text-xs text-muted-foreground">
+            <div className="pl-4 pr-2 pb-1 text-xs text-gray-400">
               No lessons yet.
               {!readOnly && onAddItem && (
                 <button
                   type="button"
-                  className="ml-1 underline"
+                  className="ml-1 underline hover:text-gray-700"
                   onClick={() => onAddItem(module.id)}
                 >
                   Add one
@@ -366,7 +376,7 @@ function SortableModule({
   );
 }
 
-// --- Lesson row ------------------------------------------------------------
+// --- Lesson row ---
 interface SortableItemProps {
   item: ContentItem;
   moduleId: string;
@@ -411,20 +421,24 @@ function SortableItem({
     }
   };
 
+  const activeBg = isSelected
+    ? { background: 'hsl(var(--cw-accent) / 0.12)', color: 'hsl(var(--cw-accent-strong))' }
+    : undefined;
+
   return (
     <div
       ref={setNodeRef}
-      style={style}
+      style={{ ...style, ...activeBg }}
       className={cn(
-        'flex items-center gap-1 pl-6 pr-2 py-1 text-sm group cursor-pointer',
-        isSelected && 'bg-primary/10 text-primary',
+        'group flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all',
+        !isSelected && 'hover:bg-gray-50 text-gray-600',
       )}
       onClick={() => onSelectItem(moduleId, item.id)}
     >
       {!readOnly && (
         <button
           type="button"
-          className="cursor-grab text-muted-foreground hover:text-foreground"
+          className="cursor-grab text-gray-300 hover:text-gray-500 -ml-1"
           {...attributes}
           {...listeners}
           onClick={(e) => e.stopPropagation()}
@@ -434,12 +448,42 @@ function SortableItem({
         </button>
       )}
 
-      <span className="text-muted-foreground">{typeIcon(item.type)}</span>
+      {/* Progress indicator circle */}
+      <div className="flex-shrink-0">
+        {isCompleted ? (
+          <div
+            className="w-6 h-6 rounded-full flex items-center justify-center text-white"
+            style={{ background: 'hsl(var(--cw-accent))' }}
+          >
+            <Check className="h-3.5 w-3.5" strokeWidth={3} />
+          </div>
+        ) : isSelected ? (
+          <div
+            className="w-6 h-6 rounded-full flex items-center justify-center text-white"
+            style={{ background: 'hsl(var(--cw-accent))' }}
+          >
+            <Play className="h-3 w-3 ml-0.5" fill="currentColor" />
+          </div>
+        ) : (
+          <div className="w-6 h-6 rounded-full border-2 border-gray-200 flex items-center justify-center text-gray-300">
+            <Circle className="h-2 w-2" fill="none" strokeWidth={0} />
+          </div>
+        )}
+      </div>
+
+      <span
+        className={cn(
+          'text-gray-400 flex-shrink-0',
+          isSelected && 'text-current opacity-70',
+        )}
+      >
+        {typeIcon(item.type)}
+      </span>
 
       {editing && !readOnly ? (
         <input
           autoFocus
-          className="flex-1 bg-transparent outline-none focus:ring-2 focus:ring-primary rounded px-1"
+          className="flex-1 min-w-0 bg-transparent text-sm outline-none focus:ring-2 focus:ring-teal-400 rounded px-1"
           value={draftTitle}
           onChange={(e) => setDraftTitle(e.target.value)}
           onClick={(e) => e.stopPropagation()}
@@ -454,7 +498,7 @@ function SortableItem({
         />
       ) : (
         <span
-          className="flex-1 truncate"
+          className={cn('flex-1 text-sm truncate', isSelected && 'font-medium')}
           onDoubleClick={(e) => {
             if (readOnly) return;
             e.stopPropagation();
@@ -466,23 +510,18 @@ function SortableItem({
         </span>
       )}
 
-      {isCompleted && (
-        <CheckCircle2 className="h-3 w-3 text-green-600" aria-label="Completed" />
-      )}
-
       {!readOnly && onDeleteItem && (
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 hover:text-destructive"
+        <button
+          type="button"
           onClick={(e) => {
             e.stopPropagation();
             onDeleteItem(item.id);
           }}
+          className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-600 transition-all"
           aria-label="Delete lesson"
         >
           <Trash2 className="h-3 w-3" />
-        </Button>
+        </button>
       )}
     </div>
   );
