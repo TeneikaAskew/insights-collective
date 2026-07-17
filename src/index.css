@@ -143,8 +143,8 @@
     --tw-border: 220 13% 91%;
     --tw-text: 0 0% 10%;
     --tw-muted: 220 9% 46%;
-    --tw-accent: 71 96% 61%;          /* #DAFB3C lime/yellow */
-    --tw-accent-ink: 0 0% 10%;        /* dark ink on yellow */
+    --tw-accent: 217 88% 56%;         /* Insight Blue — site primary */
+    --tw-accent-ink: 0 0% 100%;       /* white ink on primary */
     --tw-serif: 'Instrument Serif', 'Playfair Display', Georgia, serif;
   }
 

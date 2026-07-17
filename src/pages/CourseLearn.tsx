@@ -311,7 +311,7 @@ const CourseLearn = () => {
           </Link>
           <button
             type="button"
-            className="w-9 h-9 rounded-md flex items-center justify-center hover:bg-white/10 text-yellow-300"
+            className="w-9 h-9 rounded-md flex items-center justify-center hover:bg-white/10"
             style={{ color: 'hsl(var(--tw-accent))' }}
             aria-label="Course settings"
           >
