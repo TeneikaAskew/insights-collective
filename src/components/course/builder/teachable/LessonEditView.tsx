@@ -47,7 +47,7 @@ export function LessonEditView({
         )}
       </div>
 
-      <h2 className="tw-serif text-5xl mb-6">Curriculum</h2>
+      <h2 className="font-display text-5xl mb-6">Curriculum</h2>
 
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-6">
         {/* Center content */}
@@ -60,7 +60,7 @@ export function LessonEditView({
               className="flex items-center justify-between px-6 py-4"
               style={{ borderBottom: '1px solid hsl(var(--tw-border))' }}
             >
-              <h3 className="tw-serif text-2xl truncate">
+              <h3 className="font-display text-2xl truncate">
                 {currentItem?.title || 'Select a lesson'}
               </h3>
               {currentItem && (
@@ -131,7 +131,7 @@ export function LessonEditView({
             style={{ border: '1px solid hsl(var(--tw-border))' }}
           >
             <div className="flex items-center justify-between mb-3">
-              <h3 className="tw-serif text-2xl">Outline</h3>
+              <h3 className="font-display text-2xl">Outline</h3>
             </div>
             <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1">
               {modules.map((m) => (

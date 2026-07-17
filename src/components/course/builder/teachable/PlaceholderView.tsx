@@ -15,7 +15,7 @@ export function PlaceholderView({ courseTitle, title, description }: Placeholder
         <span className="mx-2 opacity-50">|</span>
         <span>{courseTitle}</span>
       </div>
-      <h2 className="tw-serif text-5xl mb-4">{title}</h2>
+      <h2 className="font-display text-5xl mb-4">{title}</h2>
       <div
         className="rounded-xl bg-white p-12 text-center"
         style={{ border: '1px dashed hsl(var(--tw-border))' }}

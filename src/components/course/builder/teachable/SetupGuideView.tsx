@@ -44,7 +44,7 @@ export function SetupGuideView({
       </div>
 
       <div className="flex items-center gap-3 mb-10">
-        <h2 className="tw-serif text-5xl">Setup guide</h2>
+        <h2 className="font-display text-5xl">Setup guide</h2>
         <span
           className="text-[11px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-md"
           style={{
@@ -66,7 +66,7 @@ export function SetupGuideView({
             >
               <ClipboardList className="h-5 w-5" />
             </div>
-            <h3 className="tw-serif text-3xl">Create your curriculum</h3>
+            <h3 className="font-display text-3xl">Create your curriculum</h3>
           </div>
 
           <div
@@ -107,7 +107,7 @@ export function SetupGuideView({
               <ul className="divide-y" style={{ borderColor: 'hsl(var(--tw-border))' }}>
                 {modules.map((m) => (
                   <li key={m.id} className="px-6 py-4">
-                    <div className="tw-serif text-lg mb-2">{m.title || 'Untitled section'}</div>
+                    <div className="font-sans text-lg mb-2">{m.title || 'Untitled section'}</div>
                     <ul className="space-y-1.5">
                       {m.items.length === 0 && (
                         <li className="text-xs text-gray-400 italic">No lessons yet</li>
@@ -152,7 +152,7 @@ export function SetupGuideView({
             >
               <LayoutGrid className="h-5 w-5" />
             </div>
-            <h3 className="tw-serif text-3xl">Customize your course</h3>
+            <h3 className="font-display text-3xl">Customize your course</h3>
           </div>
 
           <div
