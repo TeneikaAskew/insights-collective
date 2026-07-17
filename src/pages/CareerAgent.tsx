@@ -822,15 +822,20 @@ const CareerAgent: React.FC = () => {
                         </Button>
                       )}
                       {reactingMessageId === msg.id && isBot && (
-                        <div className="absolute -top-8 left-0 flex space-x-1 bg-white rounded-md shadow-lg p-1 text-lg select-none z-50">
-                          {["👍", "❤️", "💡"].map((emoji) => (
+                        <div className="absolute -top-8 left-0 flex space-x-1 bg-white rounded-md shadow-lg p-1 select-none z-50">
+                          {[
+                            { key: 'like', Icon: ThumbsUp },
+                            { key: 'love', Icon: Heart },
+                            { key: 'insight', Icon: Lightbulb },
+                          ].map(({ key, Icon }) => (
                             <button
-                              key={emoji}
-                              onClick={() => handleEmojiClick(msg.id, emoji)}
+                              key={key}
+                              onClick={() => handleEmojiClick(msg.id, key)}
                               className="hover:bg-gray-200 rounded-md p-1"
                               type="button"
+                              aria-label={key}
                             >
-                              {emoji}
+                              <Icon className="h-4 w-4 text-primary" />
                             </button>
                           ))}
                         </div>
