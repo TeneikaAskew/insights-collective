@@ -77,26 +77,19 @@ export function TeachableShell({
         color: 'hsl(var(--tw-text))',
       }}
     >
-      {/* Left dark rail */}
-      <aside
-        className="w-64 flex-shrink-0 flex flex-col"
-        style={{
-          background: 'hsl(var(--tw-rail))',
-          color: 'hsl(var(--tw-rail-text))',
-        }}
-      >
+      {/* Left rail — brand sidebar */}
+      <aside className="w-64 flex-shrink-0 flex flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
         <div className="px-5 pt-5 pb-4">
           <Link
             to="/admin/courses"
-            className="inline-flex items-center gap-1.5 text-xs uppercase tracking-widest font-semibold opacity-70 hover:opacity-100"
+            className="inline-flex items-center gap-1.5 text-xs uppercase tracking-widest font-semibold text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="h-3 w-3" />
             Courses
           </Link>
           <h1
-            className="mt-4 text-lg leading-snug line-clamp-3"
+            className="mt-4 text-lg leading-snug line-clamp-3 font-semibold text-foreground"
             title={courseTitle}
-            style={{ fontWeight: 600 }}
           >
             {courseTitle || 'Untitled course'}
           </h1>
@@ -108,7 +101,7 @@ export function TeachableShell({
             activeKey={activeKey}
             onNavigate={onNavigate}
           />
-          <div className="my-4 border-t" style={{ borderColor: 'hsl(0 0% 20%)' }} />
+          <div className="my-4 border-t border-sidebar-border" />
           <NavGroup
             items={secondary}
             activeKey={activeKey}
