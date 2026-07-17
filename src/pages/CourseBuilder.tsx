@@ -301,7 +301,12 @@ const CourseBuilder = () => {
   );
 
   const addLesson = useCallback(
-    async (moduleId: string, type: ContentItemType = 'page', title = 'New lesson') => {
+    async (
+      moduleId: string,
+      type: ContentItemType = 'page',
+      title = 'New lesson',
+      content = '',
+    ) => {
       if (!courseId) return;
       try {
         const created = await CanvasContentService.createContentItem({
@@ -309,7 +314,7 @@ const CourseBuilder = () => {
           module_id: moduleId,
           type,
           title,
-          content: '',
+          content,
         });
         setModules((prev) =>
           prev.map((m) => (m.id === moduleId ? { ...m, items: [...m.items, created] } : m)),
@@ -419,7 +424,7 @@ const CourseBuilder = () => {
   );
 
   const handleAddContentTile = useCallback(
-    async (type: ContentItemType, defaultTitle: string) => {
+    async (type: ContentItemType, defaultTitle: string, defaultContent?: string) => {
       // Add into the module of the currently-selected lesson, or the first module
       const targetModuleId =
         modules.find((m) => m.items.some((i) => i.id === effectiveLessonId))?.id ??
@@ -431,7 +436,7 @@ const CourseBuilder = () => {
         });
         return;
       }
-      const created = await addLesson(targetModuleId, type, defaultTitle);
+      const created = await addLesson(targetModuleId, type, defaultTitle, defaultContent ?? '');
       if (created) selectLesson(created.id);
     },
     [modules, effectiveLessonId, addLesson, selectLesson, toast],

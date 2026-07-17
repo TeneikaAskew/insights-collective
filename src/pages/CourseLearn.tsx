@@ -291,32 +291,28 @@ const CourseLearn = () => {
   // --- Lesson player ---
   return (
     <div
-      className="teachable-workspace fixed inset-0 flex flex-col"
-      style={{ background: '#F5F5F0', color: 'hsl(var(--tw-text))' }}
+      className="teachable-workspace fixed inset-0 flex flex-col bg-background text-foreground"
     >
       <AdminTopBar canEdit={canEdit} courseId={course.id} />
 
       {/* Player top bar with prev/next pills */}
-      <div
-        className="flex items-center justify-between px-6 py-3 flex-shrink-0"
-        style={{ background: '#111', color: '#fff' }}
-      >
+      <div className="flex items-center justify-between px-6 py-3 flex-shrink-0 bg-card border-b border-border">
         <div className="flex items-center gap-3">
           <Link
             to={`/courses/${course.id}/learn`}
-            className="w-9 h-9 rounded-md flex items-center justify-center hover:bg-white/10"
+            className="w-9 h-9 rounded-md flex items-center justify-center text-foreground hover:bg-muted"
             aria-label="Course home"
           >
             <Home className="w-4 h-4" />
           </Link>
-          <button
-            type="button"
-            className="w-9 h-9 rounded-md flex items-center justify-center hover:bg-white/10"
-            style={{ color: 'hsl(var(--tw-accent))' }}
+          <Link
+            to={`/courses/${course.id}`}
+            className="w-9 h-9 rounded-md flex items-center justify-center text-primary hover:bg-muted"
             aria-label="Course settings"
+            title="Course settings"
           >
             <Settings className="w-4 h-4" />
-          </button>
+          </Link>
         </div>
 
         <div className="flex items-center gap-3">
@@ -324,11 +320,7 @@ const CourseLearn = () => {
             type="button"
             disabled={!prev}
             onClick={() => prev && goTo(prev.module.id, prev.item.id)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold border transition-colors disabled:opacity-30"
-            style={{
-              borderColor: 'hsl(var(--tw-accent))',
-              color: 'hsl(var(--tw-accent))',
-            }}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold border border-primary text-primary hover:bg-primary/10 transition-colors disabled:opacity-30"
           >
             <ChevronLeft className="w-4 h-4" />
             Previous Lesson
@@ -336,11 +328,7 @@ const CourseLearn = () => {
           <button
             type="button"
             onClick={handleContinue}
-            className="inline-flex items-center gap-1.5 px-5 py-2 rounded-full text-sm font-bold"
-            style={{
-              background: 'hsl(var(--tw-accent))',
-              color: 'hsl(var(--tw-accent-ink))',
-            }}
+            className="inline-flex items-center gap-1.5 px-5 py-2 rounded-full text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90"
           >
             {isSelectedComplete ? 'Continue' : 'Complete and Continue'}
             <ChevronRight className="w-4 h-4" />
@@ -348,16 +336,14 @@ const CourseLearn = () => {
         </div>
       </div>
 
+
       <div className="flex-1 flex min-h-0">
-        {/* Left dark curriculum rail */}
-        <aside
-          className="w-72 flex-shrink-0 overflow-y-auto"
-          style={{ background: '#1A1A1A', color: '#F5F5F5' }}
-        >
+        {/* Left curriculum rail */}
+        <aside className="w-72 flex-shrink-0 overflow-y-auto bg-muted/40 border-r border-border">
           <nav className="p-3 space-y-5">
             {modules.map((m) => (
               <div key={m.id}>
-                <div className="text-[11px] font-bold uppercase tracking-widest text-gray-400 px-3 py-2">
+                <div className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground px-3 py-2">
                   {m.title || 'Untitled section'}
                 </div>
                 <ul className="space-y-0.5">
@@ -372,32 +358,28 @@ const CourseLearn = () => {
                           className={cn(
                             'w-full flex items-start gap-3 px-3 py-2 rounded-md text-left text-sm transition-colors',
                             active
-                              ? 'bg-white/10 text-white'
-                              : 'text-gray-300 hover:bg-white/5 hover:text-white',
+                              ? 'bg-primary/10 text-foreground'
+                              : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                           )}
                           style={
                             active
-                              ? { borderLeft: '2px solid hsl(var(--tw-accent))', paddingLeft: 10 }
+                              ? { borderLeft: '2px solid hsl(var(--primary))', paddingLeft: 10 }
                               : undefined
                           }
                         >
                           <span className="mt-0.5 flex-shrink-0">
                             {done ? (
-                              <div
-                                className="w-4 h-4 rounded-full"
-                                style={{ background: 'hsl(var(--tw-accent))' }}
-                              />
+                              <div className="w-4 h-4 rounded-full bg-primary" />
                             ) : active ? (
                               <div
-                                className="w-4 h-4 rounded-full border-2"
+                                className="w-4 h-4 rounded-full border-2 border-primary"
                                 style={{
-                                  borderColor: 'hsl(var(--tw-accent))',
                                   background:
-                                    'radial-gradient(circle, hsl(var(--tw-accent)) 40%, transparent 42%)',
+                                    'radial-gradient(circle, hsl(var(--primary)) 40%, transparent 42%)',
                                 }}
                               />
                             ) : (
-                              <Circle className="w-4 h-4 text-gray-500" />
+                              <Circle className="w-4 h-4 text-muted-foreground/60" />
                             )}
                           </span>
                           <div className="flex-1 min-w-0">
@@ -405,15 +387,13 @@ const CourseLearn = () => {
                               {it.title || 'Untitled lesson'}
                             </div>
                             {canEdit && !it.published && (
-                              <span
-                                className="inline-block mt-1 text-[9px] uppercase tracking-widest font-bold px-1.5 py-0.5 rounded"
-                                style={{ background: '#333', color: '#ccc' }}
-                              >
+                              <span className="inline-block mt-1 text-[9px] uppercase tracking-widest font-bold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
                                 Draft
                               </span>
                             )}
                           </div>
                         </button>
+
                       </li>
                     );
                   })}
@@ -427,10 +407,7 @@ const CourseLearn = () => {
         <main className="flex-1 overflow-y-auto">
           <div className="max-w-3xl mx-auto px-8 py-10 pb-32">
             <div className="mb-4">
-              <span
-                className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest px-2.5 py-1 rounded"
-                style={{ background: '#1a1a1a', color: '#fff' }}
-              >
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest px-2.5 py-1 rounded bg-primary text-primary-foreground">
                 <FileText className="w-3 h-3" />
                 {selected.item.type === 'quiz'
                   ? 'Quiz'
@@ -455,8 +432,7 @@ const CourseLearn = () => {
               <button
                 type="button"
                 onClick={handleContinue}
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold"
-                style={{ background: '#111', color: '#fff' }}
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 {isSelectedComplete ? 'Continue' : 'Complete and Continue'}
                 <ChevronRight className="w-4 h-4" />

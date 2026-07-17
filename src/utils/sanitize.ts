@@ -18,7 +18,7 @@ export const sanitizeHTML = (dirty: string): string => {
       'a', 'code', 'pre', 'blockquote',
       'span', 'div', 'img', 'hr',
       'table', 'thead', 'tbody', 'tr', 'th', 'td',
-      'video', 'source',
+      'video', 'source', 'audio',
       'iframe',
     ],
     ALLOWED_ATTR: [
