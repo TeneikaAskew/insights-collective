@@ -46,6 +46,7 @@ export default defineConfig({
         '**/admin/**',
         '**/auth/**',
         '**/landing/**',
+        '**/visual/**',
         // Instructor-only specs — handled by chromium-instructor project
         '**/courses/course-builder.spec.ts',
         '**/courses/course-management.spec.ts',
@@ -121,5 +122,44 @@ export default defineConfig({
     //   timeout: 150_000,
     //   testMatch: ['**/dashboard/**', '**/auth/login.spec.ts'],
     // },
+    // Visual regression projects — one per role. Each targets only e2e/visual/**
+    // and passes its role via metadata so the shared spec can filter routes.
+    // Baselines live under e2e/visual/__screenshots__/<spec>/<project>/*.png.
+    {
+      name: 'visual-public',
+      testMatch: ['**/visual/**'],
+      metadata: { visualRole: 'public' },
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } },
+    },
+    {
+      name: 'visual-member',
+      testMatch: ['**/visual/**'],
+      metadata: { visualRole: 'member' },
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1280, height: 800 },
+        storageState: path.join(SESSIONS_DIR, 'member.json'),
+      },
+    },
+    {
+      name: 'visual-admin',
+      testMatch: ['**/visual/**'],
+      metadata: { visualRole: 'admin' },
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1280, height: 800 },
+        storageState: path.join(SESSIONS_DIR, 'admin.json'),
+      },
+    },
+    {
+      name: 'visual-instructor',
+      testMatch: ['**/visual/**'],
+      metadata: { visualRole: 'instructor' },
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1280, height: 800 },
+        storageState: path.join(SESSIONS_DIR, 'instructor.json'),
+      },
+    },
   ],
 });
