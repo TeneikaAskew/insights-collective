@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils';
 export type BuilderNavKey =
   | 'setup'
   | 'curriculum'
+  | 'lesson'
   | 'design'
   | 'certificates'
   | 'information'
