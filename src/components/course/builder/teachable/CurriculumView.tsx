@@ -333,7 +333,43 @@ function SectionCard({
         </button>
       </div>
 
+      {/* Section summary (shown to students on the course page) */}
+      {onUpdateModuleDescription && (
+        <div
+          className="px-5 py-3"
+          style={{ borderBottom: '1px solid hsl(var(--tw-border))' }}
+        >
+          {descEditing ? (
+            <textarea
+              autoFocus
+              className="w-full text-sm bg-transparent outline-none focus:ring-2 focus:ring-primary/40 rounded p-2 min-h-[64px] resize-y"
+              style={{ border: '1px solid hsl(var(--tw-border))' }}
+              value={descDraft}
+              onChange={(e) => setDescDraft(e.target.value)}
+              onBlur={commitDesc}
+              placeholder="Add a short summary students see on the course page…"
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setDescEditing(true)}
+              className="w-full text-left text-sm text-gray-600 hover:text-black cursor-text px-1 py-1 rounded"
+              title="Edit section summary"
+            >
+              {module.description?.trim() ? (
+                <span className="whitespace-pre-wrap">{module.description}</span>
+              ) : (
+                <span className="text-gray-400 italic">
+                  + Add a section summary students will see on the course page
+                </span>
+              )}
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Lessons */}
+
       {module.items.length === 0 ? (
         <div className="px-5 py-6 text-center text-sm text-gray-400">
           No lessons yet. Add one below.
