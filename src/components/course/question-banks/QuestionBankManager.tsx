@@ -99,7 +99,7 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({ bank, 
       <div className="flex items-center justify-between mb-6">
         <div>
           <Button variant="ghost" onClick={onBack} className="mb-2">
-            ← Back to Question Banks
+            <ArrowLeft className="h-4 w-4 mr-2" /> Back to Question Banks
           </Button>
           <h2 className="text-2xl font-bold">{bank.title}</h2>
           {bank.description && (
