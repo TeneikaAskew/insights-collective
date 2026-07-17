@@ -30,15 +30,15 @@ export const CalendarWidget: React.FC<CalendarWidgetProps> = ({
   const getEventIcon = (type: string) => {
     switch (type) {
       case 'assignment':
-        return '📝';
+        return FileText;
       case 'quiz':
-        return '📊';
+        return BarChart3;
       case 'announcement':
-        return '📢';
+        return Megaphone;
       case 'event':
-        return '📅';
+        return CalendarIcon;
       default:
-        return '📌';
+        return Pin;
     }
   };
 
