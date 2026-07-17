@@ -72,8 +72,8 @@ export function LessonEditView({
                     }
                     className={
                       currentItem.published
-                        ? 'text-xs font-bold px-3 py-1.5 rounded border bg-black text-white border-black'
-                        : 'text-xs font-bold px-3 py-1.5 rounded border bg-white text-black border-gray-300 hover:bg-gray-50'
+                        ? 'text-xs font-bold px-3 py-1.5 rounded border bg-primary text-primary-foreground border-primary hover:bg-primary/90'
+                        : 'text-xs font-bold px-3 py-1.5 rounded border bg-white text-gray-800 border-gray-300 hover:bg-gray-50'
                     }
                   >
                     {currentItem.published ? 'Unpublish' : 'Publish'}
