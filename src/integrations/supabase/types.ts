@@ -4579,7 +4579,6 @@ export type Database = {
         Returns: boolean
       }
       clean_old_security_events: { Args: never; Returns: undefined }
-      debug_whoami: { Args: never; Returns: Json }
       delete_all_user_resumes: {
         Args: { user_id_param: string }
         Returns: undefined
