@@ -368,7 +368,7 @@ function App() {
                     <Route path="/admin/blog/*" element={<BlogAdmin />} />
                     <Route path="/admin/blog-posts" element={<AdminBlogPosts />} />
                     <Route path="/admin/courses" element={<AdminCourses />} />
-                    <Route path="/admin/course-edit/:id" element={<AdminCourseEdit />} />
+                    <Route path="/admin/course-edit/:id" element={<AdminCourseEditRedirect />} />
                     <Route path="/admin/events" element={<AdminEvents />} />
                     <Route path="/admin/users" element={<AdminUsers />} />
                     <Route path="/admin/page-visibility" element={<AdminPageVisibility />} />
