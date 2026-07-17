@@ -1,7 +1,7 @@
 import React from 'react';
-import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, Bot, MessageSquare, FileUp, Eye, Compass, FileCheck, FormInput, Newspaper, Lightbulb, Twitter, Database, ChevronRight } from 'lucide-react';
+import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, Bot, MessageSquare, FileUp, Eye, Compass, FileCheck, FormInput, Newspaper, Lightbulb, Twitter, Database } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
-import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarTrigger, SidebarFooter, SidebarRail, useSidebar, SidebarMenuSub, SidebarMenuSubItem, SidebarMenuSubButton } from '@/components/ui/sidebar';
+import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarTrigger, SidebarFooter, SidebarRail, useSidebar } from '@/components/ui/sidebar';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePageVisibility } from '@/contexts/PageVisibilityContext';
 import { motion } from 'framer-motion';
@@ -18,9 +18,6 @@ const AppSidebar = () => {
   } = useAuth();
   const { isPageVisible, isLoading: pageVisibilityLoading } = usePageVisibility();
   const { open } = useSidebar();
-  const [resourcesOpen, setResourcesOpen] = React.useState(() =>
-    location.pathname === '/resources' || location.pathname.startsWith('/course')
-  );
 
   // Define public menu items with corrected routes
   const publicMenuItems = [{
@@ -32,14 +29,12 @@ const AppSidebar = () => {
     title: "Resources",
     url: "/resources",
     icon: FileText,
-    active: location.pathname === '/resources',
-    hasSubmenu: true,
-    subItems: [{
-      title: "Courses",
-      url: "/courses",
-      icon: BookOpen,
-      active: location.pathname.startsWith('/course')
-    }]
+    active: location.pathname === '/resources'
+  }, {
+    title: "Courses",
+    url: "/courses",
+    icon: BookOpen,
+    active: location.pathname.startsWith('/course')
   }, {
     title: "Resume Analyzer",
     url: "/resume",
@@ -127,14 +122,12 @@ const AppSidebar = () => {
     title: "Resources",
     url: "/resources",
     icon: FileText,
-    active: location.pathname === '/resources',
-    hasSubmenu: true,
-    subItems: [{
-      title: "Courses",
-      url: "/courses",
-      icon: BookOpen,
-      active: location.pathname.startsWith('/course')
-    }]
+    active: location.pathname === '/resources'
+  }, {
+    title: "Courses",
+    url: "/courses",
+    icon: BookOpen,
+    active: location.pathname.startsWith('/course')
   }, {
     title: "Events",
     url: "/events",
