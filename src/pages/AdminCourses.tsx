@@ -132,7 +132,7 @@ export default function AdminCourses() {
             </div>
             <Button
               onClick={handleAddCourse}
-              className="h-11 rounded-full bg-[#DAFB3C] hover:bg-[#c8ea28] text-neutral-900 font-semibold px-6 shadow-none"
+              className="h-11 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-6 shadow-none"
             >
               <Plus className="mr-2 h-4 w-4" /> New course
             </Button>
@@ -198,7 +198,7 @@ export default function AdminCourses() {
                   <p className="text-neutral-500 mb-4">Get started by creating your first course.</p>
                   <Button
                     onClick={handleAddCourse}
-                    className="h-11 rounded-full bg-[#DAFB3C] hover:bg-[#c8ea28] text-neutral-900 font-semibold shadow-none"
+                    className="h-11 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-none"
                   >
                     <Plus className="mr-2 h-4 w-4" /> New course
                   </Button>

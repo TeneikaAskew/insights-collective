@@ -767,7 +767,7 @@ const CourseDetail = () => {
                     <>
                       <Button
                         asChild
-                        className="w-full h-12 rounded-full bg-[#DAFB3C] hover:bg-[#c8ea28] text-neutral-900 font-semibold text-base shadow-none"
+                        className="w-full h-12 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-base shadow-none"
                       >
                         <Link to={`/courses/${courseId}/learn`}>Continue learning</Link>
                       </Button>
@@ -784,7 +784,7 @@ const CourseDetail = () => {
                       <Button
                         onClick={handleEnroll}
                         disabled={enrolling}
-                        className="w-full h-12 rounded-full bg-[#DAFB3C] hover:bg-[#c8ea28] text-neutral-900 font-semibold text-base shadow-none"
+                        className="w-full h-12 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-base shadow-none"
                       >
                         {enrolling ? 'Enrolling…' : 'Enroll for free'}
                       </Button>
