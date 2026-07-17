@@ -224,7 +224,7 @@ export function SidebarLayout({ portfolioPage }: SidebarLayoutProps) {
           {portfolioPage.profile_data?.education && portfolioPage.profile_data.education.length > 0 && (
             <div className="mb-6">
               <h2 className="text-xl font-semibold mb-3 flex items-center gap-2" style={{ color: themeStyles.color }}>
-                🎓 Education
+                <GraduationCap className="h-5 w-5" /> Education
               </h2>
               <div className="space-y-4">
                 {portfolioPage.profile_data.education.slice(0, 2).map((edu, index) => (
