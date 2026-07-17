@@ -354,7 +354,7 @@ const ForumListPage = () => {
                         <div className="flex items-start justify-between">
                           <div>
                             <CardTitle>
-                              <span className="mr-2">{category.icon}</span>
+                              <category.icon className="inline-block mr-2 h-5 w-5 text-primary align-text-bottom" />
                               <Link to={`/courses/${category.id}/forums/${category.id}`} className="hover:text-primary transition-colors">
                                 {category.title}
                               </Link>
