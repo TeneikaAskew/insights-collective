@@ -407,10 +407,7 @@ const CourseLearn = () => {
         <main className="flex-1 overflow-y-auto">
           <div className="max-w-3xl mx-auto px-8 py-10 pb-32">
             <div className="mb-4">
-              <span
-                className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest px-2.5 py-1 rounded"
-                style={{ background: '#1a1a1a', color: '#fff' }}
-              >
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest px-2.5 py-1 rounded bg-primary text-primary-foreground">
                 <FileText className="w-3 h-3" />
                 {selected.item.type === 'quiz'
                   ? 'Quiz'
