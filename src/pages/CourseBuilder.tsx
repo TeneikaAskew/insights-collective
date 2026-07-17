@@ -301,7 +301,12 @@ const CourseBuilder = () => {
   );
 
   const addLesson = useCallback(
-    async (moduleId: string, type: ContentItemType = 'page', title = 'New lesson') => {
+    async (
+      moduleId: string,
+      type: ContentItemType = 'page',
+      title = 'New lesson',
+      content = '',
+    ) => {
       if (!courseId) return;
       try {
         const created = await CanvasContentService.createContentItem({
@@ -309,7 +314,7 @@ const CourseBuilder = () => {
           module_id: moduleId,
           type,
           title,
-          content: '',
+          content,
         });
         setModules((prev) =>
           prev.map((m) => (m.id === moduleId ? { ...m, items: [...m.items, created] } : m)),
