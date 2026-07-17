@@ -162,48 +162,78 @@ const CourseList = () => {
             </div>
           ) : (
             <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-              {filtered.map((course) => (
-                <button
-                  key={course.id}
-                  onClick={() => navigate(`/courses/${course.id}`)}
-                  className="group text-left rounded-2xl border border-neutral-200 bg-white overflow-hidden hover:border-neutral-900 hover:shadow-[0_10px_30px_-10px_rgba(0,0,0,0.15)] transition-all"
-                >
-                  <div className="aspect-[16/9] overflow-hidden bg-neutral-100">
-                    <img
-                      src={course.thumbnail}
-                      alt={course.title}
-                      className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500"
-                    />
-                  </div>
-                  <div className="p-6">
-                    <div className="flex items-center gap-2 mb-3 text-[11px] uppercase tracking-[0.15em] text-neutral-500">
-                      <span>{course.category || 'Course'}</span>
-                      {course.level && <><span>•</span><span>{course.level}</span></>}
+              {filtered.map((course) => {
+                const initials = (course.title || 'C')
+                  .split(/\s+/)
+                  .map((w) => w[0])
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .join('')
+                  .toUpperCase();
+                return (
+                  <button
+                    key={course.id}
+                    onClick={() => navigate(`/courses/${course.id}`)}
+                    className="group text-left rounded-2xl border border-neutral-200 bg-white overflow-hidden hover:border-neutral-900 hover:shadow-[0_10px_30px_-10px_rgba(0,0,0,0.15)] transition-all"
+                  >
+                    {/* Media */}
+                    <div className="relative aspect-[16/10] overflow-hidden bg-[hsl(var(--cw-accent-soft))]">
+                      <img
+                        src={course.thumbnail}
+                        alt={course.title}
+                        className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500"
+                      />
+                      {/* ONLINE pill */}
+                      <span
+                        className="absolute top-4 left-4 inline-flex items-center px-3 py-1 rounded-md text-[11px] font-bold uppercase tracking-[0.14em]"
+                        style={{
+                          background: 'hsl(var(--cw-accent-soft))',
+                          color: 'hsl(var(--cw-accent-strong))',
+                        }}
+                      >
+                        Online
+                      </span>
+                      {/* Circular logo badge overlapping bottom-left */}
+                      <div className="absolute -bottom-6 left-5 h-14 w-14 rounded-full bg-white border-4 border-white shadow-md flex items-center justify-center overflow-hidden">
+                        {course.instructor?.avatar ? (
+                          <img
+                            src={course.instructor.avatar}
+                            alt={course.instructor.name}
+                            className="h-full w-full object-cover rounded-full"
+                          />
+                        ) : (
+                          <span className="text-xs font-bold text-neutral-700">{initials}</span>
+                        )}
+                      </div>
                     </div>
-                    <h3 className="font-display text-2xl text-neutral-900 mb-2 line-clamp-2 leading-tight">
-                      {course.title}
-                    </h3>
-                    <p className="text-sm text-neutral-600 line-clamp-2 mb-5">
-                      {course.description}
-                    </p>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4 text-xs text-neutral-500">
+                    {/* Body */}
+                    <div className="pt-9 px-6 pb-6">
+                      <h3 className="font-display text-xl text-neutral-900 mb-1 line-clamp-2 leading-snug">
+                        {course.title}
+                      </h3>
+                      <p className="text-sm text-neutral-500 truncate">
+                        {course.instructor?.name || 'Instructor'}
+                        {course.category ? ` · ${course.category}` : ''}
+                      </p>
+                      <div className="mt-4 flex items-center gap-4 text-xs text-neutral-500">
                         {course.duration && (
                           <span className="inline-flex items-center gap-1">
                             <Clock className="h-3.5 w-3.5" /> {course.duration}
                           </span>
                         )}
-                        <span className="inline-flex items-center gap-1">
-                          <BookOpen className="h-3.5 w-3.5" /> {course.instructor?.name}
+                        {course.level && (
+                          <span className="inline-flex items-center gap-1">
+                            <BookOpen className="h-3.5 w-3.5" /> {course.level}
+                          </span>
+                        )}
+                        <span className="ml-auto inline-flex items-center gap-1 text-neutral-900 font-medium group-hover:gap-2 transition-all">
+                          View <ArrowRight className="h-4 w-4" />
                         </span>
                       </div>
-                      <span className="inline-flex items-center gap-1 text-sm font-medium text-neutral-900 group-hover:gap-2 transition-all">
-                        View <ArrowRight className="h-4 w-4" />
-                      </span>
                     </div>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
