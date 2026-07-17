@@ -211,8 +211,8 @@ const CourseLearn = () => {
   if (!selected) {
     return (
       <div
-        className="teachable-workspace fixed inset-0 flex flex-col"
-        style={{ background: '#F5F5F0', color: 'hsl(var(--tw-text))' }}
+        className="teachable-workspace fixed inset-0 flex flex-col bg-background"
+        style={{ color: 'hsl(var(--tw-text))' }}
       >
         <AdminTopBar canEdit={canEdit} courseId={course.id} previewAsStudent={previewAsStudent} onPreviewChange={setPreviewAsStudent} />
         <div className="flex-1 overflow-y-auto">
