@@ -166,18 +166,9 @@ function NavGroup({
             className={cn(
               'w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-left transition-colors',
               active
-                ? 'text-white'
-                : 'text-gray-300 hover:text-white hover:bg-white/5',
+                ? 'bg-primary text-primary-foreground font-semibold'
+                : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
             )}
-            style={
-              active
-                ? {
-                    background: 'hsl(var(--tw-accent))',
-                    color: 'hsl(var(--tw-accent-ink))',
-                    fontWeight: 700,
-                  }
-                : undefined
-            }
           >
             <Icon className="h-4 w-4 flex-shrink-0" />
             <span className="truncate">{label}</span>
