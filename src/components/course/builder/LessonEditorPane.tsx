@@ -149,10 +149,11 @@ export function LessonEditorPane({
         {draft.type === 'quiz' ? (
           <div className="space-y-2">
             <Label>Quiz questions</Label>
-            <QuizContentEditor contentItemId={item.id} />
+            <QuizContentEditor key={`quiz-${item.id}`} contentItemId={item.id} />
             <div className="pt-4 space-y-2">
               <Label>Instructions (optional)</Label>
               <UnifiedCanvasEditor
+                key={`instructions-${item.id}`}
                 content={draft.content}
                 onChange={(content) => setField('content', content)}
                 placeholder="Instructions shown above the quiz…"
@@ -164,6 +165,7 @@ export function LessonEditorPane({
           <div className="space-y-2">
             <Label>Content</Label>
             <UnifiedCanvasEditor
+              key={`content-${item.id}`}
               content={draft.content}
               onChange={(content) => setField('content', content)}
               placeholder="Start writing your lesson…"
