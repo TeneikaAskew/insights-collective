@@ -1844,6 +1844,7 @@ export type Database = {
           instructor_id: string | null
           level: string
           published: boolean | null
+          settings: Json
           status: string | null
           tags: string[] | null
           thumbnail: string | null
@@ -1866,6 +1867,7 @@ export type Database = {
           instructor_id?: string | null
           level: string
           published?: boolean | null
+          settings?: Json
           status?: string | null
           tags?: string[] | null
           thumbnail?: string | null
@@ -1888,6 +1890,7 @@ export type Database = {
           instructor_id?: string | null
           level?: string
           published?: boolean | null
+          settings?: Json
           status?: string | null
           tags?: string[] | null
           thumbnail?: string | null

@@ -15,6 +15,9 @@ import { SetupGuideView } from '@/components/course/builder/teachable/SetupGuide
 import { CurriculumView } from '@/components/course/builder/teachable/CurriculumView';
 import { LessonEditView } from '@/components/course/builder/teachable/LessonEditView';
 import { PlaceholderView } from '@/components/course/builder/teachable/PlaceholderView';
+import { CourseInformationView } from '@/components/course/builder/teachable/CourseInformationView';
+import { CourseDesignView } from '@/components/course/builder/teachable/CourseDesignView';
+import { CourseCertificatesView } from '@/components/course/builder/teachable/CourseCertificatesView';
 import {
   NewCourseWizard,
   type NewCourseWizardResult,
@@ -88,7 +91,7 @@ const CourseBuilder = () => {
       try {
         const { data: courseData, error } = await supabase
           .from('courses')
-          .select('id, title, description, thumbnail, published')
+          .select('id, title, description, thumbnail, image_url, published, category, level, tags, duration, estimated_hours, difficulty_level, settings')
           .eq('id', courseId)
           .single();
         if (error) throw error;
@@ -202,13 +205,12 @@ const CourseBuilder = () => {
     [persistCourse, toast],
   );
 
-  const handleEditTitle = useCallback(() => {
-    if (!course) return;
-    const next = prompt('Course title', course.title);
-    if (next && next.trim() && next !== course.title) {
-      void persistCourse({ title: next.trim() });
-    }
-  }, [course, persistCourse]);
+  const renameCourse = useCallback(
+    async (title: string) => {
+      await persistCourse({ title });
+    },
+    [persistCourse],
+  );
 
   const handleUploadThumbnail = useCallback(
     async (file: File) => {
@@ -217,11 +219,11 @@ const CourseBuilder = () => {
         const ext = file.name.split('.').pop() || 'jpg';
         const path = `course-thumbnails/${course.id}-${Date.now()}.${ext}`;
         const { error } = await supabase.storage
-          .from('public-assets')
+          .from('course-materials')
           .upload(path, file, { upsert: true, contentType: file.type });
         if (error) throw error;
-        const { data: pub } = supabase.storage.from('public-assets').getPublicUrl(path);
-        await persistCourse({ thumbnail: pub.publicUrl });
+        const { data: pub } = supabase.storage.from('course-materials').getPublicUrl(path);
+        await persistCourse({ image_url: pub.publicUrl, thumbnail: pub.publicUrl });
         toast({ title: 'Thumbnail uploaded' });
       } catch (err: any) {
         toast({
@@ -233,6 +235,10 @@ const CourseBuilder = () => {
     },
     [course, persistCourse, toast],
   );
+
+  const handleRemoveThumbnail = useCallback(async () => {
+    await persistCourse({ image_url: null, thumbnail: null });
+  }, [persistCourse]);
 
   // --- Curriculum actions ---
   const addSection = useCallback(async () => {
@@ -508,8 +514,9 @@ const CourseBuilder = () => {
           modules={modules}
           onGoToCurriculum={() => goToView('curriculum')}
           onSelectLesson={selectLesson}
-          onEditTitle={handleEditTitle}
+          onRenameCourse={renameCourse}
           onUploadThumbnail={handleUploadThumbnail}
+          onRemoveThumbnail={handleRemoveThumbnail}
         />
       )}
 
@@ -544,13 +551,31 @@ const CourseBuilder = () => {
         />
       )}
 
-      {activeView !== 'setup' && activeView !== 'curriculum' && activeView !== 'lesson' && (
-        <PlaceholderView
-          courseTitle={course.title}
-          title={PLACEHOLDER_COPY[activeView as keyof typeof PLACEHOLDER_COPY].title}
-          description={PLACEHOLDER_COPY[activeView as keyof typeof PLACEHOLDER_COPY].description}
-        />
+      {activeView === 'information' && (
+        <CourseInformationView course={course} onSave={persistCourse} />
       )}
+
+      {activeView === 'design' && (
+        <CourseDesignView course={course} onSave={persistCourse} />
+      )}
+
+      {activeView === 'certificates' && (
+        <CourseCertificatesView course={course} onSave={persistCourse} />
+      )}
+
+      {activeView !== 'setup' &&
+        activeView !== 'curriculum' &&
+        activeView !== 'lesson' &&
+        activeView !== 'information' &&
+        activeView !== 'design' &&
+        activeView !== 'certificates' &&
+        PLACEHOLDER_COPY[activeView as keyof typeof PLACEHOLDER_COPY] && (
+          <PlaceholderView
+            courseTitle={course.title}
+            title={PLACEHOLDER_COPY[activeView as keyof typeof PLACEHOLDER_COPY].title}
+            description={PLACEHOLDER_COPY[activeView as keyof typeof PLACEHOLDER_COPY].description}
+          />
+        )}
     </TeachableShell>
   );
 };

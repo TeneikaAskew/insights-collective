@@ -1,8 +1,8 @@
 // ABOUTME: "Setup guide" landing view for the Teachable-style builder.
 // ABOUTME: Two-column: curriculum preview list on the left, course info/thumbnail card on the right.
 
-import { useState } from 'react';
-import { ClipboardList, LayoutGrid, Image as ImageIcon, Pencil, Eye } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { ClipboardList, LayoutGrid, Image as ImageIcon, Pencil, Eye, Trash2, Check, X } from 'lucide-react';
 import type { BuilderCourse, BuilderModule } from './types';
 
 interface SetupGuideViewProps {
@@ -10,8 +10,9 @@ interface SetupGuideViewProps {
   modules: BuilderModule[];
   onGoToCurriculum: () => void;
   onSelectLesson: (lessonId: string) => void;
-  onEditTitle: () => void;
+  onRenameCourse: (title: string) => Promise<void> | void;
   onUploadThumbnail: (file: File) => Promise<void>;
+  onRemoveThumbnail: () => Promise<void> | void;
 }
 
 export function SetupGuideView({
@@ -19,10 +20,24 @@ export function SetupGuideView({
   modules,
   onGoToCurriculum,
   onSelectLesson,
-  onEditTitle,
+  onRenameCourse,
   onUploadThumbnail,
+  onRemoveThumbnail,
 }: SetupGuideViewProps) {
   const [uploading, setUploading] = useState(false);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState(course.title);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setTitleDraft(course.title);
+  }, [course.title]);
+
+  useEffect(() => {
+    if (editingTitle) inputRef.current?.select();
+  }, [editingTitle]);
+
+  const thumbnailSrc = course.image_url || course.thumbnail || null;
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -32,12 +47,23 @@ export function SetupGuideView({
       await onUploadThumbnail(file);
     } finally {
       setUploading(false);
+      e.target.value = '';
     }
+  };
+
+  const commitTitle = async () => {
+    const next = titleDraft.trim();
+    if (next && next !== course.title) {
+      await onRenameCourse(next);
+    } else {
+      setTitleDraft(course.title);
+    }
+    setEditingTitle(false);
   };
 
   return (
     <div className="px-10 py-10 max-w-[1200px] mx-auto">
-      <div className="text-xs uppercase tracking-widest text-gray-500 mb-3">
+      <div className="text-xs uppercase tracking-widest text-muted-foreground mb-3">
         <span className="underline underline-offset-4 cursor-pointer">Courses</span>
         <span className="mx-2 opacity-50">|</span>
         <span>{course.title}</span>
@@ -46,11 +72,9 @@ export function SetupGuideView({
       <div className="flex items-center gap-3 mb-10">
         <h2 className="font-display text-5xl">Setup guide</h2>
         <span
-          className="text-[11px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-md"
-          style={{
-            background: course.published ? 'hsl(var(--tw-accent) / 0.2)' : '#EDEDED',
-            color: '#333',
-          }}
+          className={`text-[11px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-md ${
+            course.published ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
+          }`}
         >
           {course.published ? 'Published' : 'Unpublished'}
         </span>
@@ -60,28 +84,19 @@ export function SetupGuideView({
         {/* Left: create your curriculum */}
         <section>
           <div className="flex items-center gap-3 mb-5">
-            <div
-              className="w-9 h-9 rounded-md flex items-center justify-center"
-              style={{ background: 'hsl(var(--tw-accent) / 0.2)' }}
-            >
-              <ClipboardList className="h-5 w-5" />
+            <div className="w-9 h-9 rounded-md flex items-center justify-center bg-primary/15">
+              <ClipboardList className="h-5 w-5 text-primary" />
             </div>
             <h3 className="font-display text-3xl">Create your curriculum</h3>
           </div>
 
-          <div
-            className="rounded-xl bg-white overflow-hidden"
-            style={{ border: '1px solid hsl(var(--tw-border))' }}
-          >
-            <div
-              className="flex items-center justify-between px-6 py-4"
-              style={{ borderBottom: '1px solid hsl(var(--tw-border))' }}
-            >
+          <div className="rounded-xl bg-white overflow-hidden border border-border">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
               <h4 className="font-semibold text-sm">Curriculum Preview</h4>
               <div className="flex items-center gap-3 text-sm">
                 <button
                   onClick={onGoToCurriculum}
-                  className="inline-flex items-center gap-1.5 text-gray-600 hover:text-black"
+                  className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground"
                 >
                   <Eye className="h-4 w-4" />
                   Preview curriculum
@@ -97,39 +112,39 @@ export function SetupGuideView({
             </div>
 
             {modules.length === 0 ? (
-              <div className="px-6 py-12 text-center text-sm text-gray-500">
+              <div className="px-6 py-12 text-center text-sm text-muted-foreground">
                 No sections yet.{' '}
                 <button className="underline font-semibold" onClick={onGoToCurriculum}>
                   Add your first section
                 </button>
               </div>
             ) : (
-              <ul className="divide-y" style={{ borderColor: 'hsl(var(--tw-border))' }}>
+              <ul className="divide-y divide-border">
                 {modules.map((m) => (
                   <li key={m.id} className="px-6 py-4">
                     <div className="font-sans text-lg mb-2">{m.title || 'Untitled section'}</div>
                     <ul className="space-y-1.5">
                       {m.items.length === 0 && (
-                        <li className="text-xs text-gray-400 italic">No lessons yet</li>
+                        <li className="text-xs text-muted-foreground italic">No lessons yet</li>
                       )}
                       {m.items.map((it) => (
                         <li
                           key={it.id}
-                          className="flex items-center justify-between text-sm hover:bg-gray-50 -mx-2 px-2 py-1 rounded cursor-pointer"
+                          className="flex items-center justify-between text-sm hover:bg-muted/40 -mx-2 px-2 py-1 rounded cursor-pointer"
                           onClick={() => onSelectLesson(it.id)}
                         >
                           <div>
                             <div className="font-medium">{it.title || 'Untitled lesson'}</div>
-                            <div className="text-[11px] text-gray-500 mt-0.5">
+                            <div className="text-[11px] text-muted-foreground mt-0.5">
                               1 {contentLabel(it.type)}
                             </div>
                           </div>
                           <span
-                            className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded"
-                            style={{
-                              background: it.published ? 'hsl(var(--tw-accent) / 0.25)' : '#EDEDED',
-                              color: '#333',
-                            }}
+                            className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded ${
+                              it.published
+                                ? 'bg-primary/15 text-primary'
+                                : 'bg-muted text-muted-foreground'
+                            }`}
                           >
                             {it.published ? 'Published' : 'Draft'}
                           </span>
@@ -146,66 +161,103 @@ export function SetupGuideView({
         {/* Right: customize your course */}
         <aside className="space-y-4">
           <div className="flex items-center gap-3 mb-5">
-            <div
-              className="w-9 h-9 rounded-md flex items-center justify-center"
-              style={{ background: 'hsl(var(--tw-accent) / 0.2)' }}
-            >
-              <LayoutGrid className="h-5 w-5" />
+            <div className="w-9 h-9 rounded-md flex items-center justify-center bg-primary/15">
+              <LayoutGrid className="h-5 w-5 text-primary" />
             </div>
             <h3 className="font-display text-3xl">Customize your course</h3>
           </div>
 
-          <div
-            className="rounded-xl bg-white p-5"
-            style={{ border: '1px solid hsl(var(--tw-border))' }}
-          >
+          <div className="rounded-xl bg-white p-5 border border-border">
             <div className="flex items-center justify-between mb-2">
               <h4 className="text-sm font-semibold">Course title</h4>
-              <button
-                type="button"
-                onClick={onEditTitle}
-                className="inline-flex items-center gap-1 text-xs font-semibold hover:underline"
-              >
-                <Pencil className="h-3.5 w-3.5" />
-                Edit title
-              </button>
+              {!editingTitle && (
+                <button
+                  type="button"
+                  onClick={() => setEditingTitle(true)}
+                  className="inline-flex items-center gap-1 text-xs font-semibold hover:underline"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  Edit title
+                </button>
+              )}
             </div>
-            <p className="text-sm text-gray-700">{course.title}</p>
+            {editingTitle ? (
+              <div className="flex items-center gap-1.5">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={titleDraft}
+                  onChange={(e) => setTitleDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') void commitTitle();
+                    if (e.key === 'Escape') {
+                      setTitleDraft(course.title);
+                      setEditingTitle(false);
+                    }
+                  }}
+                  className="flex-1 px-2 py-1.5 text-sm rounded border border-input focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                <button
+                  type="button"
+                  onClick={() => void commitTitle()}
+                  className="p-1.5 rounded bg-primary text-primary-foreground hover:opacity-90"
+                  aria-label="Save title"
+                >
+                  <Check className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTitleDraft(course.title);
+                    setEditingTitle(false);
+                  }}
+                  className="p-1.5 rounded border border-input hover:bg-muted"
+                  aria-label="Cancel"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : (
+              <p className="text-sm text-foreground">{course.title}</p>
+            )}
           </div>
 
-          <div
-            className="rounded-xl bg-white p-5"
-            style={{ border: '1px solid hsl(var(--tw-border))' }}
-          >
+          <div className="rounded-xl bg-white p-5 border border-border">
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-sm font-semibold">Thumbnail</h4>
-              <label className="inline-flex items-center gap-1 text-xs font-semibold hover:underline cursor-pointer">
-                <ImageIcon className="h-3.5 w-3.5" />
-                {course.thumbnail ? 'Replace' : 'Add an image'}
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleFile}
-                  disabled={uploading}
-                />
-              </label>
+              <div className="flex items-center gap-3">
+                {thumbnailSrc && (
+                  <button
+                    type="button"
+                    onClick={() => void onRemoveThumbnail()}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-destructive hover:underline"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Remove
+                  </button>
+                )}
+                <label className="inline-flex items-center gap-1 text-xs font-semibold hover:underline cursor-pointer">
+                  <ImageIcon className="h-3.5 w-3.5" />
+                  {uploading ? 'Uploading…' : thumbnailSrc ? 'Replace' : 'Add an image'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleFile}
+                    disabled={uploading}
+                  />
+                </label>
+              </div>
             </div>
-            <div
-              className="aspect-[16/9] rounded-md flex items-center justify-center overflow-hidden"
-              style={{
-                background: '#F3F3F3',
-                border: '1px dashed hsl(var(--tw-border))',
-              }}
-            >
-              {course.thumbnail ? (
+            <div className="aspect-[16/9] rounded-md flex items-center justify-center overflow-hidden bg-muted border border-dashed border-border">
+              {thumbnailSrc ? (
                 <img
-                  src={course.thumbnail}
+                  src={thumbnailSrc}
                   alt="Course thumbnail"
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <div className="text-xs text-gray-400 text-center px-4">
+                <div className="text-xs text-muted-foreground text-center px-4">
                   Recommended 1024×576 (16:9)
                 </div>
               )}
