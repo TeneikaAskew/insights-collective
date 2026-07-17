@@ -348,7 +348,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
           <div className="mt-6 mb-4">
             <Button onClick={handleCareerCoachClick} disabled={isProcessing} className="w-full sm:w-auto py-6 px-8">
               <MessageCircle className="h-5 w-5" /> Chat with Career Coach
-              {isProcessing && <span className="ml-2 animate-spin">⏳</span>}
+              {isProcessing && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
             </Button>
           </div>
           <div className="flex flex-wrap gap-3 justify-center mt-4">
