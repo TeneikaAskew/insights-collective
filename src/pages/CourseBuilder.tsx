@@ -260,6 +260,18 @@ const CourseBuilder = () => {
     [toast],
   );
 
+  const updateSectionDescription = useCallback(
+    async (id: string, description: string) => {
+      try {
+        await CanvasContentService.updateModule(id, { description });
+        setModules((prev) => prev.map((m) => (m.id === id ? { ...m, description } : m)));
+      } catch (err: any) {
+        toast({ title: 'Error', description: err.message, variant: 'destructive' });
+      }
+    },
+    [toast],
+  );
+
   const deleteSection = useCallback(
     async (id: string) => {
       try {
@@ -502,6 +514,7 @@ const CourseBuilder = () => {
           modules={modules}
           onAddModule={addSection}
           onRenameModule={renameSection}
+          onUpdateModuleDescription={updateSectionDescription}
           onDeleteModule={deleteSection}
           onReorderModules={reorderSections}
           onAddLesson={(mid) => void addLesson(mid)}

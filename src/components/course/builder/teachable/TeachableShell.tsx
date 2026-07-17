@@ -138,8 +138,8 @@ export function TeachableShell({
             onClick={() => onTogglePublish(!published)}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-bold transition-transform hover:scale-[1.02]"
             style={{
-              background: published ? '#111' : 'hsl(var(--tw-accent))',
-              color: published ? '#fff' : 'hsl(var(--tw-accent-ink))',
+              background: published ? 'hsl(var(--muted))' : 'hsl(var(--primary))',
+              color: published ? 'hsl(var(--muted-foreground))' : 'hsl(var(--primary-foreground))',
             }}
           >
             {published ? 'Unpublish course' : 'Publish your course'}

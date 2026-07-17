@@ -227,7 +227,7 @@ const CourseLearn = () => {
                     const first = flatItems[0];
                     if (first) goTo(first.module.id, first.item.id);
                   }}
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-md font-bold text-sm bg-black text-white hover:bg-black/85"
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-md font-bold text-sm bg-primary text-primary-foreground hover:bg-primary/90"
                 >
                   Start Lesson
                 </button>
@@ -563,7 +563,7 @@ function HomeSection({
                 <button
                   type="button"
                   onClick={() => onSelect(it.id)}
-                  className="text-xs font-bold px-4 py-1.5 rounded-md bg-black text-white hover:bg-black/85"
+                  className="text-xs font-bold px-4 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
                 >
                   {done ? 'Review' : 'Start'}
                 </button>

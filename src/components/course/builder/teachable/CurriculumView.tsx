@@ -37,6 +37,7 @@ interface CurriculumViewProps {
   modules: BuilderModule[];
   onAddModule: () => void;
   onRenameModule: (moduleId: string, title: string) => void;
+  onUpdateModuleDescription?: (moduleId: string, description: string) => void;
   onDeleteModule: (moduleId: string) => void;
   onReorderModules: (orderedIds: string[]) => void;
   onAddLesson: (moduleId: string) => void;
@@ -53,6 +54,7 @@ export function CurriculumView(props: CurriculumViewProps) {
     modules,
     onAddModule,
     onRenameModule,
+    onUpdateModuleDescription,
     onDeleteModule,
     onReorderModules,
     onAddLesson,
@@ -154,6 +156,7 @@ export function CurriculumView(props: CurriculumViewProps) {
                   key={m.id}
                   module={m}
                   onRenameModule={onRenameModule}
+                  onUpdateModuleDescription={onUpdateModuleDescription}
                   onDeleteModule={onDeleteModule}
                   onAddLesson={onAddLesson}
                   onRenameLesson={onRenameLesson}
@@ -175,6 +178,7 @@ export function CurriculumView(props: CurriculumViewProps) {
 interface SectionCardProps {
   module: BuilderModule;
   onRenameModule: (id: string, title: string) => void;
+  onUpdateModuleDescription?: (id: string, description: string) => void;
   onDeleteModule: (id: string) => void;
   onAddLesson: (moduleId: string) => void;
   onRenameLesson: (id: string, title: string) => void;
@@ -187,6 +191,7 @@ interface SectionCardProps {
 function SectionCard({
   module,
   onRenameModule,
+  onUpdateModuleDescription,
   onDeleteModule,
   onAddLesson,
   onRenameLesson,
@@ -207,11 +212,21 @@ function SectionCard({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(module.title);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [descDraft, setDescDraft] = useState(module.description ?? '');
+  const [descEditing, setDescEditing] = useState(false);
 
   const commit = () => {
     setEditing(false);
     if (draft.trim() && draft !== module.title) onRenameModule(module.id, draft.trim());
     else setDraft(module.title);
+  };
+
+  const commitDesc = () => {
+    setDescEditing(false);
+    const next = descDraft.trim();
+    if ((module.description ?? '') !== next && onUpdateModuleDescription) {
+      onUpdateModuleDescription(module.id, next);
+    }
   };
 
   const itemIds = useMemo(() => module.items.map((i) => i.id), [module.items]);
@@ -318,7 +333,43 @@ function SectionCard({
         </button>
       </div>
 
+      {/* Section summary (shown to students on the course page) */}
+      {onUpdateModuleDescription && (
+        <div
+          className="px-5 py-3"
+          style={{ borderBottom: '1px solid hsl(var(--tw-border))' }}
+        >
+          {descEditing ? (
+            <textarea
+              autoFocus
+              className="w-full text-sm bg-transparent outline-none focus:ring-2 focus:ring-primary/40 rounded p-2 min-h-[64px] resize-y"
+              style={{ border: '1px solid hsl(var(--tw-border))' }}
+              value={descDraft}
+              onChange={(e) => setDescDraft(e.target.value)}
+              onBlur={commitDesc}
+              placeholder="Add a short summary students see on the course page…"
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setDescEditing(true)}
+              className="w-full text-left text-sm text-gray-600 hover:text-black cursor-text px-1 py-1 rounded"
+              title="Edit section summary"
+            >
+              {module.description?.trim() ? (
+                <span className="whitespace-pre-wrap">{module.description}</span>
+              ) : (
+                <span className="text-gray-400 italic">
+                  + Add a section summary students will see on the course page
+                </span>
+              )}
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Lessons */}
+
       {module.items.length === 0 ? (
         <div className="px-5 py-6 text-center text-sm text-gray-400">
           No lessons yet. Add one below.
@@ -456,8 +507,8 @@ function LessonRow({ item, onRename, onDelete, onTogglePublish, onSelect }: Less
         className={cn(
           'text-xs font-bold px-3 py-1.5 rounded border transition-colors',
           item.published
-            ? 'bg-black text-white border-black'
-            : 'bg-white text-black border-gray-300 hover:bg-gray-50',
+            ? 'bg-primary text-primary-foreground border-primary hover:bg-primary/90'
+            : 'bg-white text-gray-800 border-gray-300 hover:bg-gray-50',
         )}
       >
         {item.published ? 'Unpublish' : 'Publish'}
