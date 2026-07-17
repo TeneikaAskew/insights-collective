@@ -3,73 +3,53 @@
 
 import { test, expect } from '@playwright/test';
 
-/**
- * Routes to snapshot for visual regression.
- * `role` picks which storageState (project) can run the route.
- * - 'public'    → runs in visual-public project (no auth)
- * - 'member'    → runs in visual-member project
- * - 'admin'     → runs in visual-admin project
- * - 'instructor'→ runs in visual-instructor project
- *
- * `waitFor` optionally scopes readiness to a selector before the screenshot.
- * `fullPage` defaults to true.
- */
+type RouteRole = 'public' | 'member' | 'admin' | 'instructor';
+
 type RouteSpec = {
   name: string;
   path: string;
-  role: 'public' | 'member' | 'admin' | 'instructor';
+  role: RouteRole;
   waitFor?: string;
   fullPage?: boolean;
 };
 
 const ROUTES: RouteSpec[] = [
   // Public
-  { name: 'landing',        path: '/',              role: 'public' },
-  { name: 'login',          path: '/login',         role: 'public',   waitFor: 'form' },
-  { name: 'blog-index',     path: '/blog',          role: 'public' },
-  { name: 'courses-catalog',path: '/courses',       role: 'public' },
+  { name: 'landing',         path: '/',              role: 'public' },
+  { name: 'login',           path: '/login',         role: 'public', waitFor: 'form' },
+  { name: 'blog-index',      path: '/blog',          role: 'public' },
+  { name: 'courses-catalog', path: '/courses',       role: 'public' },
 
   // Member
-  { name: 'dashboard',            path: '/dashboard',                    role: 'member' },
-  { name: 'enrolled-courses',     path: '/enrolled-courses',             role: 'member' },
-  { name: 'notifications',        path: '/notifications',                role: 'member' },
-  { name: 'profile',              path: '/profile',                      role: 'member' },
-  { name: 'calendar',             path: '/calendar',                     role: 'member' },
-  { name: 'resume-analyzer',      path: '/resume-analyzer',              role: 'member' },
-  { name: 'career-pathway',       path: '/career-pathway',               role: 'member' },
+  { name: 'dashboard',            path: '/dashboard',                     role: 'member' },
+  { name: 'enrolled-courses',     path: '/enrolled-courses',              role: 'member' },
+  { name: 'notifications',        path: '/notifications',                 role: 'member' },
+  { name: 'profile',              path: '/profile',                       role: 'member' },
+  { name: 'calendar',             path: '/calendar',                      role: 'member' },
+  { name: 'resume-analyzer',      path: '/resume-analyzer',               role: 'member' },
+  { name: 'career-pathway',       path: '/career-pathway',                role: 'member' },
 
   // Admin
-  { name: 'admin-dashboard',      path: '/admin',                        role: 'admin' },
-  { name: 'admin-users',          path: '/admin/users',                  role: 'admin' },
-  { name: 'admin-courses',        path: '/admin/courses',                role: 'admin' },
-  { name: 'admin-activity',       path: '/admin/activity',               role: 'admin' },
-  { name: 'admin-page-visibility',path: '/admin/page-visibility',        role: 'admin' },
+  { name: 'admin-dashboard',       path: '/admin',                        role: 'admin' },
+  { name: 'admin-users',           path: '/admin/users',                  role: 'admin' },
+  { name: 'admin-courses',         path: '/admin/courses',                role: 'admin' },
+  { name: 'admin-activity',        path: '/admin/activity',               role: 'admin' },
+  { name: 'admin-page-visibility', path: '/admin/page-visibility',        role: 'admin' },
 ];
 
 test.describe('visual regression', () => {
-  test.beforeEach(async ({}, testInfo) => {
-    const role = (testInfo.project.metadata?.visualRole ?? 'public') as RouteSpec['role'];
-    testInfo.skip(
-      !ROUTES.some(r => r.role === role),
-      `no routes for role ${role}`,
-    );
-  });
-
   for (const route of ROUTES) {
     test(`${route.name} @ ${route.path}`, async ({ page }, testInfo) => {
-      const role = (testInfo.project.metadata?.visualRole ?? 'public') as RouteSpec['role'];
-      test.skip(role !== route.role, `route ${route.name} is ${route.role}-only`);
+      const role = (testInfo.project.metadata?.visualRole ?? 'public') as RouteRole;
+      test.skip(role !== route.role, `route is ${route.role}-only`);
 
-  for (const route of routes) {
-    test(`${route.name} @ ${route.path}`, async ({ page }) => {
       await page.goto(route.path, { waitUntil: 'networkidle' });
 
       if (route.waitFor) {
         await page.waitForSelector(route.waitFor, { timeout: 10_000 });
       }
 
-      // Stabilize: disable animations/transitions/caret blink and hide anything
-      // known to be non-deterministic (timestamps, avatars from external CDNs).
+      // Stabilize: disable animations, hide obviously non-deterministic content.
       await page.addStyleTag({
         content: `
           *, *::before, *::after {
@@ -86,7 +66,7 @@ test.describe('visual regression', () => {
       });
 
       // Let fonts settle to avoid FOUT diffs.
-      await page.evaluate(() => document.fonts?.ready);
+      await page.evaluate(() => (document as any).fonts?.ready);
       await page.waitForTimeout(300);
 
       await expect(page).toHaveScreenshot(`${route.name}.png`, {

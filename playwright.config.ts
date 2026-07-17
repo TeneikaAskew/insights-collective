@@ -46,6 +46,7 @@ export default defineConfig({
         '**/admin/**',
         '**/auth/**',
         '**/landing/**',
+        '**/visual/**',
         // Instructor-only specs — handled by chromium-instructor project
         '**/courses/course-builder.spec.ts',
         '**/courses/course-management.spec.ts',
