@@ -949,6 +949,7 @@ const CourseDetail = () => {
           </div>
         );
       }
+    }
   };
   
   return (
