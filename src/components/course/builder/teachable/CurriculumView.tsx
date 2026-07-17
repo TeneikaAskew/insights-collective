@@ -456,8 +456,8 @@ function LessonRow({ item, onRename, onDelete, onTogglePublish, onSelect }: Less
         className={cn(
           'text-xs font-bold px-3 py-1.5 rounded border transition-colors',
           item.published
-            ? 'bg-black text-white border-black'
-            : 'bg-white text-black border-gray-300 hover:bg-gray-50',
+            ? 'bg-primary text-primary-foreground border-primary hover:bg-primary/90'
+            : 'bg-white text-gray-800 border-gray-300 hover:bg-gray-50',
         )}
       >
         {item.published ? 'Unpublish' : 'Publish'}
