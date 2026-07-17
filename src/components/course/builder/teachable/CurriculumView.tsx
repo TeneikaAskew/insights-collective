@@ -234,10 +234,19 @@ function SectionCard({
     else setDraft(module.title);
   };
 
+  const beginEditDesc = () => {
+    const existing = module.description ?? '';
+    setDescDraft(looksLikeHtml(existing) ? htmlToPlainText(existing) : existing);
+    setDescEditing(true);
+  };
+
   const commitDesc = () => {
     setDescEditing(false);
     const next = descDraft.trim();
-    if ((module.description ?? '') !== next && onUpdateModuleDescription) {
+    const currentPlain = looksLikeHtml(module.description ?? '')
+      ? htmlToPlainText(module.description ?? '')
+      : (module.description ?? '');
+    if (currentPlain !== next && onUpdateModuleDescription) {
       onUpdateModuleDescription(module.id, next);
     }
   };
