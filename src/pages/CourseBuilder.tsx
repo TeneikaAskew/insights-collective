@@ -1,96 +1,114 @@
-// ABOUTME: Teachable/Podia-style unified course builder built on the shared workspace shell.
-// ABOUTME: Left curriculum rail (drag-reorder) + right lesson editor pane + sticky top bar controls.
+// ABOUTME: Instructor course builder — Teachable-mirrored shell with Setup guide, Curriculum, and Lesson views.
+// ABOUTME: Handles the new-course 5-step wizard and orchestrates all lesson/section CRUD.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Eye, Loader2 } from 'lucide-react';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Spinner } from '@/components/ui/spinner';
-import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { useCoursePermissions } from '@/hooks/useCoursePermissions';
 import { supabase } from '@/integrations/supabase/client';
 import CanvasContentService from '@/services/canvasContentService';
-import CourseWorkspaceShell from '@/components/course/workspace/CourseWorkspaceShell';
-import {
-  CurriculumTree,
-  type CurriculumModule,
-} from '@/components/course/builder/CurriculumTree';
-import {
-  LessonEditorPane,
-  type LessonDraft,
-} from '@/components/course/builder/LessonEditorPane';
-import type { ContentItem, Module } from '@/types/canvas';
+import type { ContentItem, ContentItemType, Module } from '@/types/canvas';
 import { createLogger } from '@/utils/logger';
+import { TeachableShell, type BuilderNavKey } from '@/components/course/builder/teachable/TeachableShell';
+import { SetupGuideView } from '@/components/course/builder/teachable/SetupGuideView';
+import { CurriculumView } from '@/components/course/builder/teachable/CurriculumView';
+import { LessonEditView } from '@/components/course/builder/teachable/LessonEditView';
+import { PlaceholderView } from '@/components/course/builder/teachable/PlaceholderView';
+import {
+  NewCourseWizard,
+  type NewCourseWizardResult,
+} from '@/components/course/builder/teachable/NewCourseWizard';
+import type { BuilderCourse, BuilderModule } from '@/components/course/builder/teachable/types';
+import type { LessonDraft } from '@/components/course/builder/LessonEditorPane';
 
 const logger = createLogger('CourseBuilder');
 
-interface CourseShell {
-  id: string;
-  title: string;
-  published: boolean;
-}
+const PLACEHOLDER_COPY: Record<
+  Exclude<BuilderNavKey, 'setup' | 'curriculum' | 'lesson'>,
+  { title: string; description: string }
+> = {
+  design: {
+    title: 'Design templates',
+    description: 'Pick a color scheme and layout for how learners see this course.',
+  },
+  certificates: {
+    title: 'Certificates',
+    description: 'Award a completion certificate when students finish this course.',
+  },
+  information: {
+    title: 'Course information',
+    description: 'Category, level, tags, and course-level metadata.',
+  },
+  pricing: {
+    title: 'Pricing',
+    description: 'Set a one-time price, payment plan, subscription, or free enrollment.',
+  },
+  sales: {
+    title: 'Sales pages',
+    description: 'Design the sales page learners see before enrolling.',
+  },
+  students: {
+    title: 'Students',
+    description: 'View, enroll, and manage students in this course.',
+  },
+  reports: {
+    title: 'Reports',
+    description: 'Enrollment, revenue, and lesson-progress reports.',
+  },
+};
 
 const CourseBuilder = () => {
   const { courseId } = useParams<{ courseId: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const isNew = courseId === 'new';
   const { canEdit, loading: permissionsLoading } = useCoursePermissions(
-    courseId === 'new' ? undefined : courseId,
+    isNew ? undefined : courseId,
   );
 
-  const [course, setCourse] = useState<CourseShell | null>(null);
-  const [modules, setModules] = useState<CurriculumModule[]>([]);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [course, setCourse] = useState<BuilderCourse | null>(null);
+  const [modules, setModules] = useState<BuilderModule[]>([]);
+  const [loading, setLoading] = useState(!isNew);
+  const [showWizard, setShowWizard] = useState(isNew);
+  const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
 
+  const activeView: BuilderNavKey = (searchParams.get('view') as BuilderNavKey) || 'setup';
+  const lessonFromUrl = searchParams.get('lesson');
+  const effectiveLessonId = selectedLessonId || lessonFromUrl;
+
+  // --- Data load ---
   useEffect(() => {
+    if (isNew) return;
     let cancelled = false;
     const load = async () => {
       if (!courseId) return;
       setLoading(true);
       try {
-        if (courseId === 'new') {
-          const { data: created, error } = await supabase
-            .from('courses')
-            .insert({ title: 'Untitled course', published: false })
-            .select('id, title, published')
-            .single();
-          if (error) throw error;
-          navigate(`/courses/${created.id}/builder`, { replace: true });
-          return;
-        }
-
-        const { data: courseData, error: courseError } = await supabase
+        const { data: courseData, error } = await supabase
           .from('courses')
-          .select('id, title, published')
+          .select('id, title, description, thumbnail, published')
           .eq('id', courseId)
           .single();
-        if (courseError) throw courseError;
+        if (error) throw error;
 
         const rawModules = await CanvasContentService.getModules(courseId);
         const withItems = await Promise.all(
           rawModules.map(async (m) => {
             const items = await CanvasContentService.getContentItems(m.id);
-            return { ...m, items } as CurriculumModule;
+            return { ...m, items } as BuilderModule;
           }),
         );
 
         if (cancelled) return;
-        setCourse(courseData as CourseShell);
+        setCourse(courseData as BuilderCourse);
         setModules(withItems);
-        setExpanded(new Set(withItems.map((m) => m.id)));
         const firstItem = withItems.flatMap((m) => m.items)[0];
-        if (firstItem) setSelectedItemId(firstItem.id);
+        if (firstItem) setSelectedLessonId(firstItem.id);
       } catch (err: any) {
-        logger.error('Failed to load course for builder', err);
-        toast({
-          title: 'Error',
-          description: err?.message || 'Failed to load course',
-          variant: 'destructive',
-        });
+        logger.error('Failed to load builder', err);
+        toast({ title: 'Error', description: err.message, variant: 'destructive' });
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -99,46 +117,142 @@ const CourseBuilder = () => {
     return () => {
       cancelled = true;
     };
-  }, [courseId, navigate, toast]);
+  }, [courseId, isNew, toast]);
 
-  const selectedItem: ContentItem | null = useMemo(() => {
-    if (!selectedItemId) return null;
-    for (const m of modules) {
-      const found = m.items.find((i) => i.id === selectedItemId);
-      if (found) return found;
+  // --- Wizard finish ---
+  const handleWizardFinish = useCallback(
+    async (r: NewCourseWizardResult) => {
+      try {
+        const { data: created, error } = await supabase
+          .from('courses')
+          .insert({
+            title: r.title,
+            description: r.description || '',
+            published: false,
+          })
+          .select('id')
+          .single();
+        if (error) throw error;
+
+        // Seed a starter section if user picked "scratch" or "ai"
+        if (r.outlineMethod === 'scratch' || r.outlineMethod === 'ai') {
+          const seedTitle = r.outlineMethod === 'ai' ? 'Getting Started' : 'Section 1';
+          const mod = await CanvasContentService.createModule(created.id, seedTitle);
+          await CanvasContentService.createContentItem({
+            course_id: created.id,
+            module_id: mod.id,
+            type: 'page',
+            title: 'Introduction',
+            content: '',
+          });
+        }
+
+        toast({ title: 'Course created', description: `“${r.title}” is ready to build.` });
+        navigate(`/courses/${created.id}/builder`, { replace: true });
+      } catch (err: any) {
+        toast({ title: 'Error', description: err.message, variant: 'destructive' });
+      }
+    },
+    [navigate, toast],
+  );
+
+  // --- Navigation ---
+  const goToView = useCallback(
+    (key: BuilderNavKey, lessonId?: string) => {
+      const next = new URLSearchParams(searchParams);
+      next.set('view', key);
+      if (lessonId) next.set('lesson', lessonId);
+      else next.delete('lesson');
+      setSearchParams(next, { replace: true });
+      if (lessonId) setSelectedLessonId(lessonId);
+    },
+    [searchParams, setSearchParams],
+  );
+
+  const selectLesson = useCallback(
+    (lessonId: string) => {
+      setSelectedLessonId(lessonId);
+      goToView('lesson', lessonId);
+    },
+    [goToView],
+  );
+
+  // --- Course-level actions ---
+  const persistCourse = useCallback(
+    async (patch: Partial<BuilderCourse>) => {
+      if (!course) return;
+      setCourse((c) => (c ? { ...c, ...patch } : c));
+      try {
+        await supabase
+          .from('courses')
+          .update({ ...patch, updated_at: new Date().toISOString() })
+          .eq('id', course.id);
+      } catch (err: any) {
+        toast({ title: 'Error', description: err.message, variant: 'destructive' });
+      }
+    },
+    [course, toast],
+  );
+
+  const handleTogglePublish = useCallback(
+    async (next: boolean) => {
+      await persistCourse({ published: next });
+      toast({ title: next ? 'Course published' : 'Course unpublished' });
+    },
+    [persistCourse, toast],
+  );
+
+  const handleEditTitle = useCallback(() => {
+    if (!course) return;
+    const next = prompt('Course title', course.title);
+    if (next && next.trim() && next !== course.title) {
+      void persistCourse({ title: next.trim() });
     }
-    return null;
-  }, [modules, selectedItemId]);
+  }, [course, persistCourse]);
 
-  const toggleExpand = useCallback((mid: string) => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      next.has(mid) ? next.delete(mid) : next.add(mid);
-      return next;
-    });
-  }, []);
+  const handleUploadThumbnail = useCallback(
+    async (file: File) => {
+      if (!course) return;
+      try {
+        const ext = file.name.split('.').pop() || 'jpg';
+        const path = `course-thumbnails/${course.id}-${Date.now()}.${ext}`;
+        const { error } = await supabase.storage
+          .from('public-assets')
+          .upload(path, file, { upsert: true, contentType: file.type });
+        if (error) throw error;
+        const { data: pub } = supabase.storage.from('public-assets').getPublicUrl(path);
+        await persistCourse({ thumbnail: pub.publicUrl });
+        toast({ title: 'Thumbnail uploaded' });
+      } catch (err: any) {
+        toast({
+          title: 'Upload failed',
+          description: err.message || 'Could not upload image',
+          variant: 'destructive',
+        });
+      }
+    },
+    [course, persistCourse, toast],
+  );
 
-  const handleSelectItem = useCallback((_moduleId: string, itemId: string) => {
-    setSelectedItemId(itemId);
-  }, []);
-
-  const handleAddModule = useCallback(async () => {
+  // --- Curriculum actions ---
+  const addSection = useCallback(async () => {
     if (!courseId) return;
     try {
-      const created = await CanvasContentService.createModule(courseId, 'New module');
-      const newCurriculumModule: CurriculumModule = { ...(created as Module), items: [] };
-      setModules((prev) => [...prev, newCurriculumModule]);
-      setExpanded((prev) => new Set(prev).add(created.id));
+      const created = (await CanvasContentService.createModule(
+        courseId,
+        `Section ${modules.length + 1}`,
+      )) as Module;
+      setModules((prev) => [...prev, { ...created, items: [] }]);
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
     }
-  }, [courseId, toast]);
+  }, [courseId, modules.length, toast]);
 
-  const handleRenameModule = useCallback(
-    async (moduleId: string, title: string) => {
+  const renameSection = useCallback(
+    async (id: string, title: string) => {
       try {
-        await CanvasContentService.updateModule(moduleId, { title });
-        setModules((prev) => prev.map((m) => (m.id === moduleId ? { ...m, title } : m)));
+        await CanvasContentService.updateModule(id, { title });
+        setModules((prev) => prev.map((m) => (m.id === id ? { ...m, title } : m)));
       } catch (err: any) {
         toast({ title: 'Error', description: err.message, variant: 'destructive' });
       }
@@ -146,37 +260,27 @@ const CourseBuilder = () => {
     [toast],
   );
 
-  const handleDeleteModule = useCallback(
-    async (moduleId: string) => {
-      if (!confirm('Delete this module and all its lessons?')) return;
+  const deleteSection = useCallback(
+    async (id: string) => {
       try {
-        await CanvasContentService.deleteModule(moduleId);
-        setModules((prev) => prev.filter((m) => m.id !== moduleId));
-        if (selectedItem?.module_id === moduleId) setSelectedItemId(null);
+        await CanvasContentService.deleteModule(id);
+        setModules((prev) => prev.filter((m) => m.id !== id));
       } catch (err: any) {
         toast({ title: 'Error', description: err.message, variant: 'destructive' });
       }
     },
-    [selectedItem, toast],
+    [toast],
   );
 
-  const handleAddItem = useCallback(
-    async (moduleId: string) => {
+  const reorderSections = useCallback(
+    async (ordered: string[]) => {
       if (!courseId) return;
+      setModules((prev) => {
+        const byId = new Map(prev.map((m) => [m.id, m] as const));
+        return ordered.map((id) => byId.get(id) as BuilderModule);
+      });
       try {
-        const created = await CanvasContentService.createContentItem({
-          course_id: courseId,
-          module_id: moduleId,
-          type: 'page',
-          title: 'New lesson',
-          content: '',
-        });
-        setModules((prev) =>
-          prev.map((m) =>
-            m.id === moduleId ? { ...m, items: [...m.items, created] } : m,
-          ),
-        );
-        setSelectedItemId(created.id);
+        await CanvasContentService.reorderModules(courseId, ordered);
       } catch (err: any) {
         toast({ title: 'Error', description: err.message, variant: 'destructive' });
       }
@@ -184,14 +288,36 @@ const CourseBuilder = () => {
     [courseId, toast],
   );
 
-  const handleRenameItem = useCallback(
-    async (itemId: string, title: string) => {
+  const addLesson = useCallback(
+    async (moduleId: string, type: ContentItemType = 'page', title = 'New lesson') => {
+      if (!courseId) return;
       try {
-        await CanvasContentService.updateContentItem(itemId, { title });
+        const created = await CanvasContentService.createContentItem({
+          course_id: courseId,
+          module_id: moduleId,
+          type,
+          title,
+          content: '',
+        });
+        setModules((prev) =>
+          prev.map((m) => (m.id === moduleId ? { ...m, items: [...m.items, created] } : m)),
+        );
+        return created;
+      } catch (err: any) {
+        toast({ title: 'Error', description: err.message, variant: 'destructive' });
+      }
+    },
+    [courseId, toast],
+  );
+
+  const renameLesson = useCallback(
+    async (id: string, title: string) => {
+      try {
+        await CanvasContentService.updateContentItem(id, { title });
         setModules((prev) =>
           prev.map((m) => ({
             ...m,
-            items: m.items.map((i) => (i.id === itemId ? { ...i, title } : i)),
+            items: m.items.map((i) => (i.id === id ? { ...i, title } : i)),
           })),
         );
       } catch (err: any) {
@@ -201,52 +327,31 @@ const CourseBuilder = () => {
     [toast],
   );
 
-  const handleDeleteItem = useCallback(
-    async (itemId: string) => {
-      if (!confirm('Delete this lesson?')) return;
+  const deleteLesson = useCallback(
+    async (id: string) => {
       try {
-        await CanvasContentService.deleteContentItem(itemId);
+        await CanvasContentService.deleteContentItem(id);
         setModules((prev) =>
-          prev.map((m) => ({ ...m, items: m.items.filter((i) => i.id !== itemId) })),
+          prev.map((m) => ({ ...m, items: m.items.filter((i) => i.id !== id) })),
         );
-        if (selectedItemId === itemId) setSelectedItemId(null);
+        if (selectedLessonId === id) setSelectedLessonId(null);
       } catch (err: any) {
         toast({ title: 'Error', description: err.message, variant: 'destructive' });
       }
     },
-    [selectedItemId, toast],
+    [selectedLessonId, toast],
   );
 
-  const handleReorderModules = useCallback(
-    async (orderedIds: string[]) => {
-      if (!courseId) return;
-      setModules((prev) => {
-        const byId = new Map(prev.map((m) => [m.id, m] as const));
-        return orderedIds.map((id, i) => ({ ...(byId.get(id) as CurriculumModule), position: i }));
-      });
+  const togglePublishLesson = useCallback(
+    async (id: string, published: boolean) => {
       try {
-        await CanvasContentService.reorderModules(courseId, orderedIds);
-      } catch (err: any) {
-        toast({ title: 'Error', description: err.message, variant: 'destructive' });
-      }
-    },
-    [courseId, toast],
-  );
-
-  const handleReorderItems = useCallback(
-    async (moduleId: string, orderedIds: string[]) => {
-      setModules((prev) =>
-        prev.map((m) => {
-          if (m.id !== moduleId) return m;
-          const byId = new Map(m.items.map((i) => [i.id, i] as const));
-          return {
+        await CanvasContentService.updateContentItem(id, { published } as any);
+        setModules((prev) =>
+          prev.map((m) => ({
             ...m,
-            items: orderedIds.map((id, i) => ({ ...(byId.get(id) as ContentItem), position: i })),
-          };
-        }),
-      );
-      try {
-        await CanvasContentService.reorderContentItems(moduleId, orderedIds);
+            items: m.items.map((i) => (i.id === id ? { ...i, published } : i)),
+          })),
+        );
       } catch (err: any) {
         toast({ title: 'Error', description: err.message, variant: 'destructive' });
       }
@@ -254,10 +359,28 @@ const CourseBuilder = () => {
     [toast],
   );
 
-  const handleLessonSave = useCallback(
-    async (itemId: string, draft: LessonDraft) => {
+  const reorderLessons = useCallback(
+    async (moduleId: string, ordered: string[]) => {
+      setModules((prev) =>
+        prev.map((m) => {
+          if (m.id !== moduleId) return m;
+          const byId = new Map(m.items.map((i) => [i.id, i] as const));
+          return { ...m, items: ordered.map((id) => byId.get(id) as ContentItem) };
+        }),
+      );
       try {
-        await CanvasContentService.updateContentItem(itemId, {
+        await CanvasContentService.reorderContentItems(moduleId, ordered);
+      } catch (err: any) {
+        toast({ title: 'Error', description: err.message, variant: 'destructive' });
+      }
+    },
+    [toast],
+  );
+
+  const saveLesson = useCallback(
+    async (id: string, draft: LessonDraft) => {
+      try {
+        await CanvasContentService.updateContentItem(id, {
           title: draft.title,
           type: draft.type,
           content: draft.content,
@@ -266,61 +389,66 @@ const CourseBuilder = () => {
           prev.map((m) => ({
             ...m,
             items: m.items.map((i) =>
-              i.id === itemId
+              i.id === id
                 ? { ...i, title: draft.title, type: draft.type, content: draft.content }
                 : i,
             ),
           })),
         );
-        setLastSavedAt(new Date());
       } catch (err: any) {
-        toast({ title: 'Error saving lesson', description: err.message, variant: 'destructive' });
+        toast({
+          title: 'Error saving lesson',
+          description: err.message,
+          variant: 'destructive',
+        });
       }
     },
     [toast],
   );
 
-  const handleCourseTitleChange = useCallback(
-    async (title: string) => {
-      if (!course) return;
-      setCourse((c) => (c ? { ...c, title } : c));
-      setSaving(true);
-      try {
-        await supabase
-          .from('courses')
-          .update({ title, updated_at: new Date().toISOString() })
-          .eq('id', course.id);
-        setLastSavedAt(new Date());
-      } catch (err: any) {
-        toast({ title: 'Error', description: err.message, variant: 'destructive' });
-      } finally {
-        setSaving(false);
+  const handleAddContentTile = useCallback(
+    async (type: ContentItemType, defaultTitle: string) => {
+      // Add into the module of the currently-selected lesson, or the first module
+      const targetModuleId =
+        modules.find((m) => m.items.some((i) => i.id === effectiveLessonId))?.id ??
+        modules[0]?.id;
+      if (!targetModuleId) {
+        toast({
+          title: 'Add a section first',
+          description: 'Create a section before adding content.',
+        });
+        return;
       }
+      const created = await addLesson(targetModuleId, type, defaultTitle);
+      if (created) selectLesson(created.id);
     },
-    [course, toast],
+    [modules, effectiveLessonId, addLesson, selectLesson, toast],
   );
 
-  const handlePublishedChange = useCallback(
-    async (next: boolean) => {
-      if (!course) return;
-      setCourse((c) => (c ? { ...c, published: next } : c));
-      try {
-        await supabase
-          .from('courses')
-          .update({ published: next, updated_at: new Date().toISOString() })
-          .eq('id', course.id);
-        toast({ title: next ? 'Course published' : 'Course unpublished' });
-        setLastSavedAt(new Date());
-      } catch (err: any) {
-        toast({ title: 'Error', description: err.message, variant: 'destructive' });
-      }
-    },
-    [course, toast],
-  );
+  // --- Derived ---
+  const currentLesson: ContentItem | null = useMemo(() => {
+    if (!effectiveLessonId) return null;
+    for (const m of modules) {
+      const it = m.items.find((i) => i.id === effectiveLessonId);
+      if (it) return it;
+    }
+    return null;
+  }, [modules, effectiveLessonId]);
+
+  // --- Render ---
+  if (showWizard) {
+    return (
+      <NewCourseWizard
+        open
+        onCancel={() => navigate('/admin/courses')}
+        onFinish={handleWizardFinish}
+      />
+    );
+  }
 
   if (loading || permissionsLoading) {
     return (
-      <div className="fixed inset-0 flex justify-center items-center bg-white">
+      <div className="fixed inset-0 flex items-center justify-center bg-white">
         <Spinner size="lg" />
       </div>
     );
@@ -328,7 +456,7 @@ const CourseBuilder = () => {
 
   if (!canEdit) {
     return (
-      <div className="fixed inset-0 flex justify-center items-center bg-white">
+      <div className="fixed inset-0 flex items-center justify-center bg-white">
         <div className="text-center px-6">
           <h1 className="text-2xl font-semibold mb-2">Not authorized</h1>
           <p className="text-muted-foreground">You don't have permission to edit this course.</p>
@@ -342,103 +470,70 @@ const CourseBuilder = () => {
 
   if (!course) {
     return (
-      <div className="fixed inset-0 flex justify-center items-center bg-white">
+      <div className="fixed inset-0 flex items-center justify-center bg-white">
         <h1 className="text-2xl font-semibold">Course not found</h1>
       </div>
     );
   }
 
   return (
-    <CourseWorkspaceShell
-      sidebar={
-        <CurriculumTree
-          modules={modules}
-          selectedItemId={selectedItemId}
-          expandedModuleIds={expanded}
-          onToggleExpand={toggleExpand}
-          onSelectItem={handleSelectItem}
-          onAddModule={handleAddModule}
-          onRenameModule={handleRenameModule}
-          onDeleteModule={handleDeleteModule}
-          onAddItem={handleAddItem}
-          onRenameItem={handleRenameItem}
-          onDeleteItem={handleDeleteItem}
-          onReorderModules={handleReorderModules}
-          onReorderItems={handleReorderItems}
-        />
-      }
-      header={
-        <>
-          <div className="flex items-center gap-3 min-w-0 flex-1">
-            <Link
-              to="/admin/courses"
-              className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors flex-shrink-0"
-              aria-label="Back to courses"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
-            <input
-              className="flex-1 min-w-0 bg-transparent font-bold text-lg outline-none focus:ring-2 focus:ring-teal-400 rounded px-2 py-1 -mx-2"
-              value={course.title}
-              placeholder="Untitled course"
-              onChange={(e) => handleCourseTitleChange(e.target.value)}
-            />
-          </div>
-          <div className="flex items-center gap-3 flex-shrink-0">
-            {saving && (
-              <span className="hidden md:flex items-center gap-1 text-xs text-gray-400">
-                <Loader2 className="w-3 h-3 animate-spin" />
-                Saving…
-              </span>
-            )}
-            {!saving && lastSavedAt && (
-              <span className="hidden md:inline text-xs text-gray-400">Saved</span>
-            )}
-            <Link
-              to={`/courses/${course.id}/learn`}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-white border rounded-xl text-sm font-semibold hover:bg-gray-50 transition-colors"
-              style={{ borderColor: 'hsl(var(--cw-border))' }}
-            >
-              <Eye className="w-4 h-4" />
-              Preview
-            </Link>
-            <div
-              className="flex items-center gap-2 border rounded-full px-3 py-1.5"
-              style={{
-                borderColor: 'hsl(var(--cw-border))',
-                background: course.published ? 'hsl(var(--cw-accent) / 0.08)' : '#f9fafb',
-              }}
-            >
-              <div
-                className="w-2 h-2 rounded-full"
-                style={{
-                  background: course.published ? 'hsl(var(--cw-accent))' : '#d1d5db',
-                }}
-              />
-              <span className="text-xs font-bold uppercase tracking-wider text-gray-600">
-                {course.published ? 'Published' : 'Draft'}
-              </span>
-              <Switch
-                checked={course.published}
-                onCheckedChange={handlePublishedChange}
-                className="ml-1"
-              />
-            </div>
-          </div>
-        </>
-      }
+    <TeachableShell
+      courseTitle={course.title}
+      published={course.published}
+      activeKey={activeView === 'lesson' ? 'curriculum' : activeView}
+      onNavigate={(key) => goToView(key)}
+      onTogglePublish={handleTogglePublish}
+      previewHref={`/courses/${course.id}/learn`}
     >
-      <div className="p-8 lg:p-12">
-        <div className="max-w-4xl mx-auto">
-          <LessonEditorPane
-            item={selectedItem}
-            onSave={handleLessonSave}
-            onDelete={handleDeleteItem}
-            onSavingChange={setSaving}
-          />
-        </div>
-      </div>
-    </CourseWorkspaceShell>
+      {activeView === 'setup' && (
+        <SetupGuideView
+          course={course}
+          modules={modules}
+          onGoToCurriculum={() => goToView('curriculum')}
+          onSelectLesson={selectLesson}
+          onEditTitle={handleEditTitle}
+          onUploadThumbnail={handleUploadThumbnail}
+        />
+      )}
+
+      {activeView === 'curriculum' && (
+        <CurriculumView
+          courseTitle={course.title}
+          modules={modules}
+          onAddModule={addSection}
+          onRenameModule={renameSection}
+          onDeleteModule={deleteSection}
+          onReorderModules={reorderSections}
+          onAddLesson={(mid) => void addLesson(mid)}
+          onRenameLesson={renameLesson}
+          onDeleteLesson={deleteLesson}
+          onTogglePublishLesson={togglePublishLesson}
+          onReorderLessons={reorderLessons}
+          onSelectLesson={selectLesson}
+        />
+      )}
+
+      {activeView === 'lesson' && (
+        <LessonEditView
+          courseTitle={course.title}
+          modules={modules}
+          currentItem={currentLesson}
+          onSelectLesson={selectLesson}
+          onSaveLesson={saveLesson}
+          onDeleteLesson={deleteLesson}
+          onTogglePublishLesson={togglePublishLesson}
+          onAddContent={handleAddContentTile}
+        />
+      )}
+
+      {activeView !== 'setup' && activeView !== 'curriculum' && activeView !== 'lesson' && (
+        <PlaceholderView
+          courseTitle={course.title}
+          title={PLACEHOLDER_COPY[activeView as keyof typeof PLACEHOLDER_COPY].title}
+          description={PLACEHOLDER_COPY[activeView as keyof typeof PLACEHOLDER_COPY].description}
+        />
+      )}
+    </TeachableShell>
   );
 };
 

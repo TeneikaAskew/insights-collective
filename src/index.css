@@ -132,6 +132,29 @@
     --cw-accent-soft: 173 40% 90%;     /* #DDEEEB */
   }
 
+  /* Teachable-style instructor workspace */
+  .teachable-workspace {
+    --tw-bg: 0 0% 100%;
+    --tw-page: 0 0% 98%;              /* subtle off-white page */
+    --tw-rail: 0 0% 10%;              /* #1A1A1A dark sidebar */
+    --tw-rail-text: 0 0% 96%;
+    --tw-rail-muted: 0 0% 65%;
+    --tw-rail-active: 0 0% 16%;
+    --tw-border: 220 13% 91%;
+    --tw-text: 0 0% 10%;
+    --tw-muted: 220 9% 46%;
+    --tw-accent: 71 96% 61%;          /* #DAFB3C lime/yellow */
+    --tw-accent-ink: 0 0% 10%;        /* dark ink on yellow */
+    --tw-serif: 'Instrument Serif', 'Playfair Display', Georgia, serif;
+  }
+
+  .teachable-workspace .tw-serif {
+    font-family: var(--tw-serif);
+    font-weight: 400;
+    letter-spacing: -0.01em;
+  }
+
+
   .course-card {
     @apply bg-white rounded-lg shadow-md overflow-hidden transition-all hover:shadow-lg;
   }
