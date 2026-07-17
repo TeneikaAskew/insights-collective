@@ -4562,6 +4562,18 @@ export type Database = {
         Args: { submission_id: string; viewer_id: string }
         Returns: boolean
       }
+      can_manage_content_item: {
+        Args: { target_content_item_id: string; viewer_id: string }
+        Returns: boolean
+      }
+      can_manage_course_content: {
+        Args: { target_course_id: string; viewer_id: string }
+        Returns: boolean
+      }
+      can_manage_quiz: {
+        Args: { target_quiz_id: string; viewer_id: string }
+        Returns: boolean
+      }
       can_view_profile: {
         Args: { profile_id: string; viewer_id: string }
         Returns: boolean
