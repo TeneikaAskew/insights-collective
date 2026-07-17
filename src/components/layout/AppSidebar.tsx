@@ -285,8 +285,7 @@ const AppSidebar = () => {
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   </motion.div>
-                );
-              })}
+              ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
