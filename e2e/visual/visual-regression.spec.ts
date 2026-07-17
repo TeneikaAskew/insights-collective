@@ -46,11 +46,19 @@ const ROUTES: RouteSpec[] = [
   { name: 'admin-page-visibility',path: '/admin/page-visibility',        role: 'admin' },
 ];
 
-const ROLE_ENV = (process.env.VISUAL_ROLE || 'public') as RouteSpec['role'];
+test.describe('visual regression', () => {
+  test.beforeEach(async ({}, testInfo) => {
+    const role = (testInfo.project.metadata?.visualRole ?? 'public') as RouteSpec['role'];
+    testInfo.skip(
+      !ROUTES.some(r => r.role === role),
+      `no routes for role ${role}`,
+    );
+  });
 
-test.describe(`visual regression [${ROLE_ENV}]`, () => {
-  // Match project → role so each project only executes its own routes.
-  const routes = ROUTES.filter(r => r.role === ROLE_ENV);
+  for (const route of ROUTES) {
+    test(`${route.name} @ ${route.path}`, async ({ page }, testInfo) => {
+      const role = (testInfo.project.metadata?.visualRole ?? 'public') as RouteSpec['role'];
+      test.skip(role !== route.role, `route ${route.name} is ${route.role}-only`);
 
   for (const route of routes) {
     test(`${route.name} @ ${route.path}`, async ({ page }) => {
