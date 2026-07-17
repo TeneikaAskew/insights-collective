@@ -37,6 +37,7 @@ interface CurriculumViewProps {
   modules: BuilderModule[];
   onAddModule: () => void;
   onRenameModule: (moduleId: string, title: string) => void;
+  onUpdateModuleDescription?: (moduleId: string, description: string) => void;
   onDeleteModule: (moduleId: string) => void;
   onReorderModules: (orderedIds: string[]) => void;
   onAddLesson: (moduleId: string) => void;
