@@ -3,7 +3,7 @@ import React from 'react';
 import { PortfolioPage } from '@/types/portfolio';
 import { EnhancedProjectCard } from '../EnhancedProjectCard';
 import { Badge } from '@/components/ui/badge';
-import { Mail, Github, Linkedin } from 'lucide-react';
+import { Mail, Github, Linkedin, MapPin, Briefcase, GraduationCap } from 'lucide-react';
 
 interface SidebarLayoutProps {
   portfolioPage: PortfolioPage;
@@ -110,8 +110,8 @@ export function SidebarLayout({ portfolioPage }: SidebarLayoutProps) {
           </h1>
           
           {portfolioPage.profile_data?.location && (
-            <p className="mb-4" style={{ color: themeStyles.accentColor }}>
-              📍 {portfolioPage.profile_data.location}
+            <p className="mb-4 inline-flex items-center gap-1" style={{ color: themeStyles.accentColor }}>
+              <MapPin className="h-4 w-4" /> {portfolioPage.profile_data.location}
             </p>
           )}
 
@@ -206,7 +206,7 @@ export function SidebarLayout({ portfolioPage }: SidebarLayoutProps) {
           {portfolioPage.profile_data?.experience && portfolioPage.profile_data.experience.length > 0 && (
             <div className="mb-6">
               <h2 className="text-xl font-semibold mb-3 flex items-center gap-2" style={{ color: themeStyles.color }}>
-                💼 Experience
+                <Briefcase className="h-5 w-5" /> Experience
               </h2>
               <div className="space-y-4">
                 {portfolioPage.profile_data.experience.slice(0, 2).map((exp, index) => (
@@ -224,7 +224,7 @@ export function SidebarLayout({ portfolioPage }: SidebarLayoutProps) {
           {portfolioPage.profile_data?.education && portfolioPage.profile_data.education.length > 0 && (
             <div className="mb-6">
               <h2 className="text-xl font-semibold mb-3 flex items-center gap-2" style={{ color: themeStyles.color }}>
-                🎓 Education
+                <GraduationCap className="h-5 w-5" /> Education
               </h2>
               <div className="space-y-4">
                 {portfolioPage.profile_data.education.slice(0, 2).map((edu, index) => (

@@ -1,5 +1,5 @@
 
-import { BookOpen, MessageSquare, User, FileText } from 'lucide-react';
+import { BookOpen, MessageSquare, User, FileText, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 
@@ -80,7 +80,7 @@ const ExploreTools = () => {
             className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
             onClick={() => navigate('/dashboard')}
           >
-            Explore All Features →
+            Explore All Features <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         </div>
       </div>

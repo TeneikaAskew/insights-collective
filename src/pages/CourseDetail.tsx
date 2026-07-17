@@ -9,7 +9,7 @@ import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { BookOpen, Clock, Users, Star, Calendar, ChevronLeft, Share, MessageSquare, Edit, Bell, FileText, BarChart3, Pin, PlusCircle, Trash2 } from 'lucide-react';
+import { BookOpen, Clock, Users, Star, Calendar, ChevronLeft, Share, MessageSquare, Edit, Bell, FileText, BarChart3, Pin, PlusCircle, Trash2, ArrowRight, PlayCircle } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -764,7 +764,7 @@ const CourseDetail = () => {
                     to={`/courses/${courseId}/learn`}
                     className="inline-flex items-center gap-2 text-sm font-semibold text-neutral-900 hover:underline mb-6"
                   >
-                    → Open course player
+                    <PlayCircle className="h-4 w-4" /> Open course player
                   </Link>
 
                   <div className="border-t border-neutral-200 pt-5">
@@ -801,8 +801,8 @@ const CourseDetail = () => {
               <section className="rounded-2xl bg-white border border-neutral-200 p-6 md:p-8">
                 <div className="flex items-end justify-between mb-6">
                   <h2 className="font-display text-3xl text-neutral-900">Course curriculum</h2>
-                  <Link to={`/courses/${courseId}/learn`} className="text-sm font-medium text-neutral-700 hover:text-neutral-900 hover:underline">
-                    View all →
+                  <Link to={`/courses/${courseId}/learn`} className="inline-flex items-center gap-1 text-sm font-medium text-neutral-700 hover:text-neutral-900 hover:underline">
+                    View all <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                 </div>
                 {modules.length === 0 ? (

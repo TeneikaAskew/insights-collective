@@ -3,7 +3,7 @@ import React from 'react';
 import { PortfolioPage } from '@/types/portfolio';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Github, ExternalLink, Mail } from 'lucide-react';
+import { ArrowLeft, Github, ExternalLink, Mail, MapPin, Briefcase, GraduationCap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 interface ClassicLayoutProps {
@@ -128,7 +128,7 @@ export function ClassicLayout({ portfolioPage }: ClassicLayoutProps) {
             {/* Contact Information */}
             {portfolioPage.profile_data.location && (
               <div className="mb-4">
-                <p style={{ color: themeStyles.accentColor }}>📍 You can find me in {portfolioPage.profile_data.location}</p>
+                <p style={{ color: themeStyles.accentColor }} className="inline-flex items-center gap-1"><MapPin className="h-4 w-4" /> You can find me in {portfolioPage.profile_data.location}</p>
               </div>
             )}
 
@@ -171,7 +171,7 @@ export function ClassicLayout({ portfolioPage }: ClassicLayoutProps) {
             {portfolioPage.profile_data.experience && portfolioPage.profile_data.experience.length > 0 && (
               <div className="mb-8 text-left max-w-3xl mx-auto">
                 <h3 className="text-2xl font-bold mb-6 flex items-center gap-2" style={{ color: themeStyles.color }}>
-                  💼 Experience
+                  <Briefcase className="h-6 w-6" /> Experience
                 </h3>
                 <div className="space-y-6">
                   {portfolioPage.profile_data.experience.map((exp, index) => (
@@ -192,7 +192,7 @@ export function ClassicLayout({ portfolioPage }: ClassicLayoutProps) {
             {portfolioPage.profile_data.education && portfolioPage.profile_data.education.length > 0 && (
               <div className="mb-8 text-left max-w-3xl mx-auto">
                 <h3 className="text-2xl font-bold mb-6 flex items-center gap-2" style={{ color: themeStyles.color }}>
-                  🎓 Education
+                  <GraduationCap className="h-6 w-6" /> Education
                 </h3>
                 <div className="space-y-6">
                   {portfolioPage.profile_data.education.map((edu, index) => (

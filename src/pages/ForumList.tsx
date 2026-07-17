@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
-import { MessageSquare, Users, Clock, Filter, Search, PlusCircle } from 'lucide-react';
+import { MessageSquare, Users, Clock, Filter, Search, PlusCircle, Wrench, Brain, BarChart3, TrendingUp, Briefcase, MessagesSquare } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
@@ -27,7 +27,7 @@ const forumCategories = [
     threads: 45,
     participants: 128,
     lastPost: '2 hours ago',
-    icon: '🔧'
+    icon: Wrench,
   },
   {
     id: '2',
@@ -36,7 +36,7 @@ const forumCategories = [
     threads: 63,
     participants: 214,
     lastPost: '30 minutes ago',
-    icon: '🧠'
+    icon: Brain,
   },
   {
     id: '3',
@@ -45,7 +45,7 @@ const forumCategories = [
     threads: 38,
     participants: 167,
     lastPost: '1 day ago',
-    icon: '📊'
+    icon: BarChart3,
   },
   {
     id: '4',
@@ -54,7 +54,7 @@ const forumCategories = [
     threads: 29,
     participants: 95,
     lastPost: '5 hours ago',
-    icon: '📈'
+    icon: TrendingUp,
   },
   {
     id: '5',
@@ -63,7 +63,7 @@ const forumCategories = [
     threads: 54,
     participants: 231,
     lastPost: '1 hour ago',
-    icon: '👔'
+    icon: Briefcase,
   },
   {
     id: '6',
@@ -72,8 +72,8 @@ const forumCategories = [
     threads: 42,
     participants: 187,
     lastPost: '45 minutes ago',
-    icon: '💬'
-  }
+    icon: MessagesSquare,
+  },
 ];
 
 const recentThreads = [
@@ -274,7 +274,7 @@ const ForumListPage = () => {
                     <div className="flex items-start justify-between">
                       <div>
                         <CardTitle>
-                          <span className="mr-2">{category.icon}</span>
+                          <category.icon className="inline-block mr-2 h-5 w-5 text-primary align-text-bottom" />
                           {category.title}
                         </CardTitle>
                         <CardDescription>{category.description}</CardDescription>
@@ -354,7 +354,7 @@ const ForumListPage = () => {
                         <div className="flex items-start justify-between">
                           <div>
                             <CardTitle>
-                              <span className="mr-2">{category.icon}</span>
+                              <category.icon className="inline-block mr-2 h-5 w-5 text-primary align-text-bottom" />
                               <Link to={`/courses/${category.id}/forums/${category.id}`} className="hover:text-primary transition-colors">
                                 {category.title}
                               </Link>

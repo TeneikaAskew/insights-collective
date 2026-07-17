@@ -15,7 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, FileText, MessageSquare, CalendarDays } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn, slugify } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -32,13 +32,13 @@ const FORM_TEMPLATES = [
     id: 'blank',
     name: 'Blank Form',
     description: 'Start with an empty form',
-    icon: '📄',
+    icon: FileText,
   },
   {
     id: 'feedback',
     name: 'Feedback Survey',
     description: 'Collect user feedback',
-    icon: '📝',
+    icon: MessageSquare,
     structure: {
       sections: [
         {
@@ -74,7 +74,7 @@ const FORM_TEMPLATES = [
     id: 'registration',
     name: 'Event Registration',
     description: 'Sign up for events',
-    icon: '📅',
+    icon: CalendarDays,
     structure: {
       sections: [
         {
@@ -286,7 +286,7 @@ const CreateFormDialog: React.FC<CreateFormDialogProps> = ({ open, onOpenChange 
                   onClick={() => setSelectedTemplate(template.id)}
                 >
                   <CardContent className="p-4">
-                    <div className="text-center mb-2 text-3xl">{template.icon}</div>
+                    <div className="flex justify-center mb-2"><template.icon className="h-8 w-8 text-primary" /></div>
                     <h3 className="font-semibold text-center">{template.name}</h3>
                     <p className="text-sm text-muted-foreground text-center mt-1">{template.description}</p>
                   </CardContent>

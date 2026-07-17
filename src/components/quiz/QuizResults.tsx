@@ -188,7 +188,7 @@ import { Link } from 'react-router-dom';
 import { CareerTrack, getSkillLevel, getTrackPersona, getCourseRecommendations } from '@/data/careerQuizData';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, BarChart2, BarChart3, Brain, Database, Download, MessageCircle, Presentation, RefreshCw, Share2 } from 'lucide-react';
+import { ArrowRight, BarChart2, BarChart3, Brain, Database, Download, Loader2, MessageCircle, Presentation, RefreshCw, Share2 } from 'lucide-react';
 import { useCareerCoach } from '@/hooks/useCareerCoach';
 import { useAuth } from '@/contexts/AuthContext';
 import { storeQuizAttempt } from '@/services/quizService';
@@ -348,7 +348,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
           <div className="mt-6 mb-4">
             <Button onClick={handleCareerCoachClick} disabled={isProcessing} className="w-full sm:w-auto py-6 px-8">
               <MessageCircle className="h-5 w-5" /> Chat with Career Coach
-              {isProcessing && <span className="ml-2 animate-spin">⏳</span>}
+              {isProcessing && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
             </Button>
           </div>
           <div className="flex flex-wrap gap-3 justify-center mt-4">

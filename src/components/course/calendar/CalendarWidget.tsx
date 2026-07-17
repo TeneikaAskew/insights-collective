@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock, ExternalLink } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock, ExternalLink, FileText, BarChart3, Megaphone, Pin } from 'lucide-react';
 import { useUpcomingEvents, useCalendarStats } from '@/hooks/useCourseCalendar';
 import { CourseCalendarEvent } from '@/types/course';
 import { formatDistanceToNow, format, isToday, isTomorrow, isYesterday } from 'date-fns';
@@ -30,15 +30,15 @@ export const CalendarWidget: React.FC<CalendarWidgetProps> = ({
   const getEventIcon = (type: string) => {
     switch (type) {
       case 'assignment':
-        return '📝';
+        return FileText;
       case 'quiz':
-        return '📊';
+        return BarChart3;
       case 'announcement':
-        return '📢';
+        return Megaphone;
       case 'event':
-        return '📅';
+        return CalendarIcon;
       default:
-        return '📌';
+        return Pin;
     }
   };
 
@@ -156,9 +156,9 @@ export const CalendarWidget: React.FC<CalendarWidgetProps> = ({
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-lg">{getEventIcon(event.type)}</span>
+                        {(() => { const EIcon = getEventIcon(event.type); return <EIcon className="h-4 w-4" />; })()}
                         <span className="font-medium text-sm line-clamp-1">
-                          {event.title.replace(/^[📝📊📢📅] /u, '')} {/* Remove emoji prefix */}
+                          {event.title.replace(/^[\p{Extended_Pictographic}\u2600-\u27BF] /u, '').trim()}
                         </span>
                       </div>
                       {event.description && variant === 'full' && (
