@@ -214,7 +214,7 @@ const CourseLearn = () => {
         className="teachable-workspace fixed inset-0 flex flex-col"
         style={{ background: '#F5F5F0', color: 'hsl(var(--tw-text))' }}
       >
-        <AdminTopBar canEdit={canEdit} courseId={course.id} />
+        <AdminTopBar canEdit={canEdit} courseId={course.id} previewAsStudent={previewAsStudent} onPreviewChange={setPreviewAsStudent} />
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-6xl mx-auto px-8 py-14">
             <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-10">
@@ -295,7 +295,7 @@ const CourseLearn = () => {
     <div
       className="teachable-workspace fixed inset-0 flex flex-col bg-background text-foreground"
     >
-      <AdminTopBar canEdit={canEdit} courseId={course.id} />
+      <AdminTopBar canEdit={canEdit} courseId={course.id} previewAsStudent={previewAsStudent} onPreviewChange={setPreviewAsStudent} />
 
       {/* Player top bar with prev/next pills */}
       <div className="flex items-center justify-between px-6 py-3 flex-shrink-0 bg-card border-b border-border">
