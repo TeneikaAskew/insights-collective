@@ -514,8 +514,9 @@ const CourseBuilder = () => {
           modules={modules}
           onGoToCurriculum={() => goToView('curriculum')}
           onSelectLesson={selectLesson}
-          onEditTitle={handleEditTitle}
+          onRenameCourse={renameCourse}
           onUploadThumbnail={handleUploadThumbnail}
+          onRemoveThumbnail={handleRemoveThumbnail}
         />
       )}
 
