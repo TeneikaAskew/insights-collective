@@ -174,17 +174,19 @@ const CourseList = () => {
                   <button
                     key={course.id}
                     onClick={() => navigate(`/courses/${course.id}`)}
-                    className="group text-left rounded-2xl border border-neutral-200 bg-white overflow-hidden hover:border-neutral-900 hover:shadow-[0_10px_30px_-10px_rgba(0,0,0,0.15)] transition-all"
+                    className="group text-left rounded-2xl border border-neutral-200 bg-white hover:border-neutral-900 hover:shadow-[0_10px_30px_-10px_rgba(0,0,0,0.15)] transition-all"
                   >
-                    {/* Media */}
-                    <div className="relative aspect-[16/10] overflow-hidden bg-[hsl(var(--cw-accent-soft))]">
-                      <img
-                        src={course.thumbnail}
-                        alt={course.title}
-                        className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500"
-                      />
-                      {/* Circular logo badge overlapping bottom-left */}
-                      <div className="absolute -bottom-6 left-5 h-14 w-14 rounded-full bg-white border-4 border-white shadow-md flex items-center justify-center overflow-hidden">
+                    {/* Media (outer keeps rounded top; inner clips the image; avatar sits above) */}
+                    <div className="relative">
+                      <div className="relative aspect-[16/10] overflow-hidden rounded-t-2xl bg-[hsl(var(--cw-accent-soft))]">
+                        <img
+                          src={course.thumbnail}
+                          alt={course.title}
+                          className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500"
+                        />
+                      </div>
+                      {/* Circular logo badge overlapping bottom-left, above the image */}
+                      <div className="absolute -bottom-6 left-5 z-10 h-14 w-14 rounded-full bg-white border-4 border-white shadow-md flex items-center justify-center overflow-hidden">
                         {course.instructor?.avatar ? (
                           <img
                             src={course.instructor.avatar}
