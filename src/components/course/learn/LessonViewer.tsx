@@ -46,6 +46,7 @@ export function LessonViewer({
   onNavigate,
   onMarkDone,
   actionBasePath,
+  hideFooter = false,
 }: LessonViewerProps) {
   const navigate = useNavigate();
   const sentinelRef = useRef<HTMLDivElement>(null);
