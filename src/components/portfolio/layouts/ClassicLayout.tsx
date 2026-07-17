@@ -3,7 +3,7 @@ import React from 'react';
 import { PortfolioPage } from '@/types/portfolio';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Github, ExternalLink, Mail } from 'lucide-react';
+import { ArrowLeft, Github, ExternalLink, Mail, MapPin, Briefcase, GraduationCap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 interface ClassicLayoutProps {
