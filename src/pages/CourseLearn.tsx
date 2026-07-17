@@ -291,32 +291,28 @@ const CourseLearn = () => {
   // --- Lesson player ---
   return (
     <div
-      className="teachable-workspace fixed inset-0 flex flex-col"
-      style={{ background: '#F5F5F0', color: 'hsl(var(--tw-text))' }}
+      className="teachable-workspace fixed inset-0 flex flex-col bg-background text-foreground"
     >
       <AdminTopBar canEdit={canEdit} courseId={course.id} />
 
       {/* Player top bar with prev/next pills */}
-      <div
-        className="flex items-center justify-between px-6 py-3 flex-shrink-0"
-        style={{ background: '#111', color: '#fff' }}
-      >
+      <div className="flex items-center justify-between px-6 py-3 flex-shrink-0 bg-card border-b border-border">
         <div className="flex items-center gap-3">
           <Link
             to={`/courses/${course.id}/learn`}
-            className="w-9 h-9 rounded-md flex items-center justify-center hover:bg-white/10"
+            className="w-9 h-9 rounded-md flex items-center justify-center text-foreground hover:bg-muted"
             aria-label="Course home"
           >
             <Home className="w-4 h-4" />
           </Link>
-          <button
-            type="button"
-            className="w-9 h-9 rounded-md flex items-center justify-center hover:bg-white/10"
-            style={{ color: 'hsl(var(--tw-accent))' }}
+          <Link
+            to={`/courses/${course.id}`}
+            className="w-9 h-9 rounded-md flex items-center justify-center text-primary hover:bg-muted"
             aria-label="Course settings"
+            title="Course settings"
           >
             <Settings className="w-4 h-4" />
-          </button>
+          </Link>
         </div>
 
         <div className="flex items-center gap-3">
@@ -324,11 +320,7 @@ const CourseLearn = () => {
             type="button"
             disabled={!prev}
             onClick={() => prev && goTo(prev.module.id, prev.item.id)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold border transition-colors disabled:opacity-30"
-            style={{
-              borderColor: 'hsl(var(--tw-accent))',
-              color: 'hsl(var(--tw-accent))',
-            }}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold border border-primary text-primary hover:bg-primary/10 transition-colors disabled:opacity-30"
           >
             <ChevronLeft className="w-4 h-4" />
             Previous Lesson
@@ -336,17 +328,14 @@ const CourseLearn = () => {
           <button
             type="button"
             onClick={handleContinue}
-            className="inline-flex items-center gap-1.5 px-5 py-2 rounded-full text-sm font-bold"
-            style={{
-              background: 'hsl(var(--tw-accent))',
-              color: 'hsl(var(--tw-accent-ink))',
-            }}
+            className="inline-flex items-center gap-1.5 px-5 py-2 rounded-full text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90"
           >
             {isSelectedComplete ? 'Continue' : 'Complete and Continue'}
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>
       </div>
+
 
       <div className="flex-1 flex min-h-0">
         {/* Left dark curriculum rail */}
