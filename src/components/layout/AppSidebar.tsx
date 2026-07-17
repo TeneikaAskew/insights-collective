@@ -124,15 +124,17 @@ const AppSidebar = () => {
     icon: Home,
     active: location.pathname === '/dashboard'
   }, {
-    title: "Courses",
-    url: "/courses",
-    icon: BookOpen,
-    active: location.pathname.startsWith('/course')
-  }, {
     title: "Resources",
     url: "/resources",
     icon: FileText,
-    active: location.pathname === '/resources'
+    active: location.pathname === '/resources',
+    hasSubmenu: true,
+    subItems: [{
+      title: "Courses",
+      url: "/courses",
+      icon: BookOpen,
+      active: location.pathname.startsWith('/course')
+    }]
   }, {
     title: "Events",
     url: "/events",
