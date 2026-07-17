@@ -184,7 +184,7 @@ export function GridLayout({ portfolioPage }: GridLayoutProps) {
           {portfolioPage.profile_data?.education && portfolioPage.profile_data.education.length > 0 && (
             <div>
               <h3 className="text-2xl font-bold mb-6 flex items-center gap-2" style={{ color: themeStyles.color }}>
-                🎓 Education
+                <GraduationCap className="h-6 w-6" /> Education
               </h3>
               <div className="space-y-6">
                 {portfolioPage.profile_data.education.map((edu, index) => (
