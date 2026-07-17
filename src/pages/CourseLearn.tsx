@@ -110,7 +110,7 @@ const CourseLearn = () => {
     return () => {
       cancelled = true;
     };
-  }, [courseId, canEdit, toast]);
+  }, [courseId, effectiveEdit, toast]);
 
   // --- Progress fetch ---
   useEffect(() => {
