@@ -432,8 +432,7 @@ const CourseLearn = () => {
               <button
                 type="button"
                 onClick={handleContinue}
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold"
-                style={{ background: '#111', color: '#fff' }}
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 {isSelectedComplete ? 'Continue' : 'Complete and Continue'}
                 <ChevronRight className="w-4 h-4" />
