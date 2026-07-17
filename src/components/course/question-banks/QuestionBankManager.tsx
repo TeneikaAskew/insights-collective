@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, Filter, Download, Upload, Edit, Trash2, Copy } from 'lucide-react';
+import { Plus, Search, Filter, Download, Upload, Edit, Trash2, Copy, ArrowLeft, CircleDot, CheckSquare, FileText, FileEdit, Link2, Type, ListOrdered, ListChecks, Calculator, HelpCircle } from 'lucide-react';
 import { useQuestionBankQuestions, useQuestionBankCategories } from '@/hooks/useQuestionBanks';
 import { QuestionBank, QuestionBankQuestion, QuestionType } from '@/types/course';
 import { Badge } from '@/components/ui/badge';
