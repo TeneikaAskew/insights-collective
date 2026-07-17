@@ -15,7 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, FileText, MessageSquare, CalendarDays } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn, slugify } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
