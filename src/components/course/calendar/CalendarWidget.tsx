@@ -156,9 +156,9 @@ export const CalendarWidget: React.FC<CalendarWidgetProps> = ({
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-lg">{getEventIcon(event.type)}</span>
+                        {(() => { const EIcon = getEventIcon(event.type); return <EIcon className="h-4 w-4" />; })()}
                         <span className="font-medium text-sm line-clamp-1">
-                          {event.title.replace(/^[📝📊📢📅] /u, '')} {/* Remove emoji prefix */}
+                          {event.title.replace(/^[\p{Extended_Pictographic}\u2600-\u27BF] /u, '').trim()}
                         </span>
                       </div>
                       {event.description && variant === 'full' && (
