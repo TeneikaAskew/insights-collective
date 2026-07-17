@@ -551,13 +551,31 @@ const CourseBuilder = () => {
         />
       )}
 
-      {activeView !== 'setup' && activeView !== 'curriculum' && activeView !== 'lesson' && (
-        <PlaceholderView
-          courseTitle={course.title}
-          title={PLACEHOLDER_COPY[activeView as keyof typeof PLACEHOLDER_COPY].title}
-          description={PLACEHOLDER_COPY[activeView as keyof typeof PLACEHOLDER_COPY].description}
-        />
+      {activeView === 'information' && (
+        <CourseInformationView course={course} onSave={persistCourse} />
       )}
+
+      {activeView === 'design' && (
+        <CourseDesignView course={course} onSave={persistCourse} />
+      )}
+
+      {activeView === 'certificates' && (
+        <CourseCertificatesView course={course} onSave={persistCourse} />
+      )}
+
+      {activeView !== 'setup' &&
+        activeView !== 'curriculum' &&
+        activeView !== 'lesson' &&
+        activeView !== 'information' &&
+        activeView !== 'design' &&
+        activeView !== 'certificates' &&
+        PLACEHOLDER_COPY[activeView as keyof typeof PLACEHOLDER_COPY] && (
+          <PlaceholderView
+            courseTitle={course.title}
+            title={PLACEHOLDER_COPY[activeView as keyof typeof PLACEHOLDER_COPY].title}
+            description={PLACEHOLDER_COPY[activeView as keyof typeof PLACEHOLDER_COPY].description}
+          />
+        )}
     </TeachableShell>
   );
 };
