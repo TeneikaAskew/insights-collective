@@ -59,19 +59,19 @@ export const AssistantCard = ({ assistant, featured = false, onLaunch }: Assista
         {featured && (
           <div className="space-y-2">
             <div className="flex items-center text-sm gap-2">
-              <span className="text-yellow-500">★</span>
+              <Star className="h-4 w-4 text-primary" />
               <span>Personalized career recommendations</span>
             </div>
             <div className="flex items-center text-sm gap-2">
-              <span className="text-yellow-500">📍</span>
+              <MapPin className="h-4 w-4 text-primary" />
               <span>Considers quiz results & chat input</span>
             </div>
             <div className="flex items-center text-sm gap-2">
-              <span className="text-yellow-500">😊</span>
+              <Smile className="h-4 w-4 text-primary" />
               <span>Acts as your personal career coach</span>
             </div>
             <div className="flex items-center text-sm gap-2">
-              <span className="text-yellow-500">⚡</span>
+              <Zap className="h-4 w-4 text-primary" />
               <span>Pre-loaded with skills/interest data</span>
             </div>
           </div>
@@ -80,15 +80,15 @@ export const AssistantCard = ({ assistant, featured = false, onLaunch }: Assista
         {!featured && (
           <div className="space-y-2">
             <div className="flex items-center text-sm gap-2">
-              <span className="text-yellow-500">★</span>
+              <Star className="h-4 w-4 text-primary" />
               <span>Smart recommendations</span>
             </div>
             <div className="flex items-center text-sm gap-2">
-              <span className="text-yellow-500">💬</span>
+              <MessageCircle className="h-4 w-4 text-primary" />
               <span>Unlimited queries</span>
             </div>
             <div className="flex items-center text-sm gap-2">
-              <span className="text-yellow-500">📚</span>
+              <BookOpen className="h-4 w-4 text-primary" />
               <span>Learning-centered design</span>
             </div>
           </div>
