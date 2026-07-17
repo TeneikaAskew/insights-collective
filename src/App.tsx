@@ -141,6 +141,27 @@ function CourseRedirect() {
   return <Navigate to={redirectPath} replace />;
 }
 
+// Redirect legacy course management routes to the unified builder
+function CourseBuilderRedirect() {
+  const { courseId } = useParams<{ courseId: string }>();
+  return <Navigate to={`/courses/${courseId}/builder`} replace />;
+}
+
+// Redirect legacy per-module/lesson URLs to the unified learner
+function CourseLearnRedirect() {
+  const { courseId, moduleId, itemId, lessonId } = useParams<{
+    courseId: string;
+    moduleId?: string;
+    itemId?: string;
+    lessonId?: string;
+  }>();
+  const target = itemId || lessonId;
+  const dest = target
+    ? `/courses/${courseId}/learn/${moduleId}/${target}`
+    : `/courses/${courseId}/learn`;
+  return <Navigate to={dest} replace />;
+}
+
 // Portfolio Editor Wrapper Component
 function PortfolioEditorWrapper() {
   const { pageId } = useParams<{ pageId: string }>();
