@@ -1,5 +1,5 @@
 
-import { BookOpen, MessageSquare, User, FileText } from 'lucide-react';
+import { BookOpen, MessageSquare, User, FileText, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 
