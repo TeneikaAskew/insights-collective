@@ -448,7 +448,18 @@ const CourseLearn = () => {
 };
 
 // --- Admin top strip ("Edit in Admin" / "Preview as admin") ---
-function AdminTopBar({ canEdit, courseId }: { canEdit: boolean; courseId: string }) {
+function AdminTopBar({
+  canEdit,
+  courseId,
+  previewAsStudent,
+  onPreviewChange,
+}: {
+  canEdit: boolean;
+  courseId: string;
+  previewAsStudent: boolean;
+  onPreviewChange: (v: boolean) => void;
+}) {
+  const [open, setOpen] = useState(false);
   if (!canEdit) return null;
   return (
     <div
@@ -462,15 +473,53 @@ function AdminTopBar({ canEdit, courseId }: { canEdit: boolean; courseId: string
         <ArrowLeft className="w-4 h-4" />
         Edit in Admin
       </Link>
-      <div
-        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold"
-        style={{ background: '#222' }}
-      >
-        Preview as admin
-        <ChevronDown className="w-3 h-3" />
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
+          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold hover:opacity-90"
+          style={{ background: '#222' }}
+        >
+          {previewAsStudent ? 'Preview as student' : 'Preview as admin'}
+          <ChevronDown className="w-3 h-3" />
+        </button>
+        {open && (
+          <div
+            className="absolute left-0 top-full mt-1 z-50 min-w-[200px] rounded-md shadow-lg overflow-hidden"
+            style={{ background: '#1a1a1a', border: '1px solid #333' }}
+          >
+            <button
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                onPreviewChange(false);
+                setOpen(false);
+              }}
+              className="block w-full text-left px-3 py-2 text-xs hover:bg-white/10"
+            >
+              Preview as admin
+              <div className="text-[10px] text-gray-400">See all content</div>
+            </button>
+            <button
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                onPreviewChange(true);
+                setOpen(false);
+              }}
+              className="block w-full text-left px-3 py-2 text-xs hover:bg-white/10"
+            >
+              Preview as student
+              <div className="text-[10px] text-gray-400">Published content only</div>
+            </button>
+          </div>
+        )}
       </div>
       <div className="text-xs text-gray-400">
-        You can see both published and unpublished content
+        {previewAsStudent
+          ? 'You are viewing only published content'
+          : 'You can see both published and unpublished content'}
       </div>
     </div>
   );
