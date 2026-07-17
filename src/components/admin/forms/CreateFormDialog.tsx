@@ -32,13 +32,13 @@ const FORM_TEMPLATES = [
     id: 'blank',
     name: 'Blank Form',
     description: 'Start with an empty form',
-    icon: '📄',
+    icon: FileText,
   },
   {
     id: 'feedback',
     name: 'Feedback Survey',
     description: 'Collect user feedback',
-    icon: '📝',
+    icon: MessageSquare,
     structure: {
       sections: [
         {
@@ -74,7 +74,7 @@ const FORM_TEMPLATES = [
     id: 'registration',
     name: 'Event Registration',
     description: 'Sign up for events',
-    icon: '📅',
+    icon: CalendarDays,
     structure: {
       sections: [
         {
