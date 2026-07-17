@@ -171,7 +171,7 @@ export function ClassicLayout({ portfolioPage }: ClassicLayoutProps) {
             {portfolioPage.profile_data.experience && portfolioPage.profile_data.experience.length > 0 && (
               <div className="mb-8 text-left max-w-3xl mx-auto">
                 <h3 className="text-2xl font-bold mb-6 flex items-center gap-2" style={{ color: themeStyles.color }}>
-                  💼 Experience
+                  <Briefcase className="h-6 w-6" /> Experience
                 </h3>
                 <div className="space-y-6">
                   {portfolioPage.profile_data.experience.map((exp, index) => (
