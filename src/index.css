@@ -120,13 +120,26 @@
 }
 
 @layer components {
+  /* Scoped course-platform theme (Teachable/Podia inspired) */
+  .course-workspace {
+    --cw-bg: 210 20% 98%;              /* #F8F9FA */
+    --cw-surface: 0 0% 100%;
+    --cw-border: 220 13% 91%;          /* #E5E7EB */
+    --cw-text: 228 24% 23%;            /* #2D334A */
+    --cw-muted: 220 9% 46%;
+    --cw-accent: 176 42% 62%;          /* #76C7C0 teal */
+    --cw-accent-strong: 176 34% 50%;   /* #54A8A2 */
+    --cw-accent-soft: 173 40% 90%;     /* #DDEEEB */
+  }
+
   .course-card {
     @apply bg-white rounded-lg shadow-md overflow-hidden transition-all hover:shadow-lg;
   }
-  
+
   .progress-circle {
     @apply relative h-16 w-16 rounded-full flex items-center justify-center;
   }
+  
   
   .progress-circle::before {
     content: '';

@@ -34,6 +34,8 @@ export interface LessonViewerProps {
   onMarkDone: (itemId: string) => void | Promise<void>;
   /** Base path used for Submit/Take-quiz buttons, e.g. `/courses/:courseId/learn/:moduleId`. */
   actionBasePath: string;
+  /** When true, hide the internal Prev/Mark done/Next footer (parent renders its own). */
+  hideFooter?: boolean;
 }
 
 export function LessonViewer({
@@ -44,6 +46,7 @@ export function LessonViewer({
   onNavigate,
   onMarkDone,
   actionBasePath,
+  hideFooter = false,
 }: LessonViewerProps) {
   const navigate = useNavigate();
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -198,34 +201,34 @@ export function LessonViewer({
         {item.type !== 'quiz' && <div ref={sentinelRef} className="h-1" aria-hidden />}
 
         {/* Lesson-level Prev / Mark done / Next footer */}
-        <div className="flex items-center justify-between gap-3 pt-4 border-t">
-          <Button
-            variant="outline"
-            disabled={!prevItem}
-            onClick={() => prevItem && onNavigate(prevItem.id)}
-          >
-            <ChevronLeft className="h-4 w-4 mr-1" />
-            Previous
-          </Button>
-
-          <Button
-            variant={isCompleted || autoCompleted ? 'secondary' : 'default'}
-            onClick={() => onMarkDone(item.id)}
-            disabled={isCompleted || autoCompleted}
-          >
-            <CheckCircle2 className="h-4 w-4 mr-1" />
-            {isCompleted || autoCompleted ? 'Completed' : 'Mark as done'}
-          </Button>
-
-          <Button
-            variant="outline"
-            disabled={!nextItem}
-            onClick={() => nextItem && onNavigate(nextItem.id)}
-          >
-            Next
-            <ChevronRight className="h-4 w-4 ml-1" />
-          </Button>
-        </div>
+        {!hideFooter && (
+          <div className="flex items-center justify-between gap-3 pt-4 border-t">
+            <Button
+              variant="outline"
+              disabled={!prevItem}
+              onClick={() => prevItem && onNavigate(prevItem.id)}
+            >
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              Previous
+            </Button>
+            <Button
+              variant={isCompleted || autoCompleted ? 'secondary' : 'default'}
+              onClick={() => onMarkDone(item.id)}
+              disabled={isCompleted || autoCompleted}
+            >
+              <CheckCircle2 className="h-4 w-4 mr-1" />
+              {isCompleted || autoCompleted ? 'Completed' : 'Mark as done'}
+            </Button>
+            <Button
+              variant="outline"
+              disabled={!nextItem}
+              onClick={() => nextItem && onNavigate(nextItem.id)}
+            >
+              Next
+              <ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
