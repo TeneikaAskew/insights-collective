@@ -374,12 +374,19 @@ function SectionCard({
           ) : (
             <button
               type="button"
-              onClick={() => setDescEditing(true)}
+              onClick={beginEditDesc}
               className="w-full text-left text-sm text-gray-600 hover:text-black cursor-text px-1 py-1 rounded"
-              title="Edit section summary"
+              title="Click to edit section summary"
             >
               {module.description?.trim() ? (
-                <span className="whitespace-pre-wrap">{module.description}</span>
+                looksLikeHtml(module.description) ? (
+                  <div
+                    className="prose prose-sm max-w-none"
+                    dangerouslySetInnerHTML={{ __html: sanitizeHTML(module.description) }}
+                  />
+                ) : (
+                  <span className="whitespace-pre-wrap">{module.description}</span>
+                )
               ) : (
                 <span className="text-gray-400 italic">
                   + Add a section summary students will see on the course page
