@@ -183,16 +183,6 @@ const CourseList = () => {
                         alt={course.title}
                         className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500"
                       />
-                      {/* ONLINE pill */}
-                      <span
-                        className="absolute top-4 left-4 inline-flex items-center px-3 py-1 rounded-md text-[11px] font-bold uppercase tracking-[0.14em]"
-                        style={{
-                          background: 'hsl(var(--cw-accent-soft))',
-                          color: 'hsl(var(--cw-accent-strong))',
-                        }}
-                      >
-                        Online
-                      </span>
                       {/* Circular logo badge overlapping bottom-left */}
                       <div className="absolute -bottom-6 left-5 h-14 w-14 rounded-full bg-white border-4 border-white shadow-md flex items-center justify-center overflow-hidden">
                         {course.instructor?.avatar ? (
