@@ -424,7 +424,7 @@ const CourseBuilder = () => {
   );
 
   const handleAddContentTile = useCallback(
-    async (type: ContentItemType, defaultTitle: string) => {
+    async (type: ContentItemType, defaultTitle: string, defaultContent?: string) => {
       // Add into the module of the currently-selected lesson, or the first module
       const targetModuleId =
         modules.find((m) => m.items.some((i) => i.id === effectiveLessonId))?.id ??
@@ -436,7 +436,7 @@ const CourseBuilder = () => {
         });
         return;
       }
-      const created = await addLesson(targetModuleId, type, defaultTitle);
+      const created = await addLesson(targetModuleId, type, defaultTitle, defaultContent ?? '');
       if (created) selectLesson(created.id);
     },
     [modules, effectiveLessonId, addLesson, selectLesson, toast],
