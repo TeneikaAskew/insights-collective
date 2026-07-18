@@ -60,6 +60,7 @@ const CourseLearn = () => {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [completed, setCompleted] = useState<Set<string>>(new Set());
+  const [mobileRailOpen, setMobileRailOpen] = useState(false);
 
   const { data: progress, markItemComplete } = useCourseProgress(courseId);
 
