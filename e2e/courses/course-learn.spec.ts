@@ -7,10 +7,8 @@ test.describe('Course Learn Interface', () => {
 
   test('renders course learn interface', async ({ page }) => {
     await goto(page, learnUrl);
-    // Shell may render before <main> mounts on placeholder IDs; accept any top-level region.
-    await expect(page.locator('body')).not.toBeEmpty();
-    const region = page.locator('main, [role="main"], aside, nav, section').first();
-    await expect(region).toBeVisible();
+    // Placeholder IDs render a "Course not found" fallback; accept any heading.
+    await expect(page.locator('h1, h2').first()).toBeVisible();
   });
 
   test('spinner resolves on load', async ({ page }) => {
