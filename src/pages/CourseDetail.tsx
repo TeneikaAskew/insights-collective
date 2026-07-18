@@ -809,7 +809,7 @@ const CourseDetail = () => {
               {isEnrolled && modules.length > 0 ? (
                 <CourseProgressTimeline
                   courseId={courseId!}
-                  modules={(modules as any[]).map((m: any) => ({ id: m.id, title: m.title }))}
+                  modules={(modules as any[]).map((m: any) => ({ id: m.id, title: m.title, description: m.description }))}
                   title="Course curriculum"
                   subtitle="Each week's checkpoint updates automatically as you complete lessons, submit assignments, and receive feedback."
                   headerRight={
