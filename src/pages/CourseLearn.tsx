@@ -301,8 +301,16 @@ const CourseLearn = () => {
       <AdminTopBar canEdit={canEdit} courseId={course.id} previewAsStudent={previewAsStudent} onPreviewChange={setPreviewAsStudent} />
 
       {/* Player top bar with prev/next pills */}
-      <div className="flex items-center justify-between px-6 py-3 flex-shrink-0 bg-card border-b border-border">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between gap-2 px-3 sm:px-6 py-3 flex-shrink-0 bg-card border-b border-border flex-wrap">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <button
+            type="button"
+            onClick={() => setMobileRailOpen(true)}
+            className="lg:hidden w-9 h-9 rounded-md flex items-center justify-center text-foreground hover:bg-muted"
+            aria-label="Open curriculum"
+          >
+            <Menu className="w-4 h-4" />
+          </button>
           <Link
             to={`/courses/${course.id}/learn`}
             className="w-9 h-9 rounded-md flex items-center justify-center text-foreground hover:bg-muted"
@@ -320,22 +328,24 @@ const CourseLearn = () => {
           </Link>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 ml-auto">
           <button
             type="button"
             disabled={!prev}
             onClick={() => prev && goTo(prev.module.id, prev.item.id)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold border border-primary text-primary hover:bg-primary/10 transition-colors disabled:opacity-30"
+            className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-semibold border border-primary text-primary hover:bg-primary/10 transition-colors disabled:opacity-30"
           >
             <ChevronLeft className="w-4 h-4" />
-            Previous Lesson
+            <span className="hidden sm:inline">Previous Lesson</span>
+            <span className="sm:hidden">Prev</span>
           </button>
           <button
             type="button"
             onClick={handleContinue}
-            className="inline-flex items-center gap-1.5 px-5 py-2 rounded-full text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90"
+            className="inline-flex items-center gap-1.5 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90"
           >
-            {isSelectedComplete ? 'Continue' : 'Complete and Continue'}
+            <span className="hidden sm:inline">{isSelectedComplete ? 'Continue' : 'Complete and Continue'}</span>
+            <span className="sm:hidden">{isSelectedComplete ? 'Next' : 'Complete'}</span>
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>
@@ -343,74 +353,55 @@ const CourseLearn = () => {
 
 
       <div className="flex-1 flex min-h-0">
-        {/* Left curriculum rail */}
-        <aside className="w-72 flex-shrink-0 overflow-y-auto bg-muted/40 border-r border-border">
-          <nav className="p-3 space-y-5">
-            {modules.map((m) => (
-              <div key={m.id}>
-                <div className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground px-3 py-2">
-                  {m.title || 'Untitled section'}
-                </div>
-                <ul className="space-y-0.5">
-                  {m.items.map((it) => {
-                    const active = selected?.item.id === it.id;
-                    const done = completed.has(it.id);
-                    return (
-                      <li key={it.id}>
-                        <button
-                          type="button"
-                          onClick={() => goTo(m.id, it.id)}
-                          className={cn(
-                            'w-full flex items-start gap-3 px-3 py-2 rounded-md text-left text-sm transition-colors',
-                            active
-                              ? 'bg-primary/10 text-foreground'
-                              : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                          )}
-                          style={
-                            active
-                              ? { borderLeft: '2px solid hsl(var(--primary))', paddingLeft: 10 }
-                              : undefined
-                          }
-                        >
-                          <span className="mt-0.5 flex-shrink-0">
-                            {done ? (
-                              <div className="w-4 h-4 rounded-full bg-primary" />
-                            ) : active ? (
-                              <div
-                                className="w-4 h-4 rounded-full border-2 border-primary"
-                                style={{
-                                  background:
-                                    'radial-gradient(circle, hsl(var(--primary)) 40%, transparent 42%)',
-                                }}
-                              />
-                            ) : (
-                              <Circle className="w-4 h-4 text-muted-foreground/60" />
-                            )}
-                          </span>
-                          <div className="flex-1 min-w-0">
-                            <div className="truncate">
-                              {it.title || 'Untitled lesson'}
-                            </div>
-                            {canEdit && !it.published && (
-                              <span className="inline-block mt-1 text-[9px] uppercase tracking-widest font-bold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                                Draft
-                              </span>
-                            )}
-                          </div>
-                        </button>
-
-                      </li>
-                    );
-                  })}
-                </ul>
+        {/* Mobile curriculum drawer */}
+        {mobileRailOpen && (
+          <div className="lg:hidden fixed inset-0 z-40 flex">
+            <button
+              type="button"
+              aria-label="Close curriculum"
+              className="absolute inset-0 bg-black/50"
+              onClick={() => setMobileRailOpen(false)}
+            />
+            <aside className="relative w-80 max-w-[85vw] overflow-y-auto bg-card border-r border-border shadow-xl">
+              <div className="flex items-center justify-between p-3 border-b border-border">
+                <div className="text-sm font-semibold truncate pr-2">{course.title}</div>
+                <button
+                  type="button"
+                  onClick={() => setMobileRailOpen(false)}
+                  className="p-2 rounded-md hover:bg-muted"
+                  aria-label="Close"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
-            ))}
-          </nav>
+              <RailNav
+                modules={modules}
+                selectedId={selected?.item.id}
+                completed={completed}
+                canEdit={canEdit}
+                onSelect={(mid, iid) => {
+                  goTo(mid, iid);
+                  setMobileRailOpen(false);
+                }}
+              />
+            </aside>
+          </div>
+        )}
+
+        {/* Desktop left curriculum rail */}
+        <aside className="hidden lg:block w-72 flex-shrink-0 overflow-y-auto bg-muted/40 border-r border-border">
+          <RailNav
+            modules={modules}
+            selectedId={selected?.item.id}
+            completed={completed}
+            canEdit={canEdit}
+            onSelect={goTo}
+          />
         </aside>
 
         {/* Content */}
-        <main className="flex-1 overflow-y-auto">
-          <div className="max-w-3xl mx-auto px-8 py-10 pb-32">
+        <main className="flex-1 overflow-y-auto min-w-0">
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-10 pb-32">
             <div className="mb-4">
               <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest px-2.5 py-1 rounded bg-primary text-primary-foreground">
                 <FileText className="w-3 h-3" />
@@ -423,7 +414,7 @@ const CourseLearn = () => {
                   : 'Lesson'}
               </span>
             </div>
-            <h1 className="font-display text-4xl mb-6">{selected.item.title}</h1>
+            <h1 className="font-display text-2xl sm:text-3xl lg:text-4xl mb-6 break-words">{selected.item.title}</h1>
             <LessonViewer
               item={selected.item}
               isCompleted={isSelectedComplete}
@@ -447,6 +438,81 @@ const CourseLearn = () => {
         </main>
       </div>
     </div>
+  );
+};
+
+function RailNav({
+  modules,
+  selectedId,
+  completed,
+  canEdit,
+  onSelect,
+}: {
+  modules: CurriculumModule[];
+  selectedId?: string;
+  completed: Set<string>;
+  canEdit: boolean;
+  onSelect: (moduleId: string, itemId: string) => void;
+}) {
+  return (
+    <nav className="p-3 space-y-5">
+      {modules.map((m) => (
+        <div key={m.id}>
+          <div className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground px-3 py-2">
+            {m.title || 'Untitled section'}
+          </div>
+          <ul className="space-y-0.5">
+            {m.items.map((it) => {
+              const active = selectedId === it.id;
+              const done = completed.has(it.id);
+              return (
+                <li key={it.id}>
+                  <button
+                    type="button"
+                    onClick={() => onSelect(m.id, it.id)}
+                    className={cn(
+                      'w-full flex items-start gap-3 px-3 py-2 rounded-md text-left text-sm transition-colors',
+                      active
+                        ? 'bg-primary/10 text-foreground'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                    )}
+                    style={
+                      active
+                        ? { borderLeft: '2px solid hsl(var(--primary))', paddingLeft: 10 }
+                        : undefined
+                    }
+                  >
+                    <span className="mt-0.5 flex-shrink-0">
+                      {done ? (
+                        <div className="w-4 h-4 rounded-full bg-primary" />
+                      ) : active ? (
+                        <div
+                          className="w-4 h-4 rounded-full border-2 border-primary"
+                          style={{
+                            background:
+                              'radial-gradient(circle, hsl(var(--primary)) 40%, transparent 42%)',
+                          }}
+                        />
+                      ) : (
+                        <Circle className="w-4 h-4 text-muted-foreground/60" />
+                      )}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="truncate">{it.title || 'Untitled lesson'}</div>
+                      {canEdit && !it.published && (
+                        <span className="inline-block mt-1 text-[9px] uppercase tracking-widest font-bold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                          Draft
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))}
+    </nav>
   );
 };
 
