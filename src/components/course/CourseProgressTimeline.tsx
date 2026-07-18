@@ -131,7 +131,9 @@ export function CourseProgressTimeline({ courseId, modules, title = 'Weekly chec
               </div>
 
               {m.description && (
-                <p className="mt-2 text-sm text-neutral-600 leading-relaxed">{m.description}</p>
+                <p className="mt-2 text-sm text-neutral-600 leading-relaxed">
+                  {m.description.replace(/<[^>]+>/g, '').trim()}
+                </p>
               )}
 
               <div className="mt-3 h-1.5 w-full max-w-xs rounded-full bg-neutral-100 overflow-hidden">
