@@ -31,6 +31,9 @@ export default defineConfig({
     video: 'on-first-retry',
     actionTimeout: 10_000,
     navigationTimeout: 15_000,
+    launchOptions: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+      ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH }
+      : {},
   },
   globalSetup: './e2e/global-setup.ts',
   globalTeardown: './e2e/global-teardown.ts',
