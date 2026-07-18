@@ -11,6 +11,9 @@ import { useCourseProgress } from '@/hooks/useCourseProgress';
 interface CourseProgressTimelineProps {
   courseId: string;
   modules: Array<{ id: string; title: string }>;
+  title?: string;
+  subtitle?: string;
+  headerRight?: React.ReactNode;
 }
 
 type CheckpointState = 'not_started' | 'in_progress' | 'complete';
@@ -27,7 +30,7 @@ const LABELS: Record<CheckpointState, string> = {
   complete: 'Complete',
 };
 
-export function CourseProgressTimeline({ courseId, modules }: CourseProgressTimelineProps) {
+export function CourseProgressTimeline({ courseId, modules, title = 'Weekly checkpoints', subtitle, headerRight }: CourseProgressTimelineProps) {
   const { user } = useAuth();
   const { data, refetch, isLoading } = useCourseProgress(courseId);
 
