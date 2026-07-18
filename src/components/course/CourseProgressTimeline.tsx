@@ -67,14 +67,17 @@ export function CourseProgressTimeline({ courseId, modules, title = 'Weekly chec
 
   return (
     <section className="rounded-2xl bg-white border border-neutral-200 p-6 md:p-8">
-      <div className="flex items-baseline justify-between mb-1">
-        <h2 className="font-display text-2xl text-neutral-900">Weekly checkpoints</h2>
-        <span className="text-xs text-neutral-500">
-          {data ? `${data.completedItems} / ${data.totalItems} lessons` : isLoading ? 'Loading…' : ''}
-        </span>
+      <div className="flex items-baseline justify-between mb-1 gap-4">
+        <h2 className="font-display text-2xl text-neutral-900">{title}</h2>
+        <div className="flex items-center gap-4">
+          <span className="text-xs text-neutral-500">
+            {data ? `${data.completedItems} / ${data.totalItems} lessons` : isLoading ? 'Loading…' : ''}
+          </span>
+          {headerRight}
+        </div>
       </div>
       <p className="text-sm text-neutral-500 mb-6">
-        Each week's checkpoint updates automatically as you complete lessons, submit assignments, and receive feedback.
+        {subtitle ?? "Each week's checkpoint updates automatically as you complete lessons, submit assignments, and receive feedback."}
       </p>
 
       <ol className="relative">
