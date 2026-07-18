@@ -219,10 +219,10 @@ const CourseLearn = () => {
       >
         <AdminTopBar canEdit={canEdit} courseId={course.id} previewAsStudent={previewAsStudent} onPreviewChange={setPreviewAsStudent} />
         <div className="flex-1 overflow-y-auto">
-          <div className="max-w-6xl mx-auto px-8 py-14">
-            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-10">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-14">
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-6 lg:gap-10">
               <div>
-                <h1 className="font-display text-5xl mb-3">{course.title}</h1>
+                <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl mb-3">{course.title}</h1>
                 <p className="text-sm text-gray-600 mb-8">
                   {flatItems.length} lessons · Continue where you left off
                 </p>
