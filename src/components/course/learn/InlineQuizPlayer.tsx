@@ -98,6 +98,26 @@ export function InlineQuizPlayer({ item, quiz, onCompleted }: InlineQuizPlayerPr
     return () => window.clearInterval(timer);
   }, [quizStarted, timeRemaining]);
 
+  // Load per-question answers once a submission is complete so we can render the review view.
+  useEffect(() => {
+    let cancelled = false;
+    const loadAnswers = async () => {
+      if (!submission?.id || submission.workflow_state !== 'complete') return;
+      const { data, error } = await supabase
+        .from('quiz_submission_answers')
+        .select('*')
+        .eq('quiz_submission_id', submission.id);
+      if (cancelled) return;
+      if (error) {
+        logger.error('Failed to load submission answers', error);
+        return;
+      }
+      setSubmissionAnswers(data || []);
+    };
+    void loadAnswers();
+    return () => { cancelled = true; };
+  }, [submission?.id, submission?.workflow_state]);
+
   // Auto-save when answers change (debounced)
   useEffect(() => {
     if (prevDebouncedRef.current === debouncedAnswers) return;
