@@ -847,6 +847,11 @@ const CourseDetail = () => {
                                 {m.week ? `Week ${m.week}` : `Section ${idx + 1}`}
                               </p>
                               <h3 className="font-semibold text-neutral-900 truncate">{m.title}</h3>
+                              {m.description && (
+                                <p className="mt-1 text-sm text-neutral-600 line-clamp-2">
+                                  {String(m.description).replace(/<[^>]+>/g, '').trim()}
+                                </p>
+                              )}
                             </div>
                             <span className="text-xs text-neutral-500 whitespace-nowrap ml-4">
                               {lessonCount} {lessonCount === 1 ? 'lesson' : 'lessons'}
