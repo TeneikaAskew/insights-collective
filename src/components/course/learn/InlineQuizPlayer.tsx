@@ -46,6 +46,7 @@ export function InlineQuizPlayer({ item, quiz, onCompleted }: InlineQuizPlayerPr
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [submissionAnswers, setSubmissionAnswers] = useState<any[]>([]);
   const debouncedAnswers = useDebounce(answers, 2000);
   const prevDebouncedRef = useRef(debouncedAnswers);
 
