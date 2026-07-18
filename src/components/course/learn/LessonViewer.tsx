@@ -19,6 +19,7 @@ import { UnifiedCanvasEditor } from '@/components/ui/unified-canvas-editor';
 import { format } from 'date-fns';
 import type { ContentItem } from '@/types/canvas';
 import { InlineQuizPlayer } from '@/components/course/learn/InlineQuizPlayer';
+import { InlineAssignmentSubmit } from '@/components/course/learn/InlineAssignmentSubmit';
 
 export interface LessonViewerProps {
   item: ContentItem | null;
