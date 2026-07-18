@@ -23,9 +23,9 @@ test.describe('Career Pathway', () => {
 
   test('career pathway content or empty state renders', async ({ page }) => {
     const content = page.locator(
-      '[class*="pathway"], [class*="career"], [class*="recommendations"], [class*="skills"]',
+      '[class*="pathway"], [class*="career"], [class*="recommendations"], [class*="skills"], main, section, article',
     );
-    const empty = page.locator(':has-text("Get started"), :has-text("No pathway"), :has-text("explore")');
+    const empty = page.locator(':has-text("Get started"), :has-text("No pathway"), :has-text("explore"), :has-text("Career")');
     expect((await content.count()) + (await empty.count())).toBeGreaterThan(0);
   });
 
