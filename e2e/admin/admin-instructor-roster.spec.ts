@@ -21,6 +21,13 @@ async function getAccessToken(page: any): Promise<string> {
         } catch {}
       }
     }
+    const raw = localStorage.getItem('supabase.auth.token');
+    if (raw) {
+      try {
+        const p = JSON.parse(raw) as any;
+        return p?.access_token ?? p?.currentSession?.access_token ?? null;
+      } catch { return null; }
+    }
     return null;
   });
   if (!token) throw new Error('No Supabase access token in localStorage — admin session not restored');

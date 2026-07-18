@@ -23,7 +23,10 @@ async function getAccessToken(page: any): Promise<string> {
     }
     const raw = localStorage.getItem('supabase.auth.token');
     if (raw) {
-      try { return (JSON.parse(raw) as any)?.currentSession?.access_token ?? null; } catch { return null; }
+      try {
+        const p = JSON.parse(raw) as any;
+        return p?.access_token ?? p?.currentSession?.access_token ?? null;
+      } catch { return null; }
     }
     return null;
   });
