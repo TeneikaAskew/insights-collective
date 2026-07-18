@@ -46,6 +46,7 @@ export function InlineQuizPlayer({ item, quiz, onCompleted }: InlineQuizPlayerPr
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [submissionAnswers, setSubmissionAnswers] = useState<any[]>([]);
   const debouncedAnswers = useDebounce(answers, 2000);
   const prevDebouncedRef = useRef(debouncedAnswers);
 
@@ -96,6 +97,26 @@ export function InlineQuizPlayer({ item, quiz, onCompleted }: InlineQuizPlayerPr
 
     return () => window.clearInterval(timer);
   }, [quizStarted, timeRemaining]);
+
+  // Load per-question answers once a submission is complete so we can render the review view.
+  useEffect(() => {
+    let cancelled = false;
+    const loadAnswers = async () => {
+      if (!submission?.id || submission.workflow_state !== 'complete') return;
+      const { data, error } = await supabase
+        .from('quiz_submission_answers')
+        .select('*')
+        .eq('quiz_submission_id', submission.id);
+      if (cancelled) return;
+      if (error) {
+        logger.error('Failed to load submission answers', error);
+        return;
+      }
+      setSubmissionAnswers(data || []);
+    };
+    void loadAnswers();
+    return () => { cancelled = true; };
+  }, [submission?.id, submission?.workflow_state]);
 
   // Auto-save when answers change (debounced)
   useEffect(() => {
@@ -399,9 +420,21 @@ export function InlineQuizPlayer({ item, quiz, onCompleted }: InlineQuizPlayerPr
   };
 
   const canTakeQuiz = !submission || submission.attempt < quiz.allowed_attempts;
+  const isComplete = submission?.workflow_state === 'complete';
+  const showReview = isComplete && !quizStarted;
   const currentQuestion = questions[currentQuestionIndex];
   const isLastQuestion = currentQuestionIndex === questions.length - 1;
   const isFirstQuestion = currentQuestionIndex === 0;
+  const totalPossible = questions.reduce((sum, q) => sum + (q.points || 0), 0);
+
+  const startRetake = async () => {
+    setSubmission(null);
+    setSubmissionAnswers([]);
+    setAnswers({});
+    setCurrentQuestionIndex(0);
+    setQuizStarted(false);
+    await ensureSubmission();
+  };
 
   if (questions.length === 0) {
     return (
@@ -416,6 +449,103 @@ export function InlineQuizPlayer({ item, quiz, onCompleted }: InlineQuizPlayerPr
     );
   }
 
+  if (showReview) {
+    const answerByQuestion = new Map(submissionAnswers.map((a) => [a.quiz_question_id, a]));
+    const scored = typeof submission.score === 'number' ? submission.score : 0;
+    const attemptsLeft = quiz.allowed_attempts - (submission.attempt || 0);
+    return (
+      <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-primary" />
+              Quiz results
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <p className="text-2xl font-semibold text-neutral-900">
+              {scored} / {totalPossible} {totalPossible === 1 ? 'point' : 'points'}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Attempt {submission.attempt} of {quiz.allowed_attempts}
+              {attemptsLeft > 0 ? ` · ${attemptsLeft} attempt${attemptsLeft === 1 ? '' : 's'} remaining` : ' · No attempts remaining'}
+            </p>
+            {attemptsLeft > 0 && (
+              <Button variant="outline" size="sm" onClick={() => void startRetake()} disabled={creatingSubmission}>
+                Retake quiz
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+
+        {questions.map((question, idx) => {
+          const record = answerByQuestion.get(question.id);
+          const userAnswerRaw = record?.answer_data?.answer;
+          const correct = !!record?.correct;
+          const answerOptions = Array.isArray(question.answers) ? question.answers : [];
+          const explanation = (question as any).explanation as string | undefined;
+          const feedback = (question as any).feedback as string | undefined;
+
+          const answerLabelFor = (val: any): string => {
+            if (val == null || val === '') return '—';
+            if (Array.isArray(val)) return val.map(answerLabelFor).join(', ');
+            const opt = answerOptions.find((o) => (o.id || '') === val);
+            return opt?.text ?? String(val);
+          };
+          const correctOptions = answerOptions.filter((o) => o.correct);
+
+          return (
+            <Card key={question.id} className={correct ? 'border-primary/40' : 'border-destructive/40'}>
+              <CardHeader>
+                <div className="flex items-start justify-between gap-3">
+                  <CardTitle className="text-base">
+                    Q{idx + 1}. <span className="font-normal" dangerouslySetInnerHTML={{ __html: question.question_text }} />
+                  </CardTitle>
+                  <span
+                    className={
+                      'text-xs font-semibold uppercase tracking-wider ' +
+                      (correct ? 'text-primary' : 'text-destructive')
+                    }
+                  >
+                    {correct ? 'Correct' : 'Incorrect'} · {record?.points ?? 0}/{question.points}
+                  </span>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                <p>
+                  <span className="text-muted-foreground">Your answer: </span>
+                  <span className={correct ? 'text-primary font-medium' : 'text-destructive font-medium'}>
+                    {answerLabelFor(userAnswerRaw)}
+                  </span>
+                </p>
+                {!correct && correctOptions.length > 0 && (
+                  <p>
+                    <span className="text-muted-foreground">Correct answer: </span>
+                    <span className="font-medium text-neutral-900">
+                      {correctOptions.map((o) => o.text).join(', ')}
+                    </span>
+                  </p>
+                )}
+                {explanation && (
+                  <div className="mt-2 rounded-md bg-muted/60 p-3 text-neutral-800">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Explanation</p>
+                    <p>{explanation}</p>
+                  </div>
+                )}
+                {feedback && !explanation && (
+                  <div className="mt-2 rounded-md bg-muted/60 p-3 text-neutral-800">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Feedback</p>
+                    <p>{feedback}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+    );
+  }
+
   if (!canTakeQuiz) {
     return (
       <Card>
@@ -423,14 +553,6 @@ export function InlineQuizPlayer({ item, quiz, onCompleted }: InlineQuizPlayerPr
           <CardTitle className="text-lg">Quiz</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {submission?.workflow_state === 'complete' && (
-            <Alert>
-              <CheckCircle2 className="h-4 w-4" />
-              <AlertDescription>
-                Latest attempt submitted{typeof submission.score === 'number' ? ` with score ${submission.score}.` : '.'}
-              </AlertDescription>
-            </Alert>
-          )}
           <Alert>
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>You have used all available attempts for this quiz.</AlertDescription>
