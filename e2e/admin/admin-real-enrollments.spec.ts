@@ -18,9 +18,13 @@ test.describe('Admin — courses & enrollments', () => {
 
   test('Courses tab lists the seeded course with enrollment count', async ({ page }) => {
     await page.goto('/admin/courses');
+    // Filter to the seeded course via the search box (list may be long)
+    const search = page.getByPlaceholder(/Search courses/i);
+    await expect(search).toBeVisible({ timeout: 15_000 });
+    await search.fill(COURSE_TITLE);
     await expect(page.getByText(COURSE_TITLE, { exact: false }).first())
       .toBeVisible({ timeout: 15_000 });
-    // "N enrolled" text renders for at least one course
+    // "N enrolled" text renders for the filtered course
     await expect(page.getByText(/\d+ enrolled/).first()).toBeVisible();
   });
 
