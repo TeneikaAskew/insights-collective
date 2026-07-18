@@ -75,6 +75,7 @@ export default defineConfig({
       },
       testMatch: [
         '**/courses/course-builder.spec.ts',
+        '**/courses/course-builder-verification.spec.ts',
         '**/courses/course-management.spec.ts',
         '**/courses/course-gradebook.spec.ts',
         '**/courses/course-rubrics.spec.ts',
