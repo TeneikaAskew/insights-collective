@@ -75,7 +75,11 @@ async function saveSessionForRole(
     user: tokenData.user,
   });
 
-  const browser = await chromium.launch();
+  const browser = await chromium.launch(
+    process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+      ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH }
+      : {},
+  );
   const context = await browser.newContext();
 
   // Inject before any page script runs
