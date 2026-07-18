@@ -19,6 +19,7 @@ import { UnifiedCanvasEditor } from '@/components/ui/unified-canvas-editor';
 import { format } from 'date-fns';
 import type { ContentItem } from '@/types/canvas';
 import { InlineQuizPlayer } from '@/components/course/learn/InlineQuizPlayer';
+import { InlineAssignmentSubmit } from '@/components/course/learn/InlineAssignmentSubmit';
 
 export interface LessonViewerProps {
   item: ContentItem | null;
@@ -148,31 +149,7 @@ export function LessonViewer({
 
         {/* Assignment metadata + submit CTA */}
         {item.type === 'assignment' && item.assignment && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Assignment Details</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Points Possible:</span>
-                <span>{item.assignment.points_possible || 'Not graded'}</span>
-              </div>
-              {item.assignment.submission_types?.length ? (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Submission Types:</span>
-                  <span>{item.assignment.submission_types.join(', ')}</span>
-                </div>
-              ) : null}
-              <div className="pt-4">
-                <Button
-                  className="w-full"
-                  onClick={() => navigate(`${actionBasePath}/assignments/${item.id}/submit`)}
-                >
-                  Submit Assignment
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <InlineAssignmentSubmit item={item} assignment={item.assignment} onCompleted={onMarkDone} />
         )}
 
         {/* Quiz player */}

@@ -1,0 +1,1 @@
+ALTER TABLE public.assignment_submissions ADD COLUMN IF NOT EXISTS rubric_scores jsonb;

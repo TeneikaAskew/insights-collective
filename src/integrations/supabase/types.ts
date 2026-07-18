@@ -265,6 +265,7 @@ export type Database = {
           id: string
           late: boolean | null
           missing: boolean | null
+          rubric_scores: Json | null
           score: number | null
           submission_type: string | null
           submitted_at: string | null
@@ -285,6 +286,7 @@ export type Database = {
           id?: string
           late?: boolean | null
           missing?: boolean | null
+          rubric_scores?: Json | null
           score?: number | null
           submission_type?: string | null
           submitted_at?: string | null
@@ -305,6 +307,7 @@ export type Database = {
           id?: string
           late?: boolean | null
           missing?: boolean | null
+          rubric_scores?: Json | null
           score?: number | null
           submission_type?: string | null
           submitted_at?: string | null
