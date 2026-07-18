@@ -2,7 +2,7 @@
 // ABOUTME: Auto-updates via useCourseProgress and Supabase realtime on progressions/submissions.
 
 import { useEffect } from 'react';
-import { Check, Circle, Loader2 } from 'lucide-react';
+import { Check, Circle, CircleDot } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -103,7 +103,7 @@ export function CourseProgressTimeline({ courseId, modules }: CourseProgressTime
                 {state === 'complete' ? (
                   <Check className="h-4 w-4" />
                 ) : state === 'in_progress' ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <CircleDot className="h-4 w-4" />
                 ) : (
                   <Circle className="h-3 w-3" />
                 )}
