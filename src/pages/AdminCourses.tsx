@@ -417,13 +417,8 @@ function EnrollmentsTab({ courses }: { courses: Course[] }) {
               <Download className="h-4 w-4 mr-2" />
               Download completion report
             </Button>
-
-                className="pl-8"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
           </div>
+
 
           {stats && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
