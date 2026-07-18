@@ -10,7 +10,7 @@ import { useCourseProgress } from '@/hooks/useCourseProgress';
 
 interface CourseProgressTimelineProps {
   courseId: string;
-  modules: Array<{ id: string; title: string }>;
+  modules: Array<{ id: string; title: string; description?: string | null }>;
   title?: string;
   subtitle?: string;
   headerRight?: React.ReactNode;
