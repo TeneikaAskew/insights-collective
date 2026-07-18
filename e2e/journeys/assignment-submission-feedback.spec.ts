@@ -96,9 +96,9 @@ test.describe('Assignment submission → feedback → completion', () => {
     );
     expect(grader.ok(), `grade update ok (${grader.status()})`).toBeTruthy();
 
-    // 6. Mark the content item complete so completion status advances
+    // 6. Mark the content item complete so completion status advances (upsert)
     const prog = await page.request.post(
-      `${SUPABASE_URL}/rest/v1/content_item_progressions`,
+      `${SUPABASE_URL}/rest/v1/content_item_progressions?on_conflict=user_id,content_item_id`,
       {
         headers: { ...headers, Prefer: 'resolution=merge-duplicates,return=representation' },
         data: {
@@ -108,7 +108,8 @@ test.describe('Assignment submission → feedback → completion', () => {
         },
       },
     );
-    expect(prog.ok(), `progression insert ok (${prog.status()})`).toBeTruthy();
+    expect(prog.ok(), `progression upsert ok (${prog.status()})`).toBeTruthy();
+
 
     // 7. Reload lesson; expect the graded feedback UI to render
     await page.reload();
