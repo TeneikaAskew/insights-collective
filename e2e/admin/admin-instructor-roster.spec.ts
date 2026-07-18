@@ -52,15 +52,26 @@ test.describe('Instructor/admin roster + reporting', () => {
     const token = await getAccessToken(page);
     const headers = { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` };
     const dbRes = await page.request.get(
-      `${SUPABASE_URL}/rest/v1/enrollments?course_id=eq.${COURSE_ID}&select=user_id,completion_status,profiles:user_id(first_name,last_name)`,
+      `${SUPABASE_URL}/rest/v1/enrollments?course_id=eq.${COURSE_ID}&select=user_id,completion_status`,
       { headers },
     );
-    expect(dbRes.ok(), `enrollments query ok (${dbRes.status()})`).toBeTruthy();
-    const dbRows = (await dbRes.json()) as Array<{
-      user_id: string;
-      completion_status: number | null;
-      profiles: { first_name: string | null; last_name: string | null } | null;
-    }>;
+    expect(dbRes.ok(), `enrollments query ok (${dbRes.status()}: ${await dbRes.text()})`).toBeTruthy();
+    const rawRows = (await dbRes.json()) as Array<{ user_id: string; completion_status: number | null }>;
+
+    let profilesById: Record<string, { first_name: string | null; last_name: string | null }> = {};
+    if (rawRows.length > 0) {
+      const ids = rawRows.map((r) => r.user_id).join(',');
+      const pRes = await page.request.get(
+        `${SUPABASE_URL}/rest/v1/profiles?id=in.(${ids})&select=id,first_name,last_name`,
+        { headers },
+      );
+      if (pRes.ok()) {
+        for (const p of (await pRes.json()) as Array<{ id: string; first_name: string | null; last_name: string | null }>) {
+          profilesById[p.id] = { first_name: p.first_name, last_name: p.last_name };
+        }
+      }
+    }
+    const dbRows = rawRows.map((r) => ({ ...r, profiles: profilesById[r.user_id] ?? null }));
 
     if (dbRows.length === 0) {
       await expect(page.getByText(/No enrollments found/i)).toBeVisible();
