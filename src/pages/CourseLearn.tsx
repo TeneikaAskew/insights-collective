@@ -12,7 +12,9 @@ import {
   Circle,
   FileText,
   Home,
+  Menu,
   Settings,
+  X,
 } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { useToast } from '@/hooks/use-toast';
