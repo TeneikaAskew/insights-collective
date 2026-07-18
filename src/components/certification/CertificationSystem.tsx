@@ -186,47 +186,77 @@ const CertificationSystem: React.FC<CertificationSystemProps> = ({
 
   const downloadCertificate = async (certificate: Certificate) => {
     try {
-      // In a real implementation, this would generate a PDF certificate
-      // For now, we'll create a simple text representation
-      const certificateText = `
-CERTIFICATE OF ${certificate.certificate_type.toUpperCase()}
+      const { jsPDF } = await import('jspdf');
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' });
 
-This certifies that
-${user?.email || 'Student'}
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
 
-has successfully completed
+      // Border
+      doc.setDrawColor(120, 90, 200);
+      doc.setLineWidth(6);
+      doc.rect(24, 24, pageWidth - 48, pageHeight - 48);
+      doc.setLineWidth(1);
+      doc.rect(36, 36, pageWidth - 72, pageHeight - 72);
 
-${certificate.certificate_data.course_title}
+      // Header
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(34);
+      doc.setTextColor(40, 40, 60);
+      doc.text('Certificate of ' + certificate.certificate_type.replace(/^./, (c) => c.toUpperCase()), pageWidth / 2, 130, { align: 'center' });
 
-with ${certificate.certificate_data.completion_percentage}% completion
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(14);
+      doc.setTextColor(90, 90, 110);
+      doc.text('This certificate is proudly presented to', pageWidth / 2, 180, { align: 'center' });
 
-Issued on: ${new Date(certificate.issued_at).toLocaleDateString()}
-Verification Code: ${certificate.verification_code}
+      // Recipient
+      const recipient = user?.user_metadata?.full_name || user?.email || 'Student';
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(28);
+      doc.setTextColor(40, 40, 60);
+      doc.text(recipient, pageWidth / 2, 230, { align: 'center' });
 
-This certificate can be verified at our verification portal.
-      `;
+      // Course
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(14);
+      doc.setTextColor(90, 90, 110);
+      doc.text('for successfully completing the course', pageWidth / 2, 270, { align: 'center' });
 
-      const blob = new Blob([certificateText], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `certificate-${certificate.verification_code}.txt`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(22);
+      doc.setTextColor(40, 40, 60);
+      doc.text(certificate.certificate_data.course_title, pageWidth / 2, 310, { align: 'center', maxWidth: pageWidth - 160 });
+
+      // Stats
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(12);
+      doc.setTextColor(90, 90, 110);
+      doc.text(
+        `Completion: ${certificate.certificate_data.completion_percentage}%   |   Study time: ${formatTime(certificate.certificate_data.time_spent)}`,
+        pageWidth / 2,
+        360,
+        { align: 'center' },
+      );
+
+      // Footer
+      const issued = new Date(certificate.issued_at).toLocaleDateString();
+      doc.setFontSize(11);
+      doc.text(`Issued: ${issued}`, 80, pageHeight - 80);
+      doc.text(`Verification: ${certificate.verification_code}`, pageWidth - 80, pageHeight - 80, { align: 'right' });
+
+      doc.save(`certificate-${certificate.verification_code}.pdf`);
 
       toast({
         title: 'Certificate Downloaded',
-        description: 'Your certificate has been downloaded successfully'
+        description: 'Your PDF certificate has been downloaded.',
       });
-
     } catch (error) {
       logger.error('Error downloading certificate:', error);
       toast({
         title: 'Error',
         description: 'Failed to download certificate',
-        variant: 'destructive'
+        variant: 'destructive',
       });
     }
   };

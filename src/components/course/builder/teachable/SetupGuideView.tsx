@@ -62,7 +62,7 @@ export function SetupGuideView({
   };
 
   return (
-    <div className="px-10 py-10 max-w-[1200px] mx-auto">
+    <div className="px-4 sm:px-6 lg:px-10 py-6 lg:py-10 max-w-[1200px] mx-auto">
       <div className="text-xs uppercase tracking-widest text-muted-foreground mb-3">
         <span className="underline underline-offset-4 cursor-pointer">Courses</span>
         <span className="mx-2 opacity-50">|</span>
@@ -70,7 +70,7 @@ export function SetupGuideView({
       </div>
 
       <div className="flex items-center gap-3 mb-10">
-        <h2 className="font-display text-5xl">Setup guide</h2>
+        <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl">Setup guide</h2>
         <span
           className={`text-[11px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-md ${
             course.published ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
@@ -87,7 +87,7 @@ export function SetupGuideView({
             <div className="w-9 h-9 rounded-md flex items-center justify-center bg-primary/15">
               <ClipboardList className="h-5 w-5 text-primary" />
             </div>
-            <h3 className="font-display text-3xl">Create your curriculum</h3>
+            <h3 className="font-display text-xl sm:text-2xl lg:text-3xl">Create your curriculum</h3>
           </div>
 
           <div className="rounded-xl bg-white overflow-hidden border border-border">
@@ -164,7 +164,7 @@ export function SetupGuideView({
             <div className="w-9 h-9 rounded-md flex items-center justify-center bg-primary/15">
               <LayoutGrid className="h-5 w-5 text-primary" />
             </div>
-            <h3 className="font-display text-3xl">Customize your course</h3>
+            <h3 className="font-display text-xl sm:text-2xl lg:text-3xl">Customize your course</h3>
           </div>
 
           <div className="rounded-xl bg-white p-5 border border-border">

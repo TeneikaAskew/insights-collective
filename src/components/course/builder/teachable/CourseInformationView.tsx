@@ -65,7 +65,7 @@ export function CourseInformationView({ course, onSave }: CourseInformationViewP
   };
 
   return (
-    <div className="px-10 py-10 max-w-[900px] mx-auto">
+    <div className="px-4 sm:px-6 lg:px-10 py-6 lg:py-10 max-w-[900px] mx-auto">
       <div className="text-xs uppercase tracking-widest text-muted-foreground mb-3">
         <span className="underline underline-offset-4">Courses</span>
         <span className="mx-2 opacity-50">|</span>
@@ -76,7 +76,7 @@ export function CourseInformationView({ course, onSave }: CourseInformationViewP
         <div className="w-10 h-10 rounded-md flex items-center justify-center bg-primary/15">
           <Info className="h-5 w-5 text-primary" />
         </div>
-        <h2 className="font-display text-5xl">Course information</h2>
+        <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl">Course information</h2>
       </div>
 
       <div className="space-y-6 bg-white rounded-xl border border-border p-6">

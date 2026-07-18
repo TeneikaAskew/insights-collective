@@ -9,7 +9,7 @@ import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { BookOpen, Clock, Users, Star, Calendar, ChevronLeft, Share, MessageSquare, Edit, Bell, FileText, BarChart3, Pin, PlusCircle, Trash2, ArrowRight, PlayCircle } from 'lucide-react';
+import { BookOpen, Clock, Users, Star, Calendar, ChevronLeft, Share, MessageSquare, Edit, Bell, FileText, BarChart3, Pin, PlusCircle, Trash2, ArrowRight, PlayCircle, Award } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,6 +26,7 @@ import { EditCourseButton } from '@/components/course/EditCourseButton';
 import { CourseModulesList } from '@/components/course/CourseModulesList';
 import { CanvasAssignmentsList } from '@/components/course/canvas/CanvasAssignmentsList';
 import { CourseContentPreview } from '@/components/course/CourseContentPreview';
+import { CourseProgressTimeline } from '@/components/course/CourseProgressTimeline';
 import { LoginOverlayCard } from '@/components/course/LoginOverlayCard';
 
 import { createLogger } from '@/utils/logger';
@@ -792,6 +793,13 @@ const CourseDetail = () => {
                           <Calendar className="h-4 w-4 text-neutral-400" /> Calendar
                         </Link>
                       </li>
+                      {overallProgress >= 100 && (
+                        <li>
+                          <Link to={`/courses/${courseId}/certificate`} className="flex items-center gap-2 font-semibold text-primary hover:underline">
+                            <Award className="h-4 w-4" /> Download certificate (PDF)
+                          </Link>
+                        </li>
+                      )}
                     </ul>
                   </div>
                 </aside>
@@ -833,6 +841,14 @@ const CourseDetail = () => {
                   </div>
                 )}
               </section>
+
+              {/* Weekly checkpoint timeline — updates on lesson complete / assignment submission / feedback */}
+              {isEnrolled && modules.length > 0 && (
+                <CourseProgressTimeline
+                  courseId={courseId!}
+                  modules={(modules as any[]).map((m: any) => ({ id: m.id, title: m.title }))}
+                />
+              )}
             </div>
           );
         }

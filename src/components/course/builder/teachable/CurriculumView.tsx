@@ -95,7 +95,7 @@ export function CurriculumView(props: CurriculumViewProps) {
   };
 
   return (
-    <div className="px-10 py-10 max-w-[1200px] mx-auto">
+    <div className="px-4 sm:px-6 lg:px-10 py-6 lg:py-10 max-w-[1200px] mx-auto">
       <div className="text-xs uppercase tracking-widest text-gray-500 mb-3">
         <span className="underline underline-offset-4 cursor-pointer">Courses</span>
         <span className="mx-2 opacity-50">|</span>
@@ -103,7 +103,7 @@ export function CurriculumView(props: CurriculumViewProps) {
       </div>
 
       <div className="flex items-center justify-between mb-8">
-        <h2 className="font-display text-5xl">Curriculum</h2>
+        <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl">Curriculum</h2>
       </div>
 
       {/* Toolbar */}
