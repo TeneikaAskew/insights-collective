@@ -17,7 +17,10 @@ const AppSidebar = () => {
     isAuthenticated
   } = useAuth();
   const { isPageVisible, isLoading: pageVisibilityLoading } = usePageVisibility();
-  const { open } = useSidebar();
+  const { open: desktopOpen, isMobile } = useSidebar();
+  // On mobile the sidebar renders inside a Sheet — when the sheet is on-screen,
+  // labels should always render regardless of the desktop `open` cookie state.
+  const open = isMobile ? true : desktopOpen;
 
   // Define public menu items with corrected routes
   const publicMenuItems = [{
