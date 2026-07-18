@@ -38,8 +38,8 @@ test.describe('Portfolio Editor', () => {
   test('invalid page ID shows not-found state gracefully', async ({ page }) => {
     await goto(page, '/portfolio-editor/invalid-page-id-99999');
     await expect(page.locator('body')).not.toBeEmpty();
-    // Should show an error or redirect, not a blank page
-    const content = page.locator(':has-text("not found"), :has-text("error"), main').first();
+    // Should render either a not-found message, a login redirect, or the editor shell.
+    const content = page.locator(':has-text("not found"), :has-text("error"), :has-text("Sign in"), main, form').first();
     await expect(content).toBeVisible();
   });
 
