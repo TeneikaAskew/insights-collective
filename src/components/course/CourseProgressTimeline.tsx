@@ -2,7 +2,7 @@
 // ABOUTME: Auto-updates via useCourseProgress and Supabase realtime on progressions/submissions.
 
 import { useEffect } from 'react';
-import { Check, Circle, Loader2 } from 'lucide-react';
+import { Check, Circle, CircleDot } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,6 +11,9 @@ import { useCourseProgress } from '@/hooks/useCourseProgress';
 interface CourseProgressTimelineProps {
   courseId: string;
   modules: Array<{ id: string; title: string }>;
+  title?: string;
+  subtitle?: string;
+  headerRight?: React.ReactNode;
 }
 
 type CheckpointState = 'not_started' | 'in_progress' | 'complete';
@@ -27,7 +30,7 @@ const LABELS: Record<CheckpointState, string> = {
   complete: 'Complete',
 };
 
-export function CourseProgressTimeline({ courseId, modules }: CourseProgressTimelineProps) {
+export function CourseProgressTimeline({ courseId, modules, title = 'Weekly checkpoints', subtitle, headerRight }: CourseProgressTimelineProps) {
   const { user } = useAuth();
   const { data, refetch, isLoading } = useCourseProgress(courseId);
 
@@ -64,14 +67,17 @@ export function CourseProgressTimeline({ courseId, modules }: CourseProgressTime
 
   return (
     <section className="rounded-2xl bg-white border border-neutral-200 p-6 md:p-8">
-      <div className="flex items-baseline justify-between mb-1">
-        <h2 className="font-display text-2xl text-neutral-900">Weekly checkpoints</h2>
-        <span className="text-xs text-neutral-500">
-          {data ? `${data.completedItems} / ${data.totalItems} lessons` : isLoading ? 'Loading…' : ''}
-        </span>
+      <div className="flex items-baseline justify-between mb-1 gap-4">
+        <h2 className="font-display text-2xl text-neutral-900">{title}</h2>
+        <div className="flex items-center gap-4">
+          <span className="text-xs text-neutral-500">
+            {data ? `${data.completedItems} / ${data.totalItems} lessons` : isLoading ? 'Loading…' : ''}
+          </span>
+          {headerRight}
+        </div>
       </div>
       <p className="text-sm text-neutral-500 mb-6">
-        Each week's checkpoint updates automatically as you complete lessons, submit assignments, and receive feedback.
+        {subtitle ?? "Each week's checkpoint updates automatically as you complete lessons, submit assignments, and receive feedback."}
       </p>
 
       <ol className="relative">
@@ -103,7 +109,7 @@ export function CourseProgressTimeline({ courseId, modules }: CourseProgressTime
                 {state === 'complete' ? (
                   <Check className="h-4 w-4" />
                 ) : state === 'in_progress' ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <CircleDot className="h-4 w-4" />
                 ) : (
                   <Circle className="h-3 w-3" />
                 )}

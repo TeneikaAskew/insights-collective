@@ -805,49 +805,58 @@ const CourseDetail = () => {
                 </aside>
               </div>
 
-              {/* Curriculum modules list */}
-              <section className="rounded-2xl bg-white border border-neutral-200 p-6 md:p-8">
-                <div className="flex items-end justify-between mb-6">
-                  <h2 className="font-display text-3xl text-neutral-900">Course curriculum</h2>
-                  <Link to={`/courses/${courseId}/learn`} className="inline-flex items-center gap-1 text-sm font-medium text-neutral-700 hover:text-neutral-900 hover:underline">
-                    View all <ArrowRight className="h-3.5 w-3.5" />
-                  </Link>
-                </div>
-                {modules.length === 0 ? (
-                  <p className="text-sm text-neutral-500">Curriculum coming soon.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {(modules as any[]).map((m: any, idx: number) => {
-                      const lessonCount =
-                        (m.lessons?.length || 0) + (m.assignments?.length || 0) + (m.quizzes?.length || 0);
-                      return (
-                        <Link
-                          key={m.id}
-                          to={`/courses/${courseId}/learn`}
-                          className="flex items-center justify-between px-5 py-4 border border-neutral-200 rounded-lg hover:border-neutral-900 transition-colors"
-                        >
-                          <div className="min-w-0">
-                            <p className="text-[11px] uppercase tracking-[0.15em] text-neutral-500 mb-1">
-                              {m.week ? `Week ${m.week}` : `Section ${idx + 1}`}
-                            </p>
-                            <h3 className="font-semibold text-neutral-900 truncate">{m.title}</h3>
-                          </div>
-                          <span className="text-xs text-neutral-500 whitespace-nowrap ml-4">
-                            {lessonCount} {lessonCount === 1 ? 'lesson' : 'lessons'}
-                          </span>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                )}
-              </section>
-
-              {/* Weekly checkpoint timeline — updates on lesson complete / assignment submission / feedback */}
-              {isEnrolled && modules.length > 0 && (
+              {/* Unified curriculum + weekly checkpoints */}
+              {isEnrolled && modules.length > 0 ? (
                 <CourseProgressTimeline
                   courseId={courseId!}
                   modules={(modules as any[]).map((m: any) => ({ id: m.id, title: m.title }))}
+                  title="Course curriculum"
+                  subtitle="Each week's checkpoint updates automatically as you complete lessons, submit assignments, and receive feedback."
+                  headerRight={
+                    <Link
+                      to={`/courses/${courseId}/learn`}
+                      className="inline-flex items-center gap-1 text-sm font-medium text-neutral-700 hover:text-neutral-900 hover:underline"
+                    >
+                      View all <ArrowRight className="h-3.5 w-3.5" />
+                    </Link>
+                  }
                 />
+              ) : (
+                <section className="rounded-2xl bg-white border border-neutral-200 p-6 md:p-8">
+                  <div className="flex items-end justify-between mb-6">
+                    <h2 className="font-display text-3xl text-neutral-900">Course curriculum</h2>
+                    <Link to={`/courses/${courseId}/learn`} className="inline-flex items-center gap-1 text-sm font-medium text-neutral-700 hover:text-neutral-900 hover:underline">
+                      View all <ArrowRight className="h-3.5 w-3.5" />
+                    </Link>
+                  </div>
+                  {modules.length === 0 ? (
+                    <p className="text-sm text-neutral-500">Curriculum coming soon.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {(modules as any[]).map((m: any, idx: number) => {
+                        const lessonCount =
+                          (m.lessons?.length || 0) + (m.assignments?.length || 0) + (m.quizzes?.length || 0);
+                        return (
+                          <Link
+                            key={m.id}
+                            to={`/courses/${courseId}/learn`}
+                            className="flex items-center justify-between px-5 py-4 border border-neutral-200 rounded-lg hover:border-neutral-900 transition-colors"
+                          >
+                            <div className="min-w-0">
+                              <p className="text-[11px] uppercase tracking-[0.15em] text-neutral-500 mb-1">
+                                {m.week ? `Week ${m.week}` : `Section ${idx + 1}`}
+                              </p>
+                              <h3 className="font-semibold text-neutral-900 truncate">{m.title}</h3>
+                            </div>
+                            <span className="text-xs text-neutral-500 whitespace-nowrap ml-4">
+                              {lessonCount} {lessonCount === 1 ? 'lesson' : 'lessons'}
+                            </span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
               )}
             </div>
           );
