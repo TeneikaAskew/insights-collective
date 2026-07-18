@@ -62,7 +62,7 @@ export function SetupGuideView({
   };
 
   return (
-    <div className="px-10 py-10 max-w-[1200px] mx-auto">
+    <div className="px-4 sm:px-6 lg:px-10 py-6 lg:py-10 max-w-[1200px] mx-auto">
       <div className="text-xs uppercase tracking-widest text-muted-foreground mb-3">
         <span className="underline underline-offset-4 cursor-pointer">Courses</span>
         <span className="mx-2 opacity-50">|</span>

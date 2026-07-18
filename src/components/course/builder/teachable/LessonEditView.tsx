@@ -34,7 +34,7 @@ export function LessonEditView({
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <div className="px-8 py-8 max-w-[1400px] mx-auto">
+    <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 max-w-[1400px] mx-auto">
       <div className="text-xs uppercase tracking-widest text-gray-500 mb-3">
         <span className="underline underline-offset-4 cursor-pointer">Courses</span>
         <span className="mx-2 opacity-50">|</span>
