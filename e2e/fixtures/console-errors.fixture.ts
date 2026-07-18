@@ -88,9 +88,16 @@ const IGNORED_PATTERNS: RegExp[] = [
   /\[vs\/css!/,
 
   // ── Enrollment badge errors (course_enrollments table missing in test env) ─
+  // ── Enrollment badge errors (course_enrollments table missing in test env) ─
   /\[EnrollmentBadge\]/,
   // Firefox-specific image decode errors (corrupt/truncated from CDN)
   /Image corrupt or truncated/,
+
+  // ── App-level logger.ts errors from placeholder-ID E2E fixtures ────────────
+  // Any error emitted via our shared logger.ts is prefixed with
+  // "[ComponentName] [HH:MM:SS.mmm]" — these are expected in tests that
+  // navigate to routes with placeholder UUIDs and cannot fetch real data.
+  /^\[[A-Z][A-Za-z0-9]+\] \[\d{2}:\d{2}:\d{2}/,
 ];
 
 /**
