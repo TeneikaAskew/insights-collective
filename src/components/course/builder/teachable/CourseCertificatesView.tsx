@@ -48,7 +48,7 @@ export function CourseCertificatesView({ course, onSave }: CourseCertificatesVie
         <div className="w-10 h-10 rounded-md flex items-center justify-center bg-primary/15">
           <Award className="h-5 w-5 text-primary" />
         </div>
-        <h2 className="font-display text-5xl">Certificates</h2>
+        <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl">Certificates</h2>
       </div>
 
       <div className="space-y-6 bg-white rounded-xl border border-border p-6">

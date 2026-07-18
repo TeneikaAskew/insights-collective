@@ -103,7 +103,7 @@ export function CurriculumView(props: CurriculumViewProps) {
       </div>
 
       <div className="flex items-center justify-between mb-8">
-        <h2 className="font-display text-5xl">Curriculum</h2>
+        <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl">Curriculum</h2>
       </div>
 
       {/* Toolbar */}

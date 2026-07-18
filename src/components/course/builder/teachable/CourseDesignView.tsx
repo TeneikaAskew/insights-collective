@@ -59,7 +59,7 @@ export function CourseDesignView({ course, onSave }: CourseDesignViewProps) {
         <div className="w-10 h-10 rounded-md flex items-center justify-center bg-primary/15">
           <Palette className="h-5 w-5 text-primary" />
         </div>
-        <h2 className="font-display text-5xl">Design templates</h2>
+        <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl">Design templates</h2>
       </div>
 
       <div className="space-y-8 bg-white rounded-xl border border-border p-6">
