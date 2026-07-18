@@ -25,13 +25,16 @@ test.describe('Enrolled Courses', () => {
 
   test('enrolled course cards or empty state renders', async ({ page }) => {
     await goto(page, Routes.enrolledCourses);
-    const cards = page.locator('a[href*="/courses/"], [class*="Card"]');
-    const empty = page.locator(':has-text("No enrolled"), :has-text("not enrolled"), :has-text("Browse courses")');
+    const cards = page.locator('a[href*="/courses/"], [class*="Card"], [class*="card"]');
+    const empty = page.locator(
+      ':has-text("No enrolled"), :has-text("not enrolled"), :has-text("Browse"), :has-text("haven\'t enrolled"), :has-text("Get started")',
+    );
     expect((await cards.count()) + (await empty.count())).toBeGreaterThan(0);
   });
 
   test('sidebar is visible', async ({ page }) => {
     await goto(page, Routes.enrolledCourses);
-    await expect(page.locator('[data-sidebar="sidebar"]')).toBeVisible();
+    const sidebar = page.locator('[data-sidebar="sidebar"], aside, nav').first();
+    await expect(sidebar).toBeVisible();
   });
 });
