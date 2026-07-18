@@ -336,13 +336,40 @@ function BookOpenIcon() {
 function EnrollmentsTab({ courses }: { courses: Course[] }) {
   const [selectedCourseId, setSelectedCourseId] = useState<string>(courses[0]?.id || '');
   const [searchTerm, setSearchTerm] = useState('');
-  
-  const { enrollments, stats, loading } = useCourseEnrollments(selectedCourseId);
 
-  const filteredEnrollments = enrollments.filter(enrollment => 
+  const { enrollments, stats, loading } = useCourseEnrollments(selectedCourseId);
+  const selectedCourse = courses.find((c) => c.id === selectedCourseId);
+
+  const filteredEnrollments = enrollments.filter(enrollment =>
     enrollment.user?.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     enrollment.user?.last_name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleDownloadReport = () => {
+    const escape = (val: unknown) => {
+      const s = String(val ?? '');
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const header = ['Student Name', 'Enrolled Date', 'Completion %', 'Status'];
+    const rows = filteredEnrollments.map((e) => {
+      const name = e.user ? `${e.user.first_name ?? ''} ${e.user.last_name ?? ''}`.trim() : 'Unknown User';
+      const pct = e.completion_status ?? 0;
+      const status = pct >= 100 ? 'Completed' : pct > 0 ? 'In Progress' : 'Not Started';
+      return [name, new Date(e.enrolled_at).toISOString().slice(0, 10), pct, status];
+    });
+    const csv = [header, ...rows].map((r) => r.map(escape).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const safeTitle = (selectedCourse?.title || 'course').replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+    a.href = url;
+    a.download = `${safeTitle}-completion-report.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
 
   return (
     <Card>
@@ -381,7 +408,17 @@ function EnrollmentsTab({ courses }: { courses: Course[] }) {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
+            <Button
+              variant="outline"
+              onClick={handleDownloadReport}
+              disabled={loading || filteredEnrollments.length === 0}
+              data-testid="download-completion-report"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Download completion report
+            </Button>
           </div>
+
 
           {stats && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">

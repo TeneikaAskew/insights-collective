@@ -17,7 +17,10 @@ const AppSidebar = () => {
     isAuthenticated
   } = useAuth();
   const { isPageVisible, isLoading: pageVisibilityLoading } = usePageVisibility();
-  const { open } = useSidebar();
+  const { open: desktopOpen, isMobile } = useSidebar();
+  // On mobile the sidebar renders inside a Sheet — when the sheet is on-screen,
+  // labels should always render regardless of the desktop `open` cookie state.
+  const open = isMobile ? true : desktopOpen;
 
   // Define public menu items with corrected routes
   const publicMenuItems = [{
@@ -222,7 +225,7 @@ const AppSidebar = () => {
   };
 
   return (
-    <Sidebar className={`border-r border-gray-200 dark:border-gray-800 text-gray-800 dark:text-gray-200 ${!open ? 'w-14' : ''}`} collapsible="icon">
+    <Sidebar className="border-r border-gray-200 dark:border-gray-800 text-gray-800 dark:text-gray-200" collapsible="icon">
       <SidebarHeader className="border-b border-gray-200 dark:border-gray-800 px-2 bg-gray-100">
         <div className={`flex items-center ${open ? 'space-x-2' : 'justify-center'} p-2`}>
           <Link to="/" className={`flex items-center ${open ? 'space-x-2' : ''}`}>
