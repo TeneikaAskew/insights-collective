@@ -792,6 +792,13 @@ const CourseDetail = () => {
                           <Calendar className="h-4 w-4 text-neutral-400" /> Calendar
                         </Link>
                       </li>
+                      {overallProgress >= 100 && (
+                        <li>
+                          <Link to={`/courses/${courseId}/certificate`} className="flex items-center gap-2 font-semibold text-primary hover:underline">
+                            <Award className="h-4 w-4" /> Download certificate (PDF)
+                          </Link>
+                        </li>
+                      )}
                     </ul>
                   </div>
                 </aside>
