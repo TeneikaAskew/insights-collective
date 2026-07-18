@@ -86,14 +86,13 @@ export function useCoursesManagement() {
         } : undefined,
       }));
 
-      // Filter courses based on user role
-      const { data: userProfile } = await supabase
-        .from('profiles')
-        .select('roles')
-        .eq('id', user.id)
-        .single();
+      // Filter courses based on user role — read from user_roles (source of truth), not profiles.roles
+      const { data: roleRows } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id);
 
-      const isAdmin = userProfile?.roles?.includes('admin');
+      const isAdmin = (roleRows ?? []).some((r: { role: string }) => r.role === 'admin');
 
       // Admins see all courses, instructors see only their courses
       const filteredCourses = isAdmin
