@@ -130,7 +130,11 @@ export function CourseProgressTimeline({ courseId, modules, title = 'Weekly chec
                 </span>
               </div>
 
-              <div className="mt-2 h-1.5 w-full max-w-xs rounded-full bg-neutral-100 overflow-hidden">
+              {m.description && (
+                <p className="mt-2 text-sm text-neutral-600 leading-relaxed">{m.description}</p>
+              )}
+
+              <div className="mt-3 h-1.5 w-full max-w-xs rounded-full bg-neutral-100 overflow-hidden">
                 <div
                   className={cn('h-full', state === 'complete' ? 'bg-primary' : 'bg-primary/70')}
                   style={{ width: `${percent}%` }}
