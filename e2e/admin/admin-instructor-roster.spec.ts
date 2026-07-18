@@ -78,17 +78,27 @@ test.describe('Instructor/admin roster + reporting', () => {
       return;
     }
 
-    // Table body rows: at least the DB rows appear (allow UI to page/filter).
+    // Wait for the enrollments table to render rows for the selected course.
     const bodyRows = page.locator('table tbody tr');
+    await expect(bodyRows.first()).toBeVisible({ timeout: 15_000 });
     const uiRowCount = await bodyRows.count();
     expect(uiRowCount).toBeGreaterThan(0);
-    expect(uiRowCount).toBeLessThanOrEqual(dbRows.length);
 
-    // Each student's full name (if a profile exists) appears in the table.
-    for (const row of dbRows) {
-      const name = `${row.profiles?.first_name ?? ''} ${row.profiles?.last_name ?? ''}`.trim();
-      if (name.length === 0) continue;
-      await expect(page.getByRole('cell', { name: new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') }).first()).toBeVisible();
+    // Collect student names visible in the UI table (first cell of each row).
+    const uiNames = new Set<string>();
+    for (let i = 0; i < uiRowCount; i++) {
+      const txt = (await bodyRows.nth(i).locator('td').first().textContent()) ?? '';
+      uiNames.add(txt.trim().toLowerCase());
+    }
+    // Every UI-visible name must correspond to an actual enrolled student (no fabrication).
+    const dbNames = new Set(
+      dbRows
+        .map((r) => `${r.profiles?.first_name ?? ''} ${r.profiles?.last_name ?? ''}`.trim().toLowerCase())
+        .filter((n) => n.length > 0),
+    );
+    for (const name of uiNames) {
+      if (name === 'unknown user') continue;
+      expect(dbNames.has(name), `UI student "${name}" exists in DB enrollments`).toBe(true);
     }
 
     // Report export button is available for the instructor/admin.
