@@ -4584,6 +4584,10 @@ export type Database = {
         Args: { profile_id: string; viewer_id: string }
         Returns: boolean
       }
+      check_course_completion: {
+        Args: { p_course_id: string; p_student_id: string }
+        Returns: boolean
+      }
       clean_old_security_events: { Args: never; Returns: undefined }
       delete_all_user_resumes: {
         Args: { user_id_param: string }
