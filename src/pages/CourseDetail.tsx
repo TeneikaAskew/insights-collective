@@ -840,6 +840,14 @@ const CourseDetail = () => {
                   </div>
                 )}
               </section>
+
+              {/* Weekly checkpoint timeline — updates on lesson complete / assignment submission / feedback */}
+              {isEnrolled && modules.length > 0 && (
+                <CourseProgressTimeline
+                  courseId={courseId!}
+                  modules={(modules as any[]).map((m: any) => ({ id: m.id, title: m.title }))}
+                />
+              )}
             </div>
           );
         }
