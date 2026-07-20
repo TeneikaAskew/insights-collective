@@ -1645,6 +1645,7 @@ export type Database = {
       conversations: {
         Row: {
           archived: boolean | null
+          course_id: string | null
           created_at: string | null
           created_by: string | null
           deleted_at: string | null
@@ -1655,6 +1656,7 @@ export type Database = {
         }
         Insert: {
           archived?: boolean | null
+          course_id?: string | null
           created_at?: string | null
           created_by?: string | null
           deleted_at?: string | null
@@ -1665,6 +1667,7 @@ export type Database = {
         }
         Update: {
           archived?: boolean | null
+          course_id?: string | null
           created_at?: string | null
           created_by?: string | null
           deleted_at?: string | null
@@ -1673,7 +1676,22 @@ export type Database = {
           subject?: string | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "conversations_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "course_statistics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       course_announcements: {
         Row: {
@@ -4759,6 +4777,10 @@ export type Database = {
           p_user_id: string
         }
         Returns: undefined
+      }
+      open_course_thread: {
+        Args: { p_course_id: string; p_other_user_id: string }
+        Returns: string
       }
       rate_limit_certificate_verify: {
         Args: { p_code: string; p_found: boolean; p_ip_hash: string }
