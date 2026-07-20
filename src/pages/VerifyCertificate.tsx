@@ -2,10 +2,9 @@
 // ABOUTME: /verify-certificate/:code to confirm a certificate is real.
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Award, CheckCircle2, XCircle, ArrowLeft } from 'lucide-react';
+import { Award, CheckCircle2, XCircle, ArrowLeft, ShieldAlert, Clock } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
 
@@ -22,21 +21,48 @@ type VerifiedCert = {
   student_name: string;
 };
 
+type State =
+  | { kind: 'loading' }
+  | { kind: 'verified'; cert: VerifiedCert }
+  | { kind: 'not_found' }
+  | { kind: 'invalid_format' }
+  | { kind: 'rate_limited'; retryIn: number }
+  | { kind: 'error'; message: string };
+
+const PROJECT_ID = import.meta.env.VITE_SUPABASE_PROJECT_ID as string | undefined;
+
 export default function VerifyCertificate() {
   const { code } = useParams<{ code: string }>();
-  const [loading, setLoading] = useState(true);
-  const [cert, setCert] = useState<VerifiedCert | null>(null);
+  const [state, setState] = useState<State>({ kind: 'loading' });
 
   useEffect(() => {
     let alive = true;
     (async () => {
-      if (!code) { setLoading(false); return; }
-      const { data, error } = await supabase.rpc('verify_certificate', { p_code: code });
-      if (!alive) return;
-      if (error) console.error('verify_certificate error', error);
-      const row = Array.isArray(data) ? data[0] : data;
-      setCert(row ?? null);
-      setLoading(false);
+      if (!code) { setState({ kind: 'invalid_format' }); return; }
+      try {
+        const base = PROJECT_ID
+          ? `https://${PROJECT_ID}.supabase.co/functions/v1/verify-certificate`
+          : '/functions/v1/verify-certificate';
+        const res = await fetch(`${base}?code=${encodeURIComponent(code)}`, {
+          headers: { 'Content-Type': 'application/json' },
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!alive) return;
+        if (res.status === 200 && body.status === 'verified') {
+          setState({ kind: 'verified', cert: body.certificate });
+        } else if (res.status === 404) {
+          setState({ kind: 'not_found' });
+        } else if (res.status === 400) {
+          setState({ kind: 'invalid_format' });
+        } else if (res.status === 429) {
+          setState({ kind: 'rate_limited', retryIn: body.retry_after_seconds ?? 60 });
+        } else {
+          setState({ kind: 'error', message: body.message ?? 'Verification service is unavailable. Please try again shortly.' });
+        }
+      } catch (e: any) {
+        if (!alive) return;
+        setState({ kind: 'error', message: e?.message ?? 'Network error' });
+      }
     })();
     return () => { alive = false; };
   }, [code]);
@@ -48,9 +74,25 @@ export default function VerifyCertificate() {
           <ArrowLeft className="h-4 w-4" /> Back home
         </Link>
 
-        {loading ? (
+        {state.kind === 'loading' && (
           <Card><CardContent className="py-16 flex justify-center"><Spinner /></CardContent></Card>
-        ) : !cert ? (
+        )}
+
+        {state.kind === 'invalid_format' && (
+          <Card className="border-destructive/40">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-destructive">
+                <ShieldAlert className="h-5 w-5" /> Invalid verification code
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-neutral-600 space-y-2">
+              <p>Verification codes are 6–32 letters and numbers only.</p>
+              <p>The code <code className="font-mono bg-neutral-100 px-1.5 py-0.5 rounded">{code}</code> doesn't match that format — please check the link you were sent.</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {state.kind === 'not_found' && (
           <Card className="border-destructive/40">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-destructive">
@@ -58,11 +100,42 @@ export default function VerifyCertificate() {
               </CardTitle>
             </CardHeader>
             <CardContent className="text-neutral-600">
-              We couldn't find a certificate with code <code className="font-mono bg-neutral-100 px-1.5 py-0.5 rounded">{code}</code>.
+              No certificate matches code <code className="font-mono bg-neutral-100 px-1.5 py-0.5 rounded">{code}</code>.
               Double-check the code or ask the certificate holder to re-share the link.
             </CardContent>
           </Card>
-        ) : (
+        )}
+
+        {state.kind === 'rate_limited' && (
+          <Card className="border-amber-300">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-amber-700">
+                <Clock className="h-5 w-5" /> Too many attempts
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-neutral-600 space-y-3">
+              <p>We've received a lot of verification requests from your network in the last minute.</p>
+              <p>Please wait about {state.retryIn} seconds and try again.</p>
+              <Button variant="outline" onClick={() => window.location.reload()}>Try again</Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {state.kind === 'error' && (
+          <Card className="border-destructive/40">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-destructive">
+                <ShieldAlert className="h-5 w-5" /> Verification unavailable
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-neutral-600 space-y-3">
+              <p>{state.message}</p>
+              <Button variant="outline" onClick={() => window.location.reload()}>Try again</Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {state.kind === 'verified' && (
           <Card className="border-emerald-200">
             <CardHeader className="border-b bg-gradient-to-br from-primary/5 to-emerald-50">
               <div className="flex items-center gap-3">
@@ -80,41 +153,41 @@ export default function VerifyCertificate() {
             <CardContent className="pt-6 space-y-5">
               <div>
                 <p className="text-xs uppercase tracking-wide text-neutral-500 mb-1">Awarded to</p>
-                <p className="text-xl font-semibold text-neutral-900">{cert.student_name}</p>
+                <p className="text-xl font-semibold text-neutral-900">{state.cert.student_name}</p>
               </div>
               <div>
                 <p className="text-xs uppercase tracking-wide text-neutral-500 mb-1">Course</p>
-                <p className="text-lg text-neutral-900">{cert.course_title ?? 'Course'}</p>
+                <p className="text-lg text-neutral-900">{state.cert.course_title ?? 'Course'}</p>
                 <div className="flex flex-wrap gap-2 mt-2">
-                  {cert.course_category && <Badge variant="secondary">{cert.course_category}</Badge>}
-                  {cert.course_level && <Badge variant="outline">{cert.course_level}</Badge>}
-                  {cert.course_duration && <Badge variant="outline">{cert.course_duration}</Badge>}
+                  {state.cert.course_category && <Badge variant="secondary">{state.cert.course_category}</Badge>}
+                  {state.cert.course_level && <Badge variant="outline">{state.cert.course_level}</Badge>}
+                  {state.cert.course_duration && <Badge variant="outline">{state.cert.course_duration}</Badge>}
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4 pt-2 border-t">
                 <div>
                   <p className="text-xs uppercase tracking-wide text-neutral-500 mb-1">Type</p>
-                  <p className="capitalize text-neutral-900">{cert.certificate_type}</p>
+                  <p className="capitalize text-neutral-900">{state.cert.certificate_type}</p>
                 </div>
                 <div>
                   <p className="text-xs uppercase tracking-wide text-neutral-500 mb-1">Issued</p>
-                  <p className="text-neutral-900">{new Date(cert.issued_at).toLocaleDateString()}</p>
+                  <p className="text-neutral-900">{new Date(state.cert.issued_at).toLocaleDateString()}</p>
                 </div>
-                {cert.certificate_data?.completion_percentage !== undefined && (
+                {state.cert.certificate_data?.completion_percentage !== undefined && (
                   <div>
                     <p className="text-xs uppercase tracking-wide text-neutral-500 mb-1">Completion</p>
-                    <p className="text-neutral-900">{cert.certificate_data.completion_percentage}%</p>
+                    <p className="text-neutral-900">{state.cert.certificate_data.completion_percentage}%</p>
                   </div>
                 )}
                 <div>
                   <p className="text-xs uppercase tracking-wide text-neutral-500 mb-1">Verification code</p>
-                  <p className="font-mono text-sm text-neutral-900">{cert.verification_code}</p>
+                  <p className="font-mono text-sm text-neutral-900">{state.cert.verification_code}</p>
                 </div>
               </div>
-              {cert.course_id && (
+              {state.cert.course_id && (
                 <div className="pt-4 border-t">
                   <Button asChild variant="outline" size="sm">
-                    <Link to={`/courses/${cert.course_id}`}>View course</Link>
+                    <Link to={`/courses/${state.cert.course_id}`}>View course</Link>
                   </Button>
                 </div>
               )}

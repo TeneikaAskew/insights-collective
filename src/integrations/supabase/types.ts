@@ -1238,6 +1238,30 @@ export type Database = {
         }
         Relationships: []
       }
+      certificate_verification_attempts: {
+        Row: {
+          attempted_at: string
+          code: string | null
+          found: boolean
+          id: string
+          ip_hash: string
+        }
+        Insert: {
+          attempted_at?: string
+          code?: string | null
+          found?: boolean
+          id?: string
+          ip_hash: string
+        }
+        Update: {
+          attempted_at?: string
+          code?: string | null
+          found?: boolean
+          id?: string
+          ip_hash?: string
+        }
+        Relationships: []
+      }
       certificates: {
         Row: {
           certificate_data: Json
@@ -4735,6 +4759,13 @@ export type Database = {
           p_user_id: string
         }
         Returns: undefined
+      }
+      rate_limit_certificate_verify: {
+        Args: { p_code: string; p_found: boolean; p_ip_hash: string }
+        Returns: {
+          attempts_last_minute: number
+          rate_limited: boolean
+        }[]
       }
       reorder_content_items: {
         Args: { p_item_ids: string[]; p_module_id: string }
