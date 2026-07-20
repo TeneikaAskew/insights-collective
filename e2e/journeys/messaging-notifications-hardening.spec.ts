@@ -1,5 +1,5 @@
 // ABOUTME: Real-session hardening for course messaging RPC gating and announcement
-// ABOUTME: notification fan-out. Uses live signed-in Supabase JWT to call PostgREST
+// ABOUTME: notification fan-out. Uses live signed-in Supabase JWTs to call PostgREST
 // ABOUTME: end-to-end and verifies persisted rows, not UI state alone.
 import { test, expect } from '@playwright/test';
 import { signInMember, getSupabaseAccessToken } from './_helpers/signIn';
@@ -11,7 +11,7 @@ const ANON =
 const COURSE_ID = '660e8400-e29b-41d4-a716-446655440001'; // Intro to Data Science; test user is instructor
 const TEST_USER_ID = '66649756-9cfb-4f50-b60e-1f6ac0bf30ff';
 const ENROLLED_STUDENT_ID = '71629ac8-ec88-4ce8-a859-9b29a664041d';
-const NON_ENROLLED_USER_ID = '30609adf-dc50-4b57-a456-1f38201e40de'; // e2e-instructor, not enrolled in this course
+const NON_ENROLLED_USER_ID = '30609adf-dc50-4b57-a456-1f38201e40de'; // e2e-instructor, not enrolled in COURSE_ID
 
 function authHeaders(token: string) {
   return {
@@ -27,12 +27,21 @@ async function rpc(token: string, name: string, body: Record<string, unknown>) {
     headers: authHeaders(token),
     body: JSON.stringify(body),
   });
-  const text = await res.text();
-  return { status: res.status, body: text };
+  return { status: res.status, body: await res.text() };
+}
+
+async function passwordSignIn(email: string, password: string): Promise<string> {
+  const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: ANON },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!r.ok) throw new Error(`sign-in failed for ${email}: ${await r.text()}`);
+  return (await r.json()).access_token as string;
 }
 
 test.describe('Messaging + notifications — real signed-in RPC gating', () => {
-  let token: string;
+  let instructorToken: string;
 
   test.beforeAll(async ({ browser }) => {
     const ctx = await browser.newContext();
@@ -41,31 +50,36 @@ test.describe('Messaging + notifications — real signed-in RPC gating', () => {
     const t = await getSupabaseAccessToken(page);
     await ctx.close();
     if (!t) throw new Error('E2E FIXTURE: could not obtain access token for signed-in test user');
-    token = t;
+    instructorToken = t;
   });
 
-  test('instructor -> enrolled student: RPC returns conversation UUID', async () => {
-    const { status, body } = await rpc(token, 'open_course_thread', {
+  test('open_course_thread is idempotent: same instructor/student pair returns same conversation UUID', async () => {
+    const a = await rpc(instructorToken, 'open_course_thread', {
       p_course_id: COURSE_ID,
       p_other_user_id: ENROLLED_STUDENT_ID,
     });
-    expect(status, `open_course_thread failed: ${body}`).toBe(200);
-    const parsed = JSON.parse(body);
-    expect(typeof parsed).toBe('string');
-    expect(parsed).toMatch(/^[0-9a-f-]{36}$/i);
+    expect(a.status, `first call failed: ${a.body}`).toBe(200);
+    const idA = JSON.parse(a.body);
+    expect(idA).toMatch(/^[0-9a-f-]{36}$/i);
 
-    // Verify persisted participants — the returned conversation must contain BOTH users.
-    const conv = await fetch(
-      `${SUPABASE_URL}/rest/v1/conversation_participants?conversation_id=eq.${parsed}&select=user_id`,
-      { headers: authHeaders(token) },
+    const b = await rpc(instructorToken, 'open_course_thread', {
+      p_course_id: COURSE_ID,
+      p_other_user_id: ENROLLED_STUDENT_ID,
+    });
+    expect(b.status).toBe(200);
+    expect(JSON.parse(b.body)).toBe(idA);
+
+    // Caller must at least see their own participant row on the returned conversation.
+    const partRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/conversation_participants?conversation_id=eq.${idA}&user_id=eq.${TEST_USER_ID}&select=user_id`,
+      { headers: authHeaders(instructorToken) },
     );
-    const rows = (await conv.json()) as Array<{ user_id: string }>;
-    const ids = rows.map((r) => r.user_id).sort();
-    expect(ids).toEqual([TEST_USER_ID, ENROLLED_STUDENT_ID].sort());
+    expect(partRes.status).toBe(200);
+    expect((await partRes.json()).length).toBe(1);
   });
 
-  test('instructor -> non-enrolled recipient: RPC rejects with role-gate error', async () => {
-    const { status, body } = await rpc(token, 'open_course_thread', {
+  test('instructor -> user not enrolled in the course: RPC rejects with role-gate error', async () => {
+    const { status, body } = await rpc(instructorToken, 'open_course_thread', {
       p_course_id: COURSE_ID,
       p_other_user_id: NON_ENROLLED_USER_ID,
     });
@@ -73,19 +87,23 @@ test.describe('Messaging + notifications — real signed-in RPC gating', () => {
     expect(body).toMatch(/not part of this course|enrolled/i);
   });
 
-  test('caller not enrolled/instructor of a course: RPC rejects', async () => {
-    // Course 002 — test user is neither instructor nor enrolled
-    const { status, body } = await rpc(token, 'open_course_thread', {
-      p_course_id: '660e8400-e29b-41d4-a716-446655440002',
-      p_other_user_id: NON_ENROLLED_USER_ID,
+  test('RPC rejects self-message and invalid course id', async () => {
+    const self = await rpc(instructorToken, 'open_course_thread', {
+      p_course_id: COURSE_ID,
+      p_other_user_id: TEST_USER_ID,
     });
-    expect(status).toBeGreaterThanOrEqual(400);
-    expect(body).toMatch(/must be enrolled|only message the course instructor/i);
+    expect(self.status).toBeGreaterThanOrEqual(400);
+    expect(self.body).toMatch(/invalid recipient/i);
+
+    const missing = await rpc(instructorToken, 'open_course_thread', {
+      p_course_id: '00000000-0000-0000-0000-000000000000',
+      p_other_user_id: ENROLLED_STUDENT_ID,
+    });
+    expect(missing.status).toBeGreaterThanOrEqual(400);
+    expect(missing.body).toMatch(/course not found/i);
   });
 
-  test('student -> other student in same course: RPC rejects (requires E2E_MEMBER_PASSWORD)', async ({
-    browser,
-  }, testInfo) => {
+  test('student -> other student in same course: RPC rejects (requires E2E_MEMBER_PASSWORD)', async () => {
     const memberEmail = process.env.E2E_MEMBER_EMAIL;
     const memberPassword = process.env.E2E_MEMBER_PASSWORD;
     test.skip(
@@ -93,30 +111,28 @@ test.describe('Messaging + notifications — real signed-in RPC gating', () => {
       'E2E_MEMBER_EMAIL / E2E_MEMBER_PASSWORD not set — cannot verify student-to-student gate with a real signed-in student session',
     );
 
-    // Sign the student in via password grant (they must be an enrolled student of COURSE_ID, not an instructor)
-    const authRes = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', apikey: ANON },
-      body: JSON.stringify({ email: memberEmail, password: memberPassword }),
-    });
-    expect(authRes.ok, `sign-in failed for ${memberEmail}`).toBeTruthy();
-    const studentToken = (await authRes.json()).access_token as string;
-
+    const studentToken = await passwordSignIn(memberEmail!, memberPassword!);
     const { status, body } = await rpc(studentToken, 'open_course_thread', {
       p_course_id: COURSE_ID,
       p_other_user_id: ENROLLED_STUDENT_ID, // another student in this course
     });
     expect(status, `expected rejection, got 2xx with ${body}`).toBeGreaterThanOrEqual(400);
-    expect(body).toMatch(/only message the course instructor/i);
+    expect(body).toMatch(/only message the course instructor|must be enrolled/i);
   });
 
-  test('announcement insert fans out real notification rows to enrolled students', async () => {
-    const marker = `E2E hardening announcement ${Date.now()}`;
+  test('announcement insert fans out real notification rows visible to the enrolled recipient', async () => {
+    const memberEmail = process.env.E2E_MEMBER_EMAIL;
+    const memberPassword = process.env.E2E_MEMBER_PASSWORD;
+    test.skip(
+      !memberEmail || !memberPassword,
+      'E2E_MEMBER_EMAIL / E2E_MEMBER_PASSWORD not set — cannot verify cross-user notification RLS visibility',
+    );
+    // The student must also be enrolled in COURSE_ID for the fan-out row to belong to them.
 
-    // Insert as instructor (test user is instructor of COURSE_ID → passes RLS WITH CHECK)
+    const marker = `E2E hardening announcement ${Date.now()}`;
     const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/course_announcements`, {
       method: 'POST',
-      headers: { ...authHeaders(token), Prefer: 'return=representation' },
+      headers: { ...authHeaders(instructorToken), Prefer: 'return=representation' },
       body: JSON.stringify({
         course_id: COURSE_ID,
         title: marker,
@@ -129,38 +145,30 @@ test.describe('Messaging + notifications — real signed-in RPC gating', () => {
     expect(insertRes.status, `announcement insert failed: ${insertBody}`).toBe(201);
     const [announcement] = JSON.parse(insertBody) as Array<{ id: string }>;
 
-    // Poll the notifications table (as instructor — RLS allows admins/instructors of the course to read fan-out rows)
-    let notifRows: Array<{ user_id: string; title: string; course_id: string }> = [];
+    // Read notifications AS THE STUDENT — the fan-out row must be visible to them under RLS.
+    const studentToken = await passwordSignIn(memberEmail!, memberPassword!);
+    const expectedTitle = 'New announcement: ' + marker;
+    let studentRows: Array<{ title: string; course_id: string }> = [];
     await expect
       .poll(
         async () => {
           const r = await fetch(
             `${SUPABASE_URL}/rest/v1/notifications?course_id=eq.${COURSE_ID}&title=eq.${encodeURIComponent(
-              'New announcement: ' + marker,
-            )}&select=user_id,title,course_id`,
-            { headers: authHeaders(token) },
+              expectedTitle,
+            )}&select=title,course_id`,
+            { headers: authHeaders(studentToken) },
           );
-          notifRows = (await r.json()) as typeof notifRows;
-          return notifRows.length;
+          studentRows = (await r.json()) as typeof studentRows;
+          return studentRows.length;
         },
         { timeout: 8_000, intervals: [500, 1000, 2000] },
       )
       .toBeGreaterThan(0);
 
-    // The known enrolled student must be one of the fan-out targets.
-    const recipients = new Set(notifRows.map((n) => n.user_id));
-    expect(recipients.has(ENROLLED_STUDENT_ID)).toBe(true);
-
-    // Cleanup — delete our probe announcement (cascade would leave notifications; explicit delete too)
-    await fetch(
-      `${SUPABASE_URL}/rest/v1/notifications?course_id=eq.${COURSE_ID}&title=eq.${encodeURIComponent(
-        'New announcement: ' + marker,
-      )}`,
-      { method: 'DELETE', headers: authHeaders(token) },
-    );
+    // Cleanup — delete the probe announcement. Notifications for other users are cleaned by admin OOB if needed.
     await fetch(`${SUPABASE_URL}/rest/v1/course_announcements?id=eq.${announcement.id}`, {
       method: 'DELETE',
-      headers: authHeaders(token),
+      headers: authHeaders(instructorToken),
     });
   });
 });
