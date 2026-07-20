@@ -21,11 +21,13 @@ const CourseList = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [levelFilter, setLevelFilter] = useState('all');
+  const [scheduleFilter, setScheduleFilter] = useState('all');
   const { toast } = useToast();
   const navigate = useNavigate();
 
   const categories = [...new Set(courses.map(c => c.category).filter(Boolean))];
   const levels = [...new Set(courses.map(c => c.level).filter(Boolean))];
+  const durations = [...new Set(courses.map(c => c.duration).filter(Boolean))];
 
   useEffect(() => {
     const fetchCourses = async () => {
