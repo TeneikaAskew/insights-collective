@@ -268,7 +268,8 @@ function App() {
                      <Route path="/courses/:courseId/rubrics/:rubricId" element={<RubricEdit />} />
                      <Route path="/courses/:courseId/question-banks" element={<CourseQuestionBanks />} />
                      <Route path="/courses/:courseId/progress" element={<CourseProgress />} />
-                     <Route path="/courses/:courseId/certificate" element={<CourseCertificate />} />
+                    <Route path="/courses/:courseId/certificate" element={<CourseCertificate />} />
+                    <Route path="/verify-certificate/:code" element={<VerifyCertificate />} />
                      <Route path="/courses/:courseId/calendar" element={<CourseCalendar />} />
                      <Route path="/courses/:courseId/people" element={<CourseDetail />} />
                      <Route path="/courses/:courseId/insights" element={<StudentInsights />} />
