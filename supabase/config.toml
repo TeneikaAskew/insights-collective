@@ -53,3 +53,7 @@ verify_jwt = true
 
 [functions.course-calendar-feed]
 verify_jwt = false
+
+[functions.verify-certificate]
+verify_jwt = false
+
