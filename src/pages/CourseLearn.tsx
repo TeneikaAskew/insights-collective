@@ -5,6 +5,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
+  Award,
+  CheckCircle2,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -13,6 +15,7 @@ import {
   FileText,
   Home,
   Menu,
+  RotateCcw,
   Settings,
   X,
 } from 'lucide-react';
