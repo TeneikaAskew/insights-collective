@@ -72,10 +72,12 @@ const CourseLearn = () => {
     [modules],
   );
 
+  const isCompletionRoute = moduleId === 'complete';
+
   const selected = useMemo(() => {
-    if (!itemId) return null;
+    if (!itemId || isCompletionRoute) return null;
     return flatItems.find((fi) => fi.item.id === itemId) || null;
-  }, [flatItems, itemId]);
+  }, [flatItems, itemId, isCompletionRoute]);
 
   // --- Load ---
   useEffect(() => {
