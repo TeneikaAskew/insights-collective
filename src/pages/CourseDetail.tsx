@@ -907,6 +907,18 @@ const CourseDetail = () => {
                           <Calendar className="h-4 w-4 text-neutral-400" /> Calendar
                         </Link>
                       </li>
+                      {isEnrolled && course.instructor?.id && (
+                        <li>
+                          <button
+                            type="button"
+                            disabled={openingThread}
+                            onClick={() => openThread(courseId!, course.instructor.id)}
+                            className="flex items-center gap-2 text-neutral-800 hover:text-neutral-900 hover:underline disabled:opacity-60"
+                          >
+                            <MessageSquare className="h-4 w-4 text-neutral-400" /> Message instructor
+                          </button>
+                        </li>
+                      )}
                       {overallProgress >= 100 && (
                         <li>
                           <Link to={`/courses/${courseId}/certificate`} className="flex items-center gap-2 font-semibold text-primary hover:underline">
