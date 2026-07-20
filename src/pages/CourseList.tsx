@@ -76,10 +76,13 @@ const CourseList = () => {
     const matchesSearch =
       !s ||
       c.title.toLowerCase().includes(s) ||
-      (c.description || '').toLowerCase().includes(s);
+      (c.description || '').toLowerCase().includes(s) ||
+      (c.category || '').toLowerCase().includes(s) ||
+      (c.instructor?.name || '').toLowerCase().includes(s);
     const matchesCategory = categoryFilter === 'all' || c.category === categoryFilter;
     const matchesLevel = levelFilter === 'all' || c.level === levelFilter;
-    return matchesSearch && matchesCategory && matchesLevel;
+    const matchesSchedule = scheduleFilter === 'all' || c.duration === scheduleFilter;
+    return matchesSearch && matchesCategory && matchesLevel && matchesSchedule;
   });
 
   return (
