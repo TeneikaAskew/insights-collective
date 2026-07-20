@@ -787,6 +787,17 @@ const CourseDetail = () => {
                             <Progress value={pct} className="h-1.5" />
                           </div>
                           <span className="text-sm tabular-nums w-12 text-right">{pct}%</span>
+                          {(isInstructor || isAdmin) && p.user_id !== user?.id && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={openingThread}
+                              onClick={() => openThread(courseId!, p.user_id)}
+                              className="ml-2"
+                            >
+                              <MessageSquare className="h-3.5 w-3.5 mr-1" /> Message
+                            </Button>
+                          )}
                         </div>
                       );
                     })}
