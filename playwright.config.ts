@@ -18,17 +18,26 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 1,
   workers: process.env.CI ? 4 : 2,
-  reporter: [
-    ['html', { outputFolder: 'playwright-report', open: 'never' }],
-    ['list'],
-  ],
+  reporter: process.env.CI
+    ? [
+        ['html', { outputFolder: 'playwright-report', open: 'never' }],
+        ['json', { outputFile: 'test-results.json' }],
+        ['junit', { outputFile: 'test-results/junit.xml' }],
+        ['github'],
+        ['list'],
+      ]
+    : [
+        ['html', { outputFolder: 'playwright-report', open: 'never' }],
+        ['list'],
+      ],
   timeout: 30_000,
   expect: { timeout: 10_000 },
   use: {
     baseURL: BASE_URL,
-    trace: 'on-first-retry',
+    // CI captures full diagnostics on any failure; local keeps the lighter defaults.
+    trace: process.env.CI ? 'retain-on-failure' : 'on-first-retry',
     screenshot: 'only-on-failure',
-    video: 'on-first-retry',
+    video: process.env.CI ? 'retain-on-failure' : 'on-first-retry',
     actionTimeout: 10_000,
     navigationTimeout: 15_000,
     launchOptions: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
