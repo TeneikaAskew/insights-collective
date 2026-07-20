@@ -346,6 +346,33 @@ serve(async (req) => {
         })
       }
 
+      case 'setE2EPassword': {
+        // Narrowly-scoped: admin-only, and only for the three dedicated e2e-* accounts.
+        // Lets CI mint deterministic per-role sessions without emailing reset links.
+        const allowed = /^e2e-(admin|instructor|member)@insightscollective\.org$/i;
+        const { email, password } = actionData || {};
+        if (!email || !password || !allowed.test(email)) {
+          return new Response(JSON.stringify({ error: 'Only e2e-* accounts allowed' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          })
+        }
+        const { data: list } = await supabaseAdmin.auth.admin.listUsers();
+        const target = list?.users?.find((u: any) => (u.email || '').toLowerCase() === email.toLowerCase());
+        if (!target) {
+          return new Response(JSON.stringify({ error: 'User not found' }), {
+            status: 404,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          })
+        }
+        const { error } = await supabaseAdmin.auth.admin.updateUserById(target.id, { password });
+        if (error) throw error;
+        return new Response(JSON.stringify({ success: true, id: target.id }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
       default: {
         console.error('[admin-users] Unknown action:', action);
         return new Response(JSON.stringify({ error: 'Unknown action' }), {
