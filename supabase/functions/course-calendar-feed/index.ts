@@ -144,7 +144,7 @@ serve(async (req: Request) => {
   try {
     const { data: course, error: courseError } = await supabase
       .from('courses')
-      .select('id, title, is_published')
+      .select('id, title, published')
       .eq('id', courseId)
       .single();
 
@@ -155,7 +155,7 @@ serve(async (req: Request) => {
       });
     }
 
-    if (!course.is_published) {
+    if (!course.published) {
       return new Response(JSON.stringify({ error: 'Course calendar is not available' }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
