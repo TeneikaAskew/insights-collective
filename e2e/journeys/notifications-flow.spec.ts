@@ -16,7 +16,7 @@ async function signIn(page: import('@playwright/test').Page) {
 }
 
 test.describe('Notifications center — real flow', () => {
-  test.beforeEach(signIn);
+  test.beforeEach(async ({ page }) => { await signIn(page); });
 
   test('renders header, tabs, and either items or empty state', async ({ page }) => {
     await page.goto(`${BASE}/notifications`, { waitUntil: 'domcontentloaded' });

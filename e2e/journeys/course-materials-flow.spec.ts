@@ -19,7 +19,7 @@ async function signIn(page: import('@playwright/test').Page) {
 }
 
 test.describe('Course materials — enrollment-gated access', () => {
-  test.beforeEach(signIn);
+  test.beforeEach(async ({ page }) => { await signIn(page); });
 
   test('enrolled student can open the materials page and see the tree UI', async ({ page }) => {
     await page.goto(`${BASE}/courses/${ENROLLED_COURSE}/materials`, {

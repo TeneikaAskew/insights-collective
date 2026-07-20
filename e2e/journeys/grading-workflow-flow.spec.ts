@@ -23,7 +23,7 @@ test.describe('Instructor grading workflow', () => {
     'E2E_INSTRUCTOR_EMAIL / E2E_INSTRUCTOR_PASSWORD not set — cannot verify grading UI end-to-end',
   );
 
-  test.beforeEach(signInInstructor);
+  test.beforeEach(async ({ page }) => { await signInInstructor(page); });
 
   test('/manage/assignments lists real assignments with submission counters', async ({ page }) => {
     await page.goto(`${BASE}/courses/${INSTRUCTOR_COURSE}/manage/assignments`, {

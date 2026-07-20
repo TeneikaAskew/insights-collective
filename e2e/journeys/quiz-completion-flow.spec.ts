@@ -16,7 +16,7 @@ async function signIn(page: import('@playwright/test').Page) {
 }
 
 test.describe('Quiz results view — student perspective', () => {
-  test.beforeEach(signIn);
+  test.beforeEach(async ({ page }) => { await signIn(page); });
 
   test('renders per-week quiz breakdown or a clear empty state', async ({ page }) => {
     await page.goto(`${BASE}/courses/${ENROLLED_COURSE}/quiz-results`, {
@@ -58,7 +58,7 @@ test.describe('Quiz results view — student perspective', () => {
 });
 
 test.describe('Quiz taking — full attempt lifecycle', () => {
-  test.beforeEach(signIn);
+  test.beforeEach(async ({ page }) => { await signIn(page); });
 
   test('opening a quiz page renders the player scaffolding', async ({ page }) => {
     await page.goto(`${BASE}/courses/${ENROLLED_COURSE}/learn`, {
