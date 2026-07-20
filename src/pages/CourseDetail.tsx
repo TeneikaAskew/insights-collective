@@ -56,6 +56,11 @@ const CourseDetail = () => {
   const [announcementContent, setAnnouncementContent] = useState('');
   const [announcementPinned, setAnnouncementPinned] = useState(false);
   const [submittingAnnouncement, setSubmittingAnnouncement] = useState(false);
+
+  // People (enrolled students) state
+  const [people, setPeople] = useState<Array<{ user_id: string; first_name: string | null; last_name: string | null; avatar_url: string | null; completion_status: number | null; enrolled_at: string | null }>>([]);
+  const [peopleLoading, setPeopleLoading] = useState(false);
+
   const navigate = useNavigate();
 
   // Canonical progress — replaces the ad-hoc reduce over module.completionStatus.
@@ -92,6 +97,53 @@ const CourseDetail = () => {
   useEffect(() => {
     if (currentSection === 'announcements') void fetchAnnouncements();
   }, [courseId, currentSection]);
+
+  // Load enrolled people
+  const fetchPeople = async () => {
+    if (!courseId) return;
+    setPeopleLoading(true);
+    try {
+      const { data: enr, error: enrErr } = await supabase
+        .from('enrollments')
+        .select('user_id, completion_status, enrolled_at')
+        .eq('course_id', courseId)
+        .order('enrolled_at', { ascending: false });
+      if (enrErr) throw enrErr;
+      const userIds = (enr || []).map((e: any) => e.user_id).filter(Boolean);
+      if (userIds.length === 0) {
+        setPeople([]);
+        return;
+      }
+      const { data: profs } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, avatar_url')
+        .in('id', userIds);
+      const byId = new Map((profs || []).map((p: any) => [p.id, p]));
+      setPeople(
+        (enr || []).map((e: any) => {
+          const p = byId.get(e.user_id) || {};
+          return {
+            user_id: e.user_id,
+            first_name: p.first_name ?? null,
+            last_name: p.last_name ?? null,
+            avatar_url: p.avatar_url ?? null,
+            completion_status: e.completion_status ?? 0,
+            enrolled_at: e.enrolled_at ?? null,
+          };
+        })
+      );
+    } catch (err) {
+      logger.warn('Failed to load people:', err);
+      setPeople([]);
+    } finally {
+      setPeopleLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (currentSection === 'people') void fetchPeople();
+  }, [courseId, currentSection]);
+
 
   const handleCreateAnnouncement = async () => {
     if (!courseId || !user?.id || !announcementTitle.trim()) return;
@@ -675,12 +727,44 @@ const CourseDetail = () => {
                 </div>
               </div>
               
-              <div className="text-center p-8 border rounded-lg bg-muted/20">
-                <p className="text-muted-foreground">Student list not available.</p>
-                <p className="text-sm text-muted-foreground mt-2">
-                  Contact your instructor for more information about course participants.
-                </p>
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold">Students ({people.length})</h3>
+                  {peopleLoading && <span className="text-xs text-muted-foreground">Loading…</span>}
+                </div>
+                {people.length === 0 && !peopleLoading ? (
+                  <div className="text-center p-8 border rounded-lg bg-muted/20">
+                    <p className="text-muted-foreground">No students enrolled yet.</p>
+                  </div>
+                ) : (
+                  <div className="divide-y border rounded-lg" data-testid="course-people-list">
+                    {people.map((p) => {
+                      const name = [p.first_name, p.last_name].filter(Boolean).join(' ').trim() || 'Student';
+                      const initial = (p.first_name?.[0] || p.last_name?.[0] || 'S').toUpperCase();
+                      const pct = Math.max(0, Math.min(100, Number(p.completion_status ?? 0)));
+                      return (
+                        <div key={p.user_id} className="flex items-center gap-3 p-3">
+                          <Avatar className="h-9 w-9">
+                            <AvatarImage src={p.avatar_url ?? undefined} />
+                            <AvatarFallback>{initial}</AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate">{name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Enrolled {p.enrolled_at ? new Date(p.enrolled_at).toLocaleDateString() : '—'}
+                            </p>
+                          </div>
+                          <div className="w-40 hidden sm:block">
+                            <Progress value={pct} className="h-1.5" />
+                          </div>
+                          <span className="text-sm tabular-nums w-12 text-right">{pct}%</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
+
             </div>
           </div>
         );
