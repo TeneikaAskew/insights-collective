@@ -57,24 +57,10 @@ serve(async (req) => {
   if (enrErr) return json(500, { error: enrErr.message });
   const userIds = Array.from(new Set((enrollments ?? []).map((e) => e.user_id).filter(Boolean)));
 
-  const link = `/courses/${course_id}/announcements`;
   const messageBody = (content ?? '').slice(0, 240);
-  const notifRows = userIds.map((uid) => ({
-    user_id: uid,
-    title: `New announcement: ${title}`,
-    message: messageBody || `${courseTitle} posted a new announcement.`,
-    type: 'course_announcement',
-    link,
-    is_read: false,
-  }));
-
-  let inserted = 0;
-  if (notifRows.length) {
-    const { error: insErr, count } = await admin
-      .from('notifications').insert(notifRows, { count: 'exact' });
-    if (insErr) console.error('notification insert error', insErr);
-    inserted = count ?? notifRows.length;
-  }
+  // In-app notifications are inserted by the DB trigger on course_announcements.
+  // This function only handles the (optional) email fan-out.
+  const inserted = 0;
 
   // Email fan-out (only if Resend is configured)
   let emailed = 0;

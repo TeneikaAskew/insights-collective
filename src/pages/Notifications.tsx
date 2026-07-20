@@ -1,109 +1,299 @@
-
-import React from 'react';
+// ABOUTME: In-app notification center. Reads from public.notifications, groups by course,
+// ABOUTME: shows unread counts per course, supports mark-as-read + realtime updates.
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { formatDistanceToNow } from 'date-fns';
+import { Bell, CheckCheck, FileText, MessageSquare, Megaphone, Trash2, Inbox } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Bell, Mail, Calendar, MessageSquare, CheckCircle } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { cn } from '@/lib/utils';
+
+interface DbNotification {
+  id: string;
+  user_id: string;
+  title: string;
+  message: string;
+  type: string;
+  is_read: boolean;
+  link: string | null;
+  course_id: string | null;
+  created_at: string;
+}
+
+interface CourseLite {
+  id: string;
+  title: string;
+}
+
+function iconFor(type: string) {
+  switch (type) {
+    case 'course_announcement':
+      return <Megaphone className="h-4 w-4 text-blue-600" />;
+    case 'assignment_grade':
+    case 'assignment':
+      return <FileText className="h-4 w-4 text-purple-600" />;
+    case 'message':
+      return <MessageSquare className="h-4 w-4 text-emerald-600" />;
+    default:
+      return <Bell className="h-4 w-4 text-primary" />;
+  }
+}
 
 const Notifications = () => {
-  const notifications = [
-    {
-      id: '1',
-      type: 'course',
-      title: 'New Course Available',
-      message: 'Advanced Data Science with Python is now available',
-      timestamp: '2 hours ago',
-      read: false,
-      icon: <Bell className="h-4 w-4" />
-    },
-    {
-      id: '2',
-      type: 'message',
-      title: 'New Message',
-      message: 'You have a new message from your mentor',
-      timestamp: '4 hours ago',
-      read: false,
-      icon: <MessageSquare className="h-4 w-4" />
-    },
-    {
-      id: '3',
-      type: 'event',
-      title: 'Upcoming Event',
-      message: 'Data Science Workshop starts in 2 days',
-      timestamp: '1 day ago',
-      read: true,
-      icon: <Calendar className="h-4 w-4" />
-    },
-    {
-      id: '4',
-      type: 'achievement',
-      title: 'Achievement Unlocked',
-      message: 'You completed the Python Fundamentals course!',
-      timestamp: '2 days ago',
-      read: true,
-      icon: <CheckCircle className="h-4 w-4" />
+  const { user, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
+  const [items, setItems] = useState<DbNotification[]>([]);
+  const [courses, setCourses] = useState<Record<string, CourseLite>>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<string>('all');
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      setIsLoading(false);
+      return;
     }
-  ];
+
+    let alive = true;
+    const load = async () => {
+      setIsLoading(true);
+      const { data } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(200);
+      if (!alive) return;
+      const rows = (data ?? []) as DbNotification[];
+      setItems(rows);
+
+      const courseIds = Array.from(new Set(rows.map((r) => r.course_id).filter(Boolean))) as string[];
+      if (courseIds.length) {
+        const { data: courseRows } = await supabase
+          .from('courses')
+          .select('id, title')
+          .in('id', courseIds);
+        if (!alive) return;
+        const map: Record<string, CourseLite> = {};
+        (courseRows ?? []).forEach((c: any) => (map[c.id] = c));
+        setCourses(map);
+      }
+      setIsLoading(false);
+    };
+    void load();
+
+    const channel = supabase
+      .channel('notifications-page')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          setItems((prev) => {
+            if (payload.eventType === 'INSERT') {
+              return [payload.new as DbNotification, ...prev];
+            }
+            if (payload.eventType === 'UPDATE') {
+              return prev.map((n) =>
+                n.id === (payload.new as DbNotification).id ? (payload.new as DbNotification) : n,
+              );
+            }
+            if (payload.eventType === 'DELETE') {
+              return prev.filter((n) => n.id !== (payload.old as DbNotification).id);
+            }
+            return prev;
+          });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      alive = false;
+      supabase.removeChannel(channel);
+    };
+  }, [user, authLoading]);
+
+  const perCourseCounts = useMemo(() => {
+    const map = new Map<string, { total: number; unread: number }>();
+    for (const n of items) {
+      const key = n.course_id ?? '__none__';
+      const b = map.get(key) ?? { total: 0, unread: 0 };
+      b.total += 1;
+      if (!n.is_read) b.unread += 1;
+      map.set(key, b);
+    }
+    return map;
+  }, [items]);
+
+  const totalUnread = items.filter((n) => !n.is_read).length;
+
+  const filtered = useMemo(() => {
+    if (activeTab === 'all') return items;
+    if (activeTab === 'unread') return items.filter((n) => !n.is_read);
+    if (activeTab === 'general') return items.filter((n) => !n.course_id);
+    return items.filter((n) => n.course_id === activeTab);
+  }, [items, activeTab]);
+
+  const markAsRead = async (id: string) => {
+    setItems((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)));
+    await supabase.from('notifications').update({ is_read: true }).eq('id', id);
+  };
+
+  const markAllRead = async () => {
+    if (!user) return;
+    const ids = filtered.filter((n) => !n.is_read).map((n) => n.id);
+    if (!ids.length) return;
+    setItems((prev) => prev.map((n) => (ids.includes(n.id) ? { ...n, is_read: true } : n)));
+    await supabase.from('notifications').update({ is_read: true }).in('id', ids);
+  };
+
+  const removeOne = async (id: string) => {
+    setItems((prev) => prev.filter((n) => n.id !== id));
+    await supabase.from('notifications').delete().eq('id', id);
+  };
+
+  const handleClick = (n: DbNotification) => {
+    if (!n.is_read) void markAsRead(n.id);
+    if (n.link) navigate(n.link);
+  };
+
+  if (!authLoading && !user) {
+    return (
+      <AppLayout>
+        <div className="container mx-auto py-16 px-4 text-center">
+          <Bell className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+          <h1 className="text-2xl font-semibold mb-2">Sign in to see your notifications</h1>
+          <p className="text-muted-foreground mb-6">
+            You'll get course announcements, assignment updates, and more here.
+          </p>
+          <Link to="/login">
+            <Button>Log in</Button>
+          </Link>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  const courseTabs = Array.from(perCourseCounts.entries())
+    .filter(([id]) => id !== '__none__')
+    .map(([id, counts]) => ({ id, ...counts }));
 
   return (
     <AppLayout>
-      <div className="container mx-auto py-8 px-4 space-y-8">
-        <div className="flex justify-between items-center">
-          <div className="space-y-2">
-            <h1 className="text-4xl font-bold tracking-tight">Notifications</h1>
-            <p className="text-xl text-muted-foreground">
-              Stay updated with your latest activities and messages
+      <div className="container mx-auto py-8 px-4 space-y-6 max-w-4xl">
+        <div className="flex flex-wrap justify-between items-start gap-3">
+          <div className="space-y-1 text-left">
+            <h1 className="text-3xl font-bold tracking-tight">Notifications</h1>
+            <p className="text-muted-foreground">
+              {totalUnread > 0
+                ? `${totalUnread} unread ${totalUnread === 1 ? 'notification' : 'notifications'}`
+                : "You're all caught up."}
             </p>
           </div>
-          <Button variant="outline">
-            Mark All as Read
+          <Button variant="outline" onClick={markAllRead} disabled={!filtered.some((n) => !n.is_read)}>
+            <CheckCheck className="h-4 w-4 mr-2" />
+            Mark all as read
           </Button>
         </div>
 
-        <div className="space-y-4">
-          {notifications.map((notification) => (
-            <Card key={notification.id} className={`${!notification.read ? 'border-l-4 border-l-primary' : ''}`}>
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-primary/10 rounded-full">
-                      {notification.icon}
-                    </div>
-                    <div>
-                      <CardTitle className="text-base">{notification.title}</CardTitle>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {notification.message}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {!notification.read && (
-                      <Badge variant="default" className="text-xs">
-                        New
-                      </Badge>
-                    )}
-                    <span className="text-xs text-muted-foreground">
-                      {notification.timestamp}
-                    </span>
-                  </div>
-                </div>
-              </CardHeader>
-            </Card>
-          ))}
-        </div>
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="flex flex-wrap h-auto">
+            <TabsTrigger value="all">
+              All
+              <Badge variant="secondary" className="ml-2">
+                {items.length}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="unread">
+              Unread
+              {totalUnread > 0 && (
+                <Badge className="ml-2" variant="default">
+                  {totalUnread}
+                </Badge>
+              )}
+            </TabsTrigger>
+            {courseTabs.map(({ id, unread }) => (
+              <TabsTrigger key={id} value={id}>
+                {courses[id]?.title ?? 'Course'}
+                {unread > 0 && (
+                  <Badge className="ml-2" variant="default">
+                    {unread}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            ))}
+            {perCourseCounts.has('__none__') && (
+              <TabsTrigger value="general">General</TabsTrigger>
+            )}
+          </TabsList>
 
-        {notifications.length === 0 && (
-          <Card>
-            <CardContent className="text-center py-12">
-              <Mail className="h-16 w-16 text-muted-foreground/40 mx-auto mb-4" />
-              <h3 className="text-xl font-medium mb-2">No notifications</h3>
-              <p className="text-muted-foreground">
-                You're all caught up! Check back later for new updates.
-              </p>
-            </CardContent>
-          </Card>
-        )}
+          <TabsContent value={activeTab} className="mt-4">
+            {isLoading ? (
+              <div className="py-16 text-center text-muted-foreground animate-spin">
+                <Bell className="h-6 w-6 mx-auto opacity-60" />
+              </div>
+            ) : filtered.length === 0 ? (
+              <Card>
+                <CardContent className="py-16 text-center">
+                  <Inbox className="h-12 w-12 text-muted-foreground/40 mx-auto mb-3" />
+                  <h3 className="text-lg font-medium">Nothing here</h3>
+                  <p className="text-sm text-muted-foreground">
+                    New announcements and assignment updates will show up here.
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-2">
+                {filtered.map((n) => (
+                  <Card
+                    key={n.id}
+                    className={cn(
+                      'transition-colors hover:bg-accent/40 cursor-pointer',
+                      !n.is_read && 'border-l-4 border-l-primary bg-primary/5',
+                    )}
+                    onClick={() => handleClick(n)}
+                  >
+                    <CardContent className="p-4 flex items-start gap-3">
+                      <div className="mt-0.5 p-2 rounded-full bg-muted">{iconFor(n.type)}</div>
+                      <div className="flex-1 min-w-0 text-left">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <h4 className="text-sm font-semibold truncate">{n.title}</h4>
+                            {n.course_id && courses[n.course_id] && (
+                              <p className="text-xs text-muted-foreground">
+                                {courses[n.course_id].title}
+                              </p>
+                            )}
+                          </div>
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">
+                            {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
+                          </span>
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{n.message}</p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void removeOne(n.id);
+                        }}
+                        aria-label="Delete notification"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </AppLayout>
   );
