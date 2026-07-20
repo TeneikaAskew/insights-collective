@@ -981,6 +981,8 @@ const CourseDetail = () => {
                       <span>{course.enrollmentCount || 0} enrolled</span>
                     </div>
                   </div>
+
+                  <CourseCalendarSync courseId={courseId!} courseTitle={course.title} />
                 </div>
               </aside>
             </div>
