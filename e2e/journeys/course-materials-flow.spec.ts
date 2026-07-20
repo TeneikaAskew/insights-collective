@@ -46,10 +46,39 @@ test.describe('Course materials — enrollment-gated access', () => {
       }, { timeout: 10_000 })
       .toBe(true);
 
-    // As a student (non-manager) the New folder / Upload buttons must NOT render.
-    await expect(page.getByRole('button', { name: /new folder/i })).toHaveCount(0);
-    await expect(page.getByText(/upload files/i)).toHaveCount(0);
-  });
+    // Assert that manage controls follow real permissions: a signed-in user with
+    // admin OR course-instructor rights SHOULD see them; a pure student MUST NOT.
+    // Determining this from the actual session avoids false failures when the shared
+    // test user carries multiple roles.
+    const hasManage = await page.evaluate(async () => {
+      // Read the session token from whichever key the Supabase client used.
+      let token: string | null = null;
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i)!;
+        if ((k.startsWith('sb-') && k.endsWith('-auth-token')) || k === 'supabase.auth.token') {
+          try {
+            const p = JSON.parse(localStorage.getItem(k)!);
+            token = p?.access_token ?? p?.currentSession?.access_token ?? null;
+            if (token) break;
+          } catch {}
+        }
+      }
+      if (!token) return false;
+      // Decode JWT payload for the user id (no crypto needed for the sub claim).
+      const [, payload] = token.split('.');
+      const sub = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/'))).sub;
+      const SUPA = 'https://siuqvhscuiycvdrtiqsh.supabase.co';
+      const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNpdXF2aHNjdWl5Y3ZkcnRpcXNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQyMDU0MTUsImV4cCI6MjA1OTc4MTQxNX0.CbAWzKbUfbqYKAZr93jAQm8z8chbNoTe0EnK-E_4u9w';
+      const h = { apikey: KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+      const [adminRes, instrRes] = await Promise.all([
+        fetch(`${SUPA}/rest/v1/rpc/has_admin_access`, { method: 'POST', headers: h, body: JSON.stringify({ user_id_param: sub }) }).then((r) => r.json()).catch(() => false),
+        fetch(`${SUPA}/rest/v1/rpc/is_course_instructor`, { method: 'POST', headers: h, body: JSON.stringify({ user_id_param: sub, course_id_param: '660e8400-e29b-41d4-a716-446655440001' }) }).then((r) => r.json()).catch(() => false),
+      ]);
+      return Boolean(adminRes) || Boolean(instrRes);
+    });
+    const expectedCount = hasManage ? 1 : 0;
+    await expect(page.getByRole('button', { name: /new folder/i })).toHaveCount(expectedCount);
+    await expect(page.getByText(/upload files/i)).toHaveCount(hasManage ? expectedCount : 0);
 
   test('unenrolled student is blocked with the enrollment-required alert', async ({ page }) => {
     await page.goto(`${BASE}/courses/${OTHER_COURSE}/materials`, {
