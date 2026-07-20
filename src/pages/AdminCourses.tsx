@@ -319,6 +319,10 @@ export default function AdminCourses() {
             <TabsContent value="certificates">
               <CertificatesTab courses={courses} />
             </TabsContent>
+
+            <TabsContent value="progress">
+              <CourseProgressDashboard courses={courses} />
+            </TabsContent>
           </Tabs>
         </div>
       </div>
