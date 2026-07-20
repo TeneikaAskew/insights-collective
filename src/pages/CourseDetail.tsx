@@ -803,6 +803,8 @@ const CourseDetail = () => {
                       )}
                     </ul>
                   </div>
+
+                  <CourseCalendarSync courseId={courseId!} courseTitle={course.title} />
                 </aside>
               </div>
 
