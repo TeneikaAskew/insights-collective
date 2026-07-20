@@ -191,8 +191,12 @@ const CourseLearn = () => {
   const handleContinue = useCallback(async () => {
     if (!selected) return;
     if (!isSelectedComplete) await handleMarkDone(selected.item.id);
-    if (next) goTo(next.module.id, next.item.id);
-  }, [selected, isSelectedComplete, handleMarkDone, next, goTo]);
+    if (next) {
+      goTo(next.module.id, next.item.id);
+    } else {
+      navigate(`/courses/${courseId}/learn/complete/summary`);
+    }
+  }, [selected, isSelectedComplete, handleMarkDone, next, goTo, navigate, courseId]);
 
   if (loading) {
     return (
