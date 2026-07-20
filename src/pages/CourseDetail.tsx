@@ -918,6 +918,20 @@ const CourseDetail = () => {
                           <Calendar className="h-4 w-4 text-neutral-400" /> Calendar
                         </Link>
                       </li>
+                      {(canEdit || isInstructor || isAdmin) && (
+                        <>
+                          <li>
+                            <Link to={`/courses/${courseId}/manage/assignments`} className="flex items-center gap-2 text-neutral-800 hover:text-neutral-900 hover:underline">
+                              <ClipboardCheck className="h-4 w-4 text-neutral-400" /> Grade assignments
+                            </Link>
+                          </li>
+                          <li>
+                            <Link to={`/courses/${courseId}/gradebook`} className="flex items-center gap-2 text-neutral-800 hover:text-neutral-900 hover:underline">
+                              <BarChart3 className="h-4 w-4 text-neutral-400" /> Gradebook
+                            </Link>
+                          </li>
+                        </>
+                      )}
                       {isEnrolled && course.instructor?.id && (
                         <li>
                           <button
