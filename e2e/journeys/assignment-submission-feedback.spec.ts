@@ -1,6 +1,7 @@
 // ABOUTME: E2E — student submits an assignment inline, instructor grades it via REST, and rubric feedback + completion propagate.
 // ABOUTME: Uses real Supabase data for the seeded Introduction to Data Science course.
 import { test, expect } from '../fixtures/page-helpers';
+import { signInMember, getSupabaseAccessToken } from './_helpers/signIn';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://siuqvhscuiycvdrtiqsh.supabase.co';
 const SUPABASE_KEY =
@@ -14,16 +15,14 @@ const CONTENT_ITEM_ID = 'dc50f7dc-47be-4541-aae5-98375b128a08';
 const MODULE_ID = '770e8400-e29b-41d4-a716-446655440001';
 
 async function getAccessToken(page: any): Promise<string> {
-  const token: string | null = await page.evaluate(() => {
-    const raw = localStorage.getItem('supabase.auth.token');
-    if (!raw) return null;
-    try { return (JSON.parse(raw) as any).access_token ?? null; } catch { return null; }
-  });
+  const token = await getSupabaseAccessToken(page);
   expect(token, 'authenticated session access token').toBeTruthy();
   return token as string;
 }
 
 test.describe('Assignment submission → feedback → completion', () => {
+  test.beforeEach(async ({ page }) => { await signInMember(page); });
+
   test('student submits, instructor grades, feedback + completion status update', async ({ page }) => {
     // 1. Open the lesson containing the assignment
     await page.goto(`/courses/${COURSE_ID}/learn/${MODULE_ID}/${CONTENT_ITEM_ID}`);
