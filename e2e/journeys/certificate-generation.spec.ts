@@ -1,6 +1,7 @@
 // ABOUTME: E2E — completes every published content item for the seeded course as the member,
 // ABOUTME: then verifies the DB trigger auto-issues a certificate and the /certificate page renders it.
 import { test, expect } from '../fixtures/page-helpers';
+import { signInMember, getSupabaseAccessToken } from './_helpers/signIn';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://siuqvhscuiycvdrtiqsh.supabase.co';
 const SUPABASE_KEY =
@@ -9,38 +10,21 @@ const SUPABASE_KEY =
 const COURSE_ID = process.env.E2E_TEST_COURSE_ID || '660e8400-e29b-41d4-a716-446655440001';
 
 async function getAccessToken(page: any): Promise<string> {
-  // Try common Supabase auth storage keys.
-  const token: string | null = await page.evaluate(() => {
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i)!;
-      if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
-        try {
-          const parsed = JSON.parse(localStorage.getItem(key)!);
-          if (parsed?.access_token) return parsed.access_token as string;
-          if (Array.isArray(parsed) && parsed[0]) return parsed[0] as string;
-        } catch {}
-      }
-    }
-    const raw = localStorage.getItem('supabase.auth.token');
-    if (raw) {
-      try {
-        const p = JSON.parse(raw) as any;
-        return p?.access_token ?? p?.currentSession?.access_token ?? null;
-      } catch { return null; }
-    }
-    return null;
-  });
+  const token = await getSupabaseAccessToken(page);
   if (!token) throw new Error('No Supabase access token found in localStorage — is the member logged in?');
   return token;
 }
 
 test.describe('Certificate generation — end to end', () => {
+  test.beforeEach(async ({ page }) => { await signInMember(page); });
+
   test('completing every content item auto-issues a certificate and the certificate page reflects it', async ({ page }) => {
     // 1) Load the app so the member session hydrates into localStorage.
     await page.goto('/dashboard');
     await expect(page).toHaveURL(/dashboard|courses|login/i);
     const accessToken = await getAccessToken(page);
     const authHeaders = { apikey: SUPABASE_KEY, Authorization: `Bearer ${accessToken}` };
+
 
     // 2) Resolve the member's user id.
     const meRes = await page.request.get(`${SUPABASE_URL}/auth/v1/user`, { headers: authHeaders });
