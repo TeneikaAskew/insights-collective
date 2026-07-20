@@ -171,7 +171,7 @@ const CourseList = () => {
               <p className="text-neutral-500 mb-4">Try adjusting your search or filters.</p>
               <Button
                 variant="outline"
-                onClick={() => { setSearchQuery(''); setCategoryFilter('all'); setLevelFilter('all'); }}
+                onClick={() => { setSearchQuery(''); setCategoryFilter('all'); setLevelFilter('all'); setScheduleFilter('all'); }}
               >
                 Clear filters
               </Button>
