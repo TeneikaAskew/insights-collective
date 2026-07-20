@@ -1,0 +1,98 @@
+name: E2E Playwright Suite
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    name: Playwright E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      E2E_BASE_URL: http://localhost:8080
+      E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+      E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+      E2E_INSTRUCTOR_EMAIL: ${{ secrets.E2E_INSTRUCTOR_EMAIL }}
+      E2E_INSTRUCTOR_PASSWORD: ${{ secrets.E2E_INSTRUCTOR_PASSWORD }}
+      E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+      E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+      VITE_SUPABASE_PROJECT_ID: ${{ secrets.VITE_SUPABASE_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium firefox
+
+      - name: Build app
+        run: npm run build
+
+      - name: Start preview server
+        run: |
+          npx vite preview --port 8080 --host 0.0.0.0 &
+          echo $! > .preview.pid
+          for i in {1..30}; do
+            if curl -sSf http://localhost:8080 > /dev/null; then
+              echo "Preview ready"; break;
+            fi
+            echo "Waiting for preview ($i)..."; sleep 2;
+          done
+
+      - name: Run Playwright suite
+        run: npx playwright test --reporter=list,html,json
+
+      - name: Coverage gap report
+        if: always()
+        run: |
+          echo "## E2E Coverage Gap Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f e2e/TEST-PLAN.md ]; then
+            echo "### Journeys documented in TEST-PLAN.md" >> $GITHUB_STEP_SUMMARY
+            grep -E '^### ' e2e/TEST-PLAN.md >> $GITHUB_STEP_SUMMARY || true
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Explicit coverage gaps (from TEST-PLAN.md)" >> $GITHUB_STEP_SUMMARY
+            awk '/^## Coverage gaps/{flag=1;next}/^## /{flag=0}flag' e2e/TEST-PLAN.md >> $GITHUB_STEP_SUMMARY || true
+          fi
+          if [ -f test-results.json ] || [ -f playwright-report/results.json ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Test outcome summary" >> $GITHUB_STEP_SUMMARY
+            node -e "
+              const fs = require('fs');
+              const p = fs.existsSync('test-results.json') ? 'test-results.json' : 'playwright-report/results.json';
+              const r = JSON.parse(fs.readFileSync(p,'utf8'));
+              const s = r.stats || {};
+              console.log('Passed:', s.expected||0, 'Failed:', s.unexpected||0, 'Skipped:', s.skipped||0, 'Flaky:', s.flaky||0);
+              const skipped = [];
+              function walk(node){ (node.suites||[]).forEach(walk); (node.specs||[]).forEach(sp=>sp.tests.forEach(t=>t.results.forEach(res=>{ if(res.status==='skipped') skipped.push(sp.title+' — '+(res.error?.message||'no reason')); }))); }
+              (r.suites||[]).forEach(walk);
+              if (skipped.length) { console.log('\nSkipped (potential coverage gaps):'); skipped.forEach(s=>console.log(' -', s)); }
+            " >> $GITHUB_STEP_SUMMARY || true
+          fi
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
+
+      - name: Stop preview server
+        if: always()
+        run: kill $(cat .preview.pid) || true
