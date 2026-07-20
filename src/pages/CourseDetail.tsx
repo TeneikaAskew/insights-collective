@@ -29,6 +29,7 @@ import { CourseContentPreview } from '@/components/course/CourseContentPreview';
 import { CourseProgressTimeline } from '@/components/course/CourseProgressTimeline';
 import { CourseCalendarSync } from '@/components/course/CourseCalendarSync';
 import { LoginOverlayCard } from '@/components/course/LoginOverlayCard';
+import { useCourseThread } from '@/hooks/useCourseThread';
 
 import { createLogger } from '@/utils/logger';
 
@@ -62,6 +63,7 @@ const CourseDetail = () => {
   const [peopleLoading, setPeopleLoading] = useState(false);
 
   const navigate = useNavigate();
+  const { openThread, opening: openingThread } = useCourseThread();
 
   // Canonical progress — replaces the ad-hoc reduce over module.completionStatus.
   const { data: courseProgress } = useCourseProgress(courseId);
@@ -785,6 +787,17 @@ const CourseDetail = () => {
                             <Progress value={pct} className="h-1.5" />
                           </div>
                           <span className="text-sm tabular-nums w-12 text-right">{pct}%</span>
+                          {(isInstructor || isAdmin) && p.user_id !== user?.id && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={openingThread}
+                              onClick={() => openThread(courseId!, p.user_id)}
+                              className="ml-2"
+                            >
+                              <MessageSquare className="h-3.5 w-3.5 mr-1" /> Message
+                            </Button>
+                          )}
                         </div>
                       );
                     })}
@@ -905,6 +918,18 @@ const CourseDetail = () => {
                           <Calendar className="h-4 w-4 text-neutral-400" /> Calendar
                         </Link>
                       </li>
+                      {isEnrolled && course.instructor?.id && (
+                        <li>
+                          <button
+                            type="button"
+                            disabled={openingThread}
+                            onClick={() => openThread(courseId!, course.instructor.id)}
+                            className="flex items-center gap-2 text-neutral-800 hover:text-neutral-900 hover:underline disabled:opacity-60"
+                          >
+                            <MessageSquare className="h-4 w-4 text-neutral-400" /> Message instructor
+                          </button>
+                        </li>
+                      )}
                       {overallProgress >= 100 && (
                         <li>
                           <Link to={`/courses/${courseId}/certificate`} className="flex items-center gap-2 font-semibold text-primary hover:underline">
