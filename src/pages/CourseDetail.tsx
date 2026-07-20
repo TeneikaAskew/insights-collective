@@ -9,7 +9,7 @@ import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { BookOpen, Clock, Users, Star, Calendar, ChevronLeft, Share, MessageSquare, Edit, Bell, FileText, BarChart3, Pin, PlusCircle, Trash2, ArrowRight, PlayCircle, Award } from 'lucide-react';
+import { BookOpen, Clock, Users, Star, Calendar, ChevronLeft, Share, MessageSquare, Edit, Bell, FileText, BarChart3, Pin, PlusCircle, Trash2, ArrowRight, PlayCircle, Award, ClipboardCheck } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -918,6 +918,30 @@ const CourseDetail = () => {
                           <Calendar className="h-4 w-4 text-neutral-400" /> Calendar
                         </Link>
                       </li>
+                      <li>
+                        <Link to={`/courses/${courseId}/materials`} className="flex items-center gap-2 text-neutral-800 hover:text-neutral-900 hover:underline">
+                          <FileText className="h-4 w-4 text-neutral-400" /> Materials
+                        </Link>
+                      </li>
+                      <li>
+                        <Link to={`/courses/${courseId}/quiz-results`} className="flex items-center gap-2 text-neutral-800 hover:text-neutral-900 hover:underline">
+                          <BarChart3 className="h-4 w-4 text-neutral-400" /> Quiz results
+                        </Link>
+                      </li>
+                      {(canEdit || isInstructor || isAdmin) && (
+                        <>
+                          <li>
+                            <Link to={`/courses/${courseId}/manage/assignments`} className="flex items-center gap-2 text-neutral-800 hover:text-neutral-900 hover:underline">
+                              <ClipboardCheck className="h-4 w-4 text-neutral-400" /> Grade assignments
+                            </Link>
+                          </li>
+                          <li>
+                            <Link to={`/courses/${courseId}/gradebook`} className="flex items-center gap-2 text-neutral-800 hover:text-neutral-900 hover:underline">
+                              <BarChart3 className="h-4 w-4 text-neutral-400" /> Gradebook
+                            </Link>
+                          </li>
+                        </>
+                      )}
                       {isEnrolled && course.instructor?.id && (
                         <li>
                           <button

@@ -49,6 +49,9 @@ const CanvasAssignmentSubmission = lazy(() => import('@/pages/CanvasAssignmentSu
 const CanvasQuizTaking = lazy(() => import('@/pages/CanvasQuizTaking'));
 const CanvasQuizResults = lazy(() => import('@/pages/CanvasQuizResults'));
 const CanvasGradingInterface = lazy(() => import('@/pages/CanvasGradingInterface'));
+const InstructorAssignments = lazy(() => import('@/pages/InstructorAssignments'));
+const CourseMaterials = lazy(() => import('@/pages/CourseMaterials'));
+const CourseQuizResults = lazy(() => import('@/pages/CourseQuizResults'));
 
 // Interview Preparation Pages
 const InterviewPrep = lazy(() => import('@/pages/InterviewPrep'));
@@ -292,6 +295,10 @@ function App() {
                      <Route path="/courses/:courseId/modules/:moduleId/quizzes/:contentItemId" element={<CanvasQuizTaking />} />
                      <Route path="/courses/:courseId/modules/:moduleId/quizzes/:contentItemId/results/:submissionId" element={<CanvasQuizResults />} />
                      <Route path="/courses/:courseId/assignments/:contentItemId/grade" element={<CanvasGradingInterface />} />
+                     <Route path="/courses/:courseId/manage/assignments" element={<InstructorAssignments />} />
+                     <Route path="/courses/:courseId/materials" element={<CourseMaterials />} />
+                     <Route path="/courses/:courseId/quiz-results" element={<CourseQuizResults />} />
+
 
                     {/* Interview Preparation Routes */}
                     <Route path="/interview-prep" element={<InterviewPrep />} />
