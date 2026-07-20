@@ -45,7 +45,7 @@ function iconFor(type: string) {
 }
 
 const Notifications = () => {
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [items, setItems] = useState<DbNotification[]>([]);
   const [courses, setCourses] = useState<Record<string, CourseLite>>({});
