@@ -5,6 +5,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
+  Award,
+  CheckCircle2,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -13,6 +15,7 @@ import {
   FileText,
   Home,
   Menu,
+  RotateCcw,
   Settings,
   X,
 } from 'lucide-react';
@@ -69,10 +72,12 @@ const CourseLearn = () => {
     [modules],
   );
 
+  const isCompletionRoute = moduleId === 'complete';
+
   const selected = useMemo(() => {
-    if (!itemId) return null;
+    if (!itemId || isCompletionRoute) return null;
     return flatItems.find((fi) => fi.item.id === itemId) || null;
-  }, [flatItems, itemId]);
+  }, [flatItems, itemId, isCompletionRoute]);
 
   // --- Load ---
   useEffect(() => {
@@ -186,8 +191,12 @@ const CourseLearn = () => {
   const handleContinue = useCallback(async () => {
     if (!selected) return;
     if (!isSelectedComplete) await handleMarkDone(selected.item.id);
-    if (next) goTo(next.module.id, next.item.id);
-  }, [selected, isSelectedComplete, handleMarkDone, next, goTo]);
+    if (next) {
+      goTo(next.module.id, next.item.id);
+    } else {
+      navigate(`/courses/${courseId}/learn/complete/summary`);
+    }
+  }, [selected, isSelectedComplete, handleMarkDone, next, goTo, navigate, courseId]);
 
   if (loading) {
     return (
@@ -205,6 +214,87 @@ const CourseLearn = () => {
           <Link to="/courses" className="text-sm underline">
             Back to courses
           </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // --- Completion / end-of-course view ---
+  if (isCompletionRoute) {
+    const totalItems = flatItems.length;
+    const completedCount = flatItems.filter((fi) => completed.has(fi.item.id)).length;
+    const allComplete = totalItems > 0 && completedCount === totalItems;
+    const firstItem = flatItems[0];
+    return (
+      <div
+        className="teachable-workspace fixed inset-0 flex flex-col bg-background"
+        style={{ color: 'hsl(var(--tw-text))' }}
+      >
+        <AdminTopBar canEdit={canEdit} courseId={course.id} previewAsStudent={previewAsStudent} onPreviewChange={setPreviewAsStudent} />
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-2xl mx-auto px-4 sm:px-6 py-14 sm:py-20 text-center">
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
+              {allComplete ? (
+                <Award className="h-10 w-10 text-primary" />
+              ) : (
+                <CheckCircle2 className="h-10 w-10 text-primary" />
+              )}
+            </div>
+            <div className="text-[11px] font-bold tracking-widest uppercase text-muted-foreground mb-2">
+              {allComplete ? 'Course complete' : 'End of course'}
+            </div>
+            <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl mb-3 break-words">
+              {allComplete ? `Congratulations! You finished ${course.title}` : `You've reached the end of ${course.title}`}
+            </h1>
+            <p className="text-sm sm:text-base text-muted-foreground mb-8">
+              {allComplete
+                ? 'Every lesson is checked off. Download your certificate, revisit lessons anytime, or head back to your courses.'
+                : `You've completed ${completedCount} of ${totalItems} lessons. Finish the remaining lessons to unlock your certificate.`}
+            </p>
+
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-10">
+              {allComplete && (
+                <Link
+                  to={`/courses/${course.id}/certificate`}
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90"
+                >
+                  <Award className="w-4 h-4" />
+                  View certificate
+                </Link>
+              )}
+              <Link
+                to="/enrolled-courses"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold border border-primary text-primary hover:bg-primary/10"
+              >
+                Exit to my courses
+              </Link>
+              {firstItem && (
+                <button
+                  type="button"
+                  onClick={() => goTo(firstItem.module.id, firstItem.item.id)}
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold text-muted-foreground hover:text-foreground"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Review course
+                </button>
+              )}
+            </div>
+
+            <div className="text-left rounded-xl border border-border bg-card p-5">
+              <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">
+                Your progress
+              </div>
+              <div className="h-2 w-full rounded-full bg-muted overflow-hidden mb-2">
+                <div
+                  className="h-full bg-primary transition-all"
+                  style={{ width: `${totalItems ? Math.round((completedCount / totalItems) * 100) : 0}%` }}
+                />
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {completedCount} of {totalItems} lessons complete
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
