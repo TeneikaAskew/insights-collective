@@ -11,7 +11,7 @@ test.describe("Messaging", () => {
     await page.goto(`${BASE}/login`, { waitUntil: "domcontentloaded" });
     await page.fill('input[type="email"]', EMAIL);
     await page.fill('input[type="password"]', PASSWORD);
-    await page.locator('form button[type="submit"]').first.click();
+    await page.locator('form button[type="submit"]').first().click();
     await page.waitForURL((url) => !url.pathname.includes("/login"), { timeout: 15000 });
   });
 
