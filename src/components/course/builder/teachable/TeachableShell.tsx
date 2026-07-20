@@ -210,7 +210,7 @@ function NavGroup({
               'w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-left transition-colors',
               active
                 ? 'bg-primary text-primary-foreground font-semibold'
-                : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                : 'text-primary hover:bg-primary hover:text-primary-foreground',
             )}
           >
             <Icon className="h-4 w-4 flex-shrink-0" />
