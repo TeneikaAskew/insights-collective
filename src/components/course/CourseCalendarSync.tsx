@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useCourseCalendar } from '@/hooks/useCourseCalendar';
-import { generateCourseICS, downloadICS, buildGoogleCalendarSubscribeUrl, buildWebcalUrl } from '@/utils/calendarIcs';
+import { buildGoogleCalendarSubscribeUrl, buildWebcalUrl } from '@/utils/calendarIcs';
 import { Button } from '@/components/ui/button';
 import { Calendar, Download, Copy, Check, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -22,16 +22,28 @@ export function CourseCalendarSync({ courseId, courseTitle }: CourseCalendarSync
     return `${base}/functions/v1/course-calendar-feed?course_id=${encodeURIComponent(courseId)}`;
   }, [courseId]);
 
-  const handleDownloadICS = () => {
-    if (!events.length) {
-      toast({ title: 'No calendar events', description: 'This course has no events to export yet.' });
-      return;
-    }
+  const handleDownloadICS = async () => {
+    if (!feedUrl) return;
     setDownloading(true);
     try {
-      const ics = generateCourseICS(courseTitle, events);
+      const response = await fetch(feedUrl);
+      if (!response.ok) {
+        const body = await response.text();
+        throw new Error(body || `HTTP ${response.status}`);
+      }
+      const ics = await response.text();
+      const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+      const url = window.URL.createObjectURL(blob);
       const safeTitle = courseTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'course';
-      downloadICS(`${safeTitle}-calendar.ics`, ics);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${safeTitle}-calendar.ics`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      toast({ title: 'Download failed', description: err?.message || 'Could not fetch calendar feed.', variant: 'destructive' });
     } finally {
       setDownloading(false);
     }
