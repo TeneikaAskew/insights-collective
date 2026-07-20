@@ -56,6 +56,11 @@ const CourseDetail = () => {
   const [announcementContent, setAnnouncementContent] = useState('');
   const [announcementPinned, setAnnouncementPinned] = useState(false);
   const [submittingAnnouncement, setSubmittingAnnouncement] = useState(false);
+
+  // People (enrolled students) state
+  const [people, setPeople] = useState<Array<{ user_id: string; first_name: string | null; last_name: string | null; avatar_url: string | null; completion_status: number | null; enrolled_at: string | null }>>([]);
+  const [peopleLoading, setPeopleLoading] = useState(false);
+
   const navigate = useNavigate();
 
   // Canonical progress — replaces the ad-hoc reduce over module.completionStatus.
