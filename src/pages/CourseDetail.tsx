@@ -918,6 +918,11 @@ const CourseDetail = () => {
                           <Calendar className="h-4 w-4 text-neutral-400" /> Calendar
                         </Link>
                       </li>
+                      <li>
+                        <Link to={`/courses/${courseId}/materials`} className="flex items-center gap-2 text-neutral-800 hover:text-neutral-900 hover:underline">
+                          <FileText className="h-4 w-4 text-neutral-400" /> Materials
+                        </Link>
+                      </li>
                       {(canEdit || isInstructor || isAdmin) && (
                         <>
                           <li>
