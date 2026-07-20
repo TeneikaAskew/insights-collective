@@ -27,6 +27,7 @@ import { CourseModulesList } from '@/components/course/CourseModulesList';
 import { CanvasAssignmentsList } from '@/components/course/canvas/CanvasAssignmentsList';
 import { CourseContentPreview } from '@/components/course/CourseContentPreview';
 import { CourseProgressTimeline } from '@/components/course/CourseProgressTimeline';
+import { CourseCalendarSync } from '@/components/course/CourseCalendarSync';
 import { LoginOverlayCard } from '@/components/course/LoginOverlayCard';
 
 import { createLogger } from '@/utils/logger';
