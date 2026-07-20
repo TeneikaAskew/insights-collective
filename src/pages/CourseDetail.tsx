@@ -98,6 +98,53 @@ const CourseDetail = () => {
     if (currentSection === 'announcements') void fetchAnnouncements();
   }, [courseId, currentSection]);
 
+  // Load enrolled people
+  const fetchPeople = async () => {
+    if (!courseId) return;
+    setPeopleLoading(true);
+    try {
+      const { data: enr, error: enrErr } = await supabase
+        .from('enrollments')
+        .select('user_id, completion_status, enrolled_at')
+        .eq('course_id', courseId)
+        .order('enrolled_at', { ascending: false });
+      if (enrErr) throw enrErr;
+      const userIds = (enr || []).map((e: any) => e.user_id).filter(Boolean);
+      if (userIds.length === 0) {
+        setPeople([]);
+        return;
+      }
+      const { data: profs } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, avatar_url')
+        .in('id', userIds);
+      const byId = new Map((profs || []).map((p: any) => [p.id, p]));
+      setPeople(
+        (enr || []).map((e: any) => {
+          const p = byId.get(e.user_id) || {};
+          return {
+            user_id: e.user_id,
+            first_name: p.first_name ?? null,
+            last_name: p.last_name ?? null,
+            avatar_url: p.avatar_url ?? null,
+            completion_status: e.completion_status ?? 0,
+            enrolled_at: e.enrolled_at ?? null,
+          };
+        })
+      );
+    } catch (err) {
+      logger.warn('Failed to load people:', err);
+      setPeople([]);
+    } finally {
+      setPeopleLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (currentSection === 'people') void fetchPeople();
+  }, [courseId, currentSection]);
+
+
   const handleCreateAnnouncement = async () => {
     if (!courseId || !user?.id || !announcementTitle.trim()) return;
     setSubmittingAnnouncement(true);
