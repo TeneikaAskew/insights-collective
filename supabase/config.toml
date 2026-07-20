@@ -50,3 +50,6 @@ verify_jwt = true
 
 [functions.evaluate-star-response]
 verify_jwt = true
+
+[functions.course-calendar-feed]
+verify_jwt = false
