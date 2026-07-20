@@ -295,6 +295,7 @@ function App() {
                      <Route path="/courses/:courseId/modules/:moduleId/quizzes/:contentItemId/results/:submissionId" element={<CanvasQuizResults />} />
                      <Route path="/courses/:courseId/assignments/:contentItemId/grade" element={<CanvasGradingInterface />} />
                      <Route path="/courses/:courseId/manage/assignments" element={<InstructorAssignments />} />
+                     <Route path="/courses/:courseId/materials" element={<CourseMaterials />} />
 
 
                     {/* Interview Preparation Routes */}
