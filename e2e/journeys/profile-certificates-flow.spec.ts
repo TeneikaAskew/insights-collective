@@ -45,7 +45,7 @@ test.describe('Profile — My Certificates', () => {
   });
 
   test('verification link on a certificate row points to the public verify page', async ({ page }) => {
-    await page.goto(`${BASE}/profile`, { waitUntil: 'domcontentloaded' });
+    await gotoProfile(page);
     await expect(page.getByTestId('my-certificates-card')).toBeVisible({ timeout: 15_000 });
 
     const rows = page.getByTestId('certificate-row');
