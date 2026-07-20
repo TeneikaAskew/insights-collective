@@ -69,7 +69,7 @@ export const courseCalendarService = {
           if (assignment.due_date) {
             events.push({
               id: `assignment-due-${assignment.id}`,
-              title: `assignment.title - Due`,
+              title: `${assignment.title} - Due`,
               description: assignment.description || undefined,
               start_date: assignment.due_date,
               type: 'assignment',
@@ -106,7 +106,7 @@ export const courseCalendarService = {
           if (quiz.due_at) {
             events.push({
               id: `quiz-due-${quiz.id}`,
-              title: `quiz.title - Due`,
+              title: `${quiz.title} - Due`,
               description: quiz.description || `Quiz with ${quiz.time_limit || 'unlimited'} time limit`,
               start_date: quiz.due_at,
               type: 'quiz',
@@ -121,7 +121,7 @@ export const courseCalendarService = {
           if (quiz.unlock_at) {
             events.push({
               id: `quiz-unlock-${quiz.id}`,
-              title: `quiz.title - Available`,
+              title: `${quiz.title} - Available`,
               description: `Quiz becomes available`,
               start_date: quiz.unlock_at,
               type: 'quiz',
@@ -136,7 +136,7 @@ export const courseCalendarService = {
           if (quiz.lock_at) {
             events.push({
               id: `quiz-lock-${quiz.id}`,
-              title: `quiz.title - Closes`,
+              title: `${quiz.title} - Closes`,
               description: `Quiz submissions close`,
               start_date: quiz.lock_at,
               type: 'quiz',
@@ -167,7 +167,7 @@ export const courseCalendarService = {
         announcements.forEach(announcement => {
           events.push({
             id: `announcement-${announcement.id}`,
-            title: `announcement.title${announcement.is_pinned ? ' (Pinned)' : ''}`,
+            title: `${announcement.title}${announcement.is_pinned ? ' (Pinned)' : ''}`,
             description: announcement.content,
             start_date: announcement.created_at,
             type: 'announcement',
@@ -192,7 +192,7 @@ export const courseCalendarService = {
         if (e.date) {
           events.push({
             id: `event-${e.id}`,
-            title: `e.title`,
+            title: e.title,
             description: e.description,
             start_date: e.date,
             type: 'event',
