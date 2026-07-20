@@ -43,7 +43,7 @@ test.describe('Audit — public surfaces render without auth', () => {
     await page.goto(`${E2E_BASE_URL}/definitely-not-a-real-route-xyz`, { waitUntil: 'domcontentloaded' });
     await expect
       .poll(async () => {
-        const notFound = await page.getByText(/404|not found|doesn.?t exist/i).isVisible().catch(() => false);
+        const notFound = await page.getByText(/404|not found|doesn.?t exist/i).first().isVisible().catch(() => false);
         return notFound;
       }, { timeout: 8_000 })
       .toBe(true);
