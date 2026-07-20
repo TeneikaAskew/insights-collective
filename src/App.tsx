@@ -50,6 +50,7 @@ const CanvasQuizTaking = lazy(() => import('@/pages/CanvasQuizTaking'));
 const CanvasQuizResults = lazy(() => import('@/pages/CanvasQuizResults'));
 const CanvasGradingInterface = lazy(() => import('@/pages/CanvasGradingInterface'));
 const InstructorAssignments = lazy(() => import('@/pages/InstructorAssignments'));
+const CourseMaterials = lazy(() => import('@/pages/CourseMaterials'));
 
 // Interview Preparation Pages
 const InterviewPrep = lazy(() => import('@/pages/InterviewPrep'));
