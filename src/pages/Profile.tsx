@@ -9,6 +9,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from '@/components/ui/badge';
 import { User, Settings, LogOut, Save } from 'lucide-react';
 import QuizResultsSection from '@/components/profile/QuizResultsSection';
+import { MyCertificates } from '@/components/profile/MyCertificates';
+import { Award } from 'lucide-react';
 import { ProfileAvatar } from '@/components/profile/ProfileAvatar';
 import { NotificationSettings } from '@/components/profile/NotificationSettings';
 import { useProfileUpdate } from '@/hooks/useProfileUpdate';
@@ -191,6 +193,19 @@ const Profile = () => {
           </div>
 
           <div className="space-y-6">
+            <Card id="my-certificates" data-testid="my-certificates-card">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Award className="h-5 w-5 text-primary" />
+                  My Certificates
+                </CardTitle>
+                <CardDescription>Course completion certificates with public verification codes.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <MyCertificates />
+              </CardContent>
+            </Card>
+
             <Card id="quiz-results">
               <CardHeader>
                 <CardTitle>Career Path Quiz Results</CardTitle>
