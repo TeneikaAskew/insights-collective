@@ -1,5 +1,3 @@
-ABOUTME: Utility for generating iCalendar (.ics) feeds and download links from course calendar events.
-ABOUTME: Handles ICS escaping, date formatting, and deterministic UIDs for calendar subscriptions.
 
 import { CourseCalendarEvent } from '@/types/course';
 
