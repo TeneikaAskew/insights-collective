@@ -1836,6 +1836,122 @@ export type Database = {
           },
         ]
       }
+      course_material_files: {
+        Row: {
+          bucket: string
+          course_id: string
+          created_at: string
+          folder_id: string | null
+          id: string
+          mime_type: string | null
+          name: string
+          size_bytes: number | null
+          storage_path: string
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          bucket?: string
+          course_id: string
+          created_at?: string
+          folder_id?: string | null
+          id?: string
+          mime_type?: string | null
+          name: string
+          size_bytes?: number | null
+          storage_path: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          bucket?: string
+          course_id?: string
+          created_at?: string
+          folder_id?: string | null
+          id?: string
+          mime_type?: string | null
+          name?: string
+          size_bytes?: number | null
+          storage_path?: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_material_files_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "course_statistics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_material_files_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_material_files_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "course_material_folders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      course_material_folders: {
+        Row: {
+          course_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          parent_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          parent_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          parent_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_material_folders_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "course_statistics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_material_folders_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_material_folders_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "course_material_folders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       course_wishlists: {
         Row: {
           course_id: string
@@ -4612,6 +4728,10 @@ export type Database = {
         Args: { content_item_id: string; viewer_id: string }
         Returns: boolean
       }
+      can_access_course_materials: {
+        Args: { _course: string; _user: string }
+        Returns: boolean
+      }
       can_access_module: {
         Args: { module_id: string; viewer_id: string }
         Returns: boolean
@@ -4634,6 +4754,10 @@ export type Database = {
       }
       can_manage_course_content: {
         Args: { target_course_id: string; viewer_id: string }
+        Returns: boolean
+      }
+      can_manage_course_materials: {
+        Args: { _course: string; _user: string }
         Returns: boolean
       }
       can_manage_quiz: {
