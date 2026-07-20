@@ -79,6 +79,9 @@ test.describe('Course materials — enrollment-gated access', () => {
     const expectedCount = hasManage ? 1 : 0;
     await expect(page.getByRole('button', { name: /new folder/i })).toHaveCount(expectedCount);
     await expect(page.getByText(/upload files/i)).toHaveCount(hasManage ? expectedCount : 0);
+  });
+
+
 
   test('unenrolled student is blocked with the enrollment-required alert', async ({ page }) => {
     await page.goto(`${BASE}/courses/${OTHER_COURSE}/materials`, {
