@@ -1,6 +1,7 @@
 // ABOUTME: Genuine end-to-end journey that hits real Supabase data — no loosened selectors.
 // ABOUTME: Verifies login, catalog data, course description, curriculum, lesson content, and progress.
 import { test, expect } from '../fixtures/page-helpers';
+import { signInMember } from './_helpers/signIn';
 
 const COURSE_ID = process.env.E2E_TEST_COURSE_ID || '660e8400-e29b-41d4-a716-446655440001';
 const COURSE_TITLE = process.env.E2E_TEST_COURSE_TITLE || 'Introduction to Data Science';
@@ -16,6 +17,8 @@ const MODULE_TITLES = [
 const FIRST_LESSON_TITLE = 'What is Data Science?';
 
 test.describe('Real course journey — authenticated member', () => {
+  test.beforeEach(async ({ page }) => { await signInMember(page); });
+
   test('catalog page lists the seeded course by title', async ({ page }) => {
     await page.goto('/courses');
     // Header must be the actual Courses page, not a fallback
