@@ -63,6 +63,7 @@ const CourseDetail = () => {
   const [peopleLoading, setPeopleLoading] = useState(false);
 
   const navigate = useNavigate();
+  const { openThread, opening: openingThread } = useCourseThread();
 
   // Canonical progress — replaces the ad-hoc reduce over module.completionStatus.
   const { data: courseProgress } = useCourseProgress(courseId);
