@@ -40,6 +40,7 @@ const RubricEdit = lazy(() => import('@/pages/RubricEdit'));
 const CourseQuestionBanks = lazy(() => import('@/pages/CourseQuestionBanks'));
 const CourseProgress = lazy(() => import('@/pages/CourseProgress'));
 const CourseCertificate = lazy(() => import('@/pages/CourseCertificate'));
+const VerifyCertificate = lazy(() => import('@/pages/VerifyCertificate'));
 const CourseCalendar = lazy(() => import('@/pages/CourseCalendar'));
 const StudentInsights = lazy(() => import('@/pages/StudentInsights'));
 
@@ -267,7 +268,8 @@ function App() {
                      <Route path="/courses/:courseId/rubrics/:rubricId" element={<RubricEdit />} />
                      <Route path="/courses/:courseId/question-banks" element={<CourseQuestionBanks />} />
                      <Route path="/courses/:courseId/progress" element={<CourseProgress />} />
-                     <Route path="/courses/:courseId/certificate" element={<CourseCertificate />} />
+                    <Route path="/courses/:courseId/certificate" element={<CourseCertificate />} />
+                    <Route path="/verify-certificate/:code" element={<VerifyCertificate />} />
                      <Route path="/courses/:courseId/calendar" element={<CourseCalendar />} />
                      <Route path="/courses/:courseId/people" element={<CourseDetail />} />
                      <Route path="/courses/:courseId/insights" element={<StudentInsights />} />

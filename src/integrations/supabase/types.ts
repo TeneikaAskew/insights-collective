@@ -4749,6 +4749,21 @@ export type Database = {
         Args: { new_roles: string[]; target_user_id: string }
         Returns: undefined
       }
+      verify_certificate: {
+        Args: { p_code: string }
+        Returns: {
+          certificate_data: Json
+          certificate_type: string
+          course_category: string
+          course_duration: string
+          course_id: string
+          course_level: string
+          course_title: string
+          issued_at: string
+          student_name: string
+          verification_code: string
+        }[]
+      }
     }
     Enums: {
       app_role: "student" | "instructor" | "admin"

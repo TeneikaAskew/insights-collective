@@ -8,7 +8,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Edit, Trash2, Plus, FilterX, Download, Filter, Users, Award, Eye, PlusCircle } from 'lucide-react';
+import { Search, Edit, Trash2, Plus, FilterX, Download, Filter, Users, Award, Eye, PlusCircle, BarChart3 } from 'lucide-react';
+import { CourseProgressDashboard } from '@/components/admin/CourseProgressDashboard';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -148,6 +149,9 @@ export default function AdminCourses() {
               </TabsTrigger>
               <TabsTrigger value="certificates" className="rounded-full px-5 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
                 <Award className="mr-2 h-4 w-4" /> Certificates
+              </TabsTrigger>
+              <TabsTrigger value="progress" className="rounded-full px-5 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
+                <BarChart3 className="mr-2 h-4 w-4" /> Progress
               </TabsTrigger>
             </TabsList>
 
@@ -314,6 +318,10 @@ export default function AdminCourses() {
 
             <TabsContent value="certificates">
               <CertificatesTab courses={courses} />
+            </TabsContent>
+
+            <TabsContent value="progress">
+              <CourseProgressDashboard courses={courses} />
             </TabsContent>
           </Tabs>
         </div>

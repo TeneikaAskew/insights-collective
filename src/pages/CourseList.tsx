@@ -21,11 +21,13 @@ const CourseList = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [levelFilter, setLevelFilter] = useState('all');
+  const [scheduleFilter, setScheduleFilter] = useState('all');
   const { toast } = useToast();
   const navigate = useNavigate();
 
   const categories = [...new Set(courses.map(c => c.category).filter(Boolean))];
   const levels = [...new Set(courses.map(c => c.level).filter(Boolean))];
+  const durations = [...new Set(courses.map(c => c.duration).filter(Boolean))];
 
   useEffect(() => {
     const fetchCourses = async () => {
@@ -74,10 +76,13 @@ const CourseList = () => {
     const matchesSearch =
       !s ||
       c.title.toLowerCase().includes(s) ||
-      (c.description || '').toLowerCase().includes(s);
+      (c.description || '').toLowerCase().includes(s) ||
+      (c.category || '').toLowerCase().includes(s) ||
+      (c.instructor?.name || '').toLowerCase().includes(s);
     const matchesCategory = categoryFilter === 'all' || c.category === categoryFilter;
     const matchesLevel = levelFilter === 'all' || c.level === levelFilter;
-    return matchesSearch && matchesCategory && matchesLevel;
+    const matchesSchedule = scheduleFilter === 'all' || c.duration === scheduleFilter;
+    return matchesSearch && matchesCategory && matchesLevel && matchesSchedule;
   });
 
   return (
@@ -125,6 +130,17 @@ const CourseList = () => {
               ))}
             </SelectContent>
           </Select>
+          <Select value={scheduleFilter} onValueChange={setScheduleFilter}>
+            <SelectTrigger className="w-full md:w-[180px] h-11 rounded-full border-neutral-300 bg-white">
+              <SelectValue placeholder="Schedule" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Any schedule</SelectItem>
+              {durations.map((d) => (
+                <SelectItem key={d} value={d}>{d}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Grid */}
@@ -155,7 +171,7 @@ const CourseList = () => {
               <p className="text-neutral-500 mb-4">Try adjusting your search or filters.</p>
               <Button
                 variant="outline"
-                onClick={() => { setSearchQuery(''); setCategoryFilter('all'); setLevelFilter('all'); }}
+                onClick={() => { setSearchQuery(''); setCategoryFilter('all'); setLevelFilter('all'); setScheduleFilter('all'); }}
               >
                 Clear filters
               </Button>

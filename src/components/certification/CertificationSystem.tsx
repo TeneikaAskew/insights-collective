@@ -228,20 +228,35 @@ const CertificationSystem: React.FC<CertificationSystemProps> = ({
       doc.setTextColor(40, 40, 60);
       doc.text(certificate.certificate_data.course_title, pageWidth / 2, 310, { align: 'center', maxWidth: pageWidth - 160 });
 
-      // Stats
+      // Course details
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(12);
       doc.setTextColor(90, 90, 110);
+      const detailParts = [
+        course?.category ? `Category: ${course.category}` : null,
+        course?.level ? `Level: ${course.level}` : null,
+        course?.duration ? `Duration: ${course.duration}` : null,
+      ].filter(Boolean).join('   |   ');
+      if (detailParts) {
+        doc.text(detailParts, pageWidth / 2, 350, { align: 'center' });
+      }
       doc.text(
         `Completion: ${certificate.certificate_data.completion_percentage}%   |   Study time: ${formatTime(certificate.certificate_data.time_spent)}`,
         pageWidth / 2,
-        360,
+        375,
         { align: 'center' },
       );
+
+      // Verification link
+      const verifyUrl = `${window.location.origin}/verify-certificate/${certificate.verification_code}`;
+      doc.setFontSize(10);
+      doc.setTextColor(120, 120, 140);
+      doc.text(`Verify at: ${verifyUrl}`, pageWidth / 2, 415, { align: 'center' });
 
       // Footer
       const issued = new Date(certificate.issued_at).toLocaleDateString();
       doc.setFontSize(11);
+      doc.setTextColor(90, 90, 110);
       doc.text(`Issued: ${issued}`, 80, pageHeight - 80);
       doc.text(`Verification: ${certificate.verification_code}`, pageWidth - 80, pageHeight - 80, { align: 'right' });
 
