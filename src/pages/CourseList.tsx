@@ -130,6 +130,17 @@ const CourseList = () => {
               ))}
             </SelectContent>
           </Select>
+          <Select value={scheduleFilter} onValueChange={setScheduleFilter}>
+            <SelectTrigger className="w-full md:w-[180px] h-11 rounded-full border-neutral-300 bg-white">
+              <SelectValue placeholder="Schedule" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Any schedule</SelectItem>
+              {durations.map((d) => (
+                <SelectItem key={d} value={d}>{d}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Grid */}
