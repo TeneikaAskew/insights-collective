@@ -149,7 +149,7 @@ const CourseDetail = () => {
     if (!courseId || !user?.id || !announcementTitle.trim()) return;
     setSubmittingAnnouncement(true);
     try {
-      const { error: err } = await supabase
+      const { data: inserted, error: err } = await supabase
         .from('course_announcements')
         .insert({
           course_id: courseId,
@@ -157,8 +157,34 @@ const CourseDetail = () => {
           content: announcementContent.trim() || null,
           is_pinned: announcementPinned,
           created_by: user.id,
-        });
+        })
+        .select('id')
+        .single();
       if (err) throw err;
+
+      // Fan out push/email notifications to enrolled students (non-blocking).
+      supabase.functions
+        .invoke('notify-course-announcement', {
+          body: {
+            course_id: courseId,
+            announcement_id: inserted?.id,
+            title: announcementTitle.trim(),
+            content: announcementContent.trim() || '',
+          },
+        })
+        .then(({ data, error }) => {
+          if (error) {
+            logger.warn('Announcement notification error', error);
+            return;
+          }
+          const recipients = (data as any)?.recipients ?? 0;
+          const emailed = (data as any)?.emailed ?? 0;
+          toast({
+            title: 'Announcement posted',
+            description: `Notified ${recipients} student${recipients === 1 ? '' : 's'}${emailed ? ` · ${emailed} emailed` : ''}.`,
+          });
+        });
+
       toast({ title: 'Announcement posted' });
       setAnnouncementTitle('');
       setAnnouncementContent('');
@@ -171,6 +197,7 @@ const CourseDetail = () => {
       setSubmittingAnnouncement(false);
     }
   };
+
 
   const handleDeleteAnnouncement = async (id: string) => {
     try {
