@@ -727,12 +727,44 @@ const CourseDetail = () => {
                 </div>
               </div>
               
-              <div className="text-center p-8 border rounded-lg bg-muted/20">
-                <p className="text-muted-foreground">Student list not available.</p>
-                <p className="text-sm text-muted-foreground mt-2">
-                  Contact your instructor for more information about course participants.
-                </p>
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold">Students ({people.length})</h3>
+                  {peopleLoading && <span className="text-xs text-muted-foreground">Loading…</span>}
+                </div>
+                {people.length === 0 && !peopleLoading ? (
+                  <div className="text-center p-8 border rounded-lg bg-muted/20">
+                    <p className="text-muted-foreground">No students enrolled yet.</p>
+                  </div>
+                ) : (
+                  <div className="divide-y border rounded-lg" data-testid="course-people-list">
+                    {people.map((p) => {
+                      const name = [p.first_name, p.last_name].filter(Boolean).join(' ').trim() || 'Student';
+                      const initial = (p.first_name?.[0] || p.last_name?.[0] || 'S').toUpperCase();
+                      const pct = Math.max(0, Math.min(100, Number(p.completion_status ?? 0)));
+                      return (
+                        <div key={p.user_id} className="flex items-center gap-3 p-3">
+                          <Avatar className="h-9 w-9">
+                            <AvatarImage src={p.avatar_url ?? undefined} />
+                            <AvatarFallback>{initial}</AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate">{name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Enrolled {p.enrolled_at ? new Date(p.enrolled_at).toLocaleDateString() : '—'}
+                            </p>
+                          </div>
+                          <div className="w-40 hidden sm:block">
+                            <Progress value={pct} className="h-1.5" />
+                          </div>
+                          <span className="text-sm tabular-nums w-12 text-right">{pct}%</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
+
             </div>
           </div>
         );
