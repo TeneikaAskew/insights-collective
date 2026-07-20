@@ -293,6 +293,8 @@ function App() {
                      <Route path="/courses/:courseId/modules/:moduleId/quizzes/:contentItemId" element={<CanvasQuizTaking />} />
                      <Route path="/courses/:courseId/modules/:moduleId/quizzes/:contentItemId/results/:submissionId" element={<CanvasQuizResults />} />
                      <Route path="/courses/:courseId/assignments/:contentItemId/grade" element={<CanvasGradingInterface />} />
+                     <Route path="/courses/:courseId/manage/assignments" element={<InstructorAssignments />} />
+
 
                     {/* Interview Preparation Routes */}
                     <Route path="/interview-prep" element={<InterviewPrep />} />
