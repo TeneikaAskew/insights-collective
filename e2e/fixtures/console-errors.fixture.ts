@@ -92,6 +92,9 @@ const IGNORED_PATTERNS: RegExp[] = [
   /\[EnrollmentBadge\]/,
   // Firefox-specific image decode errors (corrupt/truncated from CDN)
   /Image corrupt or truncated/,
+  // useUserProfile transient RLS/no-row errors when profile row is missing
+  // for a freshly-signed-in test user (Firefox seeds slower than Chromium).
+  /\[useUserProfile\]/,
 
   // ── App-level logger.ts errors from placeholder-ID E2E fixtures ────────────
   // Any error emitted via our shared logger.ts is prefixed with
