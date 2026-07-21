@@ -34,7 +34,7 @@ interface UserProfile {
 }
 
 const Profile = () => {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, logout, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { updateProfile, loading } = useProfileUpdate();
   const { toast } = useToast();
@@ -46,7 +46,21 @@ const Profile = () => {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   useEffect(() => {
+    // Auth hydration is racy: Supabase's getSession() can resolve to null a tick
+    // before the persisted session is restored via the INITIAL_SESSION event.
+    // Guard the /login bounce so a signed-in user isn't kicked off their own
+    // profile during that brief window.
+    if (authLoading) return;
     if (!isAuthenticated) {
+      const hasStoredSession = (() => {
+        try {
+          const raw = localStorage.getItem('supabase.auth.token');
+          return !!raw && raw !== 'null';
+        } catch {
+          return false;
+        }
+      })();
+      if (hasStoredSession) return; // wait for session to hydrate
       navigate('/login');
       return;
     }
@@ -71,7 +85,7 @@ const Profile = () => {
 
       fetchProfile();
     }
-  }, [user, isAuthenticated, navigate]);
+  }, [user, isAuthenticated, authLoading, navigate]);
 
   const handleInputChange = (field: keyof UserProfile, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));

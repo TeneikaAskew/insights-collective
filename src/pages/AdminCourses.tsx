@@ -348,10 +348,13 @@ function EnrollmentsTab({ courses }: { courses: Course[] }) {
   const { enrollments, stats, loading } = useCourseEnrollments(selectedCourseId);
   const selectedCourse = courses.find((c) => c.id === selectedCourseId);
 
-  const filteredEnrollments = enrollments.filter(enrollment =>
-    enrollment.user?.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    enrollment.user?.last_name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredEnrollments = enrollments.filter((enrollment) => {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return true; // no filter → include every enrollment, even ones without a profile row
+    const first = enrollment.user?.first_name?.toLowerCase() ?? '';
+    const last = enrollment.user?.last_name?.toLowerCase() ?? '';
+    return first.includes(term) || last.includes(term);
+  });
 
   const handleDownloadReport = () => {
     const escape = (val: unknown) => {
