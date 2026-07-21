@@ -67,6 +67,7 @@ export default defineConfig({
         '**/courses/course-rubrics.spec.ts',
         '**/courses/course-question-banks.spec.ts',
         '**/assignments/grading-interface.spec.ts',
+        '**/journeys/grading-workflow-flow.spec.ts',
       ],
     },
     // Chromium — admin role
@@ -93,6 +94,7 @@ export default defineConfig({
         '**/courses/course-rubrics.spec.ts',
         '**/courses/course-question-banks.spec.ts',
         '**/assignments/grading-interface.spec.ts',
+        '**/journeys/grading-workflow-flow.spec.ts',
       ],
     },
     // Unauthenticated — auth flows, landing, public pages
