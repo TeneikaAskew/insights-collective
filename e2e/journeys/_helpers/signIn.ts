@@ -4,8 +4,14 @@
 import type { Page } from '@playwright/test';
 
 const BASE = process.env.E2E_BASE_URL ?? 'http://localhost:8080';
-const EMAIL = process.env.E2E_TEST_EMAIL ?? 'test@insightscollective.org';
-const PASSWORD = process.env.E2E_TEST_PASSWORD ?? 'TestPass123!';
+const EMAIL =
+  process.env.E2E_MEMBER_EMAIL ??
+  process.env.E2E_TEST_EMAIL ??
+  'e2e-member@insightscollective.org';
+const PASSWORD =
+  process.env.E2E_MEMBER_PASSWORD ??
+  process.env.E2E_TEST_PASSWORD ??
+  'TestPass123!';
 
 export async function signInMember(page: Page): Promise<void> {
   await page.goto(`${BASE}/login`, { waitUntil: 'domcontentloaded' });
