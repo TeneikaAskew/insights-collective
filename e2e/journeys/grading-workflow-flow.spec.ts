@@ -4,26 +4,11 @@
 import { test, expect } from '@playwright/test';
 
 const BASE = process.env.E2E_BASE_URL ?? 'http://localhost:8080';
-const INSTRUCTOR_EMAIL = process.env.E2E_INSTRUCTOR_EMAIL;
-const INSTRUCTOR_PASSWORD = process.env.E2E_INSTRUCTOR_PASSWORD;
 const INSTRUCTOR_COURSE =
   process.env.E2E_INSTRUCTOR_COURSE_ID ?? '660e8400-e29b-41d4-a716-446655440001';
 
-async function signInInstructor(page: import('@playwright/test').Page) {
-  await page.goto(`${BASE}/login`, { waitUntil: 'domcontentloaded' });
-  await page.fill('input[type="email"]', INSTRUCTOR_EMAIL!);
-  await page.fill('input[type="password"]', INSTRUCTOR_PASSWORD!);
-  await page.locator('form button[type="submit"]').first().click();
-  await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 20_000 });
-}
-
 test.describe('Instructor grading workflow', () => {
-  test.skip(
-    !INSTRUCTOR_EMAIL || !INSTRUCTOR_PASSWORD,
-    'E2E_INSTRUCTOR_EMAIL / E2E_INSTRUCTOR_PASSWORD not set — cannot verify grading UI end-to-end',
-  );
-
-  test.beforeEach(async ({ page }) => { await signInInstructor(page); });
+  // Runs under the chromium-instructor project — session is provided by storageState.
 
   test('/manage/assignments lists real assignments with submission counters', async ({ page }) => {
     await page.goto(`${BASE}/courses/${INSTRUCTOR_COURSE}/manage/assignments`, {

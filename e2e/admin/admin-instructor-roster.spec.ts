@@ -97,7 +97,7 @@ test.describe('Instructor/admin roster + reporting', () => {
         .filter((n) => n.length > 0),
     );
     for (const name of uiNames) {
-      if (name === 'unknown user') continue;
+      if (!name || name === 'unknown user') continue;
       expect(dbNames.has(name), `UI student "${name}" exists in DB enrollments`).toBe(true);
     }
 

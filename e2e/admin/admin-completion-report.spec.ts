@@ -65,9 +65,21 @@ test.describe('Admin — completion report export', () => {
 
     // Compare against ground truth from Supabase REST (respects RLS via admin session token)
     const accessToken: string | null = await page.evaluate(async () => {
-      const raw = localStorage.getItem('supabase.auth.token');
-      if (!raw) return null;
-      try { return (JSON.parse(raw) as any).access_token ?? null; } catch { return null; }
+      const readToken = (raw: string | null) => {
+        if (!raw) return null;
+        try {
+          const p = JSON.parse(raw) as any;
+          return p?.access_token ?? p?.currentSession?.access_token ?? (Array.isArray(p) ? p[0] : null);
+        } catch { return null; }
+      };
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i)!;
+        if ((k.startsWith('sb-') && k.endsWith('-auth-token')) || k === 'supabase.auth.token') {
+          const t = readToken(localStorage.getItem(k));
+          if (t) return t;
+        }
+      }
+      return null;
     });
     expect(accessToken, 'admin session access token present').toBeTruthy();
 

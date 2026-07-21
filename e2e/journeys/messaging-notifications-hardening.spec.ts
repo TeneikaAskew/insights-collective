@@ -11,7 +11,7 @@ const ANON =
 const COURSE_ID = '660e8400-e29b-41d4-a716-446655440001'; // Intro to Data Science; test user is instructor
 const TEST_USER_ID = '66649756-9cfb-4f50-b60e-1f6ac0bf30ff';
 const ENROLLED_STUDENT_ID = '71629ac8-ec88-4ce8-a859-9b29a664041d';
-const NON_ENROLLED_USER_ID = '30609adf-dc50-4b57-a456-1f38201e40de'; // e2e-instructor, not enrolled in COURSE_ID
+const NON_ENROLLED_USER_ID = '891c88ca-cdf5-413c-a0c4-92ee1ef69c87'; // profile with no course role: not enrolled, not instructor
 
 function authHeaders(token: string) {
   return {
