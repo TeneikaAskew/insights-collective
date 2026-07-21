@@ -46,9 +46,10 @@ const Profile = () => {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   useEffect(() => {
-    // Wait for the auth context to finish hydrating before deciding whether to
-    // bounce to /login — otherwise the very first render (isAuthenticated=false
-    // while loading=true) redirects signed-in users away from their own profile.
+    // Wait for the auth context to finish hydrating (Supabase restores the
+    // session asynchronously via INITIAL_SESSION), and only then decide what to
+    // do. If the visitor is genuinely unauthenticated after hydration, send
+    // them to /login; otherwise stay on the profile and fetch their data.
     if (authLoading) return;
     if (!isAuthenticated) {
       navigate('/login');
