@@ -34,7 +34,7 @@ interface UserProfile {
 }
 
 const Profile = () => {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, logout, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { updateProfile, loading } = useProfileUpdate();
   const { toast } = useToast();
@@ -46,6 +46,10 @@ const Profile = () => {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   useEffect(() => {
+    // Wait for the auth context to finish hydrating before deciding whether to
+    // bounce to /login — otherwise the very first render (isAuthenticated=false
+    // while loading=true) redirects signed-in users away from their own profile.
+    if (authLoading) return;
     if (!isAuthenticated) {
       navigate('/login');
       return;
