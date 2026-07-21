@@ -46,12 +46,21 @@ const Profile = () => {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   useEffect(() => {
-    // Wait for the auth context to finish hydrating (Supabase restores the
-    // session asynchronously via INITIAL_SESSION), and only then decide what to
-    // do. If the visitor is genuinely unauthenticated after hydration, send
-    // them to /login; otherwise stay on the profile and fetch their data.
+    // Auth hydration is racy: Supabase's getSession() can resolve to null a tick
+    // before the persisted session is restored via the INITIAL_SESSION event.
+    // Guard the /login bounce so a signed-in user isn't kicked off their own
+    // profile during that brief window.
     if (authLoading) return;
     if (!isAuthenticated) {
+      const hasStoredSession = (() => {
+        try {
+          const raw = localStorage.getItem('supabase.auth.token');
+          return !!raw && raw !== 'null';
+        } catch {
+          return false;
+        }
+      })();
+      if (hasStoredSession) return; // wait for session to hydrate
       navigate('/login');
       return;
     }
@@ -76,7 +85,7 @@ const Profile = () => {
 
       fetchProfile();
     }
-  }, [user, isAuthenticated, navigate]);
+  }, [user, isAuthenticated, authLoading, navigate]);
 
   const handleInputChange = (field: keyof UserProfile, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
