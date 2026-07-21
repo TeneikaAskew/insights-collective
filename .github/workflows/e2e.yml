@@ -14,15 +14,24 @@ jobs:
     timeout-minutes: 30
     env:
       E2E_BASE_URL: http://localhost:8080
-      E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
-      E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
-      E2E_INSTRUCTOR_EMAIL: ${{ secrets.E2E_INSTRUCTOR_EMAIL }}
-      E2E_INSTRUCTOR_PASSWORD: ${{ secrets.E2E_INSTRUCTOR_PASSWORD }}
-      E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+      # Single-credential mode: providing E2E_ADMIN_* + E2E_TEST_PASSWORD is enough.
+      # global-setup will bootstrap the instructor/member accounts to E2E_TEST_PASSWORD
+      # via the admin-users edge function (setE2EPassword action, scoped to e2e-* accounts).
+      E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL || 'e2e-admin@insightscollective.org' }}
       E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+      E2E_INSTRUCTOR_EMAIL: ${{ secrets.E2E_INSTRUCTOR_EMAIL || 'e2e-instructor@insightscollective.org' }}
+      E2E_INSTRUCTOR_PASSWORD: ${{ secrets.E2E_INSTRUCTOR_PASSWORD }}
+      E2E_MEMBER_EMAIL: ${{ secrets.E2E_MEMBER_EMAIL || 'e2e-member@insightscollective.org' }}
+      E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
+      E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+      E2E_TEST_COURSE_ID: ${{ secrets.E2E_TEST_COURSE_ID || '660e8400-e29b-41d4-a716-446655440001' }}
+      E2E_INSTRUCTOR_COURSE_ID: ${{ secrets.E2E_INSTRUCTOR_COURSE_ID || '660e8400-e29b-41d4-a716-446655440001' }}
+      E2E_TEST_ADMIN_COURSE_ID: ${{ secrets.E2E_TEST_ADMIN_COURSE_ID || '660e8400-e29b-41d4-a716-446655440001' }}
+      E2E_TEST_COURSE_TITLE: ${{ secrets.E2E_TEST_COURSE_TITLE || 'Introduction to Data Science' }}
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://siuqvhscuiycvdrtiqsh.supabase.co' }}
       VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-      VITE_SUPABASE_PROJECT_ID: ${{ secrets.VITE_SUPABASE_PROJECT_ID }}
+      VITE_SUPABASE_PROJECT_ID: ${{ secrets.VITE_SUPABASE_PROJECT_ID || 'siuqvhscuiycvdrtiqsh' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -51,6 +60,10 @@ jobs:
             fi
             echo "Waiting for preview ($i)..."; sleep 2;
           done
+
+      - name: Seed E2E fixtures
+        if: env.SUPABASE_DB_URL != ''
+        run: psql "$SUPABASE_DB_URL" -f e2e/fixtures/seed.sql
 
       - name: Run Playwright suite
         run: npx playwright test --reporter=list,html,json
