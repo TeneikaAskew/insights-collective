@@ -24,6 +24,44 @@ serve(async (req) => {
   }
 
   try {
+    // --- E2E admin bootstrap (no auth required) ---
+    // One-shot path that resets ONLY e2e-admin@insightscollective.org when a
+    // matching bootstrap token is presented. Enables initial credential setup
+    // before any admin session exists. Gated by the E2E_ADMIN_BOOTSTRAP_TOKEN
+    // secret; unset the secret to disable.
+    const bootstrapToken = req.headers.get('x-e2e-bootstrap-token');
+    const expectedBootstrap = Deno.env.get('E2E_ADMIN_BOOTSTRAP_TOKEN') || '';
+    if (bootstrapToken && expectedBootstrap && bootstrapToken === expectedBootstrap) {
+      const supabaseUrlB = Deno.env.get('SUPABASE_URL') || '';
+      const supabaseServiceKeyB = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+      const admin = createClient(supabaseUrlB, supabaseServiceKeyB);
+      let body: any = {};
+      try { body = await req.json(); } catch { /* ignore */ }
+      const email = (body?.email || '').toLowerCase();
+      const password = body?.password || Deno.env.get('E2E_ADMIN_PASSWORD') || '';
+      if (email !== 'e2e-admin@insightscollective.org' || !password) {
+        return new Response(JSON.stringify({ error: 'Bootstrap only supports e2e-admin with a password' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const { data: list } = await admin.auth.admin.listUsers();
+      const target = list?.users?.find((u: any) => (u.email || '').toLowerCase() === email);
+      if (!target) {
+        return new Response(JSON.stringify({ error: 'e2e-admin user not found' }), {
+          status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const { error: updErr } = await admin.auth.admin.updateUserById(target.id, { password, email_confirm: true });
+      if (updErr) {
+        return new Response(JSON.stringify({ error: updErr.message }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      return new Response(JSON.stringify({ success: true, id: target.id }), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Create a Supabase client with the Auth context of the logged-in user
     const authHeader = req.headers.get('Authorization')
     console.log('[admin-users] Auth header present:', !!authHeader);
@@ -36,6 +74,7 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
+
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || ''
