@@ -4,9 +4,19 @@
 // ABOUTME: so a single admin credential is enough to run the full suite.
 import { chromium } from '@playwright/test';
 import type { FullConfig } from '@playwright/test';
+import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
+
+// Bridge sandbox-preinstalled browsers to the versioned paths Playwright expects.
+// No-op outside the Lovable sandbox; safe to call in CI.
+try {
+  const shim = path.join(process.cwd(), 'scripts/sandbox-playwright-shim.sh');
+  if (fs.existsSync(shim)) execSync(`bash ${shim}`, { stdio: 'inherit' });
+} catch {
+  // ignore — real CI has browsers installed the normal way
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
