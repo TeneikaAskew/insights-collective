@@ -1,3 +1,7 @@
+// ABOUTME: Playwright global setup. Signs each E2E role into Supabase and persists
+// ABOUTME: a storageState per role. Also bootstraps instructor/member passwords via
+// ABOUTME: the admin-users edge function when only admin credentials are supplied,
+// ABOUTME: so a single admin credential is enough to run the full suite.
 import { chromium } from '@playwright/test';
 import type { FullConfig } from '@playwright/test';
 import * as fs from 'fs';
@@ -7,65 +11,82 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const SUPABASE_URL = 'https://siuqvhscuiycvdrtiqsh.supabase.co';
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://siuqvhscuiycvdrtiqsh.supabase.co';
 const SUPABASE_ANON_KEY =
+  process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNpdXF2aHNjdWl5Y3ZkcnRpcXNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQyMDU0MTUsImV4cCI6MjA1OTc4MTQxNX0.CbAWzKbUfbqYKAZr93jAQm8z8chbNoTe0EnK-E_4u9w';
 const SESSIONS_DIR = path.join(process.cwd(), '.playwright-sessions');
+
+const DEFAULT_EMAILS = {
+  admin: 'e2e-admin@insightscollective.org',
+  instructor: 'e2e-instructor@insightscollective.org',
+  member: 'e2e-member@insightscollective.org',
+} as const;
+
+type Role = keyof typeof DEFAULT_EMAILS;
 
 interface TestUser {
   email: string;
   password: string;
 }
 
-const TEST_USERS: Record<string, TestUser> = {
+const SHARED_PASSWORD = process.env.E2E_TEST_PASSWORD || '';
+
+const TEST_USERS: Record<Role, TestUser> = {
   admin: {
-    email: process.env.E2E_ADMIN_EMAIL || '',
-    password: process.env.E2E_ADMIN_PASSWORD || '',
+    email: process.env.E2E_ADMIN_EMAIL || DEFAULT_EMAILS.admin,
+    password: process.env.E2E_ADMIN_PASSWORD || SHARED_PASSWORD,
   },
   instructor: {
-    email: process.env.E2E_INSTRUCTOR_EMAIL || '',
-    password: process.env.E2E_INSTRUCTOR_PASSWORD || '',
+    email: process.env.E2E_INSTRUCTOR_EMAIL || DEFAULT_EMAILS.instructor,
+    password: process.env.E2E_INSTRUCTOR_PASSWORD || SHARED_PASSWORD,
   },
   member: {
-    email: process.env.E2E_MEMBER_EMAIL || '',
-    password: process.env.E2E_MEMBER_PASSWORD || '',
+    email: process.env.E2E_MEMBER_EMAIL || DEFAULT_EMAILS.member,
+    password: process.env.E2E_MEMBER_PASSWORD || SHARED_PASSWORD,
   },
 };
 
 async function signInViaApi(email: string, password: string) {
   const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      apikey: SUPABASE_ANON_KEY,
-    },
+    headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
     body: JSON.stringify({ email, password }),
   });
-  if (!res.ok) {
-    throw new Error(`Auth failed for ${email}: ${await res.text()}`);
-  }
+  if (!res.ok) throw new Error(`Auth failed for ${email}: ${res.status} ${await res.text()}`);
   return res.json();
 }
 
-async function saveSessionForRole(
-  role: string,
-  creds: TestUser,
-  baseURL: string,
-): Promise<void> {
+// Uses the admin-users edge function's setE2EPassword action, which is narrowly
+// scoped to the three dedicated e2e-* accounts. Requires an admin JWT.
+async function bootstrapPassword(adminToken: string, email: string, password: string) {
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-users`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${adminToken}`,
+    },
+    body: JSON.stringify({ action: 'setE2EPassword', data: { email, password } }),
+  });
+  if (!res.ok) {
+    console.warn(`[global-setup] setE2EPassword failed for ${email}: ${res.status} ${await res.text()}`);
+    return false;
+  }
+  return true;
+}
+
+async function saveSessionForRole(role: Role, creds: TestUser, baseURL: string): Promise<void> {
   if (!creds.email || !creds.password) {
-    console.warn(`[global-setup] Skipping ${role}: no credentials provided (set E2E_${role.toUpperCase()}_EMAIL / E2E_${role.toUpperCase()}_PASSWORD)`);
-    // Write an empty storage state so projects don't fail trying to read the file
-    const emptyState = { cookies: [], origins: [] };
-    fs.writeFileSync(path.join(SESSIONS_DIR, `${role}.json`), JSON.stringify(emptyState));
+    console.warn(
+      `[global-setup] Skipping ${role}: no credentials (set E2E_${role.toUpperCase()}_PASSWORD or E2E_TEST_PASSWORD)`,
+    );
+    fs.writeFileSync(path.join(SESSIONS_DIR, `${role}.json`), JSON.stringify({ cookies: [], origins: [] }));
     return;
   }
 
   const tokenData = await signInViaApi(creds.email, creds.password);
 
-  // Supabase JS v2 stores the session as a flat Session object directly at storageKey.
-  // Inject it via addInitScript so it exists in localStorage BEFORE the React app and
-  // Supabase client initialize — otherwise the client boots, finds nothing, and clears
-  // any value we write after the fact.
   const sessionValue = JSON.stringify({
     access_token: tokenData.access_token,
     refresh_token: tokenData.refresh_token,
@@ -81,33 +102,49 @@ async function saveSessionForRole(
       : {},
   );
   const context = await browser.newContext();
-
-  // Inject before any page script runs
   await context.addInitScript(
     ({ key, value }) => localStorage.setItem(key, value),
     { key: 'supabase.auth.token', value: sessionValue },
   );
-
   const page = await context.newPage();
   await page.goto(baseURL, { waitUntil: 'domcontentloaded' });
-
-  const sessionPath = path.join(SESSIONS_DIR, `${role}.json`);
-  await context.storageState({ path: sessionPath });
+  await context.storageState({ path: path.join(SESSIONS_DIR, `${role}.json`) });
   await browser.close();
   console.log(`[global-setup] Session saved for ${role} (${creds.email})`);
 }
 
 async function globalSetup(config: FullConfig): Promise<void> {
   fs.mkdirSync(SESSIONS_DIR, { recursive: true });
-
   const baseURL =
-    config.projects.find((p) => p.use?.baseURL)?.use?.baseURL ||
-    'http://localhost:8080';
+    config.projects.find((p) => p.use?.baseURL)?.use?.baseURL || 'http://localhost:8080';
 
-  // Save sessions for all three roles sequentially to avoid spawning
-  // multiple Chromium processes simultaneously (causes OOM crashes in CI/codespace).
-  for (const [role, creds] of Object.entries(TEST_USERS)) {
-    await saveSessionForRole(role, creds, baseURL);
+  // If admin credentials exist and a shared password is defined, bootstrap the
+  // instructor/member accounts to that shared password so the entire suite runs
+  // from a single admin credential (ideal for CI).
+  const admin = TEST_USERS.admin;
+  if (SHARED_PASSWORD && admin.email && admin.password) {
+    try {
+      const adminSession = await signInViaApi(admin.email, admin.password);
+      for (const role of ['instructor', 'member'] as const) {
+        const target = TEST_USERS[role];
+        if (!target.email) continue;
+        if (target.password === SHARED_PASSWORD) {
+          const ok = await bootstrapPassword(adminSession.access_token, target.email, SHARED_PASSWORD);
+          if (ok) console.log(`[global-setup] Bootstrapped password for ${role} (${target.email})`);
+        }
+      }
+    } catch (err) {
+      console.warn(`[global-setup] Admin bootstrap skipped: ${(err as Error).message}`);
+    }
+  }
+
+  for (const role of ['admin', 'instructor', 'member'] as const) {
+    try {
+      await saveSessionForRole(role, TEST_USERS[role], baseURL);
+    } catch (err) {
+      console.warn(`[global-setup] Session for ${role} failed: ${(err as Error).message}`);
+      fs.writeFileSync(path.join(SESSIONS_DIR, `${role}.json`), JSON.stringify({ cookies: [], origins: [] }));
+    }
   }
 }
 
