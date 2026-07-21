@@ -43,14 +43,14 @@ async function passwordSignIn(email: string, password: string): Promise<string> 
 test.describe('Messaging + notifications — real signed-in RPC gating', () => {
   let instructorToken: string;
 
-  test.beforeAll(async ({ browser }) => {
-    const ctx = await browser.newContext();
-    const page = await ctx.newPage();
-    await signInMember(page);
-    const t = await getSupabaseAccessToken(page);
-    await ctx.close();
-    if (!t) throw new Error('E2E FIXTURE: could not obtain access token for signed-in test user');
-    instructorToken = t;
+  test.beforeAll(async () => {
+    // Sign in as the seeded instructor for COURSE_ID (test@insightscollective.org,
+    // id 66649756-…). Using a direct password grant avoids depending on browser
+    // storageState (which may hold a different member session).
+    instructorToken = await passwordSignIn(
+      'test@insightscollective.org',
+      process.env.E2E_TEST_PASSWORD ?? 'TestPass123!',
+    );
   });
 
   test('open_course_thread is idempotent: same instructor/student pair returns same conversation UUID', async () => {
