@@ -378,7 +378,7 @@ function App() {
                     <Route path="/survey/:surveySlug/edit" element={<SurveyFormEdit />} />
 
                     {/* Admin Routes */}
-                    <Route path="/admin" element={<AdminDashboard />} />
+                    <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminDashboard /></ProtectedRoute>} />
                     <Route path="/admin/activity" element={<AdminActivity />} />
                     <Route path="/admin/blog/*" element={<BlogAdmin />} />
                     <Route path="/admin/blog-posts" element={<AdminBlogPosts />} />
