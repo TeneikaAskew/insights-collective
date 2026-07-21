@@ -5,10 +5,13 @@
  */
 
 export const TestIds = {
-  courseId: process.env.E2E_TEST_COURSE_ID || 'test-course-id',
+  // Defaults point at the canonical seeded "Introduction to Data Science" course
+  // and one of its seeded assignment content_items so specs work in local sandbox
+  // runs without needing the CI env vars set.
+  courseId: process.env.E2E_TEST_COURSE_ID || '660e8400-e29b-41d4-a716-446655440001',
   moduleId: process.env.E2E_TEST_MODULE_ID || 'test-module-id',
   lessonId: process.env.E2E_TEST_LESSON_ID || 'test-lesson-id',
-  assignmentContentItemId: process.env.E2E_TEST_ASSIGNMENT_ID || 'test-assignment-id',
+  assignmentContentItemId: process.env.E2E_TEST_ASSIGNMENT_ID || '19d80f57-3623-47a7-9e12-05a86f671f21',
   quizContentItemId: process.env.E2E_TEST_QUIZ_ID || 'test-quiz-id',
   submissionId: process.env.E2E_TEST_SUBMISSION_ID || 'test-submission-id',
   forumId: process.env.E2E_TEST_FORUM_ID || '1',
