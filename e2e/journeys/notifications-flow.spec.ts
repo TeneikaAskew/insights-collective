@@ -68,15 +68,27 @@ test.describe('Notifications center — real flow', () => {
     const count = await deleteBtns.count();
     test.skip(count === 0, 'No notifications available to delete');
 
-    const firstTitle = await page.locator('h4').first().textContent();
-    await deleteBtns.first().click();
+    // Scope the assertion to the specific card that owns the delete button we
+    // click — matching on the h4 title alone is flaky when other cards share
+    // the same title (e.g. announcement fan-out to multiple users/courses).
+    const firstCard = page.locator('.cursor-pointer:has(button[aria-label="Delete notification"])').first();
+    const initialCount = await page.locator('.cursor-pointer:has(button[aria-label="Delete notification"])').count();
+    await firstCard.getByRole('button', { name: /delete notification/i }).click();
 
-    // Item is removed from the list optimistically.
-    await expect(page.locator('h4', { hasText: firstTitle ?? '' })).toHaveCount(0, { timeout: 3_000 });
+    // Optimistic removal: total notification cards should decrease by one.
+    await expect
+      .poll(async () =>
+        page.locator('.cursor-pointer:has(button[aria-label="Delete notification"])').count(),
+      { timeout: 3_000 })
+      .toBeLessThan(initialCount);
 
-    // Reload → still gone (persisted delete).
+    // Reload → persisted delete: still fewer cards than before.
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle');
-    await expect(page.locator('h4', { hasText: firstTitle ?? '' })).toHaveCount(0);
+    const afterReload = await page
+      .locator('.cursor-pointer:has(button[aria-label="Delete notification"])')
+      .count();
+    expect(afterReload).toBeLessThan(initialCount);
   });
 });
+
