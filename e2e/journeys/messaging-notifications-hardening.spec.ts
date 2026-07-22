@@ -102,11 +102,11 @@ test.describe('Messaging + notifications — real signed-in RPC gating', () => {
   });
 
   test('student -> other student in same course: RPC rejects (requires E2E_MEMBER_PASSWORD)', async () => {
-    const memberEmail = process.env.E2E_MEMBER_EMAIL;
-    const memberPassword = process.env.E2E_MEMBER_PASSWORD;
+    const memberEmail = process.env.E2E_MEMBER_EMAIL ?? 'e2e-member@insightscollective.org';
+    const memberPassword = process.env.E2E_MEMBER_PASSWORD ?? process.env.E2E_TEST_PASSWORD;
     test.skip(
       !memberEmail || !memberPassword,
-      'E2E_MEMBER_EMAIL / E2E_MEMBER_PASSWORD not set — cannot verify student-to-student gate with a real signed-in student session',
+      'E2E_MEMBER_EMAIL / E2E_MEMBER_PASSWORD (or E2E_TEST_PASSWORD) not set',
     );
 
     const studentToken = await passwordSignIn(memberEmail!, memberPassword!);
