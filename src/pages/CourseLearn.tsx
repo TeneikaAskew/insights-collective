@@ -36,6 +36,7 @@ import { LessonViewer } from '@/components/course/learn/LessonViewer';
 import type { ContentItem } from '@/types/canvas';
 import { createLogger } from '@/utils/logger';
 import { cn } from '@/lib/utils';
+import { Hint } from '@/components/ui/hint';
 
 const logger = createLogger('CourseLearn');
 
