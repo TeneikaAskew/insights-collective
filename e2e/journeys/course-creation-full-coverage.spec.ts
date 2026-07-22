@@ -70,6 +70,7 @@ async function decodeUserId(token: string): Promise<string> {
   return payload.sub as string;
 }
 
+test.describe.configure({ mode: 'serial' });
 test.describe('Course creation — full workflow with coverage for every content type', () => {
   let token: string;
   let instructorId: string;
