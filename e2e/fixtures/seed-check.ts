@@ -30,13 +30,8 @@ const CHECKS: Check[] = [
     min: 1,
     hint: `Reseed modules under course ${COURSE_ID}.`,
   },
-  {
-    name: 'course has at least one quiz lesson',
-    path: `lessons?lesson_type=eq.quiz&module_id=in.(select id from modules where course_id = '${COURSE_ID}')&select=id`,
-    min: 1,
-    // PostgREST can't do subselects like above via anon; verified separately by URL below.
-    hint: 'Seed a quiz-type lesson (lesson_type=quiz) under one of the course modules.',
-  },
+  // quiz-lesson check is done separately below because it needs a join
+  // through modules — PostgREST anon can't do subselects in filter values.
   {
     name: 'course has at least one assignment',
     path: `assignments?course_id=eq.${COURSE_ID}&select=id`,
