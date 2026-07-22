@@ -125,6 +125,14 @@ async function saveSessionForRole(role: Role, creds: TestUser, baseURL: string):
 
 async function globalSetup(config: FullConfig): Promise<void> {
   fs.mkdirSync(SESSIONS_DIR, { recursive: true });
+
+  // Verify baseline seed data BEFORE bootstrapping sessions. If the fixtures
+  // are missing, the suite fails here loudly rather than skipping tests later.
+  if (process.env.E2E_SKIP_SEED_CHECK !== '1') {
+    const { verifySeedData } = await import('./fixtures/seed-check.js');
+    await verifySeedData();
+  }
+
   const baseURL =
     config.projects.find((p) => p.use?.baseURL)?.use?.baseURL || 'http://localhost:8080';
 

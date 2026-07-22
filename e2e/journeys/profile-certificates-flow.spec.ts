@@ -36,7 +36,10 @@ test.describe('Profile — My Certificates', () => {
 
     const rows = page.getByTestId('certificate-row');
     const count = await rows.count();
-    test.skip(count === 0, 'Signed-in member has no certificates seeded — cannot exercise verify link');
+    expect(
+      count,
+      'Seed gap: signed-in E2E member has zero certificates. Reseed a completed course + certificate row for the member in e2e/fixtures/seed.sql.',
+    ).toBeGreaterThan(0);
 
     const link = rows.first().getByTestId('certificate-verify-link').locator('a');
     const href = await link.getAttribute('href');

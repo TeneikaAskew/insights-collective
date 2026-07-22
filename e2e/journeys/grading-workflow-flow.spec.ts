@@ -45,7 +45,10 @@ test.describe('Instructor grading workflow', () => {
 
     const graderLinks = page.getByRole('link', { name: /grade submissions/i });
     const count = await graderLinks.count();
-    test.skip(count === 0, 'No gradable assignments in the seeded course');
+    expect(
+      count,
+      'Seed gap: no gradable assignments in the instructor-owned course. Reseed at least one assignment with a submission for E2E_INSTRUCTOR_COURSE_ID.',
+    ).toBeGreaterThan(0);
 
     const href = await graderLinks.first().getAttribute('href');
     expect(href).toMatch(/\/courses\/.+\/assignments\/.+\/grade$/);
