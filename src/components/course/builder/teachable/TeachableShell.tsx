@@ -170,6 +170,7 @@ export function TeachableShell({
             {previewHref && (
               <Hint label="See what students see for this course">
                 <Link
+                  data-onboarding="builder-preview"
                   to={previewHref}
                   className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-xs md:text-sm font-semibold border hover:bg-gray-50 transition-colors"
                   style={{ borderColor: 'hsl(var(--tw-border))' }}
