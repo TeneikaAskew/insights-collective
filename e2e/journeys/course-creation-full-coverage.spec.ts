@@ -248,8 +248,9 @@ test.describe('Course creation — full workflow with coverage for every content
       `${SUPABASE_URL}/rest/v1/content_items?course_id=eq.${created.courseId}&select=id,type,title,module_id,published`,
       { headers: headers(token) },
     );
-    expect(res.ok, `read failed: ${await res.text()}`).toBe(true);
-    const items = (await res.json()) as Array<{ type: ContentType; module_id: string; published: boolean }>;
+    const bodyText = await res.text();
+    expect(res.ok, `read failed: ${bodyText}`).toBe(true);
+    const items = JSON.parse(bodyText) as Array<{ type: ContentType; module_id: string; published: boolean }>;
 
     // All 6 types must be covered.
     const foundTypes = new Set(items.map((i) => i.type));
