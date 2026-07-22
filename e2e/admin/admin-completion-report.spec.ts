@@ -41,13 +41,11 @@ test.describe('Admin — completion report export', () => {
     await selectTrigger.click();
     await page.getByRole('option', { name: new RegExp(COURSE_TITLE, 'i') }).click();
 
-    // Wait for the enrollments table to render at least one row (or "No enrollments")
-    await expect(
-      page.getByText(/Total Enrollments/i).or(page.getByText(/No enrollments found/i)),
-    ).toBeVisible({ timeout: 15_000 });
-
+    // Wait until the download button is enabled — this indicates the
+    // enrollments fetch for the *newly selected* course has finished (the hook
+    // resets state on course change, so this waits past any stale data).
     const downloadBtn = page.getByTestId('download-completion-report');
-    await expect(downloadBtn).toBeVisible();
+    await expect(downloadBtn).toBeEnabled({ timeout: 15_000 });
 
     // Trigger the download and capture the file
     const [download] = await Promise.all([

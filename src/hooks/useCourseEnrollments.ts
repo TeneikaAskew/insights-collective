@@ -17,12 +17,20 @@ export function useCourseEnrollments(courseId?: string) {
 
   const fetchEnrollments = async () => {
     if (!courseId) {
+      setEnrollments([]);
+      setStats(null);
       setLoading(false);
       return;
     }
 
+    // Reset stale data from the previously selected course so the UI (and
+    // downstream actions like the CSV export button) doesn't operate on it
+    // while the new fetch is in flight.
+    setEnrollments([]);
+    setStats(null);
     setLoading(true);
     setError(null);
+
 
     try {
       logger.log('Fetching enrollments for course:', courseId);

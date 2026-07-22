@@ -64,19 +64,45 @@ test.describe('Notifications center — real flow', () => {
     await page.goto(`${BASE}/notifications`, { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle');
 
-    const deleteBtns = page.getByRole('button', { name: /delete notification/i });
-    const count = await deleteBtns.count();
-    test.skip(count === 0, 'No notifications available to delete');
+    const cardSel = '.cursor-pointer:has(button[aria-label="Delete notification"])';
+    const initial = await page.locator(cardSel).count();
+    test.skip(initial === 0, 'No notifications available to delete');
 
-    const firstTitle = await page.locator('h4').first().textContent();
-    await deleteBtns.first().click();
+    // Capture a stable fingerprint (title + message) for the specific card we
+    // delete, so we can verify that exact notification doesn't come back even
+    // if new notifications arrive from parallel fan-out flows.
+    const firstCard = page.locator(cardSel).first();
+    const title = (await firstCard.locator('h4').first().textContent())?.trim() ?? '';
+    const message = (await firstCard.locator('p').last().textContent())?.trim() ?? '';
+    const fingerprint = `${title}::${message}`;
 
-    // Item is removed from the list optimistically.
-    await expect(page.locator('h4', { hasText: firstTitle ?? '' })).toHaveCount(0, { timeout: 3_000 });
+    await firstCard.getByRole('button', { name: /delete notification/i }).click();
 
-    // Reload → still gone (persisted delete).
+    // Optimistic removal: the specific card is gone.
+    await expect
+      .poll(async () => {
+        const cards = page.locator(cardSel);
+        const n = await cards.count();
+        for (let i = 0; i < n; i++) {
+          const t = (await cards.nth(i).locator('h4').first().textContent())?.trim() ?? '';
+          const m = (await cards.nth(i).locator('p').last().textContent())?.trim() ?? '';
+          if (`${t}::${m}` === fingerprint) return true;
+        }
+        return false;
+      }, { timeout: 3_000 })
+      .toBe(false);
+
+    // Reload → persisted delete: that specific notification stays gone.
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle');
-    await expect(page.locator('h4', { hasText: firstTitle ?? '' })).toHaveCount(0);
+    const cards = page.locator(cardSel);
+    const n = await cards.count();
+    for (let i = 0; i < n; i++) {
+      const t = (await cards.nth(i).locator('h4').first().textContent())?.trim() ?? '';
+      const m = (await cards.nth(i).locator('p').last().textContent())?.trim() ?? '';
+      expect(`${t}::${m}`).not.toBe(fingerprint);
+    }
   });
 });
+
+
