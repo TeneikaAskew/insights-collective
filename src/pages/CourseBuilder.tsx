@@ -577,6 +577,7 @@ const CourseBuilder = () => {
             description={PLACEHOLDER_COPY[activeView as keyof typeof PLACEHOLDER_COPY].description}
           />
         )}
+      <InstructorBuilderTour active={!!course?.id} />
     </TeachableShell>
   );
 };
