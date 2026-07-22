@@ -272,20 +272,24 @@ export default function AdminCourses() {
                           <Edit className="h-3.5 w-3.5 mr-1.5" /> Edit
                         </Button>
                         <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleTogglePublish(course)}
-                            className="rounded-full text-neutral-600"
-                          >
-                            <Eye className="h-3.5 w-3.5 mr-1.5" />
-                            {course.published ? 'Unpublish' : 'Publish'}
-                          </Button>
+                          <Hint label={course.published ? 'Hide this course from the catalog' : 'Make this course visible in the catalog'}>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleTogglePublish(course)}
+                              className="rounded-full text-neutral-600"
+                            >
+                              <Eye className="h-3.5 w-3.5 mr-1.5" />
+                              {course.published ? 'Unpublish' : 'Publish'}
+                            </Button>
+                          </Hint>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="sm" className="rounded-full text-destructive hover:text-destructive">
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
+                              <Hint label="Delete this course permanently">
+                                <Button variant="ghost" size="sm" className="rounded-full text-destructive hover:text-destructive">
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </Hint>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>
