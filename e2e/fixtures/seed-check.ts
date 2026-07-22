@@ -93,7 +93,9 @@ export async function verifySeedData(): Promise<void> {
       }
     } catch (err) {
       failures.push(`  ✗ ${c.name}: ${(err as Error).message}`);
+    }
   }
+
 
   // Custom: quiz-lesson check via two-step (modules -> lessons).
   try {
