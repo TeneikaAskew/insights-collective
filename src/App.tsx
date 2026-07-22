@@ -5,6 +5,7 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { OnboardingProvider } from '@/contexts/OnboardingContext';
 import { PageVisibilityProvider } from '@/contexts/PageVisibilityContext';
 import { Toaster } from '@/components/ui/toaster';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import WelcomeModal from '@/components/onboarding/WelcomeModal';
 import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
