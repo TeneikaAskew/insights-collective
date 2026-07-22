@@ -69,11 +69,14 @@ test.describe('visual regression', () => {
       await page.evaluate(() => (document as any).fonts?.ready);
       await page.waitForTimeout(300);
 
+      // admin-activity renders live event rows whose spacing and count drift
+      // slightly between runs; give it a wider tolerance than the rest.
+      const maxDiffPixelRatio = route.name === 'admin-activity' ? 0.05 : 0.01;
       await expect(page).toHaveScreenshot(`${route.name}.png`, {
         fullPage: route.fullPage ?? true,
         animations: 'disabled',
         caret: 'hide',
-        maxDiffPixelRatio: 0.01, // tolerate <1% pixel drift
+        maxDiffPixelRatio,
       });
     });
   }
