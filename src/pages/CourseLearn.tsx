@@ -550,6 +550,7 @@ const CourseLearn = () => {
           </Hint>
           <Hint label={isSelectedComplete ? 'Move to the next lesson' : 'Mark this lesson done and continue'}>
             <button
+              data-onboarding="learn-continue"
               type="button"
               onClick={handleContinue}
               className="inline-flex items-center gap-1.5 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90"
