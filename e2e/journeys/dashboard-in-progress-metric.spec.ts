@@ -81,6 +81,8 @@ test.describe('Dashboard "In Progress" metric', () => {
     console.log('progressions embed:', verifyRes.status(), verifyBody.slice(0, 500));
 
     // Now the dashboard tile must show at least 1 in progress (not 0, which was the bug).
+    page.on('console', (m) => console.log('[browser]', m.type(), m.text().slice(0, 300)));
+    page.on('pageerror', (e) => console.log('[pageerror]', e.message));
     await page.goto('/dashboard');
     const tile = page.getByTestId('metric-in-progress');
     await expect(tile).toBeVisible({ timeout: 15_000 });
