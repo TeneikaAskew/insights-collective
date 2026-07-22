@@ -66,7 +66,10 @@ test.describe('Notifications center — real flow', () => {
 
     const cardSel = '.cursor-pointer:has(button[aria-label="Delete notification"])';
     const initial = await page.locator(cardSel).count();
-    test.skip(initial === 0, 'No notifications available to delete');
+    expect(
+      initial,
+      'Seed gap: E2E member has no notifications. Reseed at least one notification row (e.g. announcement fan-out) for the member.',
+    ).toBeGreaterThan(0);
 
     // Capture a stable fingerprint (title + message) for the specific card we
     // delete, so we can verify that exact notification doesn't come back even
