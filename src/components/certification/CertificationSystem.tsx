@@ -27,12 +27,18 @@ interface Certificate {
   course_id: string;
   certificate_type: 'completion' | 'achievement' | 'mastery';
   issued_at: string;
+  // certificate_data shape varies: the DB auto-issue trigger writes only
+  // { completion_percentage, total_items, auto_issued }, while manual/legacy
+  // issuance may include course_title, time_spent, achievements, final_score.
+  // All fields are optional here so callers must apply fallbacks.
   certificate_data: {
-    course_title: string;
-    completion_percentage: number;
+    course_title?: string;
+    completion_percentage?: number;
     final_score?: number;
-    time_spent: number;
-    achievements: string[];
+    time_spent?: number;
+    achievements?: string[];
+    total_items?: number;
+    auto_issued?: boolean;
   };
   verification_code: string;
 }
