@@ -603,17 +603,19 @@ const AdminDashboard = () => {
   const location = useLocation();
   const [activeTab, setActiveTab] = useState('courses');
   const { toast } = useToast();
-  
+  const [enrollmentCount, setEnrollmentCount] = useState<number | null>(null);
+  const [certificateCount, setCertificateCount] = useState<number | null>(null);
+
   useEffect(() => {
     if (!isAuthenticated) {
       navigate('/login');
       return;
     }
-    
+
     if (user && (!user.roles || !user.roles.includes('admin'))) {
       navigate('/dashboard');
     }
-    
+
     // Set the active tab based on the URL
     if (location.pathname.includes('/admin/courses')) {
       setActiveTab('courses');
@@ -627,13 +629,28 @@ const AdminDashboard = () => {
       setActiveTab('certificates');
     }
   }, [isAuthenticated, user, navigate, location]);
-  
+
+  // Load real KPI counts so the header stats aren't hardcoded placeholders.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const [enrollRes, certRes] = await Promise.all([
+        supabase.from('enrollments').select('id', { count: 'exact', head: true }),
+        supabase.from('certificates').select('id', { count: 'exact', head: true }),
+      ]);
+      if (cancelled) return;
+      setEnrollmentCount(enrollRes.count ?? 0);
+      setCertificateCount(certRes.count ?? 0);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   if (!user || !user.roles || !user.roles.includes('admin')) return null;
-  
+
   const { courses } = useCoursesManagement();
   const allCourses = courses;
   const allUsers = []; // TODO: Replace with real users data when available
-  
+
   // Function to handle notifications for various actions
   const handleAction = (action: string, itemType: string) => {
     toast({
