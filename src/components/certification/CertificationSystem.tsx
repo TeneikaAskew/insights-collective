@@ -27,12 +27,18 @@ interface Certificate {
   course_id: string;
   certificate_type: 'completion' | 'achievement' | 'mastery';
   issued_at: string;
+  // certificate_data shape varies: the DB auto-issue trigger writes only
+  // { completion_percentage, total_items, auto_issued }, while manual/legacy
+  // issuance may include course_title, time_spent, achievements, final_score.
+  // All fields are optional here so callers must apply fallbacks.
   certificate_data: {
-    course_title: string;
-    completion_percentage: number;
+    course_title?: string;
+    completion_percentage?: number;
     final_score?: number;
-    time_spent: number;
-    achievements: string[];
+    time_spent?: number;
+    achievements?: string[];
+    total_items?: number;
+    auto_issued?: boolean;
   };
   verification_code: string;
 }
@@ -117,6 +123,12 @@ const CertificationSystem: React.FC<CertificationSystemProps> = ({
     }
   };
 
+  // Certificates are issued server-side by the auto_issue_certificate_on_progression
+  // trigger when every published content item is completed. Students cannot INSERT
+  // into public.certificates directly (RLS restricts inserts to the course
+  // instructor or admins), so this button just gives the trigger a chance to fire
+  // by re-checking completion and re-fetching. If nothing shows up, we surface a
+  // clear reason instead of a generic RLS error.
   const generateCertificate = async () => {
     if (!user || !courseProgress || !course) return;
 
@@ -131,52 +143,50 @@ const CertificationSystem: React.FC<CertificationSystemProps> = ({
 
     setGenerating(true);
     try {
-      // Generate verification code
-      const verificationCode = `CERT-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+      // Ask the DB whether it considers the course complete (this matches the
+      // trigger's own definition — published content_items only).
+      const { data: isComplete, error: rpcError } = await supabase.rpc(
+        'check_course_completion',
+        { p_user_id: user.id, p_course_id: courseId }
+      );
+      if (rpcError) throw rpcError;
 
-      // Determine certificate type based on performance
-      let certificateType: 'completion' | 'achievement' | 'mastery' = 'completion';
-      if (courseProgress.overall_completion === 100) {
-        certificateType = courseProgress.total_time_spent > 3600 ? 'achievement' : 'mastery'; // More than 1 hour = achievement
-      }
+      // Give the trigger a beat if it's firing from a very recent progression.
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
-      const certificateData = {
-        user_id: user.id,
-        course_id: courseId,
-        certificate_type: certificateType,
-        certificate_data: {
-          course_title: course.title,
-          completion_percentage: courseProgress.overall_completion,
-          time_spent: courseProgress.total_time_spent,
-          achievements: [
-            'Completed all course modules',
-            'Demonstrated practical skills',
-            'Engaged with course materials'
-          ]
-        },
-        verification_code: verificationCode
-      };
-
-      const { data, error } = await supabase
+      const { data: certData, error: certError } = await supabase
         .from('certificates')
-        .insert(certificateData)
-        .select()
-        .single();
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('course_id', courseId)
+        .order('issued_at', { ascending: false });
+      if (certError) throw certError;
 
-      if (error) throw error;
-
-      setCertificates(prev => [data, ...prev]);
-
-      toast({
-        title: 'Certificate Generated!',
-        description: 'Your certificate has been generated successfully',
-      });
-
+      if (certData && certData.length > 0) {
+        setCertificates(certData);
+        toast({
+          title: 'Certificate Ready',
+          description: 'Your certificate has been issued.',
+        });
+      } else if (!isComplete) {
+        toast({
+          title: 'Not quite there yet',
+          description:
+            "Your progress hasn't been fully recorded. Finish any remaining lessons or assignments, then try again.",
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Almost there',
+          description:
+            'Course marked complete but the certificate is still being issued. Please refresh in a moment.',
+        });
+      }
     } catch (error) {
-      logger.error('Error generating certificate:', error);
+      logger.error('Error refreshing certificate:', error);
       toast({
         title: 'Error',
-        description: 'Failed to generate certificate',
+        description: 'Failed to load your certificate. Please try again.',
         variant: 'destructive'
       });
     } finally {
@@ -226,7 +236,7 @@ const CertificationSystem: React.FC<CertificationSystemProps> = ({
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(22);
       doc.setTextColor(40, 40, 60);
-      doc.text(certificate.certificate_data.course_title, pageWidth / 2, 310, { align: 'center', maxWidth: pageWidth - 160 });
+      doc.text(certificate.certificate_data.course_title || course?.title || 'Course', pageWidth / 2, 310, { align: 'center', maxWidth: pageWidth - 160 });
 
       // Course details
       doc.setFont('helvetica', 'normal');
@@ -240,8 +250,11 @@ const CertificationSystem: React.FC<CertificationSystemProps> = ({
       if (detailParts) {
         doc.text(detailParts, pageWidth / 2, 350, { align: 'center' });
       }
+      const completionPct = certificate.certificate_data.completion_percentage ?? 100;
+      const timeSpent = certificate.certificate_data.time_spent;
+      const timeText = typeof timeSpent === 'number' && timeSpent > 0 ? `   |   Study time: ${formatTime(timeSpent)}` : '';
       doc.text(
-        `Completion: ${certificate.certificate_data.completion_percentage}%   |   Study time: ${formatTime(certificate.certificate_data.time_spent)}`,
+        `Completion: ${completionPct}%${timeText}`,
         pageWidth / 2,
         375,
         { align: 'center' },
@@ -395,7 +408,7 @@ const CertificationSystem: React.FC<CertificationSystemProps> = ({
                   className="bg-green-600 hover:bg-green-700"
                 >
                   <Award className="h-4 w-4 mr-2" />
-                  {generating ? 'Generating...' : 'Generate Certificate'}
+                  {generating ? 'Checking...' : 'View my certificate'}
                 </Button>
               )
             ) : (
@@ -441,7 +454,7 @@ const CertificationSystem: React.FC<CertificationSystemProps> = ({
                         {getCertificateIcon(certificate.certificate_type)}
                         <div>
                           <h4 className="font-semibold">
-                            {certificate.certificate_data.course_title}
+                            {certificate.certificate_data.course_title || course?.title || 'Course Certificate'}
                           </h4>
                           <Badge variant="secondary">
                             {certificate.certificate_type.charAt(0).toUpperCase() + 
@@ -461,21 +474,25 @@ const CertificationSystem: React.FC<CertificationSystemProps> = ({
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                       <div className="text-center">
                         <div className="font-semibold text-lg text-green-600">
-                          {certificate.certificate_data.completion_percentage}%
+                          {certificate.certificate_data.completion_percentage ?? 100}%
                         </div>
                         <div className="text-gray-600">Completion</div>
                       </div>
                       <div className="text-center">
                         <div className="font-semibold text-lg text-blue-600">
-                          {formatTime(certificate.certificate_data.time_spent)}
+                          {typeof certificate.certificate_data.time_spent === 'number' && certificate.certificate_data.time_spent > 0
+                            ? formatTime(certificate.certificate_data.time_spent)
+                            : '—'}
                         </div>
                         <div className="text-gray-600">Study Time</div>
                       </div>
                       <div className="text-center">
                         <div className="font-semibold text-lg text-purple-600">
-                          {certificate.certificate_data.achievements?.length || 0}
+                          {certificate.certificate_data.achievements?.length ?? certificate.certificate_data.total_items ?? 0}
                         </div>
-                        <div className="text-gray-600">Achievements</div>
+                        <div className="text-gray-600">
+                          {certificate.certificate_data.achievements?.length ? 'Achievements' : 'Items Completed'}
+                        </div>
                       </div>
                     </div>
 
