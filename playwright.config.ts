@@ -147,3 +147,5 @@ export default defineConfig({
       testMatch: ['**/visual/**'],
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } },
     },
+  ],
+});
