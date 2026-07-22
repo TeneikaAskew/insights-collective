@@ -22,6 +22,7 @@ import {
   PieChart as RechartsPieChart, Pie, Cell, Legend
 } from 'recharts';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import ResourceManagement from '@/components/admin/ResourceManagement';
 
 // Mock analytics data
@@ -700,19 +701,23 @@ const AdminDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between">
-                <div className="text-2xl font-bold">423</div>
+                <div className="text-2xl font-bold tabular-nums">
+                  {enrollmentCount ?? '—'}
+                </div>
                 <CheckCircle className="h-5 w-5 text-muted-foreground" />
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base font-medium">Certificates Issued</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between">
-                <div className="text-2xl font-bold">87</div>
+                <div className="text-2xl font-bold tabular-nums">
+                  {certificateCount ?? '—'}
+                </div>
                 <Award className="h-5 w-5 text-muted-foreground" />
               </div>
             </CardContent>
