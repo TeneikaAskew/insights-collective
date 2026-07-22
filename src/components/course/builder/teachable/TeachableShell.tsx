@@ -182,6 +182,7 @@ export function TeachableShell({
             )}
             <Hint label={published ? 'Hide this course from students' : 'Make this course visible to students'}>
               <button
+                data-onboarding="builder-publish"
                 type="button"
                 onClick={() => onTogglePublish(!published)}
                 className="inline-flex items-center gap-2 px-3 md:px-4 py-2 rounded-md text-xs md:text-sm font-bold transition-transform hover:scale-[1.02] whitespace-nowrap"
