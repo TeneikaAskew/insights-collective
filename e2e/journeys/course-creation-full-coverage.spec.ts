@@ -296,7 +296,8 @@ test.describe('Course creation — full workflow with coverage for every content
         body: JSON.stringify({ status: 'published', published: true }),
       },
     );
-    expect(patch.ok, `publish failed: ${await patch.text()}`).toBe(true);
+    const patchText = await patch.text();
+    expect(patch.ok, `publish failed: ${patchText}`).toBe(true);
 
     const cat = await fetch(
       `${SUPABASE_URL}/rest/v1/courses?id=eq.${created.courseId}&status=eq.published&select=id,title,status`,
