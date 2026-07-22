@@ -729,10 +729,13 @@ const AdminDashboard = () => {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle>Platform Analytics</CardTitle>
-                  <CardDescription>Overview of key platform metrics</CardDescription>
+                  <CardTitle className="flex items-center gap-2">
+                    Platform Analytics
+                    <Badge variant="outline" className="text-[10px] uppercase tracking-wide">Sample data</Badge>
+                  </CardTitle>
+                  <CardDescription>Preview of the analytics we'll wire to live data next.</CardDescription>
                 </div>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" disabled title="Available once live analytics are wired">
                   <Download className="h-4 w-4 mr-2" />
                   Export
                 </Button>
