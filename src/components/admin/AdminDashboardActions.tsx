@@ -1,8 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { CalendarPlus, Award, Upload, FileSpreadsheet, Activity, BookOpen, FormInput } from 'lucide-react';
+import { CalendarPlus, Upload, FileSpreadsheet, Activity, BookOpen, FormInput } from 'lucide-react';
 import { AddEventModal } from '@/components/events/modals/AddEventModal';
-import { IssueCertificatesModal } from '@/components/admin/IssueCertificatesModal';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'react-router-dom';
@@ -41,12 +40,11 @@ export const AdminDashboardActions = () => {
     navigate('/admin/events');
   };
   
-  const handleIssueCertificates = (courseId: string, userIds: string[]) => {
-    toast({
-      title: 'Certificates Issued',
-      description: `Successfully issued ${userIds.length} certificates.`,
-    });
-  };
+  // Note: Certificates are auto-issued by a Supabase trigger when a student
+  // completes every published item in a course (see auto_issue_certificate_on_progression).
+  // No manual "Issue Certificates" admin action is wired to the DB, so we intentionally
+  // do not surface a button that would previously have fired a fake success toast.
+
   
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -69,14 +67,8 @@ export const AdminDashboardActions = () => {
             />
           )}
           
-          <IssueCertificatesModal onIssueCertificates={handleIssueCertificates}>
-            <Button variant="outline" className="w-full justify-start" asChild>
-              <div>
-                <Award className="mr-2 h-4 w-4" />
-                <span>Issue Certificates</span>
-              </div>
-            </Button>
-          </IssueCertificatesModal>
+
+
           
           <Button variant="outline" className="w-full justify-start" onClick={() => navigate('/admin/unified-form-management')}>
             <FormInput className="mr-2 h-4 w-4" />

@@ -632,16 +632,19 @@ const AdminDashboard = () => {
   }, [isAuthenticated, user, navigate, location]);
 
   // Load real KPI counts so the header stats aren't hardcoded placeholders.
+  const [userCount, setUserCount] = useState<number | null>(null);
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [enrollRes, certRes] = await Promise.all([
+      const [enrollRes, certRes, profileRes] = await Promise.all([
         supabase.from('enrollments').select('id', { count: 'exact', head: true }),
         supabase.from('certificates').select('id', { count: 'exact', head: true }),
+        supabase.from('profiles').select('id', { count: 'exact', head: true }),
       ]);
       if (cancelled) return;
       setEnrollmentCount(enrollRes.count ?? 0);
       setCertificateCount(certRes.count ?? 0);
+      setUserCount(profileRes.count ?? 0);
     })();
     return () => { cancelled = true; };
   }, []);
@@ -650,7 +653,6 @@ const AdminDashboard = () => {
 
   const { courses } = useCoursesManagement();
   const allCourses = courses;
-  const allUsers = []; // TODO: Replace with real users data when available
 
   // Function to handle notifications for various actions
   const handleAction = (action: string, itemType: string) => {
@@ -677,7 +679,7 @@ const AdminDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between">
-                <div className="text-2xl font-bold">{allUsers.length}</div>
+                <div className="text-2xl font-bold tabular-nums">{userCount ?? '—'}</div>
                 <Users className="h-5 w-5 text-muted-foreground" />
               </div>
             </CardContent>
