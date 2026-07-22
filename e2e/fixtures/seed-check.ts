@@ -93,8 +93,42 @@ export async function verifySeedData(): Promise<void> {
       }
     } catch (err) {
       failures.push(`  ✗ ${c.name}: ${(err as Error).message}`);
-    }
   }
+
+  // Custom: quiz-lesson check via two-step (modules -> lessons).
+  try {
+    const modIds = await (async () => {
+      const r = await fetch(
+        `${SUPABASE_URL}/rest/v1/modules?course_id=eq.${COURSE_ID}&select=id`,
+        { headers: { apikey: ANON_KEY, Authorization: `Bearer ${ANON_KEY}` } },
+      );
+      if (!r.ok) throw new Error(`modules query ${r.status}: ${await r.text()}`);
+      const rows = (await r.json()) as Array<{ id: string }>;
+      return rows.map((m) => m.id);
+    })();
+    if (modIds.length === 0) {
+      failures.push(
+        '  ✗ course has at least one quiz lesson: no modules to search under.',
+      );
+    } else {
+      const inList = `(${modIds.join(',')})`;
+      const n = await head(
+        `lessons?lesson_type=eq.quiz&module_id=in.${inList}&select=id`,
+      );
+      if (n < 1) {
+        failures.push(
+          '  ✗ course has at least one quiz lesson: found 0, need >= 1. Seed a lesson with lesson_type=quiz under one of the course modules.',
+        );
+      } else {
+        console.log(`[seed-check] ✓ course has at least one quiz lesson (${n})`);
+      }
+    }
+  } catch (err) {
+    failures.push(
+      `  ✗ course has at least one quiz lesson: ${(err as Error).message}`,
+    );
+  }
+
   if (failures.length) {
     throw new Error(
       `\n[seed-check] Baseline seed data is missing — refusing to run E2E suite:\n${failures.join('\n')}\n\nRun: psql "$SUPABASE_DB_URL" -f e2e/fixtures/seed.sql\n`,
