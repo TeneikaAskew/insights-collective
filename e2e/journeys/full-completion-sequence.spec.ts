@@ -33,17 +33,20 @@ test.describe('Full course completion sequence', () => {
     const userId = (await meRes.json()).id as string;
     expect(userId).toBeTruthy();
 
-    // Ensure enrollment exists (idempotent upsert)
-    const enrollRes = await page.request.post(
-      `${SUPABASE_URL}/rest/v1/enrollments?on_conflict=user_id,course_id`,
-      {
-        headers: { ...headers, Prefer: 'resolution=merge-duplicates,return=minimal' },
-        data: JSON.stringify({ user_id: userId, course_id: COURSE_ID }),
-      },
+    // Ensure enrollment exists — create only if missing (RLS forbids updates)
+    const existingEnroll = await page.request.get(
+      `${SUPABASE_URL}/rest/v1/enrollments?user_id=eq.${userId}&course_id=eq.${COURSE_ID}&select=id`,
+      { headers },
     );
-    expect([200, 201, 204, 409].includes(enrollRes.status()),
-      `enrollment upsert (${enrollRes.status()}: ${await enrollRes.text()})`,
-    ).toBeTruthy();
+    const enrollRows = existingEnroll.ok() ? await existingEnroll.json() : [];
+    if (!enrollRows.length) {
+      const enrollRes = await page.request.post(
+        `${SUPABASE_URL}/rest/v1/enrollments`,
+        { headers: { ...headers, Prefer: 'return=minimal' },
+          data: JSON.stringify({ user_id: userId, course_id: COURSE_ID }) },
+      );
+      expect(enrollRes.ok(), `enrollment insert (${enrollRes.status()}: ${await enrollRes.text()})`).toBeTruthy();
+    }
 
     // Fetch every published content item for the course
     const itemsRes = await page.request.get(
