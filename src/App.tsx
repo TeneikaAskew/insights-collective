@@ -410,6 +410,7 @@ function App() {
                 <GoogleAnalytics />
                 <SEOMetaTags />
               </div>
+              </TooltipProvider>
             </OnboardingProvider>
           </PageVisibilityProvider>
         </AuthProvider>
