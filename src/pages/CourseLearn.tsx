@@ -627,14 +627,8 @@ const CourseLearn = () => {
           <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-10 pb-32">
             <div className="mb-4">
               <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest px-2.5 py-1 rounded bg-primary text-primary-foreground">
-                <FileText className="w-3 h-3" />
-                {selected.item.type === 'quiz'
-                  ? 'Quiz'
-                  : selected.item.type === 'assignment'
-                  ? 'Assignment'
-                  : selected.item.type === 'external_url'
-                  ? 'External Link'
-                  : 'Lesson'}
+                <TypeIcon type={selected.item.type} className="w-3 h-3" />
+                {typeLabel(selected.item.type)}
               </span>
             </div>
             <h1 className="font-display text-2xl sm:text-3xl lg:text-4xl mb-6 break-words">{selected.item.title}</h1>
