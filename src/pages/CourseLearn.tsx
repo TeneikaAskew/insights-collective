@@ -1,7 +1,7 @@
 // ABOUTME: Teachable-style student course player.
 // ABOUTME: Dark admin top bar + dark left curriculum rail + centered lesson content + pill Prev/Next controls.
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -12,9 +12,15 @@ import {
   ChevronRight,
   ChevronUp,
   Circle,
+  ClipboardCheck,
+  ExternalLink,
   FileText,
+  HelpCircle,
   Home,
+  Link2,
   Menu,
+  MessageSquare,
+  Play,
   RotateCcw,
   Settings,
   X,
@@ -32,6 +38,44 @@ import { createLogger } from '@/utils/logger';
 import { cn } from '@/lib/utils';
 
 const logger = createLogger('CourseLearn');
+
+// Thinkific/Teachable-style per-content-type icon.
+function TypeIcon({ type, className }: { type: string; className?: string }) {
+  const cls = className ?? 'w-3.5 h-3.5';
+  switch (type) {
+    case 'assignment':
+      return <ClipboardCheck className={cls} />;
+    case 'quiz':
+      return <HelpCircle className={cls} />;
+    case 'discussion':
+      return <MessageSquare className={cls} />;
+    case 'external_url':
+      return <ExternalLink className={cls} />;
+    case 'external_tool':
+      return <Link2 className={cls} />;
+    case 'page':
+    default:
+      return <FileText className={cls} />;
+  }
+}
+
+function typeLabel(type: string): string {
+  switch (type) {
+    case 'assignment':
+      return 'Assignment';
+    case 'quiz':
+      return 'Quiz';
+    case 'discussion':
+      return 'Discussion';
+    case 'external_url':
+      return 'External Link';
+    case 'external_tool':
+      return 'External Tool';
+    case 'page':
+    default:
+      return 'Lesson';
+  }
+}
 
 interface CourseShell {
   id: string;
@@ -106,7 +150,9 @@ const CourseLearn = () => {
         if (cancelled) return;
         setCourse(courseData as CourseShell);
         setModules(withItems);
-        setExpanded(new Set(withItems.map((m) => m.id)));
+        // Only expand the first module by default — Teachable-style focused view.
+        // The resume module will expand automatically once progress loads (see effect below).
+        setExpanded(new Set(withItems.slice(0, 1).map((m) => m.id)));
       } catch (err: any) {
         logger.error('Failed to load learn view', err);
         toast({ title: 'Error', description: err?.message, variant: 'destructive' });
@@ -161,6 +207,29 @@ const CourseLearn = () => {
   const isSelectedComplete = selected ? completed.has(selected.item.id) : false;
   const percent = progress?.percent ?? 0;
 
+  // Resume target: first unfinished lesson, else first lesson.
+  const resumeItem = useMemo(() => {
+    if (flatItems.length === 0) return null;
+    return flatItems.find((fi) => !completed.has(fi.item.id)) ?? flatItems[0];
+  }, [flatItems, completed]);
+  const lessonNumber = currentIndex >= 0 ? currentIndex + 1 : 0;
+  const totalLessons = flatItems.length;
+
+  // Auto-expand the module that contains the resume/current lesson, once known.
+  const autoExpandedRef = useRef<string | null>(null);
+  useEffect(() => {
+    const target = selected?.module.id ?? resumeItem?.module.id;
+    if (!target) return;
+    if (autoExpandedRef.current === target) return;
+    autoExpandedRef.current = target;
+    setExpanded((prev) => {
+      if (prev.has(target)) return prev;
+      const n = new Set(prev);
+      n.add(target);
+      return n;
+    });
+  }, [selected?.module.id, resumeItem?.module.id]);
+
   const goTo = useCallback(
     (mid: string, iid: string) => {
       navigate(`/courses/${courseId}/learn/${mid}/${iid}`);
@@ -197,6 +266,25 @@ const CourseLearn = () => {
       navigate(`/courses/${courseId}/learn/complete/summary`);
     }
   }, [selected, isSelectedComplete, handleMarkDone, next, goTo, navigate, courseId]);
+
+  // Keyboard shortcuts: ←/→ navigate lessons while in the player.
+  useEffect(() => {
+    if (!selected) return;
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+      if (e.key === 'ArrowRight' && next) {
+        e.preventDefault();
+        goTo(next.module.id, next.item.id);
+      } else if (e.key === 'ArrowLeft' && prev) {
+        e.preventDefault();
+        goTo(prev.module.id, prev.item.id);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selected, next, prev, goTo]);
+
 
   if (loading) {
     return (
@@ -312,20 +400,43 @@ const CourseLearn = () => {
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-14">
             <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-6 lg:gap-10">
               <div>
+                <div className="text-[11px] font-bold tracking-widest uppercase text-muted-foreground mb-2">
+                  {completed.size > 0 ? 'Pick up where you left off' : 'Start your journey'}
+                </div>
                 <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl mb-3">{course.title}</h1>
-                <p className="text-sm text-gray-600 mb-8">
-                  {flatItems.length} lessons · Continue where you left off
+                <p className="text-sm text-muted-foreground mb-6">
+                  {flatItems.length} lessons · {Math.round(percent)}% complete
                 </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const first = flatItems[0];
-                    if (first) goTo(first.module.id, first.item.id);
-                  }}
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-md font-bold text-sm bg-primary text-primary-foreground hover:bg-primary/90"
-                >
-                  Start Lesson
-                </button>
+                {resumeItem && (
+                  <div className="mb-8">
+                    <div className="text-xs text-muted-foreground mb-2">
+                      {completed.size > 0 ? 'Up next' : 'First lesson'} · {resumeItem.module.title}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => goTo(resumeItem.module.id, resumeItem.item.id)}
+                        className="inline-flex items-center gap-2 px-6 py-3 rounded-full font-bold text-sm bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
+                      >
+                        <Play className="w-4 h-4" />
+                        {completed.size > 0 ? 'Resume' : 'Start course'}: {resumeItem.item.title || 'Lesson 1'}
+                      </button>
+                      {completed.size > 0 && flatItems[0] && flatItems[0].item.id !== resumeItem.item.id && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const first = flatItems[0];
+                            if (first) goTo(first.module.id, first.item.id);
+                          }}
+                          className="inline-flex items-center gap-2 px-5 py-3 rounded-full font-semibold text-sm text-muted-foreground hover:text-foreground hover:bg-muted"
+                        >
+                          <RotateCcw className="w-4 h-4" />
+                          Start from beginning
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 <div className="mt-10 space-y-4">
                   {modules.map((m) => (
@@ -441,6 +552,28 @@ const CourseLearn = () => {
         </div>
       </div>
 
+      {/* Slim progress strip: lesson counter + course completion */}
+      <div className="flex items-center gap-3 px-3 sm:px-6 py-2 flex-shrink-0 bg-card border-b border-border text-[11px] text-muted-foreground">
+        <span className="font-semibold tabular-nums text-foreground">
+          Lesson {lessonNumber} of {totalLessons}
+        </span>
+        <span className="hidden sm:inline">·</span>
+        <span className="hidden sm:inline truncate">{selected.module.title || 'Section'}</span>
+        <div className="ml-auto flex items-center gap-2 min-w-[140px]">
+          <div className="h-1 flex-1 rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full bg-primary transition-all"
+              style={{ width: `${Math.min(100, Math.max(0, percent))}%` }}
+            />
+          </div>
+          <span className="tabular-nums font-semibold text-foreground">
+            {Math.round(percent)}%
+          </span>
+        </div>
+      </div>
+
+
+
 
       <div className="flex-1 flex min-h-0">
         {/* Mobile curriculum drawer */}
@@ -494,14 +627,8 @@ const CourseLearn = () => {
           <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-10 pb-32">
             <div className="mb-4">
               <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest px-2.5 py-1 rounded bg-primary text-primary-foreground">
-                <FileText className="w-3 h-3" />
-                {selected.item.type === 'quiz'
-                  ? 'Quiz'
-                  : selected.item.type === 'assignment'
-                  ? 'Assignment'
-                  : selected.item.type === 'external_url'
-                  ? 'External Link'
-                  : 'Lesson'}
+                <TypeIcon type={selected.item.type} className="w-3 h-3" />
+                {typeLabel(selected.item.type)}
               </span>
             </div>
             <h1 className="font-display text-2xl sm:text-3xl lg:text-4xl mb-6 break-words">{selected.item.title}</h1>
@@ -544,67 +671,84 @@ function RailNav({
   canEdit: boolean;
   onSelect: (moduleId: string, itemId: string) => void;
 }) {
+  const activeRef = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    activeRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [selectedId]);
+
   return (
     <nav className="p-3 space-y-5">
-      {modules.map((m) => (
-        <div key={m.id}>
-          <div className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground px-3 py-2">
-            {m.title || 'Untitled section'}
+      {modules.map((m, mi) => {
+        const doneInModule = m.items.filter((i) => completed.has(i.id)).length;
+        return (
+          <div key={m.id}>
+            <div className="flex items-baseline justify-between gap-2 px-3 py-2">
+              <div className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground truncate">
+                {`Section ${mi + 1} · ${m.title || 'Untitled'}`}
+              </div>
+              <div className="text-[10px] tabular-nums text-muted-foreground/80">
+                {doneInModule}/{m.items.length}
+              </div>
+            </div>
+            <ul className="space-y-0.5">
+              {m.items.map((it) => {
+                const active = selectedId === it.id;
+                const done = completed.has(it.id);
+                return (
+                  <li key={it.id}>
+                    <button
+                      ref={active ? activeRef : undefined}
+                      type="button"
+                      onClick={() => onSelect(m.id, it.id)}
+                      className={cn(
+                        'w-full flex items-start gap-3 px-3 py-2 rounded-md text-left text-sm transition-colors',
+                        active
+                          ? 'bg-primary/10 text-foreground'
+                          : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                      )}
+                      style={
+                        active
+                          ? { borderLeft: '2px solid hsl(var(--primary))', paddingLeft: 10 }
+                          : undefined
+                      }
+                    >
+                      <span className="mt-0.5 flex-shrink-0" aria-hidden>
+                        {done ? (
+                          <CheckCircle2 className="w-4 h-4 text-primary" />
+                        ) : active ? (
+                          <div
+                            className="w-4 h-4 rounded-full border-2 border-primary"
+                            style={{
+                              background:
+                                'radial-gradient(circle, hsl(var(--primary)) 40%, transparent 42%)',
+                            }}
+                          />
+                        ) : (
+                          <Circle className="w-4 h-4 text-muted-foreground/60" />
+                        )}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <TypeIcon type={it.type} className="w-3 h-3 flex-shrink-0 text-muted-foreground/70" />
+                          <span className="truncate">{it.title || 'Untitled lesson'}</span>
+                        </div>
+                        {canEdit && !it.published && (
+                          <span className="inline-block mt-1 text-[9px] uppercase tracking-widest font-bold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                            Draft
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
-          <ul className="space-y-0.5">
-            {m.items.map((it) => {
-              const active = selectedId === it.id;
-              const done = completed.has(it.id);
-              return (
-                <li key={it.id}>
-                  <button
-                    type="button"
-                    onClick={() => onSelect(m.id, it.id)}
-                    className={cn(
-                      'w-full flex items-start gap-3 px-3 py-2 rounded-md text-left text-sm transition-colors',
-                      active
-                        ? 'bg-primary/10 text-foreground'
-                        : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                    )}
-                    style={
-                      active
-                        ? { borderLeft: '2px solid hsl(var(--primary))', paddingLeft: 10 }
-                        : undefined
-                    }
-                  >
-                    <span className="mt-0.5 flex-shrink-0">
-                      {done ? (
-                        <div className="w-4 h-4 rounded-full bg-primary" />
-                      ) : active ? (
-                        <div
-                          className="w-4 h-4 rounded-full border-2 border-primary"
-                          style={{
-                            background:
-                              'radial-gradient(circle, hsl(var(--primary)) 40%, transparent 42%)',
-                          }}
-                        />
-                      ) : (
-                        <Circle className="w-4 h-4 text-muted-foreground/60" />
-                      )}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <div className="truncate">{it.title || 'Untitled lesson'}</div>
-                      {canEdit && !it.published && (
-                        <span className="inline-block mt-1 text-[9px] uppercase tracking-widest font-bold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                          Draft
-                        </span>
-                      )}
-                    </div>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      ))}
+        );
+      })}
     </nav>
   );
-};
+}
 
 // --- Admin top strip ("Edit in Admin" / "Preview as admin") ---
 function AdminTopBar({
@@ -742,9 +886,11 @@ function HomeSection({
                   )}
                 </span>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate">
-                    {it.title || 'Untitled lesson'}
+                  <div className="flex items-center gap-2 text-sm font-medium min-w-0">
+                    <TypeIcon type={it.type} className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                    <span className="truncate">{it.title || 'Untitled lesson'}</span>
                   </div>
+                  <div className="text-[11px] text-gray-500 mt-0.5">{typeLabel(it.type)}</div>
                 </div>
                 <button
                   type="button"
