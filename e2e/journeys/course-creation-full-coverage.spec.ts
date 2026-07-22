@@ -291,7 +291,7 @@ test.describe('Course creation — full workflow with coverage for every content
       `${SUPABASE_URL}/rest/v1/courses?id=eq.${created.courseId}`,
       {
         method: 'PATCH',
-        headers: headers(token, 'return=representation'),
+        headers: headers(token, 'return=minimal'),
         body: JSON.stringify({ status: 'published', published: true }),
       },
     );
