@@ -99,7 +99,7 @@ const CourseList = () => {
         </div>
 
         {/* Filter bar */}
-        <div className="max-w-7xl mx-auto mb-8 flex flex-col md:flex-row gap-3 md:items-center">
+        <div data-onboarding="course-filters" className="max-w-7xl mx-auto mb-8 flex flex-col md:flex-row gap-3 md:items-center">
           <div className="relative flex-1">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
             <Input
