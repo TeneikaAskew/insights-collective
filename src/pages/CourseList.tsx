@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Course } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { createLogger } from '@/utils/logger';
+import CourseOnboardingWalkthrough from '@/components/courses/CourseOnboardingWalkthrough';
 
 const logger = createLogger('CourseList');
 
@@ -98,7 +99,7 @@ const CourseList = () => {
         </div>
 
         {/* Filter bar */}
-        <div className="max-w-7xl mx-auto mb-8 flex flex-col md:flex-row gap-3 md:items-center">
+        <div data-onboarding="course-filters" className="max-w-7xl mx-auto mb-8 flex flex-col md:flex-row gap-3 md:items-center">
           <div className="relative flex-1">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
             <Input
@@ -144,7 +145,7 @@ const CourseList = () => {
         </div>
 
         {/* Grid */}
-        <div className="max-w-7xl mx-auto">
+        <div data-onboarding="course-grid" className="max-w-7xl mx-auto">
           {loading ? (
             <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
               {[0, 1, 2, 3, 4, 5].map((i) => (
@@ -246,7 +247,9 @@ const CourseList = () => {
           )}
         </div>
       </div>
+      <CourseOnboardingWalkthrough />
     </AppLayout>
+
   );
 };
 
