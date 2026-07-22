@@ -303,7 +303,7 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between">
-                <div className="text-2xl font-bold">{inProgressCount}</div>
+                <div className="text-2xl font-bold" data-testid="metric-in-progress">{inProgressCount}</div>
                 <Clock className="h-5 w-5 text-muted-foreground" />
               </div>
             </CardContent>
