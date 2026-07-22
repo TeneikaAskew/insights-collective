@@ -632,16 +632,19 @@ const AdminDashboard = () => {
   }, [isAuthenticated, user, navigate, location]);
 
   // Load real KPI counts so the header stats aren't hardcoded placeholders.
+  const [userCount, setUserCount] = useState<number | null>(null);
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [enrollRes, certRes] = await Promise.all([
+      const [enrollRes, certRes, profileRes] = await Promise.all([
         supabase.from('enrollments').select('id', { count: 'exact', head: true }),
         supabase.from('certificates').select('id', { count: 'exact', head: true }),
+        supabase.from('profiles').select('id', { count: 'exact', head: true }),
       ]);
       if (cancelled) return;
       setEnrollmentCount(enrollRes.count ?? 0);
       setCertificateCount(certRes.count ?? 0);
+      setUserCount(profileRes.count ?? 0);
     })();
     return () => { cancelled = true; };
   }, []);
@@ -650,7 +653,6 @@ const AdminDashboard = () => {
 
   const { courses } = useCoursesManagement();
   const allCourses = courses;
-  const allUsers = []; // TODO: Replace with real users data when available
 
   // Function to handle notifications for various actions
   const handleAction = (action: string, itemType: string) => {
@@ -677,7 +679,7 @@ const AdminDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between">
-                <div className="text-2xl font-bold">{allUsers.length}</div>
+                <div className="text-2xl font-bold tabular-nums">{userCount ?? '—'}</div>
                 <Users className="h-5 w-5 text-muted-foreground" />
               </div>
             </CardContent>
@@ -849,38 +851,12 @@ const AdminDashboard = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {allUsers.length > 0 && allCourses.length > 0 && (
-                  <>
-                    <ActivityItem 
-                      user={allUsers[0]} 
-                      activity={`enrolled in ${allCourses[0]?.title || 'Course'}`}
-                      time="2 hours ago"
-                    />
-                    
-                    {allUsers.length > 1 && (
-                      <ActivityItem 
-                        user={allUsers[1]}
-                        activity={`created a new course ${allCourses.length > 2 ? allCourses[2]?.title : allCourses[0]?.title || 'Course'}`}
-                        time="5 hours ago"
-                      />
-                    )}
-                    
-                    {allUsers.length > 0 && allCourses.length > 1 && (
-                      <ActivityItem 
-                        user={allUsers[0]}
-                        activity={`completed a module in ${allCourses[1]?.title || 'Course'}`}
-                        time="Yesterday"
-                      />
-                    )}
-                    
-                    <ActivityItem 
-                      user={{name: "Admin User", avatar: null}}
-                      activity={`issued a certificate to ${allUsers[0]?.name || 'User'}`}
-                      time="2 days ago"
-                    />
-                  </>
-                )}
+              <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+                Live activity is available on the{' '}
+                <Link to="/admin/activity" className="text-primary underline underline-offset-4">
+                  full activity log
+                </Link>
+                . This card intentionally does not show a fabricated feed.
               </div>
             </CardContent>
           </Card>
