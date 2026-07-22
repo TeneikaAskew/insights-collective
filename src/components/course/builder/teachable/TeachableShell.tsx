@@ -113,7 +113,10 @@ export function TeachableShell({
       }}
     >
       {/* Desktop left rail */}
-      <aside className="hidden lg:flex w-64 flex-shrink-0 flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
+      <aside
+        data-onboarding="builder-nav"
+        className="hidden lg:flex w-64 flex-shrink-0 flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border"
+      >
         {sidebarBody}
       </aside>
 
