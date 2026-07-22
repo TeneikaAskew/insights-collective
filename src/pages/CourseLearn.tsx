@@ -552,6 +552,28 @@ const CourseLearn = () => {
         </div>
       </div>
 
+      {/* Slim progress strip: lesson counter + course completion */}
+      <div className="flex items-center gap-3 px-3 sm:px-6 py-2 flex-shrink-0 bg-card border-b border-border text-[11px] text-muted-foreground">
+        <span className="font-semibold tabular-nums text-foreground">
+          Lesson {lessonNumber} of {totalLessons}
+        </span>
+        <span className="hidden sm:inline">·</span>
+        <span className="hidden sm:inline truncate">{selected.module.title || 'Section'}</span>
+        <div className="ml-auto flex items-center gap-2 min-w-[140px]">
+          <div className="h-1 flex-1 rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full bg-primary transition-all"
+              style={{ width: `${Math.min(100, Math.max(0, percent))}%` }}
+            />
+          </div>
+          <span className="tabular-nums font-semibold text-foreground">
+            {Math.round(percent)}%
+          </span>
+        </div>
+      </div>
+
+
+
 
       <div className="flex-1 flex min-h-0">
         {/* Mobile curriculum drawer */}
