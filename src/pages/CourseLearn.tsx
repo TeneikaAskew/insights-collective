@@ -37,6 +37,7 @@ import type { ContentItem } from '@/types/canvas';
 import { createLogger } from '@/utils/logger';
 import { cn } from '@/lib/utils';
 import { Hint } from '@/components/ui/hint';
+import { StudentLearnTour } from '@/components/onboarding/StudentLearnTour';
 
 const logger = createLogger('CourseLearn');
 
@@ -550,6 +551,7 @@ const CourseLearn = () => {
           </Hint>
           <Hint label={isSelectedComplete ? 'Move to the next lesson' : 'Mark this lesson done and continue'}>
             <button
+              data-onboarding="learn-continue"
               type="button"
               onClick={handleContinue}
               className="inline-flex items-center gap-1.5 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90"
@@ -563,7 +565,7 @@ const CourseLearn = () => {
       </div>
 
       {/* Slim progress strip: lesson counter + course completion */}
-      <div className="flex items-center gap-3 px-3 sm:px-6 py-2 flex-shrink-0 bg-card border-b border-border text-[11px] text-muted-foreground">
+      <div data-onboarding="learn-progress" className="flex items-center gap-3 px-3 sm:px-6 py-2 flex-shrink-0 bg-card border-b border-border text-[11px] text-muted-foreground">
         <span className="font-semibold tabular-nums text-foreground">
           Lesson {lessonNumber} of {totalLessons}
         </span>
@@ -622,7 +624,7 @@ const CourseLearn = () => {
         )}
 
         {/* Desktop left curriculum rail */}
-        <aside className="hidden lg:block w-72 flex-shrink-0 overflow-y-auto bg-muted/40 border-r border-border">
+        <aside data-onboarding="learn-rail" className="hidden lg:block w-72 flex-shrink-0 overflow-y-auto bg-muted/40 border-r border-border">
           <RailNav
             modules={modules}
             selectedId={selected?.item.id}
@@ -664,6 +666,7 @@ const CourseLearn = () => {
           </div>
         </main>
       </div>
+      <StudentLearnTour active={!canEdit || previewAsStudent} />
     </div>
   );
 };

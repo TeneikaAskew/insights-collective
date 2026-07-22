@@ -113,7 +113,10 @@ export function TeachableShell({
       }}
     >
       {/* Desktop left rail */}
-      <aside className="hidden lg:flex w-64 flex-shrink-0 flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
+      <aside
+        data-onboarding="builder-nav"
+        className="hidden lg:flex w-64 flex-shrink-0 flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border"
+      >
         {sidebarBody}
       </aside>
 
@@ -167,6 +170,7 @@ export function TeachableShell({
             {previewHref && (
               <Hint label="See what students see for this course">
                 <Link
+                  data-onboarding="builder-preview"
                   to={previewHref}
                   className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-xs md:text-sm font-semibold border hover:bg-gray-50 transition-colors"
                   style={{ borderColor: 'hsl(var(--tw-border))' }}
@@ -178,6 +182,7 @@ export function TeachableShell({
             )}
             <Hint label={published ? 'Hide this course from students' : 'Make this course visible to students'}>
               <button
+                data-onboarding="builder-publish"
                 type="button"
                 onClick={() => onTogglePublish(!published)}
                 className="inline-flex items-center gap-2 px-3 md:px-4 py-2 rounded-md text-xs md:text-sm font-bold transition-transform hover:scale-[1.02] whitespace-nowrap"
