@@ -454,7 +454,7 @@ const CertificationSystem: React.FC<CertificationSystemProps> = ({
                         {getCertificateIcon(certificate.certificate_type)}
                         <div>
                           <h4 className="font-semibold">
-                            {certificate.certificate_data.course_title}
+                            {certificate.certificate_data.course_title || course?.title || 'Course Certificate'}
                           </h4>
                           <Badge variant="secondary">
                             {certificate.certificate_type.charAt(0).toUpperCase() + 
