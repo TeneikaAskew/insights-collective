@@ -150,13 +150,13 @@ const CourseGradebook = () => {
     await bulkUpdateGradesMutation.mutateAsync(grades);
   };
 
-  if (!canEdit || !isInstructor) {
+  if (!canEdit) {
     return (
       <CourseLayout>
         <Alert>
           <Shield className="h-4 w-4" />
           <AlertDescription>
-            You don't have permission to view the gradebook. Only instructors can access this page.
+            You don't have permission to view the gradebook. Only instructors and admins can access this page.
           </AlertDescription>
         </Alert>
       </CourseLayout>
