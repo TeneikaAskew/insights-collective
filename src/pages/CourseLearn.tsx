@@ -623,7 +623,7 @@ const CourseLearn = () => {
         )}
 
         {/* Desktop left curriculum rail */}
-        <aside className="hidden lg:block w-72 flex-shrink-0 overflow-y-auto bg-muted/40 border-r border-border">
+        <aside data-onboarding="learn-rail" className="hidden lg:block w-72 flex-shrink-0 overflow-y-auto bg-muted/40 border-r border-border">
           <RailNav
             modules={modules}
             selectedId={selected?.item.id}
