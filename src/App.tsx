@@ -127,6 +127,7 @@ import { SecurityHeaders } from '@/components/security/SecurityHeaders';
 import { useSecureSession } from '@/hooks/useSecureSession';
 import { usePortfolioPages } from '@/hooks/usePortfolioPages';
 import { GoogleAnalytics, SEOMetaTags } from '@/components/common/GoogleAnalytics';
+import CourseFeedbackButton from '@/components/course/CourseFeedbackButton';
 
 import '@/App.css';
 
@@ -403,6 +404,7 @@ function App() {
                 </Suspense>
                 <Toaster />
                 <WelcomeModal />
+                <CourseFeedbackButton />
                 <GoogleAnalytics />
                 <SEOMetaTags />
               </div>
