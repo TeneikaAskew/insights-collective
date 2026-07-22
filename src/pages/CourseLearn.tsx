@@ -1,7 +1,7 @@
 // ABOUTME: Teachable-style student course player.
 // ABOUTME: Dark admin top bar + dark left curriculum rail + centered lesson content + pill Prev/Next controls.
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -12,9 +12,15 @@ import {
   ChevronRight,
   ChevronUp,
   Circle,
+  ClipboardCheck,
+  ExternalLink,
   FileText,
+  HelpCircle,
   Home,
+  Link2,
   Menu,
+  MessageSquare,
+  Play,
   RotateCcw,
   Settings,
   X,
