@@ -419,17 +419,19 @@ function CanvasGradingInterface() {
                         <span className="text-xs text-muted-foreground self-center mr-1">Quick:</span>
                         {[0, 0.5, 0.7, 0.85, 1].map((f) => {
                           const v = Math.round(pointsPossible * f * 100) / 100;
+                          const label = f === 0 ? '0' : f === 1 ? 'Full' : `${Math.round(f * 100)}%`;
                           return (
-                            <Button
-                              key={f}
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setGrade(String(v))}
-                              className="h-8"
-                            >
-                              {f === 0 ? '0' : f === 1 ? 'Full' : `${Math.round(f * 100)}%`}
-                            </Button>
+                            <Hint key={f} label={`Fill score with ${v} / ${pointsPossible} points`}>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setGrade(String(v))}
+                                className="h-8"
+                              >
+                                {label}
+                              </Button>
+                            </Hint>
                           );
                         })}
                       </div>
