@@ -400,20 +400,43 @@ const CourseLearn = () => {
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-14">
             <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-6 lg:gap-10">
               <div>
+                <div className="text-[11px] font-bold tracking-widest uppercase text-muted-foreground mb-2">
+                  {completed.size > 0 ? 'Pick up where you left off' : 'Start your journey'}
+                </div>
                 <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl mb-3">{course.title}</h1>
-                <p className="text-sm text-gray-600 mb-8">
-                  {flatItems.length} lessons · Continue where you left off
+                <p className="text-sm text-muted-foreground mb-6">
+                  {flatItems.length} lessons · {Math.round(percent)}% complete
                 </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const first = flatItems[0];
-                    if (first) goTo(first.module.id, first.item.id);
-                  }}
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-md font-bold text-sm bg-primary text-primary-foreground hover:bg-primary/90"
-                >
-                  Start Lesson
-                </button>
+                {resumeItem && (
+                  <div className="mb-8">
+                    <div className="text-xs text-muted-foreground mb-2">
+                      {completed.size > 0 ? 'Up next' : 'First lesson'} · {resumeItem.module.title}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => goTo(resumeItem.module.id, resumeItem.item.id)}
+                        className="inline-flex items-center gap-2 px-6 py-3 rounded-full font-bold text-sm bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
+                      >
+                        <Play className="w-4 h-4" />
+                        {completed.size > 0 ? 'Resume' : 'Start course'}: {resumeItem.item.title || 'Lesson 1'}
+                      </button>
+                      {completed.size > 0 && flatItems[0] && flatItems[0].item.id !== resumeItem.item.id && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const first = flatItems[0];
+                            if (first) goTo(first.module.id, first.item.id);
+                          }}
+                          className="inline-flex items-center gap-2 px-5 py-3 rounded-full font-semibold text-sm text-muted-foreground hover:text-foreground hover:bg-muted"
+                        >
+                          <RotateCcw className="w-4 h-4" />
+                          Start from beginning
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 <div className="mt-10 space-y-4">
                   {modules.map((m) => (
