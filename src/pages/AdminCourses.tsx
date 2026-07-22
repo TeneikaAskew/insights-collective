@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Search, Edit, Trash2, Plus, FilterX, Download, Filter, Users, Award, Eye, PlusCircle, BarChart3 } from 'lucide-react';
+import { Hint } from '@/components/ui/hint';
 import { CourseProgressDashboard } from '@/components/admin/CourseProgressDashboard';
 import {
   DropdownMenu,
