@@ -45,12 +45,12 @@ const CHECKS: Check[] = [
     min: 1,
     hint: 'Seed at least one module under the enrolled course.',
   },
-  {
-    name: 'enrolled course has lessons',
-    path: `lessons?module_id=in.(__MODULES__)&select=id`,
-    min: 1,
-    hint: 'Seed at least one lesson under a module of the enrolled course.',
-  },
+  // NOTE: We intentionally do NOT check lessons/assignments/quizzes/
+  // course_material_files/certificates/notifications here — those tables are
+  // protected by RLS and always return 0 rows to the anon key even when
+  // properly seeded. Each of those categories is guarded by an
+  // `expect(count).toBeGreaterThan(0, 'Seed gap: ...')` assertion inside its
+  // owning journey spec, which fails loudly with a specific reseed hint.
 ];
 
 async function head(path: string): Promise<number> {
