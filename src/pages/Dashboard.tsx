@@ -8,7 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { BookOpen, Bell, Calendar, ArrowRight, Clock } from 'lucide-react';
+import { BookOpen, Bell, Calendar, ArrowRight, Clock, LineChart } from 'lucide-react';
+import StudentProgressAnalytics from '@/components/dashboard/StudentProgressAnalytics';
 import { useCoursesManagement } from '@/hooks/useCoursesManagement';
 import { useToast } from '@/hooks/use-toast';
 import { Course } from '@/types';
@@ -318,12 +319,28 @@ const Dashboard = () => {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList>
             <TabsTrigger value="courses">My Courses</TabsTrigger>
+            <TabsTrigger value="progress">
+              <LineChart className="h-4 w-4 mr-1.5" />
+              Progress
+            </TabsTrigger>
             {teachingCourses.length > 0 && (
               <TabsTrigger value="teaching">Teaching</TabsTrigger>
             )}
             <TabsTrigger value="deadlines">Upcoming Deadlines</TabsTrigger>
             <TabsTrigger value="notifications">Notifications</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="progress" className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold">Progress analytics</h2>
+                <p className="text-sm text-muted-foreground">
+                  Weekly completion, assignment status, and your next action for every course.
+                </p>
+              </div>
+            </div>
+            <StudentProgressAnalytics />
+          </TabsContent>
           
           <TabsContent value="courses" className="space-y-6">
             <div className="flex items-center justify-between">
