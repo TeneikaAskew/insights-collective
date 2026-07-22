@@ -37,6 +37,7 @@ import type { ContentItem } from '@/types/canvas';
 import { createLogger } from '@/utils/logger';
 import { cn } from '@/lib/utils';
 import { Hint } from '@/components/ui/hint';
+import { StudentLearnTour } from '@/components/onboarding/StudentLearnTour';
 
 const logger = createLogger('CourseLearn');
 
