@@ -119,11 +119,11 @@ test.describe('Messaging + notifications — real signed-in RPC gating', () => {
   });
 
   test('announcement insert fans out real notification rows visible to the enrolled recipient', async () => {
-    const memberEmail = process.env.E2E_MEMBER_EMAIL;
-    const memberPassword = process.env.E2E_MEMBER_PASSWORD;
+    const memberEmail = process.env.E2E_MEMBER_EMAIL ?? 'e2e-member@insightscollective.org';
+    const memberPassword = process.env.E2E_MEMBER_PASSWORD ?? process.env.E2E_TEST_PASSWORD;
     test.skip(
       !memberEmail || !memberPassword,
-      'E2E_MEMBER_EMAIL / E2E_MEMBER_PASSWORD not set — cannot verify cross-user notification RLS visibility',
+      'E2E_MEMBER_EMAIL / E2E_MEMBER_PASSWORD (or E2E_TEST_PASSWORD) not set',
     );
     // The student must also be enrolled in COURSE_ID for the fan-out row to belong to them.
 
