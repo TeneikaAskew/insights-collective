@@ -100,25 +100,34 @@ const Dashboard = () => {
           
           if (coursesError) throw coursesError;
           
+          // Real enrollment counts per course — no fake rating/enrollment placeholders.
+          const { data: enrollRows } = await supabase
+            .from('enrollments')
+            .select('course_id')
+            .in('course_id', courseIds);
+          const enrollCounts = new Map<string, number>();
+          (enrollRows || []).forEach((r: any) => {
+            enrollCounts.set(r.course_id, (enrollCounts.get(r.course_id) || 0) + 1);
+          });
+
           const formattedCourses: Course[] = courses.map(course => ({
             ...course,
             instructor: {
               id: course.instructor?.id || '',
-              name: course.instructor 
+              name: course.instructor
                 ? `${course.instructor?.first_name || ''} ${course.instructor?.last_name || ''}`.trim()
                 : 'Instructor',
               email: '',
               role: 'instructor',
               avatar: course.instructor?.avatar_url || '',
             },
-            enrollmentCount: 0,
+            enrollmentCount: enrollCounts.get(course.id) ?? 0,
             modules: [],
-            rating: 4.5,
             createdAt: course.created_at,
             updatedAt: course.updated_at,
             thumbnail: course.image_url || course.thumbnail || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97',
           }));
-          
+
           setEnrolledCourses(formattedCourses);
         }
         
@@ -168,25 +177,33 @@ const Dashboard = () => {
           
           if (coursesError) throw coursesError;
           
+          const { data: enrollRows } = await supabase
+            .from('enrollments')
+            .select('course_id')
+            .in('course_id', courseIds);
+          const enrollCounts = new Map<string, number>();
+          (enrollRows || []).forEach((r: any) => {
+            enrollCounts.set(r.course_id, (enrollCounts.get(r.course_id) || 0) + 1);
+          });
+
           const formattedCourses: Course[] = courses.map(course => ({
             ...course,
             instructor: {
               id: course.instructor?.id || '',
-              name: course.instructor 
+              name: course.instructor
                 ? `${course.instructor?.first_name || ''} ${course.instructor?.last_name || ''}`.trim()
                 : 'Instructor',
               email: '',
               role: 'instructor',
               avatar: course.instructor?.avatar_url || '',
             },
-            enrollmentCount: 0,
+            enrollmentCount: enrollCounts.get(course.id) ?? 0,
             modules: [],
-            rating: 4.5,
             createdAt: course.created_at,
             updatedAt: course.updated_at,
             thumbnail: course.image_url || course.thumbnail || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97',
           }));
-          
+
           setTeachingCourses(formattedCourses);
         }
       } catch (error: any) {

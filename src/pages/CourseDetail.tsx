@@ -299,6 +299,12 @@ const CourseDetail = () => {
           };
         });
 
+        // Real enrollment count for this course (was previously hardcoded to 0).
+        const { count: realEnrollCount } = await supabase
+          .from('enrollments')
+          .select('id', { count: 'exact', head: true })
+          .eq('course_id', courseData.id);
+
         const formattedCourse = {
           ...courseData,
           instructor: {
@@ -308,9 +314,8 @@ const CourseDetail = () => {
             role: 'instructor',
             avatar: courseData.instructor?.avatar_url || '',
           },
-          enrollmentCount: 0,
+          enrollmentCount: realEnrollCount ?? 0,
           modules: processedModules,
-          rating: 4.5,
           createdAt: courseData.created_at,
           updatedAt: courseData.updated_at,
           thumbnail: courseData.image_url || courseData.thumbnail || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97',
@@ -1066,7 +1071,7 @@ const CourseDetail = () => {
                     <BookOpen className="h-4 w-4" /> {modules.length} modules
                   </span>
                   <span className="inline-flex items-center gap-2">
-                    <Star className="h-4 w-4 text-yellow-500" /> {course.rating.toFixed(1)}
+                    <Users className="h-4 w-4" /> {course.enrollmentCount ?? 0} enrolled
                   </span>
                 </div>
 

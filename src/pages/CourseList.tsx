@@ -39,7 +39,20 @@ const CourseList = () => {
           .eq('status', 'published')
           .order('created_at', { ascending: false });
         if (error) throw error;
-        const formatted = (data || []).map((c: any) => ({
+        const rows = data || [];
+        const courseIds = rows.map((c: any) => c.id);
+        // Real per-course enrollment counts (avoids hardcoded 0-enrolled everywhere).
+        const enrollCounts = new Map<string, number>();
+        if (courseIds.length > 0) {
+          const { data: enrollRows } = await supabase
+            .from('enrollments')
+            .select('course_id')
+            .in('course_id', courseIds);
+          (enrollRows || []).forEach((r: any) => {
+            enrollCounts.set(r.course_id, (enrollCounts.get(r.course_id) || 0) + 1);
+          });
+        }
+        const formatted = rows.map((c: any) => ({
           ...c,
           instructor: {
             id: c.instructor?.id || '',
@@ -50,9 +63,8 @@ const CourseList = () => {
             role: 'instructor',
             avatar: c.instructor?.avatar_url || '',
           },
-          enrollmentCount: 0,
+          enrollmentCount: enrollCounts.get(c.id) ?? 0,
           modules: [],
-          rating: 4.5,
           createdAt: c.created_at,
           updatedAt: c.updated_at,
           thumbnail:
