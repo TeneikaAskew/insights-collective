@@ -358,7 +358,8 @@ function SectionCard({
               </button>
             </div>
           )}
-        </button>
+          </button>
+        </Hint>
       </div>
 
       {/* Section summary (shown to students on the course page) */}
