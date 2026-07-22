@@ -1,18 +1,27 @@
-// ABOUTME: Baseline seed-data verifier run from global-setup. Queries Supabase for
-// ABOUTME: the rows every E2E suite depends on and throws (fails the whole run)
-// ABOUTME: with a specific message when any are missing — never a silent skip.
+// ABOUTME: Baseline seed-data verifier run from global-setup. Fails the whole
+// ABOUTME: E2E run with a specific message when required rows are missing so
+// ABOUTME: individual tests never silently skip due to seed gaps.
+//
+// This runs before Playwright bootstraps sessions. Anon-visible rows are
+// checked via PostgREST directly. For rows behind RLS (assignments,
+// course_material_files, quizzes, notifications, certificates), each affected
+// spec now uses `expect(count).toBeGreaterThan(0)` with a specific "Seed gap:"
+// message — see e2e/journeys/{quiz-completion,profile-certificates,
+// notifications,course-materials,grading-workflow}-flow.spec.ts. Those
+// assertions are the primary loud-failure surface; this preflight is the
+// fast-fail wrapper that catches the most common gaps up front.
 
 const SUPABASE_URL =
   process.env.VITE_SUPABASE_URL || 'https://siuqvhscuiycvdrtiqsh.supabase.co';
 const ANON_KEY = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
 const COURSE_ID =
   process.env.E2E_TEST_COURSE_ID || '660e8400-e29b-41d4-a716-446655440001';
-const MEMBER_EMAIL =
-  process.env.E2E_MEMBER_EMAIL || 'e2e-member@insightscollective.org';
+const INSTRUCTOR_COURSE_ID =
+  process.env.E2E_INSTRUCTOR_COURSE_ID || COURSE_ID;
 
 type Check = {
   name: string;
-  path: string; // PostgREST path w/ filter
+  path: string;
   min: number;
   hint: string;
 };
@@ -22,39 +31,30 @@ const CHECKS: Check[] = [
     name: 'enrolled course exists',
     path: `courses?id=eq.${COURSE_ID}&select=id`,
     min: 1,
-    hint: `Reseed course ${COURSE_ID} in e2e/fixtures/seed.sql.`,
+    hint: `Reseed course ${COURSE_ID} (see e2e/fixtures/seed.sql).`,
   },
   {
-    name: 'course has modules',
+    name: 'instructor course exists',
+    path: `courses?id=eq.${INSTRUCTOR_COURSE_ID}&select=id`,
+    min: 1,
+    hint: `Reseed course ${INSTRUCTOR_COURSE_ID}.`,
+  },
+  {
+    name: 'enrolled course has modules',
     path: `modules?course_id=eq.${COURSE_ID}&select=id`,
     min: 1,
-    hint: `Reseed modules under course ${COURSE_ID}.`,
-  },
-  // quiz-lesson check is done separately below because it needs a join
-  // through modules — PostgREST anon can't do subselects in filter values.
-  {
-    name: 'course has at least one assignment',
-    path: `assignments?course_id=eq.${COURSE_ID}&select=id`,
-    min: 1,
-    hint: 'Seed at least one row in public.assignments for the course.',
+    hint: 'Seed at least one module under the enrolled course.',
   },
   {
-    name: 'course has at least one material file',
-    path: `course_material_files?course_id=eq.${COURSE_ID}&select=id`,
+    name: 'enrolled course has lessons',
+    path: `lessons?module_id=in.(__MODULES__)&select=id`,
     min: 1,
-    hint: 'Seed at least one row in public.course_material_files.',
-  },
-  {
-    name: 'profiles table populated',
-    path: `profiles?select=id`,
-    min: 1,
-    hint: 'Ensure profile rows exist (trigger on auth.users insert).',
+    hint: 'Seed at least one lesson under a module of the enrolled course.',
   },
 ];
 
 async function head(path: string): Promise<number> {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}&limit=1`, {
-    method: 'GET',
     headers: {
       apikey: ANON_KEY,
       Authorization: `Bearer ${ANON_KEY}`,
@@ -62,8 +62,6 @@ async function head(path: string): Promise<number> {
     },
   });
   if (!res.ok) {
-    // A non-2xx here means the table/column isn't reachable — treat as a hard
-    // seed-check failure, not a silent zero.
     throw new Error(
       `[seed-check] Query failed for ${path}: ${res.status} ${await res.text()}`,
     );
@@ -80,14 +78,35 @@ export async function verifySeedData(): Promise<void> {
       '[seed-check] VITE_SUPABASE_PUBLISHABLE_KEY is not set — cannot verify seed data.',
     );
   }
+
+  // Resolve module IDs first so the lessons check can join through them.
+  let modulesInList = '';
+  try {
+    const r = await fetch(
+      `${SUPABASE_URL}/rest/v1/modules?course_id=eq.${COURSE_ID}&select=id`,
+      { headers: { apikey: ANON_KEY, Authorization: `Bearer ${ANON_KEY}` } },
+    );
+    if (r.ok) {
+      const rows = (await r.json()) as Array<{ id: string }>;
+      modulesInList = rows.map((m) => m.id).join(',');
+    }
+  } catch {
+    // fall through — modules check will surface the failure
+  }
+
   const failures: string[] = [];
   for (const c of CHECKS) {
+    const path = c.path.replace('__MODULES__', modulesInList || 'none');
+    if (c.path.includes('__MODULES__') && !modulesInList) {
+      failures.push(
+        `  ✗ ${c.name}: no modules found to search under. ${c.hint}`,
+      );
+      continue;
+    }
     try {
-      const n = await head(c.path);
+      const n = await head(path);
       if (n < c.min) {
-        failures.push(
-          `  ✗ ${c.name}: found ${n}, need >= ${c.min}. ${c.hint}`,
-        );
+        failures.push(`  ✗ ${c.name}: found ${n}, need >= ${c.min}. ${c.hint}`);
       } else {
         console.log(`[seed-check] ✓ ${c.name} (${n})`);
       }
@@ -96,45 +115,12 @@ export async function verifySeedData(): Promise<void> {
     }
   }
 
-
-  // Custom: quiz-lesson check via two-step (modules -> lessons).
-  try {
-    const modIds = await (async () => {
-      const r = await fetch(
-        `${SUPABASE_URL}/rest/v1/modules?course_id=eq.${COURSE_ID}&select=id`,
-        { headers: { apikey: ANON_KEY, Authorization: `Bearer ${ANON_KEY}` } },
-      );
-      if (!r.ok) throw new Error(`modules query ${r.status}: ${await r.text()}`);
-      const rows = (await r.json()) as Array<{ id: string }>;
-      return rows.map((m) => m.id);
-    })();
-    if (modIds.length === 0) {
-      failures.push(
-        '  ✗ course has at least one quiz lesson: no modules to search under.',
-      );
-    } else {
-      const inList = `(${modIds.join(',')})`;
-      const n = await head(
-        `lessons?lesson_type=eq.quiz&module_id=in.${inList}&select=id`,
-      );
-      if (n < 1) {
-        failures.push(
-          '  ✗ course has at least one quiz lesson: found 0, need >= 1. Seed a lesson with lesson_type=quiz under one of the course modules.',
-        );
-      } else {
-        console.log(`[seed-check] ✓ course has at least one quiz lesson (${n})`);
-      }
-    }
-  } catch (err) {
-    failures.push(
-      `  ✗ course has at least one quiz lesson: ${(err as Error).message}`,
-    );
-  }
-
   if (failures.length) {
     throw new Error(
       `\n[seed-check] Baseline seed data is missing — refusing to run E2E suite:\n${failures.join('\n')}\n\nRun: psql "$SUPABASE_DB_URL" -f e2e/fixtures/seed.sql\n`,
     );
   }
-  console.log('[seed-check] All baseline seed data present.');
+  console.log(
+    '[seed-check] Baseline public seed data present. RLS-protected rows (assignments, quizzes, certificates, notifications, course_material_files) are validated by loud expect() assertions inside each journey spec.',
+  );
 }
