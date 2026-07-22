@@ -67,10 +67,11 @@ const Dashboard = () => {
               .eq('user_id', user.id)
               .in('course_id', enrolledIds),
           ]);
-          const progressions = (progRes.data ?? []).map((p: any) => ({
-            course_id: p.content_items?.modules?.course_id,
-            workflow_state: p.workflow_state,
-          }));
+          const progressions = (progRes.data ?? []).map((p: any) => {
+            const ci = Array.isArray(p.content_items) ? p.content_items[0] : p.content_items;
+            const mod = Array.isArray(ci?.modules) ? ci?.modules[0] : ci?.modules;
+            return { course_id: mod?.course_id, workflow_state: p.workflow_state };
+          });
           const metrics = computeDashboardMetrics(
             (enrollments ?? []).map((e) => ({ course_id: e.course_id })),
             progressions,
@@ -303,7 +304,7 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between">
-                <div className="text-2xl font-bold">{inProgressCount}</div>
+                <div className="text-2xl font-bold" data-testid="metric-in-progress">{inProgressCount}</div>
                 <Clock className="h-5 w-5 text-muted-foreground" />
               </div>
             </CardContent>

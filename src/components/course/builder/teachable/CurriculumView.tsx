@@ -29,6 +29,7 @@ import {
   Upload,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Hint } from '@/components/ui/hint';
 import { sanitizeHTML } from '@/utils/sanitize';
 import type { ContentItem } from '@/types/canvas';
 import type { BuilderModule } from './types';
@@ -272,15 +273,17 @@ function SectionCard({
         className="flex items-center gap-3 px-5 py-4 rounded-t-xl"
         style={{ background: '#FAFAFA', borderBottom: '1px solid hsl(var(--tw-border))' }}
       >
-        <button
-          type="button"
-          className="cursor-grab text-gray-400 hover:text-gray-700"
-          {...attributes}
-          {...listeners}
-          aria-label="Reorder section"
-        >
-          <GripVertical className="h-5 w-5" />
-        </button>
+        <Hint label="Drag to reorder sections">
+          <button
+            type="button"
+            className="cursor-grab text-gray-400 hover:text-gray-700"
+            {...attributes}
+            {...listeners}
+            aria-label="Reorder section"
+          >
+            <GripVertical className="h-5 w-5" />
+          </button>
+        </Hint>
         {editing ? (
           <input
             autoFocus
@@ -305,24 +308,27 @@ function SectionCard({
             {module.title || 'Untitled section'}
           </h3>
         )}
-        <span
-          className="text-[10px] uppercase tracking-widest font-bold px-2 py-1 rounded"
-          style={{ background: '#EDEDED', color: '#333' }}
-        >
-          Drip
-        </span>
-        <button
-          type="button"
-          onClick={() => setMenuOpen((v) => !v)}
-          className="relative p-1.5 rounded hover:bg-gray-200 text-gray-600"
-          aria-label="Section actions"
-        >
-          <div className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 border rounded"
-            style={{ borderColor: 'hsl(var(--tw-border))' }}
+        <Hint label="Content is released on a schedule instead of all at once">
+          <span
+            className="text-[10px] uppercase tracking-widest font-bold px-2 py-1 rounded cursor-help"
+            style={{ background: '#EDEDED', color: '#333' }}
           >
-            Quick actions
-            <ChevronDown className="h-3 w-3" />
-          </div>
+            Drip
+          </span>
+        </Hint>
+        <Hint label="Rename or delete this section">
+          <button
+            type="button"
+            onClick={() => setMenuOpen((v) => !v)}
+            className="relative p-1.5 rounded hover:bg-gray-200 text-gray-600"
+            aria-label="Section actions"
+          >
+            <div className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 border rounded"
+              style={{ borderColor: 'hsl(var(--tw-border))' }}
+            >
+              Quick actions
+              <ChevronDown className="h-3 w-3" />
+            </div>
           {menuOpen && (
             <div
               className="absolute right-0 top-full mt-1 min-w-[180px] rounded-md bg-white shadow-lg z-10 py-1 text-left"
@@ -352,7 +358,8 @@ function SectionCard({
               </button>
             </div>
           )}
-        </button>
+          </button>
+        </Hint>
       </div>
 
       {/* Section summary (shown to students on the course page) */}
@@ -530,28 +537,32 @@ function LessonRow({ item, onRename, onDelete, onTogglePublish, onSelect }: Less
         <div className="text-[11px] text-gray-500 mt-0.5">1 {contentLabel(item.type)}</div>
       </div>
 
-      <button
-        type="button"
-        onClick={() => onTogglePublish(item.id, !item.published)}
-        className={cn(
-          'text-xs font-bold px-3 py-1.5 rounded border transition-colors',
-          item.published
-            ? 'bg-primary text-primary-foreground border-primary hover:bg-primary/90'
-            : 'bg-white text-gray-800 border-gray-300 hover:bg-gray-50',
-        )}
-      >
-        {item.published ? 'Unpublish' : 'Publish'}
-      </button>
-
-      <div className="relative">
+      <Hint label={item.published ? 'Hide this lesson from students' : 'Make this lesson visible to students'}>
         <button
           type="button"
-          onClick={() => setMenuOpen((v) => !v)}
-          className="p-1.5 rounded hover:bg-gray-100 text-gray-500"
-          aria-label="Lesson actions"
+          onClick={() => onTogglePublish(item.id, !item.published)}
+          className={cn(
+            'text-xs font-bold px-3 py-1.5 rounded border transition-colors',
+            item.published
+              ? 'bg-primary text-primary-foreground border-primary hover:bg-primary/90'
+              : 'bg-white text-gray-800 border-gray-300 hover:bg-gray-50',
+          )}
         >
-          <MoreHorizontal className="h-4 w-4" />
+          {item.published ? 'Unpublish' : 'Publish'}
         </button>
+      </Hint>
+
+      <div className="relative">
+        <Hint label="Rename or delete this lesson">
+          <button
+            type="button"
+            onClick={() => setMenuOpen((v) => !v)}
+            className="p-1.5 rounded hover:bg-gray-100 text-gray-500"
+            aria-label="Lesson actions"
+          >
+            <MoreHorizontal className="h-4 w-4" />
+          </button>
+        </Hint>
         {menuOpen && (
           <div
             className="absolute right-0 top-full mt-1 min-w-[160px] rounded-md bg-white shadow-lg z-10 py-1 text-left"

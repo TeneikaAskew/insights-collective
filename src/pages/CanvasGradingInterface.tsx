@@ -30,6 +30,7 @@ import {
 import { format } from 'date-fns';
 import type { ContentItem, AssignmentSubmission } from '@/types/canvas';
 import { createLogger } from '@/utils/logger';
+import { Hint } from '@/components/ui/hint';
 
 const logger = createLogger('gradingSubmissions');
 
@@ -373,15 +374,19 @@ function CanvasGradingInterface() {
                       </CardDescription>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button variant="outline" size="icon" onClick={() => goTo(-1)} disabled={currentIndex <= 0} aria-label="Previous submission">
-                        <ChevronLeft className="h-4 w-4" />
-                      </Button>
+                      <Hint label="Previous submission (K)">
+                        <Button variant="outline" size="icon" onClick={() => goTo(-1)} disabled={currentIndex <= 0} aria-label="Previous submission">
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                      </Hint>
                       <span className="text-sm text-muted-foreground tabular-nums min-w-[70px] text-center">
                         {currentIndex === -1 ? '—' : currentIndex + 1} of {filtered.length}
                       </span>
-                      <Button variant="outline" size="icon" onClick={() => goTo(1)} disabled={currentIndex === filtered.length - 1} aria-label="Next submission">
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
+                      <Hint label="Next submission (J)">
+                        <Button variant="outline" size="icon" onClick={() => goTo(1)} disabled={currentIndex === filtered.length - 1} aria-label="Next submission">
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </Hint>
                     </div>
                   </div>
                 </CardHeader>
@@ -414,17 +419,19 @@ function CanvasGradingInterface() {
                         <span className="text-xs text-muted-foreground self-center mr-1">Quick:</span>
                         {[0, 0.5, 0.7, 0.85, 1].map((f) => {
                           const v = Math.round(pointsPossible * f * 100) / 100;
+                          const label = f === 0 ? '0' : f === 1 ? 'Full' : `${Math.round(f * 100)}%`;
                           return (
-                            <Button
-                              key={f}
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setGrade(String(v))}
-                              className="h-8"
-                            >
-                              {f === 0 ? '0' : f === 1 ? 'Full' : `${Math.round(f * 100)}%`}
-                            </Button>
+                            <Hint key={f} label={`Fill score with ${v} / ${pointsPossible} points`}>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setGrade(String(v))}
+                                className="h-8"
+                              >
+                                {label}
+                              </Button>
+                            </Hint>
                           );
                         })}
                       </div>

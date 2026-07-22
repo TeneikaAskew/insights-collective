@@ -5,6 +5,7 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { OnboardingProvider } from '@/contexts/OnboardingContext';
 import { PageVisibilityProvider } from '@/contexts/PageVisibilityContext';
 import { Toaster } from '@/components/ui/toaster';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import WelcomeModal from '@/components/onboarding/WelcomeModal';
 import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
@@ -229,6 +230,7 @@ function App() {
         <AuthProvider>
           <PageVisibilityProvider>
             <OnboardingProvider>
+              <TooltipProvider delayDuration={200}>
               <SecurityHeaders />
               <SecurityManager />
               <RouteTracker />
@@ -408,6 +410,7 @@ function App() {
                 <GoogleAnalytics />
                 <SEOMetaTags />
               </div>
+              </TooltipProvider>
             </OnboardingProvider>
           </PageVisibilityProvider>
         </AuthProvider>

@@ -19,6 +19,7 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Hint } from '@/components/ui/hint';
 
 export type BuilderNavKey =
   | 'setup'
@@ -119,21 +120,25 @@ export function TeachableShell({
       {/* Mobile drawer */}
       {drawerOpen && (
         <div className="lg:hidden fixed inset-0 z-40 flex">
-          <button
-            type="button"
-            aria-label="Close menu"
-            className="absolute inset-0 bg-black/50"
-            onClick={() => setDrawerOpen(false)}
-          />
-          <aside className="relative flex flex-col w-72 max-w-[85vw] bg-sidebar text-sidebar-foreground border-r border-sidebar-border shadow-xl">
+          <Hint label="Close navigation menu">
             <button
               type="button"
-              onClick={() => setDrawerOpen(false)}
-              className="absolute top-3 right-3 p-2 rounded-md hover:bg-sidebar-accent text-sidebar-foreground"
               aria-label="Close menu"
-            >
-              <X className="h-4 w-4" />
-            </button>
+              className="absolute inset-0 bg-black/50"
+              onClick={() => setDrawerOpen(false)}
+            />
+          </Hint>
+          <aside className="relative flex flex-col w-72 max-w-[85vw] bg-sidebar text-sidebar-foreground border-r border-sidebar-border shadow-xl">
+            <Hint label="Close navigation menu">
+              <button
+                type="button"
+                onClick={() => setDrawerOpen(false)}
+                className="absolute top-3 right-3 p-2 rounded-md hover:bg-sidebar-accent text-sidebar-foreground"
+                aria-label="Close menu"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </Hint>
             {sidebarBody}
           </aside>
         </div>
@@ -145,40 +150,46 @@ export function TeachableShell({
           className="h-16 px-4 md:px-8 flex items-center gap-3 bg-white flex-shrink-0"
           style={{ borderBottom: '1px solid hsl(var(--tw-border))' }}
         >
-          <button
-            type="button"
-            onClick={() => setDrawerOpen(true)}
-            className="lg:hidden p-2 -ml-2 rounded-md hover:bg-gray-100 text-foreground"
-            aria-label="Open menu"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
+          <Hint label="Open course navigation">
+            <button
+              type="button"
+              onClick={() => setDrawerOpen(true)}
+              className="lg:hidden p-2 -ml-2 rounded-md hover:bg-gray-100 text-foreground"
+              aria-label="Open menu"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+          </Hint>
           <div className="flex-1 min-w-0 lg:hidden">
             <div className="text-sm font-semibold truncate">{courseTitle || 'Untitled course'}</div>
           </div>
           <div className="flex items-center gap-2 md:gap-3 ml-auto">
             {previewHref && (
-              <Link
-                to={previewHref}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-xs md:text-sm font-semibold border hover:bg-gray-50 transition-colors"
-                style={{ borderColor: 'hsl(var(--tw-border))' }}
-              >
-                <Eye className="h-4 w-4" />
-                <span className="hidden sm:inline">Preview</span>
-              </Link>
+              <Hint label="See what students see for this course">
+                <Link
+                  to={previewHref}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-xs md:text-sm font-semibold border hover:bg-gray-50 transition-colors"
+                  style={{ borderColor: 'hsl(var(--tw-border))' }}
+                >
+                  <Eye className="h-4 w-4" />
+                  <span className="hidden sm:inline">Preview</span>
+                </Link>
+              </Hint>
             )}
-            <button
-              type="button"
-              onClick={() => onTogglePublish(!published)}
-              className="inline-flex items-center gap-2 px-3 md:px-4 py-2 rounded-md text-xs md:text-sm font-bold transition-transform hover:scale-[1.02] whitespace-nowrap"
-              style={{
-                background: published ? 'hsl(var(--muted))' : 'hsl(var(--primary))',
-                color: published ? 'hsl(var(--muted-foreground))' : 'hsl(var(--primary-foreground))',
-              }}
-            >
-              {published ? 'Unpublish' : 'Publish'}
-              <span className="hidden md:inline">{published ? ' course' : ' your course'}</span>
-            </button>
+            <Hint label={published ? 'Hide this course from students' : 'Make this course visible to students'}>
+              <button
+                type="button"
+                onClick={() => onTogglePublish(!published)}
+                className="inline-flex items-center gap-2 px-3 md:px-4 py-2 rounded-md text-xs md:text-sm font-bold transition-transform hover:scale-[1.02] whitespace-nowrap"
+                style={{
+                  background: published ? 'hsl(var(--muted))' : 'hsl(var(--primary))',
+                  color: published ? 'hsl(var(--muted-foreground))' : 'hsl(var(--primary-foreground))',
+                }}
+              >
+                {published ? 'Unpublish' : 'Publish'}
+                <span className="hidden md:inline">{published ? ' course' : ' your course'}</span>
+              </button>
+            </Hint>
           </div>
         </header>
 

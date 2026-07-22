@@ -36,6 +36,7 @@ import { LessonViewer } from '@/components/course/learn/LessonViewer';
 import type { ContentItem } from '@/types/canvas';
 import { createLogger } from '@/utils/logger';
 import { cn } from '@/lib/utils';
+import { Hint } from '@/components/ui/hint';
 
 const logger = createLogger('CourseLearn');
 
@@ -504,51 +505,60 @@ const CourseLearn = () => {
       {/* Player top bar with prev/next pills */}
       <div className="flex items-center justify-between gap-2 px-3 sm:px-6 py-3 flex-shrink-0 bg-card border-b border-border flex-wrap">
         <div className="flex items-center gap-2 sm:gap-3">
-          <button
-            type="button"
-            onClick={() => setMobileRailOpen(true)}
-            className="lg:hidden w-9 h-9 rounded-md flex items-center justify-center text-foreground hover:bg-muted"
-            aria-label="Open curriculum"
-          >
-            <Menu className="w-4 h-4" />
-          </button>
-          <Link
-            to={`/courses/${course.id}/learn`}
-            className="w-9 h-9 rounded-md flex items-center justify-center text-foreground hover:bg-muted"
-            aria-label="Course home"
-          >
-            <Home className="w-4 h-4" />
-          </Link>
-          <Link
-            to={`/courses/${course.id}`}
-            className="w-9 h-9 rounded-md flex items-center justify-center text-primary hover:bg-muted"
-            aria-label="Course settings"
-            title="Course settings"
-          >
-            <Settings className="w-4 h-4" />
-          </Link>
+          <Hint label="Show course outline">
+            <button
+              type="button"
+              onClick={() => setMobileRailOpen(true)}
+              className="lg:hidden w-9 h-9 rounded-md flex items-center justify-center text-foreground hover:bg-muted"
+              aria-label="Open curriculum"
+            >
+              <Menu className="w-4 h-4" />
+            </button>
+          </Hint>
+          <Hint label="Back to course home">
+            <Link
+              to={`/courses/${course.id}/learn`}
+              className="w-9 h-9 rounded-md flex items-center justify-center text-foreground hover:bg-muted"
+              aria-label="Course home"
+            >
+              <Home className="w-4 h-4" />
+            </Link>
+          </Hint>
+          <Hint label="Course overview and settings">
+            <Link
+              to={`/courses/${course.id}`}
+              className="w-9 h-9 rounded-md flex items-center justify-center text-primary hover:bg-muted"
+              aria-label="Course settings"
+            >
+              <Settings className="w-4 h-4" />
+            </Link>
+          </Hint>
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3 ml-auto">
-          <button
-            type="button"
-            disabled={!prev}
-            onClick={() => prev && goTo(prev.module.id, prev.item.id)}
-            className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-semibold border border-primary text-primary hover:bg-primary/10 transition-colors disabled:opacity-30"
-          >
-            <ChevronLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">Previous Lesson</span>
-            <span className="sm:hidden">Prev</span>
-          </button>
-          <button
-            type="button"
-            onClick={handleContinue}
-            className="inline-flex items-center gap-1.5 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90"
-          >
-            <span className="hidden sm:inline">{isSelectedComplete ? 'Continue' : 'Complete and Continue'}</span>
-            <span className="sm:hidden">{isSelectedComplete ? 'Next' : 'Complete'}</span>
-            <ChevronRight className="w-4 h-4" />
-          </button>
+          <Hint label="Go to the previous lesson">
+            <button
+              type="button"
+              disabled={!prev}
+              onClick={() => prev && goTo(prev.module.id, prev.item.id)}
+              className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-semibold border border-primary text-primary hover:bg-primary/10 transition-colors disabled:opacity-30"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              <span className="hidden sm:inline">Previous Lesson</span>
+              <span className="sm:hidden">Prev</span>
+            </button>
+          </Hint>
+          <Hint label={isSelectedComplete ? 'Move to the next lesson' : 'Mark this lesson done and continue'}>
+            <button
+              type="button"
+              onClick={handleContinue}
+              className="inline-flex items-center gap-1.5 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              <span className="hidden sm:inline">{isSelectedComplete ? 'Continue' : 'Complete and Continue'}</span>
+              <span className="sm:hidden">{isSelectedComplete ? 'Next' : 'Complete'}</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </Hint>
         </div>
       </div>
 
