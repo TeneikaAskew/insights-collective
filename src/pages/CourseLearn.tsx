@@ -207,6 +207,29 @@ const CourseLearn = () => {
   const isSelectedComplete = selected ? completed.has(selected.item.id) : false;
   const percent = progress?.percent ?? 0;
 
+  // Resume target: first unfinished lesson, else first lesson.
+  const resumeItem = useMemo(() => {
+    if (flatItems.length === 0) return null;
+    return flatItems.find((fi) => !completed.has(fi.item.id)) ?? flatItems[0];
+  }, [flatItems, completed]);
+  const lessonNumber = currentIndex >= 0 ? currentIndex + 1 : 0;
+  const totalLessons = flatItems.length;
+
+  // Auto-expand the module that contains the resume/current lesson, once known.
+  const autoExpandedRef = useRef<string | null>(null);
+  useEffect(() => {
+    const target = selected?.module.id ?? resumeItem?.module.id;
+    if (!target) return;
+    if (autoExpandedRef.current === target) return;
+    autoExpandedRef.current = target;
+    setExpanded((prev) => {
+      if (prev.has(target)) return prev;
+      const n = new Set(prev);
+      n.add(target);
+      return n;
+    });
+  }, [selected?.module.id, resumeItem?.module.id]);
+
   const goTo = useCallback(
     (mid: string, iid: string) => {
       navigate(`/courses/${courseId}/learn/${mid}/${iid}`);
