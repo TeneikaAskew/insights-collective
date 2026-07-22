@@ -10,7 +10,7 @@ const ANON =
 
 const COURSE_ID = '660e8400-e29b-41d4-a716-446655440001'; // Intro to Data Science; e2e-instructor is instructor_id
 const TEST_USER_ID = '30609adf-dc50-4b57-a456-1f38201e40de'; // e2e-instructor@insightscollective.org
-const ENROLLED_STUDENT_ID = '575f018c-fa13-4e36-959f-7aba223b1e53'; // e2e-member@insightscollective.org
+const ENROLLED_STUDENT_ID = '71629ac8-ec88-4ce8-a859-9b29a664041d'; // david.rodriguez — enrolled, not the signed-in member
 const NON_ENROLLED_USER_ID = '891c88ca-cdf5-413c-a0c4-92ee1ef69c87'; // profile with no course role: not enrolled, not instructor
 
 function authHeaders(token: string) {
