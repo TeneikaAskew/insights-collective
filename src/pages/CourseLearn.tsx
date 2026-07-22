@@ -267,6 +267,25 @@ const CourseLearn = () => {
     }
   }, [selected, isSelectedComplete, handleMarkDone, next, goTo, navigate, courseId]);
 
+  // Keyboard shortcuts: ←/→ navigate lessons while in the player.
+  useEffect(() => {
+    if (!selected) return;
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+      if (e.key === 'ArrowRight' && next) {
+        e.preventDefault();
+        goTo(next.module.id, next.item.id);
+      } else if (e.key === 'ArrowLeft' && prev) {
+        e.preventDefault();
+        goTo(prev.module.id, prev.item.id);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selected, next, prev, goTo]);
+
+
   if (loading) {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-white">
