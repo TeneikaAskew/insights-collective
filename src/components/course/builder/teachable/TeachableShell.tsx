@@ -192,7 +192,6 @@ export function TeachableShell({
                 }}
               >
                 {published ? 'Unpublish' : 'Publish'}
-                <span className="hidden md:inline">{published ? ' course' : ' your course'}</span>
               </button>
             </Hint>
           </div>
