@@ -85,7 +85,7 @@ export const AdminDashboardActions = () => {
           
           <Button variant="outline" className="w-full justify-start" onClick={() => navigate('/admin/courses')}>
             <Upload className="mr-2 h-4 w-4" />
-            <span>Upload Course</span>
+            <span>New Course</span>
           </Button>
           
           <Button variant="outline" className="w-full justify-start" onClick={() => navigate('/admin/users')}>

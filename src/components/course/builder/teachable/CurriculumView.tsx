@@ -109,24 +109,6 @@ export function CurriculumView(props: CurriculumViewProps) {
 
       {/* Toolbar */}
       <div className="flex items-center gap-2 mb-6">
-        <button
-          type="button"
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold bg-white border rounded-md hover:bg-gray-50"
-          style={{ borderColor: 'hsl(var(--tw-border))' }}
-          disabled
-          title="Coming soon"
-        >
-          Bulk edit
-        </button>
-        <button
-          type="button"
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold bg-white border rounded-md hover:bg-gray-50"
-          style={{ borderColor: 'hsl(var(--tw-border))' }}
-          disabled
-          title="Coming soon"
-        >
-          Import content
-        </button>
         <div className="flex-1" />
         <button
           type="button"

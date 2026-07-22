@@ -305,7 +305,10 @@ export function CourseProgressDashboard({ courses }: Props) {
                   <TableCell className="font-medium">{r.title}</TableCell>
                   <TableCell className="text-muted-foreground">{r.category ?? '—'}</TableCell>
                   <TableCell>
-                    <Badge variant={r.published ? 'default' : 'secondary'} className={r.published ? '' : ''}>
+                    <Badge
+                      variant="outline"
+                      className={r.published ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-muted text-muted-foreground'}
+                    >
                       {r.published ? 'Published' : 'Draft'}
                     </Badge>
                   </TableCell>

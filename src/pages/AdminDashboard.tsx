@@ -22,6 +22,7 @@ import {
   PieChart as RechartsPieChart, Pie, Cell, Legend
 } from 'recharts';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import ResourceManagement from '@/components/admin/ResourceManagement';
 
 // Mock analytics data
@@ -603,17 +604,19 @@ const AdminDashboard = () => {
   const location = useLocation();
   const [activeTab, setActiveTab] = useState('courses');
   const { toast } = useToast();
-  
+  const [enrollmentCount, setEnrollmentCount] = useState<number | null>(null);
+  const [certificateCount, setCertificateCount] = useState<number | null>(null);
+
   useEffect(() => {
     if (!isAuthenticated) {
       navigate('/login');
       return;
     }
-    
+
     if (user && (!user.roles || !user.roles.includes('admin'))) {
       navigate('/dashboard');
     }
-    
+
     // Set the active tab based on the URL
     if (location.pathname.includes('/admin/courses')) {
       setActiveTab('courses');
@@ -627,13 +630,28 @@ const AdminDashboard = () => {
       setActiveTab('certificates');
     }
   }, [isAuthenticated, user, navigate, location]);
-  
+
+  // Load real KPI counts so the header stats aren't hardcoded placeholders.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const [enrollRes, certRes] = await Promise.all([
+        supabase.from('enrollments').select('id', { count: 'exact', head: true }),
+        supabase.from('certificates').select('id', { count: 'exact', head: true }),
+      ]);
+      if (cancelled) return;
+      setEnrollmentCount(enrollRes.count ?? 0);
+      setCertificateCount(certRes.count ?? 0);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   if (!user || !user.roles || !user.roles.includes('admin')) return null;
-  
+
   const { courses } = useCoursesManagement();
   const allCourses = courses;
   const allUsers = []; // TODO: Replace with real users data when available
-  
+
   // Function to handle notifications for various actions
   const handleAction = (action: string, itemType: string) => {
     toast({
@@ -683,19 +701,23 @@ const AdminDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between">
-                <div className="text-2xl font-bold">423</div>
+                <div className="text-2xl font-bold tabular-nums">
+                  {enrollmentCount ?? '—'}
+                </div>
                 <CheckCircle className="h-5 w-5 text-muted-foreground" />
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base font-medium">Certificates Issued</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between">
-                <div className="text-2xl font-bold">87</div>
+                <div className="text-2xl font-bold tabular-nums">
+                  {certificateCount ?? '—'}
+                </div>
                 <Award className="h-5 w-5 text-muted-foreground" />
               </div>
             </CardContent>
@@ -707,10 +729,13 @@ const AdminDashboard = () => {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle>Platform Analytics</CardTitle>
-                  <CardDescription>Overview of key platform metrics</CardDescription>
+                  <CardTitle className="flex items-center gap-2">
+                    Platform Analytics
+                    <Badge variant="outline" className="text-[10px] uppercase tracking-wide">Sample data</Badge>
+                  </CardTitle>
+                  <CardDescription>Preview of the analytics we'll wire to live data next.</CardDescription>
                 </div>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" disabled title="Available once live analytics are wired">
                   <Download className="h-4 w-4 mr-2" />
                   Export
                 </Button>

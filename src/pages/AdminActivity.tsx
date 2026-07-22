@@ -59,13 +59,33 @@ const AdminActivity = () => {
     }
   };
 
+  const exportCsv = () => {
+    const header = ['Time', 'Event type', 'Severity', 'Description'];
+    const rows = filteredActivities.map((a) => [
+      new Date(a.created_at).toISOString(),
+      a.event_type ?? '',
+      a.severity ?? '',
+      a.description ?? '',
+    ]);
+    const csv = [header, ...rows]
+      .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `activity-log-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <AppLayout>
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold tracking-tight">Activity Log</h1>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={exportCsv} disabled={filteredActivities.length === 0}>
               Export
             </Button>
           </div>
