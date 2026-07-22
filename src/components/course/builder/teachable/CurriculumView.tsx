@@ -537,28 +537,32 @@ function LessonRow({ item, onRename, onDelete, onTogglePublish, onSelect }: Less
         <div className="text-[11px] text-gray-500 mt-0.5">1 {contentLabel(item.type)}</div>
       </div>
 
-      <button
-        type="button"
-        onClick={() => onTogglePublish(item.id, !item.published)}
-        className={cn(
-          'text-xs font-bold px-3 py-1.5 rounded border transition-colors',
-          item.published
-            ? 'bg-primary text-primary-foreground border-primary hover:bg-primary/90'
-            : 'bg-white text-gray-800 border-gray-300 hover:bg-gray-50',
-        )}
-      >
-        {item.published ? 'Unpublish' : 'Publish'}
-      </button>
-
-      <div className="relative">
+      <Hint label={item.published ? 'Hide this lesson from students' : 'Make this lesson visible to students'}>
         <button
           type="button"
-          onClick={() => setMenuOpen((v) => !v)}
-          className="p-1.5 rounded hover:bg-gray-100 text-gray-500"
-          aria-label="Lesson actions"
+          onClick={() => onTogglePublish(item.id, !item.published)}
+          className={cn(
+            'text-xs font-bold px-3 py-1.5 rounded border transition-colors',
+            item.published
+              ? 'bg-primary text-primary-foreground border-primary hover:bg-primary/90'
+              : 'bg-white text-gray-800 border-gray-300 hover:bg-gray-50',
+          )}
         >
-          <MoreHorizontal className="h-4 w-4" />
+          {item.published ? 'Unpublish' : 'Publish'}
         </button>
+      </Hint>
+
+      <div className="relative">
+        <Hint label="Rename or delete this lesson">
+          <button
+            type="button"
+            onClick={() => setMenuOpen((v) => !v)}
+            className="p-1.5 rounded hover:bg-gray-100 text-gray-500"
+            aria-label="Lesson actions"
+          >
+            <MoreHorizontal className="h-4 w-4" />
+          </button>
+        </Hint>
         {menuOpen && (
           <div
             className="absolute right-0 top-full mt-1 min-w-[160px] rounded-md bg-white shadow-lg z-10 py-1 text-left"
