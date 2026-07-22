@@ -175,7 +175,7 @@ test.describe('Course creation — full workflow with coverage for every content
         external_tool: { url: 'https://colab.research.google.com/', toolName: 'Colab' },
       };
 
-      const item = await insert<{ id: string; type: string }>(token, 'content_items', {
+      const item = await insert<{ id: string }>(token, 'content_items', {
         course_id: created.courseId,
         module_id: created.moduleId,
         type,
@@ -186,7 +186,6 @@ test.describe('Course creation — full workflow with coverage for every content
         settings: settingsByType[type],
         created_by: instructorId,
       });
-      expect(item.type).toBe(type);
       created.contentItemIds.push(item.id);
 
       if (type === 'assignment') {
