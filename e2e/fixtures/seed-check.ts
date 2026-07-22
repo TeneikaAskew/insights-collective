@@ -79,32 +79,10 @@ export async function verifySeedData(): Promise<void> {
     );
   }
 
-  // Resolve module IDs first so the lessons check can join through them.
-  let modulesInList = '';
-  try {
-    const r = await fetch(
-      `${SUPABASE_URL}/rest/v1/modules?course_id=eq.${COURSE_ID}&select=id`,
-      { headers: { apikey: ANON_KEY, Authorization: `Bearer ${ANON_KEY}` } },
-    );
-    if (r.ok) {
-      const rows = (await r.json()) as Array<{ id: string }>;
-      modulesInList = rows.map((m) => m.id).join(',');
-    }
-  } catch {
-    // fall through — modules check will surface the failure
-  }
-
   const failures: string[] = [];
   for (const c of CHECKS) {
-    const path = c.path.replace('__MODULES__', modulesInList || 'none');
-    if (c.path.includes('__MODULES__') && !modulesInList) {
-      failures.push(
-        `  ✗ ${c.name}: no modules found to search under. ${c.hint}`,
-      );
-      continue;
-    }
     try {
-      const n = await head(path);
+      const n = await head(c.path);
       if (n < c.min) {
         failures.push(`  ✗ ${c.name}: found ${n}, need >= ${c.min}. ${c.hint}`);
       } else {
