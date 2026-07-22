@@ -14,6 +14,7 @@ import { useCoursesManagement } from '@/hooks/useCoursesManagement';
 import { useToast } from '@/hooks/use-toast';
 import { Course } from '@/types';
 import { Navigate, Link } from 'react-router-dom';
+import { computeDashboardMetrics } from '@/utils/dashboardMetrics';
 
 import { createLogger } from '@/utils/logger';
 
@@ -46,16 +47,39 @@ const Dashboard = () => {
           .from('enrollments')
           .select('course_id, completion_status')
           .eq('user_id', user.id);
-        
-        // Calculate in-progress count from real enrollment data
-        if (enrollments) {
-          const inProgress = enrollments.filter(e => 
-            (e.completion_status || 0) > 0 && (e.completion_status || 0) < 100
-          ).length;
-          setInProgressCount(inProgress);
-        }
-        
+
         if (enrollmentsError) throw enrollmentsError;
+
+        // Derive "in progress" from real progression + certificate data.
+        // enrollments.completion_status is not updated by the app, so filtering
+        // it in the range (0, 100) always yielded 0.
+        const enrolledIds = (enrollments ?? []).map((e) => e.course_id).filter(Boolean);
+        if (enrolledIds.length > 0) {
+          const [progRes, certRes] = await Promise.all([
+            supabase
+              .from('content_item_progressions')
+              .select('workflow_state, content_items!inner(modules!inner(course_id))')
+              .eq('user_id', user.id)
+              .in('workflow_state', ['read', 'completed']),
+            supabase
+              .from('certificates')
+              .select('course_id')
+              .eq('user_id', user.id)
+              .in('course_id', enrolledIds),
+          ]);
+          const progressions = (progRes.data ?? []).map((p: any) => ({
+            course_id: p.content_items?.modules?.course_id,
+            workflow_state: p.workflow_state,
+          }));
+          const metrics = computeDashboardMetrics(
+            (enrollments ?? []).map((e) => ({ course_id: e.course_id })),
+            progressions,
+            (certRes.data ?? []) as any,
+          );
+          setInProgressCount(metrics.inProgress);
+        } else {
+          setInProgressCount(0);
+        }
         
         if (enrollments && enrollments.length > 0) {
           const courseIds = enrollments.map(enrollment => enrollment.course_id);
