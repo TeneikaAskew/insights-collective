@@ -236,7 +236,7 @@ const CertificationSystem: React.FC<CertificationSystemProps> = ({
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(22);
       doc.setTextColor(40, 40, 60);
-      doc.text(certificate.certificate_data.course_title, pageWidth / 2, 310, { align: 'center', maxWidth: pageWidth - 160 });
+      doc.text(certificate.certificate_data.course_title || course?.title || 'Course', pageWidth / 2, 310, { align: 'center', maxWidth: pageWidth - 160 });
 
       // Course details
       doc.setFont('helvetica', 'normal');
