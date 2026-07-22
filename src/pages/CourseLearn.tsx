@@ -564,7 +564,7 @@ const CourseLearn = () => {
       </div>
 
       {/* Slim progress strip: lesson counter + course completion */}
-      <div className="flex items-center gap-3 px-3 sm:px-6 py-2 flex-shrink-0 bg-card border-b border-border text-[11px] text-muted-foreground">
+      <div data-onboarding="learn-progress" className="flex items-center gap-3 px-3 sm:px-6 py-2 flex-shrink-0 bg-card border-b border-border text-[11px] text-muted-foreground">
         <span className="font-semibold tabular-nums text-foreground">
           Lesson {lessonNumber} of {totalLessons}
         </span>
