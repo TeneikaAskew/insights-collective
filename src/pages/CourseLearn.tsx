@@ -150,7 +150,9 @@ const CourseLearn = () => {
         if (cancelled) return;
         setCourse(courseData as CourseShell);
         setModules(withItems);
-        setExpanded(new Set(withItems.map((m) => m.id)));
+        // Only expand the first module by default — Teachable-style focused view.
+        // The resume module will expand automatically once progress loads (see effect below).
+        setExpanded(new Set(withItems.slice(0, 1).map((m) => m.id)));
       } catch (err: any) {
         logger.error('Failed to load learn view', err);
         toast({ title: 'Error', description: err?.message, variant: 'destructive' });
