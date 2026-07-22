@@ -1,5 +1,6 @@
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -34,7 +35,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { useCoursesManagement } from '@/hooks/useCoursesManagement';
 import { useCourseEnrollments } from '@/hooks/useCourseEnrollments';
-import { IssueCertificatesModal } from '@/components/admin/IssueCertificatesModal';
+
 
 import { Course } from '@/types/course';
 import { Spinner } from '@/components/ui/spinner';
@@ -520,57 +521,80 @@ function EnrollmentsTab({ courses }: { courses: Course[] }) {
   );
 }
 
-// Certificates tab component
+// Certificates tab component — real data from public.certificates.
+type CertRow = {
+  id: string;
+  user_id: string;
+  course_id: string;
+  certificate_type: string;
+  issued_at: string;
+  verification_code: string;
+  student_name: string;
+  student_email: string;
+};
+
 function CertificatesTab({ courses }: { courses: Course[] }) {
   const [selectedCourseId, setSelectedCourseId] = useState<string>(courses[0]?.id || '');
   const [searchTerm, setSearchTerm] = useState('');
+  const [certs, setCerts] = useState<CertRow[]>([]);
+  const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
-  // Mock certificates data - in real implementation, this would come from Supabase
-  const mockCertificates = [
-    {
-      id: 'cert-1',
-      user_name: 'John Doe',
-      user_email: 'john.doe@example.com',
-      course_title: courses.find(c => c.id === selectedCourseId)?.title || 'Course',
-      issued_at: '2025-01-01',
-      verification_code: 'CERT-2025-001',
-      certificate_type: 'completion'
-    },
-    {
-      id: 'cert-2',
-      user_name: 'Jane Smith',
-      user_email: 'jane.smith@example.com',
-      course_title: courses.find(c => c.id === selectedCourseId)?.title || 'Course',
-      issued_at: '2024-12-15',
-      verification_code: 'CERT-2024-045',
-      certificate_type: 'achievement'
-    }
-  ];
+  useEffect(() => {
+    if (!selectedCourseId) { setCerts([]); return; }
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('certificates')
+        .select('id, user_id, course_id, certificate_type, issued_at, verification_code, profiles:user_id(first_name, last_name)')
+        .eq('course_id', selectedCourseId)
+        .order('issued_at', { ascending: false });
+      if (cancelled) return;
+      if (error) {
+        toast({ title: 'Failed to load certificates', description: error.message, variant: 'destructive' });
+        setCerts([]);
+      } else {
+        setCerts(
+          (data || []).map((r: any) => ({
+            id: r.id,
+            user_id: r.user_id,
+            course_id: r.course_id,
+            certificate_type: r.certificate_type || 'completion',
+            issued_at: r.issued_at,
+            verification_code: r.verification_code,
+            student_name: `${r.profiles?.first_name || ''} ${r.profiles?.last_name || ''}`.trim() || 'Student',
+            student_email: '',
+          })),
+        );
+      }
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [selectedCourseId, toast]);
 
-  const filteredCertificates = mockCertificates.filter(cert =>
-    cert.user_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    cert.user_email.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredCertificates = certs.filter(cert =>
+    cert.student_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    cert.verification_code.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
-  const handleIssueCertificates = (courseId: string, userIds: string[]) => {
-    toast({
-      title: 'Certificates Issued',
-      description: `Successfully issued ${userIds.length} certificates for the selected course.`,
-    });
+  const courseTitle = courses.find(c => c.id === selectedCourseId)?.title || 'Course';
+
+  const handleVerifyLink = (certificate: CertRow) => {
+    // Real verification page — the same public route students/employers use.
+    window.open(`/verify-certificate/${certificate.verification_code}`, '_blank', 'noopener');
   };
 
-  const handleDownloadCertificate = (certificate: any) => {
+  const handleRevokeCertificate = async (certificate: CertRow) => {
+    const { error } = await supabase.from('certificates').delete().eq('id', certificate.id);
+    if (error) {
+      toast({ title: 'Revoke failed', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setCerts(prev => prev.filter(c => c.id !== certificate.id));
     toast({
-      title: 'Certificate Downloaded',
-      description: `Certificate for ${certificate.user_name} has been downloaded.`,
-    });
-  };
-
-  const handleRevokeCertificate = (certificate: any) => {
-    toast({
-      title: 'Certificate Revoked',
-      description: `Certificate for ${certificate.user_name} has been revoked.`,
+      title: 'Certificate revoked',
+      description: `Certificate for ${certificate.student_name} has been revoked.`,
       variant: 'destructive',
     });
   };
@@ -583,7 +607,7 @@ function CertificatesTab({ courses }: { courses: Course[] }) {
           Course Certificates
         </CardTitle>
         <CardDescription>
-          Manage and issue certificates for course completions.
+          Certificates are auto-issued when a student completes every published item in a course. Use this view to review or revoke them.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -601,37 +625,30 @@ function CertificatesTab({ courses }: { courses: Course[] }) {
                 ))}
               </SelectContent>
             </Select>
-            
+
             <div className="relative flex-1">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 type="search"
-                placeholder="Search certificates..."
+                placeholder="Search by student name or code..."
                 className="pl-8"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-
-            <IssueCertificatesModal onIssueCertificates={handleIssueCertificates}>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Issue Certificates
-              </Button>
-            </IssueCertificatesModal>
           </div>
 
           {/* Statistics Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <Card>
               <CardContent className="pt-6">
-                <div className="text-2xl font-bold">{filteredCertificates.length}</div>
+                <div className="text-2xl font-bold tabular-nums">{filteredCertificates.length}</div>
                 <p className="text-xs text-muted-foreground">Total Certificates</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-6">
-                <div className="text-2xl font-bold">
+                <div className="text-2xl font-bold tabular-nums">
                   {filteredCertificates.filter(c => c.certificate_type === 'completion').length}
                 </div>
                 <p className="text-xs text-muted-foreground">Completion Certificates</p>
@@ -639,7 +656,7 @@ function CertificatesTab({ courses }: { courses: Course[] }) {
             </Card>
             <Card>
               <CardContent className="pt-6">
-                <div className="text-2xl font-bold">
+                <div className="text-2xl font-bold tabular-nums">
                   {filteredCertificates.filter(c => c.certificate_type === 'achievement').length}
                 </div>
                 <p className="text-xs text-muted-foreground">Achievement Certificates</p>
@@ -661,28 +678,23 @@ function CertificatesTab({ courses }: { courses: Course[] }) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredCertificates.length > 0 ? (
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                      Loading certificates…
+                    </TableCell>
+                  </TableRow>
+                ) : filteredCertificates.length > 0 ? (
                   filteredCertificates.map((certificate) => (
                     <TableRow key={certificate.id}>
-                      <TableCell className="font-medium">
-                        <div className="flex flex-col">
-                          <span>{certificate.user_name}</span>
-                          <span className="text-sm text-muted-foreground">
-                            {certificate.user_email}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>{certificate.course_title}</TableCell>
+                      <TableCell className="font-medium">{certificate.student_name}</TableCell>
+                      <TableCell>{courseTitle}</TableCell>
                       <TableCell>
-                        <Badge variant={
-                          certificate.certificate_type === 'achievement' ? 'default' : 'secondary'
-                        }>
+                        <Badge variant={certificate.certificate_type === 'achievement' ? 'default' : 'secondary'}>
                           {certificate.certificate_type}
                         </Badge>
                       </TableCell>
-                      <TableCell>
-                        {new Date(certificate.issued_at).toLocaleDateString()}
-                      </TableCell>
+                      <TableCell>{new Date(certificate.issued_at).toLocaleDateString()}</TableCell>
                       <TableCell>
                         <code className="bg-muted px-2 py-1 rounded text-xs">
                           {certificate.verification_code}
@@ -693,18 +705,32 @@ function CertificatesTab({ courses }: { courses: Course[] }) {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleDownloadCertificate(certificate)}
+                            onClick={() => handleVerifyLink(certificate)}
                           >
-                            <Download className="h-4 w-4 mr-2" />
-                            Download
+                            <Eye className="h-4 w-4 mr-2" />
+                            Verify
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleRevokeCertificate(certificate)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Revoke this certificate?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This deletes the certificate for {certificate.student_name}. The verification code will stop working.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleRevokeCertificate(certificate)}>
+                                  Revoke
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -712,7 +738,7 @@ function CertificatesTab({ courses }: { courses: Course[] }) {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={6} className="h-24 text-center">
-                      No certificates found for this course.
+                      No certificates issued for this course yet.
                     </TableCell>
                   </TableRow>
                 )}
