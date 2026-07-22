@@ -18,6 +18,7 @@ import { PlaceholderView } from '@/components/course/builder/teachable/Placehold
 import { CourseInformationView } from '@/components/course/builder/teachable/CourseInformationView';
 import { CourseDesignView } from '@/components/course/builder/teachable/CourseDesignView';
 import { CourseCertificatesView } from '@/components/course/builder/teachable/CourseCertificatesView';
+import { InstructorBuilderTour } from '@/components/onboarding/InstructorBuilderTour';
 import {
   NewCourseWizard,
   type NewCourseWizardResult,
