@@ -66,12 +66,14 @@ test.describe('Quiz taking — full attempt lifecycle', () => {
     });
     await page.waitForLoadState('networkidle');
 
-    // Look for any lesson link in the sidebar that is a quiz. If none exists in the
-    // seed data, verify at least that the learn shell rendered and skip cleanly —
-    // no "silent pass". A superficial check would be flagged loudly.
+    // A quiz lesson MUST be seeded for the enrolled course; a missing quiz is a
+    // seed-data gap, not a valid skip condition.
     const quizLink = page.locator('a', { hasText: /quiz/i }).first();
-    const quizExists = (await quizLink.count()) > 0;
-    test.skip(!quizExists, 'No quiz lessons seeded for the enrolled course');
+    const quizCount = await quizLink.count();
+    expect(
+      quizCount,
+      'Seed gap: no quiz lessons in the enrolled course. Reseed e2e/fixtures/seed.sql (quizzes/lessons for E2E_TEST_COURSE_ID).',
+    ).toBeGreaterThan(0);
 
     await quizLink.click();
     // Player exposes either a Start-quiz control (fresh attempt) or the Completed
