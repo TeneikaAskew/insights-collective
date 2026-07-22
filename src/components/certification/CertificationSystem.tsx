@@ -250,7 +250,6 @@ const CertificationSystem: React.FC<CertificationSystemProps> = ({
       if (detailParts) {
         doc.text(detailParts, pageWidth / 2, 350, { align: 'center' });
       }
-      doc.text(
       const completionPct = certificate.certificate_data.completion_percentage ?? 100;
       const timeSpent = certificate.certificate_data.time_spent;
       const timeText = typeof timeSpent === 'number' && timeSpent > 0 ? `   |   Study time: ${formatTime(timeSpent)}` : '';
