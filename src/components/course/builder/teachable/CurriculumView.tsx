@@ -29,6 +29,7 @@ import {
   Upload,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Hint } from '@/components/ui/hint';
 import { sanitizeHTML } from '@/utils/sanitize';
 import type { ContentItem } from '@/types/canvas';
 import type { BuilderModule } from './types';
