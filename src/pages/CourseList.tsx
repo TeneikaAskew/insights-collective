@@ -145,7 +145,7 @@ const CourseList = () => {
         </div>
 
         {/* Grid */}
-        <div className="max-w-7xl mx-auto">
+        <div data-onboarding="course-grid" className="max-w-7xl mx-auto">
           {loading ? (
             <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
               {[0, 1, 2, 3, 4, 5].map((i) => (
