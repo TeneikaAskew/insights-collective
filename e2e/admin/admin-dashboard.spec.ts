@@ -4,7 +4,9 @@ import { Routes } from '../helpers/route-helpers';
 
 test.describe('Admin Dashboard', () => {
   test('unauthenticated user is redirected to login', async ({ browser }) => {
-    const ctx = await browser.newContext();
+    // Explicitly override the project-level storageState so this context is
+    // truly unauthenticated (otherwise it inherits the admin session).
+    const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] } });
     const page = await ctx.newPage();
     await page.goto(Routes.admin);
     await expectRedirectToLogin(page);
