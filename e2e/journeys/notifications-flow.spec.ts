@@ -64,31 +64,45 @@ test.describe('Notifications center — real flow', () => {
     await page.goto(`${BASE}/notifications`, { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle');
 
-    const deleteBtns = page.getByRole('button', { name: /delete notification/i });
-    const count = await deleteBtns.count();
-    test.skip(count === 0, 'No notifications available to delete');
+    const cardSel = '.cursor-pointer:has(button[aria-label="Delete notification"])';
+    const initial = await page.locator(cardSel).count();
+    test.skip(initial === 0, 'No notifications available to delete');
 
-    // Scope the assertion to the specific card that owns the delete button we
-    // click — matching on the h4 title alone is flaky when other cards share
-    // the same title (e.g. announcement fan-out to multiple users/courses).
-    const firstCard = page.locator('.cursor-pointer:has(button[aria-label="Delete notification"])').first();
-    const initialCount = await page.locator('.cursor-pointer:has(button[aria-label="Delete notification"])').count();
+    // Capture a stable fingerprint (title + message) for the specific card we
+    // delete, so we can verify that exact notification doesn't come back even
+    // if new notifications arrive from parallel fan-out flows.
+    const firstCard = page.locator(cardSel).first();
+    const title = (await firstCard.locator('h4').first().textContent())?.trim() ?? '';
+    const message = (await firstCard.locator('p').last().textContent())?.trim() ?? '';
+    const fingerprint = `${title}::${message}`;
+
     await firstCard.getByRole('button', { name: /delete notification/i }).click();
 
-    // Optimistic removal: total notification cards should decrease by one.
+    // Optimistic removal: the specific card is gone.
     await expect
-      .poll(async () =>
-        page.locator('.cursor-pointer:has(button[aria-label="Delete notification"])').count(),
-      { timeout: 3_000 })
-      .toBeLessThan(initialCount);
+      .poll(async () => {
+        const cards = page.locator(cardSel);
+        const n = await cards.count();
+        for (let i = 0; i < n; i++) {
+          const t = (await cards.nth(i).locator('h4').first().textContent())?.trim() ?? '';
+          const m = (await cards.nth(i).locator('p').last().textContent())?.trim() ?? '';
+          if (`${t}::${m}` === fingerprint) return true;
+        }
+        return false;
+      }, { timeout: 3_000 })
+      .toBe(false);
 
-    // Reload → persisted delete: still fewer cards than before.
+    // Reload → persisted delete: that specific notification stays gone.
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle');
-    const afterReload = await page
-      .locator('.cursor-pointer:has(button[aria-label="Delete notification"])')
-      .count();
-    expect(afterReload).toBeLessThan(initialCount);
+    const cards = page.locator(cardSel);
+    const n = await cards.count();
+    for (let i = 0; i < n; i++) {
+      const t = (await cards.nth(i).locator('h4').first().textContent())?.trim() ?? '';
+      const m = (await cards.nth(i).locator('p').last().textContent())?.trim() ?? '';
+      expect(`${t}::${m}`).not.toBe(fingerprint);
+    }
   });
 });
+
 
