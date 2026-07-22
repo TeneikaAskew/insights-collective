@@ -43,14 +43,28 @@ export function SpotlightTour({
   const [rect, setRect] = useState<DOMRect | null>(null);
   const raf = useRef<number | null>(null);
 
+  const progressKey = `${dismissKey}:step`;
+
   useEffect(() => {
     if (!active || steps.length === 0) return;
-    if (typeof window !== 'undefined' && window.localStorage.getItem(dismissKey)) return;
+    if (typeof window === 'undefined') return;
+    if (window.localStorage.getItem(dismissKey)) return;
+    // Resume from the last saved step if the user left mid-tour.
+    const savedRaw = window.localStorage.getItem(progressKey);
+    const saved = savedRaw ? parseInt(savedRaw, 10) : 0;
+    const start = Number.isFinite(saved) ? Math.min(Math.max(0, saved), steps.length - 1) : 0;
+    setStepIdx(start);
     setOpen(true);
-  }, [active, steps.length, dismissKey]);
+  }, [active, steps.length, dismissKey, progressKey]);
 
   const step = steps[stepIdx];
   const total = steps.length;
+
+  // Persist current step so the tour can resume if the user leaves mid-way.
+  useEffect(() => {
+    if (!open || typeof window === 'undefined') return;
+    window.localStorage.setItem(progressKey, String(stepIdx));
+  }, [open, stepIdx, progressKey]);
 
   useLayoutEffect(() => {
     if (!open || !step) return;
@@ -86,9 +100,15 @@ export function SpotlightTour({
 
   const finish = (persist = true) => {
     setOpen(false);
-    setStepIdx(0);
-    if (persist && typeof window !== 'undefined') {
-      window.localStorage.setItem(dismissKey, new Date().toISOString());
+    if (typeof window !== 'undefined') {
+      if (persist) {
+        // Explicit Skip / completion: don't reopen and clear resume state.
+        window.localStorage.setItem(dismissKey, new Date().toISOString());
+        window.localStorage.removeItem(progressKey);
+        setStepIdx(0);
+      }
+      // If not persisted (e.g. clicked outside), leave the progress key so we
+      // resume from the same step next time active becomes true.
     }
     onClose?.();
   };
