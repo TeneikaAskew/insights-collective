@@ -273,15 +273,17 @@ function SectionCard({
         className="flex items-center gap-3 px-5 py-4 rounded-t-xl"
         style={{ background: '#FAFAFA', borderBottom: '1px solid hsl(var(--tw-border))' }}
       >
-        <button
-          type="button"
-          className="cursor-grab text-gray-400 hover:text-gray-700"
-          {...attributes}
-          {...listeners}
-          aria-label="Reorder section"
-        >
-          <GripVertical className="h-5 w-5" />
-        </button>
+        <Hint label="Drag to reorder sections">
+          <button
+            type="button"
+            className="cursor-grab text-gray-400 hover:text-gray-700"
+            {...attributes}
+            {...listeners}
+            aria-label="Reorder section"
+          >
+            <GripVertical className="h-5 w-5" />
+          </button>
+        </Hint>
         {editing ? (
           <input
             autoFocus
@@ -306,24 +308,27 @@ function SectionCard({
             {module.title || 'Untitled section'}
           </h3>
         )}
-        <span
-          className="text-[10px] uppercase tracking-widest font-bold px-2 py-1 rounded"
-          style={{ background: '#EDEDED', color: '#333' }}
-        >
-          Drip
-        </span>
-        <button
-          type="button"
-          onClick={() => setMenuOpen((v) => !v)}
-          className="relative p-1.5 rounded hover:bg-gray-200 text-gray-600"
-          aria-label="Section actions"
-        >
-          <div className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 border rounded"
-            style={{ borderColor: 'hsl(var(--tw-border))' }}
+        <Hint label="Content is released on a schedule instead of all at once">
+          <span
+            className="text-[10px] uppercase tracking-widest font-bold px-2 py-1 rounded cursor-help"
+            style={{ background: '#EDEDED', color: '#333' }}
           >
-            Quick actions
-            <ChevronDown className="h-3 w-3" />
-          </div>
+            Drip
+          </span>
+        </Hint>
+        <Hint label="Rename or delete this section">
+          <button
+            type="button"
+            onClick={() => setMenuOpen((v) => !v)}
+            className="relative p-1.5 rounded hover:bg-gray-200 text-gray-600"
+            aria-label="Section actions"
+          >
+            <div className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 border rounded"
+              style={{ borderColor: 'hsl(var(--tw-border))' }}
+            >
+              Quick actions
+              <ChevronDown className="h-3 w-3" />
+            </div>
           {menuOpen && (
             <div
               className="absolute right-0 top-full mt-1 min-w-[180px] rounded-md bg-white shadow-lg z-10 py-1 text-left"
