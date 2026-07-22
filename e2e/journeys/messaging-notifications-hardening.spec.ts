@@ -44,13 +44,11 @@ test.describe('Messaging + notifications — real signed-in RPC gating', () => {
   let instructorToken: string;
 
   test.beforeAll(async () => {
-    // Sign in as the seeded instructor for COURSE_ID (test@insightscollective.org,
-    // id 66649756-…). Using a direct password grant avoids depending on browser
-    // storageState (which may hold a different member session).
-    instructorToken = await passwordSignIn(
-      'test@insightscollective.org',
-      process.env.E2E_TEST_PASSWORD ?? 'TestPass123!',
-    );
+    // Sign in as the seeded instructor for COURSE_ID (e2e-instructor).
+    const email = process.env.E2E_INSTRUCTOR_EMAIL ?? 'e2e-instructor@insightscollective.org';
+    const password = process.env.E2E_INSTRUCTOR_PASSWORD ?? process.env.E2E_TEST_PASSWORD;
+    if (!password) throw new Error('E2E_INSTRUCTOR_PASSWORD or E2E_TEST_PASSWORD required');
+    instructorToken = await passwordSignIn(email, password);
   });
 
   test('open_course_thread is idempotent: same instructor/student pair returns same conversation UUID', async () => {
