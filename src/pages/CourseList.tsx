@@ -247,7 +247,9 @@ const CourseList = () => {
           )}
         </div>
       </div>
+      <CourseOnboardingWalkthrough />
     </AppLayout>
+
   );
 };
 
