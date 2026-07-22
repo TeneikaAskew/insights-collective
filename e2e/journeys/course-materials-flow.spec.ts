@@ -104,7 +104,10 @@ test.describe('Course materials — enrollment-gated access', () => {
 
     const fileRow = page.locator('ul.divide-y > li').filter({ has: page.locator('svg.lucide-file') });
     const fileCount = await fileRow.count();
-    test.skip(fileCount === 0, 'No files seeded for this course yet');
+    expect(
+      fileCount,
+      'Seed gap: no course-materials files seeded for the enrolled course. Upload at least one file via the course-materials bucket in seed.sql.',
+    ).toBeGreaterThan(0);
 
     // The Download button per row is the first ghost icon button.
     const [signedReq] = await Promise.all([
