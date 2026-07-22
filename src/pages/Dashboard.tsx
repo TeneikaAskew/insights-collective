@@ -14,6 +14,7 @@ import { useCoursesManagement } from '@/hooks/useCoursesManagement';
 import { useToast } from '@/hooks/use-toast';
 import { Course } from '@/types';
 import { Navigate, Link } from 'react-router-dom';
+import { computeDashboardMetrics } from '@/utils/dashboardMetrics';
 
 import { createLogger } from '@/utils/logger';
 
