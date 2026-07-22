@@ -72,6 +72,14 @@ test.describe('Dashboard "In Progress" metric', () => {
     );
     expect(upsertRes.ok(), `progression upsert (${upsertRes.status()}: ${await upsertRes.text()})`).toBeTruthy();
 
+    // Sanity: same embed the Dashboard uses must return this progression
+    const verifyRes = await page.request.get(
+      `${SUPABASE_URL}/rest/v1/content_item_progressions?select=workflow_state,content_items!inner(modules!inner(course_id))&user_id=eq.${userId}&workflow_state=in.(read,completed)`,
+      { headers },
+    );
+    const verifyBody = await verifyRes.text();
+    console.log('progressions embed:', verifyRes.status(), verifyBody.slice(0, 500));
+
     // Now the dashboard tile must show at least 1 in progress (not 0, which was the bug).
     await page.goto('/dashboard');
     const tile = page.getByTestId('metric-in-progress');
