@@ -230,6 +230,7 @@ function App() {
         <AuthProvider>
           <PageVisibilityProvider>
             <OnboardingProvider>
+              <TooltipProvider delayDuration={200}>
               <SecurityHeaders />
               <SecurityManager />
               <RouteTracker />
