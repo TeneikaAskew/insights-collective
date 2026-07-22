@@ -474,21 +474,25 @@ const CertificationSystem: React.FC<CertificationSystemProps> = ({
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                       <div className="text-center">
                         <div className="font-semibold text-lg text-green-600">
-                          {certificate.certificate_data.completion_percentage}%
+                          {certificate.certificate_data.completion_percentage ?? 100}%
                         </div>
                         <div className="text-gray-600">Completion</div>
                       </div>
                       <div className="text-center">
                         <div className="font-semibold text-lg text-blue-600">
-                          {formatTime(certificate.certificate_data.time_spent)}
+                          {typeof certificate.certificate_data.time_spent === 'number' && certificate.certificate_data.time_spent > 0
+                            ? formatTime(certificate.certificate_data.time_spent)
+                            : '—'}
                         </div>
                         <div className="text-gray-600">Study Time</div>
                       </div>
                       <div className="text-center">
                         <div className="font-semibold text-lg text-purple-600">
-                          {certificate.certificate_data.achievements?.length || 0}
+                          {certificate.certificate_data.achievements?.length ?? certificate.certificate_data.total_items ?? 0}
                         </div>
-                        <div className="text-gray-600">Achievements</div>
+                        <div className="text-gray-600">
+                          {certificate.certificate_data.achievements?.length ? 'Achievements' : 'Items Completed'}
+                        </div>
                       </div>
                     </div>
 
