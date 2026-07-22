@@ -251,7 +251,11 @@ const CertificationSystem: React.FC<CertificationSystemProps> = ({
         doc.text(detailParts, pageWidth / 2, 350, { align: 'center' });
       }
       doc.text(
-        `Completion: ${certificate.certificate_data.completion_percentage}%   |   Study time: ${formatTime(certificate.certificate_data.time_spent)}`,
+      const completionPct = certificate.certificate_data.completion_percentage ?? 100;
+      const timeSpent = certificate.certificate_data.time_spent;
+      const timeText = typeof timeSpent === 'number' && timeSpent > 0 ? `   |   Study time: ${formatTime(timeSpent)}` : '';
+      doc.text(
+        `Completion: ${completionPct}%${timeText}`,
         pageWidth / 2,
         375,
         { align: 'center' },
