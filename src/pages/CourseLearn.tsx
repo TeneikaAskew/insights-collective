@@ -666,6 +666,7 @@ const CourseLearn = () => {
           </div>
         </main>
       </div>
+      <StudentLearnTour active={!canEdit || previewAsStudent} />
     </div>
   );
 };
