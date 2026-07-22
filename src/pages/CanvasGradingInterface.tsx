@@ -30,6 +30,7 @@ import {
 import { format } from 'date-fns';
 import type { ContentItem, AssignmentSubmission } from '@/types/canvas';
 import { createLogger } from '@/utils/logger';
+import { Hint } from '@/components/ui/hint';
 
 const logger = createLogger('gradingSubmissions');
 
