@@ -247,10 +247,25 @@ const CourseCard: React.FC<CourseCardProps> = ({
             })()}
           </div>
 
-          <div className="flex justify-between items-center text-sm">
-            <span className="text-primary">{course.level}</span>
-            <span>{course.duration}</span>
-          </div>
+          {(() => {
+            const difficulty = (course as any).difficulty_level || (course as any).difficultyLevel;
+            const rawDuration = course.duration as unknown;
+            // Format bare numbers as "N lessons" so students don't see an orphan "8" on the dashboard card.
+            const durationLabel =
+              typeof rawDuration === 'number'
+                ? `${rawDuration} lesson${rawDuration === 1 ? '' : 's'}`
+                : typeof rawDuration === 'string' && /^\d+$/.test(rawDuration.trim())
+                  ? `${rawDuration} lesson${rawDuration.trim() === '1' ? '' : 's'}`
+                  : (rawDuration as string | undefined);
+            const showLevel = course.level && !difficulty;
+            if (!showLevel && !durationLabel) return null;
+            return (
+              <div className="flex justify-between items-center text-sm">
+                {showLevel ? <span className="text-primary">{course.level}</span> : <span />}
+                {durationLabel ? <span className="text-muted-foreground">{durationLabel}</span> : null}
+              </div>
+            );
+          })()}
         </Link>
       </CardContent>
     </Card>
