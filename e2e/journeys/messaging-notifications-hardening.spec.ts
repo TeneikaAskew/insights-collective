@@ -8,9 +8,9 @@ const SUPABASE_URL = 'https://siuqvhscuiycvdrtiqsh.supabase.co';
 const ANON =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNpdXF2aHNjdWl5Y3ZkcnRpcXNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQyMDU0MTUsImV4cCI6MjA1OTc4MTQxNX0.CbAWzKbUfbqYKAZr93jAQm8z8chbNoTe0EnK-E_4u9w';
 
-const COURSE_ID = '660e8400-e29b-41d4-a716-446655440001'; // Intro to Data Science; test user is instructor
-const TEST_USER_ID = '66649756-9cfb-4f50-b60e-1f6ac0bf30ff';
-const ENROLLED_STUDENT_ID = '71629ac8-ec88-4ce8-a859-9b29a664041d';
+const COURSE_ID = '660e8400-e29b-41d4-a716-446655440001'; // Intro to Data Science; e2e-instructor is instructor_id
+const TEST_USER_ID = '30609adf-dc50-4b57-a456-1f38201e40de'; // e2e-instructor@insightscollective.org
+const ENROLLED_STUDENT_ID = '71629ac8-ec88-4ce8-a859-9b29a664041d'; // david.rodriguez — enrolled, not the signed-in member
 const NON_ENROLLED_USER_ID = '891c88ca-cdf5-413c-a0c4-92ee1ef69c87'; // profile with no course role: not enrolled, not instructor
 
 function authHeaders(token: string) {
@@ -44,13 +44,11 @@ test.describe('Messaging + notifications — real signed-in RPC gating', () => {
   let instructorToken: string;
 
   test.beforeAll(async () => {
-    // Sign in as the seeded instructor for COURSE_ID (test@insightscollective.org,
-    // id 66649756-…). Using a direct password grant avoids depending on browser
-    // storageState (which may hold a different member session).
-    instructorToken = await passwordSignIn(
-      'test@insightscollective.org',
-      process.env.E2E_TEST_PASSWORD ?? 'TestPass123!',
-    );
+    // Sign in as the seeded instructor for COURSE_ID (e2e-instructor).
+    const email = process.env.E2E_INSTRUCTOR_EMAIL ?? 'e2e-instructor@insightscollective.org';
+    const password = process.env.E2E_INSTRUCTOR_PASSWORD ?? process.env.E2E_TEST_PASSWORD;
+    if (!password) throw new Error('E2E_INSTRUCTOR_PASSWORD or E2E_TEST_PASSWORD required');
+    instructorToken = await passwordSignIn(email, password);
   });
 
   test('open_course_thread is idempotent: same instructor/student pair returns same conversation UUID', async () => {
@@ -104,11 +102,11 @@ test.describe('Messaging + notifications — real signed-in RPC gating', () => {
   });
 
   test('student -> other student in same course: RPC rejects (requires E2E_MEMBER_PASSWORD)', async () => {
-    const memberEmail = process.env.E2E_MEMBER_EMAIL;
-    const memberPassword = process.env.E2E_MEMBER_PASSWORD;
+    const memberEmail = process.env.E2E_MEMBER_EMAIL ?? 'e2e-member@insightscollective.org';
+    const memberPassword = process.env.E2E_MEMBER_PASSWORD ?? process.env.E2E_TEST_PASSWORD;
     test.skip(
       !memberEmail || !memberPassword,
-      'E2E_MEMBER_EMAIL / E2E_MEMBER_PASSWORD not set — cannot verify student-to-student gate with a real signed-in student session',
+      'E2E_MEMBER_EMAIL / E2E_MEMBER_PASSWORD (or E2E_TEST_PASSWORD) not set',
     );
 
     const studentToken = await passwordSignIn(memberEmail!, memberPassword!);
@@ -121,11 +119,11 @@ test.describe('Messaging + notifications — real signed-in RPC gating', () => {
   });
 
   test('announcement insert fans out real notification rows visible to the enrolled recipient', async () => {
-    const memberEmail = process.env.E2E_MEMBER_EMAIL;
-    const memberPassword = process.env.E2E_MEMBER_PASSWORD;
+    const memberEmail = process.env.E2E_MEMBER_EMAIL ?? 'e2e-member@insightscollective.org';
+    const memberPassword = process.env.E2E_MEMBER_PASSWORD ?? process.env.E2E_TEST_PASSWORD;
     test.skip(
       !memberEmail || !memberPassword,
-      'E2E_MEMBER_EMAIL / E2E_MEMBER_PASSWORD not set — cannot verify cross-user notification RLS visibility',
+      'E2E_MEMBER_EMAIL / E2E_MEMBER_PASSWORD (or E2E_TEST_PASSWORD) not set',
     );
     // The student must also be enrolled in COURSE_ID for the fan-out row to belong to them.
 
