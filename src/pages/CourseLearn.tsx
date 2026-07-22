@@ -39,6 +39,44 @@ import { cn } from '@/lib/utils';
 
 const logger = createLogger('CourseLearn');
 
+// Thinkific/Teachable-style per-content-type icon.
+function TypeIcon({ type, className }: { type: string; className?: string }) {
+  const cls = className ?? 'w-3.5 h-3.5';
+  switch (type) {
+    case 'assignment':
+      return <ClipboardCheck className={cls} />;
+    case 'quiz':
+      return <HelpCircle className={cls} />;
+    case 'discussion':
+      return <MessageSquare className={cls} />;
+    case 'external_url':
+      return <ExternalLink className={cls} />;
+    case 'external_tool':
+      return <Link2 className={cls} />;
+    case 'page':
+    default:
+      return <FileText className={cls} />;
+  }
+}
+
+function typeLabel(type: string): string {
+  switch (type) {
+    case 'assignment':
+      return 'Assignment';
+    case 'quiz':
+      return 'Quiz';
+    case 'discussion':
+      return 'Discussion';
+    case 'external_url':
+      return 'External Link';
+    case 'external_tool':
+      return 'External Tool';
+    case 'page':
+    default:
+      return 'Lesson';
+  }
+}
+
 interface CourseShell {
   id: string;
   title: string;
