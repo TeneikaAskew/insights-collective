@@ -374,15 +374,19 @@ function CanvasGradingInterface() {
                       </CardDescription>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button variant="outline" size="icon" onClick={() => goTo(-1)} disabled={currentIndex <= 0} aria-label="Previous submission">
-                        <ChevronLeft className="h-4 w-4" />
-                      </Button>
+                      <Hint label="Previous submission (K)">
+                        <Button variant="outline" size="icon" onClick={() => goTo(-1)} disabled={currentIndex <= 0} aria-label="Previous submission">
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                      </Hint>
                       <span className="text-sm text-muted-foreground tabular-nums min-w-[70px] text-center">
                         {currentIndex === -1 ? '—' : currentIndex + 1} of {filtered.length}
                       </span>
-                      <Button variant="outline" size="icon" onClick={() => goTo(1)} disabled={currentIndex === filtered.length - 1} aria-label="Next submission">
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
+                      <Hint label="Next submission (J)">
+                        <Button variant="outline" size="icon" onClick={() => goTo(1)} disabled={currentIndex === filtered.length - 1} aria-label="Next submission">
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </Hint>
                     </div>
                   </div>
                 </CardHeader>
