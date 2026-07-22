@@ -19,6 +19,7 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Hint } from '@/components/ui/hint';
 
 export type BuilderNavKey =
   | 'setup'
