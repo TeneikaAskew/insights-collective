@@ -851,38 +851,12 @@ const AdminDashboard = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {allUsers.length > 0 && allCourses.length > 0 && (
-                  <>
-                    <ActivityItem 
-                      user={allUsers[0]} 
-                      activity={`enrolled in ${allCourses[0]?.title || 'Course'}`}
-                      time="2 hours ago"
-                    />
-                    
-                    {allUsers.length > 1 && (
-                      <ActivityItem 
-                        user={allUsers[1]}
-                        activity={`created a new course ${allCourses.length > 2 ? allCourses[2]?.title : allCourses[0]?.title || 'Course'}`}
-                        time="5 hours ago"
-                      />
-                    )}
-                    
-                    {allUsers.length > 0 && allCourses.length > 1 && (
-                      <ActivityItem 
-                        user={allUsers[0]}
-                        activity={`completed a module in ${allCourses[1]?.title || 'Course'}`}
-                        time="Yesterday"
-                      />
-                    )}
-                    
-                    <ActivityItem 
-                      user={{name: "Admin User", avatar: null}}
-                      activity={`issued a certificate to ${allUsers[0]?.name || 'User'}`}
-                      time="2 days ago"
-                    />
-                  </>
-                )}
+              <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+                Live activity is available on the{' '}
+                <Link to="/admin/activity" className="text-primary underline underline-offset-4">
+                  full activity log
+                </Link>
+                . This card intentionally does not show a fabricated feed.
               </div>
             </CardContent>
           </Card>
