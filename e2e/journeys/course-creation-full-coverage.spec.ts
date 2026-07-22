@@ -4,6 +4,7 @@
 // ABOUTME: assignment + assignments row, quiz + quiz_questions row, discussion,
 // ABOUTME: external_url, external_tool) and cleans up on completion.
 import { test, expect } from '@playwright/test';
+import { randomUUID } from 'node:crypto';
 
 const SUPABASE_URL = 'https://siuqvhscuiycvdrtiqsh.supabase.co';
 const ANON =
@@ -40,20 +41,27 @@ async function signIn(email: string, password: string): Promise<string> {
   return (await r.json()).access_token as string;
 }
 
-async function insert<T = any>(
+// Insert a row and return { id }. We generate the primary key client-side and
+// use Prefer: return=minimal so PostgREST does not re-SELECT the row through
+// RLS — some SELECT policies rely on STABLE security-definer functions whose
+// snapshot doesn't see the just-inserted row in the same transaction.
+async function insert<T extends { id: string } = { id: string }>(
   token: string,
   table: string,
   row: Record<string, unknown>,
 ): Promise<T> {
+  const id = (row.id as string | undefined) ?? randomUUID();
+  const body = { id, ...row };
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
     method: 'POST',
-    headers: headers(token, 'return=representation'),
-    body: JSON.stringify(row),
+    headers: headers(token, 'return=minimal'),
+    body: JSON.stringify(body),
   });
-  const text = await res.text();
-  if (!res.ok) throw new Error(`insert into ${table} failed (${res.status}): ${text}`);
-  const parsed = JSON.parse(text);
-  return Array.isArray(parsed) ? parsed[0] : parsed;
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`insert into ${table} failed (${res.status}): ${text}`);
+  }
+  return { id, ...(body as any) } as T;
 }
 
 async function del(token: string, path: string) {
