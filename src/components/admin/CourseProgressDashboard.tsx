@@ -1,12 +1,25 @@
-// ABOUTME: Admin per-course progress dashboard with CSV export across all courses.
+// ABOUTME: Admin per-course progress dashboard with search, sort, filters, and CSV export.
 // ABOUTME: Aggregates enrollments, completion percentages, and issued certificates.
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import { Download } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  Award,
+  Download,
+  GraduationCap,
+  Search,
+  TrendingUp,
+  Users,
+} from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import type { Course } from '@/types/course';
 
@@ -21,6 +34,9 @@ type Row = {
   certificates: number;
 };
 
+type SortKey = 'title' | 'enrolled' | 'completed' | 'avgProgress' | 'certificates';
+type StatusFilter = 'all' | 'published' | 'draft';
+
 interface Props {
   courses: Course[];
 }
@@ -28,6 +44,12 @@ interface Props {
 export function CourseProgressDashboard({ courses }: Props) {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [category, setCategory] = useState<string>('all');
+  const [sortKey, setSortKey] = useState<SortKey>('enrolled');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [refreshedAt, setRefreshedAt] = useState<Date | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -50,7 +72,6 @@ export function CourseProgressDashboard({ courses }: Props) {
       const progressions = progRes.data ?? [];
       const certs = certRes.data ?? [];
 
-      // course -> item ids
       const itemsByCourse: Record<string, Set<string>> = {};
       for (const it of items) {
         const cid = it.modules?.course_id;
@@ -62,7 +83,6 @@ export function CourseProgressDashboard({ courses }: Props) {
         set.forEach((iid) => (itemToCourse[iid] = cid));
       }
 
-      // completions per user per course
       const completedPerUserCourse: Record<string, Set<string>> = {};
       for (const p of progressions) {
         if (!p.completed_at) continue;
@@ -99,28 +119,74 @@ export function CourseProgressDashboard({ courses }: Props) {
       });
 
       setRows(out);
+      setRefreshedAt(new Date());
       setLoading(false);
     })();
     return () => { alive = false; };
   }, [courses]);
 
-  const totals = useMemo(() => rows.reduce(
-    (a, r) => ({
-      enrolled: a.enrolled + r.enrolled,
-      completed: a.completed + r.completed,
-      certificates: a.certificates + r.certificates,
-    }),
-    { enrolled: 0, completed: 0, certificates: 0 },
-  ), [rows]);
+  const categories = useMemo(() => {
+    const set = new Set<string>();
+    rows.forEach((r) => r.category && set.add(r.category));
+    return Array.from(set).sort();
+  }, [rows]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    let list = rows.filter((r) => {
+      if (statusFilter === 'published' && !r.published) return false;
+      if (statusFilter === 'draft' && r.published) return false;
+      if (category !== 'all' && (r.category ?? '') !== category) return false;
+      if (q && !r.title.toLowerCase().includes(q) && !(r.category ?? '').toLowerCase().includes(q)) return false;
+      return true;
+    });
+    list = [...list].sort((a, b) => {
+      const av = a[sortKey];
+      const bv = b[sortKey];
+      const cmp = typeof av === 'string' ? av.localeCompare(bv as string) : (av as number) - (bv as number);
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+    return list;
+  }, [rows, search, statusFilter, category, sortKey, sortDir]);
+
+  const totals = useMemo(
+    () =>
+      filtered.reduce(
+        (a, r) => ({
+          enrolled: a.enrolled + r.enrolled,
+          completed: a.completed + r.completed,
+          certificates: a.certificates + r.certificates,
+          avgWeighted: a.avgWeighted + r.avgProgress * r.enrolled,
+          enrolledForAvg: a.enrolledForAvg + r.enrolled,
+        }),
+        { enrolled: 0, completed: 0, certificates: 0, avgWeighted: 0, enrolledForAvg: 0 },
+      ),
+    [filtered],
+  );
+  const avgProgress = totals.enrolledForAvg ? Math.round(totals.avgWeighted / totals.enrolledForAvg) : 0;
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+    else { setSortKey(key); setSortDir(key === 'title' ? 'asc' : 'desc'); }
+  };
+
+  const sortIcon = (key: SortKey) => {
+    if (sortKey !== key) return <ArrowUpDown className="h-3 w-3 opacity-40" />;
+    return sortDir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
+  };
+
+  const progressTone = (pct: number) => {
+    if (pct >= 75) return 'bg-emerald-500';
+    if (pct >= 40) return 'bg-amber-500';
+    return 'bg-rose-500';
+  };
 
   const exportCsv = () => {
     const header = ['Course', 'Category', 'Status', 'Enrolled', 'Completed', 'Avg progress %', 'Certificates issued'];
     const lines = [header.join(',')];
-    for (const r of rows) {
-      const cells = [
-        r.title, r.category ?? '', r.published ? 'Published' : 'Draft',
-        r.enrolled, r.completed, r.avgProgress, r.certificates,
-      ].map((v) => `"${String(v).replace(/"/g, '""')}"`);
+    for (const r of filtered) {
+      const cells = [r.title, r.category ?? '', r.published ? 'Published' : 'Draft', r.enrolled, r.completed, r.avgProgress, r.certificates]
+        .map((v) => `"${String(v).replace(/"/g, '""')}"`);
       lines.push(cells.join(','));
     }
     const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
@@ -136,60 +202,131 @@ export function CourseProgressDashboard({ courses }: Props) {
     return <div className="flex justify-center py-16"><Spinner /></div>;
   }
 
+  const StatCard = ({ icon: Icon, label, value, hint }: { icon: any; label: string; value: React.ReactNode; hint?: string }) => (
+    <Card>
+      <CardContent className="pt-6">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
+            <p className="text-3xl font-semibold mt-1 tabular-nums">{value}</p>
+            {hint && <p className="text-xs text-muted-foreground mt-1">{hint}</p>}
+          </div>
+          <div className="rounded-lg bg-primary/10 text-primary p-2">
+            <Icon className="h-5 w-5" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card><CardContent className="pt-6">
-          <p className="text-xs uppercase tracking-wide text-neutral-500">Total enrollments</p>
-          <p className="text-3xl font-semibold mt-1">{totals.enrolled}</p>
-        </CardContent></Card>
-        <Card><CardContent className="pt-6">
-          <p className="text-xs uppercase tracking-wide text-neutral-500">Completed learners</p>
-          <p className="text-3xl font-semibold mt-1">{totals.completed}</p>
-        </CardContent></Card>
-        <Card><CardContent className="pt-6">
-          <p className="text-xs uppercase tracking-wide text-neutral-500">Certificates issued</p>
-          <p className="text-3xl font-semibold mt-1">{totals.certificates}</p>
-        </CardContent></Card>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard icon={Users} label="Total enrollments" value={totals.enrolled} hint={`${filtered.length} course${filtered.length === 1 ? '' : 's'}`} />
+        <StatCard icon={GraduationCap} label="Completed learners" value={totals.completed} hint={totals.enrolled ? `${Math.round((totals.completed / totals.enrolled) * 100)}% completion rate` : '—'} />
+        <StatCard icon={TrendingUp} label="Avg progress" value={`${avgProgress}%`} hint="Weighted by enrollment" />
+        <StatCard icon={Award} label="Certificates issued" value={totals.certificates} />
       </div>
 
-      <div className="flex justify-end">
-        <Button onClick={exportCsv} variant="outline" className="rounded-full">
+      <div className="flex flex-wrap gap-2 items-center">
+        <div className="relative flex-1 min-w-[220px]">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input placeholder="Search course or category…" className="pl-8" value={search} onChange={(e) => setSearch(e.target.value)} />
+        </div>
+        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
+          <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All statuses</SelectItem>
+            <SelectItem value="published">Published</SelectItem>
+            <SelectItem value="draft">Draft</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={category} onValueChange={setCategory}>
+          <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All categories</SelectItem>
+            {categories.map((c) => (<SelectItem key={c} value={c}>{c}</SelectItem>))}
+          </SelectContent>
+        </Select>
+        <Button onClick={exportCsv} variant="outline">
           <Download className="mr-2 h-4 w-4" /> Export CSV
         </Button>
       </div>
+
+      {refreshedAt && (
+        <p className="text-xs text-muted-foreground -mt-3">
+          Updated {refreshedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} • {filtered.length} of {rows.length} courses shown
+        </p>
+      )}
 
       <Card>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Course</TableHead>
+                <TableHead>
+                  <button className="inline-flex items-center gap-1 hover:text-foreground" onClick={() => toggleSort('title')}>
+                    Course {sortIcon('title')}
+                  </button>
+                </TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="text-right">Enrolled</TableHead>
-                <TableHead className="text-right">Completed</TableHead>
-                <TableHead className="w-[220px]">Avg progress</TableHead>
-                <TableHead className="text-right">Certificates</TableHead>
+                <TableHead className="text-right">
+                  <button className="inline-flex items-center gap-1 hover:text-foreground" onClick={() => toggleSort('enrolled')}>
+                    Enrolled {sortIcon('enrolled')}
+                  </button>
+                </TableHead>
+                <TableHead className="text-right">
+                  <button className="inline-flex items-center gap-1 hover:text-foreground" onClick={() => toggleSort('completed')}>
+                    Completed {sortIcon('completed')}
+                  </button>
+                </TableHead>
+                <TableHead className="w-[240px]">
+                  <button className="inline-flex items-center gap-1 hover:text-foreground" onClick={() => toggleSort('avgProgress')}>
+                    Avg progress {sortIcon('avgProgress')}
+                  </button>
+                </TableHead>
+                <TableHead className="text-right">
+                  <button className="inline-flex items-center gap-1 hover:text-foreground ml-auto" onClick={() => toggleSort('certificates')}>
+                    Certificates {sortIcon('certificates')}
+                  </button>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-10 text-neutral-500">No courses yet.</TableCell></TableRow>
-              ) : rows.map((r) => (
+              {filtered.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
+                    {rows.length === 0 ? 'No courses yet.' : 'No courses match your filters.'}
+                  </TableCell>
+                </TableRow>
+              ) : filtered.map((r) => (
                 <TableRow key={r.courseId}>
                   <TableCell className="font-medium">{r.title}</TableCell>
-                  <TableCell>{r.category ?? '—'}</TableCell>
-                  <TableCell>{r.published ? 'Published' : 'Draft'}</TableCell>
-                  <TableCell className="text-right">{r.enrolled}</TableCell>
-                  <TableCell className="text-right">{r.completed}</TableCell>
+                  <TableCell className="text-muted-foreground">{r.category ?? '—'}</TableCell>
+                  <TableCell>
+                    <Badge variant={r.published ? 'default' : 'secondary'} className={r.published ? '' : ''}>
+                      {r.published ? 'Published' : 'Draft'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">{r.enrolled}</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {r.completed}
+                    {r.enrolled > 0 && (
+                      <span className="text-xs text-muted-foreground ml-1">
+                        ({Math.round((r.completed / r.enrolled) * 100)}%)
+                      </span>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <Progress value={r.avgProgress} className="h-2" />
-                      <span className="text-xs text-neutral-600 w-10 text-right">{r.avgProgress}%</span>
+                      <div className="relative flex-1 h-2 rounded-full bg-muted overflow-hidden">
+                        <div className={`absolute inset-y-0 left-0 ${progressTone(r.avgProgress)} transition-all`} style={{ width: `${r.avgProgress}%` }} />
+                      </div>
+                      <span className="text-xs font-medium tabular-nums w-10 text-right">{r.avgProgress}%</span>
                     </div>
                   </TableCell>
-                  <TableCell className="text-right">{r.certificates}</TableCell>
+                  <TableCell className="text-right tabular-nums">{r.certificates}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
