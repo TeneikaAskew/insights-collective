@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Course } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { createLogger } from '@/utils/logger';
+import CourseOnboardingWalkthrough from '@/components/courses/CourseOnboardingWalkthrough';
 
 const logger = createLogger('CourseList');
 
