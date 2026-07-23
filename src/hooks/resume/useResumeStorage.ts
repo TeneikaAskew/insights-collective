@@ -4,7 +4,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import * as pdfjs from 'pdfjs-dist';
-// @ts-expect-error - the ?url suffix has no type declaration; Vite bundles the worker locally
 import PdfWorker from 'pdfjs-dist/build/pdf.worker.min.js?url';
 import mammoth from 'mammoth';
 
