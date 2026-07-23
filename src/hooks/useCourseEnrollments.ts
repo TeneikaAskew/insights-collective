@@ -68,7 +68,11 @@ export function useCourseEnrollments(courseId?: string) {
         .in('id', userIds);
       
       if (profileError) {
+        // Do NOT swallow this — enrollments would render with missing user
+        // names as if that were normal. Throwing routes it through the hook's
+        // existing error path (error state + destructive toast).
         logger.error('Error fetching profiles:', profileError);
+        throw profileError;
       }
 
       logger.log('Profile data:', profiles);
@@ -97,8 +101,24 @@ export function useCourseEnrollments(courseId?: string) {
       const { data: statsData, error: statsError } = await supabase
         .rpc('get_course_stats', { course_id_param: courseId });
 
+      // Client-side stats derived from the enrollment rows that DID load
+      // successfully above. Used both when the RPC returns no rows and as a
+      // degraded-but-honest fallback when the RPC errors.
+      const computeFallbackStats = (): CourseStats => ({
+        enrollment_count: transformedEnrollments.length,
+        completion_rate: transformedEnrollments.length > 0
+          ? transformedEnrollments.reduce((acc, e) => acc + (e.completion_status || 0), 0) / transformedEnrollments.length
+          : 0,
+      });
+
       if (statsError) {
-        logger.error('Error fetching course stats:', statsError);
+        // Non-fatal degradation: the stats RPC failed, but the enrollment data
+        // is genuinely loaded, so recompute stats client-side from it instead
+        // of leaving stats empty. The hook has no warning channel in its return
+        // shape, so the RPC failure is surfaced via the logger only — it must
+        // never be silently indistinguishable from a successful RPC path.
+        logger.error('Error fetching course stats — falling back to client-side stats:', statsError);
+        setStats(computeFallbackStats());
       } else if (statsData && statsData.length > 0) {
         setStats({
           enrollment_count: Number(statsData[0].enrollment_count) || 0,
@@ -106,13 +126,8 @@ export function useCourseEnrollments(courseId?: string) {
         });
         logger.log('Course stats:', statsData[0]);
       } else {
-        // Fallback stats calculation
-        setStats({
-          enrollment_count: transformedEnrollments.length,
-          completion_rate: transformedEnrollments.length > 0 
-            ? transformedEnrollments.reduce((acc, e) => acc + (e.completion_status || 0), 0) / transformedEnrollments.length 
-            : 0,
-        });
+        // RPC succeeded but returned no rows — fall back to client-side stats
+        setStats(computeFallbackStats());
       }
 
     } catch (err: any) {
