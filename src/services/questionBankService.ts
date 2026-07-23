@@ -93,8 +93,23 @@ export const questionBankService = {
     }
 
     if (filters?.category_id) {
-      // Skip category filtering for now since question_category_links table doesn't exist
-      // This would need proper database setup with category tables
+      // Real category filtering via the question_category_links join table:
+      // fetch the question ids linked to the category, then constrain the
+      // main query to those ids server-side.
+      const { data: links, error: linksError } = await supabase
+        .from('question_category_links')
+        .select('question_id')
+        .eq('category_id', filters.category_id);
+
+      if (linksError) throw linksError;
+
+      const linkedQuestionIds = (links || []).map(link => link.question_id);
+      if (linkedQuestionIds.length === 0) {
+        // No questions linked to this category — legitimately empty result.
+        return [];
+      }
+
+      query = query.in('id', linkedQuestionIds);
     }
 
     const { data, error } = await query.order('created_at', { ascending: false });

@@ -1,3 +1,8 @@
+// IMPORTANT: The `grades` table is absent from the generated Supabase schema
+// (see src/integrations/supabase/types.ts). Every function in this service
+// will throw at runtime until a migration adds the table. Callers must
+// surface these errors to the user — do NOT catch and swallow them into
+// fake-success defaults.
 import { supabase } from '@/integrations/supabase/client';
 import { Grade } from '@/types/course';
 
@@ -98,20 +103,27 @@ export const gradeService = {
     
     if (error) throw error;
 
-    // Calculate weighted average
+    // Calculate weighted average alongside raw point totals
     let totalEarned = 0;
     let totalPossible = 0;
+    let weightedScore = 0;
     let totalWeight = 0;
 
     grades?.forEach(grade => {
-      if (grade.points_earned !== null && grade.points_possible !== null) {
+      if (
+        grade.points_earned !== null &&
+        grade.points_possible !== null &&
+        grade.points_possible > 0
+      ) {
         const weight = grade.weight || 1;
-        totalEarned += (grade.points_earned / grade.points_possible) * weight;
+        totalEarned += grade.points_earned;
+        totalPossible += grade.points_possible;
+        weightedScore += (grade.points_earned / grade.points_possible) * weight;
         totalWeight += weight;
       }
     });
 
-    const percentage = totalWeight > 0 ? (totalEarned / totalWeight) * 100 : 0;
+    const percentage = totalWeight > 0 ? (weightedScore / totalWeight) * 100 : 0;
     
     return {
       percentage,
@@ -169,29 +181,13 @@ export const gradeService = {
   },
 
   // Import grades from CSV
-  async importGradesFromCSV(courseId: string, csvData: string, graderId: string) {
-    // Parse CSV
-    const lines = csvData.split('\n');
-    const headers = lines[0].split(',');
-    
-    const grades: Partial<Grade>[] = [];
-    
-    for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(',');
-      if (values.length !== headers.length) continue;
-      
-      // Map CSV data to grade object
-      // This is a simplified version - in production, you'd need more robust CSV parsing
-      const grade: Partial<Grade> = {
-        course_id: courseId,
-        // Additional mapping logic would go here
-        graded_by: graderId,
-      };
-      
-      grades.push(grade);
-    }
-
-    return this.bulkUpdateGrades(grades);
+  // Not implemented: the previous version parsed the CSV but mapped none of the
+  // row values (no student, no points), then "succeeded" by upserting empty
+  // rows into a table that does not exist. Throw instead of fake-succeeding.
+  async importGradesFromCSV(_courseId: string, _csvData: string, _graderId: string): Promise<never> {
+    throw new Error(
+      'Grade CSV import is not available: the grades table does not exist in the current schema'
+    );
   },
 
   // Get grade statistics for a course
