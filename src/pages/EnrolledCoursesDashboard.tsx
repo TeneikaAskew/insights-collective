@@ -1,7 +1,7 @@
 // ABOUTME: Dashboard showing user's enrolled courses in Canvas/Blackboard style
 // ABOUTME: Main landing page for students to access their enrolled courses and see progress
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
+import CourseErrorState from '@/components/course/CourseErrorState';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -33,19 +34,21 @@ interface EnrolledCourse {
   title: string;
   category: string;
   level: string;
-  thumbnail: string;
-  instructor_name: string;
+  // Real thumbnail URL, or null when the course has none. We render a neutral
+  // placeholder instead of substituting a stock photo.
+  thumbnail: string | null;
+  // Real instructor name, or null when unknown. The instructor line is
+  // omitted rather than showing a generic "Instructor" label.
+  instructor_name: string | null;
   progress: number;
-  enrollment_status: string;
   last_accessed?: string;
   upcoming_due_date?: string;
-  total_modules: number;
-  completed_modules: number;
 }
 
 export default function EnrolledCoursesDashboard() {
   const [courses, setCourses] = useState<EnrolledCourse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [coursesError, setCoursesError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
@@ -60,6 +63,8 @@ export default function EnrolledCoursesDashboard() {
 
   const fetchEnrolledCourses = async () => {
     try {
+      setLoading(true);
+      setCoursesError(null);
       const { data: enrollments, error } = await supabase
         .from('enrollments')
         .select(`
@@ -81,26 +86,17 @@ export default function EnrolledCoursesDashboard() {
 
       if (error) throw error;
 
-      // Fetch module counts per course
       const courseIds = (enrollments || []).map(e => (e.courses as any)?.id).filter(Boolean);
-      
-      const { data: moduleCounts } = await supabase
-        .from('modules')
-        .select('id, course_id')
-        .in('course_id', courseIds);
-
-      const moduleCountMap: Record<string, number> = {};
-      (moduleCounts || []).forEach(m => {
-        moduleCountMap[m.course_id] = (moduleCountMap[m.course_id] || 0) + 1;
-      });
 
       // Fetch next upcoming due date per course
-      const { data: upcomingAssignments } = await supabase
+      const { data: upcomingAssignments, error: assignmentsError } = await supabase
         .from('assignments')
         .select('course_id, due_date')
         .in('course_id', courseIds)
         .gte('due_date', new Date().toISOString())
         .order('due_date', { ascending: true });
+
+      if (assignmentsError) throw assignmentsError;
 
       const nextDueDateMap: Record<string, string> = {};
       (upcomingAssignments || []).forEach(a => {
@@ -113,22 +109,19 @@ export default function EnrolledCoursesDashboard() {
       const enrolledCourses: EnrolledCourse[] = (enrollments || []).map(enrollment => {
         const course = enrollment.courses as any;
         const instructor = course.profiles;
-        const totalMods = moduleCountMap[course.id] || 0;
-        const progress = enrollment.completion_status || 0;
-        const completedMods = totalMods > 0 ? Math.round((progress / 100) * totalMods) : 0;
-        
+        const instructorName = instructor
+          ? `${instructor.first_name || ''} ${instructor.last_name || ''}`.trim()
+          : '';
+
         return {
           id: course.id || '',
           title: course.title || '',
           category: course.category || '',
           level: course.level || '',
-          thumbnail: course.thumbnail || course.image_url || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97',
-          instructor_name: instructor ? `${instructor.first_name || ''} ${instructor.last_name || ''}`.trim() || 'Instructor' : 'Instructor',
-          progress,
-          enrollment_status: 'Active',
+          thumbnail: course.thumbnail || course.image_url || null,
+          instructor_name: instructorName || null,
+          progress: enrollment.completion_status || 0,
           last_accessed: enrollment.enrolled_at,
-          total_modules: totalMods,
-          completed_modules: completedMods,
           upcoming_due_date: nextDueDateMap[course.id] || undefined
         };
       });
@@ -136,6 +129,7 @@ export default function EnrolledCoursesDashboard() {
       setCourses(enrolledCourses);
     } catch (error: any) {
       logger.error('Error fetching enrolled courses:', error);
+      setCoursesError(error?.message || 'Failed to load your enrolled courses');
       toast({
         title: 'Error loading courses',
         description: 'Failed to load your enrolled courses',
@@ -153,19 +147,34 @@ export default function EnrolledCoursesDashboard() {
 
   const [recentActivity, setRecentActivity] = useState<{course: string; activity: string; time: string}[]>([]);
   const [upcomingDeadlines, setUpcomingDeadlines] = useState<{course: string; task: string; due: string}[]>([]);
+  const [sidebarError, setSidebarError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchSidebarData = async () => {
-      if (!user || courses.length === 0) return;
+  const fetchSidebarData = useCallback(async () => {
+    if (!user || courses.length === 0) return;
+    setSidebarError(null);
+    try {
       const courseIds = courses.map(c => c.id);
 
       // Fetch recent content_item_progressions as activity
-      const { data: progressions } = await supabase
+      const { data: progressions, error: progressionsError } = await supabase
         .from('content_item_progressions')
         .select('workflow_state, updated_at, content_items(title, course_id, courses(title))')
         .eq('user_id', user.id)
         .order('updated_at', { ascending: false })
         .limit(5);
+
+      if (progressionsError) throw progressionsError;
+
+      // Fetch upcoming deadlines from assignments
+      const { data: deadlines, error: deadlinesError } = await supabase
+        .from('assignments')
+        .select('title, due_date, courses(title)')
+        .in('course_id', courseIds)
+        .gte('due_date', new Date().toISOString())
+        .order('due_date', { ascending: true })
+        .limit(5);
+
+      if (deadlinesError) throw deadlinesError;
 
       setRecentActivity((progressions || []).map(p => {
         const ci = p.content_items as any;
@@ -175,23 +184,20 @@ export default function EnrolledCoursesDashboard() {
         return { course: courseName, activity: `${action}: ${ci?.title || 'Item'}`, time: timeAgo };
       }));
 
-      // Fetch upcoming deadlines from assignments
-      const { data: deadlines } = await supabase
-        .from('assignments')
-        .select('title, due_date, courses(title)')
-        .in('course_id', courseIds)
-        .gte('due_date', new Date().toISOString())
-        .order('due_date', { ascending: true })
-        .limit(5);
-
       setUpcomingDeadlines((deadlines || []).map(d => ({
         course: (d.courses as any)?.title || 'Course',
         task: d.title,
         due: d.due_date ? new Date(d.due_date).toLocaleDateString() : 'No date'
       })));
-    };
-    fetchSidebarData();
+    } catch (error: any) {
+      logger.error('Error fetching sidebar data:', error);
+      setSidebarError(error?.message || 'Failed to load recent activity and deadlines');
+    }
   }, [user, courses]);
+
+  useEffect(() => {
+    void fetchSidebarData();
+  }, [fetchSidebarData]);
 
   if (!isAuthenticated) {
     return (
@@ -267,7 +273,13 @@ export default function EnrolledCoursesDashboard() {
         <div className="grid gap-6 lg:grid-cols-4">
           {/* Main Course Grid */}
           <div className="lg:col-span-3">
-            {filteredCourses.length === 0 ? (
+            {coursesError ? (
+              <CourseErrorState
+                title="Error loading courses"
+                error={coursesError}
+                onRetry={() => void fetchEnrolledCourses()}
+              />
+            ) : filteredCourses.length === 0 ? (
               <Card>
                 <CardContent className="text-center py-12">
                   <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
@@ -284,27 +296,31 @@ export default function EnrolledCoursesDashboard() {
               <div className="grid gap-6 md:grid-cols-2">
                 {filteredCourses.map((course) => (
                   <Card key={course.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                    <div className="aspect-video overflow-hidden">
-                      <img 
-                        src={course.thumbnail} 
-                        alt={course.title}
-                        className="w-full h-full object-cover"
-                      />
+                    <div className="aspect-video overflow-hidden bg-muted">
+                      {course.thumbnail && (
+                        <img
+                          src={course.thumbnail}
+                          alt={course.title}
+                          className="w-full h-full object-cover"
+                        />
+                      )}
                     </div>
                     <CardContent className="p-6">
                       <div className="flex items-center justify-between mb-2">
                         <Badge>{course.category}</Badge>
                         <Badge variant="outline">{course.level}</Badge>
                       </div>
-                      
+
                       <h3 className="text-xl font-semibold mb-2 line-clamp-2">
                         {course.title}
                       </h3>
-                      
-                      <p className="text-sm text-muted-foreground mb-4">
-                        Instructor: {course.instructor_name}
-                      </p>
-                      
+
+                      {course.instructor_name && (
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Instructor: {course.instructor_name}
+                        </p>
+                      )}
+
                       <div className="space-y-3 mb-4">
                         <div className="flex justify-between items-center">
                           <span className="text-sm font-medium">Progress</span>
@@ -313,13 +329,12 @@ export default function EnrolledCoursesDashboard() {
                           </span>
                         </div>
                         <Progress value={course.progress} className="h-2" />
-                        
-                        <div className="flex justify-between text-sm text-muted-foreground">
-                          <span>{course.completed_modules}/{course.total_modules} modules</span>
-                          {course.upcoming_due_date && (
+
+                        {course.upcoming_due_date && (
+                          <div className="flex justify-end text-sm">
                             <span className="text-orange-600">Due: {new Date(course.upcoming_due_date).toLocaleDateString()}</span>
-                          )}
-                        </div>
+                          </div>
+                        )}
                       </div>
                       
                       <Button asChild className="w-full">
@@ -337,43 +352,61 @@ export default function EnrolledCoursesDashboard() {
 
           {/* Sidebar */}
           <div className="space-y-6">
-            {/* Recent Activity */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Clock className="h-5 w-5" />
-                  Recent Activity
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {recentActivity.map((activity, index) => (
-                  <div key={index} className="border-b last:border-0 pb-3 last:pb-0">
-                    <p className="font-medium text-sm">{activity.course}</p>
-                    <p className="text-sm text-muted-foreground">{activity.activity}</p>
-                    <p className="text-xs text-muted-foreground">{activity.time}</p>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
+            {sidebarError ? (
+              <CourseErrorState
+                title="Error loading activity"
+                error={sidebarError}
+                onRetry={() => void fetchSidebarData()}
+              />
+            ) : (
+              <>
+                {/* Recent Activity */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Clock className="h-5 w-5" />
+                      Recent Activity
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {recentActivity.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No recent activity yet.</p>
+                    ) : (
+                      recentActivity.map((activity, index) => (
+                        <div key={index} className="border-b last:border-0 pb-3 last:pb-0">
+                          <p className="font-medium text-sm">{activity.course}</p>
+                          <p className="text-sm text-muted-foreground">{activity.activity}</p>
+                          <p className="text-xs text-muted-foreground">{activity.time}</p>
+                        </div>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
 
-            {/* Upcoming Deadlines */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Calendar className="h-5 w-5" />
-                  Upcoming Deadlines
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {upcomingDeadlines.map((deadline, index) => (
-                  <div key={index} className="border-b last:border-0 pb-3 last:pb-0">
-                    <p className="font-medium text-sm">{deadline.task}</p>
-                    <p className="text-sm text-muted-foreground">{deadline.course}</p>
-                    <p className="text-xs text-orange-600">Due: {deadline.due}</p>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
+                {/* Upcoming Deadlines */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Calendar className="h-5 w-5" />
+                      Upcoming Deadlines
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {upcomingDeadlines.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No upcoming deadlines.</p>
+                    ) : (
+                      upcomingDeadlines.map((deadline, index) => (
+                        <div key={index} className="border-b last:border-0 pb-3 last:pb-0">
+                          <p className="font-medium text-sm">{deadline.task}</p>
+                          <p className="text-sm text-muted-foreground">{deadline.course}</p>
+                          <p className="text-xs text-orange-600">Due: {deadline.due}</p>
+                        </div>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+              </>
+            )}
           </div>
         </div>
       </div>
