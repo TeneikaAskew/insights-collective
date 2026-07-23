@@ -98,7 +98,10 @@ const successTables = (): Record<string, TableResult> => ({
   modules: { data: [{ id: 'm1' }], error: null },
   content_items: { data: [{ id: 'i1', type: 'page' }, { id: 'i2', type: 'page' }], error: null },
   content_item_progressions: { data: [{ content_item_id: 'i1', workflow_state: 'completed' }], error: null },
-  grades: { data: [{ percentage: 90 }], error: null },
+  // The average grade comes from real graded assignment submissions — the
+  // nonexistent `grades` table is no longer queried.
+  assignments: { data: [{ id: 'a1', points: 100 }], error: null },
+  assignment_submissions: { data: [{ assignment_id: 'a1', grade: 90 }], error: null },
 });
 
 describe('CourseProgress', () => {
@@ -154,7 +157,8 @@ describe('CourseProgress', () => {
       modules: { data: [], error: null },
       content_items: { data: [], error: null },
       content_item_progressions: { data: [], error: null },
-      grades: { data: [], error: null },
+      assignments: { data: [], error: null },
+      assignment_submissions: { data: [], error: null },
     });
     render(<CourseProgress />);
 
@@ -167,8 +171,8 @@ describe('CourseProgress', () => {
   });
 
   it('does not fabricate progress data when the hook errors', async () => {
-    // NOTE: CourseProgressOverview has no dedicated error UI yet (it falls back
-    // to the skeleton). This test pins the important invariant: a failed
+    // CourseProgressOverview now renders a dedicated error state (with retry)
+    // instead of falling back to the loading skeleton forever. A failed
     // progress fetch must never render fabricated numbers or the success view.
     setProgressHook({
       data: undefined,
@@ -178,8 +182,11 @@ describe('CourseProgress', () => {
     const { container } = render(<CourseProgress />);
 
     await waitFor(() => {
-      expect(container.querySelector('.animate-pulse')).toBeInTheDocument();
+      expect(screen.getByRole('alert')).toBeInTheDocument();
     });
+    expect(screen.getAllByText('Failed to load course progress').length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
+    expect(container.querySelector('.animate-pulse')).not.toBeInTheDocument();
     expect(screen.queryByText('Overall Progress')).not.toBeInTheDocument();
     expect(screen.queryByText('50%')).not.toBeInTheDocument();
     expect(screen.queryByText('0%')).not.toBeInTheDocument();
