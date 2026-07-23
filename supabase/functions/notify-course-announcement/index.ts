@@ -58,21 +58,27 @@ serve(async (req) => {
   const userIds = Array.from(new Set((enrollments ?? []).map((e) => e.user_id).filter(Boolean)));
 
   const messageBody = (content ?? '').slice(0, 240);
-  // In-app notifications are inserted by the DB trigger on course_announcements.
-  // This function only handles the (optional) email fan-out.
-  const inserted = 0;
 
-  // Email fan-out (only if Resend is configured)
+  // Email fan-out (only if Resend is configured). In-app notifications are
+  // inserted by the DB trigger on course_announcements, not here.
   let emailed = 0;
+  let emailLookupFailures = 0;
+  let emailError: string | null = null;
   const resendKey = Deno.env.get('RESEND_API_KEY');
   const fromAddr = Deno.env.get('ANNOUNCEMENT_FROM_EMAIL') ?? 'notifications@insightscollective.org';
   if (resendKey && userIds.length) {
-    // Fetch emails via auth admin
+    // Fetch emails via auth admin; a failed lookup must be counted, not
+    // silently dropped from the recipient list.
     const emails: string[] = [];
     for (const uid of userIds) {
-      const { data } = await admin.auth.admin.getUserById(uid);
+      const { data, error: lookupError } = await admin.auth.admin.getUserById(uid);
       const email = data?.user?.email;
-      if (email) emails.push(email);
+      if (email) {
+        emails.push(email);
+      } else {
+        emailLookupFailures++;
+        if (lookupError) console.error('user lookup failed', uid, lookupError.message);
+      }
     }
     // Batch send using BCC in a single Resend call for simplicity
     if (emails.length) {
@@ -96,20 +102,29 @@ serve(async (req) => {
               </div>`,
           }),
         });
-        if (resp.ok) emailed = emails.length;
-        else console.error('resend error', await resp.text());
+        if (resp.ok) {
+          emailed = emails.length;
+        } else {
+          emailError = await resp.text();
+          console.error('resend error', emailError);
+        }
       } catch (e) {
+        emailError = e instanceof Error ? e.message : String(e);
         console.error('resend request failed', e);
       }
     }
   }
 
-  return json(200, {
-    status: 'ok',
+  // Email is this function's only job (in-app is handled by a DB trigger) —
+  // a total send failure must not report status 'ok'.
+  const totalEmailFailure = !!resendKey && userIds.length > 0 && emailed === 0 && !!emailError;
+  return json(totalEmailFailure ? 502 : 200, {
+    status: totalEmailFailure ? 'email_failed' : 'ok',
     announcement_id: announcement_id ?? null,
     recipients: userIds.length,
-    notified_in_app: inserted,
     emailed,
+    email_lookup_failures: emailLookupFailures,
+    email_error: emailError,
     email_enabled: !!resendKey,
   });
 });

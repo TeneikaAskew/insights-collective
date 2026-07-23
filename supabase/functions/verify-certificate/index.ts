@@ -58,7 +58,13 @@ serve(async (req) => {
   const { data: rpcData, error: rpcError } = await admin
     .rpc('verify_certificate', { p_code: code });
   if (rpcError) {
+    // A lookup failure must not fall through to `found = false` — that would
+    // present a database outage as "no such certificate".
     console.error('verify_certificate rpc error', rpcError);
+    return json(500, {
+      status: 'error',
+      message: 'Verification is temporarily unavailable. Please try again shortly.',
+    });
   }
   const cert = Array.isArray(rpcData) ? rpcData[0] : rpcData;
   const found = !!cert;
