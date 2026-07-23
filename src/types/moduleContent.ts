@@ -57,6 +57,7 @@ export interface ContentBlockInput {
 export interface ModuleContent {
   id: string;
   module_id: string;
+  title?: string;
   content: string;
   type: 'text' | 'video' | 'image';
   position: number;
@@ -70,6 +71,7 @@ export interface ModuleContent {
  */
 export interface ModuleContentInput {
   module_id: string;
+  title?: string;
   content: string;
   type: 'text' | 'video' | 'image';
   position?: number;
