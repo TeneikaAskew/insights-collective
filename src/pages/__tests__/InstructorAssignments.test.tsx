@@ -136,10 +136,7 @@ describe('InstructorAssignments', () => {
     });
   });
 
-  it('settles without crashing when the assignments query fails', async () => {
-    // NOTE: the page currently coalesces a failed response (data: null) into an
-    // empty list, so a backend failure renders the empty-state copy. This test
-    // documents that behavior and guards against an infinite loading state.
+  it('shows an error state, not the empty-state copy, when the assignments query fails', async () => {
     wireTables({
       assignments: tableResult({
         data: null,
@@ -153,8 +150,11 @@ describe('InstructorAssignments', () => {
     await waitFor(() => {
       expect(screen.queryByText('Loading…')).not.toBeInTheDocument();
     });
+    expect(screen.getByText('Failed to load assignments')).toBeInTheDocument();
+    expect(screen.getByText('connection refused')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
     expect(
-      screen.getByText('No assignments have been created in this course yet.'),
-    ).toBeInTheDocument();
+      screen.queryByText('No assignments have been created in this course yet.'),
+    ).not.toBeInTheDocument();
   });
 });

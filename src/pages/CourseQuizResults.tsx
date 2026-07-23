@@ -10,6 +10,7 @@ import { ArrowLeft, GraduationCap, Shield } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCoursePermissions } from '@/hooks/useCoursePermissions';
+import CourseErrorState from '@/components/course/CourseErrorState';
 
 interface QuizRow {
   id: string;
@@ -49,58 +50,73 @@ const CourseQuizResults = () => {
   const [submissions, setSubmissions] = useState<SubRow[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (!courseId || !user?.id) return;
     (async () => {
       setLoading(true);
-      const modRes = await supabase
-        .from('modules')
-        .select('id, title, week, position')
-        .eq('course_id', courseId)
-        .order('position', { ascending: true, nullsFirst: false });
-      const moduleIds = (modRes.data ?? []).map((m: any) => m.id);
-      if (!moduleIds.length) {
+      setLoadError(null);
+      try {
+        const modRes = await supabase
+          .from('modules')
+          .select('id, title, week, position')
+          .eq('course_id', courseId)
+          .order('position', { ascending: true, nullsFirst: false });
+        if (modRes.error) throw modRes.error;
+        const moduleIds = (modRes.data ?? []).map((m: any) => m.id);
+        if (!moduleIds.length) {
+          setModules([]);
+          setQuizzes([]);
+          setSubmissions([]);
+          setLoading(false);
+          return;
+        }
+        const quizRes = await supabase
+          .from('quizzes')
+          .select('id, title, points_possible, module_id')
+          .in('module_id', moduleIds);
+        if (quizRes.error) throw quizRes.error;
+        const quizIds = (quizRes.data ?? []).map((q: any) => q.id);
+        let subRes: any = { data: [] };
+        if (quizIds.length) {
+          let q = supabase
+            .from('quiz_submissions')
+            .select('quiz_id, user_id, score, kept_score, attempt, workflow_state, finished_at')
+            .in('quiz_id', quizIds)
+            .eq('workflow_state', 'complete');
+          if (!canSeeAll) q = q.eq('user_id', user.id);
+          subRes = await q;
+          if (subRes.error) throw subRes.error;
+        }
+        setModules((modRes.data ?? []) as ModuleRow[]);
+        setQuizzes((quizRes.data ?? []) as QuizRow[]);
+        setSubmissions((subRes.data ?? []) as SubRow[]);
+
+        if (canSeeAll) {
+          const userIds = Array.from(new Set((subRes.data ?? []).map((s: any) => s.user_id)));
+          if (userIds.length) {
+            const profRes = await supabase
+              .from('profiles')
+              .select('id, full_name, email')
+              .in('id', userIds);
+            if (profRes.error) throw profRes.error;
+            const map: Record<string, Profile> = {};
+            (profRes.data ?? []).forEach((p: any) => (map[p.id] = p));
+            setProfiles(map);
+          }
+        }
+      } catch (e: any) {
         setModules([]);
         setQuizzes([]);
         setSubmissions([]);
+        setLoadError(e?.message ?? 'Failed to load quiz results');
+      } finally {
         setLoading(false);
-        return;
       }
-      const quizRes = await supabase
-        .from('quizzes')
-        .select('id, title, points_possible, module_id')
-        .in('module_id', moduleIds);
-      const quizIds = (quizRes.data ?? []).map((q: any) => q.id);
-      let subRes: any = { data: [] };
-      if (quizIds.length) {
-        let q = supabase
-          .from('quiz_submissions')
-          .select('quiz_id, user_id, score, kept_score, attempt, workflow_state, finished_at')
-          .in('quiz_id', quizIds)
-          .eq('workflow_state', 'complete');
-        if (!canSeeAll) q = q.eq('user_id', user.id);
-        subRes = await q;
-      }
-      setModules((modRes.data ?? []) as ModuleRow[]);
-      setQuizzes((quizRes.data ?? []) as QuizRow[]);
-      setSubmissions((subRes.data ?? []) as SubRow[]);
-
-      if (canSeeAll) {
-        const userIds = Array.from(new Set((subRes.data ?? []).map((s: any) => s.user_id)));
-        if (userIds.length) {
-          const profRes = await supabase
-            .from('profiles')
-            .select('id, full_name, email')
-            .in('id', userIds);
-          const map: Record<string, Profile> = {};
-          (profRes.data ?? []).forEach((p: any) => (map[p.id] = p));
-          setProfiles(map);
-        }
-      }
-      setLoading(false);
     })();
-  }, [courseId, user?.id, canSeeAll]);
+  }, [courseId, user?.id, canSeeAll, reloadKey]);
 
   const grouped = useMemo(() => {
     return modules.map((m) => {
@@ -149,6 +165,12 @@ const CourseQuizResults = () => {
 
         {loading ? (
           <div className="text-sm text-muted-foreground animate-pulse">Loading…</div>
+        ) : loadError ? (
+          <CourseErrorState
+            title="Failed to load quiz results"
+            error={loadError}
+            onRetry={() => setReloadKey((k) => k + 1)}
+          />
         ) : grouped.every((g) => g.quizzes.length === 0) ? (
           <Alert>
             <Shield className="h-4 w-4" />

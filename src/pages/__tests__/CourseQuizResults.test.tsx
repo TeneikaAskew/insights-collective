@@ -141,10 +141,7 @@ describe('CourseQuizResults', () => {
     });
   });
 
-  it('settles without crashing when the modules query fails', async () => {
-    // NOTE: the page currently coalesces a failed response (data: null) into an
-    // empty module list, so a backend failure renders the no-quizzes copy. This
-    // test documents that behavior and guards against an infinite loading state.
+  it('shows an error state, not the no-quizzes copy, when the modules query fails', async () => {
     wireTables({
       modules: tableResult({
         data: null,
@@ -157,6 +154,9 @@ describe('CourseQuizResults', () => {
     await waitFor(() => {
       expect(screen.queryByText('Loading…')).not.toBeInTheDocument();
     });
-    expect(screen.getByText('This course has no quizzes yet.')).toBeInTheDocument();
+    expect(screen.getByText('Failed to load quiz results')).toBeInTheDocument();
+    expect(screen.getByText('connection refused')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
+    expect(screen.queryByText('This course has no quizzes yet.')).not.toBeInTheDocument();
   });
 });
