@@ -82,9 +82,12 @@ export function useCourseData(courseId?: string) {
           .select('*', { count: 'exact', head: true })
           .eq('course_id', courseId);
 
-        if (!countError) {
-          transformedCourse.enrollmentCount = count || 0;
+        if (countError) {
+          logger.error('Enrollment count fetch error:', countError);
+          throw countError;
         }
+
+        transformedCourse.enrollmentCount = count || 0;
 
         // Set the course data
         setCourse(transformedCourse);
