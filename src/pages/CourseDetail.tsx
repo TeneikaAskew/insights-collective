@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
 import { CourseLayout } from '@/components/course/CourseLayout';
+import CourseErrorState from '@/components/course/CourseErrorState';
 import ModuleCard from '@/components/common/ModuleCard';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -52,6 +53,7 @@ const CourseDetail = () => {
   // Announcements state
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [announcementsLoading, setAnnouncementsLoading] = useState(false);
+  const [announcementsError, setAnnouncementsError] = useState<string | null>(null);
   const [showAnnouncementForm, setShowAnnouncementForm] = useState(false);
   const [announcementTitle, setAnnouncementTitle] = useState('');
   const [announcementContent, setAnnouncementContent] = useState('');
@@ -77,10 +79,13 @@ const CourseDetail = () => {
   const { forums, isLoadingForums } = useForums(courseId);
   const { canEdit, isAdmin, isInstructor } = useCoursePermissions(courseId);
 
-  // Load announcements
+  // Load announcements. Failures are surfaced as an inline error in the
+  // announcements tab (with retry) instead of being silently swallowed —
+  // the rest of the page still renders.
   const fetchAnnouncements = async () => {
     if (!courseId) return;
     setAnnouncementsLoading(true);
+    setAnnouncementsError(null);
     try {
       const { data, error: err } = await supabase
         .from('course_announcements')
@@ -88,9 +93,11 @@ const CourseDetail = () => {
         .eq('course_id', courseId)
         .order('is_pinned', { ascending: false })
         .order('created_at', { ascending: false });
-      if (!err) setAnnouncements(data || []);
-    } catch {
-      // table may not exist yet; silently ignore
+      if (err) throw err;
+      setAnnouncements(data || []);
+    } catch (err: any) {
+      logger.error('Error loading announcements:', err);
+      setAnnouncementsError(err?.message || 'Failed to load announcements');
     } finally {
       setAnnouncementsLoading(false);
     }
@@ -214,13 +221,16 @@ const CourseDetail = () => {
     }
   };
 
-  useEffect(() => {
-    const fetchCourseData = async () => {
+  // Component-scoped so the error UI can offer a real retry.
+  const fetchCourseData = async () => {
       if (!courseId) {
         setError("No course ID provided");
         setLoading(false);
         return;
       }
+
+      setLoading(true);
+      setError(null);
 
       try {
         // Use courseId directly if it's a valid UUID, otherwise validate
@@ -300,10 +310,14 @@ const CourseDetail = () => {
         });
 
         // Real enrollment count for this course (was previously hardcoded to 0).
-        const { count: realEnrollCount } = await supabase
+        // A failed count is a real fetch failure — surface it through the
+        // page-level error UI instead of silently rendering "0 enrolled".
+        const { count: realEnrollCount, error: enrollCountError } = await supabase
           .from('enrollments')
           .select('id', { count: 'exact', head: true })
           .eq('course_id', courseData.id);
+
+        if (enrollCountError) throw enrollCountError;
 
         const formattedCourse = {
           ...courseData,
@@ -318,7 +332,9 @@ const CourseDetail = () => {
           modules: processedModules,
           createdAt: courseData.created_at,
           updatedAt: courseData.updated_at,
-          thumbnail: courseData.image_url || courseData.thumbnail || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97',
+          // No stock-photo fallback: when a course has no real artwork the UI
+          // renders a neutral placeholder block instead of implying course art.
+          thumbnail: courseData.image_url || courseData.thumbnail || undefined,
         };
 
         setCourse(formattedCourse);
@@ -334,40 +350,52 @@ const CourseDetail = () => {
           variant: "destructive"
         });
       }
-    };
+  };
 
+  useEffect(() => {
     fetchCourseData();
-  }, [courseId, toast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [courseId]);
+
+  // If the enrollment check itself fails we can't honestly show a definitive
+  // "Enroll" call-to-action (the user may already be enrolled) — surface the
+  // failure with a retry instead of silently defaulting to "not enrolled".
+  const [enrollmentCheckError, setEnrollmentCheckError] = useState<string | null>(null);
+
+  const checkEnrollment = async () => {
+    if (!user || !courseId) return;
+    try {
+      if (!isValidUUID(courseId)) {
+        logger.error(`Invalid course ID: ${courseId}`);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('enrollments')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('course_id', courseId)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      setEnrollmentCheckError(null);
+      if (data) {
+        setIsEnrolled(true);
+      }
+    } catch (error: any) {
+      logger.error('Error checking enrollment:', error);
+      setEnrollmentCheckError(error?.message || 'Could not verify your enrollment status');
+    }
+  };
 
   useEffect(() => {
     if (!courseId) return;
-    
+
     setIsEnrolled(isEnrolledInCourse(courseId));
     setIsWishlisted(isWishlistedCourse(courseId));
 
     if (isAuthenticated && user && courseId) {
-      const checkEnrollment = async () => {
-        try {
-          if (!isValidUUID(courseId)) {
-            logger.error(`Invalid course ID: ${courseId}`);
-            return;
-          }
-          
-          const { data, error } = await supabase
-            .from('enrollments')
-            .select('id')
-            .eq('user_id', user.id)
-            .eq('course_id', courseId)
-            .maybeSingle();
-            
-          if (!error && data) {
-            setIsEnrolled(true);
-          }
-        } catch (error) {
-          logger.error('Error checking enrollment:', error);
-        }
-      };
-
       const checkWishlist = async () => {
         try {
           if (!isValidUUID(courseId)) {
@@ -386,13 +414,15 @@ const CourseDetail = () => {
             setIsWishlisted(true);
           }
         } catch (error) {
+          // Wishlist state is non-critical; keep fail-quiet behavior here.
           logger.error('Error checking wishlist:', error);
         }
       };
-      
+
       checkEnrollment();
       checkWishlist();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, user, courseId]);
 
   if (loading) {
@@ -408,12 +438,17 @@ const CourseDetail = () => {
   if (error || !course) {
     return (
       <CourseLayout>
-        <div className="text-center py-12">
-          <h1 className="text-3xl font-bold mb-4">Course Not Found</h1>
-          <p className="text-muted-foreground mb-6">{error || "The course you're looking for doesn't exist or has been removed."}</p>
-          <Button asChild>
-            <Link to="/courses">Browse Courses</Link>
-          </Button>
+        <div className="max-w-2xl mx-auto py-12 space-y-6">
+          <CourseErrorState
+            title="Failed to load course"
+            error={error || "The course you're looking for doesn't exist or has been removed."}
+            onRetry={() => void fetchCourseData()}
+          />
+          <div className="text-center">
+            <Button asChild>
+              <Link to="/courses">Browse Courses</Link>
+            </Button>
+          </div>
         </div>
       </CourseLayout>
     );
@@ -437,20 +472,23 @@ const CourseDetail = () => {
       if (!isValidUUID(courseId)) {
         throw new Error(`Invalid course ID format: ${courseId}`);
       }
-      
-      addEnrolledCourse(courseId);
-      setIsEnrolled(true);
 
+      // Persist the enrollment FIRST. Only mark the client as enrolled once
+      // the insert succeeds — otherwise a failed insert would leave the client
+      // permanently believing it is enrolled (localStorage has no rollback).
       if (isAuthenticated && user) {
         const { error } = await supabase.from('enrollments').insert({
           user_id: user.id,
           course_id: courseId,
           completion_status: 0
         });
-        
+
         if (error) throw error;
       }
-      
+
+      addEnrolledCourse(courseId);
+      setIsEnrolled(true);
+
       toast({
         title: "Successfully enrolled!",
         description: `You have been enrolled in ${course.title}`
@@ -637,7 +675,13 @@ const CourseDetail = () => {
               )}
 
               {/* List */}
-              {announcementsLoading ? (
+              {announcementsError ? (
+                <CourseErrorState
+                  title="Failed to load announcements"
+                  error={announcementsError}
+                  onRetry={() => void fetchAnnouncements()}
+                />
+              ) : announcementsLoading ? (
                 <div className="text-center py-8 text-muted-foreground">Loading announcements…</div>
               ) : announcements.length === 0 ? (
                 <div className="text-center p-8 border rounded-lg bg-muted/20">
@@ -844,7 +888,11 @@ const CourseDetail = () => {
                   </div>
                   <div className="hidden md:block">
                     <div className="aspect-[16/10] rounded-xl overflow-hidden bg-white/5">
-                      <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover" />
+                      {course.thumbnail ? (
+                        <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full bg-muted" aria-hidden="true" />
+                      )}
                     </div>
                   </div>
                 </div>
@@ -857,7 +905,11 @@ const CourseDetail = () => {
                   <h2 className="font-display text-3xl text-neutral-900 mb-6">Jump back in</h2>
                   <div className="grid sm:grid-cols-[220px_minmax(0,1fr)] gap-6 items-center">
                     <div className="aspect-video rounded-xl overflow-hidden bg-neutral-100">
-                      <img src={course.thumbnail} alt="" className="w-full h-full object-cover" />
+                      {course.thumbnail ? (
+                        <img src={course.thumbnail} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full bg-muted" aria-hidden="true" />
+                      )}
                     </div>
                     <div>
                       <p className="text-[11px] uppercase tracking-[0.15em] text-neutral-500 mb-1">
@@ -1113,15 +1165,27 @@ const CourseDetail = () => {
               <aside className="bg-neutral-50 border-t lg:border-t-0 lg:border-l border-neutral-200 p-8 lg:p-10">
                 <div className="lg:sticky lg:top-6">
                   <div className="aspect-[16/9] rounded-xl overflow-hidden mb-6 bg-neutral-200">
-                    <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover" />
+                    {course.thumbnail ? (
+                      <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full bg-muted" aria-hidden="true" />
+                    )}
                   </div>
-                  <Button
-                    onClick={handleEnroll}
-                    disabled={enrolling}
-                    className="w-full h-12 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-base shadow-none"
-                  >
-                    {enrolling ? 'Enrolling…' : 'Enroll for free'}
-                  </Button>
+                  {enrollmentCheckError ? (
+                    <CourseErrorState
+                      title="Couldn't verify enrollment"
+                      error={enrollmentCheckError}
+                      onRetry={() => void checkEnrollment()}
+                    />
+                  ) : (
+                    <Button
+                      onClick={handleEnroll}
+                      disabled={enrolling}
+                      className="w-full h-12 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-base shadow-none"
+                    >
+                      {enrolling ? 'Enrolling…' : 'Enroll for free'}
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     onClick={handleWishlist}
