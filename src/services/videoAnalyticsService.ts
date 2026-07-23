@@ -176,31 +176,26 @@ class VideoAnalyticsService {
     userId: string,
     contentItemId: string
   ): Promise<VideoProgress | null> {
-    try {
-      const { data, error } = await supabase
-        .from('video_analytics')
-        .select('content_item_id, last_position, completion_percentage, completed')
-        .eq('user_id', userId)
-        .eq('content_item_id', contentItemId)
-        .single();
+    const { data, error } = await supabase
+      .from('video_analytics')
+      .select('content_item_id, last_position, completion_percentage, completed')
+      .eq('user_id', userId)
+      .eq('content_item_id', contentItemId)
+      .single();
 
-      if (error && error.code !== 'PGRST116') {
-        // PGRST116 is "not found" which is acceptable
-        throw error;
-      }
-
-      if (!data) return null;
-
-      return {
-        contentItemId: data.content_item_id,
-        lastPosition: data.last_position || 0,
-        completionPercentage: data.completion_percentage || 0,
-        completed: data.completed || false,
-      };
-    } catch (error) {
-      logger.error('Error getting video progress', error);
-      return null;
+    if (error && error.code !== 'PGRST116') {
+      // PGRST116 is "not found" which is acceptable
+      throw error;
     }
+
+    if (!data) return null;
+
+    return {
+      contentItemId: data.content_item_id,
+      lastPosition: data.last_position || 0,
+      completionPercentage: data.completion_percentage || 0,
+      completed: data.completed || false,
+    };
   }
 
   /**
@@ -240,39 +235,29 @@ class VideoAnalyticsService {
     totalWatchTimeMinutes: number;
     averageCompletionPercentage: number;
   }> {
-    try {
-      const { data, error } = await supabase.rpc('get_student_video_progress', {
-        student_id: userId,
-        course_id_param: courseId,
-      });
+    const { data, error } = await supabase.rpc('get_student_video_progress', {
+      student_id: userId,
+      course_id_param: courseId,
+    });
 
-      if (error) throw error;
+    if (error) throw error;
 
-      if (data && data.length > 0) {
-        return {
-          totalVideos: data[0].total_videos || 0,
-          completedVideos: data[0].completed_videos || 0,
-          totalWatchTimeMinutes: data[0].total_watch_time_minutes || 0,
-          averageCompletionPercentage:
-            data[0].average_completion_percentage || 0,
-        };
-      }
-
+    if (data && data.length > 0) {
       return {
-        totalVideos: 0,
-        completedVideos: 0,
-        totalWatchTimeMinutes: 0,
-        averageCompletionPercentage: 0,
-      };
-    } catch (error) {
-      logger.error('Error getting student video summary', error);
-      return {
-        totalVideos: 0,
-        completedVideos: 0,
-        totalWatchTimeMinutes: 0,
-        averageCompletionPercentage: 0,
+        totalVideos: data[0].total_videos || 0,
+        completedVideos: data[0].completed_videos || 0,
+        totalWatchTimeMinutes: data[0].total_watch_time_minutes || 0,
+        averageCompletionPercentage:
+          data[0].average_completion_percentage || 0,
       };
     }
+
+    return {
+      totalVideos: 0,
+      completedVideos: 0,
+      totalWatchTimeMinutes: 0,
+      averageCompletionPercentage: 0,
+    };
   }
 
   /**
@@ -282,30 +267,25 @@ class VideoAnalyticsService {
     userId: string,
     courseId: string
   ): Promise<VideoAnalytics[]> {
-    try {
-      const { data, error } = await supabase
-        .from('video_analytics')
-        .select(
-          `
-          *,
-          content_items!inner(
-            id,
-            title,
-            course_id
-          )
+    const { data, error } = await supabase
+      .from('video_analytics')
+      .select(
         `
+        *,
+        content_items!inner(
+          id,
+          title,
+          course_id
         )
-        .eq('user_id', userId)
-        .eq('content_items.course_id', courseId)
-        .order('last_watched_at', { ascending: false });
+      `
+      )
+      .eq('user_id', userId)
+      .eq('content_items.course_id', courseId)
+      .order('last_watched_at', { ascending: false });
 
-      if (error) throw error;
+    if (error) throw error;
 
-      return (data || []) as VideoAnalytics[];
-    } catch (error) {
-      logger.error('Error getting student course video analytics', error);
-      return [];
-    }
+    return (data || []) as VideoAnalytics[];
   }
 
   /**
@@ -316,26 +296,21 @@ class VideoAnalyticsService {
   ): Promise<
     Array<VideoAnalytics & { user_email?: string; user_name?: string }>
   > {
-    try {
-      const { data, error } = await supabase
-        .from('video_analytics')
-        .select(
-          `
-          *,
-          content_items!inner(course_id),
-          profiles(first_name, last_name)
+    const { data, error } = await supabase
+      .from('video_analytics')
+      .select(
         `
-        )
-        .eq('content_items.course_id', courseId)
-        .order('last_watched_at', { ascending: false });
+        *,
+        content_items!inner(course_id),
+        profiles(first_name, last_name)
+      `
+      )
+      .eq('content_items.course_id', courseId)
+      .order('last_watched_at', { ascending: false });
 
-      if (error) throw error;
+    if (error) throw error;
 
-      return (data || []) as any[];
-    } catch (error) {
-      logger.error('Error getting course video analytics', error);
-      return [];
-    }
+    return (data || []) as any[];
   }
 }
 

@@ -242,7 +242,11 @@ const CourseLearn = () => {
   const toggleExpand = useCallback((mid: string) => {
     setExpanded((prev) => {
       const n = new Set(prev);
-      n.has(mid) ? n.delete(mid) : n.add(mid);
+      if (n.has(mid)) {
+        n.delete(mid);
+      } else {
+        n.add(mid);
+      }
       return n;
     });
   }, []);

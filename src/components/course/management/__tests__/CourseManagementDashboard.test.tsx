@@ -123,6 +123,27 @@ describe('CourseManagementDashboard', () => {
     expect(screen.getByText(/no courses/i)).toBeInTheDocument();
   });
 
+  it('should render the error state and retry via refetch when loading fails', () => {
+    const mockRefetch = vi.fn();
+    vi.mocked(useCoursesManagement).mockReturnValue({
+      courses: [],
+      loading: false,
+      error: 'Failed to fetch courses',
+      refetch: mockRefetch,
+    } as any);
+
+    render(<CourseManagementDashboard />);
+
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent('Failed to load courses');
+    expect(alert).toHaveTextContent('Failed to fetch courses');
+    // The normal table UI must not render alongside the error state
+    expect(screen.queryByText('Course Management')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /retry/i }));
+    expect(mockRefetch).toHaveBeenCalledTimes(1);
+  });
+
   it('should navigate to manage course', () => {
     vi.mocked(useCoursesManagement).mockReturnValue({
       courses: mockCourses,

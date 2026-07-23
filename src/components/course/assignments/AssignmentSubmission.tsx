@@ -59,10 +59,15 @@ export const AssignmentSubmissionComponent: React.FC<AssignmentSubmissionProps> 
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [uploadProgress, setUploadProgress] = useState(0);
 
+  // Media recording is not implemented — never default the form to it.
+  const selectableSubmissionTypes = assignment.submission_types.filter(
+    (t) => t !== 'media_recording'
+  );
+
   const form = useForm<SubmissionFormValues>({
     resolver: zodResolver(submissionSchema),
     defaultValues: {
-      submission_type: assignment.submission_types[0] as any,
+      submission_type: (selectableSubmissionTypes[0] ?? assignment.submission_types[0]) as any,
       text_content: submission?.submission_data?.text || '',
       url: submission?.submission_data?.url || '',
     },
@@ -241,9 +246,16 @@ export const AssignmentSubmissionComponent: React.FC<AssignmentSubmissionProps> 
                       </TabsTrigger>
                     )}
                     {assignment.submission_types.includes('media_recording') && (
-                      <TabsTrigger value="media_recording">
+                      // Media recording has no implementation yet — keep the
+                      // option visible but disabled so it cannot be selected
+                      // and dead-end.
+                      <TabsTrigger
+                        value="media_recording"
+                        disabled
+                        title="Media recording is not yet available"
+                      >
                         <Mic className="h-4 w-4 mr-2" />
-                        Media
+                        Media (unavailable)
                       </TabsTrigger>
                     )}
                   </TabsList>
@@ -337,7 +349,8 @@ export const AssignmentSubmissionComponent: React.FC<AssignmentSubmissionProps> 
                     <Alert>
                       <Mic className="h-4 w-4" />
                       <AlertDescription>
-                        Media recording feature coming soon. Please use file upload for now.
+                        Media recording is not yet available. Please use one of the other
+                        submission types.
                       </AlertDescription>
                     </Alert>
                   </TabsContent>

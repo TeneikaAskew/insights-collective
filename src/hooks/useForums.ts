@@ -1,7 +1,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 
 import { createLogger } from '@/utils/logger';
@@ -9,55 +9,25 @@ import { createLogger } from '@/utils/logger';
 const logger = createLogger('useForums');
 
 export const useForums = (courseId: string) => {
-  const [mockForums, setMockForums] = useState([]);
-  
-  // Simple mock data for testing
-  useEffect(() => {
-    setMockForums([
-      {
-        id: '1',
-        title: 'General Discussion',
-        description: 'A place to discuss general topics related to this course.',
-        course_id: courseId || '1'
-      },
-      {
-        id: '2',
-        title: 'Technical Questions',
-        description: 'Ask and answer technical questions about the course content.',
-        course_id: courseId || '1'
-      }
-    ]);
-  }, [courseId]);
-  
   const { data: forums, isLoading: isLoadingForums } = useQuery({
     queryKey: ['forums', courseId],
     queryFn: async () => {
-      // For routes that don't have a courseId, use mock data
-      if (!courseId) {
-        logger.log("No courseId provided, using mock forums");
-        return mockForums;
+      if (!courseId) return [];
+
+      const { data, error } = await supabase
+        .from('forums')
+        .select('*')
+        .eq('course_id', courseId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        logger.error("Error fetching forums:", error);
+        throw error;
       }
-      
-      try {
-        const { data, error } = await supabase
-          .from('forums')
-          .select('*')
-          .eq('course_id', courseId)
-          .order('created_at', { ascending: false });
-          
-        if (error) {
-          logger.error("Error fetching forums:", error);
-          return mockForums;
-        }
-        
-        return data && data.length > 0 ? data : mockForums;
-      } catch (err) {
-        logger.error("Exception while fetching forums:", err);
-        return mockForums;
-      }
+
+      return data ?? [];
     },
-    // Always enabled to handle both course-specific and general forums
-    enabled: true
+    enabled: !!courseId
   });
   
   return {
@@ -69,81 +39,32 @@ export const useForums = (courseId: string) => {
 // Add missing exports that are used in the components
 
 export const useForumThreads = (forumId: string) => {
-  const [mockThreads, setMockThreads] = useState([]);
-
-  // Generate mock threads for testing
-  useEffect(() => {
-    if (!forumId) return;
-    
-    setMockThreads([
-      {
-        id: '1',
-        title: 'Welcome to the Forum',
-        user_id: '1',
-        forum_id: forumId,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        is_pinned: true,
-        is_locked: false,
-        is_read: false,
-        post_count: 3,
-        author: {
-          first_name: 'John',
-          last_name: 'Doe',
-          avatar_url: ''
-        }
-      },
-      {
-        id: '2',
-        title: 'How to ask good questions',
-        user_id: '2',
-        forum_id: forumId,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        is_pinned: false,
-        is_locked: false,
-        is_read: true,
-        post_count: 5,
-        author: {
-          first_name: 'Jane',
-          last_name: 'Smith',
-          avatar_url: ''
-        }
-      }
-    ]);
-  }, [forumId]);
-
   const { data: threads, isLoading: isLoadingThreads } = useQuery({
     queryKey: ['threads', forumId],
     queryFn: async () => {
       if (!forumId) return [];
-      
-      try {
-        const { data, error } = await supabase
-          .from('threads')
-          .select(`
-            *,
-            author:user_id(
-              first_name,
-              last_name,
-              avatar_url
-            ),
-            post_count:posts(count)
-          `)
-          .eq('forum_id', forumId)
-          .order('is_pinned', { ascending: false })
-          .order('updated_at', { ascending: false });
-          
-        if (error) {
-          logger.error("Error fetching threads:", error);
-          return mockThreads;
-        }
-        
-        return data && data.length > 0 ? data : mockThreads;
-      } catch (err) {
-        logger.error("Exception while fetching threads:", err);
-        return mockThreads;
+
+      const { data, error } = await supabase
+        .from('threads')
+        .select(`
+          *,
+          author:user_id(
+            first_name,
+            last_name,
+            avatar_url
+          ),
+          post_count:posts(count)
+        `)
+        .eq('forum_id', forumId)
+        .order('is_pinned', { ascending: false })
+        .order('updated_at', { ascending: false });
+
+      if (error) {
+        logger.error("Error fetching threads:", error);
+        throw error;
       }
+
+      return data ?? [];
     },
     enabled: !!forumId
   });
@@ -155,73 +76,30 @@ export const useForumThreads = (forumId: string) => {
 };
 
 export const useThreadPosts = (threadId: string) => {
-  const [mockPosts, setMockPosts] = useState([]);
-
-  // Generate mock posts for testing
-  useEffect(() => {
-    if (!threadId) return;
-    
-    setMockPosts([
-      {
-        id: '1',
-        thread_id: threadId,
-        user_id: '1',
-        content: '<p>Welcome to the discussion! Please feel free to ask any questions.</p>',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        parent_id: null,
-        author: {
-          first_name: 'John',
-          last_name: 'Doe',
-          avatar_url: ''
-        }
-      },
-      {
-        id: '2',
-        thread_id: threadId,
-        user_id: '2',
-        content: '<p>Thanks for starting this thread. I have a question about the course materials.</p>',
-        created_at: new Date(Date.now() - 3600000).toISOString(),
-        updated_at: new Date(Date.now() - 3600000).toISOString(),
-        parent_id: null,
-        author: {
-          first_name: 'Jane',
-          last_name: 'Smith',
-          avatar_url: ''
-        }
-      }
-    ]);
-  }, [threadId]);
-
   const { data: posts, isLoading: isLoadingPosts } = useQuery({
     queryKey: ['posts', threadId],
     queryFn: async () => {
       if (!threadId) return [];
-      
-      try {
-        const { data, error } = await supabase
-          .from('posts')
-          .select(`
-            *,
-            author:user_id(
-              first_name,
-              last_name,
-              avatar_url
-            )
-          `)
-          .eq('thread_id', threadId)
-          .order('created_at', { ascending: true });
-          
-        if (error) {
-          logger.error("Error fetching posts:", error);
-          return mockPosts;
-        }
-        
-        return data && data.length > 0 ? data : mockPosts;
-      } catch (err) {
-        logger.error("Exception while fetching posts:", err);
-        return mockPosts;
+
+      const { data, error } = await supabase
+        .from('posts')
+        .select(`
+          *,
+          author:user_id(
+            first_name,
+            last_name,
+            avatar_url
+          )
+        `)
+        .eq('thread_id', threadId)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        logger.error("Error fetching posts:", error);
+        throw error;
       }
+
+      return data ?? [];
     },
     enabled: !!threadId
   });
@@ -334,35 +212,30 @@ export const useThreadSubscription = (threadId: string | null, forumId: string |
     queryKey: ['subscription', threadId, forumId, userId],
     queryFn: async () => {
       if (!userId) return null;
-      
-      try {
-        const query = supabase
-          .from('thread_subscriptions')
-          .select('*');
 
-        if (threadId) {
-          query.eq('thread_id', threadId);
-        } else if (forumId) {
-          query.eq('forum_id', forumId);
-        } else {
-          return null;
-        }
-        
-        query.eq('user_id', userId);
-        
-        const { data, error } = await query;
-          
-        if (error) {
-          logger.error("Error fetching subscription:", error);
-          return null;
-        }
-        
-        setIsSubscribed(data && data.length > 0);
-        return data && data.length > 0 ? data[0] : null;
-      } catch (err) {
-        logger.error("Exception while fetching subscription:", err);
+      const query = supabase
+        .from('thread_subscriptions')
+        .select('*');
+
+      if (threadId) {
+        query.eq('thread_id', threadId);
+      } else if (forumId) {
+        query.eq('forum_id', forumId);
+      } else {
         return null;
       }
+
+      query.eq('user_id', userId);
+
+      const { data, error } = await query;
+
+      if (error) {
+        logger.error("Error fetching subscription:", error);
+        throw error;
+      }
+
+      setIsSubscribed(!!(data && data.length > 0));
+      return data && data.length > 0 ? data[0] : null;
     },
     enabled: !!(userId && (threadId || forumId))
   });

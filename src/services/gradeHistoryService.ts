@@ -1,3 +1,9 @@
+// IMPORTANT: The `grade_history`, `submission_comments`, `grading_sessions`,
+// and `grade_change_notifications` tables are absent from the generated
+// Supabase schema (see src/integrations/supabase/types.ts). Every function in
+// this service will throw at runtime until a migration adds those tables.
+// Callers must surface these errors to the user — do NOT catch and swallow
+// them into fake-success defaults.
 import { supabase } from '@/integrations/supabase/client';
 
 export interface GradeHistoryEntry {
@@ -307,7 +313,9 @@ export const gradeHistoryService = {
     total_grades_changed: number;
     recent_changes: number;
     average_grading_time: number;
-    most_active_grader: string;
+    // Profile id (`changed_by`) of the grader with the most history entries in
+    // the fetched set, or null when there are no entries.
+    most_active_grader: string | null;
   }> {
     let query = supabase
       .from('grade_history')
@@ -330,11 +338,13 @@ export const gradeHistoryService = {
     ).length || 0;
 
     // Get grading session stats
-    const { data: sessions } = await supabase
+    const { data: sessions, error: sessionsError } = await supabase
       .from('grading_sessions')
       .select('*')
       .eq('course_id', courseId)
       .not('ended_at', 'is', null);
+
+    if (sessionsError) throw sessionsError;
 
     const totalDuration = sessions?.reduce((sum, session) => {
       if (session.ended_at && session.started_at) {
@@ -347,11 +357,32 @@ export const gradeHistoryService = {
     const totalSubmissions = sessions?.reduce((sum, session) => sum + session.submissions_graded, 0) || 0;
     const averageGradingTime = totalSubmissions > 0 ? totalDuration / totalSubmissions : 0;
 
+    // Compute the most active grader from the fetched history rows: the
+    // `changed_by` id appearing most often. Null when there are no rows.
+    const changeCountsByGrader = new Map<string, number>();
+    (data || []).forEach(entry => {
+      if (entry.changed_by) {
+        changeCountsByGrader.set(
+          entry.changed_by,
+          (changeCountsByGrader.get(entry.changed_by) || 0) + 1
+        );
+      }
+    });
+
+    let mostActiveGrader: string | null = null;
+    let mostActiveCount = 0;
+    changeCountsByGrader.forEach((count, grader) => {
+      if (count > mostActiveCount) {
+        mostActiveCount = count;
+        mostActiveGrader = grader;
+      }
+    });
+
     return {
       total_grades_changed: data?.length || 0,
       recent_changes: recentChanges,
       average_grading_time: averageGradingTime,
-      most_active_grader: 'TBD' // Would need more complex query
+      most_active_grader: mostActiveGrader
     };
   }
 };

@@ -48,7 +48,12 @@ export function useCoursePermissions(courseId?: string) {
           .single();
         
         logger.log('User profile data:', userProfile, 'error:', profileError);
-        
+
+        if (profileError) {
+          logger.error('Error fetching user profile:', profileError);
+          throw profileError;
+        }
+
         // Use the new security definer functions for consistent role checking
         logger.log('Checking permissions for user:', user.id, 'course:', courseId);
         

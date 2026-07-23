@@ -164,7 +164,12 @@ serve(async (req: Request) => {
 
     const events: CalendarEvent[] = [];
 
-    const [{ data: assignments }, { data: quizzes }, { data: announcements }, { data: customEvents }] = await Promise.all([
+    const [
+      { data: assignments, error: assignmentsError },
+      { data: quizzes, error: quizzesError },
+      { data: announcements, error: announcementsError },
+      { data: customEvents, error: customEventsError },
+    ] = await Promise.all([
       supabase
         .from('assignments')
         .select('id, title, description, due_date')
@@ -183,6 +188,20 @@ serve(async (req: Request) => {
         .select('id, title, description, date, location, link')
         .eq('course_id', courseId),
     ]);
+
+    // A failed source must fail the feed — a 200 ICS missing a category would
+    // look like those deadlines simply don't exist.
+    const sourceErrors = [
+      ['assignments', assignmentsError],
+      ['quizzes', quizzesError],
+      ['announcements', announcementsError],
+      ['events', customEventsError],
+    ].filter(([, e]) => e);
+    if (sourceErrors.length > 0) {
+      throw new Error(
+        sourceErrors.map(([name, e]: any) => `${name}: ${e.message}`).join('; ')
+      );
+    }
 
     assignments?.forEach((assignment: any) => {
       if (assignment.due_date) {

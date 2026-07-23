@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import CanvasContentService from '@/services/canvasContentService';
+import CourseErrorState from '@/components/course/CourseErrorState';
 import { withCoursePermission } from '@/components/course/withCoursePermission';
 import {
   CheckCircle,
@@ -51,6 +52,7 @@ function CanvasGradingInterface() {
   const [submissions, setSubmissions] = useState<GradingSubmission[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState<FilterKey>('needs');
   const [search, setSearch] = useState('');
@@ -67,6 +69,7 @@ function CanvasGradingInterface() {
     if (!contentItemId) return;
     try {
       setLoading(true);
+      setLoadError(null);
       const item = await CanvasContentService.getContentItem(contentItemId);
       if (!item || item.type !== 'assignment') throw new Error('Assignment not found');
       setContentItem(item);
@@ -87,7 +90,7 @@ function CanvasGradingInterface() {
       setSelectedId(firstNeeds?.id ?? null);
     } catch (e: any) {
       logger.error('Error loading grading data:', e);
-      toast({ title: 'Error loading submissions', description: e.message, variant: 'destructive' });
+      setLoadError(e?.message || 'Failed to load submissions.');
     } finally {
       setLoading(false);
     }
@@ -232,9 +235,32 @@ function CanvasGradingInterface() {
           </div>
         );
       case 'online_upload':
-        return <p className="text-sm text-muted-foreground">File attachments would be displayed here.</p>;
       default:
-        return <p className="text-sm text-muted-foreground">No submission content.</p>;
+        // The assignment_submissions schema stores `url` and `body` — there is
+        // no separate file-storage table, so render whichever the row has.
+        if (selectedSubmission.url) {
+          return (
+            <div className="p-6 bg-muted rounded-lg">
+              <p className="text-sm text-muted-foreground mb-2">Submitted file link</p>
+              <a
+                href={selectedSubmission.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline break-all"
+              >
+                {selectedSubmission.url}
+              </a>
+            </div>
+          );
+        }
+        if (selectedSubmission.body) {
+          return (
+            <div className="p-6 bg-muted rounded-lg text-sm whitespace-pre-wrap">
+              {selectedSubmission.body}
+            </div>
+          );
+        }
+        return <p className="text-sm text-muted-foreground">No submission content available</p>;
     }
   };
 
@@ -243,6 +269,20 @@ function CanvasGradingInterface() {
       <CourseLayout>
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+        </div>
+      </CourseLayout>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <CourseLayout>
+        <div className="max-w-3xl mx-auto py-8">
+          <CourseErrorState
+            title="Error loading submissions"
+            error={loadError}
+            onRetry={loadGradingData}
+          />
         </div>
       </CourseLayout>
     );

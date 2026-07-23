@@ -453,6 +453,9 @@ export const Gradebook: React.FC<GradebookProps> = ({
                           </TooltipTrigger>
                           <TooltipContent>
                             <p>{quiz.title}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Quiz scores are recorded at submission time and are read-only here.
+                            </p>
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
@@ -549,7 +552,11 @@ export const Gradebook: React.FC<GradebookProps> = ({
                       const cell = gradeData[key];
 
                       return (
-                        <TableCell key={quiz.id} className="text-center p-2">
+                        <TableCell
+                          key={quiz.id}
+                          className="text-center p-2"
+                          title="Quiz scores are recorded at submission time"
+                        >
                           {cell?.pointsEarned !== undefined ? (
                             <div>
                               <span className={`font-medium ${getGradeColor(cell.percentage || 0)}`}>

@@ -30,59 +30,69 @@ const CourseList = () => {
   const levels = [...new Set(courses.map(c => c.level).filter(Boolean))];
   const durations = [...new Set(courses.map(c => c.duration).filter(Boolean))];
 
-  useEffect(() => {
-    const fetchCourses = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('courses')
-          .select(`*, instructor:profiles(id, first_name, last_name, avatar_url)`)
-          .eq('status', 'published')
-          .order('created_at', { ascending: false });
-        if (error) throw error;
-        const rows = data || [];
-        const courseIds = rows.map((c: any) => c.id);
-        // Real per-course enrollment counts (avoids hardcoded 0-enrolled everywhere).
-        const enrollCounts = new Map<string, number>();
-        if (courseIds.length > 0) {
-          const { data: enrollRows } = await supabase
-            .from('enrollments')
-            .select('course_id')
-            .in('course_id', courseIds);
-          (enrollRows || []).forEach((r: any) => {
-            enrollCounts.set(r.course_id, (enrollCounts.get(r.course_id) || 0) + 1);
-          });
-        }
-        const formatted = rows.map((c: any) => ({
-          ...c,
-          instructor: {
-            id: c.instructor?.id || '',
-            name: c.instructor
-              ? `${c.instructor?.first_name || ''} ${c.instructor?.last_name || ''}`.trim() || 'Instructor'
-              : 'Instructor',
-            email: '',
-            role: 'instructor',
-            avatar: c.instructor?.avatar_url || '',
-          },
-          enrollmentCount: enrollCounts.get(c.id) ?? 0,
-          modules: [],
-          createdAt: c.created_at,
-          updatedAt: c.updated_at,
-          thumbnail:
-            c.image_url ||
-            c.thumbnail ||
-            'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=1200&q=70',
-        }));
-        setCourses(formatted);
-      } catch (e: any) {
-        logger.error('Error fetching courses:', e);
-        setError(e.message);
-        toast({ title: 'Failed to load courses', description: e.message, variant: 'destructive' });
-      } finally {
-        setLoading(false);
+  // Component-scoped so the error UI can offer a real retry (re-fetch)
+  // instead of a full page reload.
+  const fetchCourses = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { data, error } = await supabase
+        .from('courses')
+        .select(`*, instructor:profiles(id, first_name, last_name, avatar_url)`)
+        .eq('status', 'published')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      const rows = data || [];
+      const courseIds = rows.map((c: any) => c.id);
+      // Real per-course enrollment counts (avoids hardcoded 0-enrolled everywhere).
+      const enrollCounts = new Map<string, number>();
+      if (courseIds.length > 0) {
+        const { data: enrollRows, error: enrollError } = await supabase
+          .from('enrollments')
+          .select('course_id')
+          .in('course_id', courseIds);
+        // A failed count query is a real fetch failure — surface it through
+        // the page error/retry UI instead of rendering misleading 0-enrolled cards.
+        if (enrollError) throw enrollError;
+        (enrollRows || []).forEach((r: any) => {
+          enrollCounts.set(r.course_id, (enrollCounts.get(r.course_id) || 0) + 1);
+        });
       }
-    };
+      const formatted = rows.map((c: any) => ({
+        ...c,
+        instructor: {
+          id: c.instructor?.id || '',
+          // No generic "Instructor" fallback — when the name is unknown the
+          // card omits the instructor line entirely.
+          name: c.instructor
+            ? `${c.instructor?.first_name || ''} ${c.instructor?.last_name || ''}`.trim()
+            : '',
+          email: '',
+          role: 'instructor',
+          avatar: c.instructor?.avatar_url || '',
+        },
+        enrollmentCount: enrollCounts.get(c.id) ?? 0,
+        modules: [],
+        createdAt: c.created_at,
+        updatedAt: c.updated_at,
+        // No stock-photo fallback: missing artwork renders as a neutral
+        // placeholder block rather than a stock image implying real course art.
+        thumbnail: c.image_url || c.thumbnail || undefined,
+      }));
+      setCourses(formatted);
+    } catch (e: any) {
+      logger.error('Error fetching courses:', e);
+      setError(e.message);
+      toast({ title: 'Failed to load courses', description: e.message, variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchCourses();
-  }, [toast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const filtered = courses.filter((c) => {
     const s = searchQuery.toLowerCase();
@@ -174,7 +184,7 @@ const CourseList = () => {
           ) : error ? (
             <div className="text-center py-16">
               <p className="text-neutral-600">{error}</p>
-              <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>
+              <Button variant="outline" className="mt-4" onClick={() => void fetchCourses()}>
                 Try again
               </Button>
             </div>
@@ -208,11 +218,15 @@ const CourseList = () => {
                     {/* Media (outer keeps rounded top; inner clips the image; avatar sits above) */}
                     <div className="relative">
                       <div className="relative aspect-[16/10] overflow-hidden rounded-t-2xl bg-[hsl(var(--cw-accent-soft))]">
-                        <img
-                          src={course.thumbnail}
-                          alt={course.title}
-                          className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500"
-                        />
+                        {course.thumbnail ? (
+                          <img
+                            src={course.thumbnail}
+                            alt={course.title}
+                            className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-muted" aria-hidden="true" />
+                        )}
                       </div>
                       {/* Circular logo badge overlapping bottom-left, above the image */}
                       <div className="absolute -bottom-6 left-5 z-10 h-14 w-14 rounded-full bg-white border-4 border-white shadow-md flex items-center justify-center overflow-hidden">
@@ -232,10 +246,11 @@ const CourseList = () => {
                       <h3 className="font-display text-xl text-neutral-900 mb-1 line-clamp-2 leading-snug">
                         {course.title}
                       </h3>
-                      <p className="text-sm text-neutral-500 truncate">
-                        {course.instructor?.name || 'Instructor'}
-                        {course.category ? ` · ${course.category}` : ''}
-                      </p>
+                      {(course.instructor?.name || course.category) && (
+                        <p className="text-sm text-neutral-500 truncate">
+                          {[course.instructor?.name, course.category].filter(Boolean).join(' · ')}
+                        </p>
+                      )}
                       <div className="mt-4 flex items-center gap-4 text-xs text-neutral-500">
                         {course.duration && (
                           <span className="inline-flex items-center gap-1">

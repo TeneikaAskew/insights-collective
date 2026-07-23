@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import CourseErrorState from './CourseErrorState';
 import { ModuleProgressCard } from './ModuleProgressCard';
 import { useCourseProgress } from '@/hooks/useCourseProgress';
 import { cn } from '@/lib/utils';
@@ -58,10 +59,19 @@ export const CourseProgressOverview: React.FC<CourseProgressOverviewProps> = ({
 }) => {
   // Canonical progress: totals + percent come from useCourseProgress.
   // This removes the old RPC-based aggregation and the legacy content_progress reads.
-  const { data: progress, isLoading: progressLoading } = useCourseProgress(courseId, studentId);
+  const {
+    data: progress,
+    isLoading: progressLoading,
+    error: progressError,
+    refetch: refetchProgress,
+  } = useCourseProgress(courseId, studentId);
 
   // Get course details with modules
-  const { data: course } = useQuery({
+  const {
+    data: course,
+    error: courseError,
+    refetch: refetchCourse,
+  } = useQuery({
     queryKey: ['course-with-modules', courseId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -87,36 +97,47 @@ export const CourseProgressOverview: React.FC<CourseProgressOverviewProps> = ({
 
   // Type-specific breakdown (lessons / assignments / quizzes) + grades.
   // Uses content_items + content_item_progressions directly (no legacy tables).
-  const { data: stats, isLoading: statsLoading } = useQuery({
+  const {
+    data: stats,
+    isLoading: statsLoading,
+    error: statsError,
+    refetch: refetchStats,
+  } = useQuery({
     queryKey: ['course-stats', courseId, studentId, progress?.completedItems],
     queryFn: async () => {
       // Fetch published content items for this course's modules
-      const { data: modules } = await supabase
+      const { data: modules, error: modulesError } = await supabase
         .from('modules')
         .select('id')
         .eq('course_id', courseId)
         .eq('published', true);
 
+      if (modulesError) throw new Error(modulesError.message);
+
       const moduleIds = (modules || []).map((m) => m.id);
-      const { data: items } = moduleIds.length > 0
+      const { data: items, error: itemsError } = moduleIds.length > 0
         ? await supabase
             .from('content_items')
             .select('id, type')
             .in('module_id', moduleIds)
             .eq('published', true)
-        : { data: [] as { id: string; type: string }[] };
+        : { data: [] as { id: string; type: string }[], error: null };
+
+      if (itemsError) throw new Error(itemsError.message);
 
       const contentItems = items || [];
       const itemIds = contentItems.map((i) => i.id);
 
       // Completed progressions (read or completed)
-      const { data: progressions } = itemIds.length > 0
+      const { data: progressions, error: progressionsError } = itemIds.length > 0
         ? await supabase
             .from('content_item_progressions')
             .select('content_item_id, workflow_state')
             .eq('user_id', studentId)
             .in('content_item_id', itemIds)
-        : { data: [] as { content_item_id: string; workflow_state: string }[] };
+        : { data: [] as { content_item_id: string; workflow_state: string }[], error: null };
+
+      if (progressionsError) throw new Error(progressionsError.message);
 
       const completedSet = new Set(
         (progressions || [])
@@ -138,16 +159,40 @@ export const CourseProgressOverview: React.FC<CourseProgressOverviewProps> = ({
       // Module completion count (100%)
       const completedModules = (progress?.modules || []).filter((m) => m.percent === 100).length;
 
-      // Grades (kept — not part of content_item_progressions)
-      const { data: grades } = await supabase
-        .from('grades')
-        .select('percentage')
-        .eq('course_id', courseId)
-        .eq('student_id', studentId)
-        .not('percentage', 'is', null);
+      // Average grade from real graded assignment submissions. There is no
+      // `grades` table in the schema — the old query against it failed
+      // silently and always produced a 0 average.
+      const { data: courseAssignments, error: assignmentsError } = await supabase
+        .from('assignments')
+        .select('id, points')
+        .eq('course_id', courseId);
 
-      const averageGrade = grades && grades.length > 0
-        ? grades.reduce((sum, g) => sum + (g.percentage || 0), 0) / grades.length
+      if (assignmentsError) throw new Error(assignmentsError.message);
+
+      const assignmentIds = (courseAssignments || []).map((a) => a.id);
+      const { data: gradedSubmissions, error: submissionsError } = assignmentIds.length > 0
+        ? await supabase
+            .from('assignment_submissions')
+            .select('assignment_id, grade')
+            .eq('user_id', studentId)
+            .in('assignment_id', assignmentIds)
+            .not('grade', 'is', null)
+        : { data: [] as { assignment_id: string; grade: number }[], error: null };
+
+      if (submissionsError) throw new Error(submissionsError.message);
+
+      const pointsByAssignment = new Map(
+        (courseAssignments || []).map((a) => [a.id, a.points]),
+      );
+      const gradePercentages = (gradedSubmissions || [])
+        .map((s) => {
+          const points = pointsByAssignment.get(s.assignment_id);
+          return points && points > 0 ? (s.grade / points) * 100 : null;
+        })
+        .filter((p): p is number => p !== null);
+
+      const averageGrade = gradePercentages.length > 0
+        ? gradePercentages.reduce((sum, p) => sum + p, 0) / gradePercentages.length
         : 0;
 
       return {
@@ -196,6 +241,23 @@ export const CourseProgressOverview: React.FC<CourseProgressOverviewProps> = ({
     if (grade >= 60) return 'text-orange-600';
     return 'text-red-600';
   };
+
+  // Distinct error state: a failed fetch renders an error block instead of
+  // falling back to the loading skeleton forever.
+  const loadError = progressError || courseError || statsError;
+  if (loadError) {
+    return (
+      <CourseErrorState
+        title="Failed to load course progress"
+        error={loadError}
+        onRetry={() => {
+          if (progressError) refetchProgress();
+          if (courseError) refetchCourse();
+          if (statsError) refetchStats();
+        }}
+      />
+    );
+  }
 
   if (progressLoading || statsLoading || !stats) {
     return (

@@ -134,11 +134,15 @@ export const lessonCompletionService = {
     requirements: Array<{
       type: string;
       met: boolean;
+      // True when the requirement cannot be evaluated (no backing data
+      // source, or missing configuration such as an assignment reference).
+      // `met` is always false in that case. Undefined for evaluable checks.
+      unavailable?: boolean;
       details?: any;
     }>;
   }> {
     const requirements = await this.getLessonRequirements(lessonId);
-    
+
     if (!requirements || requirements.length === 0) {
       return { requirementsMet: true, requirements: [] };
     }
@@ -146,50 +150,87 @@ export const lessonCompletionService = {
     const requirementChecks = await Promise.all(
       requirements.map(async (req) => {
         let met = false;
+        let unavailable: true | undefined;
 
         switch (req.requirement_type) {
-          case 'view':
+          case 'view': {
             // Check if student has viewed the lesson (tracked separately)
-            const { data: viewData } = await supabase
+            const { data: viewData, error: viewError } = await supabase
               .from('content_progress')
               .select('*')
               .eq('lesson_id', lessonId)
               .eq('user_id', studentId)
-              .single();
-            
+              .maybeSingle();
+
+            if (viewError) throw viewError;
             met = !!viewData;
             break;
+          }
 
           case 'participate':
-            // Check participation (e.g., discussion posts, etc.)
-            // Implementation depends on your participation tracking
-            met = false; // Placeholder
+            // Participation tracking has no backing data source in the
+            // schema yet, so this requirement cannot be evaluated. Flag it
+            // explicitly as unavailable instead of silently reporting it
+            // as an unmet requirement.
+            met = false;
+            unavailable = true;
             break;
 
-          case 'submit':
-            // Check if student has submitted assignment
-            const { data: submissionData } = await supabase
+          case 'submit': {
+            // Check if the student has submitted THIS requirement's
+            // assignment. An unscoped query would let a submission for any
+            // assignment satisfy the requirement.
+            const submitAssignmentId = req.requirement_data?.assignment_id;
+
+            if (!submitAssignmentId) {
+              // The requirement carries no assignment reference, so there
+              // is nothing concrete to check it against.
+              met = false;
+              unavailable = true;
+              break;
+            }
+
+            const { data: submissionData, error: submissionError } = await supabase
               .from('assignment_submissions')
               .select('*')
               .eq('student_id', studentId)
+              .eq('assignment_id', submitAssignmentId)
               .in('status', ['submitted', 'graded'])
-              .single();
-            
+              .limit(1)
+              .maybeSingle();
+
+            if (submissionError) throw submissionError;
             met = !!submissionData;
             break;
+          }
 
-          case 'minimum_score':
-            // Check if minimum score is achieved
+          case 'minimum_score': {
+            // Check if the minimum score is achieved on this requirement's
+            // assignment. There is no `grades` table in the generated
+            // schema — graded work lives on assignment_submissions.grade.
             const minScore = req.requirement_data?.minimum_score || 0;
-            const { data: gradeData } = await supabase
-              .from('grades')
-              .select('percentage')
+            const scoreAssignmentId = req.requirement_data?.assignment_id;
+
+            if (!scoreAssignmentId) {
+              met = false;
+              unavailable = true;
+              break;
+            }
+
+            const { data: gradeData, error: gradeError } = await supabase
+              .from('assignment_submissions')
+              .select('grade')
               .eq('student_id', studentId)
-              .gte('percentage', minScore)
-              .single();
-            
+              .eq('assignment_id', scoreAssignmentId)
+              .not('grade', 'is', null)
+              .gte('grade', minScore)
+              .limit(1)
+              .maybeSingle();
+
+            if (gradeError) throw gradeError;
             met = !!gradeData;
             break;
+          }
 
           case 'mark_done':
             // Simple manual completion
@@ -200,6 +241,7 @@ export const lessonCompletionService = {
         return {
           type: req.requirement_type,
           met,
+          unavailable,
           details: req.requirement_data,
         };
       })

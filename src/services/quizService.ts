@@ -2,9 +2,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
 import { CareerTrack } from '@/data/careerQuizData';
-import { createLogger } from '@/utils/logger';
-
-const logger = createLogger('quizService');
 
 // Interface for storing quiz attempt data
 export interface QuizAttemptData {
@@ -38,141 +35,129 @@ export interface QuizAttemptData {
 export const storeQuizAttempt = async (
   answers: Record<number, number | string>,
   scores: Record<CareerTrack, number>
-): Promise<string | null> => {
-  try {
-    // Generate session ID for anonymous users
-    const sessionId = localStorage.getItem('quiz_session_id') || uuidv4();
-    localStorage.setItem('quiz_session_id', sessionId);
-    
-    // Get user ID if authenticated
-    const { data: { user } } = await supabase.auth.getUser();
-    const userId = user?.id;
-    
-    // Determine top recommended path
-    const sortedTracks = Object.entries(scores)
-      .sort(([, scoreA], [, scoreB]) => scoreB - scoreA);
-    const topPath = sortedTracks[0][0];
-    
-    // Map question IDs to database columns - matching actual database schema
-    const questionMapping: Record<number, string> = {
-      1: 'q1_coding_comfort',
-      2: 'q2_stat_modeling_interest',
-      3: 'q3_systems_vs_trends',
-      4: 'q4_insight_generation',
-      5: 'q5_stakeholder_communication',
-      6: 'q6_business_vs_processing',
-      7: 'q7_system_optimization',
-      8: 'q8_modeling_patterns',
-      9: 'q9_business_question_focus',
-      10: 'q10_tool_choice',
-      11: 'q11_ai_product_interest',
-      12: 'q12_strategic_influence_interest',
-      13: 'q13_infrastructure_interest',
-      14: 'q14_kpi_reporting_interest'
-    };
-    
-    // Prepare data for insertion
-    const quizData: QuizAttemptData & {
-      user_id?: string;
-      session_id: string;
-    } = {
-      session_id: sessionId,
-      result_ai_ml_score: Math.round(scores['AI/ML']),
-      result_analytics_score: Math.round(scores['Analytics']),
-      result_data_engineering_score: Math.round(scores['Data Engineering']),
-      result_business_intelligence_score: Math.round(scores['Business Intelligence']),
-      top_recommended_path: topPath
-    };
-    
-    // Add user ID if authenticated
-    if (userId) {
-      quizData.user_id = userId;
-    }
-    
-    // Map question answers to database columns
-    Object.entries(answers).forEach(([questionId, answer]) => {
-      const dbColumn = questionMapping[parseInt(questionId)];
-      if (dbColumn) {
-        // Handle both number and string answers (q10 is string, others are numbers)
-        (quizData as any)[dbColumn] = answer;
-      }
-    });
-    
-    // Insert data into Supabase
-    const { data, error } = await supabase
-      .from('career_quiz_attempts')
-      .insert(quizData)
-      .select('id')
-      .single();
-      
-    if (error) {
-      logger.error('Error storing quiz attempt:', error);
-      return null;
-    }
-    
-    return data.id;
-  } catch (error) {
-    logger.error('Error storing quiz attempt:', error);
-    return null;
+): Promise<string> => {
+  // Generate session ID for anonymous users
+  const sessionId = localStorage.getItem('quiz_session_id') || uuidv4();
+  localStorage.setItem('quiz_session_id', sessionId);
+
+  // Get user ID if authenticated
+  const { data: { user } } = await supabase.auth.getUser();
+  const userId = user?.id;
+
+  // Determine top recommended path
+  const sortedTracks = Object.entries(scores)
+    .sort(([, scoreA], [, scoreB]) => scoreB - scoreA);
+  const topPath = sortedTracks[0][0];
+
+  // Map question IDs to database columns - matching actual database schema
+  const questionMapping: Record<number, string> = {
+    1: 'q1_coding_comfort',
+    2: 'q2_stat_modeling_interest',
+    3: 'q3_systems_vs_trends',
+    4: 'q4_insight_generation',
+    5: 'q5_stakeholder_communication',
+    6: 'q6_business_vs_processing',
+    7: 'q7_system_optimization',
+    8: 'q8_modeling_patterns',
+    9: 'q9_business_question_focus',
+    10: 'q10_tool_choice',
+    11: 'q11_ai_product_interest',
+    12: 'q12_strategic_influence_interest',
+    13: 'q13_infrastructure_interest',
+    14: 'q14_kpi_reporting_interest'
+  };
+
+  // Prepare data for insertion
+  const quizData: QuizAttemptData & {
+    user_id?: string;
+    session_id: string;
+  } = {
+    session_id: sessionId,
+    result_ai_ml_score: Math.round(scores['AI/ML']),
+    result_analytics_score: Math.round(scores['Analytics']),
+    result_data_engineering_score: Math.round(scores['Data Engineering']),
+    result_business_intelligence_score: Math.round(scores['Business Intelligence']),
+    top_recommended_path: topPath
+  };
+
+  // Add user ID if authenticated
+  if (userId) {
+    quizData.user_id = userId;
   }
+
+  // Map question answers to database columns
+  Object.entries(answers).forEach(([questionId, answer]) => {
+    const dbColumn = questionMapping[parseInt(questionId)];
+    if (dbColumn) {
+      // Handle both number and string answers (q10 is string, others are numbers)
+      (quizData as any)[dbColumn] = answer;
+    }
+  });
+
+  // Insert data into Supabase
+  const { data, error } = await supabase
+    .from('career_quiz_attempts')
+    .insert(quizData)
+    .select('id')
+    .single();
+
+  if (error) throw error;
+
+  return data.id;
 };
 
 // Start a new conversation with the career coach assistant
 export const startCareerCoachConversation = async (
   quizAttemptId: string
-): Promise<string | null> => {
-  try {
-    // Generate session ID for anonymous users
-    const sessionId = localStorage.getItem('quiz_session_id') || uuidv4();
-    localStorage.setItem('quiz_session_id', sessionId);
-    
-    // Get user ID if authenticated
-    const { data: { user } } = await supabase.auth.getUser();
-    const userId = user?.id;
-    
-    // Create new conversation
-    const { data: conversationData, error: conversationError } = await supabase
-      .from('assistant_conversations')
-      .insert({
-        user_id: userId || null,
-        session_id: sessionId,
-        quiz_attempt_id: quizAttemptId,
-        is_active: true
-      })
-      .select('id')
-      .single();
-      
-    if (conversationError) {
-      logger.error('Error creating conversation:', conversationError);
-      return null;
-    }
-    
-    // Get initial message from the database function
-    const { data: functionData, error: functionError } = await supabase
-      .rpc('generate_initial_assistant_message', { quiz_attempt_id: quizAttemptId });
-      
-    let initialMessage = "Hello! I'm your Career Coach Assistant. Based on your quiz results, I can provide personalized guidance for your data career journey. How can I help you today?";
-    
-    if (!functionError && functionData) {
-      initialMessage = functionData;
-    }
-    
-    // Store initial assistant message
-    const { error: messageError } = await supabase
-      .from('assistant_messages')
-      .insert({
-        conversation_id: conversationData.id,
-        sender_type: 'assistant',
-        content: initialMessage
-      });
-      
-    if (messageError) {
-      logger.error('Error storing initial message:', messageError);
-    }
-    
-    return conversationData.id;
-  } catch (error) {
-    logger.error('Error starting conversation:', error);
-    return null;
+): Promise<string> => {
+  // Generate session ID for anonymous users
+  const sessionId = localStorage.getItem('quiz_session_id') || uuidv4();
+  localStorage.setItem('quiz_session_id', sessionId);
+
+  // Get user ID if authenticated
+  const { data: { user } } = await supabase.auth.getUser();
+  const userId = user?.id;
+
+  // Create new conversation
+  const { data: conversationData, error: conversationError } = await supabase
+    .from('assistant_conversations')
+    .insert({
+      user_id: userId || null,
+      session_id: sessionId,
+      quiz_attempt_id: quizAttemptId,
+      is_active: true
+    })
+    .select('id')
+    .single();
+
+  if (conversationError) throw conversationError;
+
+  // Get initial message from the database function. If the RPC fails or
+  // returns nothing we fall back to a generic greeting — a legitimate
+  // default, not an error condition.
+  const { data: functionData, error: functionError } = await supabase
+    .rpc('generate_initial_assistant_message', { quiz_attempt_id: quizAttemptId });
+
+  let initialMessage = "Hello! I'm your Career Coach Assistant. Based on your quiz results, I can provide personalized guidance for your data career journey. How can I help you today?";
+
+  if (!functionError && functionData) {
+    initialMessage = functionData;
   }
+
+  // Store initial assistant message
+  const { error: messageError } = await supabase
+    .from('assistant_messages')
+    .insert({
+      conversation_id: conversationData.id,
+      sender_type: 'assistant',
+      content: initialMessage
+    });
+
+  if (messageError) {
+    throw new Error(
+      `Conversation ${conversationData.id} was created, but storing the initial assistant message failed: ${messageError.message}`
+    );
+  }
+
+  return conversationData.id;
 };

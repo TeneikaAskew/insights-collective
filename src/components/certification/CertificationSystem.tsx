@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProgressTracking } from '@/hooks/useProgressTracking';
+import CourseErrorState from '@/components/course/CourseErrorState';
 
 import { createLogger } from '@/utils/logger';
 
@@ -58,6 +59,7 @@ const CertificationSystem: React.FC<CertificationSystemProps> = ({
 }) => {
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<unknown>(null);
   const [generating, setGenerating] = useState(false);
   const [course, setCourse] = useState<any>(null);
   
@@ -72,47 +74,55 @@ const CertificationSystem: React.FC<CertificationSystemProps> = ({
   const fetchData = async () => {
     try {
       setLoading(true);
+      setFetchError(null);
 
-      // Fetch course info
-      const { data: courseData } = await supabase
+      // Fetch course info. maybeSingle so a missing course row is not an
+      // error — only a genuine query failure throws.
+      const { data: courseData, error: courseError } = await supabase
         .from('courses')
         .select('*')
         .eq('id', courseId)
-        .single();
+        .maybeSingle();
 
+      if (courseError) throw courseError;
       setCourse(courseData);
 
       if (mode === 'verify' && verificationCode) {
-        // Verify certificate
-        const { data: certData } = await supabase
+        // Verify certificate. maybeSingle distinguishes "query succeeded but
+        // no certificate matches this code" (data: null, no error) from a
+        // database/network failure (error set). Only the former may be shown
+        // as "Invalid verification code" — a failure must never be presented
+        // as a verification verdict.
+        const { data: certData, error: certError } = await supabase
           .from('certificates')
           .select(`
             *,
             user_profile:profiles!user_id(first_name, last_name)
           `)
           .eq('verification_code', verificationCode)
-          .single();
+          .maybeSingle();
 
-        if (certData) {
-          setCertificates([certData]);
-        }
+        if (certError) throw certError;
+        setCertificates(certData ? [certData] : []);
       } else {
         // Fetch certificates for user
         const targetUserId = userId || user?.id;
         if (targetUserId) {
-          const { data: certData } = await supabase
+          const { data: certData, error: certError } = await supabase
             .from('certificates')
             .select('*')
             .eq('user_id', targetUserId)
             .eq('course_id', courseId)
             .order('issued_at', { ascending: false });
 
+          if (certError) throw certError;
           setCertificates(certData || []);
         }
       }
 
     } catch (error) {
       logger.error('Error fetching certificate data:', error);
+      setFetchError(error);
       toast({
         title: 'Error',
         description: 'Failed to load certificate data',
@@ -349,6 +359,22 @@ const CertificationSystem: React.FC<CertificationSystemProps> = ({
           </div>
         </CardContent>
       </Card>
+    );
+  }
+
+  // A failed fetch must never masquerade as a real result — in verify mode
+  // especially, an outage must not be presented as "Invalid verification code".
+  if (fetchError) {
+    return (
+      <CourseErrorState
+        title={mode === 'verify' ? 'Verification failed — please try again' : 'Failed to load certificate data'}
+        error={
+          mode === 'verify'
+            ? 'We could not check this verification code because the verification service is unavailable. This does not mean the certificate is invalid.'
+            : 'Your certificates could not be loaded right now.'
+        }
+        onRetry={fetchData}
+      />
     );
   }
 

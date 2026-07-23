@@ -44,6 +44,7 @@ import { supabase } from '@/integrations/supabase/client';
 import videoAnalyticsService from '@/services/videoAnalyticsService';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
+import CourseErrorState from '@/components/course/CourseErrorState';
 
 interface StudentInsightsProps {
   studentId?: string; // If not provided, shows current user's dashboard
@@ -63,9 +64,10 @@ interface CourseStats {
   lastActive: string | null;
 }
 
+// Note: there is intentionally no time-spent field here — the platform has no
+// real time-tracking data yet, so we do not fabricate one.
 interface ActivityData {
   date: string;
-  timeSpent: number;
   activitiesCompleted: number;
 }
 
@@ -79,6 +81,7 @@ export const StudentInsightsDashboard: React.FC<StudentInsightsProps> = ({
   const studentId = propStudentId || user?.id;
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<unknown>(null);
   const [courseStats, setCourseStats] = useState<CourseStats | null>(null);
   const [videoStats, setVideoStats] = useState<any>(null);
   const [activityData, setActivityData] = useState<ActivityData[]>([]);
@@ -97,34 +100,38 @@ export const StudentInsightsDashboard: React.FC<StudentInsightsProps> = ({
 
     try {
       setLoading(true);
+      setLoadError(null);
 
       // Load course info
-      const { data: course } = await supabase
+      const { data: course, error: courseError } = await supabase
         .from('courses')
         .select('id, title, description')
         .eq('id', courseId)
-        .single();
+        .maybeSingle();
 
+      if (courseError) throw courseError;
       setCourseInfo(course);
 
       // Load student profile
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('id, first_name, last_name, avatar_url')
         .eq('id', studentId)
-        .single();
+        .maybeSingle();
 
+      if (profileError) throw profileError;
       setStudentInfo(profile);
 
       // Load module progress
-      const { data: modules } = await supabase
+      const { data: modules, error: modulesError } = await supabase
         .from('modules')
         .select('id')
         .eq('course_id', courseId);
 
+      if (modulesError) throw modulesError;
       const totalModules = modules?.length || 0;
 
-      const { data: completedModules } = await supabase
+      const { data: completedModules, error: completedModulesError } = await supabase
         .from('module_progressions')
         .select('module_id')
         .eq('user_id', studentId)
@@ -134,15 +141,18 @@ export const StudentInsightsDashboard: React.FC<StudentInsightsProps> = ({
           modules?.map((m) => m.id) || []
         );
 
+      if (completedModulesError) throw completedModulesError;
+
       // Load assignment stats
-      const { data: assignments } = await supabase
+      const { data: assignments, error: assignmentsError } = await supabase
         .from('assignments')
         .select('id')
         .eq('course_id', courseId);
 
+      if (assignmentsError) throw assignmentsError;
       const totalAssignments = assignments?.length || 0;
 
-      const { data: assignmentSubmissions } = await supabase
+      const { data: assignmentSubmissions, error: submissionsError } = await supabase
         .from('assignment_submissions')
         .select('assignment_id, grade, workflow_state')
         .eq('user_id', studentId)
@@ -150,6 +160,8 @@ export const StudentInsightsDashboard: React.FC<StudentInsightsProps> = ({
           'assignment_id',
           assignments?.map((a) => a.id) || []
         );
+
+      if (submissionsError) throw submissionsError;
 
       const completedAssignments =
         assignmentSubmissions?.filter(
@@ -167,17 +179,20 @@ export const StudentInsightsDashboard: React.FC<StudentInsightsProps> = ({
           : 0;
 
       // Load quiz stats
-      const { data: quizzes } = await supabase
+      const { data: quizzes, error: quizzesError } = await supabase
         .from('quizzes')
         .select('id, content_item_id')
         .eq('content_item_id', courseId); // This needs to be fixed to get quizzes by course
 
+      if (quizzesError) throw quizzesError;
       const totalQuizzes = quizzes?.length || 0;
 
-      const { data: quizSubmissions } = await supabase
+      const { data: quizSubmissions, error: quizSubmissionsError } = await supabase
         .from('quiz_submissions')
         .select('quiz_id, score, workflow_state')
         .eq('user_id', studentId);
+
+      if (quizSubmissionsError) throw quizSubmissionsError;
 
       const completedQuizzes =
         quizSubmissions?.filter((s) => s.workflow_state === 'complete').length || 0;
@@ -188,7 +203,9 @@ export const StudentInsightsDashboard: React.FC<StudentInsightsProps> = ({
             quizSubmissions.length
           : 0;
 
-      // Load video stats
+      // Load video stats. getStudentVideoSummary throws on failure — the
+      // surrounding catch turns that into the dashboard-wide error state so a
+      // broken analytics backend is never displayed as zero watch time.
       const videoSummary = await videoAnalyticsService.getStudentVideoSummary(
         studentId,
         courseId
@@ -209,14 +226,17 @@ export const StudentInsightsDashboard: React.FC<StudentInsightsProps> = ({
         )
       );
 
-      // Get last activity
-      const { data: lastActivity } = await supabase
+      // Get last activity. maybeSingle: a student with no activity yet is a
+      // legitimate empty result, not an error.
+      const { data: lastActivity, error: lastActivityError } = await supabase
         .from('content_item_progressions')
         .select('updated_at')
         .eq('user_id', studentId)
         .order('updated_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
+
+      if (lastActivityError) throw lastActivityError;
 
       setCourseStats({
         totalModules,
@@ -234,10 +254,11 @@ export const StudentInsightsDashboard: React.FC<StudentInsightsProps> = ({
       // Load recent activities
       await loadRecentActivities();
 
-      // Generate activity timeline (mock data for now - would need activity logging)
-      generateActivityTimeline();
+      // Build the activity timeline from real progression records
+      await generateActivityTimeline();
     } catch (error) {
       console.error('Error loading student insights:', error);
+      setLoadError(error);
     } finally {
       setLoading(false);
     }
@@ -246,11 +267,12 @@ export const StudentInsightsDashboard: React.FC<StudentInsightsProps> = ({
   const loadRecentActivities = async () => {
     if (!studentId) return;
 
-    try {
-      const { data } = await supabase
-        .from('content_item_progressions')
-        .select(
-          `
+    // Errors propagate to loadStudentInsights' catch and surface in the
+    // dashboard error state instead of being silently swallowed.
+    const { data, error } = await supabase
+      .from('content_item_progressions')
+      .select(
+        `
           *,
           content_items(
             id,
@@ -258,15 +280,13 @@ export const StudentInsightsDashboard: React.FC<StudentInsightsProps> = ({
             type
           )
         `
-        )
-        .eq('user_id', studentId)
-        .order('updated_at', { ascending: false })
-        .limit(10);
+      )
+      .eq('user_id', studentId)
+      .order('updated_at', { ascending: false })
+      .limit(10);
 
-      setRecentActivities(data || []);
-    } catch (error) {
-      console.error('Error loading recent activities:', error);
-    }
+    if (error) throw error;
+    setRecentActivities(data || []);
   };
 
   const generateActivityTimeline = async () => {
@@ -282,16 +302,17 @@ export const StudentInsightsDashboard: React.FC<StudentInsightsProps> = ({
       const dayEnd = new Date(date);
       dayEnd.setHours(23, 59, 59, 999);
 
-      const { count } = await supabase
+      const { count, error } = await supabase
         .from('content_item_progressions')
         .select('id', { count: 'exact', head: true })
         .eq('user_id', studentId)
         .gte('updated_at', dayStart.toISOString())
         .lte('updated_at', dayEnd.toISOString());
 
+      if (error) throw error;
+
       timelineData.push({
         date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        timeSpent: 0, // No real time-tracking data available yet
         activitiesCompleted: count || 0,
       });
     }
@@ -326,6 +347,16 @@ export const StudentInsightsDashboard: React.FC<StudentInsightsProps> = ({
       <div className="flex justify-center items-center h-64">
         <Spinner size="lg" />
       </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <CourseErrorState
+        title="Failed to load student insights"
+        error="Student analytics could not be loaded right now. The data shown would be incomplete, so nothing is displayed instead."
+        onRetry={loadStudentInsights}
+      />
     );
   }
 
@@ -439,26 +470,17 @@ export const StudentInsightsDashboard: React.FC<StudentInsightsProps> = ({
             <Card className="col-span-2">
               <CardHeader>
                 <CardTitle>Activity Timeline (Last 7 Days)</CardTitle>
-                <CardDescription>Time spent and activities completed</CardDescription>
+                <CardDescription>Activities completed per day</CardDescription>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
                   <LineChart data={activityData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" />
-                    <YAxis yAxisId="left" />
-                    <YAxis yAxisId="right" orientation="right" />
+                    <YAxis allowDecimals={false} />
                     <Tooltip />
                     <Legend />
                     <Line
-                      yAxisId="left"
-                      type="monotone"
-                      dataKey="timeSpent"
-                      stroke="#8884d8"
-                      name="Time Spent (min)"
-                    />
-                    <Line
-                      yAxisId="right"
                       type="monotone"
                       dataKey="activitiesCompleted"
                       stroke="#82ca9d"
@@ -582,7 +604,7 @@ export const StudentInsightsDashboard: React.FC<StudentInsightsProps> = ({
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                Assignment details would be displayed here with individual scores and feedback.
+                Detailed assignment breakdown not yet available.
               </p>
             </CardContent>
           </Card>
@@ -598,7 +620,7 @@ export const StudentInsightsDashboard: React.FC<StudentInsightsProps> = ({
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                Quiz details would be displayed here with individual scores and attempts.
+                Detailed quiz breakdown not yet available.
               </p>
             </CardContent>
           </Card>

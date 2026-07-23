@@ -3,7 +3,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { CanvasContentService } from '../canvasContentService';
-import { mockSupabaseClient } from '@/test/mocks/supabase';
+import { mockSupabaseClient, supabaseError } from '@/test/mocks/supabase';
 
 describe('CanvasContentService', () => {
   beforeEach(() => {
@@ -331,6 +331,110 @@ describe('CanvasContentService', () => {
       await expect(
         CanvasContentService.unpublishContentItem('ci-1')
       ).resolves.not.toThrow();
+    });
+  });
+
+  describe('error handling', () => {
+    it('getContentItems rejects when the query fails', async () => {
+      mockSupabaseClient.from().select().eq().order.mockResolvedValue(
+        supabaseError('db down')
+      );
+
+      await expect(
+        CanvasContentService.getContentItems('mod-1')
+      ).rejects.toMatchObject({ message: 'db down' });
+    });
+
+    it('getContentItem rejects when the query fails', async () => {
+      mockSupabaseClient.from().select().eq().single.mockResolvedValue(
+        supabaseError('db down')
+      );
+
+      await expect(
+        CanvasContentService.getContentItem('ci-1')
+      ).rejects.toThrow('Failed to load content item: db down');
+    });
+
+    it('createContentItem rejects when the insert fails', async () => {
+      mockSupabaseClient.from().select().eq().order().limit.mockResolvedValue({
+        data: [],
+        error: null
+      });
+      mockSupabaseClient.from().insert().select().single.mockResolvedValue(
+        supabaseError('db down')
+      );
+
+      await expect(
+        CanvasContentService.createContentItem({
+          course_id: 'c1',
+          module_id: 'm1',
+          type: 'page',
+          title: 'New Page',
+          content: 'Content here'
+        })
+      ).rejects.toMatchObject({ message: 'db down' });
+    });
+
+    it('updateContentItem rejects when the update fails', async () => {
+      mockSupabaseClient.from().update().eq().select().single.mockResolvedValue(
+        supabaseError('db down')
+      );
+
+      await expect(
+        CanvasContentService.updateContentItem('ci-1', { title: 'x' })
+      ).rejects.toMatchObject({ message: 'db down' });
+    });
+
+    it('deleteContentItem rejects when the delete fails', async () => {
+      mockSupabaseClient.from().delete().eq.mockResolvedValue(
+        supabaseError('db down')
+      );
+
+      await expect(
+        CanvasContentService.deleteContentItem('ci-1')
+      ).rejects.toMatchObject({ message: 'db down' });
+    });
+
+    it('getModules rejects when the query fails', async () => {
+      mockSupabaseClient.from().select().eq().order.mockResolvedValue(
+        supabaseError('db down')
+      );
+
+      await expect(
+        CanvasContentService.getModules('c1')
+      ).rejects.toMatchObject({ message: 'db down' });
+    });
+
+    it('getAssignment rejects on non-not-found errors', async () => {
+      // supabaseError defaults to code PGRST000, which is not the
+      // "row not found" code the service tolerates (PGRST116).
+      mockSupabaseClient.from().select().eq().single.mockResolvedValue(
+        supabaseError('db down')
+      );
+
+      await expect(
+        CanvasContentService.getAssignment('ci-1')
+      ).rejects.toMatchObject({ message: 'db down' });
+    });
+
+    it('updateQuiz rejects when the update fails', async () => {
+      mockSupabaseClient.from().update().eq().select().single.mockResolvedValue(
+        supabaseError('db down')
+      );
+
+      await expect(
+        CanvasContentService.updateQuiz('ci-1', { time_limit: 30 })
+      ).rejects.toMatchObject({ message: 'db down' });
+    });
+
+    it('publishContentItem rejects when the update fails', async () => {
+      mockSupabaseClient.from().update().eq.mockResolvedValue(
+        supabaseError('db down')
+      );
+
+      await expect(
+        CanvasContentService.publishContentItem('ci-1')
+      ).rejects.toMatchObject({ message: 'db down' });
     });
   });
 });

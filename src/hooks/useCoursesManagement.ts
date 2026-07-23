@@ -60,13 +60,19 @@ export function useCoursesManagement() {
           .select('course_id')
           .in('course_id', courseIds);
 
-        if (!enrollmentError && enrollmentData) {
-          // Count enrollments per course
-          enrollmentCounts = enrollmentData.reduce((acc, enrollment) => {
-            acc[enrollment.course_id] = (acc[enrollment.course_id] || 0) + 1;
-            return acc;
-          }, {} as Record<string, number>);
+        if (enrollmentError) {
+          // Do NOT swallow this — a silent failure here used to render every
+          // course as "0 enrolled". Throwing routes it through the hook's
+          // existing error path (error state + destructive toast).
+          logger.error('Error fetching enrollment counts:', enrollmentError);
+          throw enrollmentError;
         }
+
+        // Count enrollments per course (empty data is a legitimate result)
+        enrollmentCounts = (enrollmentData || []).reduce((acc, enrollment) => {
+          acc[enrollment.course_id] = (acc[enrollment.course_id] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
       }
 
       // Transform data to match frontend interface

@@ -254,7 +254,9 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({ bank, 
         <TabsContent value="categories">
           <Card>
             <CardContent className="pt-6">
-              <p className="text-gray-500">Category management coming soon...</p>
+              <div className="rounded-md bg-muted p-4 text-sm text-muted-foreground" role="status">
+                Category management is not yet available.
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -262,7 +264,9 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({ bank, 
         <TabsContent value="statistics">
           <Card>
             <CardContent className="pt-6">
-              <p className="text-gray-500">Question statistics and analytics coming soon...</p>
+              <div className="rounded-md bg-muted p-4 text-sm text-muted-foreground" role="status">
+                Question statistics and analytics are not yet available.
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

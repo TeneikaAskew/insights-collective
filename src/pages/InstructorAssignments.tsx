@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ArrowLeft, ClipboardCheck, Shield } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useCoursePermissions } from '@/hooks/useCoursePermissions';
+import CourseErrorState from '@/components/course/CourseErrorState';
 
 interface Row {
   id: string;
@@ -28,47 +29,60 @@ const InstructorAssignments = () => {
   const canManage = canEdit || isInstructor || isAdmin;
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (!courseId || !canManage) return;
     (async () => {
       setLoading(true);
-      const [assignmentsRes, enrollmentsRes] = await Promise.all([
-        supabase
-          .from('assignments')
-          .select('id, title, due_date, points_possible, content_item_id')
-          .eq('course_id', courseId)
-          .order('due_date', { ascending: true, nullsFirst: false }),
-        supabase.from('enrollments').select('user_id', { count: 'exact', head: true }).eq('course_id', courseId),
-      ]);
-      const assignments = assignmentsRes.data ?? [];
-      const enrolled = enrollmentsRes.count ?? 0;
-      const withCounts = await Promise.all(
-        assignments.map(async (a: any) => {
-          const [subRes, gradedRes] = await Promise.all([
-            supabase
-              .from('assignment_submissions')
-              .select('id', { count: 'exact', head: true })
-              .eq('assignment_id', a.id)
-              .in('workflow_state', ['submitted', 'graded', 'pending_review']),
-            supabase
-              .from('assignment_submissions')
-              .select('id', { count: 'exact', head: true })
-              .eq('assignment_id', a.id)
-              .eq('workflow_state', 'graded'),
-          ]);
-          return {
-            ...a,
-            enrolled,
-            submitted: subRes.count ?? 0,
-            graded: gradedRes.count ?? 0,
-          } as Row;
-        }),
-      );
-      setRows(withCounts);
-      setLoading(false);
+      setLoadError(null);
+      try {
+        const [assignmentsRes, enrollmentsRes] = await Promise.all([
+          supabase
+            .from('assignments')
+            .select('id, title, due_date, points_possible, content_item_id')
+            .eq('course_id', courseId)
+            .order('due_date', { ascending: true, nullsFirst: false }),
+          supabase.from('enrollments').select('user_id', { count: 'exact', head: true }).eq('course_id', courseId),
+        ]);
+        if (assignmentsRes.error) throw assignmentsRes.error;
+        if (enrollmentsRes.error) throw enrollmentsRes.error;
+        const assignments = assignmentsRes.data ?? [];
+        const enrolled = enrollmentsRes.count ?? 0;
+        const withCounts = await Promise.all(
+          assignments.map(async (a: any) => {
+            const [subRes, gradedRes] = await Promise.all([
+              supabase
+                .from('assignment_submissions')
+                .select('id', { count: 'exact', head: true })
+                .eq('assignment_id', a.id)
+                .in('workflow_state', ['submitted', 'graded', 'pending_review']),
+              supabase
+                .from('assignment_submissions')
+                .select('id', { count: 'exact', head: true })
+                .eq('assignment_id', a.id)
+                .eq('workflow_state', 'graded'),
+            ]);
+            if (subRes.error) throw subRes.error;
+            if (gradedRes.error) throw gradedRes.error;
+            return {
+              ...a,
+              enrolled,
+              submitted: subRes.count ?? 0,
+              graded: gradedRes.count ?? 0,
+            } as Row;
+          }),
+        );
+        setRows(withCounts);
+      } catch (e: any) {
+        setRows([]);
+        setLoadError(e?.message ?? 'Failed to load assignments');
+      } finally {
+        setLoading(false);
+      }
     })();
-  }, [courseId, canManage]);
+  }, [courseId, canManage, reloadKey]);
 
   if (permLoading) {
     return (
@@ -106,6 +120,14 @@ const InstructorAssignments = () => {
           <CardContent className="p-0">
             {loading ? (
               <div className="p-6 text-sm text-muted-foreground">Loading…</div>
+            ) : loadError ? (
+              <div className="p-6">
+                <CourseErrorState
+                  title="Failed to load assignments"
+                  error={loadError}
+                  onRetry={() => setReloadKey((k) => k + 1)}
+                />
+              </div>
             ) : rows.length === 0 ? (
               <div className="p-10 text-center text-sm text-muted-foreground">
                 No assignments have been created in this course yet.

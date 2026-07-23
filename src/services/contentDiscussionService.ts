@@ -62,43 +62,38 @@ class ContentDiscussionService {
   async getDiscussions(
     contentItemId: string
   ): Promise<ContentDiscussionWithUser[]> {
-    try {
-      const { data, error } = await supabase
-        .from('content_discussions')
-        .select(
-          `
-          *,
-          profiles!content_discussions_user_id_fkey(
-            id,
-            email,
-            full_name,
-            avatar_url,
-            roles
-          )
+    const { data, error } = await supabase
+      .from('content_discussions')
+      .select(
         `
+        *,
+        profiles!content_discussions_user_id_fkey(
+          id,
+          email,
+          full_name,
+          avatar_url,
+          roles
         )
-        .eq('content_item_id', contentItemId)
-        .eq('is_hidden', false)
-        .order('created_at', { ascending: true });
+      `
+      )
+      .eq('content_item_id', contentItemId)
+      .eq('is_hidden', false)
+      .order('created_at', { ascending: true });
 
-      if (error) throw error;
+    if (error) throw error;
 
-      // Transform data to include user info
-      const discussions = (data || []).map((item: any) => ({
-        ...item,
-        user_name: item.profiles?.full_name || 'Anonymous',
-        user_email: item.profiles?.email,
-        user_avatar: item.profiles?.avatar_url,
-        is_instructor:
-          item.profiles?.roles?.includes('instructor') ||
-          item.profiles?.roles?.includes('admin'),
-      }));
+    // Transform data to include user info
+    const discussions = (data || []).map((item: any) => ({
+      ...item,
+      user_name: item.profiles?.full_name || 'Anonymous',
+      user_email: item.profiles?.email,
+      user_avatar: item.profiles?.avatar_url,
+      is_instructor:
+        item.profiles?.roles?.includes('instructor') ||
+        item.profiles?.roles?.includes('admin'),
+    }));
 
-      return discussions as ContentDiscussionWithUser[];
-    } catch (error) {
-      logger.error('Error getting content discussions', error);
-      return [];
-    }
+    return discussions as ContentDiscussionWithUser[];
   }
 
   /**
@@ -109,44 +104,39 @@ class ContentDiscussionService {
     timestampSeconds: number,
     toleranceSeconds: number = 5
   ): Promise<ContentDiscussionWithUser[]> {
-    try {
-      const { data, error } = await supabase
-        .from('content_discussions')
-        .select(
-          `
-          *,
-          profiles!content_discussions_user_id_fkey(
-            id,
-            email,
-            full_name,
-            avatar_url,
-            roles
-          )
+    const { data, error } = await supabase
+      .from('content_discussions')
+      .select(
         `
+        *,
+        profiles!content_discussions_user_id_fkey(
+          id,
+          email,
+          full_name,
+          avatar_url,
+          roles
         )
-        .eq('content_item_id', contentItemId)
-        .eq('is_hidden', false)
-        .gte('timestamp_seconds', timestampSeconds - toleranceSeconds)
-        .lte('timestamp_seconds', timestampSeconds + toleranceSeconds)
-        .order('created_at', { ascending: true });
+      `
+      )
+      .eq('content_item_id', contentItemId)
+      .eq('is_hidden', false)
+      .gte('timestamp_seconds', timestampSeconds - toleranceSeconds)
+      .lte('timestamp_seconds', timestampSeconds + toleranceSeconds)
+      .order('created_at', { ascending: true });
 
-      if (error) throw error;
+    if (error) throw error;
 
-      const discussions = (data || []).map((item: any) => ({
-        ...item,
-        user_name: item.profiles?.full_name || 'Anonymous',
-        user_email: item.profiles?.email,
-        user_avatar: item.profiles?.avatar_url,
-        is_instructor:
-          item.profiles?.roles?.includes('instructor') ||
-          item.profiles?.roles?.includes('admin'),
-      }));
+    const discussions = (data || []).map((item: any) => ({
+      ...item,
+      user_name: item.profiles?.full_name || 'Anonymous',
+      user_email: item.profiles?.email,
+      user_avatar: item.profiles?.avatar_url,
+      is_instructor:
+        item.profiles?.roles?.includes('instructor') ||
+        item.profiles?.roles?.includes('admin'),
+    }));
 
-      return discussions as ContentDiscussionWithUser[];
-    } catch (error) {
-      logger.error('Error getting discussions at timestamp', error);
-      return [];
-    }
+    return discussions as ContentDiscussionWithUser[];
   }
 
   /**
@@ -325,41 +315,31 @@ class ContentDiscussionService {
     discussionId: string,
     userId: string
   ): Promise<boolean> {
-    try {
-      const { data, error } = await supabase
-        .from('content_discussion_upvotes')
-        .select('id')
-        .eq('discussion_id', discussionId)
-        .eq('user_id', userId)
-        .single();
+    const { data, error } = await supabase
+      .from('content_discussion_upvotes')
+      .select('id')
+      .eq('discussion_id', discussionId)
+      .eq('user_id', userId)
+      .single();
 
-      if (error && error.code !== 'PGRST116') throw error;
+    if (error && error.code !== 'PGRST116') throw error;
 
-      return !!data;
-    } catch (error) {
-      logger.error('Error checking upvote status', error);
-      return false;
-    }
+    return !!data;
   }
 
   /**
    * Get discussion count for a content item
    */
   async getDiscussionCount(contentItemId: string): Promise<number> {
-    try {
-      const { count, error } = await supabase
-        .from('content_discussions')
-        .select('*', { count: 'exact', head: true })
-        .eq('content_item_id', contentItemId)
-        .eq('is_hidden', false);
+    const { count, error } = await supabase
+      .from('content_discussions')
+      .select('*', { count: 'exact', head: true })
+      .eq('content_item_id', contentItemId)
+      .eq('is_hidden', false);
 
-      if (error) throw error;
+    if (error) throw error;
 
-      return count || 0;
-    } catch (error) {
-      logger.error('Error getting discussion count', error);
-      return 0;
-    }
+    return count || 0;
   }
 
   /**
@@ -377,43 +357,35 @@ class ContentDiscussionService {
       endorsedCount: number;
     }>
   > {
-    try {
-      const { data, error } = await supabase.rpc('get_most_discussed_content', {
-        course_id_param: courseId,
-        limit_count: limit,
-      });
+    const { data, error } = await supabase.rpc('get_most_discussed_content', {
+      course_id_param: courseId,
+      limit_count: limit,
+    });
 
-      if (error) throw error;
+    if (error) throw error;
 
-      return (data || []).map((item: any) => ({
-        contentItemId: item.content_item_id,
-        contentTitle: item.content_title,
-        discussionCount: item.discussion_count || 0,
-        unresolvedCount: item.unresolved_count || 0,
-        endorsedCount: item.endorsed_count || 0,
-      }));
-    } catch (error) {
-      logger.error('Error getting most discussed content', error);
-      return [];
-    }
+    return (data || []).map((item: any) => ({
+      contentItemId: item.content_item_id,
+      contentTitle: item.content_title,
+      discussionCount: item.discussion_count || 0,
+      unresolvedCount: item.unresolved_count || 0,
+      endorsedCount: item.endorsed_count || 0,
+    }));
   }
 
   /**
    * Resolve all discussions in a thread
    */
   async resolveThread(parentDiscussionId: string): Promise<void> {
-    try {
-      // Update parent and all children
-      await supabase
-        .from('content_discussions')
-        .update({ is_resolved: true })
-        .or(`id.eq.${parentDiscussionId},parent_comment_id.eq.${parentDiscussionId}`);
+    // Update parent and all children
+    const { error } = await supabase
+      .from('content_discussions')
+      .update({ is_resolved: true })
+      .or(`id.eq.${parentDiscussionId},parent_comment_id.eq.${parentDiscussionId}`);
 
-      logger.info('Resolved discussion thread', { parentDiscussionId });
-    } catch (error) {
-      logger.error('Error resolving discussion thread', error);
-      throw error;
-    }
+    if (error) throw error;
+
+    logger.info('Resolved discussion thread', { parentDiscussionId });
   }
 }
 

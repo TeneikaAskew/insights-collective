@@ -148,10 +148,12 @@ export function useLessons(moduleId?: string) {
 
     try {
       // Delete lesson progress
-      await supabase
+      const { error: progressError } = await supabase
         .from('lesson_progress')
         .delete()
         .eq('lesson_id', id);
+
+      if (progressError) throw progressError;
 
       // Delete the lesson
       const { error } = await supabase

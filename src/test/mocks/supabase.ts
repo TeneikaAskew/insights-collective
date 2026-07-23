@@ -105,6 +105,25 @@ export const mockSupabaseClient = {
   },
 };
 
+// Shape of a PostgrestError, for injecting failures into query mocks:
+//   mockSupabaseClient.from().select().eq().order.mockResolvedValue(supabaseError('boom'))
+// Services under audit must THROW on these — a test asserting
+// `rejects.toThrow()` with an injected error proves the failure is not
+// silently swallowed into an empty/default result.
+export function supabaseError(message: string, code = 'PGRST000') {
+  return {
+    data: null,
+    error: { message, code, details: '', hint: '' },
+  };
+}
+
+// Returns the builder currently wired to `from()`, so tests can stub a
+// terminal method (`single`, `order`, `then`, …) without re-calling `from()`
+// and accidentally asserting against a stale builder reference.
+export function getQueryBuilder() {
+  return (mockSupabaseClient.from as ReturnType<typeof vi.fn>)();
+}
+
 // Rebuild the query builder so mock state does not leak between tests.
 // Called from src/test/setup.ts in a beforeEach.
 export function resetSupabaseMock() {

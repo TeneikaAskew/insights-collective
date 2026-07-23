@@ -15,6 +15,7 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import { CourseLayout } from '@/components/course/CourseLayout';
+import CourseErrorState from '@/components/course/CourseErrorState';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -62,6 +63,7 @@ const CourseMaterials = () => {
   const [folders, setFolders] = useState<FolderRow[]>([]);
   const [files, setFiles] = useState<FileRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
   // Verify user is enrolled OR instructor
@@ -81,10 +83,20 @@ const CourseMaterials = () => {
   const load = useCallback(async () => {
     if (!courseId) return;
     setLoading(true);
+    setLoadError(null);
     const [foldersRes, filesRes] = await Promise.all([
       supabase.from('course_material_folders').select('*').eq('course_id', courseId).order('name'),
       supabase.from('course_material_files').select('*').eq('course_id', courseId).order('name'),
     ]);
+    // A failed query must render as an error, never as an empty folder.
+    const queryError = foldersRes.error ?? filesRes.error;
+    if (queryError) {
+      setFolders([]);
+      setFiles([]);
+      setLoadError(queryError.message || 'Failed to load course materials');
+      setLoading(false);
+      return;
+    }
     setFolders((foldersRes.data ?? []) as FolderRow[]);
     setFiles((filesRes.data ?? []) as FileRow[]);
     setLoading(false);
@@ -279,6 +291,14 @@ const CourseMaterials = () => {
           <CardContent className="p-0">
             {loading ? (
               <div className="p-6 text-sm text-muted-foreground">Loading…</div>
+            ) : loadError ? (
+              <div className="p-6">
+                <CourseErrorState
+                  title="Error loading materials"
+                  error={loadError}
+                  onRetry={() => void load()}
+                />
+              </div>
             ) : visibleFolders.length === 0 && visibleFiles.length === 0 ? (
               <div className="p-10 text-center">
                 <Folder className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />

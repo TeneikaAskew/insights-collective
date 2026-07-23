@@ -57,6 +57,10 @@ function setTables(tables: Record<string, any[]>) {
   }
 }
 
+function setTableError(table: string, message: string) {
+  tableResponses[table] = { data: null, error: { message } };
+}
+
 describe('useCourseProgress', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -127,6 +131,46 @@ describe('useCourseProgress', () => {
     const { result } = renderHook(() => useCourseProgress(undefined));
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
+    expect(result.current.data).toBeUndefined();
+  });
+
+  it('sets error and leaves data undefined when the modules query fails', async () => {
+    setTables({ content_items: [], content_item_progressions: [] });
+    setTableError('modules', 'modules query failed');
+
+    const { result } = renderHook(() => useCourseProgress('course-1'));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.error).toBe('modules query failed');
+    // Failure must NOT be reported as zeroed progress
+    expect(result.current.data).toBeUndefined();
+  });
+
+  it('sets error and leaves data undefined when the content items query fails', async () => {
+    setTables({
+      modules: [{ id: 'm1' }],
+      content_item_progressions: [],
+    });
+    setTableError('content_items', 'content items query failed');
+
+    const { result } = renderHook(() => useCourseProgress('course-1'));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.error).toBe('content items query failed');
+    expect(result.current.data).toBeUndefined();
+  });
+
+  it('sets error and leaves data undefined when the progressions query fails', async () => {
+    setTables({
+      modules: [{ id: 'm1' }],
+      content_items: [{ id: 'i1', module_id: 'm1' }],
+    });
+    setTableError('content_item_progressions', 'progressions query failed');
+
+    const { result } = renderHook(() => useCourseProgress('course-1'));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.error).toBe('progressions query failed');
     expect(result.current.data).toBeUndefined();
   });
 });

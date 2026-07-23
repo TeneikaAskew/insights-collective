@@ -15,10 +15,11 @@ import { Search, Pencil, Plus } from 'lucide-react';
 import { useCoursesManagement } from '@/hooks/useCoursesManagement';
 import AppLayout from '@/components/layout/AppLayout';
 import { Spinner } from '@/components/ui/spinner';
+import CourseErrorState from '@/components/course/CourseErrorState';
 import { useState } from 'react';
 
 const CourseManagementDashboard = () => {
-  const { courses, loading } = useCoursesManagement();
+  const { courses, loading, error, refetch } = useCoursesManagement();
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
 
@@ -32,6 +33,14 @@ const CourseManagementDashboard = () => {
         <div className="flex justify-center items-center h-[50vh]">
           <Spinner size="lg" />
         </div>
+      </AppLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <AppLayout>
+        <CourseErrorState title="Failed to load courses" error={error} onRetry={refetch} />
       </AppLayout>
     );
   }

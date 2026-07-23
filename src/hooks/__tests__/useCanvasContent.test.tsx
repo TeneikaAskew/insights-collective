@@ -3,8 +3,8 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { useCanvasContent } from '../useCanvasContent';
-import { mockSupabaseClient } from '@/test/mocks/supabase';
+import { useCanvasContent, useModuleContentCounts } from '../useCanvasContent';
+import { mockSupabaseClient, getQueryBuilder, supabaseError } from '@/test/mocks/supabase';
 import CanvasContentService from '@/services/canvasContentService';
 
 // Mock the service
@@ -220,5 +220,75 @@ describe('useCanvasContent', () => {
     await expect(
       result.current.createContentItem('page', 'Test', 'Content')
     ).rejects.toThrow('Module ID is required');
+  });
+});
+
+describe('useModuleContentCounts', () => {
+  const makeItem = (id: string, published: boolean) => ({
+    id,
+    title: `Item ${id}`,
+    type: 'page' as const,
+    module_id: 'm1',
+    course_id: 'c1',
+    content: '',
+    position: 0,
+    published,
+    settings: {},
+    created_at: '',
+    updated_at: '',
+    created_by: 'u1'
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('loads published content counts per module', async () => {
+    // modules query terminates at .eq('course_id', ...)
+    getQueryBuilder().eq.mockResolvedValue({
+      data: [{ id: 'm1' }, { id: 'm2' }],
+      error: null
+    });
+    vi.mocked(CanvasContentService.getContentItems).mockImplementation(async (moduleId: string) => {
+      if (moduleId === 'm1') return [makeItem('1', true), makeItem('2', false)];
+      return [makeItem('3', true), makeItem('4', true)];
+    });
+
+    const { result } = renderHook(() => useModuleContentCounts('c1'));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.counts).toEqual({ m1: 1, m2: 2 });
+    expect(result.current.error).toBeNull();
+  });
+
+  it('surfaces an error when the modules query fails', async () => {
+    getQueryBuilder().eq.mockResolvedValue(supabaseError('modules query failed'));
+
+    const { result } = renderHook(() => useModuleContentCounts('c1'));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.error).toBe('modules query failed');
+    expect(result.current.counts).toEqual({});
+    expect(CanvasContentService.getContentItems).not.toHaveBeenCalled();
+  });
+
+  it('surfaces an error and does not expose partial counts when one module count query fails', async () => {
+    getQueryBuilder().eq.mockResolvedValue({
+      data: [{ id: 'm1' }, { id: 'm2' }],
+      error: null
+    });
+    vi.mocked(CanvasContentService.getContentItems)
+      .mockResolvedValueOnce([makeItem('1', true)])
+      .mockRejectedValueOnce(new Error('items query failed'));
+
+    const { result } = renderHook(() => useModuleContentCounts('c1'));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.error).toBe('items query failed');
+    // m1's count must not be presented as a complete result
+    expect(result.current.counts).toEqual({});
   });
 });

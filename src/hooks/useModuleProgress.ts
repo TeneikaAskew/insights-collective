@@ -215,14 +215,20 @@ export function useModuleProgress(moduleId?: string) {
       if (error) throw error;
 
       // Also update assignment_submissions if it's an assignment
-      const { data: contentItem } = await supabase
+      const { data: contentItem, error: contentItemError } = await supabase
         .from('content_items')
         .select('type, settings')
         .eq('id', contentItemId)
         .single();
 
+      if (contentItemError) {
+        throw new Error(
+          `Progress was saved, but the submission record failed: ${contentItemError.message}`
+        );
+      }
+
       if (contentItem?.type === 'assignment') {
-        await supabase
+        const { error: submissionError } = await supabase
           .from('assignment_submissions')
           .upsert({
             user_id: user.id,
@@ -233,6 +239,12 @@ export function useModuleProgress(moduleId?: string) {
           }, {
             onConflict: 'user_id,assignment_id'
           });
+
+        if (submissionError) {
+          throw new Error(
+            `Progress was saved, but the submission record failed: ${submissionError.message}`
+          );
+        }
       }
 
       // Update local state
