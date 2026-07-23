@@ -262,7 +262,12 @@ export default function CanvasQuizTaking() {
           finished_at: new Date().toISOString(),
           time_spent: quiz.time_limit ? (quiz.time_limit * 60 - (timeRemaining || 0)) : null,
           score: totalScore,
-          kept_score: totalScore, // Simple scoring policy for now
+          // Kept-score policy: deliberately "latest attempt". Each submission
+          // row's kept_score is the score of that attempt, and downstream
+          // consumers read the most recent attempt's row. There is no
+          // keep-highest (or keep-average) specification for quizzes, so no
+          // cross-attempt comparison is performed here on purpose.
+          kept_score: totalScore,
           workflow_state: 'complete'
         })
         .eq('id', submission.id);

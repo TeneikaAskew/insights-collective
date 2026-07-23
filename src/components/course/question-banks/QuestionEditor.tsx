@@ -28,11 +28,20 @@ interface QuestionEditorProps {
   bankId: string;
 }
 
-const questionTypes: { value: QuestionType; label: string }[] = [
+const questionTypes: { value: QuestionType; label: string; disabled?: boolean }[] = [
   { value: 'multiple_choice', label: 'Multiple Choice' },
   { value: 'true_false', label: 'True/False' },
   { value: 'short_answer', label: 'Short Answer' },
   { value: 'essay', label: 'Essay' },
+  // These types have no editing UI yet. They are listed disabled so that
+  // (a) users cannot create a question of a type that cannot be edited, and
+  // (b) an existing question of one of these types still shows its type
+  // instead of an empty selector.
+  { value: 'matching', label: 'Matching (not yet available)', disabled: true },
+  { value: 'fill_blank', label: 'Fill in the Blank (not yet available)', disabled: true },
+  { value: 'ordering', label: 'Ordering (not yet available)', disabled: true },
+  { value: 'multiple_answer', label: 'Multiple Answer (not yet available)', disabled: true },
+  { value: 'calculated', label: 'Calculated (not yet available)', disabled: true },
 ];
 
 const difficultyLevels = [
@@ -101,7 +110,7 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
               </SelectTrigger>
               <SelectContent>
                 {questionTypes.map(type => (
-                  <SelectItem key={type.value} value={type.value}>
+                  <SelectItem key={type.value} value={type.value} disabled={type.disabled}>
                     {type.label}
                   </SelectItem>
                 ))}
@@ -388,10 +397,20 @@ export const QuestionEditor: React.FC<QuestionEditorProps> = ({
     );
   }
 
-  // Additional question type options would be implemented similarly...
-  function MatchingOptions() { return <div>Matching options UI to be implemented</div>; }
-  function FillBlankOptions() { return <div>Fill in the blank options UI to be implemented</div>; }
-  function OrderingOptions() { return <div>Ordering options UI to be implemented</div>; }
-  function MultipleAnswerOptions() { return <div>Multiple answer options UI to be implemented</div>; }
-  function CalculatedOptions() { return <div>Calculated options UI to be implemented</div>; }
+  // Honest placeholders for question types that do not have an editing UI yet.
+  // Creating these types is disabled in the type selector above; an existing
+  // question of one of these types keeps its stored options untouched on save.
+  function UnavailableTypeNotice({ typeLabel }: { typeLabel: string }) {
+    return (
+      <div className="rounded-md bg-muted p-4 text-sm text-muted-foreground" role="status">
+        Editing {typeLabel} answer options is not yet available. Existing answer options are
+        preserved when you save this question.
+      </div>
+    );
+  }
+  function MatchingOptions() { return <UnavailableTypeNotice typeLabel="matching" />; }
+  function FillBlankOptions() { return <UnavailableTypeNotice typeLabel="fill-in-the-blank" />; }
+  function OrderingOptions() { return <UnavailableTypeNotice typeLabel="ordering" />; }
+  function MultipleAnswerOptions() { return <UnavailableTypeNotice typeLabel="multiple answer" />; }
+  function CalculatedOptions() { return <UnavailableTypeNotice typeLabel="calculated" />; }
 };
