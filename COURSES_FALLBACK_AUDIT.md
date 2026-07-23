@@ -54,20 +54,20 @@ Status key: ✅ fixed in this branch · ✔ already fixed on main before this wo
 | 18 | `src/hooks/useCanvasContent.ts` `useModuleContentCounts` | Mid-loop failure left partial counts presented as complete | ✅ error state; partial counts never exposed |
 | 19 | `src/hooks/useModuleProgress.ts` `submitAssignment` | Secondary submission upsert unchecked — success toast after partial write | ✅ throws `'Progress was saved, but the submission record failed'` |
 | 20 | `src/hooks/useCourseData.ts` / `useCoursePermissions.ts` / `useLessons.ts` | Unchecked errors on enrollment count / profile fallback / lesson_progress cleanup | ✅ throw (permissions fail closed) |
-| 21 | `src/pages/CourseDetail.tsx` | Announcements fetch silently ignored errors; **enrollment recorded in localStorage and UI before the insert, never rolled back on failure** | 🔄 in progress (Phase D) |
-| 22 | `src/pages/CourseMaterials.tsx` | Load used `?? []` without error checks — failure rendered as empty folder | 🔄 in progress (Phase D) |
-| 23 | `src/pages/EnrolledCoursesDashboard.tsx` | Sidebar fetch unhandled; hardcoded `'Active'` status; module counts derived arithmetically from a percentage; stock-photo thumbnail; generic 'Instructor' | 🔄 in progress (Phase D) |
-| 24 | `src/components/certification/CertificationSystem.tsx` | Fetch errors ignored — a DB outage rendered as "Invalid verification code" | 🔄 in progress (Phase D) |
-| 25 | `src/components/course/analytics/StudentInsightsDashboard.tsx` | Loader catch swallowed; `timeSpent: 0` fabricated; placeholder detail tabs | 🔄 in progress (Phase D) |
-| 26 | `src/pages/CourseGradebook.tsx` | `grades: any[] = []` hardcoded ("placeholder until migration"); wrote nonexistent `graded_by`/`status` columns (silent failure) | 🔄 in progress (Phase E) |
+| 21 | `src/pages/CourseDetail.tsx` | Announcements fetch silently ignored errors; **enrollment recorded in localStorage and UI before the insert, never rolled back on failure** | ✅ insert now gates the state change; inline announcement error with retry |
+| 22 | `src/pages/CourseMaterials.tsx` | Load used `?? []` without error checks — failure rendered as empty folder | ✅ |
+| 23 | `src/pages/EnrolledCoursesDashboard.tsx` | Sidebar fetch unhandled; hardcoded `'Active'` status; module counts derived arithmetically from a percentage; stock-photo thumbnail; generic 'Instructor' | ✅ |
+| 24 | `src/components/certification/CertificationSystem.tsx` | Fetch errors ignored — a DB outage rendered as "Invalid verification code" | ✅ |
+| 25 | `src/components/course/analytics/StudentInsightsDashboard.tsx` | Loader catch swallowed; `timeSpent: 0` fabricated; placeholder detail tabs | ✅ |
+| 26 | `src/pages/CourseGradebook.tsx` | `grades: any[] = []` hardcoded ("placeholder until migration"); wrote nonexistent `graded_by`/`status` columns (silent failure) | ✅ derives grades from assignment_submissions + quiz_submissions; writes only real columns; quiz cells read-only |
 
 ### Placeholder UI pretending to be features
 
 | # | Location | Status |
 |---|---|---|
-| 27 | `CanvasGradingInterface` "File attachments would be displayed here" (instructors couldn't see submissions) | 🔄 in progress (Phase D) |
-| 28 | `QuestionBankManager` "coming soon" tabs, `QuestionEditor` matching type, `AssignmentSubmission` media recording | 🔄 in progress (Phase D) |
-| 29 | Dead unrouted pages (`LessonDetail` with fake video player, `CanvasModuleDetail`, `AdminCourseEdit`, `CourseManagement`) lazy-imported but unreachable | 🔄 in progress (Phase D) |
+| 27 | `CanvasGradingInterface` "File attachments would be displayed here" (instructors couldn't see submissions) | ✅ |
+| 28 | `QuestionBankManager` "coming soon" tabs, `QuestionEditor` matching type, `AssignmentSubmission` media recording | ✅ |
+| 29 | Dead unrouted pages (`LessonDetail` with fake video player, `CanvasModuleDetail`, `AdminCourseEdit`, `CourseManagement`) lazy-imported but unreachable | ✅ |
 | 30 | `CanvasQuizTaking` kept-score "simple policy" | ⏳ documented as deliberate latest-attempt policy — no keep-highest spec exists |
 
 ### Edge functions (fixed in code — **not deployed from this session**)
@@ -84,7 +84,9 @@ Before: 7 unit test files, 62 tests; 9 of 11 course services, 16 of 18 course ho
 
 After: every course service and hook has happy-path **and** error-injection tests; course pages have loading/success/empty/error state tests; regression tests pin the worst masks (failed fetch is not 0% progress; no mock forum content ever renders; `grades` table is never queried; enroll failure does not mark the client enrolled). Vitest now collects only `src/` tests.
 
-Final counts are in the PR description; the suite, `npm run lint`, and `npm run build` gate every commit on this branch.
+Final counts: **62 tests in 7 files → 647 tests in 59 files**. The suite, `npm run lint`, and `npm run build` gated every commit on this branch.
+
+Additional fixes found during test-writing (beyond the original 33): `InstructorAssignments` and `CourseQuizResults` coalesced failed queries into their empty states (now distinct error states with retry); `CourseCalendar` and `CourseManagementDashboard` ignored hook errors (now render `CourseErrorState`); `useLessons.deleteLesson` discarded the lesson-progress cleanup error; `useCoursePermissions` ignored its profile-query error (now fails closed).
 
 ## Known limitations / future work
 
