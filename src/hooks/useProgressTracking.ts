@@ -43,6 +43,7 @@ export function useProgressTracking(courseId?: string, moduleId?: string) {
   const [moduleProgress, setModuleProgress] = useState<ModuleProgress | null>(null);
   const [contentProgress, setContentProgress] = useState<ContentProgress[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -61,37 +62,45 @@ export function useProgressTracking(courseId?: string, moduleId?: string) {
 
     try {
       setLoading(true);
+      setError(null);
 
       // Get course info
-      const { data: course } = await supabase
+      const { data: course, error: courseError } = await supabase
         .from('courses')
         .select('id, title')
         .eq('id', courseId)
         .single();
 
+      if (courseError) throw courseError;
       if (!course) throw new Error('Course not found');
 
       // Get modules
-      const { data: modules } = await supabase
+      const { data: modules, error: modulesError } = await supabase
         .from('modules')
         .select('id, title, week')
         .eq('course_id', courseId)
         .order('week');
 
+      if (modulesError) throw modulesError;
+
       // Get content items for this course
-      const { data: contentItems } = await supabase
+      const { data: contentItems, error: contentItemsError } = await supabase
         .from('content_items')
         .select('id, module_id')
         .eq('course_id', courseId);
 
+      if (contentItemsError) throw contentItemsError;
+
       const contentItemIds = contentItems?.map(item => item.id) || [];
 
       // Get user's progress using content_item_progressions
-      const { data: progressData } = await supabase
+      const { data: progressData, error: progressError } = await supabase
         .from('content_item_progressions')
         .select('*')
         .eq('user_id', user.id)
         .in('content_item_id', contentItemIds);
+
+      if (progressError) throw progressError;
 
       // Calculate module progress
       const moduleProgress: ModuleProgress[] = modules?.map(module => {
@@ -139,8 +148,12 @@ export function useProgressTracking(courseId?: string, moduleId?: string) {
         modules: moduleProgress
       });
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error('Error fetching course progress:', error);
+      // Do NOT synthesize a zeroed progress object — a failed fetch must not
+      // present 0% progress as real data.
+      setCourseProgress(null);
+      setError(error?.message || 'Failed to load course progress');
       toast({
         title: 'Error',
         description: 'Failed to load course progress',
@@ -156,30 +169,36 @@ export function useProgressTracking(courseId?: string, moduleId?: string) {
 
     try {
       setLoading(true);
+      setError(null);
 
       // Get module info
-      const { data: module } = await supabase
+      const { data: module, error: moduleError } = await supabase
         .from('modules')
         .select('id, title')
         .eq('id', moduleId)
         .single();
 
+      if (moduleError) throw moduleError;
       if (!module) throw new Error('Module not found');
 
       // Get content items for this module
-      const { data: contentItems } = await supabase
+      const { data: contentItems, error: contentItemsError } = await supabase
         .from('content_items')
         .select('id, title')
         .eq('module_id', moduleId);
 
+      if (contentItemsError) throw contentItemsError;
+
       const contentItemIds = contentItems?.map(item => item.id) || [];
-      
+
       // Get user's progress using content_item_progressions
-      const { data: progressData } = await supabase
+      const { data: progressData, error: progressError } = await supabase
         .from('content_item_progressions')
         .select('*')
         .eq('user_id', user.id)
         .in('content_item_id', contentItemIds);
+
+      if (progressError) throw progressError;
 
       // Map to legacy format for compatibility
       const legacyProgress = progressData?.map(p => ({
@@ -217,8 +236,12 @@ export function useProgressTracking(courseId?: string, moduleId?: string) {
         last_accessed: lastAccessed
       });
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error('Error fetching module progress:', error);
+      // Do NOT synthesize a zeroed progress object — a failed fetch must not
+      // present 0% progress as real data.
+      setModuleProgress(null);
+      setError(error?.message || 'Failed to load module progress');
       toast({
         title: 'Error',
         description: 'Failed to load module progress',
@@ -320,6 +343,7 @@ export function useProgressTracking(courseId?: string, moduleId?: string) {
     moduleProgress,
     contentProgress,
     loading,
+    error,
     updateContentProgress,
     getContentProgress,
     markContentComplete,
