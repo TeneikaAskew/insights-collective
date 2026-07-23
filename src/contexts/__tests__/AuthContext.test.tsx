@@ -7,7 +7,6 @@ import React from 'react';
 // to exercise the real AuthContext module. Unmock it BEFORE importing.
 vi.unmock('@/contexts/AuthContext');
 
-// eslint-disable-next-line import/first
 import { useAuth, AuthProvider } from '../AuthContext';
 
 vi.mock('@/utils/securityUtils', () => ({
