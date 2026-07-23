@@ -140,6 +140,7 @@ export function useCanvasContent(moduleId: string | null) {
 export function useModuleContentCounts(courseId: string) {
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (courseId) {
@@ -150,28 +151,32 @@ export function useModuleContentCounts(courseId: string) {
   const loadCounts = async () => {
     try {
       setLoading(true);
+      setError(null);
       // This would be optimized with a custom query
-      const { data: modules } = await supabase
+      const { data: modules, error: modulesError } = await supabase
         .from('modules')
         .select('id')
         .eq('course_id', courseId);
 
-      if (modules) {
-        const countsMap: Record<string, number> = {};
-        
-        for (const module of modules) {
-          const items = await CanvasContentService.getContentItems(module.id);
-          countsMap[module.id] = items.filter(item => item.published).length;
-        }
-        
-        setCounts(countsMap);
+      if (modulesError) throw modulesError;
+
+      const countsMap: Record<string, number> = {};
+
+      for (const module of modules || []) {
+        const items = await CanvasContentService.getContentItems(module.id);
+        countsMap[module.id] = items.filter(item => item.published).length;
       }
-    } catch (error) {
-      logger.error('Error loading content counts:', error);
+
+      setCounts(countsMap);
+    } catch (err: any) {
+      logger.error('Error loading content counts:', err);
+      // Surface the failure and don't present partially-loaded counts as complete.
+      setCounts({});
+      setError(err?.message || 'Failed to load content counts');
     } finally {
       setLoading(false);
     }
   };
 
-  return { counts, loading };
+  return { counts, loading, error };
 }
