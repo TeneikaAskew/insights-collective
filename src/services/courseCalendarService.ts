@@ -41,13 +41,16 @@ export const courseCalendarService = {
     const events: CourseCalendarEvent[] = [];
 
     // Get course info
-    const { data: course } = await supabase
+    const { data: course, error: courseError } = await supabase
       .from('courses')
       .select('title')
       .eq('id', courseId)
       .single();
 
-    const courseTitle = course?.title || 'Unknown Course';
+    if (courseError) throw courseError;
+    if (!course) throw new Error(`Course not found: ${courseId}`);
+
+    const courseTitle = course.title;
 
     // Fetch assignments if not filtered out
     if (!filters?.types || filters.types.includes('assignment')) {
@@ -64,23 +67,23 @@ export const courseCalendarService = {
         .eq('course_id', courseId)
         .not('due_date', 'is', null);
 
-      if (!assignmentsError && assignments) {
-        assignments.forEach(assignment => {
-          if (assignment.due_date) {
-            events.push({
-              id: `assignment-due-${assignment.id}`,
-              title: `${assignment.title} - Due`,
-              description: assignment.description || undefined,
-              start_date: assignment.due_date,
-              type: 'assignment',
-              course_id: courseId,
-              course_title: courseTitle,
-              related_id: assignment.id,
-              course_color: '#3b82f6',
-            });
-          }
-        });
-      }
+      if (assignmentsError) throw assignmentsError;
+
+      (assignments || []).forEach(assignment => {
+        if (assignment.due_date) {
+          events.push({
+            id: `assignment-due-${assignment.id}`,
+            title: `${assignment.title} - Due`,
+            description: assignment.description || undefined,
+            start_date: assignment.due_date,
+            type: 'assignment',
+            course_id: courseId,
+            course_title: courseTitle,
+            related_id: assignment.id,
+            course_color: '#3b82f6',
+          });
+        }
+      });
     }
 
     // Fetch quizzes if not filtered out
@@ -100,54 +103,54 @@ export const courseCalendarService = {
         `)
         .eq('content_items.course_id', courseId);
 
-      if (!quizzesError && quizzes) {
-        quizzes.forEach(quiz => {
-          // Due date event
-          if (quiz.due_at) {
-            events.push({
-              id: `quiz-due-${quiz.id}`,
-              title: `${quiz.title} - Due`,
-              description: quiz.description || `Quiz with ${quiz.time_limit || 'unlimited'} time limit`,
-              start_date: quiz.due_at,
-              type: 'quiz',
-              course_id: courseId,
-              course_title: courseTitle,
-              related_id: quiz.id,
-              course_color: '#8b5cf6', // Purple for quizzes
-            });
-          }
+      if (quizzesError) throw quizzesError;
 
-          // Unlock date event
-          if (quiz.unlock_at) {
-            events.push({
-              id: `quiz-unlock-${quiz.id}`,
-              title: `${quiz.title} - Available`,
-              description: `Quiz becomes available`,
-              start_date: quiz.unlock_at,
-              type: 'quiz',
-              course_id: courseId,
-              course_title: courseTitle,
-              related_id: quiz.id,
-              course_color: '#10b981', // Green for unlock
-            });
-          }
+      (quizzes || []).forEach(quiz => {
+        // Due date event
+        if (quiz.due_at) {
+          events.push({
+            id: `quiz-due-${quiz.id}`,
+            title: `${quiz.title} - Due`,
+            description: quiz.description || `Quiz with ${quiz.time_limit || 'unlimited'} time limit`,
+            start_date: quiz.due_at,
+            type: 'quiz',
+            course_id: courseId,
+            course_title: courseTitle,
+            related_id: quiz.id,
+            course_color: '#8b5cf6', // Purple for quizzes
+          });
+        }
 
-          // Lock date event
-          if (quiz.lock_at) {
-            events.push({
-              id: `quiz-lock-${quiz.id}`,
-              title: `${quiz.title} - Closes`,
-              description: `Quiz submissions close`,
-              start_date: quiz.lock_at,
-              type: 'quiz',
-              course_id: courseId,
-              course_title: courseTitle,
-              related_id: quiz.id,
-              course_color: '#ef4444', // Red for lock
-            });
-          }
-        });
-      }
+        // Unlock date event
+        if (quiz.unlock_at) {
+          events.push({
+            id: `quiz-unlock-${quiz.id}`,
+            title: `${quiz.title} - Available`,
+            description: `Quiz becomes available`,
+            start_date: quiz.unlock_at,
+            type: 'quiz',
+            course_id: courseId,
+            course_title: courseTitle,
+            related_id: quiz.id,
+            course_color: '#10b981', // Green for unlock
+          });
+        }
+
+        // Lock date event
+        if (quiz.lock_at) {
+          events.push({
+            id: `quiz-lock-${quiz.id}`,
+            title: `${quiz.title} - Closes`,
+            description: `Quiz submissions close`,
+            start_date: quiz.lock_at,
+            type: 'quiz',
+            course_id: courseId,
+            course_title: courseTitle,
+            related_id: quiz.id,
+            course_color: '#ef4444', // Red for lock
+          });
+        }
+      });
     }
 
     // Fetch course announcements if not filtered out
@@ -163,32 +166,34 @@ export const courseCalendarService = {
         `)
         .eq('course_id', courseId);
 
-      if (!announcementsError && announcements) {
-        announcements.forEach(announcement => {
-          events.push({
-            id: `announcement-${announcement.id}`,
-            title: `${announcement.title}${announcement.is_pinned ? ' (Pinned)' : ''}`,
-            description: announcement.content,
-            start_date: announcement.created_at,
-            type: 'announcement',
-            course_id: courseId,
-            course_title: courseTitle,
-            related_id: announcement.id,
-            course_color: '#f59e0b', // Orange for announcements
-            all_day: true,
-          });
+      if (announcementsError) throw announcementsError;
+
+      (announcements || []).forEach(announcement => {
+        events.push({
+          id: `announcement-${announcement.id}`,
+          title: `${announcement.title}${announcement.is_pinned ? ' (Pinned)' : ''}`,
+          description: announcement.content,
+          start_date: announcement.created_at,
+          type: 'announcement',
+          course_id: courseId,
+          course_title: courseTitle,
+          related_id: announcement.id,
+          course_color: '#f59e0b', // Orange for announcements
+          all_day: true,
         });
-      }
+      });
     }
 
     // Fetch custom course events if not filtered out
     if (!filters?.types || filters.types.includes('event')) {
-      const { data: customEvents } = await (supabase
+      const { data: customEvents, error: customEventsError } = await (supabase
         .from('events')
         .select('id, title, description, date, location, link, zoom_meeting_id, zoom_start_url, zoom_recurrence') as any)
         .eq('course_id', courseId);
 
-      customEvents?.forEach((e: any) => {
+      if (customEventsError) throw customEventsError;
+
+      (customEvents || []).forEach((e: any) => {
         if (e.date) {
           events.push({
             id: `event-${e.id}`,
@@ -255,9 +260,10 @@ export const courseCalendarService = {
       .select('course_id')
       .eq('user_id', userId);
 
-    if (error || !enrollments) return [];
+    if (error) throw error;
 
-    const courseIds = enrollments.map(e => e.course_id);
+    // Genuinely no enrollments — an empty calendar is the correct result.
+    const courseIds = (enrollments || []).map(e => e.course_id);
     
     if (filters?.courseIds) {
       // Filter to only requested courses

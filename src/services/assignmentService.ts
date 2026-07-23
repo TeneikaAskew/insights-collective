@@ -56,12 +56,19 @@ export const assignmentService = {
 
     if (error) throw error;
 
-    // Attach rubric if provided — wrapped so rubric failure doesn't break creation
+    // Attach rubric if provided. The assignment row already exists at this
+    // point, so surface a descriptive error rather than swallowing the failure.
     if (rubric_id && data?.id) {
       try {
         await this.attachRubricToAssignment(data.id, rubric_id);
       } catch (rubricError) {
-        console.error('Failed to attach rubric to assignment:', rubricError);
+        const reason =
+          rubricError instanceof Error
+            ? rubricError.message
+            : (rubricError as any)?.message ?? String(rubricError);
+        throw new Error(
+          `Assignment was created, but attaching the rubric (${rubric_id}) failed: ${reason}`
+        );
       }
     }
 
@@ -281,7 +288,7 @@ export const assignmentService = {
     feedback: string | null,
     graderId: string
   ) {
-    // Update the submission — join assignment so we can populate the grades table
+    // The assignment_submissions row is the sole source of truth for grades.
     const { data, error } = await supabase
       .from('assignment_submissions')
       .update({
@@ -291,32 +298,10 @@ export const assignmentService = {
         workflow_state: 'graded',
       })
       .eq('id', submissionId)
-      .select('*, assignment:assignments(course_id, points)')
+      .select()
       .single();
 
     if (error) throw error;
-
-    // Upsert into grades table for gradebook
-    if (data) {
-      const assignment = (data as any).assignment;
-      const { error: gradeError } = await supabase
-        .from('grades')
-        .upsert({
-          course_id: assignment?.course_id,
-          student_id: data.user_id,
-          assignment_id: data.assignment_id,
-          grade_type: 'assignment',
-          points_earned: grade,
-          points_possible: assignment?.points,
-          percentage: assignment?.points ? (grade / assignment.points) * 100 : null,
-          graded_by: graderId,
-        });
-
-      if (gradeError) {
-        // Log but don't throw — the submission was graded successfully
-        console.error('Failed to upsert grade record:', gradeError);
-      }
-    }
 
     return mapSubmission(data);
   },
