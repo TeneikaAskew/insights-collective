@@ -35,6 +35,7 @@ import { CourseCalendarEvent, ZoomRecurrence } from '@/types/course';
 import { format, isAfter, isToday, isSameDay, startOfMonth, endOfMonth } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
+import CourseErrorState from '@/components/course/CourseErrorState';
 import { useCoursePermissions } from '@/hooks/useCoursePermissions';
 import {
   Dialog,
@@ -129,7 +130,7 @@ const CourseCalendar = () => {
   const filterTypes = Object.entries(activeFilters)
     .filter(([_, v]) => v).map(([k]) => k);
 
-  const { events = [], isLoading } = useCourseCalendar(courseId, {
+  const { events = [], isLoading, error: calendarError } = useCourseCalendar(courseId, {
     types: filterTypes,
     startDate: date ? startOfMonth(date) : undefined,
     endDate: date ? endOfMonth(date) : undefined,
@@ -259,6 +260,16 @@ const CourseCalendar = () => {
             <Skeleton className="h-96" />
           </div>
         </div>
+      </CourseLayout>
+    );
+  }
+
+  // A failed calendar load must be visibly distinct from an empty calendar —
+  // courseCalendarService throws on any source failure instead of returning [].
+  if (calendarError) {
+    return (
+      <CourseLayout>
+        <CourseErrorState title="Failed to load calendar" error={calendarError} />
       </CourseLayout>
     );
   }
