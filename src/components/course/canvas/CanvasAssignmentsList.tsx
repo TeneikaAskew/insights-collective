@@ -17,6 +17,7 @@ import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import CourseErrorState from '@/components/course/CourseErrorState';
 import type { ContentItem } from '@/types/canvas';
 import { createLogger } from '@/utils/logger';
 
@@ -30,6 +31,9 @@ export function CanvasAssignmentsList({ courseId }: CanvasAssignmentsListProps) 
   const [assignments, setAssignments] = useState<ContentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [submissions, setSubmissions] = useState<Record<string, any>>({});
+  // Set when the user-submissions query fails: submission status is unknown,
+  // so status badges must be suppressed instead of rendering a false "Missing".
+  const [submissionsError, setSubmissionsError] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -40,7 +44,8 @@ export function CanvasAssignmentsList({ courseId }: CanvasAssignmentsListProps) 
   const loadAssignments = async () => {
     try {
       setLoading(true);
-      
+      setSubmissionsError(null);
+
       // Fetch all assignments for the course
       const { data: assignmentItems, error } = await supabase
         .from('content_items')
@@ -64,14 +69,21 @@ export function CanvasAssignmentsList({ courseId }: CanvasAssignmentsListProps) 
           .map(item => item.assignment?.id)
           .filter(Boolean);
 
-        const { data: userSubmissions } = await supabase
+        const { data: userSubmissions, error: submissionsErr } = await supabase
           .from('assignment_submissions')
           .select('*')
           .in('assignment_id', assignmentIds)
           .eq('user_id', user.id);
 
-        if (userSubmissions) {
-          const submissionMap = userSubmissions.reduce((acc, sub) => {
+        if (submissionsErr) {
+          // Do NOT fall through with an empty submissions map — that would
+          // render fabricated "Missing"/"Not Submitted" badges for work the
+          // student may already have submitted.
+          logger.error('Error loading submission statuses:', submissionsErr);
+          setSubmissions({});
+          setSubmissionsError(submissionsErr.message);
+        } else {
+          const submissionMap = (userSubmissions || []).reduce((acc, sub) => {
             acc[sub.assignment_id] = sub;
             return acc;
           }, {} as Record<string, any>);
@@ -93,7 +105,10 @@ export function CanvasAssignmentsList({ courseId }: CanvasAssignmentsListProps) 
 
   const getSubmissionStatus = (assignment: ContentItem) => {
     if (!assignment.assignment) return null;
-    
+    // Submission statuses are unknown when the query failed — show no badge
+    // rather than inventing one.
+    if (submissionsError) return null;
+
     const submission = submissions[assignment.assignment.id];
     if (!submission) {
       const isLate = assignment.assignment.due_at && new Date() > new Date(assignment.assignment.due_at);
@@ -144,6 +159,13 @@ export function CanvasAssignmentsList({ courseId }: CanvasAssignmentsListProps) 
 
   return (
     <div className="space-y-4">
+      {submissionsError && (
+        <CourseErrorState
+          title="Couldn't load your submission status"
+          error={submissionsError}
+          onRetry={() => void loadAssignments()}
+        />
+      )}
       {assignments.map((assignment) => {
         const status = getSubmissionStatus(assignment);
         const submission = assignment.assignment ? submissions[assignment.assignment.id] : null;

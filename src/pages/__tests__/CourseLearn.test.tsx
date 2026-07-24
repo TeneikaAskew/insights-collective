@@ -42,6 +42,19 @@ vi.mock('@/hooks/useCoursePermissions', () => ({
   useCoursePermissions: () => ({ canEdit: false }),
 }));
 
+// A signed-in user is required for the progress fetch to run at all.
+vi.mock('@/contexts/AuthContext', () => ({
+  AuthProvider: ({ children }: any) => children,
+  useAuth: () => ({
+    user: { id: 'user-1', email: 'student@example.com' },
+    session: {},
+    loading: false,
+    error: null,
+    isAuthenticated: true,
+    isAdmin: false,
+  }),
+}));
+
 vi.mock('@/components/onboarding/StudentLearnTour', () => ({
   StudentLearnTour: () => null,
 }));
@@ -56,7 +69,7 @@ vi.mock('@/components/ui/hint', () => ({
   Hint: (props: { children?: React.ReactNode }) => props.children,
 }));
 
-type TableResult = { data: unknown; error: { message: string } | null };
+type TableResult = { data: unknown; error: { message: string; code?: string } | null };
 
 function tableBuilder(result: TableResult | 'pending') {
   const builder: any = {};
@@ -134,12 +147,47 @@ describe('CourseLearn', () => {
     expect(screen.getByTestId('spinner')).toBeInTheDocument();
   });
 
-  it('shows the error/not-found state when the course fetch fails', async () => {
+  it('shows the error state (not "not found") when the course fetch fails', async () => {
     mockTables({ courses: { data: null, error: { message: 'course fetch failed' } } });
     render(<CourseLearn />);
 
-    expect(await screen.findByText('Course not found')).toBeInTheDocument();
+    // A backend failure must not masquerade as a missing course.
+    expect(await screen.findByText("Couldn't load this course")).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
+    expect(screen.queryByText('Course not found')).not.toBeInTheDocument();
     expect(screen.queryByText('Advanced Testing')).not.toBeInTheDocument();
+  });
+
+  it('shows the not-found state when the course genuinely does not exist', async () => {
+    mockTables({
+      courses: {
+        data: null,
+        error: { message: 'JSON object requested, multiple (or no) rows returned', code: 'PGRST116' },
+      },
+    });
+    render(<CourseLearn />);
+
+    expect(await screen.findByText('Course not found')).toBeInTheDocument();
+    expect(screen.queryByText("Couldn't load this course")).not.toBeInTheDocument();
+  });
+
+  // REGRESSION: a failed progress fetch must not blank the checkmarks into a
+  // fabricated "0 of N complete" — it surfaces a visible notice with retry.
+  it('shows a progress error notice instead of fabricated zero-progress when the progress fetch fails', async () => {
+    mockTables({
+      courses: { data: courseRow, error: null },
+      content_item_progressions: {
+        data: null,
+        error: { message: 'progress fetch failed' },
+      },
+    });
+    render(<CourseLearn />);
+
+    expect(await screen.findAllByText("Couldn't load your progress")).not.toHaveLength(0);
+    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
+    // The module accordion must not claim "0 / 2 complete".
+    expect(screen.getByText('Progress unavailable')).toBeInTheDocument();
+    expect(screen.queryByText('0 / 2 complete')).not.toBeInTheDocument();
   });
 
   it('renders the course home with curriculum on success', async () => {

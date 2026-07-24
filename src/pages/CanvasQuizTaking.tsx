@@ -17,6 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import CanvasContentService from '@/services/canvasContentService';
+import CourseErrorState from '@/components/course/CourseErrorState';
 import { 
   Clock, 
   AlertCircle, 
@@ -50,6 +51,10 @@ export default function CanvasQuizTaking() {
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [submission, setSubmission] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  // Fail closed: any load error (including the existing-submission check that
+  // enforces the attempt limit) blocks quiz start instead of silently letting
+  // the student begin a fresh attempt.
+  const [loadError, setLoadError] = useState<Error | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [quizStarted, setQuizStarted] = useState(false);
@@ -80,24 +85,27 @@ export default function CanvasQuizTaking() {
 
     try {
       setLoading(true);
-      
+      setLoadError(null);
+
       // Load quiz details
       const item = await CanvasContentService.getContentItem(contentItemId);
       if (!item || item.type !== 'quiz') {
-        throw new Error('Quiz not found');
+        // Genuine not-found: the "Quiz Not Found" screen renders below.
+        return;
       }
       setContentItem(item);
 
       // Load quiz with questions
       const quizData = await CanvasContentService.getQuiz(contentItemId);
       if (!quizData) {
-        throw new Error('Quiz data not found');
+        return;
       }
       setQuiz(quizData);
       setQuestions(quizData.questions || []);
 
-      // Check for existing submission
-      const { data: existingSubmission } = await supabase
+      // Check for existing submission. This gate enforces the attempt limit,
+      // so a failed query must block the quiz — not report "0/N attempts".
+      const { data: existingSubmission, error: submissionError } = await supabase
         .from('quiz_submissions')
         .select('*')
         .eq('quiz_id', quizData.id)
@@ -105,12 +113,17 @@ export default function CanvasQuizTaking() {
         .order('attempt', { ascending: false })
         .limit(1);
 
+      if (submissionError) {
+        throw new Error(submissionError.message);
+      }
+
       if (existingSubmission && existingSubmission.length > 0) {
         setSubmission(existingSubmission[0]);
       }
 
     } catch (error: any) {
       logger.error('Error loading quiz:', error);
+      setLoadError(error instanceof Error ? error : new Error(String(error?.message ?? error)));
       toast({
         title: 'Error loading quiz',
         description: error.message,
@@ -403,6 +416,22 @@ export default function CanvasQuizTaking() {
       <CourseLayout>
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </CourseLayout>
+    );
+  }
+
+  // Load ERROR (backend/query failure): block quiz start entirely — do not
+  // show the intro screen with a fabricated attempt count.
+  if (loadError) {
+    return (
+      <CourseLayout>
+        <div className="max-w-3xl mx-auto py-8">
+          <CourseErrorState
+            title="Couldn't load quiz"
+            error={loadError}
+            onRetry={() => void loadQuizData()}
+          />
         </div>
       </CourseLayout>
     );

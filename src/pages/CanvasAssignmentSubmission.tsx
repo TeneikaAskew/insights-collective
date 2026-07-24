@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import CanvasContentService from '@/services/canvasContentService';
+import CourseErrorState from '@/components/course/CourseErrorState';
 import FileUploadZone from '@/components/course/content/FileUploadZone';
 import { 
   FileText, 
@@ -43,6 +44,9 @@ export default function CanvasAssignmentSubmission() {
   const [contentItem, setContentItem] = useState<ContentItem | null>(null);
   const [submission, setSubmission] = useState<AssignmentSubmission | null>(null);
   const [loading, setLoading] = useState(true);
+  // Load ERROR (as opposed to a genuinely missing assignment): rendering the
+  // form with an unknown prior-submission state would misreport attempts.
+  const [loadError, setLoadError] = useState<Error | null>(null);
   const [submitting, setSubmitting] = useState(false);
   
   // Submission form state
@@ -63,6 +67,7 @@ export default function CanvasAssignmentSubmission() {
 
     try {
       setLoading(true);
+      setLoadError(null);
 
       logger.info('Loading assignment data for content item:', contentItemId);
 
@@ -70,17 +75,24 @@ export default function CanvasAssignmentSubmission() {
       const item = await CanvasContentService.getContentItem(contentItemId);
 
       if (!item) {
+        // Genuine not-found: the "Assignment Not Found" screen renders below.
         logger.error('Content item not found:', contentItemId);
-        throw new Error('Assignment not found');
+        toast({
+          title: 'Error loading assignment',
+          description: 'Assignment not found',
+          variant: 'destructive'
+        });
+        return;
       }
-      
+
       if (!item.assignment?.id) {
         throw new Error('Assignment data not loaded. Please contact your instructor.');
       }
-      
+
       setContentItem(item);
 
-      // Load existing submission
+      // Load existing submission — a failed lookup must not be treated as
+      // "no prior submission" (that misreports attempts and prior work).
       const { data: submissions, error } = await supabase
         .from('assignment_submissions')
         .select('*')
@@ -89,9 +101,13 @@ export default function CanvasAssignmentSubmission() {
         .order('attempt', { ascending: false })
         .limit(1);
 
-      if (!error && submissions && submissions.length > 0) {
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (submissions && submissions.length > 0) {
         setSubmission(submissions[0]);
-        
+
         // Pre-fill form with existing submission
         if (submissions[0].submission_type === 'online_text_entry') {
           setTextSubmission(submissions[0].body || '');
@@ -109,6 +125,7 @@ export default function CanvasAssignmentSubmission() {
 
     } catch (error: any) {
       logger.error('Error loading assignment:', error);
+      setLoadError(error instanceof Error ? error : new Error(String(error?.message ?? error)));
       toast({
         title: 'Error loading assignment',
         description: error.message,
@@ -164,10 +181,12 @@ export default function CanvasAssignmentSubmission() {
         submissionData
       );
 
-      // Handle file attachments
+      // Handle file attachments — collect per-insert errors so a failed
+      // attachment write is never masked by an unqualified success toast.
+      let failedAttachments = 0;
       if (submissionType === 'online_upload' && uploadedFiles.length > 0) {
         for (const file of uploadedFiles) {
-          await supabase
+          const { error: attachmentError } = await supabase
             .from('submission_attachments')
             .insert({
               submission_id: newSubmission.id,
@@ -176,13 +195,30 @@ export default function CanvasAssignmentSubmission() {
               size: file.size,
               url: file.url
             });
+          if (attachmentError) {
+            failedAttachments += 1;
+            logger.error('Failed to record submission attachment:', {
+              filename: file.name,
+              error: attachmentError,
+            });
+          }
         }
       }
 
-      toast({
-        title: 'Assignment submitted',
-        description: 'Your assignment has been submitted successfully.'
-      });
+      if (failedAttachments > 0) {
+        // The submission row itself was saved — say exactly that, and name
+        // how many attachments failed to record.
+        toast({
+          title: `Submission saved, but ${failedAttachments} attachment(s) failed to record`,
+          description: 'Your submission was saved, but some attachments could not be recorded. Please contact your instructor or try resubmitting.',
+          variant: 'destructive'
+        });
+      } else {
+        toast({
+          title: 'Assignment submitted',
+          description: 'Your assignment has been submitted successfully.'
+        });
+      }
 
       // Navigate back to module
       navigate(`/courses/${courseId}/modules/${moduleId}`);
@@ -233,6 +269,22 @@ export default function CanvasAssignmentSubmission() {
       <CourseLayout>
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </CourseLayout>
+    );
+  }
+
+  // Load ERROR (backend/query failure) — distinct from a genuinely missing
+  // assignment, and the form is withheld because prior-attempt state is unknown.
+  if (loadError) {
+    return (
+      <CourseLayout>
+        <div className="max-w-4xl mx-auto py-8">
+          <CourseErrorState
+            title="Couldn't load assignment"
+            error={loadError}
+            onRetry={() => void loadAssignmentData()}
+          />
         </div>
       </CourseLayout>
     );

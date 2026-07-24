@@ -146,7 +146,7 @@ describe('CanvasQuizResults', () => {
     expect(screen.queryByText(/results/i)).not.toBeInTheDocument();
   });
 
-  it('renders scores, percentage, and pass badge on success', async () => {
+  it('renders scores and percentage on success, with no fabricated pass/fail verdict', async () => {
     vi.mocked(CanvasContentService.getQuiz).mockResolvedValue(quiz as any);
     useTables({
       quiz_submissions: makeTableBuilder({ data: submissionRow(), error: null }),
@@ -161,15 +161,18 @@ describe('CanvasQuizResults', () => {
     expect(await screen.findByText('Module 1 Quiz - Results')).toBeInTheDocument();
     expect(screen.getByText('8/10')).toBeInTheDocument();
     expect(screen.getAllByText('80.0%').length).toBeGreaterThan(0);
-    expect(screen.getByText('Passed')).toBeInTheDocument();
     expect(screen.getByText('Attempt 1 of 3')).toBeInTheDocument();
     // 1 correct answer out of 1 question
     expect(screen.getByText('1/1')).toBeInTheDocument();
     // Time spent 65s -> 1:05
     expect(screen.getByText('1:05')).toBeInTheDocument();
+    // REGRESSION: no quiz config defines a passing threshold, so no verdict
+    // may be rendered — the old hardcoded 70% badge fabricated authority.
+    expect(screen.queryByText('Passed')).not.toBeInTheDocument();
+    expect(screen.queryByText('Failed')).not.toBeInTheDocument();
   });
 
-  it('shows a destructive toast and a not-found screen when loading fails', async () => {
+  it('shows a destructive toast and an error state (not "not found") when loading fails', async () => {
     vi.mocked(CanvasContentService.getQuiz).mockResolvedValue(quiz as any);
     useTables({
       quiz_submissions: makeTableBuilder({
@@ -189,8 +192,25 @@ describe('CanvasQuizResults', () => {
         }),
       ),
     );
-    expect(await screen.findByText('Quiz Results Not Found')).toBeInTheDocument();
+    expect(await screen.findByText("Couldn't load quiz results")).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
+    expect(screen.queryByText('Quiz Results Not Found')).not.toBeInTheDocument();
     expect(screen.queryByText(/passed/i)).not.toBeInTheDocument();
+  });
+
+  it('renders the not-found screen when the submission genuinely does not exist', async () => {
+    vi.mocked(CanvasContentService.getQuiz).mockResolvedValue(quiz as any);
+    useTables({
+      quiz_submissions: makeTableBuilder({
+        data: null,
+        error: { message: 'JSON object requested, multiple (or no) rows returned', code: 'PGRST116' },
+      }),
+    });
+
+    render(<CanvasQuizResults />);
+
+    expect(await screen.findByText('Quiz Results Not Found')).toBeInTheDocument();
+    expect(screen.queryByText("Couldn't load quiz results")).not.toBeInTheDocument();
   });
 
   it('renders zeroed results when the submission has no answers', async () => {
@@ -219,7 +239,8 @@ describe('CanvasQuizResults', () => {
     expect(await screen.findByText('Module 1 Quiz - Results')).toBeInTheDocument();
     expect(screen.getByText('0/10')).toBeInTheDocument();
     expect(screen.getByText('0/0')).toBeInTheDocument();
-    expect(screen.getByText('Failed')).toBeInTheDocument();
     expect(screen.getAllByText('0.0%').length).toBeGreaterThan(0);
+    // No fabricated verdict even at 0%.
+    expect(screen.queryByText('Failed')).not.toBeInTheDocument();
   });
 });

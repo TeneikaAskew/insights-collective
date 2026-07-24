@@ -12,7 +12,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import CanvasContentService from '@/services/canvasContentService';
-import { 
+import CourseErrorState from '@/components/course/CourseErrorState';
+import {
   CheckCircle, 
   XCircle, 
   Clock, 
@@ -59,6 +60,8 @@ export default function CanvasQuizResults() {
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [submission, setSubmission] = useState<QuizSubmissionWithAnswers | null>(null);
   const [loading, setLoading] = useState(true);
+  // Load ERROR (backend failure) — distinct from a genuinely missing submission.
+  const [loadError, setLoadError] = useState<Error | null>(null);
   const [showAnswers, setShowAnswers] = useState(false);
 
   useEffect(() => {
@@ -70,7 +73,8 @@ export default function CanvasQuizResults() {
 
     try {
       setLoading(true);
-      
+      setLoadError(null);
+
       // Load submission with answers
       const { data: submissionData, error: submissionError } = await supabase
         .from('quiz_submissions')
@@ -86,8 +90,15 @@ export default function CanvasQuizResults() {
         .eq('id', submissionId)
         .single();
 
-      if (submissionError) throw submissionError;
-      
+      if (submissionError) {
+        // PGRST116 = zero rows: the submission genuinely doesn't exist, which
+        // is the not-found screen — anything else is a load ERROR.
+        if ((submissionError as any).code === 'PGRST116') {
+          return;
+        }
+        throw new Error(submissionError.message);
+      }
+
       const submissionWithAnswers = {
         ...submissionData,
         answers: submissionData.quiz_submission_answers || []
@@ -100,20 +111,25 @@ export default function CanvasQuizResults() {
       setQuiz(quizData);
       setQuestions(quizData.questions || []);
 
-      // Load content item
-      const { data: contentData } = await supabase
+      // Load content item (used for the page title)
+      const { data: contentData, error: contentError } = await supabase
         .from('content_items')
         .select('*')
         .eq('type', 'quiz')
         .eq('settings->quiz_id', submissionData.quiz_id)
         .single();
-      
+
+      if (contentError && (contentError as any).code !== 'PGRST116') {
+        throw new Error(contentError.message);
+      }
+
       if (contentData) {
         setContentItem(contentData);
       }
 
     } catch (error: any) {
       logger.error('Error loading quiz results:', error);
+      setLoadError(error instanceof Error ? error : new Error(String(error?.message ?? error)));
       toast({
         title: 'Error loading quiz results',
         description: error.message,
@@ -198,6 +214,21 @@ export default function CanvasQuizResults() {
     );
   }
 
+  // Load ERROR — the results may well exist; don't claim they weren't found.
+  if (loadError) {
+    return (
+      <CourseLayout>
+        <div className="max-w-4xl mx-auto py-8">
+          <CourseErrorState
+            title="Couldn't load quiz results"
+            error={loadError}
+            onRetry={() => void loadQuizResults()}
+          />
+        </div>
+      </CourseLayout>
+    );
+  }
+
   if (!submission || !quiz) {
     return (
       <CourseLayout>
@@ -208,8 +239,9 @@ export default function CanvasQuizResults() {
     );
   }
 
+  // NOTE: no Pass/Fail verdict is rendered — the quizzes table has no
+  // passing-threshold column, so any cutoff here would be fabricated.
   const scorePercentage = quiz.points_possible ? (submission.score / quiz.points_possible) * 100 : 0;
-  const isPassing = scorePercentage >= 70; // You could make this configurable
 
   return (
     <CourseLayout>
@@ -221,9 +253,6 @@ export default function CanvasQuizResults() {
               <div>
                 <CardTitle className="text-2xl">{contentItem?.title || 'Quiz'} - Results</CardTitle>
                 <div className="flex items-center gap-2 mt-2">
-                  <Badge variant={isPassing ? 'default' : 'destructive'}>
-                    {isPassing ? 'Passed' : 'Failed'}
-                  </Badge>
                   <Badge variant="secondary">
                     Attempt {submission.attempt} of {quiz.allowed_attempts}
                   </Badge>
@@ -243,7 +272,7 @@ export default function CanvasQuizResults() {
               <Card>
                 <CardContent className="pt-6">
                   <div className="text-center">
-                    <Award className={`h-12 w-12 mx-auto mb-2 ${isPassing ? 'text-green-600' : 'text-red-600'}`} />
+                    <Award className="h-12 w-12 mx-auto mb-2 text-primary" />
                     <div className="text-3xl font-bold">
                       {submission.score}/{quiz.points_possible || 0}
                     </div>

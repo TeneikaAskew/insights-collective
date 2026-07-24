@@ -26,6 +26,7 @@ import {
   X,
 } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
+import CourseErrorState from '@/components/course/CourseErrorState';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCoursePermissions } from '@/hooks/useCoursePermissions';
@@ -108,7 +109,14 @@ const CourseLearn = () => {
   const [modules, setModules] = useState<CurriculumModule[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  // Load ERROR (backend failure) — distinct from "no such course".
+  const [loadError, setLoadError] = useState<Error | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [completed, setCompleted] = useState<Set<string>>(new Set());
+  // The progress fetch failed: completion state is unknown, so completion
+  // views must not render fabricated "0 of N" numbers.
+  const [progressError, setProgressError] = useState(false);
+  const [progressReloadKey, setProgressReloadKey] = useState(0);
   const [mobileRailOpen, setMobileRailOpen] = useState(false);
 
   const { data: progress, markItemComplete } = useCourseProgress(courseId);
@@ -131,13 +139,22 @@ const CourseLearn = () => {
     const load = async () => {
       if (!courseId) return;
       setLoading(true);
+      setLoadError(null);
       try {
         const { data: courseData, error } = await supabase
           .from('courses')
           .select('id, title, thumbnail')
           .eq('id', courseId)
           .single();
-        if (error) throw error;
+        if (error) {
+          // PGRST116 = zero rows: the course genuinely doesn't exist, which
+          // is the not-found screen — anything else is a load ERROR.
+          if ((error as any).code === 'PGRST116') {
+            if (!cancelled) setCourse(null);
+            return;
+          }
+          throw new Error(error.message);
+        }
 
         const rawModules = await CanvasContentService.getModules(courseId);
         const visible = effectiveEdit ? rawModules : rawModules.filter((m) => m.published);
@@ -157,6 +174,9 @@ const CourseLearn = () => {
         setExpanded(new Set(withItems.slice(0, 1).map((m) => m.id)));
       } catch (err: any) {
         logger.error('Failed to load learn view', err);
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err : new Error(String(err?.message ?? err)));
+        }
         toast({ title: 'Error', description: err?.message, variant: 'destructive' });
       } finally {
         if (!cancelled) setLoading(false);
@@ -166,22 +186,33 @@ const CourseLearn = () => {
     return () => {
       cancelled = true;
     };
-  }, [courseId, effectiveEdit, toast]);
+  }, [courseId, effectiveEdit, toast, reloadKey]);
 
   // --- Progress fetch ---
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
       if (!user?.id || flatItems.length === 0) {
-        if (!cancelled) setCompleted(new Set());
+        if (!cancelled) {
+          setCompleted(new Set());
+          setProgressError(false);
+        }
         return;
       }
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('content_item_progressions')
         .select('content_item_id, workflow_state')
         .eq('user_id', user.id)
         .in('content_item_id', flatItems.map((fi) => fi.item.id));
       if (cancelled) return;
+      if (error) {
+        // Don't blank the checkmarks with fabricated zero-progress — keep
+        // whatever we last knew and surface a visible notice instead.
+        logger.error('Failed to load lesson progress', error);
+        setProgressError(true);
+        return;
+      }
+      setProgressError(false);
       setCompleted(
         new Set(
           (data || [])
@@ -196,7 +227,7 @@ const CourseLearn = () => {
     return () => {
       cancelled = true;
     };
-  }, [user?.id, flatItems, progress?.completedItems]);
+  }, [user?.id, flatItems, progress?.completedItems, progressReloadKey]);
 
   const currentIndex = selected
     ? flatItems.findIndex((fi) => fi.item.id === selected.item.id)
@@ -238,6 +269,8 @@ const CourseLearn = () => {
     },
     [courseId, navigate],
   );
+
+  const retryProgress = useCallback(() => setProgressReloadKey((k) => k + 1), []);
 
   const toggleExpand = useCallback((mid: string) => {
     setExpanded((prev) => {
@@ -300,6 +333,26 @@ const CourseLearn = () => {
     );
   }
 
+  // Load ERROR — the course may well exist; don't claim it doesn't.
+  if (loadError) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-white">
+        <div className="w-full max-w-md px-4">
+          <CourseErrorState
+            title="Couldn't load this course"
+            error={loadError}
+            onRetry={() => setReloadKey((k) => k + 1)}
+          />
+          <div className="mt-4 text-center">
+            <Link to="/courses" className="text-sm underline">
+              Back to courses
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!course) {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-white">
@@ -341,9 +394,11 @@ const CourseLearn = () => {
               {allComplete ? `Congratulations! You finished ${course.title}` : `You've reached the end of ${course.title}`}
             </h1>
             <p className="text-sm sm:text-base text-muted-foreground mb-8">
-              {allComplete
-                ? 'Every lesson is checked off. Download your certificate, revisit lessons anytime, or head back to your courses.'
-                : `You've completed ${completedCount} of ${totalItems} lessons. Finish the remaining lessons to unlock your certificate.`}
+              {progressError
+                ? 'We couldn’t load your progress right now, so your completion status is unavailable.'
+                : allComplete
+                  ? 'Every lesson is checked off. Download your certificate, revisit lessons anytime, or head back to your courses.'
+                  : `You've completed ${completedCount} of ${totalItems} lessons. Finish the remaining lessons to unlock your certificate.`}
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-10">
@@ -374,20 +429,30 @@ const CourseLearn = () => {
               )}
             </div>
 
-            <div className="text-left rounded-xl border border-border bg-card p-5">
-              <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">
-                Your progress
-              </div>
-              <div className="h-2 w-full rounded-full bg-muted overflow-hidden mb-2">
-                <div
-                  className="h-full bg-primary transition-all"
-                  style={{ width: `${totalItems ? Math.round((completedCount / totalItems) * 100) : 0}%` }}
+            {progressError ? (
+              <div className="text-left">
+                <CourseErrorState
+                  title="Couldn't load your progress"
+                  error="Your completion status could not be loaded."
+                  onRetry={retryProgress}
                 />
               </div>
-              <div className="text-xs text-muted-foreground">
-                {completedCount} of {totalItems} lessons complete
+            ) : (
+              <div className="text-left rounded-xl border border-border bg-card p-5">
+                <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">
+                  Your progress
+                </div>
+                <div className="h-2 w-full rounded-full bg-muted overflow-hidden mb-2">
+                  <div
+                    className="h-full bg-primary transition-all"
+                    style={{ width: `${totalItems ? Math.round((completedCount / totalItems) * 100) : 0}%` }}
+                  />
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {completedCount} of {totalItems} lessons complete
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
@@ -445,6 +510,13 @@ const CourseLearn = () => {
                 )}
 
                 <div className="mt-10 space-y-4">
+                  {progressError && (
+                    <CourseErrorState
+                      title="Couldn't load your progress"
+                      error="Lesson completion status is unavailable right now."
+                      onRetry={retryProgress}
+                    />
+                  )}
                   {modules.map((m) => (
                     <HomeSection
                       key={m.id}
@@ -452,6 +524,7 @@ const CourseLearn = () => {
                       expanded={expanded.has(m.id)}
                       onToggle={() => toggleExpand(m.id)}
                       completed={completed}
+                      progressUnavailable={progressError}
                       onSelect={(iid) => goTo(m.id, iid)}
                     />
                   ))}
@@ -618,6 +691,8 @@ const CourseLearn = () => {
                 selectedId={selected?.item.id}
                 completed={completed}
                 canEdit={canEdit}
+                progressUnavailable={progressError}
+                onRetryProgress={retryProgress}
                 onSelect={(mid, iid) => {
                   goTo(mid, iid);
                   setMobileRailOpen(false);
@@ -634,6 +709,8 @@ const CourseLearn = () => {
             selectedId={selected?.item.id}
             completed={completed}
             canEdit={canEdit}
+            progressUnavailable={progressError}
+            onRetryProgress={retryProgress}
             onSelect={goTo}
           />
         </aside>
@@ -680,12 +757,16 @@ function RailNav({
   selectedId,
   completed,
   canEdit,
+  progressUnavailable = false,
+  onRetryProgress,
   onSelect,
 }: {
   modules: CurriculumModule[];
   selectedId?: string;
   completed: Set<string>;
   canEdit: boolean;
+  progressUnavailable?: boolean;
+  onRetryProgress?: () => void;
   onSelect: (moduleId: string, itemId: string) => void;
 }) {
   const activeRef = useRef<HTMLButtonElement | null>(null);
@@ -695,6 +776,15 @@ function RailNav({
 
   return (
     <nav className="p-3 space-y-5">
+      {progressUnavailable && (
+        <div className="px-1">
+          <CourseErrorState
+            title="Couldn't load your progress"
+            error="Completion checkmarks are unavailable right now."
+            onRetry={onRetryProgress}
+          />
+        </div>
+      )}
       {modules.map((m, mi) => {
         const doneInModule = m.items.filter((i) => completed.has(i.id)).length;
         return (
@@ -704,7 +794,7 @@ function RailNav({
                 {`Section ${mi + 1} · ${m.title || 'Untitled'}`}
               </div>
               <div className="text-[10px] tabular-nums text-muted-foreground/80">
-                {doneInModule}/{m.items.length}
+                {progressUnavailable ? '—' : `${doneInModule}/${m.items.length}`}
               </div>
             </div>
             <ul className="space-y-1">
@@ -856,12 +946,14 @@ function HomeSection({
   expanded,
   onToggle,
   completed,
+  progressUnavailable = false,
   onSelect,
 }: {
   module: CurriculumModule;
   expanded: boolean;
   onToggle: () => void;
   completed: Set<string>;
+  progressUnavailable?: boolean;
   onSelect: (itemId: string) => void;
 }) {
   const doneCount = module.items.filter((i) => completed.has(i.id)).length;
@@ -878,7 +970,9 @@ function HomeSection({
         <div>
           <div className="font-bold text-base">{module.title || 'Untitled section'}</div>
           <div className="text-xs text-gray-500 mt-0.5">
-            {doneCount} / {module.items.length} complete
+            {progressUnavailable
+              ? 'Progress unavailable'
+              : `${doneCount} / ${module.items.length} complete`}
           </div>
         </div>
         {expanded ? (
