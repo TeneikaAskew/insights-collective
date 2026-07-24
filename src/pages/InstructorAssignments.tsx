@@ -143,7 +143,7 @@ const InstructorAssignments = () => {
                         <div className="font-semibold">{r.title}</div>
                         <div className="text-xs text-muted-foreground mt-0.5">
                           {r.due_date ? `Due ${new Date(r.due_date).toLocaleDateString()}` : 'No due date'}
-                          {r.points_possible != null ? ` • ${r.points_possible} pts` : ''}
+                          {r.points != null ? ` • ${r.points} pts` : ''}
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-2">
