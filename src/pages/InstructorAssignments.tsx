@@ -16,7 +16,7 @@ interface Row {
   id: string;
   title: string;
   due_date: string | null;
-  points_possible: number | null;
+  points: number | null;
   content_item_id: string | null;
   enrolled: number;
   submitted: number;
@@ -41,7 +41,7 @@ const InstructorAssignments = () => {
         const [assignmentsRes, enrollmentsRes] = await Promise.all([
           supabase
             .from('assignments')
-            .select('id, title, due_date, points_possible, content_item_id')
+            .select('id, title, due_date, points, content_item_id')
             .eq('course_id', courseId)
             .order('due_date', { ascending: true, nullsFirst: false }),
           supabase.from('enrollments').select('user_id', { count: 'exact', head: true }).eq('course_id', courseId),
@@ -143,7 +143,7 @@ const InstructorAssignments = () => {
                         <div className="font-semibold">{r.title}</div>
                         <div className="text-xs text-muted-foreground mt-0.5">
                           {r.due_date ? `Due ${new Date(r.due_date).toLocaleDateString()}` : 'No due date'}
-                          {r.points_possible != null ? ` • ${r.points_possible} pts` : ''}
+                          {r.points != null ? ` • ${r.points} pts` : ''}
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-2">

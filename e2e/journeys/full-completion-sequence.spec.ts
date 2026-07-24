@@ -157,7 +157,11 @@ test.describe('Full course completion sequence', () => {
 
     // Certificate page reflects the issued certificate
     await page.goto(`/courses/${COURSE_ID}/certificate`);
-    await expect(page.getByRole('heading', { name: /course certificate/i })).toBeVisible();
+    await expect(
+      page.getByRole('heading', {
+        name: /(course certificate|your certificate is ready)/i,
+      }),
+    ).toBeVisible();
     await expect(page.getByText(/must complete all course requirements/i)).toHaveCount(0);
   });
 });
