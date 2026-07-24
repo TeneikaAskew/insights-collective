@@ -88,6 +88,37 @@ Final counts: **62 tests in 7 files → 647 tests in 59 files**. The suite, `npm
 
 Additional fixes found during test-writing (beyond the original 33): `InstructorAssignments` and `CourseQuizResults` coalesced failed queries into their empty states (now distinct error states with retry); `CourseCalendar` and `CourseManagementDashboard` ignored hook errors (now render `CourseErrorState`); `useLessons.deleteLesson` discarded the lesson-progress cleanup error; `useCoursePermissions` ignored its profile-query error (now fails closed).
 
+## Round 2 — post-merge adversarial re-audit (2026-07-24)
+
+After the first remediation merged, two adversarial sweeps plus a live-app walkthrough re-examined every course path. Result: the read paths, mock-data removal, and React Query hygiene held up, but a second class of issues was found and fixed — mostly on **write paths and academic-integrity surfaces**:
+
+| Area | Failure mode found | Fix |
+|---|---|---|
+| `assignmentService.submitAssignment` | Draft-lookup/attempt-probe errors dropped — transient failure inserted a **duplicate submission** | Probes throw; maybeSingle for existence |
+| `CanvasAssignmentsList` | Failed submissions query rendered false red **"Missing"** badges on submitted work | Error state; badges suppressed on failure |
+| `CanvasQuizTaking` | Failed attempt-check let students start quizzes **past the attempt limit** with fabricated "0/N attempts" | Fails closed with error + retry |
+| `InlineAssignmentSubmit` | Failure → duplicate insert path; invented "3 attempts" cap when no limit configured | Fails closed; absent limit = unlimited, honestly shown |
+| `CanvasAssignmentSubmission` | Attachment-insert failures hidden behind unqualified success toast | Qualified "Submission saved, but N attachment(s) failed" |
+| `CourseLearn` | Failed progress fetch blanked checkmarks and claimed "completed 0 of N" | Visible progress-unavailable notice; no fabricated zeros |
+| `CanvasQuizResults` | Hardcoded 70% **Passed/Failed verdict** backed by no quiz configuration | Verdict removed (no threshold column exists) |
+| `CertificationSystem` | `check_course_completion` called with wrong param name (`p_user_id`) — certificate refresh could **never succeed** | Fixed to `p_student_id` |
+| CourseDetail Grades tab | Permanent stub ("grades will appear here") with **no query at all** | Real graded-work list from assignment/quiz submissions |
+| CourseDetail People tab | Roster failure rendered as "No students enrolled yet" | Inline error + retry |
+| `CourseMaterials` | Access-RPC outage rendered as "you must be enrolled" verdict | Distinct error state; verdict only on successful false |
+| `CourseCalendar` | Event clicks navigated to **nonexistent routes** (404) | Real routes |
+| `courseCalendarService` | Wrote nonexistent `end_date` column (real: `end_time`); dropped end date on create | Fixed both directions |
+| `useCoursesManagement` | Admin-role query error silently filtered the course list (regression introduced in round 1) | Throws to error state |
+| `videoAnalyticsService.markCompleted` | Logged success for failed updates | Throws |
+| `Dashboard` | Unsplash stock thumbnail survived round 1 | Removed |
+| Error-vs-not-found | Assignment/rubric/question-bank/certificate/admin pages rendered "not found"/empty on query failure | Distinct error branches with retry |
+| Builder placeholders | Pricing/Sales/Students/Reports tabs looked enabled; wizard collected an inert pricing choice | Coming-soon badges, explicit unavailable panels, pricing step removed; certificates view discloses custom title/body isn't applied |
+
+**Schema-reality (round 2, verified against the live database):** `lesson_completions`, `lesson_completion_requirements`, `content_progress` (and `grades`) do **not exist** in the live DB — their migrations were never applied. The components built on them (`LessonCompletionButton`, `ModuleCompletionCard`, `GradeDetailView` + grade-history viewers) are not mounted anywhere; that stack, plus the fabricated forum pages (disconnected behind redirects but still in the tree), the demo-save `CourseSettings`, `TrackedVideoPlayer`, `CourseInstructorsTab`, and ~14 other unimported management components are **dead code pending removal** (deletion held for explicit approval).
+
+**Live walkthrough (unauthenticated, real backend):** course list/detail render real data with real enrollment counts; a forced-outage run showed honest error states everywhere with zero fabricated content; the deployed `verify-certificate` function returns a genuine 404 for bogus codes. Data-quality note (content, not code): published course images are unsplash URLs stored in the DB, and one published module's description contains a Lorem Ipsum passage — content cleanup recommended.
+
+Round 2 verification: **704 tests in 65 files**, typecheck clean, lint 0 errors, production build green.
+
 ## Known limitations / future work
 
 - **Grades migration:** if real gradebook storage beyond `assignment_submissions`/`quiz_submissions` is wanted, add a `grades` table migration; `gradeService`/`gradeHistoryService` remain as throwing stubs documenting this.
