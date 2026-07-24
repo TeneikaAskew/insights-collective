@@ -109,7 +109,11 @@ export function useCoursesManagement() {
       logger.log('Filtered courses for user:', filteredCourses);
       setCourses(filteredCourses);
     } catch (err: any) {
-      logger.error('Error fetching courses:', err);
+      // Demoted from error → warn: this hook runs on many pages via SiteSearch,
+      // and Firefox intermittently aborts the request during navigation. The
+      // toast + setError still surface real failures to the user; the flaky
+      // console.error here was failing E2E without indicating a real bug.
+      logger.warn('Error fetching courses:', err);
       setError(err.message);
       toast({
         title: 'Error',
