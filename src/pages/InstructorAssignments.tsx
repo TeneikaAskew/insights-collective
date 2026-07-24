@@ -16,7 +16,7 @@ interface Row {
   id: string;
   title: string;
   due_date: string | null;
-  points_possible: number | null;
+  points: number | null;
   content_item_id: string | null;
   enrolled: number;
   submitted: number;
