@@ -36,19 +36,17 @@ Object.defineProperty(window, 'matchMedia', {
   })),
 });
 
-// Mock IntersectionObserver
-global.IntersectionObserver = vi.fn().mockImplementation(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
-}));
-
-// Mock ResizeObserver
-global.ResizeObserver = vi.fn().mockImplementation(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
-}));
+// Mock IntersectionObserver / ResizeObserver. Consumers (e.g. recharts'
+// ResponsiveContainer) call these with `new`, so the stubs must be
+// constructable classes — an arrow-function mockImplementation is not a
+// constructor under vitest's spy.
+class ObserverStub {
+  observe = vi.fn();
+  unobserve = vi.fn();
+  disconnect = vi.fn();
+}
+global.IntersectionObserver = ObserverStub as unknown as typeof IntersectionObserver;
+global.ResizeObserver = ObserverStub as unknown as typeof ResizeObserver;
 
 // Mock scrollTo
 window.scrollTo = vi.fn();
