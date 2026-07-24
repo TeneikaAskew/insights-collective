@@ -67,22 +67,29 @@ test.describe('Quiz taking — full attempt lifecycle', () => {
     await page.waitForLoadState('networkidle');
 
     // A quiz lesson MUST be seeded for the enrolled course; a missing quiz is a
-    // seed-data gap, not a valid skip condition.
-    const quizLink = page.locator('a', { hasText: /quiz/i }).first();
-    const quizCount = await quizLink.count();
+    // seed-data gap, not a valid skip condition. The curriculum rail renders
+    // quiz rows with the label "Quiz" and a Start/Review/Resume button.
+    const quizRow = page
+      .getByRole('listitem')
+      .filter({ hasText: /Quiz$/ })
+      .first();
+    const quizCount = await quizRow.count();
     expect(
       quizCount,
       'Seed gap: no quiz lessons in the enrolled course. Reseed e2e/fixtures/seed.sql (quizzes/lessons for E2E_TEST_COURSE_ID).',
     ).toBeGreaterThan(0);
 
-    await quizLink.click();
-    // Player exposes either a Start-quiz control (fresh attempt) or the Completed
-    // banner (previously submitted). Both are real, verifiable states.
+    await quizRow.getByRole('button', { name: /start|resume|review/i }).click();
+
+    // Player exposes either a Start-quiz control (fresh attempt), a Completed
+    // banner (previously submitted), or a question prompt when auto-launched.
+    // All three are real, verifiable states.
     await expect
       .poll(async () => {
         const startBtn = await page.getByRole('button', { name: /start quiz|begin quiz/i }).isVisible().catch(() => false);
         const complete = await page.getByText(/completed|your score/i).isVisible().catch(() => false);
-        return startBtn || complete;
+        const question = await page.getByText(/question\s*\d+/i).isVisible().catch(() => false);
+        return startBtn || complete || question;
       }, { timeout: 10_000 })
       .toBe(true);
   });
