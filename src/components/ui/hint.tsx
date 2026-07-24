@@ -20,7 +20,15 @@ export function Hint({ label, children, side = "top", align = "center", classNam
   if (!label) return children;
   return (
     <Tooltip>
-      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      {/*
+        Wrap children in a span so Radix's ref (from asChild) lands on a DOM
+        node even when the child is a plain function component without
+        forwardRef. Without this, React emits "Function components cannot be
+        given refs" warnings that fail our console-error assertion in E2E.
+      */}
+      <TooltipTrigger asChild>
+        <span className="inline-flex">{children}</span>
+      </TooltipTrigger>
       <TooltipContent side={side} align={align} className={className}>
         {label}
       </TooltipContent>
