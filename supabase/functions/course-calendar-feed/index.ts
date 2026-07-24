@@ -164,6 +164,16 @@ serve(async (req: Request) => {
 
     const events: CalendarEvent[] = [];
 
+    // Quizzes link to a course through content_items, not directly.
+    const { data: courseContentItems, error: contentItemsError } = await supabase
+      .from('content_items')
+      .select('id')
+      .eq('course_id', courseId);
+    if (contentItemsError) {
+      throw new Error(`content_items: ${contentItemsError.message}`);
+    }
+    const contentItemIds = (courseContentItems ?? []).map((c: any) => c.id);
+
     const [
       { data: assignments, error: assignmentsError },
       { data: quizzes, error: quizzesError },
@@ -175,12 +185,14 @@ serve(async (req: Request) => {
         .select('id, title, description, due_date')
         .eq('course_id', courseId)
         .eq('is_published', true),
+      contentItemIds.length > 0
+        ? supabase
+            .from('quizzes')
+            .select('id, title, description, due_at, unlock_at, lock_at, time_limit')
+            .in('content_item_id', contentItemIds)
+        : Promise.resolve({ data: [], error: null }),
       supabase
-        .from('quizzes')
-        .select('id, title, description, due_at, unlock_at, lock_at, time_limit')
-        .eq('course_id', courseId),
-      supabase
-        .from('announcements')
+        .from('course_announcements')
         .select('id, title, content, created_at, is_pinned')
         .eq('course_id', courseId),
       supabase
