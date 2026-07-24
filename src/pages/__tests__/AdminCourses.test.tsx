@@ -198,6 +198,51 @@ describe('AdminCourses', () => {
         );
       });
     });
+
+    it('REGRESSION: a failed courses query renders an error + retry, not "No courses yet"', async () => {
+      wireTables({
+        courses: tableResult({
+          data: null,
+          error: { message: 'connection refused', code: 'PGRST000' },
+        }),
+      });
+
+      render(<AdminCourses />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Failed to load courses')).toBeInTheDocument();
+      });
+      expect(screen.getByText('connection refused')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
+      // The failure must be visibly distinct from an empty catalog.
+      expect(screen.queryByText('No courses yet')).not.toBeInTheDocument();
+      expect(
+        screen.queryByText('Get started by creating your first course.'),
+      ).not.toBeInTheDocument();
+    });
+
+    it('retries the courses fetch when the error-state Retry button is clicked', async () => {
+      const failingCourses = tableResult({
+        data: null,
+        error: { message: 'connection refused', code: 'PGRST000' },
+      });
+      const okCourses = tableResult({ data: [courseRow], error: null });
+      wireTables({
+        courses: [failingCourses, okCourses],
+        enrollments: tableResult({ data: [{ course_id: 'course-1' }], error: null }),
+        user_roles: tableResult({ data: [{ role: 'admin' }], error: null }),
+      });
+
+      render(<AdminCourses />);
+
+      const retry = await screen.findByRole('button', { name: /retry/i });
+      fireEvent.click(retry);
+
+      await waitFor(() => {
+        expect(screen.getByText('Intro to Data Analytics')).toBeInTheDocument();
+      });
+      expect(screen.queryByText('Failed to load courses')).not.toBeInTheDocument();
+    });
   });
 
   describe('certificates tab', () => {

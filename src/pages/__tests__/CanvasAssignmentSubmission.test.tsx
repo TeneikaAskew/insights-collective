@@ -59,7 +59,22 @@ vi.mock('@/components/ui/canvas-editor', () => ({
 }));
 
 vi.mock('@/components/course/content/FileUploadZone', () => ({
-  default: () => <div data-testid="file-upload-zone" />,
+  default: ({ onFileUploaded }: any) => (
+    <button
+      type="button"
+      data-testid="file-upload-zone"
+      onClick={() =>
+        onFileUploaded?.({
+          name: 'essay.pdf',
+          type: 'application/pdf',
+          size: 2048,
+          url: 'https://example.com/essay.pdf',
+        })
+      }
+    >
+      mock upload
+    </button>
+  ),
 }));
 
 vi.mock('@/hooks/use-toast', () => ({
@@ -257,6 +272,76 @@ describe('CanvasAssignmentSubmission', () => {
     expect(navigateMock).not.toHaveBeenCalled();
     // The form is still usable for another attempt.
     expect(screen.getByRole('button', { name: 'Submit Assignment' })).toBeEnabled();
+  });
+
+  // REGRESSION: a failed prior-submission lookup must render an error state,
+  // not the submission form with fabricated "no prior submission" state.
+  it('renders an error state (not the form) when the prior-submission fetch fails', async () => {
+    vi.mocked(CanvasContentService.getContentItem).mockResolvedValue(assignmentItem as any);
+    useTables({
+      assignment_submissions: makeTableBuilder({
+        data: null,
+        error: { message: 'submissions unavailable' },
+      }),
+    });
+
+    render(<CanvasAssignmentSubmission />);
+
+    expect(await screen.findByText("Couldn't load assignment")).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
+    expect(screen.queryByText('Assignment Not Found')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Submit Assignment' })).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(toastMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Error loading assignment',
+          description: 'submissions unavailable',
+          variant: 'destructive',
+        }),
+      ),
+    );
+  });
+
+  // REGRESSION: a failed attachment insert must produce a qualified toast
+  // ("saved, but N attachment(s) failed"), never an unqualified success.
+  it('reports a qualified failure toast when an attachment insert fails', async () => {
+    const uploadItem = {
+      ...assignmentItem,
+      assignment: {
+        ...assignmentItem.assignment,
+        submission_types: ['online_upload'],
+      },
+    };
+    vi.mocked(CanvasContentService.getContentItem).mockResolvedValue(uploadItem as any);
+    vi.mocked(CanvasContentService.submitAssignment).mockResolvedValue({ id: 'new-sub' } as any);
+    const attachmentsBuilder = makeTableBuilder({
+      data: null,
+      error: { message: 'attachment insert failed' },
+    });
+    useTables({
+      assignment_submissions: makeTableBuilder({ data: [], error: null }),
+      submission_attachments: attachmentsBuilder,
+    });
+
+    render(<CanvasAssignmentSubmission />);
+    fireEvent.click(await screen.findByTestId('file-upload-zone'));
+    fireEvent.click(screen.getByRole('button', { name: 'Submit Assignment' }));
+
+    await waitFor(() =>
+      expect(toastMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Submission saved, but 1 attachment(s) failed to record',
+          variant: 'destructive',
+        }),
+      ),
+    );
+    expect(attachmentsBuilder.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ submission_id: 'new-sub', filename: 'essay.pdf' }),
+    );
+    // No unqualified success toast.
+    expect(toastMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Assignment submitted' }),
+    );
   });
 
   // REGRESSION: the media-recording option must be a disabled, honestly

@@ -3,13 +3,15 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import React from 'react';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   useForums,
   useForumThreads,
   useThreadPosts,
   useThreadSubscription,
+  useCreatePost,
+  useMarkThreadAsRead,
 } from '../useForums';
 import {
   mockSupabaseClient,
@@ -293,5 +295,104 @@ describe('useThreadSubscription', () => {
 
     expect(result.current.subscription).toBeUndefined();
     expect(result.current.isSubscribed).toBe(false);
+  });
+});
+
+describe('useCreatePost', () => {
+  it('inserts the post and bumps the thread timestamp on success', async () => {
+    const builder = getQueryBuilder();
+    const post = { id: 'post-1', thread_id: 'thread-1', content: 'hi' };
+    // posts insert chain terminates in .single(); the follow-up threads
+    // update chain is awaited directly (thenable builder).
+    builder.single.mockResolvedValueOnce({ data: post, error: null });
+    builder.then.mockImplementation((resolve: (value: unknown) => void) =>
+      resolve({ data: null, error: null })
+    );
+
+    const { wrapper } = createWrapper();
+    const { result } = renderHook(() => useCreatePost('thread-1'), { wrapper });
+
+    let created: unknown;
+    await act(async () => {
+      created = await result.current.mutateAsync({
+        content: 'hi',
+        userId: 'user-1',
+        parentId: null,
+      });
+    });
+
+    expect(created).toEqual(post);
+    expect(mockSupabaseClient.from).toHaveBeenCalledWith('posts');
+    expect(mockSupabaseClient.from).toHaveBeenCalledWith('threads');
+    expect(builder.update).toHaveBeenCalledWith(
+      expect.objectContaining({ updated_at: expect.any(String) })
+    );
+  });
+
+  it('REGRESSION: rejects with a partial-failure error when the thread-timestamp update fails', async () => {
+    const builder = getQueryBuilder();
+    builder.single.mockResolvedValueOnce({
+      data: { id: 'post-1' },
+      error: null,
+    });
+    builder.then.mockImplementation((resolve: (value: unknown) => void) =>
+      resolve(supabaseError('threads update failed'))
+    );
+
+    const { wrapper } = createWrapper();
+    const { result } = renderHook(() => useCreatePost('thread-1'), { wrapper });
+
+    await act(async () => {
+      await expect(
+        result.current.mutateAsync({
+          content: 'hi',
+          userId: 'user-1',
+          parentId: null,
+        })
+      ).rejects.toThrow(
+        'Reply was posted, but updating the thread timestamp failed: threads update failed'
+      );
+    });
+  });
+});
+
+describe('useMarkThreadAsRead', () => {
+  it('creates a read-status entry when none exists', async () => {
+    const builder = getQueryBuilder();
+    builder.maybeSingle.mockResolvedValueOnce({ data: null, error: null });
+    builder.then.mockImplementation((resolve: (value: unknown) => void) =>
+      resolve({ data: [{ id: 'rs-1' }], error: null })
+    );
+
+    const { wrapper } = createWrapper();
+    const { result } = renderHook(() => useMarkThreadAsRead(), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({ threadId: 'thread-1', userId: 'user-1' });
+    });
+
+    expect(builder.insert).toHaveBeenCalledWith([
+      expect.objectContaining({ thread_id: 'thread-1', user_id: 'user-1' }),
+    ]);
+  });
+
+  it('REGRESSION: rejects when the existence probe fails and performs NO write', async () => {
+    const builder = getQueryBuilder();
+    builder.maybeSingle.mockResolvedValueOnce(
+      supabaseError('read-status probe failed')
+    );
+
+    const { wrapper } = createWrapper();
+    const { result } = renderHook(() => useMarkThreadAsRead(), { wrapper });
+
+    await act(async () => {
+      await expect(
+        result.current.mutateAsync({ threadId: 'thread-1', userId: 'user-1' })
+      ).rejects.toMatchObject({ message: 'read-status probe failed' });
+    });
+
+    // A probe failure must not be treated as "no entry" → insert
+    expect(builder.insert).not.toHaveBeenCalled();
+    expect(builder.update).not.toHaveBeenCalled();
   });
 });

@@ -172,11 +172,16 @@ const CourseCard: React.FC<CourseCardProps> = ({
       <Link to={`/courses/${course.id}`} className="block">
         <div className="relative">
           <div className="aspect-video overflow-hidden">
-            <img 
-              src={course.thumbnail} 
-              alt={course.title} 
-              className="w-full h-full object-cover transition-transform hover:scale-105" 
-            />
+            {course.thumbnail ? (
+              <img
+                src={course.thumbnail}
+                alt={course.title}
+                className="w-full h-full object-cover transition-transform hover:scale-105"
+              />
+            ) : (
+              // No artwork — neutral placeholder, never a stock photo.
+              <div className="w-full h-full bg-muted" aria-hidden="true" />
+            )}
           </div>
           <button 
             onClick={handleWishlist}

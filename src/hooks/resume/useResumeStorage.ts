@@ -4,22 +4,18 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import * as pdfjs from 'pdfjs-dist';
-import PdfWorker from 'pdfjs-dist/build/pdf.worker.min.js?url';
+// @ts-expect-error - the ?url suffix has no type declaration; Vite bundles the worker locally
+import PdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import mammoth from 'mammoth';
 
 import { createLogger } from '@/utils/logger';
 
 const logger = createLogger('useResumeStorage');
 
-// Configure PDF.js worker using locally bundled worker via Vite
-try {
-  pdfjs.GlobalWorkerOptions.workerSrc = PdfWorker;
-  console.log('[useResumeStorage] PDF.js worker configured from local bundle');
-} catch (workerError) {
-  console.error('[useResumeStorage] Failed to set PDF.js worker source:', workerError);
-  // Fallback to CDN
-  pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
-}
+// Configure PDF.js worker from the locally bundled file (pdfjs v4+ ships the
+// worker as an .mjs module). No CDN fallback: a version-mismatched remote
+// worker fails in confusing ways — if the local assignment throws, surface it.
+pdfjs.GlobalWorkerOptions.workerSrc = PdfWorker;
 
 // Interface for upload result
 export interface UploadResult {

@@ -5,14 +5,30 @@ import { Button } from '@/components/ui/button';
 import { RubricBuilder } from '@/components/course/rubrics/RubricBuilder';
 import { useRubric } from '@/hooks/useRubrics';
 import { CourseLayout } from '@/components/course/CourseLayout';
+import CourseErrorState from '@/components/course/CourseErrorState';
 
 export default function RubricEdit() {
   const { courseId, rubricId } = useParams();
   const navigate = useNavigate();
-  const { rubric, isLoading } = useRubric(rubricId!);
+  const { rubric, isLoading, error, refetch } = useRubric(rubricId!);
 
   if (isLoading) {
     return <CourseLayout><div className="p-8">Loading...</div></CourseLayout>;
+  }
+
+  // A fetch failure is not "rubric not found" — surface it explicitly.
+  if (error) {
+    return (
+      <CourseLayout>
+        <div className="p-8 max-w-2xl">
+          <CourseErrorState
+            title="Failed to load rubric"
+            error={error}
+            onRetry={() => refetch()}
+          />
+        </div>
+      </CourseLayout>
+    );
   }
 
   if (!rubric) {

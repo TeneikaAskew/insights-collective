@@ -250,7 +250,8 @@ describe('contentDiscussionService', () => {
   describe('upvoteDiscussion', () => {
     it('adds an upvote when none exists and returns true', async () => {
       const builder = getQueryBuilder();
-      builder.single.mockResolvedValueOnce({ data: null, error: notFoundError });
+      // maybeSingle: "not upvoted" is a clean null-data/null-error result
+      builder.maybeSingle.mockResolvedValueOnce({ data: null, error: null });
       builder.insert.mockResolvedValueOnce({ error: null });
 
       const result = await contentDiscussionService.upvoteDiscussion(
@@ -266,12 +267,12 @@ describe('contentDiscussionService', () => {
 
     it('removes an existing upvote and returns false', async () => {
       const builder = getQueryBuilder();
-      builder.single.mockResolvedValueOnce({
+      builder.maybeSingle.mockResolvedValueOnce({
         data: { id: 'up-1' },
         error: null,
       });
       // eq is called four times: twice in the check query (chaining into
-      // .single()), then twice in .delete().eq().eq() where the last resolves.
+      // .maybeSingle()), then twice in .delete().eq().eq() where the last resolves.
       builder.eq.mockImplementationOnce(() => builder); // check: discussion_id
       builder.eq.mockImplementationOnce(() => builder); // check: user_id
       builder.eq.mockImplementationOnce(() => builder); // delete: discussion_id
@@ -288,12 +289,26 @@ describe('contentDiscussionService', () => {
 
     it('throws when the insert fails', async () => {
       const builder = getQueryBuilder();
-      builder.single.mockResolvedValueOnce({ data: null, error: notFoundError });
+      builder.maybeSingle.mockResolvedValueOnce({ data: null, error: null });
       builder.insert.mockResolvedValueOnce(supabaseError('db down'));
 
       await expect(
         contentDiscussionService.upvoteDiscussion('d-1', 'user-1')
       ).rejects.toMatchObject({ message: 'db down' });
+    });
+
+    it('REGRESSION: throws when the existence probe fails and performs NO write', async () => {
+      const builder = getQueryBuilder();
+      builder.maybeSingle.mockResolvedValueOnce(supabaseError('probe failed'));
+
+      await expect(
+        contentDiscussionService.upvoteDiscussion('d-1', 'user-1')
+      ).rejects.toMatchObject({ message: 'probe failed' });
+
+      // A probe failure must not be treated as "not upvoted" → insert,
+      // nor as "upvoted" → delete.
+      expect(builder.insert).not.toHaveBeenCalled();
+      expect(builder.delete).not.toHaveBeenCalled();
     });
   });
 

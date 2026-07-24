@@ -1,8 +1,9 @@
 // ABOUTME: Dedicated component for displaying course modules with proper loading and error states
 // ABOUTME: Replaces the inline module display to provide better user experience and code organization
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import CourseErrorState from '@/components/course/CourseErrorState';
 import { sanitizeHTML } from '@/utils/sanitize';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -85,6 +86,7 @@ export function CourseModulesList({ courseId }: CourseModulesListProps) {
   const [modules, setModules] = useState<Module[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [roleCheckError, setRoleCheckError] = useState<string | null>(null);
   const [resettingModuleId, setResettingModuleId] = useState<string | null>(null);
   const [confirmingResetId, setConfirmingResetId] = useState<string | null>(null);
   const { user } = useAuth();
@@ -135,24 +137,30 @@ export function CourseModulesList({ courseId }: CourseModulesListProps) {
     }
   };
 
-  useEffect(() => {
-    const fetchModules = async () => {
+  const fetchModules = useCallback(async () => {
       if (!courseId) return;
 
       try {
         setLoading(true);
+        setError(null);
 
-        // Check if user is instructor or admin
-        const { data: hasInstructorAccess } = await supabase
-          .rpc('is_course_instructor', {
+        // Check if user is instructor or admin. If the role check itself
+        // fails we fail CLOSED on privileges (student view, published-only
+        // content) but surface the failure visibly instead of silently
+        // demoting instructors.
+        const [instructorRes, adminRes] = await Promise.all([
+          supabase.rpc('is_course_instructor', {
             user_id_param: user?.id,
-            course_id_param: courseId
-          });
+            course_id_param: courseId,
+          }),
+          supabase.rpc('has_admin_access', { user_id_param: user?.id }),
+        ]);
 
-        const { data: hasAdminAccess } = await supabase
-          .rpc('has_admin_access', { user_id_param: user?.id });
-
-        const isInstructor = hasInstructorAccess || hasAdminAccess;
+        const roleError = instructorRes.error ?? adminRes.error;
+        setRoleCheckError(
+          roleError ? (roleError.message || 'Could not verify your course role') : null
+        );
+        const isInstructor = !roleError && Boolean(instructorRes.data || adminRes.data);
 
         // Fetch modules
         const { data: modulesData, error: modulesError } = await supabase
@@ -184,7 +192,10 @@ export function CourseModulesList({ courseId }: CourseModulesListProps) {
             contentItemsQuery.eq('published', true);
           }
 
-          const { data: contentItems } = await contentItemsQuery;
+          // A failed content-items query must not render the module with
+          // zero activities — treat it as a real load failure.
+          const { data: contentItems, error: contentItemsError } = await contentItemsQuery;
+          if (contentItemsError) throw contentItemsError;
 
           const lessons = contentItems?.filter(item => item.type === 'page') || [];
           const assignments = contentItems?.filter(item => item.type === 'assignment') || [];
@@ -208,10 +219,11 @@ export function CourseModulesList({ courseId }: CourseModulesListProps) {
       } finally {
         setLoading(false);
       }
-    };
-
-    fetchModules();
   }, [courseId, user]);
+
+  useEffect(() => {
+    void fetchModules();
+  }, [fetchModules]);
 
   if (loading) {
     return (
@@ -223,12 +235,11 @@ export function CourseModulesList({ courseId }: CourseModulesListProps) {
 
   if (error) {
     return (
-      <Alert variant="destructive">
-        <AlertCircle className="h-4 w-4" />
-        <AlertDescription>
-          {error}
-        </AlertDescription>
-      </Alert>
+      <CourseErrorState
+        title="Failed to load modules"
+        error={error}
+        onRetry={() => void fetchModules()}
+      />
     );
   }
 
@@ -238,6 +249,19 @@ export function CourseModulesList({ courseId }: CourseModulesListProps) {
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-2xl font-bold">Course Modules</h2>
         </div>
+
+        {/* The role check failed: content below is the fail-closed student
+            view (published items only). Say so rather than silently demoting
+            instructors. */}
+        {roleCheckError && (
+          <Alert className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              We couldn't verify your course role ({roleCheckError}). Showing the
+              student view — unpublished content is hidden until the check succeeds.
+            </AlertDescription>
+          </Alert>
+        )}
         <p className="text-muted-foreground mb-6">
           This course contains {modules.length} modules organized by week. Click on any module to view its content.
         </p>

@@ -73,9 +73,6 @@ const Resume = lazy(() => import('@/pages/Resume'));
 const Events = lazy(() => import('@/pages/Events'));
 const EventDetail = lazy(() => import('@/pages/EventDetail'));
 const Messages = lazy(() => import('@/pages/Messages'));
-const Forum = lazy(() => import('@/pages/ForumList'));
-const ForumDetail = lazy(() => import('@/pages/ForumDetail'));
-const ThreadDetail = lazy(() => import('@/pages/ThreadDetail'));
 
 // Portfolio Pages
 const PortfolioExplorer = lazy(() => import('@/pages/PortfolioExplorer'));

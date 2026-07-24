@@ -46,19 +46,23 @@ const PLACEHOLDER_COPY: Record<
   },
   pricing: {
     title: 'Pricing',
-    description: 'Set a one-time price, payment plan, subscription, or free enrollment.',
+    description:
+      'Once this ships, you will be able to set a one-time price, payment plan, subscription, or free enrollment.',
   },
   sales: {
     title: 'Sales pages',
-    description: 'Design the sales page learners see before enrolling.',
+    description:
+      'Once this ships, you will be able to design the sales page learners see before enrolling.',
   },
   students: {
     title: 'Students',
-    description: 'View, enroll, and manage students in this course.',
+    description:
+      'Once this ships, you will be able to view, enroll, and manage students in this course.',
   },
   reports: {
     title: 'Reports',
-    description: 'Enrollment, revenue, and lesson-progress reports.',
+    description:
+      'Once this ships, you will get enrollment, revenue, and lesson-progress reports here.',
   },
 };
 

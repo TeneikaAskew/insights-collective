@@ -152,6 +152,41 @@ describe('CourseMaterials', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
+  it('REGRESSION: an access-check RPC failure renders an error with retry — not the enrollment verdict', async () => {
+    (mockSupabaseClient.rpc as Mock).mockResolvedValue({
+      data: null,
+      error: { message: 'access RPC unavailable' },
+    });
+    mockTables(successTables());
+    render(<CourseMaterials />);
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(screen.getByText("Couldn't verify course access")).toBeInTheDocument();
+    expect(screen.getByText('access RPC unavailable')).toBeInTheDocument();
+    // The outage must never be presented as an enrollment verdict.
+    expect(
+      screen.queryByText(/You must be enrolled in this course to view its materials/),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Week 1')).not.toBeInTheDocument();
+
+    // Backend recovers: retry re-runs the check and the materials render.
+    (mockSupabaseClient.rpc as Mock).mockResolvedValue({ data: true, error: null });
+    await userEvent.click(screen.getByRole('button', { name: /retry/i }));
+    expect(await screen.findByText('Week 1')).toBeInTheDocument();
+    expect(screen.queryByText("Couldn't verify course access")).not.toBeInTheDocument();
+  });
+
+  it('still shows the enrollment message only on a successful false verdict', async () => {
+    (mockSupabaseClient.rpc as Mock).mockResolvedValue({ data: false, error: null });
+    mockTables(successTables());
+    render(<CourseMaterials />);
+
+    expect(
+      await screen.findByText(/You must be enrolled in this course to view its materials/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Couldn't verify course access")).not.toBeInTheDocument();
+  });
+
   it('also errors when only the files query fails', async () => {
     mockTables({
       course_material_folders: { data: [folderRow], error: null },

@@ -5,14 +5,26 @@ import { QuestionBankManager } from '@/components/course/question-banks/Question
 import { QuestionBank } from '@/types/course';
 import { useCourseData } from '@/hooks/useCourseData';
 import { CourseLayout } from '@/components/course/CourseLayout';
+import CourseErrorState from '@/components/course/CourseErrorState';
 
 export default function CourseQuestionBanks() {
   const { courseId } = useParams();
-  const { course, isLoading } = useCourseData(courseId!);
+  const { course, isLoading, error } = useCourseData(courseId!);
   const [selectedBank, setSelectedBank] = useState<QuestionBank | null>(null);
 
   if (isLoading) {
     return <CourseLayout><div className="p-8">Loading...</div></CourseLayout>;
+  }
+
+  // A fetch failure is not "course not found" — surface it explicitly.
+  if (error) {
+    return (
+      <CourseLayout>
+        <div className="p-8 max-w-2xl">
+          <CourseErrorState title="Failed to load course" error={error} />
+        </div>
+      </CourseLayout>
+    );
   }
 
   if (!course) {

@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Hint } from '@/components/ui/hint';
+import { Badge } from '@/components/ui/badge';
 
 export type BuilderNavKey =
   | 'setup'
@@ -48,16 +49,19 @@ const NAV_ITEMS: {
   label: string;
   icon: typeof LayoutGrid;
   group: 'primary' | 'secondary';
+  comingSoon?: boolean;
 }[] = [
   { key: 'setup', label: 'Setup guide', icon: LayoutGrid, group: 'primary' },
   { key: 'curriculum', label: 'Curriculum', icon: ListChecks, group: 'primary' },
   { key: 'design', label: 'Design templates', icon: Palette, group: 'primary' },
   { key: 'certificates', label: 'Certificates', icon: Award, group: 'primary' },
   { key: 'information', label: 'Information', icon: Info, group: 'primary' },
-  { key: 'pricing', label: 'Pricing', icon: DollarSign, group: 'secondary' },
-  { key: 'sales', label: 'Sales pages', icon: Megaphone, group: 'secondary' },
-  { key: 'students', label: 'Students', icon: Users, group: 'secondary' },
-  { key: 'reports', label: 'Reports', icon: BarChart3, group: 'secondary' },
+  // These sections are placeholders — the nav must say so up front instead of
+  // presenting them as working features.
+  { key: 'pricing', label: 'Pricing', icon: DollarSign, group: 'secondary', comingSoon: true },
+  { key: 'sales', label: 'Sales pages', icon: Megaphone, group: 'secondary', comingSoon: true },
+  { key: 'students', label: 'Students', icon: Users, group: 'secondary', comingSoon: true },
+  { key: 'reports', label: 'Reports', icon: BarChart3, group: 'secondary', comingSoon: true },
 ];
 
 export function TeachableShell({
@@ -208,13 +212,13 @@ function NavGroup({
   activeKey,
   onNavigate,
 }: {
-  items: { key: BuilderNavKey; label: string; icon: typeof LayoutGrid }[];
+  items: { key: BuilderNavKey; label: string; icon: typeof LayoutGrid; comingSoon?: boolean }[];
   activeKey: BuilderNavKey;
   onNavigate: (key: BuilderNavKey) => void;
 }) {
   return (
     <div className="space-y-0.5">
-      {items.map(({ key, label, icon: Icon }) => {
+      {items.map(({ key, label, icon: Icon, comingSoon }) => {
         const active = key === activeKey;
         return (
           <button
@@ -230,6 +234,14 @@ function NavGroup({
           >
             <Icon className="h-4 w-4 flex-shrink-0" />
             <span className="truncate">{label}</span>
+            {comingSoon && (
+              <Badge
+                variant="outline"
+                className="ml-auto flex-shrink-0 border-current text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0 text-inherit"
+              >
+                Coming soon
+              </Badge>
+            )}
           </button>
         );
       })}

@@ -91,9 +91,9 @@ export function useCoursePermissions(courseId?: string) {
         setIsInstructor(isCourseInstructor || false);
         setCanEdit(finalAdminAccess || isCourseInstructor);
         
-        // Log security event for tracking
+        // Log security event for tracking (non-fatal telemetry — warn on failure)
         if (hasAdminAccess || isCourseInstructor) {
-          await supabase.rpc('log_security_event', {
+          const { error: securityLogError } = await supabase.rpc('log_security_event', {
             p_user_id: user.id,
             p_event_type: 'course_access_granted',
             p_severity: 'info',
@@ -103,6 +103,7 @@ export function useCoursePermissions(courseId?: string) {
               access_type: hasAdminAccess ? 'admin' : 'instructor'
             }
           });
+          if (securityLogError) logger.warn('Failed to write course_access_granted security event:', securityLogError);
         }
         
       } catch (error: any) {
@@ -110,8 +111,8 @@ export function useCoursePermissions(courseId?: string) {
         setError(error.message || 'Error checking course permissions');
         setCanEdit(false);
         
-        // Log security event for failed access attempts
-        await supabase.rpc('log_security_event', {
+        // Log security event for failed access attempts (non-fatal telemetry)
+        const { error: securityLogError } = await supabase.rpc('log_security_event', {
           p_user_id: user.id,
           p_event_type: 'course_access_denied',
           p_severity: 'warning',
@@ -121,6 +122,7 @@ export function useCoursePermissions(courseId?: string) {
             error: error.message
           }
         });
+        if (securityLogError) logger.warn('Failed to write course_access_denied security event:', securityLogError);
       } finally {
         setLoading(false);
       }

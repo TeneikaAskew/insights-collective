@@ -2,7 +2,7 @@ import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@/test/utils/test-utils';
 import { mockSupabaseClient } from '@/test/mocks/supabase';
-import { makeCourse, makeModule } from '@/test/utils/course-fixtures';
+import { makeCourse, makeModule, makeSubmission, makeQuizSubmission } from '@/test/utils/course-fixtures';
 import { createMockAuthProvider } from '@/test/mocks/authMocks';
 import { useAuth } from '@/contexts/AuthContext';
 import { addEnrolledCourse } from '@/utils/idUtils';
@@ -53,7 +53,8 @@ vi.mock('@/components/course/CourseContentPreview', () => ({ CourseContentPrevie
 vi.mock('@/components/course/LoginOverlayCard', () => ({ LoginOverlayCard: () => null }));
 
 // Hooks with their own supabase traffic get stable, quiet mocks.
-vi.mock('@/hooks/useForums', () => ({ useForums: () => ({ forums: [], isLoadingForums: false }) }));
+// (useForums is intentionally NOT mocked: the page no longer calls it — the
+// orphaned call fired a dead query on every course view.)
 vi.mock('@/hooks/useCoursePermissions', () => ({
   useCoursePermissions: () => ({ canEdit: false, isAdmin: false, isInstructor: false }),
 }));
@@ -270,6 +271,168 @@ describe('CourseDetail', () => {
 
     expect(await screen.findByText('Welcome aboard')).toBeInTheDocument();
     expect(screen.queryByText('Failed to load announcements')).not.toBeInTheDocument();
+  });
+
+  it('REGRESSION: a failed roster query shows an error UI — never "No students enrolled yet."', async () => {
+    router.pathname = `/courses/${COURSE_ID}/people`;
+    const tables = mockTables({
+      ...successTables(),
+      enrollments: {
+        select: (_cols?: string, opts?: { head?: boolean }) =>
+          opts?.head
+            ? { count: 7, data: null, error: null }
+            : { data: null, error: { message: 'enrollments offline' } },
+      },
+    });
+
+    render(<CourseDetail />);
+
+    expect(await screen.findByText('Failed to load students')).toBeInTheDocument();
+    expect(screen.getByText('enrollments offline')).toBeInTheDocument();
+    // The outage must not masquerade as an empty roster.
+    expect(screen.queryByText('No students enrolled yet.')).not.toBeInTheDocument();
+
+    // Backend recovers; retry loads the real roster.
+    tables.enrollments = {
+      select: (_cols?: string, opts?: { head?: boolean }) =>
+        opts?.head
+          ? { count: 1, data: null, error: null }
+          : {
+              data: [{ user_id: 'user-2', completion_status: 40, enrolled_at: '2026-01-05T00:00:00Z' }],
+              error: null,
+            },
+    };
+    tables.profiles = {
+      select: () => ({
+        data: [{ id: 'user-2', first_name: 'Grace', last_name: 'Hopper', avatar_url: null }],
+        error: null,
+      }),
+    };
+    fireEvent.click(screen.getByRole('button', { name: /retry/i }));
+
+    expect(await screen.findByText('Grace Hopper')).toBeInTheDocument();
+    expect(screen.queryByText('Failed to load students')).not.toBeInTheDocument();
+  });
+
+  it('routes a failed profiles lookup into the same people error state (no blank-name roster)', async () => {
+    router.pathname = `/courses/${COURSE_ID}/people`;
+    mockTables({
+      ...successTables(),
+      enrollments: {
+        select: (_cols?: string, opts?: { head?: boolean }) =>
+          opts?.head
+            ? { count: 1, data: null, error: null }
+            : {
+                data: [{ user_id: 'user-2', completion_status: 0, enrolled_at: null }],
+                error: null,
+              },
+      },
+      profiles: { select: () => ({ data: null, error: { message: 'profiles offline' } }) },
+    });
+
+    render(<CourseDetail />);
+
+    expect(await screen.findByText('Failed to load students')).toBeInTheDocument();
+    expect(screen.getByText('profiles offline')).toBeInTheDocument();
+    expect(screen.queryByTestId('course-people-list')).not.toBeInTheDocument();
+    expect(screen.queryByText('No students enrolled yet.')).not.toBeInTheDocument();
+  });
+
+  it('renders the signed-in student\'s real graded work in the Grades tab', async () => {
+    router.pathname = `/courses/${COURSE_ID}/grades`;
+    vi.mocked(useAuth).mockReturnValue(
+      createMockAuthProvider({ user: authedUser, isAuthenticated: true }) as any
+    );
+    mockTables({
+      ...successTables(),
+      assignments: {
+        select: () => ({ data: [{ id: 'a1', title: 'Essay 1', points: 100 }], error: null }),
+      },
+      quizzes: {
+        select: () => ({ data: [{ id: 'q1', title: 'Week 1 Quiz', points_possible: 10 }], error: null }),
+      },
+      assignment_submissions: {
+        select: () => ({
+          data: [
+            makeSubmission({
+              id: 'sub-graded',
+              assignment_id: 'a1',
+              user_id: 'user-1',
+              grade: 88,
+              graded_at: '2026-02-01T00:00:00Z',
+              grader_comments: 'Solid analysis',
+              workflow_state: 'graded',
+            }),
+            // Ungraded submission must NOT appear as a grade row.
+            makeSubmission({ id: 'sub-pending', assignment_id: 'a1', user_id: 'user-1' }),
+          ],
+          error: null,
+        }),
+      },
+      quiz_submissions: {
+        select: () => ({
+          data: [makeQuizSubmission({ quiz_id: 'q1', user_id: 'user-1', kept_score: 9, score: 9 })],
+          error: null,
+        }),
+      },
+    });
+
+    render(<CourseDetail />);
+
+    const list = await screen.findByTestId('course-grades-list');
+    expect(list).toHaveTextContent('Essay 1');
+    expect(list).toHaveTextContent('88 / 100');
+    expect(list).toHaveTextContent('Solid analysis');
+    expect(list).toHaveTextContent('Week 1 Quiz');
+    expect(list).toHaveTextContent('9 / 10');
+    // Exactly one assignment row + one quiz row — the ungraded submission is excluded.
+    expect(list.children).toHaveLength(2);
+    expect(screen.queryByText('Nothing has been graded yet.')).not.toBeInTheDocument();
+    expect(screen.queryByText('No grades available yet.')).not.toBeInTheDocument();
+  });
+
+  it('shows the genuine empty state only when nothing has been graded', async () => {
+    router.pathname = `/courses/${COURSE_ID}/grades`;
+    vi.mocked(useAuth).mockReturnValue(
+      createMockAuthProvider({ user: authedUser, isAuthenticated: true }) as any
+    );
+    mockTables({
+      ...successTables(),
+      assignments: { select: () => ({ data: [{ id: 'a1', title: 'Essay 1', points: 100 }], error: null }) },
+      quizzes: { select: () => ({ data: [], error: null }) },
+      assignment_submissions: { select: () => ({ data: [], error: null }) },
+      quiz_submissions: { select: () => ({ data: [], error: null }) },
+    });
+
+    render(<CourseDetail />);
+
+    expect(await screen.findByText('Nothing has been graded yet.')).toBeInTheDocument();
+    expect(screen.queryByTestId('course-grades-list')).not.toBeInTheDocument();
+  });
+
+  it('shows an error with retry — not the empty state — when the grades fetch fails', async () => {
+    router.pathname = `/courses/${COURSE_ID}/grades`;
+    vi.mocked(useAuth).mockReturnValue(
+      createMockAuthProvider({ user: authedUser, isAuthenticated: true }) as any
+    );
+    const tables = mockTables({
+      ...successTables(),
+      assignments: { select: () => ({ data: null, error: { message: 'assignments offline' } }) },
+    });
+
+    render(<CourseDetail />);
+
+    expect(await screen.findByText('Failed to load grades')).toBeInTheDocument();
+    expect(screen.getByText('assignments offline')).toBeInTheDocument();
+    expect(screen.queryByText('Nothing has been graded yet.')).not.toBeInTheDocument();
+
+    // Recovery via retry.
+    tables.assignments = { select: () => ({ data: [], error: null }) };
+    tables.quizzes = { select: () => ({ data: [], error: null }) };
+    fireEvent.click(screen.getByRole('button', { name: /retry/i }));
+
+    expect(await screen.findByText('Nothing has been graded yet.')).toBeInTheDocument();
+    expect(screen.queryByText('Failed to load grades')).not.toBeInTheDocument();
   });
 
   it('does not show a definitive Enroll CTA when the enrollment check fails', async () => {

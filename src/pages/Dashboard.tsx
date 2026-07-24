@@ -125,7 +125,9 @@ const Dashboard = () => {
             modules: [],
             createdAt: course.created_at,
             updatedAt: course.updated_at,
-            thumbnail: course.image_url || course.thumbnail || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97',
+            // No stock-photo fallback — CourseCard renders a neutral
+            // placeholder block when a course has no real artwork.
+            thumbnail: course.image_url || course.thumbnail || undefined,
           }));
 
           setEnrolledCourses(formattedCourses);
@@ -201,7 +203,9 @@ const Dashboard = () => {
             modules: [],
             createdAt: course.created_at,
             updatedAt: course.updated_at,
-            thumbnail: course.image_url || course.thumbnail || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97',
+            // No stock-photo fallback — CourseCard renders a neutral
+            // placeholder block when a course has no real artwork.
+            thumbnail: course.image_url || course.thumbnail || undefined,
           }));
 
           setTeachingCourses(formattedCourses);

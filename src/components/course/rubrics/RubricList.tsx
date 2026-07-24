@@ -14,6 +14,7 @@ import { Plus, Edit, Trash2, Copy, FileText } from 'lucide-react';
 import { useRubrics } from '@/hooks/useRubrics';
 import { useAuth } from '@/hooks/useAuth';
 import { Rubric } from '@/types/course';
+import CourseErrorState from '@/components/course/CourseErrorState';
 
 interface RubricListProps {
   courseId: string;
@@ -26,7 +27,7 @@ export const RubricList: React.FC<RubricListProps> = ({
   onSelectRubric,
   selectable = false 
 }) => {
-  const { rubrics, isLoading, createRubric, deleteRubric } = useRubrics(courseId);
+  const { rubrics, isLoading, error, refetch, createRubric, deleteRubric } = useRubrics(courseId);
   const { user } = useAuth();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newRubric, setNewRubric] = useState({ title: '', description: '' });
@@ -58,6 +59,17 @@ export const RubricList: React.FC<RubricListProps> = ({
 
   if (isLoading) {
     return <div>Loading rubrics...</div>;
+  }
+
+  // A failed fetch must not masquerade as "no rubrics created yet".
+  if (error) {
+    return (
+      <CourseErrorState
+        title="Failed to load rubrics"
+        error={error}
+        onRetry={() => refetch?.()}
+      />
+    );
   }
 
   return (

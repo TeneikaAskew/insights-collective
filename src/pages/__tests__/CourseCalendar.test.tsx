@@ -1,16 +1,19 @@
 // ABOUTME: Tests for the CourseCalendar page — loading, loaded events, empty
 // ABOUTME: calendar, and the regression that a failed load shows an error, not an empty calendar.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@/test/utils/test-utils';
+import { render, screen, fireEvent } from '@/test/utils/test-utils';
 import CourseCalendar from '../CourseCalendar';
 import { useCourseCalendar } from '@/hooks/useCourseCalendar';
 import { useCoursePermissions } from '@/hooks/useCoursePermissions';
+
+const navigateMock = vi.hoisted(() => vi.fn());
 
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>();
   return {
     ...actual,
     useParams: () => ({ courseId: 'course-1' }),
+    useNavigate: () => navigateMock,
   };
 });
 
@@ -38,6 +41,7 @@ vi.mock('@/hooks/useCourseCalendar', () => ({
 
 describe('CourseCalendar', () => {
   beforeEach(() => {
+    navigateMock.mockClear();
     vi.mocked(useCoursePermissions).mockReturnValue({
       canEdit: false,
       isInstructor: false,
@@ -93,6 +97,57 @@ describe('CourseCalendar', () => {
 
     expect(screen.getByText('Course Calendar')).toBeInTheDocument();
     expect(screen.getByText('No upcoming events')).toBeInTheDocument();
+  });
+
+  // REGRESSION: assignment/quiz events used to deep-link to
+  // `/courses/:id/assignments/:relatedId` and `/courses/:id/quizzes/:relatedId`
+  // — neither route is registered, so every click 404'd. Event clicks must
+  // target routes that actually exist.
+  it('navigates assignment events to the real assignments route', () => {
+    vi.mocked(useCourseCalendar).mockReturnValue({
+      events: [
+        {
+          id: 'assignment-due-a1',
+          type: 'assignment',
+          title: 'Essay 1 - Due',
+          start_date: '2027-01-15T10:00:00Z',
+          related_id: 'a1',
+        },
+      ],
+      isLoading: false,
+      error: null,
+    } as any);
+
+    render(<CourseCalendar />);
+
+    fireEvent.click(screen.getByText('Essay 1 - Due'));
+
+    expect(navigateMock).toHaveBeenCalledWith('/courses/course-1/assignments');
+    // Never the dead per-assignment deep link.
+    expect(navigateMock).not.toHaveBeenCalledWith(expect.stringContaining('/assignments/a1'));
+  });
+
+  it('navigates quiz events to the real modules route', () => {
+    vi.mocked(useCourseCalendar).mockReturnValue({
+      events: [
+        {
+          id: 'quiz-due-q1',
+          type: 'quiz',
+          title: 'Week 1 Quiz - Due',
+          start_date: '2027-01-20T10:00:00Z',
+          related_id: 'q1',
+        },
+      ],
+      isLoading: false,
+      error: null,
+    } as any);
+
+    render(<CourseCalendar />);
+
+    fireEvent.click(screen.getByText('Week 1 Quiz - Due'));
+
+    expect(navigateMock).toHaveBeenCalledWith('/courses/course-1/modules');
+    expect(navigateMock).not.toHaveBeenCalledWith(expect.stringContaining('/quizzes/'));
   });
 
   // REGRESSION: courseCalendarService throws on any source failure. The page

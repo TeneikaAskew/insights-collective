@@ -166,7 +166,7 @@ describe('CanvasQuizTaking', () => {
     expect(screen.getByText('This is a graded quiz. Your score will be recorded.')).toBeInTheDocument();
   });
 
-  it('shows a destructive toast and no quiz UI when loading fails', async () => {
+  it('shows a destructive toast and an error state (not "not found") when loading fails', async () => {
     vi.mocked(CanvasContentService.getContentItem).mockRejectedValue(
       new Error('Quiz service down'),
     );
@@ -182,8 +182,50 @@ describe('CanvasQuizTaking', () => {
         }),
       ),
     );
-    expect(await screen.findByText('Quiz Not Found')).toBeInTheDocument();
+    // Load ERROR renders the error state with retry — not the not-found copy.
+    expect(await screen.findByText("Couldn't load quiz")).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
+    expect(screen.queryByText('Quiz Not Found')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Start Quiz' })).not.toBeInTheDocument();
+  });
+
+  it('renders the not-found screen when the quiz genuinely does not exist', async () => {
+    vi.mocked(CanvasContentService.getContentItem).mockResolvedValue(null as any);
+
+    render(<CanvasQuizTaking />);
+
+    expect(await screen.findByText('Quiz Not Found')).toBeInTheDocument();
+    expect(screen.queryByText("Couldn't load quiz")).not.toBeInTheDocument();
+  });
+
+  // REGRESSION: a failed existing-submission query must fail closed — no
+  // "Start Quiz" button (which would allow attempts past the limit) and no
+  // fabricated "0/N attempts" counter.
+  it('blocks quiz start with an error state when the attempt-limit check fails', async () => {
+    vi.mocked(CanvasContentService.getContentItem).mockResolvedValue(quizItem as any);
+    vi.mocked(CanvasContentService.getQuiz).mockResolvedValue(quiz as any);
+    useTables({
+      quiz_submissions: makeTableBuilder({
+        data: null,
+        error: { message: 'attempts unavailable' },
+      }),
+    });
+
+    render(<CanvasQuizTaking />);
+
+    expect(await screen.findByText("Couldn't load quiz")).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Start Quiz' })).not.toBeInTheDocument();
+    expect(screen.queryByText('0/3')).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(toastMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Error loading quiz',
+          description: 'attempts unavailable',
+          variant: 'destructive',
+        }),
+      ),
+    );
   });
 
   it('submits answers: persists the answer records and completes the submission', async () => {

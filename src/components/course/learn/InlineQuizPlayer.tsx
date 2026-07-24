@@ -12,6 +12,7 @@ import { UnifiedCanvasEditor } from '@/components/ui/unified-canvas-editor';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import CourseErrorState from '@/components/course/CourseErrorState';
 import type { ContentItem, Quiz, QuizQuestion } from '@/types/canvas';
 import { createLogger } from '@/utils/logger';
 
@@ -46,7 +47,13 @@ export function InlineQuizPlayer({ item, quiz, onCompleted }: InlineQuizPlayerPr
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Visible (non-blocking) indicator that the last auto-save did not persist.
+  const [saveError, setSaveError] = useState(false);
   const [submissionAnswers, setSubmissionAnswers] = useState<any[]>([]);
+  // Fail closed: if the prior-attempt lookup fails we cannot know whether the
+  // student has attempts left, so the player must not start a new attempt.
+  const [loadError, setLoadError] = useState<Error | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const debouncedAnswers = useDebounce(answers, 2000);
   const prevDebouncedRef = useRef(debouncedAnswers);
 
@@ -56,6 +63,7 @@ export function InlineQuizPlayer({ item, quiz, onCompleted }: InlineQuizPlayerPr
     const loadExistingSubmission = async () => {
       if (!user?.id) return;
 
+      setLoadError(null);
       const { data, error } = await supabase
         .from('quiz_submissions')
         .select('*')
@@ -67,6 +75,7 @@ export function InlineQuizPlayer({ item, quiz, onCompleted }: InlineQuizPlayerPr
       if (cancelled) return;
       if (error) {
         logger.error('Failed to load existing inline quiz submission', error);
+        setLoadError(new Error(error.message));
         return;
       }
 
@@ -79,7 +88,7 @@ export function InlineQuizPlayer({ item, quiz, onCompleted }: InlineQuizPlayerPr
     return () => {
       cancelled = true;
     };
-  }, [quiz.id, user?.id]);
+  }, [quiz.id, user?.id, reloadKey]);
 
   useEffect(() => {
     if (!quizStarted || timeRemaining === null) return;
@@ -142,8 +151,11 @@ export function InlineQuizPlayer({ item, quiz, onCompleted }: InlineQuizPlayerPr
         if (error) throw error;
       }
       setSaved(true);
+      setSaveError(false);
     } catch (error: any) {
       logger.error('Auto-save failed', error);
+      setSaved(false);
+      setSaveError(true);
     } finally {
       setSaving(false);
     }
@@ -436,6 +448,18 @@ export function InlineQuizPlayer({ item, quiz, onCompleted }: InlineQuizPlayerPr
     await ensureSubmission();
   };
 
+  // Fail closed: don't let a failed prior-attempt lookup masquerade as "no
+  // prior attempt" — that would allow starting attempts past the limit.
+  if (loadError && !quizStarted) {
+    return (
+      <CourseErrorState
+        title="Couldn't load your quiz attempts"
+        error={loadError}
+        onRetry={() => setReloadKey((k) => k + 1)}
+      />
+    );
+  }
+
   if (questions.length === 0) {
     return (
       <Card>
@@ -580,6 +604,11 @@ export function InlineQuizPlayer({ item, quiz, onCompleted }: InlineQuizPlayerPr
             {!saving && saved && (
               <span className="flex items-center gap-1 text-xs text-muted-foreground">
                 <CheckCircle2 className="h-3 w-3" /> Saved
+              </span>
+            )}
+            {!saving && saveError && (
+              <span className="flex items-center gap-1 text-xs text-destructive" role="alert">
+                <AlertCircle className="h-3 w-3" /> Auto-save failed — your latest answers may not be saved
               </span>
             )}
           </div>

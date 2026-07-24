@@ -39,11 +39,14 @@ import { useCourseEnrollments } from '@/hooks/useCourseEnrollments';
 
 import { Course } from '@/types/course';
 import { Spinner } from '@/components/ui/spinner';
+import CourseErrorState from '@/components/course/CourseErrorState';
 
 export default function AdminCourses() {
   const {
     courses,
     loading: coursesLoading,
+    error: coursesError,
+    refetch: refetchCourses,
     saveCourse,
     createCourse,
     updateCourse,
@@ -116,6 +119,22 @@ export default function AdminCourses() {
       <AppLayout>
         <div className="flex justify-center items-center h-[50vh]">
           <Spinner size="lg" />
+        </div>
+      </AppLayout>
+    );
+  }
+
+  // A failed courses fetch must not render as "No courses yet" — every tab on
+  // this page depends on the course list, so surface the failure with a retry.
+  if (coursesError) {
+    return (
+      <AppLayout>
+        <div className="max-w-3xl mx-auto py-16 px-4">
+          <CourseErrorState
+            title="Failed to load courses"
+            error={coursesError}
+            onRetry={() => refetchCourses()}
+          />
         </div>
       </AppLayout>
     );

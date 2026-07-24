@@ -180,14 +180,18 @@ export const assignmentService = {
   },
 
   async submitAssignment(assignmentId: string, studentId: string, submissionData: any) {
-    // Check for existing draft submission
-    const { data: existing } = await supabase
+    // Check for existing draft submission. maybeSingle keeps "no draft" clean
+    // (null data, null error); a real error must throw — falling through here
+    // used to insert a DUPLICATE submission on transient failures.
+    const { data: existing, error: draftError } = await supabase
       .from('assignment_submissions')
       .select('id, attempt')
       .eq('assignment_id', assignmentId)
       .eq('user_id', studentId)
       .eq('workflow_state', 'draft')
-      .single();
+      .maybeSingle();
+
+    if (draftError) throw draftError;
 
     if (existing) {
       // Update existing draft to submitted
@@ -207,14 +211,17 @@ export const assignmentService = {
       return mapSubmission(data);
     }
 
-    // Get latest attempt number
-    const { data: attempts } = await supabase
+    // Get latest attempt number. A failed probe must throw — defaulting to
+    // attempt 1 on error would violate the attempt-uniqueness expectations.
+    const { data: attempts, error: attemptsError } = await supabase
       .from('assignment_submissions')
       .select('attempt')
       .eq('assignment_id', assignmentId)
       .eq('user_id', studentId)
       .order('attempt', { ascending: false })
       .limit(1);
+
+    if (attemptsError) throw attemptsError;
 
     const attempt = attempts && attempts.length > 0
       ? (attempts[0].attempt ?? 0) + 1

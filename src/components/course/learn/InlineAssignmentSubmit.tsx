@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Send, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import CourseErrorState from '@/components/course/CourseErrorState';
 import type { ContentItem, Assignment } from '@/types/canvas';
 
 interface Props {
@@ -35,6 +36,12 @@ export function InlineAssignmentSubmit({ item, assignment, onCompleted }: Props)
   const { user } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
+  // Load ERROR for the submission/rubric-link queries: the form must not
+  // render (a failed submission lookup would otherwise cause a duplicate
+  // insert with a wrong attempt number).
+  const [loadError, setLoadError] = useState<Error | null>(null);
+  const [rubricError, setRubricError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [submission, setSubmission] = useState<any>(null);
   const [body, setBody] = useState('');
@@ -44,14 +51,17 @@ export function InlineAssignmentSubmit({ item, assignment, onCompleted }: Props)
   const submissionTypes = assignment.submission_types || ['online_text_entry'];
   const acceptsText = submissionTypes.includes('online_text_entry');
   const acceptsUrl = submissionTypes.includes('online_url');
-  const maxAttempts = (assignment as any).max_attempts ?? 3;
+  // No configured limit means unlimited attempts — do not invent a policy.
+  const maxAttempts: number | null = (assignment as any).max_attempts ?? null;
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       if (!user) { setLoading(false); return; }
       setLoading(true);
-      const [{ data: sub }, { data: rubricLinks }] = await Promise.all([
+      setLoadError(null);
+      setRubricError(false);
+      const [subRes, rubricRes] = await Promise.all([
         supabase
           .from('assignment_submissions')
           .select('*')
@@ -66,30 +76,46 @@ export function InlineAssignmentSubmit({ item, assignment, onCompleted }: Props)
           .eq('assignment_id', assignment.id),
       ]);
       if (cancelled) return;
+      const firstError = subRes.error ?? rubricRes.error;
+      if (firstError) {
+        setLoadError(new Error(firstError.message));
+        setLoading(false);
+        return;
+      }
+      const sub = subRes.data;
       setSubmission(sub || null);
       if (sub) {
         setBody(sub.body || '');
         setUrl(sub.url || '');
       }
-      const rubricId = rubricLinks?.[0]?.rubric_id;
+      const rubricId = rubricRes.data?.[0]?.rubric_id;
       if (rubricId) {
-        const { data: crit } = await supabase
+        const { data: crit, error: critError } = await supabase
           .from('rubric_criteria')
           .select('*')
           .eq('rubric_id', rubricId)
           .order('order_index', { ascending: true });
-        if (!cancelled) setCriteria((crit as any) || []);
+        if (!cancelled) {
+          if (critError) {
+            // Rubric details are supplementary — surface an inline notice
+            // instead of silently hiding the rubric.
+            setRubricError(true);
+            setCriteria([]);
+          } else {
+            setCriteria((crit as any) || []);
+          }
+        }
       }
       setLoading(false);
     };
     void load();
     return () => { cancelled = true; };
-  }, [user?.id, assignment.id]);
+  }, [user?.id, assignment.id, reloadKey]);
 
   const isGraded = submission?.workflow_state === 'graded';
   const isSubmitted = submission?.workflow_state === 'submitted' || isGraded;
   const attemptsUsed = submission?.attempt ?? 0;
-  const canResubmit = !isGraded && attemptsUsed < maxAttempts;
+  const canResubmit = !isGraded && (maxAttempts == null || attemptsUsed < maxAttempts);
 
   const handleSubmit = async () => {
     if (!user) return;
@@ -149,6 +175,16 @@ export function InlineAssignmentSubmit({ item, assignment, onCompleted }: Props)
     );
   }
 
+  if (loadError) {
+    return (
+      <CourseErrorState
+        title="Couldn't load your submission"
+        error={loadError}
+        onRetry={() => setReloadKey((k) => k + 1)}
+      />
+    );
+  }
+
   const rubricScores: Record<string, RubricScore> = (submission?.rubric_scores as any) || {};
 
   return (
@@ -157,10 +193,20 @@ export function InlineAssignmentSubmit({ item, assignment, onCompleted }: Props)
         <Alert>
           <CheckCircle2 className="h-4 w-4" />
           <AlertDescription>
-            {isGraded ? 'Graded' : 'Submitted'} · Attempt {attemptsUsed} of {maxAttempts}
+            {isGraded ? 'Graded' : 'Submitted'}
+            {maxAttempts != null ? <> · Attempt {attemptsUsed} of {maxAttempts}</> : <> · Attempt {attemptsUsed}</>}
             {typeof submission.score === 'number' && (
               <> · Score {submission.score}{assignment.points_possible ? ` / ${assignment.points_possible}` : ''}</>
             )}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {rubricError && (
+        <Alert variant="destructive" role="alert">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Rubric unavailable — we couldn't load the rubric for this assignment.
           </AlertDescription>
         </Alert>
       )}
@@ -251,7 +297,11 @@ export function InlineAssignmentSubmit({ item, assignment, onCompleted }: Props)
             {!canResubmit ? (
               <Alert>
                 <AlertCircle className="h-4 w-4" />
-                <AlertDescription>You've reached the maximum of {maxAttempts} attempts.</AlertDescription>
+                <AlertDescription>
+                  {maxAttempts != null
+                    ? `You've reached the maximum of ${maxAttempts} attempts.`
+                    : 'This assignment is not accepting further submissions.'}
+                </AlertDescription>
               </Alert>
             ) : (
               <Button onClick={() => void handleSubmit()} disabled={submitting}>
