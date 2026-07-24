@@ -123,6 +123,28 @@ describe('useCoursesManagement', () => {
     );
   });
 
+  it('REGRESSION: role-query failure sets hook error and does NOT silently filter the course list', async () => {
+    const courseA = makeCourse({ id: 'course-a', instructor: instructorRow });
+
+    setupTables({
+      courses: makeTableBuilder({ data: [courseA], error: null }),
+      enrollments: makeTableBuilder({ data: [], error: null }),
+      user_roles: makeTableBuilder(supabaseError('roles query failed')),
+    });
+
+    const { result } = renderHook(() => useCoursesManagement());
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    // The fetch fails loudly instead of quietly treating the user as
+    // non-admin and rendering a filtered (possibly empty) course list.
+    expect(result.current.error).toBe('roles query failed');
+    expect(result.current.courses).toEqual([]);
+    expect(toastMock).toHaveBeenCalledWith(
+      expect.objectContaining({ variant: 'destructive' })
+    );
+  });
+
   it('treats an empty course list as success, not an error', async () => {
     setupTables({
       courses: makeTableBuilder({ data: [], error: null }),

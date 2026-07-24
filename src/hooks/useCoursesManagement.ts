@@ -93,10 +93,18 @@ export function useCoursesManagement() {
       }));
 
       // Filter courses based on user role — read from user_roles (source of truth), not profiles.roles
-      const { data: roleRows } = await supabase
+      const { data: roleRows, error: rolesError } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', user.id);
+
+      if (rolesError) {
+        // Do NOT swallow this — a silent failure here made isAdmin false and
+        // filtered the course list to nothing for admins. Throwing routes it
+        // through the hook's error path (error state + destructive toast).
+        logger.error('Error fetching user roles:', rolesError);
+        throw rolesError;
+      }
 
       const isAdmin = (roleRows ?? []).some((r: { role: string }) => r.role === 'admin');
 
@@ -167,9 +175,9 @@ export function useCoursesManagement() {
         }
         result = data;
         
-        // Log the update action
+        // Log the update action (non-fatal telemetry — warn on failure)
         if (user) {
-          await supabase.rpc('log_audit_event', {
+          const { error: auditError } = await supabase.rpc('log_audit_event', {
             p_user_id: user.id,
             p_action: 'course_updated',
             p_table_name: 'courses',
@@ -177,6 +185,7 @@ export function useCoursesManagement() {
             p_old_values: oldData,
             p_new_values: result
           });
+          if (auditError) logger.warn('Failed to write course_updated audit event:', auditError);
         }
         
         logger.log('Course updated successfully:', result);
@@ -194,15 +203,16 @@ export function useCoursesManagement() {
         }
         result = data;
         
-        // Log the creation action
+        // Log the creation action (non-fatal telemetry — warn on failure)
         if (user) {
-          await supabase.rpc('log_audit_event', {
+          const { error: auditError } = await supabase.rpc('log_audit_event', {
             p_user_id: user.id,
             p_action: 'course_created',
             p_table_name: 'courses',
             p_record_id: result.id,
             p_new_values: result
           });
+          if (auditError) logger.warn('Failed to write course_created audit event:', auditError);
         }
         
         logger.log('Course created successfully:', result);
@@ -220,9 +230,9 @@ export function useCoursesManagement() {
     } catch (err: any) {
       logger.error('Error saving course:', err);
       
-      // Log security event for failed operations
+      // Log security event for failed operations (non-fatal telemetry)
       if (user) {
-        await supabase.rpc('log_security_event', {
+        const { error: securityLogError } = await supabase.rpc('log_security_event', {
           p_user_id: user.id,
           p_event_type: 'course_save_failed',
           p_severity: 'error',
@@ -232,6 +242,7 @@ export function useCoursesManagement() {
             error: err.message
           }
         });
+        if (securityLogError) logger.warn('Failed to write course_save_failed security event:', securityLogError);
       }
       
       toast({
@@ -260,14 +271,15 @@ export function useCoursesManagement() {
 
       if (error) throw error;
 
-      // Log the deletion action
+      // Log the deletion action (non-fatal telemetry — warn on failure)
       if (user) {
-        await supabase.rpc('log_audit_event', {
+        const { error: auditError } = await supabase.rpc('log_audit_event', {
           p_user_id: user.id,
           p_action: 'course_deleted',
           p_table_name: 'courses',
           p_record_id: courseId
         });
+        if (auditError) logger.warn('Failed to write course_deleted audit event:', auditError);
       }
 
       // Refresh courses list
@@ -299,14 +311,15 @@ export function useCoursesManagement() {
 
       if (error) throw error;
 
-      // Log the publish action
+      // Log the publish action (non-fatal telemetry — warn on failure)
       if (user) {
-        await supabase.rpc('log_audit_event', {
+        const { error: auditError } = await supabase.rpc('log_audit_event', {
           p_user_id: user.id,
           p_action: 'course_published',
           p_table_name: 'courses',
           p_record_id: courseId
         });
+        if (auditError) logger.warn('Failed to write course_published audit event:', auditError);
       }
 
       await fetchCourses();
@@ -337,14 +350,15 @@ export function useCoursesManagement() {
 
       if (error) throw error;
 
-      // Log the unpublish action
+      // Log the unpublish action (non-fatal telemetry — warn on failure)
       if (user) {
-        await supabase.rpc('log_audit_event', {
+        const { error: auditError } = await supabase.rpc('log_audit_event', {
           p_user_id: user.id,
           p_action: 'course_unpublished',
           p_table_name: 'courses',
           p_record_id: courseId
         });
+        if (auditError) logger.warn('Failed to write course_unpublished audit event:', auditError);
       }
 
       await fetchCourses();

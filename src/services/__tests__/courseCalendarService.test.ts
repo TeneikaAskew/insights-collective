@@ -81,6 +81,7 @@ const fixtureCustomEvents = [
     title: 'Office Hours',
     description: 'Weekly office hours',
     date: '2026-03-03T00:00:00Z',
+    end_time: '2026-03-03T01:00:00Z',
     location: null,
     link: 'https://zoom.us/j/1',
     zoom_meeting_id: 123,
@@ -149,10 +150,12 @@ describe('courseCalendarService', () => {
         expect.arrayContaining(['quiz-due-q1', 'quiz-unlock-q1', 'quiz-lock-q1'])
       );
 
-      // Custom event carries through its link/zoom fields
+      // Custom event carries through its link/zoom fields and maps the
+      // end_time column back to end_date (read/write symmetry)
       const custom = result.find(e => e.id === 'event-e1')!;
       expect(custom.link).toBe('https://zoom.us/j/1');
       expect(custom.zoom_meeting_id).toBe(123);
+      expect(custom.end_date).toBe('2026-03-03T01:00:00Z');
     });
 
     it('respects type filters and skips unrequested sources', async () => {
@@ -407,6 +410,20 @@ describe('courseCalendarService', () => {
         courseCalendarService.createCalendarEvent(input)
       ).rejects.toMatchObject({ message: 'insert failed' });
     });
+
+    it('REGRESSION: persists the end date to the end_time column, never end_date', async () => {
+      const builder = createBuilder({ data: { id: 'e9' }, error: null });
+      mockTables({ events: builder });
+
+      await courseCalendarService.createCalendarEvent({
+        ...input,
+        end_date: '2026-04-01T02:00:00Z',
+      });
+
+      const payload = builder.insert.mock.calls[0][0];
+      expect(payload.end_time).toBe('2026-04-01T02:00:00Z');
+      expect(payload).not.toHaveProperty('end_date');
+    });
   });
 
   describe('updateCalendarEvent', () => {
@@ -427,6 +444,21 @@ describe('courseCalendarService', () => {
       await expect(
         courseCalendarService.updateCalendarEvent('e1', { title: 'Renamed' })
       ).rejects.toMatchObject({ message: 'update failed' });
+    });
+
+    it('REGRESSION: writes the end date to the end_time column, never end_date (which does not exist and 400s)', async () => {
+      const builder = createBuilder({ data: { id: 'e1' }, error: null });
+      mockTables({ events: builder });
+
+      await courseCalendarService.updateCalendarEvent('e1', {
+        title: 'Renamed',
+        start_date: '2026-04-01T00:00:00Z',
+        end_date: '2026-04-01T02:00:00Z',
+      });
+
+      const payload = builder.update.mock.calls[0][0];
+      expect(payload.end_time).toBe('2026-04-01T02:00:00Z');
+      expect(payload).not.toHaveProperty('end_date');
     });
   });
 

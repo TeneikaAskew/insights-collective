@@ -95,15 +95,18 @@ export class CanvasContentService {
   }
 
   static async createContentItem(input: CreateContentItemInput): Promise<ContentItem> {
-    // Get the next position
-    const { data: existingItems } = await supabase
+    // Get the next position. Throw on failure — defaulting to position 0
+    // on error would silently reorder the module.
+    const { data: existingItems, error: positionError } = await supabase
       .from('content_items')
       .select('position')
       .eq('module_id', input.module_id)
       .order('position', { ascending: false })
       .limit(1);
 
-    const nextPosition = existingItems && existingItems.length > 0 
+    if (positionError) throw positionError;
+
+    const nextPosition = existingItems && existingItems.length > 0
       ? existingItems[0].position + 1 
       : 0;
 
@@ -263,13 +266,16 @@ export class CanvasContentService {
   }
 
   static async createModule(courseId: string, title: string): Promise<Module> {
-    // Find the next position at the end of the list
-    const { data: existing } = await supabase
+    // Find the next position at the end of the list. Throw on failure —
+    // defaulting to position 0 on error would silently reorder the course.
+    const { data: existing, error: positionError } = await supabase
       .from('modules')
       .select('position')
       .eq('course_id', courseId)
       .order('position', { ascending: false })
       .limit(1);
+
+    if (positionError) throw positionError;
 
     const nextPosition =
       existing && existing.length > 0 ? (existing[0].position ?? 0) + 1 : 0;
@@ -367,13 +373,16 @@ export class CanvasContentService {
     quizId: string,
     question: Omit<QuizQuestion, 'id' | 'quiz_id' | 'created_at' | 'updated_at'>
   ): Promise<QuizQuestion> {
-    // Get next position
-    const { data: existingQuestions } = await supabase
+    // Get next position. Throw on failure — defaulting to position 0 on
+    // error would silently reorder the quiz.
+    const { data: existingQuestions, error: positionError } = await supabase
       .from('quiz_questions')
       .select('position')
       .eq('quiz_id', quizId)
       .order('position', { ascending: false })
       .limit(1);
+
+    if (positionError) throw positionError;
 
     const nextPosition = existingQuestions && existingQuestions.length > 0
       ? existingQuestions[0].position + 1
@@ -402,13 +411,17 @@ export class CanvasContentService {
       url?: string;
     }
   ): Promise<AssignmentSubmission> {
-    const { data: existingSubmission } = await supabase
+    // A failed attempt probe must throw — defaulting to attempt 1 on error
+    // would insert a duplicate first attempt for the student.
+    const { data: existingSubmission, error: attemptError } = await supabase
       .from('assignment_submissions')
       .select('attempt')
       .eq('assignment_id', assignmentId)
       .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
       .order('attempt', { ascending: false })
       .limit(1);
+
+    if (attemptError) throw attemptError;
 
     const nextAttempt = existingSubmission && existingSubmission.length > 0
       ? existingSubmission[0].attempt + 1

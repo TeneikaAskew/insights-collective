@@ -3,7 +3,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { CanvasContentService } from '../canvasContentService';
-import { mockSupabaseClient, supabaseError } from '@/test/mocks/supabase';
+import { mockSupabaseClient, supabaseError, getQueryBuilder } from '@/test/mocks/supabase';
 
 describe('CanvasContentService', () => {
   beforeEach(() => {
@@ -435,6 +435,75 @@ describe('CanvasContentService', () => {
       await expect(
         CanvasContentService.publishContentItem('ci-1')
       ).rejects.toMatchObject({ message: 'db down' });
+    });
+  });
+
+  describe('probe failures (regressions)', () => {
+    it('createContentItem rejects when the next-position probe fails and does NOT insert at position 0', async () => {
+      const builder = getQueryBuilder();
+      builder.limit.mockResolvedValue(supabaseError('position probe failed'));
+
+      await expect(
+        CanvasContentService.createContentItem({
+          course_id: 'c1',
+          module_id: 'm1',
+          type: 'page',
+          title: 'New Page',
+          content: 'Content here'
+        })
+      ).rejects.toMatchObject({ message: 'position probe failed' });
+
+      expect(builder.insert).not.toHaveBeenCalled();
+    });
+
+    it('createModule rejects when the next-position probe fails and does NOT insert at position 0', async () => {
+      const builder = getQueryBuilder();
+      builder.limit.mockResolvedValue(supabaseError('position probe failed'));
+
+      await expect(
+        CanvasContentService.createModule('c1', 'Module 1')
+      ).rejects.toMatchObject({ message: 'position probe failed' });
+
+      expect(builder.insert).not.toHaveBeenCalled();
+    });
+
+    it('addQuizQuestion rejects when the next-position probe fails and does NOT insert at position 0', async () => {
+      const builder = getQueryBuilder();
+      builder.limit.mockResolvedValue(supabaseError('position probe failed'));
+
+      await expect(
+        CanvasContentService.addQuizQuestion('q1', {
+          question_type: 'multiple_choice',
+          question_text: 'New question?',
+          points: 10,
+          answers: [],
+          position: 0,
+          correct_comments: '',
+          incorrect_comments: '',
+          neutral_comments: ''
+        })
+      ).rejects.toMatchObject({ message: 'position probe failed' });
+
+      expect(builder.insert).not.toHaveBeenCalled();
+    });
+
+    it('submitAssignment rejects when the attempt probe fails and does NOT insert attempt 1', async () => {
+      mockSupabaseClient.auth.getUser.mockResolvedValue({
+        data: { user: { id: 'u1' } },
+        error: null
+      });
+
+      const builder = getQueryBuilder();
+      builder.limit.mockResolvedValue(supabaseError('attempt probe failed'));
+
+      await expect(
+        CanvasContentService.submitAssignment('a1', {
+          submission_type: 'online_text_entry',
+          body: 'My submission'
+        })
+      ).rejects.toMatchObject({ message: 'attempt probe failed' });
+
+      expect(builder.insert).not.toHaveBeenCalled();
     });
   });
 });

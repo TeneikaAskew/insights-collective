@@ -133,13 +133,21 @@ export const useCreatePost = (threadId: string) => {
         .single();
 
       if (error) throw error;
-      
-      // Also update the thread's updated_at timestamp
-      await supabase
+
+      // Also update the thread's updated_at timestamp. The post already
+      // exists at this point, so surface a partial-failure error naming the
+      // thread-timestamp update instead of silently swallowing it.
+      const { error: threadUpdateError } = await supabase
         .from('threads')
         .update({ updated_at: new Date().toISOString() })
         .eq('id', threadId);
-        
+
+      if (threadUpdateError) {
+        throw new Error(
+          `Reply was posted, but updating the thread timestamp failed: ${threadUpdateError.message}`
+        );
+      }
+
       return data;
     },
     onSuccess: () => {
@@ -309,13 +317,17 @@ export const useMarkThreadAsRead = () => {
         throw new Error("Missing required parameters");
       }
 
-      // Check if there's already a read status entry
-      const { data: existingStatus } = await supabase
+      // Check if there's already a read status entry. maybeSingle keeps
+      // "no row" clean (null data, null error); a real probe error must throw
+      // instead of being treated as "no entry" and triggering an insert.
+      const { data: existingStatus, error: statusError } = await supabase
         .from('thread_read_status')
         .select('*')
         .eq('thread_id', threadId)
         .eq('user_id', userId)
         .maybeSingle();
+
+      if (statusError) throw statusError;
 
       if (existingStatus) {
         // Update existing entry

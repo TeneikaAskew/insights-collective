@@ -272,13 +272,17 @@ class ContentDiscussionService {
     userId: string
   ): Promise<boolean> {
     try {
-      // Check if already upvoted
-      const { data: existing } = await supabase
+      // Check if already upvoted. maybeSingle keeps "not upvoted" clean
+      // (null data, null error); a real error must throw — treating it as
+      // "not upvoted" used to insert duplicate upvote rows.
+      const { data: existing, error: checkError } = await supabase
         .from('content_discussion_upvotes')
         .select('id')
         .eq('discussion_id', discussionId)
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
+
+      if (checkError) throw checkError;
 
       if (existing) {
         // Remove upvote

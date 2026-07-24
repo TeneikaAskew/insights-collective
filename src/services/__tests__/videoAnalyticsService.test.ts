@@ -47,7 +47,7 @@ describe('videoAnalyticsService', () => {
   describe('getOrCreateAnalytics', () => {
     it('returns the existing record when one is found', async () => {
       const existing = makeVideoAnalytics();
-      getQueryBuilder().single.mockResolvedValueOnce({
+      getQueryBuilder().maybeSingle.mockResolvedValueOnce({
         data: existing,
         error: null,
       });
@@ -64,9 +64,9 @@ describe('videoAnalyticsService', () => {
     it('creates a new record when none exists', async () => {
       const created = makeVideoAnalytics({ play_count: 1, watch_time: 0 });
       const builder = getQueryBuilder();
-      builder.single
-        .mockResolvedValueOnce({ data: null, error: notFoundError })
-        .mockResolvedValueOnce({ data: created, error: null });
+      // maybeSingle: "no row" is a clean null-data/null-error result
+      builder.maybeSingle.mockResolvedValueOnce({ data: null, error: null });
+      builder.single.mockResolvedValueOnce({ data: created, error: null });
 
       const result = await videoAnalyticsService.getOrCreateAnalytics(
         'user-1',
@@ -85,13 +85,23 @@ describe('videoAnalyticsService', () => {
 
     it('throws when the insert fails', async () => {
       const builder = getQueryBuilder();
-      builder.single
-        .mockResolvedValueOnce({ data: null, error: notFoundError })
-        .mockResolvedValueOnce(supabaseError('db down'));
+      builder.maybeSingle.mockResolvedValueOnce({ data: null, error: null });
+      builder.single.mockResolvedValueOnce(supabaseError('db down'));
 
       await expect(
         videoAnalyticsService.getOrCreateAnalytics('user-1', 'item-1')
       ).rejects.toMatchObject({ message: 'db down' });
+    });
+
+    it('REGRESSION: throws when the fetch probe fails and does NOT route into the insert branch', async () => {
+      const builder = getQueryBuilder();
+      builder.maybeSingle.mockResolvedValueOnce(supabaseError('fetch failed'));
+
+      await expect(
+        videoAnalyticsService.getOrCreateAnalytics('user-1', 'item-1')
+      ).rejects.toMatchObject({ message: 'fetch failed' });
+
+      expect(builder.insert).not.toHaveBeenCalled();
     });
   });
 
@@ -100,9 +110,8 @@ describe('videoAnalyticsService', () => {
       const existing = makeVideoAnalytics();
       const updated = makeVideoAnalytics({ watch_time: 200, play_count: 3 });
       const builder = getQueryBuilder();
-      builder.single
-        .mockResolvedValueOnce({ data: existing, error: null }) // getOrCreateAnalytics fetch
-        .mockResolvedValueOnce({ data: updated, error: null }); // update result
+      builder.maybeSingle.mockResolvedValueOnce({ data: existing, error: null }); // getOrCreateAnalytics fetch
+      builder.single.mockResolvedValueOnce({ data: updated, error: null }); // update result
 
       const result = await videoAnalyticsService.updateEngagement(
         'user-1',
@@ -118,9 +127,11 @@ describe('videoAnalyticsService', () => {
 
     it('throws when the update fails', async () => {
       const builder = getQueryBuilder();
-      builder.single
-        .mockResolvedValueOnce({ data: makeVideoAnalytics(), error: null })
-        .mockResolvedValueOnce(supabaseError('db down'));
+      builder.maybeSingle.mockResolvedValueOnce({
+        data: makeVideoAnalytics(),
+        error: null,
+      });
+      builder.single.mockResolvedValueOnce(supabaseError('db down'));
 
       await expect(
         videoAnalyticsService.updateEngagement('user-1', 'item-1', {
@@ -194,6 +205,16 @@ describe('videoAnalyticsService', () => {
       expect(builder.update).toHaveBeenCalledWith(
         expect.objectContaining({ completed: true, completion_percentage: 100 })
       );
+    });
+
+    it('REGRESSION: rejects when the update fails instead of logging success', async () => {
+      const builder = getQueryBuilder();
+      builder.eq.mockImplementationOnce(() => builder);
+      builder.eq.mockResolvedValueOnce(supabaseError('update failed'));
+
+      await expect(
+        videoAnalyticsService.markCompleted('user-1', 'item-1')
+      ).rejects.toMatchObject({ message: 'update failed' });
     });
   });
 

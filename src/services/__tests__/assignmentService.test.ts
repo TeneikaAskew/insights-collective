@@ -370,6 +370,31 @@ describe('assignmentService', () => {
         assignmentService.submitAssignment('a1', 'student-1', { text: 'x' })
       ).rejects.toMatchObject({ message: 'insert failed' });
     });
+
+    it('REGRESSION: rejects when the draft lookup fails and does NOT insert a duplicate submission', async () => {
+      const draftLookup = createBuilder(supabaseError('draft lookup failed'));
+      sequenceFrom(draftLookup);
+
+      await expect(
+        assignmentService.submitAssignment('a1', 'student-1', { text: 'x' })
+      ).rejects.toMatchObject({ message: 'draft lookup failed' });
+
+      // A transient draft-lookup failure must never fall through to a write
+      expect(draftLookup.insert).not.toHaveBeenCalled();
+      expect(draftLookup.update).not.toHaveBeenCalled();
+    });
+
+    it('REGRESSION: rejects when the attempt probe fails instead of defaulting to attempt 1', async () => {
+      const draftLookup = createBuilder({ data: null, error: null });
+      const attemptsLookup = createBuilder(supabaseError('attempt probe failed'));
+      sequenceFrom(draftLookup, attemptsLookup);
+
+      await expect(
+        assignmentService.submitAssignment('a1', 'student-1', { text: 'x' })
+      ).rejects.toMatchObject({ message: 'attempt probe failed' });
+
+      expect(attemptsLookup.insert).not.toHaveBeenCalled();
+    });
   });
 
   describe('getSubmission', () => {

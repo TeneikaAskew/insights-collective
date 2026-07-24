@@ -55,15 +55,19 @@ class VideoAnalyticsService {
     contentItemId: string
   ): Promise<VideoAnalytics> {
     try {
-      // Try to get existing record
+      // Try to get existing record. maybeSingle keeps "no row" clean (null
+      // data, null error); any error here is real and must throw — routing it
+      // into the insert branch used to attempt duplicate inserts on outages.
       const { data: existing, error: fetchError } = await supabase
         .from('video_analytics')
         .select('*')
         .eq('user_id', userId)
         .eq('content_item_id', contentItemId)
-        .single();
+        .maybeSingle();
 
-      if (existing && !fetchError) {
+      if (fetchError) throw fetchError;
+
+      if (existing) {
         return existing as VideoAnalytics;
       }
 
@@ -206,7 +210,7 @@ class VideoAnalyticsService {
     contentItemId: string
   ): Promise<void> {
     try {
-      await supabase
+      const { error } = await supabase
         .from('video_analytics')
         .update({
           completed: true,
@@ -215,6 +219,8 @@ class VideoAnalyticsService {
         })
         .eq('user_id', userId)
         .eq('content_item_id', contentItemId);
+
+      if (error) throw error;
 
       logger.info('Marked video as completed', { userId, contentItemId });
     } catch (error) {

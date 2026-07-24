@@ -188,7 +188,7 @@ export const courseCalendarService = {
     if (!filters?.types || filters.types.includes('event')) {
       const { data: customEvents, error: customEventsError } = await (supabase
         .from('events')
-        .select('id, title, description, date, location, link, zoom_meeting_id, zoom_start_url, zoom_recurrence') as any)
+        .select('id, title, description, date, end_time, location, link, zoom_meeting_id, zoom_start_url, zoom_recurrence') as any)
         .eq('course_id', courseId);
 
       if (customEventsError) throw customEventsError;
@@ -200,6 +200,7 @@ export const courseCalendarService = {
             title: e.title,
             description: e.description,
             start_date: e.date,
+            end_date: e.end_time || undefined,
             type: 'event',
             course_id: courseId,
             course_title: courseTitle,
@@ -282,6 +283,9 @@ export const courseCalendarService = {
         title: event.title,
         description: event.description || '',
         date: event.start_date,
+        // The events table stores the end of an event in end_time (there is
+        // no end_date column) — previously this input was silently dropped.
+        end_time: event.end_date,
         location: event.location,
         link: event.link,
         type: event.link ? 'virtual' : (event.event_type || 'event'),
@@ -306,7 +310,9 @@ export const courseCalendarService = {
         title: updates.title,
         description: updates.description,
         date: updates.start_date,
-        end_date: updates.end_date,
+        // The events table has end_time, NOT end_date — writing end_date
+        // made every update 400.
+        end_time: updates.end_date,
         location: updates.location,
       })
       .eq('id', eventId)
