@@ -7,13 +7,14 @@ import CertificationSystem from '@/components/certification/CertificationSystem'
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Award } from 'lucide-react';
+import CourseErrorState from '@/components/course/CourseErrorState';
 
 const CourseCertificate = () => {
   const { courseId } = useParams<{ courseId: string }>();
   const { user } = useAuth();
 
   // Check if course is completed
-  const { data: isCompleted, isLoading } = useQuery({
+  const { data: isCompleted, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['course-completion-check', courseId, user?.id],
     queryFn: async () => {
       if (!courseId || !user?.id) return false;
@@ -48,6 +49,22 @@ const CourseCertificate = () => {
         <div className="max-w-4xl mx-auto space-y-6">
           <Skeleton className="h-32 w-full" />
           <Skeleton className="h-64 w-full" />
+        </div>
+      </CourseLayout>
+    );
+  }
+
+  // A failed completion check is not a progress verdict — never present it as
+  // "not completed" (or "completed"). Show an explicit error with retry.
+  if (isError) {
+    return (
+      <CourseLayout>
+        <div className="max-w-4xl mx-auto space-y-6 pt-4">
+          <CourseErrorState
+            title="Couldn't check your course progress"
+            error={error}
+            onRetry={() => refetch()}
+          />
         </div>
       </CourseLayout>
     );

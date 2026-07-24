@@ -1,7 +1,7 @@
 // ABOUTME: Tests for the RubricEdit page — loading, loaded edit form,
 // ABOUTME: not-found, and query-error states.
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@/test/utils/test-utils';
+import { render, screen, fireEvent } from '@/test/utils/test-utils';
 import RubricEdit from '../RubricEdit';
 import { useRubric } from '@/hooks/useRubrics';
 
@@ -35,6 +35,7 @@ const rubricHookDefaults = {
   rubric: undefined,
   isLoading: false,
   error: null,
+  refetch: vi.fn(),
   createCriteria: vi.fn(),
   updateCriteria: vi.fn(),
   deleteCriteria: vi.fn(),
@@ -72,16 +73,23 @@ describe('RubricEdit', () => {
     expect(screen.queryByTestId('rubric-builder')).not.toBeInTheDocument();
   });
 
-  it('shows "Rubric not found" (not the edit form) when the rubric query errors', () => {
+  it('REGRESSION: a rubric query error shows an error + retry, not "Rubric not found"', () => {
+    const refetch = vi.fn();
     vi.mocked(useRubric).mockReturnValue({
       ...rubricHookDefaults,
       rubric: undefined,
       error: new Error('boom'),
+      refetch,
     } as any);
 
     render(<RubricEdit />);
 
-    expect(screen.getByText('Rubric not found')).toBeInTheDocument();
+    expect(screen.getByText('Failed to load rubric')).toBeInTheDocument();
+    expect(screen.getByText('boom')).toBeInTheDocument();
+    expect(screen.queryByText('Rubric not found')).not.toBeInTheDocument();
     expect(screen.queryByTestId('rubric-builder')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /retry/i }));
+    expect(refetch).toHaveBeenCalled();
   });
 });

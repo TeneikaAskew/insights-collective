@@ -1,7 +1,7 @@
 // ABOUTME: Tests for the CourseQuestionBanks page — loading, loaded bank list,
 // ABOUTME: empty list, and course-load-error states.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@/test/utils/test-utils';
+import { render, screen, fireEvent } from '@/test/utils/test-utils';
 import CourseQuestionBanks from '../CourseQuestionBanks';
 import { useCourseData } from '@/hooks/useCourseData';
 import { useQuestionBanks } from '@/hooks/useQuestionBanks';
@@ -42,6 +42,7 @@ const banksHookDefaults = {
   banks: [] as any[],
   isLoading: false,
   error: null,
+  refetch: vi.fn(),
   createBank: vi.fn(),
   updateBank: vi.fn(),
   deleteBank: vi.fn(),
@@ -86,7 +87,20 @@ describe('CourseQuestionBanks', () => {
     expect(screen.getByText(/No question banks created yet/i)).toBeInTheDocument();
   });
 
-  it('shows "Course not found" when the course fails to load', () => {
+  it('shows "Course not found" only when the course is genuinely missing (no error)', () => {
+    vi.mocked(useCourseData).mockReturnValue({
+      course: null,
+      isLoading: false,
+      error: null,
+    } as any);
+
+    render(<CourseQuestionBanks />);
+
+    expect(screen.getByText('Course not found')).toBeInTheDocument();
+    expect(screen.queryByText(/- Question Banks/)).not.toBeInTheDocument();
+  });
+
+  it('REGRESSION: a course fetch error shows the error state, not "Course not found"', () => {
     vi.mocked(useCourseData).mockReturnValue({
       course: null,
       isLoading: false,
@@ -95,7 +109,29 @@ describe('CourseQuestionBanks', () => {
 
     render(<CourseQuestionBanks />);
 
-    expect(screen.getByText('Course not found')).toBeInTheDocument();
+    expect(screen.getByText('Failed to load course')).toBeInTheDocument();
+    expect(screen.getByText('Failed to load course details')).toBeInTheDocument();
+    expect(screen.queryByText('Course not found')).not.toBeInTheDocument();
     expect(screen.queryByText(/- Question Banks/)).not.toBeInTheDocument();
+  });
+
+  it('REGRESSION: a banks query error shows an error + retry, not the empty state', () => {
+    vi.mocked(useCourseData).mockReturnValue({ course, isLoading: false, error: null } as any);
+    const refetch = vi.fn();
+    vi.mocked(useQuestionBanks).mockReturnValue({
+      ...banksHookDefaults,
+      banks: undefined,
+      error: new Error('banks fetch failed'),
+      refetch,
+    } as any);
+
+    render(<CourseQuestionBanks />);
+
+    expect(screen.getByText('Failed to load question banks')).toBeInTheDocument();
+    expect(screen.getByText('banks fetch failed')).toBeInTheDocument();
+    expect(screen.queryByText(/No question banks created yet/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /retry/i }));
+    expect(refetch).toHaveBeenCalled();
   });
 });

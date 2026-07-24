@@ -1,7 +1,7 @@
 // ABOUTME: Tests for the AssignmentDetail page — loading, loaded assignment,
 // ABOUTME: not-found, query-error, and logged-out states.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@/test/utils/test-utils';
+import { render, screen, fireEvent } from '@/test/utils/test-utils';
 import AssignmentDetail from '../AssignmentDetail';
 import { useAssignment, useSubmission, useSubmitAssignment } from '@/hooks/useAssignments';
 import { useAuth } from '@/contexts/AuthContext';
@@ -108,19 +108,47 @@ describe('AssignmentDetail', () => {
     ).toBeInTheDocument();
   });
 
-  it('falls back to the not-found copy when the assignment query errors', () => {
+  it('REGRESSION: a failed assignment query shows an error + retry, not "Assignment Not Found"', () => {
+    const refetch = vi.fn();
     vi.mocked(useAssignment).mockReturnValue({
       data: undefined,
       isLoading: false,
       isError: true,
       error: new Error('boom'),
+      refetch,
     } as any);
 
     render(<AssignmentDetail />);
 
-    // The page treats a failed load the same as a missing assignment
-    expect(screen.getByText('Assignment Not Found')).toBeInTheDocument();
+    expect(screen.getByText('Failed to load assignment')).toBeInTheDocument();
+    expect(screen.getByText('boom')).toBeInTheDocument();
+    expect(screen.queryByText('Assignment Not Found')).not.toBeInTheDocument();
     expect(screen.queryByTestId('assignment-submission')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /retry/i }));
+    expect(refetch).toHaveBeenCalled();
+  });
+
+  it('REGRESSION: a failed submission fetch blocks the submit form instead of showing it blank', () => {
+    vi.mocked(useAssignment).mockReturnValue({ data: assignment, isLoading: false } as any);
+    const refetch = vi.fn();
+    vi.mocked(useSubmission).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      error: new Error('submission fetch failed'),
+      refetch,
+    } as any);
+
+    render(<AssignmentDetail />);
+
+    // The submit form must NOT render — a blank form could overwrite existing work.
+    expect(screen.queryByTestId('assignment-submission')).not.toBeInTheDocument();
+    expect(screen.getByText('Failed to load your submission')).toBeInTheDocument();
+    expect(screen.getByText('submission fetch failed')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /retry/i }));
+    expect(refetch).toHaveBeenCalled();
   });
 
   it('asks the visitor to log in when there is no user', () => {

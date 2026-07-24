@@ -1,7 +1,7 @@
 // ABOUTME: Tests for the CourseRubrics page — loading, loaded rubric list,
 // ABOUTME: empty list, and course-load-error states.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@/test/utils/test-utils';
+import { render, screen, fireEvent } from '@/test/utils/test-utils';
 import CourseRubrics from '../CourseRubrics';
 import { useCourseData } from '@/hooks/useCourseData';
 import { useRubrics } from '@/hooks/useRubrics';
@@ -40,6 +40,7 @@ const rubricsHookDefaults = {
   rubrics: [] as any[],
   isLoading: false,
   error: null,
+  refetch: vi.fn(),
   createRubric: vi.fn(),
   updateRubric: vi.fn(),
   deleteRubric: vi.fn(),
@@ -85,7 +86,20 @@ describe('CourseRubrics', () => {
     expect(screen.getByText(/No rubrics created yet/i)).toBeInTheDocument();
   });
 
-  it('shows "Course not found" when the course fails to load', () => {
+  it('shows "Course not found" only when the course is genuinely missing (no error)', () => {
+    vi.mocked(useCourseData).mockReturnValue({
+      course: null,
+      isLoading: false,
+      error: null,
+    } as any);
+
+    render(<CourseRubrics />);
+
+    expect(screen.getByText('Course not found')).toBeInTheDocument();
+    expect(screen.queryByText(/- Rubrics/)).not.toBeInTheDocument();
+  });
+
+  it('REGRESSION: a course fetch error shows the error state, not "Course not found"', () => {
     vi.mocked(useCourseData).mockReturnValue({
       course: null,
       isLoading: false,
@@ -94,7 +108,29 @@ describe('CourseRubrics', () => {
 
     render(<CourseRubrics />);
 
-    expect(screen.getByText('Course not found')).toBeInTheDocument();
+    expect(screen.getByText('Failed to load course')).toBeInTheDocument();
+    expect(screen.getByText('Failed to load course details')).toBeInTheDocument();
+    expect(screen.queryByText('Course not found')).not.toBeInTheDocument();
     expect(screen.queryByText(/- Rubrics/)).not.toBeInTheDocument();
+  });
+
+  it('REGRESSION: a rubrics query error shows an error + retry, not the empty state', () => {
+    vi.mocked(useCourseData).mockReturnValue({ course, isLoading: false, error: null } as any);
+    const refetch = vi.fn();
+    vi.mocked(useRubrics).mockReturnValue({
+      ...rubricsHookDefaults,
+      rubrics: undefined,
+      error: new Error('rubrics fetch failed'),
+      refetch,
+    } as any);
+
+    render(<CourseRubrics />);
+
+    expect(screen.getByText('Failed to load rubrics')).toBeInTheDocument();
+    expect(screen.getByText('rubrics fetch failed')).toBeInTheDocument();
+    expect(screen.queryByText(/No rubrics created yet/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /retry/i }));
+    expect(refetch).toHaveBeenCalled();
   });
 });

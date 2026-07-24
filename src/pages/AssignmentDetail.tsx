@@ -7,6 +7,7 @@ import { useAssignment, useSubmission, useSubmitAssignment } from '@/hooks/useAs
 import { AssignmentSubmissionComponent } from '@/components/course/assignments/AssignmentSubmission';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import CourseErrorState from '@/components/course/CourseErrorState';
 
 const AssignmentDetail = () => {
   const { courseId, moduleId, assignmentId } = useParams<{ 
@@ -16,9 +17,21 @@ const AssignmentDetail = () => {
   }>();
   const { user } = useAuth();
   
-  const { data: assignment, isLoading: assignmentLoading } = useAssignment(assignmentId || '');
-  const { data: submission, isLoading: submissionLoading } = useSubmission(
-    assignmentId || '', 
+  const {
+    data: assignment,
+    isLoading: assignmentLoading,
+    isError: assignmentError,
+    error: assignmentErrorDetail,
+    refetch: refetchAssignment,
+  } = useAssignment(assignmentId || '');
+  const {
+    data: submission,
+    isLoading: submissionLoading,
+    isError: submissionError,
+    error: submissionErrorDetail,
+    refetch: refetchSubmission,
+  } = useSubmission(
+    assignmentId || '',
     user?.id || ''
   );
   const submitMutation = useSubmitAssignment();
@@ -45,6 +58,28 @@ const AssignmentDetail = () => {
     );
   }
   
+  // A failed query is not the same as a missing assignment — show an explicit
+  // error with a retry instead of the not-found copy.
+  if (assignmentError) {
+    return (
+      <CourseLayout>
+        <div className="max-w-4xl mx-auto py-12 space-y-4">
+          <CourseErrorState
+            title="Failed to load assignment"
+            error={assignmentErrorDetail}
+            onRetry={() => refetchAssignment()}
+          />
+          <Button variant="ghost" asChild>
+            <Link to={`/courses/${courseId}/modules/${moduleId}`}>
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              Back to Module
+            </Link>
+          </Button>
+        </div>
+      </CourseLayout>
+    );
+  }
+
   if (!assignment) {
     return (
       <CourseLayout>
@@ -77,6 +112,14 @@ const AssignmentDetail = () => {
               Please log in to view and submit assignments.
             </AlertDescription>
           </Alert>
+        ) : submissionError ? (
+          // Don't offer a blank submit form when we couldn't load the existing
+          // submission — the student could unknowingly overwrite their work.
+          <CourseErrorState
+            title="Failed to load your submission"
+            error={submissionErrorDetail}
+            onRetry={() => refetchSubmission()}
+          />
         ) : (
           <AssignmentSubmissionComponent
             assignment={assignment}

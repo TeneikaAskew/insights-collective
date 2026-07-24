@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 export const useQuestionBanks = (courseId?: string) => {
   const queryClient = useQueryClient();
 
-  const { data: banks, isLoading, error } = useQuery({
+  const { data: banks, isLoading, error, refetch } = useQuery({
     queryKey: ['question-banks', courseId],
     queryFn: () => questionBankService.getQuestionBanks(courseId!),
     enabled: !!courseId,
@@ -52,6 +52,7 @@ export const useQuestionBanks = (courseId?: string) => {
     banks,
     isLoading,
     error,
+    refetch,
     createBank: createBankMutation.mutate,
     updateBank: updateBankMutation.mutate,
     deleteBank: deleteBankMutation.mutate,

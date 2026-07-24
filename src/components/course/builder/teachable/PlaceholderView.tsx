@@ -20,7 +20,10 @@ export function PlaceholderView({ courseTitle, title, description }: Placeholder
         className="rounded-xl bg-white p-12 text-center"
         style={{ border: '1px dashed hsl(var(--tw-border))' }}
       >
-        <p className="text-gray-500 max-w-md mx-auto">{description}</p>
+        <h3 className="text-xl font-semibold text-gray-900 mb-3">
+          This feature is not available yet
+        </h3>
+        <p className="text-sm text-gray-500 max-w-md mx-auto">{description}</p>
         <p className="text-xs text-gray-400 mt-3">Coming soon in this workspace.</p>
       </div>
     </div>

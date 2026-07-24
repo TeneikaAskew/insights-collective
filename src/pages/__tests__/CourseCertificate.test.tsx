@@ -3,7 +3,7 @@
 
 import React from 'react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import CourseCertificate from '@/pages/CourseCertificate';
 import { mockSupabaseClient } from '@/test/mocks/supabase';
@@ -132,7 +132,7 @@ describe('CourseCertificate page', () => {
     expect(screen.getByTestId('certification-system')).toHaveTextContent('mode:issue');
   });
 
-  it('REGRESSION: an RPC error must not be presented as a completed course', async () => {
+  it('REGRESSION: an RPC error renders an error + retry, never a completion verdict', async () => {
     rpcMock.mockResolvedValue({
       data: null,
       error: { message: 'connection refused', code: 'PGRST000', details: '', hint: '' },
@@ -140,15 +140,40 @@ describe('CourseCertificate page', () => {
 
     renderPage();
 
-    // The query rejects (the page throws on RPC error), so loading must end...
-    await waitFor(() =>
-      expect(screen.queryByText('Achievement unlocked')).toBeInTheDocument()
-    );
+    // The failed check surfaces as an explicit error state with a retry...
+    expect(
+      await screen.findByText("Couldn't check your course progress")
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
     // ...and under no circumstances may a failed completion check claim the
-    // certificate is ready.
+    // certificate is ready...
     expect(screen.queryByText('Your certificate is ready')).not.toBeInTheDocument();
     expect(screen.queryByText(/download, share, or verify/i)).not.toBeInTheDocument();
-    // The page falls back to the neutral, non-completed framing.
-    expect(screen.getByText('Course certificate')).toBeInTheDocument();
+    // ...NOR may it be presented as a "not completed" verdict.
+    expect(
+      screen.queryByText(/you must complete all course requirements/i)
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/finish every required lesson/i)
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Course certificate')).not.toBeInTheDocument();
+  });
+
+  it('retries the completion check when the error-state Retry button is clicked', async () => {
+    rpcMock.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'connection refused', code: 'PGRST000', details: '', hint: '' },
+    });
+    rpcMock.mockResolvedValue({ data: true, error: null });
+
+    renderPage();
+
+    const retry = await screen.findByRole('button', { name: /retry/i });
+    fireEvent.click(retry);
+
+    expect(await screen.findByText('Your certificate is ready')).toBeInTheDocument();
+    expect(
+      screen.queryByText("Couldn't check your course progress")
+    ).not.toBeInTheDocument();
   });
 });

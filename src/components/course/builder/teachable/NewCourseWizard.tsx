@@ -1,5 +1,5 @@
-// ABOUTME: 5-step Teachable-style new-course wizard.
-// ABOUTME: Steps: about, thumbnail, pricing (choice only, no gateway), outline method, confirm.
+// ABOUTME: 4-step Teachable-style new-course wizard.
+// ABOUTME: Steps: about, thumbnail, outline method, confirm. (Pricing was removed — nothing consumed it.)
 
 import { useState } from 'react';
 import { X, Upload, Check } from 'lucide-react';
@@ -9,7 +9,6 @@ export interface NewCourseWizardResult {
   title: string;
   description: string;
   thumbnailFile?: File | null;
-  pricingChoice: 'one_time' | 'payment_plan' | 'subscription' | 'free' | 'unknown';
   outlineMethod: 'ai' | 'scratch' | 'bulk' | 'copy';
   aiDescription?: string;
 }
@@ -20,7 +19,7 @@ interface NewCourseWizardProps {
   onFinish: (result: NewCourseWizardResult) => Promise<void>;
 }
 
-const STEPS = ['About', 'Thumbnail', 'Pricing', 'Outline', 'Confirm'] as const;
+const STEPS = ['About', 'Thumbnail', 'Outline', 'Confirm'] as const;
 
 export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardProps) {
   const [step, setStep] = useState(0);
@@ -29,8 +28,6 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
-  const [pricingChoice, setPricingChoice] =
-    useState<NewCourseWizardResult['pricingChoice']>('unknown');
   const [outlineMethod, setOutlineMethod] =
     useState<NewCourseWizardResult['outlineMethod']>('ai');
   const [aiDescription, setAiDescription] = useState('');
@@ -39,7 +36,7 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
 
   const canContinue = () => {
     if (step === 0) return title.trim().length > 0;
-    if (step === 3 && outlineMethod === 'ai') return aiDescription.trim().length > 10;
+    if (step === 2 && outlineMethod === 'ai') return aiDescription.trim().length > 10;
     return true;
   };
 
@@ -50,7 +47,6 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
         title: title.trim(),
         description: description.trim(),
         thumbnailFile,
-        pricingChoice,
         outlineMethod,
         aiDescription: aiDescription.trim(),
       });
@@ -178,51 +174,6 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
 
           {step === 2 && (
             <div>
-              <h2 className="font-display text-4xl text-center mb-2">Set a price</h2>
-              <p className="text-center text-sm text-gray-600 mb-8">
-                You can always change this later.
-              </p>
-              <div className="space-y-3">
-                {(
-                  [
-                    ['one_time', 'One time purchase', 'Your customer pays once'],
-                    ['payment_plan', 'Payment plan', 'Set a fixed number of monthly payments'],
-                    ['subscription', 'Subscription', 'Set up recurring payments'],
-                    ['free', 'Free', 'Allow access to your content free of charge'],
-                    ['unknown', "I don't know yet", 'Skip this step for now'],
-                  ] as const
-                ).map(([value, label, sub]) => {
-                  const active = pricingChoice === value;
-                  return (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => setPricingChoice(value)}
-                      className="w-full rounded-lg px-5 py-4 text-center transition-colors relative"
-                      style={{
-                        border: active ? '2px solid #111' : '1px solid hsl(var(--tw-border))',
-                        background: '#FAFAFA',
-                      }}
-                    >
-                      {active && (
-                        <div
-                          className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center"
-                          style={{ background: '#111', color: '#fff' }}
-                        >
-                          <Check className="h-3 w-3" strokeWidth={3} />
-                        </div>
-                      )}
-                      <div className="font-sans text-xl">{label}</div>
-                      <div className="text-xs text-gray-500 mt-0.5">{sub}</div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {step === 3 && (
-            <div>
               <h2 className="font-display text-4xl text-center mb-2">Outline your course</h2>
               <p className="text-center text-sm text-gray-600 mb-8">
                 Choose a method below to create your course curriculum.
@@ -296,7 +247,7 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
             </div>
           )}
 
-          {step === 4 && (
+          {step === 3 && (
             <div className="text-center">
               <h2 className="font-display text-4xl mb-4">You're all set</h2>
               <p className="text-sm text-gray-600 mb-8">
@@ -309,7 +260,6 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
                 <SummaryRow k="Title" v={title} />
                 {description && <SummaryRow k="Description" v={truncate(description, 80)} />}
                 <SummaryRow k="Thumbnail" v={thumbnailFile ? thumbnailFile.name : 'Add later'} />
-                <SummaryRow k="Pricing" v={prettyPricing(pricingChoice)} />
                 <SummaryRow k="Outline" v={prettyOutline(outlineMethod)} />
               </div>
             </div>
@@ -346,7 +296,7 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
             ? 'Creating…'
             : step === STEPS.length - 1
             ? 'Create course'
-            : step === 3
+            : step === 2
             ? 'Finish'
             : 'Continue'}
         </button>
@@ -385,21 +335,6 @@ function SummaryRow({ k, v }: { k: string; v: string }) {
 
 function truncate(s: string, n: number) {
   return s.length > n ? s.slice(0, n - 1) + '…' : s;
-}
-
-function prettyPricing(p: NewCourseWizardResult['pricingChoice']) {
-  switch (p) {
-    case 'one_time':
-      return 'One time purchase';
-    case 'payment_plan':
-      return 'Payment plan';
-    case 'subscription':
-      return 'Subscription';
-    case 'free':
-      return 'Free';
-    default:
-      return 'Decide later';
-  }
 }
 
 function prettyOutline(o: NewCourseWizardResult['outlineMethod']) {

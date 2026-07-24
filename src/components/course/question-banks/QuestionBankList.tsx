@@ -17,6 +17,7 @@ import { QuestionBank } from '@/types/course';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import CourseErrorState from '@/components/course/CourseErrorState';
 
 interface QuestionBankListProps {
   courseId: string;
@@ -27,7 +28,7 @@ export const QuestionBankList: React.FC<QuestionBankListProps> = ({
   courseId, 
   onSelectBank 
 }) => {
-  const { banks, isLoading, createBank, updateBank, deleteBank } = useQuestionBanks(courseId);
+  const { banks, isLoading, error, refetch, createBank, updateBank, deleteBank } = useQuestionBanks(courseId);
   const { user } = useAuth();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editingBank, setEditingBank] = useState<QuestionBank | null>(null);
@@ -80,6 +81,17 @@ export const QuestionBankList: React.FC<QuestionBankListProps> = ({
 
   if (isLoading) {
     return <div>Loading question banks...</div>;
+  }
+
+  // A failed fetch must not masquerade as "no question banks created yet".
+  if (error) {
+    return (
+      <CourseErrorState
+        title="Failed to load question banks"
+        error={error}
+        onRetry={() => refetch?.()}
+      />
+    );
   }
 
   return (

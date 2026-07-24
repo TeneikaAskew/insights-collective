@@ -2,7 +2,7 @@
 // ABOUTME: Persists into courses.settings.certificate JSON.
 
 import { useState } from 'react';
-import { Award } from 'lucide-react';
+import { Award, Info } from 'lucide-react';
 import type { BuilderCourse, CourseSettings } from './types';
 
 interface CourseCertificatesViewProps {
@@ -52,6 +52,24 @@ export function CourseCertificatesView({ course, onSave }: CourseCertificatesVie
       </div>
 
       <div className="space-y-6 bg-white rounded-xl border border-border p-6">
+        {/* Persistent honesty notice: these settings save, but nothing consumes
+            them yet — issuance is automatic and the issued PDF uses standard copy. */}
+        <div
+          role="note"
+          className="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900"
+        >
+          <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="font-semibold">Custom certificate text is not applied yet</p>
+            <p className="mt-1">
+              Certificates are issued automatically when a student completes every published
+              item in this course. The title and body you save here are stored, but they are
+              not yet applied to issued certificates — students currently receive the standard
+              certificate design.
+            </p>
+          </div>
+        </div>
+
         <label className="flex items-start gap-3 cursor-pointer">
           <input
             type="checkbox"

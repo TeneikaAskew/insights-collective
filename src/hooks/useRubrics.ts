@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 export const useRubrics = (courseId?: string) => {
   const queryClient = useQueryClient();
 
-  const { data: rubrics, isLoading, error } = useQuery({
+  const { data: rubrics, isLoading, error, refetch } = useQuery({
     queryKey: ['rubrics', courseId],
     queryFn: () => rubricService.getRubricsByCourse(courseId!),
     enabled: !!courseId,
@@ -51,6 +51,7 @@ export const useRubrics = (courseId?: string) => {
     rubrics,
     isLoading,
     error,
+    refetch,
     createRubric: createRubricMutation.mutate,
     updateRubric: updateRubricMutation.mutate,
     deleteRubric: deleteRubricMutation.mutate,
@@ -60,7 +61,7 @@ export const useRubrics = (courseId?: string) => {
 export const useRubric = (rubricId?: string) => {
   const queryClient = useQueryClient();
 
-  const { data: rubric, isLoading, error } = useQuery({
+  const { data: rubric, isLoading, error, refetch } = useQuery({
     queryKey: ['rubric', rubricId],
     queryFn: () => rubricService.getRubric(rubricId!),
     enabled: !!rubricId,
@@ -116,6 +117,7 @@ export const useRubric = (rubricId?: string) => {
     rubric,
     isLoading,
     error,
+    refetch,
     createCriteria: createCriteriaMutation.mutate,
     updateCriteria: updateCriteriaMutation.mutate,
     deleteCriteria: deleteCriteriaMutation.mutate,
