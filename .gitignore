@@ -37,3 +37,6 @@ test-results/
 
 # Supabase CLI cache
 supabase/.temp/
+
+# Generated test coverage reports
+coverage/
