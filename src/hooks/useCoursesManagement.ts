@@ -44,7 +44,7 @@ export function useCoursesManagement() {
         .order('created_at', { ascending: false });
 
       if (coursesError) {
-        logger.error('Error fetching courses:', coursesError);
+        logger.warn('Error fetching courses:', coursesError);
         throw coursesError;
       }
 
