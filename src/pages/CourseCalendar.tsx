@@ -238,10 +238,13 @@ const CourseCalendar = () => {
   };
 
   const handleEventClick = (event: CourseCalendarEvent) => {
-    if (event.type === 'assignment' && event.related_id)
-      navigate(`/courses/${courseId}/assignments/${event.related_id}`);
-    else if (event.type === 'quiz' && event.related_id)
-      navigate(`/courses/${courseId}/quizzes/${event.related_id}`);
+    // The old deep links (`/courses/:id/assignments/:relatedId` and
+    // `/courses/:id/quizzes/:relatedId`) are not registered routes — both
+    // 404'd. related_id only carries the assignment/quiz id (no module id),
+    // so link to the real course sections instead: quiz-taking routes need a
+    // module id we can't resolve from calendar data alone.
+    if (event.type === 'assignment') navigate(`/courses/${courseId}/assignments`);
+    else if (event.type === 'quiz') navigate(`/courses/${courseId}/modules`);
     else setSelectedEvent(event);
   };
 

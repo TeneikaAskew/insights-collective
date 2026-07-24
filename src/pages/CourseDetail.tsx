@@ -20,7 +20,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { isEnrolledInCourse, addEnrolledCourse, isWishlistedCourse, toggleWishlistedCourse, generatePersistentUUID, isValidUUID } from '@/utils/idUtils';
 import { Course } from '@/types';
-import { useForums } from '@/hooks/useForums';
 import { useCoursePermissions } from '@/hooks/useCoursePermissions';
 import { useCourseProgress } from '@/hooks/useCourseProgress';
 import { EditCourseButton } from '@/components/course/EditCourseButton';
@@ -63,6 +62,21 @@ const CourseDetail = () => {
   // People (enrolled students) state
   const [people, setPeople] = useState<Array<{ user_id: string; first_name: string | null; last_name: string | null; avatar_url: string | null; completion_status: number | null; enrolled_at: string | null }>>([]);
   const [peopleLoading, setPeopleLoading] = useState(false);
+  const [peopleError, setPeopleError] = useState<string | null>(null);
+
+  // Grades (signed-in student's graded work) state
+  interface GradeRow {
+    key: string;
+    kind: 'assignment' | 'quiz';
+    title: string;
+    score: number | null;
+    points: number | null;
+    gradedAt: string | null;
+    comments: string | null;
+  }
+  const [gradeRows, setGradeRows] = useState<GradeRow[]>([]);
+  const [gradesLoading, setGradesLoading] = useState(false);
+  const [gradesError, setGradesError] = useState<string | null>(null);
 
   const navigate = useNavigate();
   const { openThread, opening: openingThread } = useCourseThread();
@@ -74,9 +88,6 @@ const CourseDetail = () => {
   const currentSection = location.pathname.split('/').pop() || 'home';
   const isMainCourse = currentSection === courseId;
   
-  // Always call useForums with courseId (which might be undefined)
-  // The hook itself will handle the case when courseId is undefined
-  const { forums, isLoadingForums } = useForums(courseId);
   const { canEdit, isAdmin, isInstructor } = useCoursePermissions(courseId);
 
   // Load announcements. Failures are surfaced as an inline error in the
@@ -107,10 +118,12 @@ const CourseDetail = () => {
     if (currentSection === 'announcements') void fetchAnnouncements();
   }, [courseId, currentSection]);
 
-  // Load enrolled people
+  // Load enrolled people. Failures surface as an inline error with retry in
+  // the People tab — never as a fake "No students enrolled yet." empty state.
   const fetchPeople = async () => {
     if (!courseId) return;
     setPeopleLoading(true);
+    setPeopleError(null);
     try {
       const { data: enr, error: enrErr } = await supabase
         .from('enrollments')
@@ -123,10 +136,13 @@ const CourseDetail = () => {
         setPeople([]);
         return;
       }
-      const { data: profs } = await supabase
+      // A failed profiles lookup would render every student with a blank
+      // name — treat it as a roster load failure, not a partial success.
+      const { data: profs, error: profsErr } = await supabase
         .from('profiles')
         .select('id, first_name, last_name, avatar_url')
         .in('id', userIds);
+      if (profsErr) throw profsErr;
       const byId = new Map((profs || []).map((p: any) => [p.id, p]));
       setPeople(
         (enr || []).map((e: any) => {
@@ -141,9 +157,10 @@ const CourseDetail = () => {
           };
         })
       );
-    } catch (err) {
-      logger.warn('Failed to load people:', err);
+    } catch (err: any) {
+      logger.error('Failed to load people:', err);
       setPeople([]);
+      setPeopleError(err?.message || 'Failed to load enrolled students');
     } finally {
       setPeopleLoading(false);
     }
@@ -152,6 +169,106 @@ const CourseDetail = () => {
   useEffect(() => {
     if (currentSection === 'people') void fetchPeople();
   }, [courseId, currentSection]);
+
+  // Load the signed-in student's graded work for this course: graded
+  // assignment submissions plus scored quiz submissions (quizzes resolve to
+  // the course through content_items, same as the gradebook).
+  const fetchGrades = async () => {
+    if (!courseId || !user?.id) return;
+    setGradesLoading(true);
+    setGradesError(null);
+    try {
+      const { data: assignmentRows, error: assignErr } = await supabase
+        .from('assignments')
+        .select('id, title, points')
+        .eq('course_id', courseId);
+      if (assignErr) throw assignErr;
+
+      const { data: quizRows, error: quizErr } = await supabase
+        .from('quizzes')
+        .select('id, title, points_possible, content_items!inner(course_id)')
+        .eq('content_items.course_id', courseId);
+      if (quizErr) throw quizErr;
+
+      const assignmentIds = (assignmentRows || []).map((a: any) => a.id);
+      const quizIds = (quizRows || []).map((q: any) => q.id);
+      const rows: GradeRow[] = [];
+
+      if (assignmentIds.length > 0) {
+        const { data: subs, error: subsErr } = await supabase
+          .from('assignment_submissions')
+          .select('id, assignment_id, grade, score, graded_at, grader_comments, workflow_state')
+          .eq('user_id', user.id)
+          .in('assignment_id', assignmentIds);
+        if (subsErr) throw subsErr;
+
+        const byAssignment = new Map((assignmentRows || []).map((a: any) => [a.id, a]));
+        (subs || []).forEach((s: any) => {
+          const graded = s.workflow_state === 'graded' || (s.grade !== null && s.grade !== undefined);
+          if (!graded) return;
+          const assignment = byAssignment.get(s.assignment_id);
+          rows.push({
+            key: `assignment-${s.id}`,
+            kind: 'assignment',
+            title: assignment?.title || 'Assignment',
+            score: s.grade ?? s.score ?? null,
+            points: assignment?.points ?? null,
+            gradedAt: s.graded_at ?? null,
+            comments: s.grader_comments ?? null,
+          });
+        });
+      }
+
+      if (quizIds.length > 0) {
+        const { data: quizSubs, error: quizSubsErr } = await supabase
+          .from('quiz_submissions')
+          .select('id, quiz_id, score, kept_score, attempt, finished_at')
+          .eq('user_id', user.id)
+          .in('quiz_id', quizIds);
+        if (quizSubsErr) throw quizSubsErr;
+
+        // Keep the latest scored attempt per quiz (mirrors the gradebook).
+        const latestByQuiz = new Map<string, any>();
+        (quizSubs || []).forEach((qs: any) => {
+          const score = qs.kept_score ?? qs.score;
+          if (score === null || score === undefined) return;
+          const existing = latestByQuiz.get(qs.quiz_id);
+          if (!existing || (qs.attempt ?? 0) > (existing.attempt ?? 0)) {
+            latestByQuiz.set(qs.quiz_id, qs);
+          }
+        });
+        const byQuiz = new Map((quizRows || []).map((q: any) => [q.id, q]));
+        latestByQuiz.forEach((qs) => {
+          const quiz = byQuiz.get(qs.quiz_id);
+          rows.push({
+            key: `quiz-${qs.id}`,
+            kind: 'quiz',
+            title: quiz?.title || 'Quiz',
+            score: qs.kept_score ?? qs.score,
+            points: quiz?.points_possible ?? null,
+            gradedAt: qs.finished_at ?? null,
+            comments: null,
+          });
+        });
+      }
+
+      // Most recently graded first.
+      rows.sort(
+        (a, b) => new Date(b.gradedAt || 0).getTime() - new Date(a.gradedAt || 0).getTime()
+      );
+      setGradeRows(rows);
+    } catch (err: any) {
+      logger.error('Error loading grades:', err);
+      setGradesError(err?.message || 'Failed to load grades');
+    } finally {
+      setGradesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (currentSection === 'grades') void fetchGrades();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [courseId, currentSection, user?.id]);
 
 
   const handleCreateAnnouncement = async () => {
@@ -754,12 +871,56 @@ const CourseDetail = () => {
                 <BarChart3 className="h-5 w-5 text-primary" />
                 <h2 className="text-2xl font-bold">Grades</h2>
               </div>
-              <div className="text-center p-8 border rounded-lg bg-muted/20">
-                <p className="text-muted-foreground">No grades available yet.</p>
-                <p className="text-sm text-muted-foreground mt-2">
-                  Your grades will appear here once assignments are completed and graded.
-                </p>
-              </div>
+              {!user ? (
+                <div className="text-center p-8 border rounded-lg bg-muted/20">
+                  <p className="text-muted-foreground">Sign in to see your grades for this course.</p>
+                </div>
+              ) : gradesError ? (
+                <CourseErrorState
+                  title="Failed to load grades"
+                  error={gradesError}
+                  onRetry={() => void fetchGrades()}
+                />
+              ) : gradesLoading ? (
+                <div className="text-center py-8 text-muted-foreground">Loading grades…</div>
+              ) : gradeRows.length === 0 ? (
+                <div className="text-center p-8 border rounded-lg bg-muted/20">
+                  <p className="text-muted-foreground">Nothing has been graded yet.</p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Grades appear here once your assignments and quizzes have been graded.
+                  </p>
+                </div>
+              ) : (
+                <div className="divide-y border rounded-lg" data-testid="course-grades-list">
+                  {gradeRows.map((row) => (
+                    <div key={row.key} className="flex items-start gap-3 p-4">
+                      {row.kind === 'assignment' ? (
+                        <FileText className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                      ) : (
+                        <ClipboardCheck className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{row.title}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {row.kind === 'assignment' ? 'Assignment' : 'Quiz'}
+                          {row.gradedAt
+                            ? ` · Graded ${new Date(row.gradedAt).toLocaleDateString()}`
+                            : ''}
+                        </p>
+                        {row.comments && (
+                          <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap">
+                            {row.comments}
+                          </p>
+                        )}
+                      </div>
+                      <span className="text-sm font-semibold tabular-nums whitespace-nowrap">
+                        {row.score ?? '—'}
+                        {row.points != null ? ` / ${row.points}` : ''}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         );
@@ -810,7 +971,13 @@ const CourseDetail = () => {
                   <h3 className="font-semibold">Students ({people.length})</h3>
                   {peopleLoading && <span className="text-xs text-muted-foreground">Loading…</span>}
                 </div>
-                {people.length === 0 && !peopleLoading ? (
+                {peopleError ? (
+                  <CourseErrorState
+                    title="Failed to load students"
+                    error={peopleError}
+                    onRetry={() => void fetchPeople()}
+                  />
+                ) : people.length === 0 && !peopleLoading ? (
                   <div className="text-center p-8 border rounded-lg bg-muted/20">
                     <p className="text-muted-foreground">No students enrolled yet.</p>
                   </div>

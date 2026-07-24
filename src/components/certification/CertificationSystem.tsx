@@ -157,7 +157,9 @@ const CertificationSystem: React.FC<CertificationSystemProps> = ({
       // trigger's own definition — published content_items only).
       const { data: isComplete, error: rpcError } = await supabase.rpc(
         'check_course_completion',
-        { p_user_id: user.id, p_course_id: courseId }
+        // The DB function signature is (p_course_id, p_student_id) — passing
+        // p_user_id made every call fail with "function does not exist".
+        { p_course_id: courseId, p_student_id: user.id }
       );
       if (rpcError) throw rpcError;
 

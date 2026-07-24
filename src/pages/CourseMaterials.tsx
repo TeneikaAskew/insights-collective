@@ -66,8 +66,16 @@ const CourseMaterials = () => {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
-  // Verify user is enrolled OR instructor
-  const { data: canAccess, isLoading: accessLoading } = useQuery({
+  // Verify user is enrolled OR instructor. A failed RPC is an outage, not an
+  // enrollment verdict — throw so it renders as an error with retry instead
+  // of the "You must be enrolled" message. Only a successful `false` result
+  // means the user genuinely lacks access.
+  const {
+    data: canAccess,
+    isLoading: accessLoading,
+    error: accessError,
+    refetch: refetchAccess,
+  } = useQuery({
     queryKey: ['can-access-materials', courseId, user?.id],
     enabled: !!courseId && !!user?.id,
     queryFn: async () => {
@@ -75,7 +83,7 @@ const CourseMaterials = () => {
         _user: user!.id,
         _course: courseId!,
       });
-      if (error) return false;
+      if (error) throw new Error(error.message || 'Failed to verify course access');
       return !!data;
     },
   });
@@ -215,6 +223,18 @@ const CourseMaterials = () => {
     return (
       <CourseLayout>
         <div className="animate-pulse text-sm text-muted-foreground">Loading…</div>
+      </CourseLayout>
+    );
+  }
+
+  if (accessError) {
+    return (
+      <CourseLayout>
+        <CourseErrorState
+          title="Couldn't verify course access"
+          error={accessError}
+          onRetry={() => void refetchAccess()}
+        />
       </CourseLayout>
     );
   }

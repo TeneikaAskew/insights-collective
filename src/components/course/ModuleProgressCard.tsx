@@ -19,6 +19,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { ModuleProgress } from '@/types/course';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import CourseErrorState from '@/components/course/CourseErrorState';
 import {
   Collapsible,
   CollapsibleContent,
@@ -52,7 +53,12 @@ export const ModuleProgressCard: React.FC<ModuleProgressCardProps> = ({
   const [isOpen, setIsOpen] = React.useState(false);
 
   // Get module progress using the SQL function
-  const { data: progress, isLoading } = useQuery({
+  const {
+    data: progress,
+    isLoading,
+    error: progressError,
+    refetch: refetchProgress,
+  } = useQuery({
     queryKey: ['module-progress', moduleId, studentId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -61,15 +67,19 @@ export const ModuleProgressCard: React.FC<ModuleProgressCardProps> = ({
           p_student_id: studentId,
         })
         .single();
-      
-      if (error) throw error;
+
+      if (error) throw new Error(error.message || 'Failed to load module progress');
       return data as ModuleProgress;
     },
     enabled: !!moduleId && !!studentId,
   });
 
   // Get detailed lesson/assignment/quiz data if details are shown
-  const { data: moduleContent } = useQuery({
+  const {
+    data: moduleContent,
+    error: contentError,
+    refetch: refetchContent,
+  } = useQuery({
     queryKey: ['module-content', moduleId],
     queryFn: async () => {
       const [lessonsRes, assignmentsRes, quizzesRes] = await Promise.all([
@@ -123,6 +133,11 @@ export const ModuleProgressCard: React.FC<ModuleProgressCardProps> = ({
           .eq('attempts.user_id', studentId),
       ]);
 
+      // A failed query must surface as an error — silently rendering empty
+      // lesson/assignment/quiz lists would misrepresent the module content.
+      const queryError = lessonsRes.error ?? assignmentsRes.error ?? quizzesRes.error;
+      if (queryError) throw new Error(queryError.message || 'Failed to load module content');
+
       return {
         lessons: lessonsRes.data || [],
         assignments: assignmentsRes.data || [],
@@ -131,6 +146,22 @@ export const ModuleProgressCard: React.FC<ModuleProgressCardProps> = ({
     },
     enabled: showDetails && !!moduleId && !!studentId,
   });
+
+  // A failed progress fetch must render an error with retry — never the
+  // loading skeleton forever (isLoading is false once the query errors).
+  if (progressError) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <CourseErrorState
+            title={`Failed to load progress for ${moduleTitle}`}
+            error={progressError}
+            onRetry={() => void refetchProgress()}
+          />
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (isLoading || !progress) {
     return (
@@ -320,8 +351,16 @@ export const ModuleProgressCard: React.FC<ModuleProgressCardProps> = ({
           </div>
         )}
 
-        {/* Detailed content list */}
-        {showDetails && !isLocked && moduleContent && (
+        {/* Detailed content list. A failed content fetch shows an inline
+            error with retry instead of quietly hiding the details section. */}
+        {showDetails && !isLocked && contentError && (
+          <CourseErrorState
+            title="Failed to load module content"
+            error={contentError}
+            onRetry={() => void refetchContent()}
+          />
+        )}
+        {showDetails && !isLocked && !contentError && moduleContent && (
           <Collapsible open={isOpen} onOpenChange={setIsOpen}>
             <CollapsibleTrigger asChild>
               <Button variant="ghost" className="w-full justify-between p-2">
