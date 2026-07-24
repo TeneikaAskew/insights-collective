@@ -41,7 +41,7 @@ const InstructorAssignments = () => {
         const [assignmentsRes, enrollmentsRes] = await Promise.all([
           supabase
             .from('assignments')
-            .select('id, title, due_date, points_possible, content_item_id')
+            .select('id, title, due_date, points, content_item_id')
             .eq('course_id', courseId)
             .order('due_date', { ascending: true, nullsFirst: false }),
           supabase.from('enrollments').select('user_id', { count: 'exact', head: true }).eq('course_id', courseId),
