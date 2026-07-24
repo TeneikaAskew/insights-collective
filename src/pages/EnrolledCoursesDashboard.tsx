@@ -293,25 +293,29 @@ export default function EnrolledCoursesDashboard() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid gap-6 md:grid-cols-2">
+              <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
                 {filteredCourses.map((course) => (
-                  <Card key={course.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                    <div className="aspect-video overflow-hidden bg-muted">
+                  <Card
+                    key={course.id}
+                    className="group flex flex-col overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all"
+                  >
+                    <div className="aspect-video overflow-hidden bg-muted relative">
                       {course.thumbnail && (
                         <img
                           src={course.thumbnail}
                           alt={course.title}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform"
                         />
                       )}
-                    </div>
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between mb-2">
+                      <div className="absolute top-2 left-2 flex gap-1.5">
                         <Badge>{course.category}</Badge>
-                        <Badge variant="outline">{course.level}</Badge>
+                        <Badge variant="outline" className="bg-background/80 backdrop-blur">
+                          {course.level}
+                        </Badge>
                       </div>
-
-                      <h3 className="text-xl font-semibold mb-2 line-clamp-2">
+                    </div>
+                    <CardContent className="flex flex-col flex-1 p-5">
+                      <h3 className="text-lg font-semibold mb-1 line-clamp-2">
                         {course.title}
                       </h3>
 
@@ -321,23 +325,27 @@ export default function EnrolledCoursesDashboard() {
                         </p>
                       )}
 
-                      <div className="space-y-3 mb-4">
+                      <div className="space-y-2 mb-4 mt-auto">
                         <div className="flex justify-between items-center">
-                          <span className="text-sm font-medium">Progress</span>
-                          <span className="text-sm text-muted-foreground">
+                          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            Progress
+                          </span>
+                          <span className="text-sm font-semibold tabular-nums">
                             {course.progress}%
                           </span>
                         </div>
                         <Progress value={course.progress} className="h-2" />
 
                         {course.upcoming_due_date && (
-                          <div className="flex justify-end text-sm">
-                            <span className="text-orange-600">Due: {new Date(course.upcoming_due_date).toLocaleDateString()}</span>
+                          <div className="flex justify-end text-xs">
+                            <span className="text-orange-600">
+                              Due: {new Date(course.upcoming_due_date).toLocaleDateString()}
+                            </span>
                           </div>
                         )}
                       </div>
-                      
-                      <Button asChild className="w-full">
+
+                      <Button asChild className="w-full rounded-full">
                         <Link to={`/course/${course.id}`}>
                           Continue Learning
                           <ChevronRight className="h-4 w-4 ml-2" />
