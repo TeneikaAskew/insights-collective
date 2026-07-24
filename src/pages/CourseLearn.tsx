@@ -707,7 +707,7 @@ function RailNav({
                 {doneInModule}/{m.items.length}
               </div>
             </div>
-            <ul className="space-y-0.5">
+            <ul className="space-y-1">
               {m.items.map((it) => {
                 const active = selectedId === it.id;
                 const done = completed.has(it.id);
@@ -718,43 +718,48 @@ function RailNav({
                       type="button"
                       onClick={() => onSelect(m.id, it.id)}
                       className={cn(
-                        'w-full flex items-start gap-3 px-3 py-2 rounded-md text-left text-sm transition-colors',
+                        'group w-full flex items-center gap-3 pl-3 pr-4 py-2 rounded-full text-left text-sm transition-colors',
                         active
-                          ? 'bg-primary/10 text-foreground'
+                          ? 'bg-primary text-primary-foreground shadow-sm'
                           : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                       )}
-                      style={
-                        active
-                          ? { borderLeft: '2px solid hsl(var(--primary))', paddingLeft: 10 }
-                          : undefined
-                      }
                     >
-                      <span className="mt-0.5 flex-shrink-0" aria-hidden>
+                      <span className="flex-shrink-0" aria-hidden>
                         {done ? (
-                          <CheckCircle2 className="w-4 h-4 text-primary" />
-                        ) : active ? (
-                          <div
-                            className="w-4 h-4 rounded-full border-2 border-primary"
-                            style={{
-                              background:
-                                'radial-gradient(circle, hsl(var(--primary)) 40%, transparent 42%)',
-                            }}
+                          <CheckCircle2
+                            className={cn(
+                              'w-4 h-4',
+                              active ? 'text-primary-foreground' : 'text-primary',
+                            )}
                           />
+                        ) : active ? (
+                          <div className="w-4 h-4 rounded-full border-2 border-primary-foreground bg-primary-foreground/20" />
                         ) : (
                           <Circle className="w-4 h-4 text-muted-foreground/60" />
                         )}
                       </span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <TypeIcon type={it.type} className="w-3 h-3 flex-shrink-0 text-muted-foreground/70" />
-                          <span className="truncate">{it.title || 'Untitled lesson'}</span>
-                        </div>
-                        {canEdit && !it.published && (
-                          <span className="inline-block mt-1 text-[9px] uppercase tracking-widest font-bold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                            Draft
-                          </span>
-                        )}
+                      <div className="flex-1 min-w-0 flex items-center gap-1.5">
+                        <TypeIcon
+                          type={it.type}
+                          className={cn(
+                            'w-3 h-3 flex-shrink-0',
+                            active ? 'text-primary-foreground/80' : 'text-muted-foreground/70',
+                          )}
+                        />
+                        <span className="truncate">{it.title || 'Untitled lesson'}</span>
                       </div>
+                      {canEdit && !it.published && (
+                        <span
+                          className={cn(
+                            'text-[9px] uppercase tracking-widest font-bold px-1.5 py-0.5 rounded-full flex-shrink-0',
+                            active
+                              ? 'bg-primary-foreground/20 text-primary-foreground'
+                              : 'bg-muted text-muted-foreground',
+                          )}
+                        >
+                          Draft
+                        </span>
+                      )}
                     </button>
                   </li>
                 );
