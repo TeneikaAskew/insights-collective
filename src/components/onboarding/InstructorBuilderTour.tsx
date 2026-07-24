@@ -7,27 +7,27 @@ const DISMISS_KEY = 'ic:builder-onboarding:dismissed:v1';
 
 const STEPS: SpotlightStep[] = [
   {
-    title: 'Welcome to your course builder',
+    title: 'Welcome to the course builder',
     body:
-      "A one-minute tour of the tools you'll use to build, preview, and publish a course. You can skip any time.",
+      'A one-minute tour of the tools you’ll use to build, preview, and publish a course. Skip any time.',
     cta: "Let's go",
   },
   {
-    title: 'Move between builder views',
+    title: 'Navigate the builder',
     body:
-      'The left rail switches between Setup, Curriculum, Information, Design, and Certificates. Setup is a checklist that walks you through the essentials.',
+      'The left rail switches between Setup, Curriculum, Information, Design, and Certificates. Setup is a checklist covering the essentials.',
     targetSelector: '[data-onboarding="builder-nav"]',
   },
   {
-    title: 'Preview the student experience',
+    title: 'Preview as a student',
     body:
-      'Preview opens the course exactly as a student sees it — including locked, dripped, and unpublished states.',
+      'Open the course exactly as a student sees it — including locked, dripped, and unpublished states.',
     targetSelector: '[data-onboarding="builder-preview"]',
   },
   {
-    title: 'Publish when you are ready',
+    title: 'Publish when ready',
     body:
-      'Publishing makes the course visible to students. You can Unpublish at any time to hide it again without losing your work.',
+      'Publishing makes the course visible to students. Unpublish any time to hide it without losing your work.',
     targetSelector: '[data-onboarding="builder-publish"]',
     cta: 'Start building',
   },

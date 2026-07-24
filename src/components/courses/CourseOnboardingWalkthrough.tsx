@@ -12,27 +12,27 @@ const DISMISS_KEY = 'ic:course-onboarding:dismissed:v1';
 
 const STEPS: SpotlightStep[] = [
   {
-    title: 'Welcome to your course catalog',
+    title: 'Welcome — let’s find your first course',
     body:
-      "This quick tour shows you how to go from picking a course to your first weekly module — in under a minute. You can skip it any time.",
-    cta: "Let's go",
+      'A 30-second tour from picking a course to opening Week 1. Skip any time.',
+    cta: "Show me",
   },
   {
-    title: 'Find a course that fits',
+    title: 'Search and filter',
     body:
-      'Search by title or instructor, and use the filters to narrow by category, level, or schedule.',
+      'Search by title or instructor, then filter by category and level to find a course that fits.',
     targetSelector: '[data-onboarding="course-filters"]',
   },
   {
     title: 'Open a course to enroll',
     body:
-      'Click any course card to see the overview. From there you can enroll and unlock all modules.',
+      'Click any card to view the overview, then Enroll to unlock every module.',
     targetSelector: '[data-onboarding="course-grid"]',
   },
   {
-    title: 'Jump into week one',
+    title: 'Jump into Week 1',
     body:
-      'After enrolling, the overview page shows a Resume button that drops you directly into the first lesson of Week 1. Progress saves automatically.',
+      'After enrolling, hit Resume on the course overview to open Lesson 1 of Week 1. Progress saves automatically as you go.',
     cta: 'Start browsing',
   },
 ];
