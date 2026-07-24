@@ -15,15 +15,32 @@ interface HintProps {
 /**
  * Wrap any focusable/hoverable element to attach a contextual tooltip.
  * Use for icon-only buttons, ambiguous badges, and jargon labels.
+ *
+ * Uses forwardRef + a span wrapper so consumers can compose Hint inside
+ * Radix `asChild` slots (AlertDialogTrigger, DropdownMenuTrigger, ...)
+ * without emitting "Function components cannot be given refs" warnings.
  */
-export function Hint({ label, children, side = "top", align = "center", className }: HintProps) {
-  if (!label) return children;
+export const Hint = React.forwardRef<HTMLSpanElement, HintProps>(function Hint(
+  { label, children, side = "top", align = "center", className },
+  ref,
+) {
+  if (!label) {
+    return (
+      <span ref={ref} className="inline-flex">
+        {children}
+      </span>
+    );
+  }
   return (
     <Tooltip>
-      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipTrigger asChild>
+        <span ref={ref} className="inline-flex">
+          {children}
+        </span>
+      </TooltipTrigger>
       <TooltipContent side={side} align={align} className={className}>
         {label}
       </TooltipContent>
     </Tooltip>
   );
-}
+});

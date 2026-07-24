@@ -59,6 +59,14 @@ BEGIN
   END IF;
 END $$;
 
+-- Seed one course material file so the enrolled-student signed-URL journey has a row to click.
+INSERT INTO public.course_material_files (course_id, name, storage_path, bucket, mime_type, size_bytes, uploaded_by)
+SELECT '660e8400-e29b-41d4-a716-446655440001', 'Welcome.pdf',
+       '660e8400-e29b-41d4-a716-446655440001/welcome.pdf', 'course-documents',
+       'application/pdf', 1024, c.instructor_id
+FROM public.courses c WHERE c.id = '660e8400-e29b-41d4-a716-446655440001'
+ON CONFLICT DO NOTHING;
+
 -- Assert deterministic invariants so a failed seed surfaces before tests run.
 DO $$
 DECLARE
