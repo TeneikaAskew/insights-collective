@@ -112,29 +112,31 @@ export default function Messages() {
 
     return (
       <AppLayout>
-        <div className="container mx-auto py-6 space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Button 
-                variant="ghost" 
+        <div className="container mx-auto py-6 space-y-6 px-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-start gap-2 min-w-0 flex-1">
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => navigate('/messages')}
-                className="flex items-center space-x-2"
+                className="flex items-center gap-2 shrink-0"
               >
                 <ArrowLeft className="h-4 w-4" />
-                <span>Back to Messages</span>
+                <span className="hidden sm:inline">Back to Messages</span>
+                <span className="sm:hidden">Back</span>
               </Button>
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight">
+              <div className="min-w-0">
+                <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate">
                   {sanitizeSubject(currentConversation?.subject)}
                 </h1>
-                <p className="text-muted-foreground">
+                <p className="text-sm text-muted-foreground">
                   {isDeleted ? 'Deleted conversation' : isArchived ? 'Archived conversation' : 'Active conversation'}
                 </p>
               </div>
             </div>
           </div>
 
-          <Card className="h-[600px] flex flex-col">
+          <Card className="h-[calc(100vh-14rem)] sm:h-[600px] flex flex-col">
             {/* Message Actions */}
             <MessageActions
               conversationId={conversationId}
