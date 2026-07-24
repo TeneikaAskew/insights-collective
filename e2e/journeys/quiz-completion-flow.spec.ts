@@ -68,10 +68,11 @@ test.describe('Quiz taking — full attempt lifecycle', () => {
 
     // A quiz lesson MUST be seeded for the enrolled course; a missing quiz is a
     // seed-data gap, not a valid skip condition. The curriculum rail renders
-    // quiz rows with the label "Quiz" and a Start/Review/Resume button.
+    // quiz rows as listitems containing a small type badge with the text "Quiz"
+    // plus a Start/Resume/Review button.
     const quizRow = page
-      .getByRole('listitem')
-      .filter({ hasText: /Quiz$/ })
+      .locator('li')
+      .filter({ has: page.getByText(/^Quiz$/) })
       .first();
     const quizCount = await quizRow.count();
     expect(
