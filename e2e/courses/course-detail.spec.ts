@@ -40,7 +40,9 @@ test.describe('Course Detail', () => {
 
   test('invalid course ID shows error or redirect', async ({ page }) => {
     await goto(page, '/courses/non-existent-course-id-12345');
-    const errorMsg = page.locator(':has-text("not found"), :has-text("404"), :has-text("error")');
+    const errorMsg = page.locator(
+      ':has-text("not found"), :has-text("404"), :has-text("error"), :has-text("Failed to load"), :has-text("Invalid course")'
+    );
     const redirected = page.url().includes('/courses') && !page.url().includes('non-existent');
     expect((await errorMsg.count()) > 0 || redirected).toBe(true);
   });

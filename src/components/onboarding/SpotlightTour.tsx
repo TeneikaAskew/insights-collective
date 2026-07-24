@@ -49,6 +49,9 @@ export function SpotlightTour({
     if (!active || steps.length === 0) return;
     if (typeof window === 'undefined') return;
     if (window.localStorage.getItem(dismissKey)) return;
+    // E2E bypass: allow test suites to disable all onboarding tours globally
+    // so their overlays never intercept clicks on the elements under test.
+    if (window.localStorage.getItem('e2e:disable-tours')) return;
     // Resume from the last saved step if the user left mid-tour.
     const savedRaw = window.localStorage.getItem(progressKey);
     const saved = savedRaw ? parseInt(savedRaw, 10) : 0;

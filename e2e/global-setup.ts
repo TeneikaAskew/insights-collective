@@ -113,7 +113,12 @@ async function saveSessionForRole(role: Role, creds: TestUser, baseURL: string):
   );
   const context = await browser.newContext();
   await context.addInitScript(
-    ({ key, value }) => localStorage.setItem(key, value),
+    ({ key, value }) => {
+      localStorage.setItem(key, value);
+      // Disable all onboarding spotlight tours across the suite so their
+      // dimmed overlays never intercept clicks on elements under test.
+      localStorage.setItem('e2e:disable-tours', '1');
+    },
     { key: 'supabase.auth.token', value: sessionValue },
   );
   const page = await context.newPage();
