@@ -15,7 +15,12 @@ export default defineConfig({
     exclude: ['node_modules/**', 'e2e/**'],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'json', 'html'],
+      // json-summary produces coverage/coverage-summary.json, which the CI
+      // threshold step and PR coverage comment both read.
+      reporter: ['text', 'json', 'json-summary', 'html'],
+      // Only measure the app source vitest can actually execute — Deno edge
+      // functions and Playwright specs would count as permanent 0% noise.
+      include: ['src/**/*.{ts,tsx}'],
       exclude: [
         'node_modules/',
         'src/test/',
@@ -23,6 +28,8 @@ export default defineConfig({
         '**/*.config.*',
         '**/mockData.ts',
         'src/main.tsx',
+        'supabase/**',
+        'e2e/**',
       ],
     },
   },

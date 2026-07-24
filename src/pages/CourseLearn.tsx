@@ -370,7 +370,9 @@ const CourseLearn = () => {
   if (isCompletionRoute) {
     const totalItems = flatItems.length;
     const completedCount = flatItems.filter((fi) => completed.has(fi.item.id)).length;
-    const allComplete = totalItems > 0 && completedCount === totalItems;
+    // When the progress fetch failed, the completed set may be stale — never
+    // assert "Course complete" (or offer the certificate) on unverifiable data.
+    const allComplete = !progressError && totalItems > 0 && completedCount === totalItems;
     const firstItem = flatItems[0];
     return (
       <div

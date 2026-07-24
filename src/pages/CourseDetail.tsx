@@ -197,15 +197,26 @@ const CourseDetail = () => {
       if (assignmentIds.length > 0) {
         const { data: subs, error: subsErr } = await supabase
           .from('assignment_submissions')
-          .select('id, assignment_id, grade, score, graded_at, grader_comments, workflow_state')
+          .select('id, assignment_id, grade, score, graded_at, grader_comments, workflow_state, attempt')
           .eq('user_id', user.id)
           .in('assignment_id', assignmentIds);
         if (subsErr) throw subsErr;
 
         const byAssignment = new Map((assignmentRows || []).map((a: any) => [a.id, a]));
+        // Resubmittable assignments store one row per attempt and older attempts
+        // can stay graded — keep only the latest graded attempt per assignment
+        // (mirrors the quiz branch below) so the list never shows conflicting
+        // duplicate grades for one assignment.
+        const latestGraded = new Map<string, any>();
         (subs || []).forEach((s: any) => {
           const graded = s.workflow_state === 'graded' || (s.grade !== null && s.grade !== undefined);
           if (!graded) return;
+          const existing = latestGraded.get(s.assignment_id);
+          if (!existing || (s.attempt ?? 0) > (existing.attempt ?? 0)) {
+            latestGraded.set(s.assignment_id, s);
+          }
+        });
+        latestGraded.forEach((s: any) => {
           const assignment = byAssignment.get(s.assignment_id);
           rows.push({
             key: `assignment-${s.id}`,

@@ -200,7 +200,10 @@ export const courseCalendarService = {
             title: e.title,
             description: e.description,
             start_date: e.date,
-            end_date: e.end_time || undefined,
+            // events.end_time is a clock-only value ("17:00:00"); combining it
+            // with the event date yields a parseable timestamp. A bare clock
+            // string would make new Date(...) invalid and crash the ICS export.
+            end_date: e.end_time ? `${e.date}T${e.end_time}` : undefined,
             type: 'event',
             course_id: courseId,
             course_title: courseTitle,
@@ -275,6 +278,15 @@ export const courseCalendarService = {
     return this.getMultiCourseCalendarEvents(courseIds, filters);
   },
 
+  // events.end_time stores a clock-only value ("17:00:00"). Callers pass
+  // end_date as either a full timestamp or a bare clock string — normalize to
+  // the clock portion so we never write a timestamp into a time column.
+  toClockTime(value: string | undefined | null): string | null {
+    if (!value) return null;
+    if (value.includes('T')) return value.split('T')[1].slice(0, 8) || null;
+    return value;
+  },
+
   // Create a custom calendar event
   async createCalendarEvent(event: CalendarEventInput): Promise<any> {
     const { data, error } = await supabase
@@ -285,7 +297,7 @@ export const courseCalendarService = {
         date: event.start_date,
         // The events table stores the end of an event in end_time (there is
         // no end_date column) — previously this input was silently dropped.
-        end_time: event.end_date,
+        end_time: this.toClockTime(event.end_date),
         location: event.location,
         link: event.link,
         type: event.link ? 'virtual' : (event.event_type || 'event'),
@@ -312,7 +324,7 @@ export const courseCalendarService = {
         date: updates.start_date,
         // The events table has end_time, NOT end_date — writing end_date
         // made every update 400.
-        end_time: updates.end_date,
+        end_time: this.toClockTime(updates.end_date),
         location: updates.location,
       })
       .eq('id', eventId)

@@ -80,8 +80,9 @@ const fixtureCustomEvents = [
     id: 'e1',
     title: 'Office Hours',
     description: 'Weekly office hours',
-    date: '2026-03-03T00:00:00Z',
-    end_time: '2026-03-03T01:00:00Z',
+    date: '2026-03-03',
+    // events.end_time is a clock-only time column in the real schema
+    end_time: '01:00:00',
     location: null,
     link: 'https://zoom.us/j/1',
     zoom_meeting_id: 123,
@@ -155,7 +156,8 @@ describe('courseCalendarService', () => {
       const custom = result.find(e => e.id === 'event-e1')!;
       expect(custom.link).toBe('https://zoom.us/j/1');
       expect(custom.zoom_meeting_id).toBe(123);
-      expect(custom.end_date).toBe('2026-03-03T01:00:00Z');
+      // clock-only end_time is combined with the event date so new Date() parses
+      expect(custom.end_date).toBe('2026-03-03T01:00:00');
     });
 
     it('respects type filters and skips unrequested sources', async () => {
@@ -421,7 +423,8 @@ describe('courseCalendarService', () => {
       });
 
       const payload = builder.insert.mock.calls[0][0];
-      expect(payload.end_time).toBe('2026-04-01T02:00:00Z');
+      // a full timestamp input is normalized to the clock portion (time column)
+      expect(payload.end_time).toBe('02:00:00');
       expect(payload).not.toHaveProperty('end_date');
     });
   });
@@ -457,7 +460,8 @@ describe('courseCalendarService', () => {
       });
 
       const payload = builder.update.mock.calls[0][0];
-      expect(payload.end_time).toBe('2026-04-01T02:00:00Z');
+      // a full timestamp input is normalized to the clock portion (time column)
+      expect(payload.end_time).toBe('02:00:00');
       expect(payload).not.toHaveProperty('end_date');
     });
   });
