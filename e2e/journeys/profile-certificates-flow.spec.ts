@@ -34,6 +34,11 @@ test.describe('Profile — My Certificates', () => {
     await gotoProfile(page);
     await expect(page.getByTestId('my-certificates-card')).toBeVisible({ timeout: 15_000 });
 
+    // Wait for the async certificates query to resolve — the skeleton loader
+    // is replaced by either the rows list or the empty-state alert. Without
+    // this wait, count() races the fetch and returns 0 before data lands.
+    await expect(page.getByTestId('certificates-loading')).toHaveCount(0, { timeout: 15_000 });
+
     const rows = page.getByTestId('certificate-row');
     const count = await rows.count();
     expect(
