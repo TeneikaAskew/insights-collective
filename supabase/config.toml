@@ -64,3 +64,6 @@ verify_jwt = true
 
 [functions.generate-lesson-content]
 verify_jwt = true
+
+[functions.generate-section-summary]
+verify_jwt = true
