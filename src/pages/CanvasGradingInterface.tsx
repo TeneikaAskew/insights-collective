@@ -17,6 +17,7 @@ import { supabase } from '@/integrations/supabase/client';
 import CanvasContentService from '@/services/canvasContentService';
 import CourseErrorState from '@/components/course/CourseErrorState';
 import { withCoursePermission } from '@/components/course/withCoursePermission';
+import { SubmissionComments } from '@/components/course/grading/SubmissionComments';
 import {
   CheckCircle,
   Save,
@@ -32,11 +33,12 @@ import { format } from 'date-fns';
 import type { ContentItem, AssignmentSubmission } from '@/types/canvas';
 import { createLogger } from '@/utils/logger';
 import { Hint } from '@/components/ui/hint';
+import { formatProfileName } from '@/lib/utils';
 
 const logger = createLogger('gradingSubmissions');
 
 interface GradingSubmission extends AssignmentSubmission {
-  user: { id: string; email: string; full_name: string };
+  user: { id: string; first_name: string | null; last_name: string | null; avatar_url?: string | null };
   grader_comments?: string;
   graded_at?: string;
 }
@@ -76,14 +78,14 @@ function CanvasGradingInterface() {
 
       const { data, error } = await supabase
         .from('assignment_submissions')
-        .select(`*, user:profiles!user_id (id, email, full_name)`)
+        .select(`*, user:profiles!user_id (id, first_name, last_name, avatar_url)`)
         .eq('assignment_id', item.assignment?.id)
         .order('submitted_at', { ascending: false });
       if (error) throw error;
 
       const gs = (data || []).map((sub: any) => ({
         ...sub,
-        user: sub.user || { id: sub.user_id, email: '—', full_name: 'Unknown user' },
+        user: sub.user || { id: sub.user_id, first_name: null, last_name: null },
       }));
       setSubmissions(gs);
       const firstNeeds = gs.find((s) => s.workflow_state !== 'graded') || gs[0];
@@ -116,7 +118,7 @@ function CanvasGradingInterface() {
     return submissions.filter((s) => {
       if (filter === 'needs' && s.workflow_state === 'graded') return false;
       if (filter === 'graded' && s.workflow_state !== 'graded') return false;
-      if (q && !s.user.full_name?.toLowerCase().includes(q) && !s.user.email?.toLowerCase().includes(q)) return false;
+      if (q && !formatProfileName(s.user).toLowerCase().includes(q)) return false;
       return true;
     });
   }, [submissions, filter, search]);
@@ -171,7 +173,7 @@ function CanvasGradingInterface() {
               : s,
           ),
         );
-        toast({ title: 'Grade published', description: `${selectedSubmission.user.full_name}: ${gradeNum}/${pointsPossible}` });
+        toast({ title: 'Grade published', description: `${formatProfileName(selectedSubmission.user)}: ${gradeNum}/${pointsPossible}` });
 
         if (advance) {
           // Move to next ungraded in current filter view
@@ -373,7 +375,7 @@ function CanvasGradingInterface() {
                       >
                         <div className="flex items-center justify-between gap-2">
                           <div className="min-w-0">
-                            <div className="font-medium truncate">{s.user.full_name}</div>
+                            <div className="font-medium truncate">{formatProfileName(s.user)}</div>
                             <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                               <Clock className="h-3 w-3" />
                               {s.submitted_at ? format(new Date(s.submitted_at), 'MMM d, h:mm a') : 'Not submitted'}
@@ -404,7 +406,7 @@ function CanvasGradingInterface() {
                   <div className="flex flex-wrap justify-between items-start gap-3">
                     <div>
                       <div className="flex items-center gap-2">
-                        <CardTitle className="text-xl">{selectedSubmission.user.full_name}</CardTitle>
+                        <CardTitle className="text-xl">{formatProfileName(selectedSubmission.user)}</CardTitle>
                         {statusPill(selectedSubmission)}
                       </div>
                       <CardDescription>
@@ -497,6 +499,13 @@ function CanvasGradingInterface() {
                         Previously graded on {format(new Date(selectedSubmission.graded_at), 'MMM d, yyyy at h:mm a')}
                       </AlertDescription>
                     </Alert>
+                  )}
+
+                  {selectedSubmission && (
+                    <SubmissionComments
+                      submissionId={selectedSubmission.id}
+                      submissionType="assignment"
+                    />
                   )}
                 </CardContent>
 

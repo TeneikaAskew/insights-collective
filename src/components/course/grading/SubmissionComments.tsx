@@ -39,6 +39,7 @@ import { SubmissionComment } from '@/services/gradeHistoryService';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
 import { useConfirm } from '@/components/dialogs/DialogsProvider';
+import { formatProfileName } from '@/lib/utils';
 
 interface SubmissionCommentsProps {
   submissionId: string;
@@ -189,15 +190,15 @@ export const SubmissionComments: React.FC<SubmissionCommentsProps> = ({
                   <Avatar className="h-8 w-8 mt-1">
                     <AvatarImage src={comment.author?.avatar_url} />
                     <AvatarFallback>
-                      {comment.author?.full_name?.charAt(0) || 'U'}
+                      {formatProfileName(comment.author).charAt(0)}
                     </AvatarFallback>
                   </Avatar>
-                  
+
                   <div className="flex-1 space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="font-medium text-sm">
-                          {comment.author?.full_name || 'Unknown User'}
+                          {formatProfileName(comment.author)}
                         </span>
                         <Badge variant="outline" className="text-xs">
                           {comment.author_type}
@@ -295,13 +296,13 @@ export const SubmissionComments: React.FC<SubmissionCommentsProps> = ({
                             <Avatar className="h-6 w-6">
                               <AvatarImage src={reply.author?.avatar_url} />
                               <AvatarFallback className="text-xs">
-                                {reply.author?.full_name?.charAt(0) || 'U'}
+                                {formatProfileName(reply.author).charAt(0)}
                               </AvatarFallback>
                             </Avatar>
                             <div className="flex-1">
                               <div className="flex items-center gap-2 mb-1">
                                 <span className="text-xs font-medium">
-                                  {reply.author?.full_name || 'Unknown User'}
+                                  {formatProfileName(reply.author)}
                                 </span>
                                 <span className="text-xs text-gray-500">
                                   {formatDistanceToNow(new Date(reply.created_at), { addSuffix: true })}

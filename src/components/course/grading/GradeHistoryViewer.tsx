@@ -18,6 +18,7 @@ import {
 import { useGradeHistory, useStudentGradeHistory, useCourseGradeHistory } from '@/hooks/useGradeHistory';
 import { GradeHistoryEntry } from '@/services/gradeHistoryService';
 import { formatDistanceToNow } from 'date-fns';
+import { formatProfileName } from '@/lib/utils';
 
 interface GradeHistoryViewerProps {
   gradeId?: string;
@@ -236,10 +237,10 @@ export const GradeHistoryViewer: React.FC<GradeHistoryViewerProps> = ({
                           <Avatar className="h-5 w-5">
                             <AvatarImage src={entry.changer.avatar_url} />
                             <AvatarFallback>
-                              {entry.changer.full_name.charAt(0)}
+                              {formatProfileName(entry.changer).charAt(0)}
                             </AvatarFallback>
                           </Avatar>
-                          <span>{entry.changer.full_name}</span>
+                          <span>{formatProfileName(entry.changer)}</span>
                         </>
                       )}
                     </div>

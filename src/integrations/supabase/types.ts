@@ -1593,6 +1593,51 @@ export type Database = {
           },
         ]
       }
+      content_progress: {
+        Row: {
+          created_at: string | null
+          id: string
+          last_accessed: string | null
+          lesson_id: string
+          progress_percentage: number | null
+          time_spent: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          last_accessed?: string | null
+          lesson_id: string
+          progress_percentage?: number | null
+          time_spent?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          last_accessed?: string | null
+          lesson_id?: string
+          progress_percentage?: number | null
+          time_spent?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_progress_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversation_participants: {
         Row: {
           added_at: string | null
@@ -2470,6 +2515,392 @@ export type Database = {
           },
         ]
       }
+      grade_change_notifications: {
+        Row: {
+          course_id: string
+          created_at: string | null
+          delivery_method: string[] | null
+          grade_history_id: string
+          id: string
+          is_read: boolean | null
+          message: string | null
+          notification_type: string
+          read_at: string | null
+          student_id: string
+          title: string
+        }
+        Insert: {
+          course_id: string
+          created_at?: string | null
+          delivery_method?: string[] | null
+          grade_history_id: string
+          id?: string
+          is_read?: boolean | null
+          message?: string | null
+          notification_type: string
+          read_at?: string | null
+          student_id: string
+          title: string
+        }
+        Update: {
+          course_id?: string
+          created_at?: string | null
+          delivery_method?: string[] | null
+          grade_history_id?: string
+          id?: string
+          is_read?: boolean | null
+          message?: string | null
+          notification_type?: string
+          read_at?: string | null
+          student_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "grade_change_notifications_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "course_statistics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grade_change_notifications_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grade_change_notifications_grade_history_id_fkey"
+            columns: ["grade_history_id"]
+            isOneToOne: false
+            referencedRelation: "grade_history"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grade_change_notifications_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      grade_history: {
+        Row: {
+          assignment_id: string | null
+          change_reason: string | null
+          change_type: string
+          changed_at: string | null
+          changed_by: string
+          course_id: string
+          created_at: string | null
+          grade_id: string
+          grading_method: string | null
+          id: string
+          new_comments: string | null
+          new_letter_grade: string | null
+          new_percentage: number | null
+          new_points_earned: number | null
+          new_points_possible: number | null
+          previous_comments: string | null
+          previous_letter_grade: string | null
+          previous_percentage: number | null
+          previous_points_earned: number | null
+          previous_points_possible: number | null
+          quiz_id: string | null
+          rubric_data: Json | null
+          student_id: string
+          submission_id: string | null
+        }
+        Insert: {
+          assignment_id?: string | null
+          change_reason?: string | null
+          change_type: string
+          changed_at?: string | null
+          changed_by: string
+          course_id: string
+          created_at?: string | null
+          grade_id: string
+          grading_method?: string | null
+          id?: string
+          new_comments?: string | null
+          new_letter_grade?: string | null
+          new_percentage?: number | null
+          new_points_earned?: number | null
+          new_points_possible?: number | null
+          previous_comments?: string | null
+          previous_letter_grade?: string | null
+          previous_percentage?: number | null
+          previous_points_earned?: number | null
+          previous_points_possible?: number | null
+          quiz_id?: string | null
+          rubric_data?: Json | null
+          student_id: string
+          submission_id?: string | null
+        }
+        Update: {
+          assignment_id?: string | null
+          change_reason?: string | null
+          change_type?: string
+          changed_at?: string | null
+          changed_by?: string
+          course_id?: string
+          created_at?: string | null
+          grade_id?: string
+          grading_method?: string | null
+          id?: string
+          new_comments?: string | null
+          new_letter_grade?: string | null
+          new_percentage?: number | null
+          new_points_earned?: number | null
+          new_points_possible?: number | null
+          previous_comments?: string | null
+          previous_letter_grade?: string | null
+          previous_percentage?: number | null
+          previous_points_earned?: number | null
+          previous_points_possible?: number | null
+          quiz_id?: string | null
+          rubric_data?: Json | null
+          student_id?: string
+          submission_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "grade_history_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grade_history_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grade_history_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "course_statistics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grade_history_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grade_history_grade_id_fkey"
+            columns: ["grade_id"]
+            isOneToOne: false
+            referencedRelation: "grades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grade_history_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grade_history_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      grades: {
+        Row: {
+          assignment_id: string | null
+          comments: string | null
+          course_id: string
+          created_at: string | null
+          grade_type: string
+          graded_by: string | null
+          id: string
+          letter_grade: string | null
+          percentage: number | null
+          points_earned: number | null
+          points_possible: number | null
+          quiz_id: string | null
+          student_id: string
+          updated_at: string | null
+          weight: number | null
+        }
+        Insert: {
+          assignment_id?: string | null
+          comments?: string | null
+          course_id: string
+          created_at?: string | null
+          grade_type: string
+          graded_by?: string | null
+          id?: string
+          letter_grade?: string | null
+          percentage?: number | null
+          points_earned?: number | null
+          points_possible?: number | null
+          quiz_id?: string | null
+          student_id: string
+          updated_at?: string | null
+          weight?: number | null
+        }
+        Update: {
+          assignment_id?: string | null
+          comments?: string | null
+          course_id?: string
+          created_at?: string | null
+          grade_type?: string
+          graded_by?: string | null
+          id?: string
+          letter_grade?: string | null
+          percentage?: number | null
+          points_earned?: number | null
+          points_possible?: number | null
+          quiz_id?: string | null
+          student_id?: string
+          updated_at?: string | null
+          weight?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "grades_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grades_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "course_statistics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grades_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grades_graded_by_fkey"
+            columns: ["graded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grades_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grades_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      grading_sessions: {
+        Row: {
+          assignment_id: string | null
+          batch_changes: Json | null
+          course_id: string
+          created_at: string | null
+          ended_at: string | null
+          grader_id: string
+          grading_criteria: Json | null
+          grading_method: string | null
+          id: string
+          quiz_id: string | null
+          session_type: string
+          started_at: string | null
+          submissions_graded: number | null
+          total_submissions: number | null
+        }
+        Insert: {
+          assignment_id?: string | null
+          batch_changes?: Json | null
+          course_id: string
+          created_at?: string | null
+          ended_at?: string | null
+          grader_id: string
+          grading_criteria?: Json | null
+          grading_method?: string | null
+          id?: string
+          quiz_id?: string | null
+          session_type: string
+          started_at?: string | null
+          submissions_graded?: number | null
+          total_submissions?: number | null
+        }
+        Update: {
+          assignment_id?: string | null
+          batch_changes?: Json | null
+          course_id?: string
+          created_at?: string | null
+          ended_at?: string | null
+          grader_id?: string
+          grading_criteria?: Json | null
+          grading_method?: string | null
+          id?: string
+          quiz_id?: string | null
+          session_type?: string
+          started_at?: string | null
+          submissions_graded?: number | null
+          total_submissions?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "grading_sessions_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grading_sessions_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "course_statistics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grading_sessions_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grading_sessions_grader_id_fkey"
+            columns: ["grader_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grading_sessions_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_descriptions: {
         Row: {
           created_at: string
@@ -2499,6 +2930,77 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      lesson_completion_requirements: {
+        Row: {
+          created_at: string | null
+          id: string
+          lesson_id: string
+          requirement_data: Json | null
+          requirement_type: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          lesson_id: string
+          requirement_data?: Json | null
+          requirement_type: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          lesson_id?: string
+          requirement_data?: Json | null
+          requirement_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lesson_completion_requirements_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lesson_completions: {
+        Row: {
+          completed_at: string | null
+          completion_method: string | null
+          id: string
+          lesson_id: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          completion_method?: string | null
+          id?: string
+          lesson_id: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          completion_method?: string | null
+          id?: string
+          lesson_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lesson_completions_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_completions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       lesson_progress: {
         Row: {
@@ -3744,7 +4246,15 @@ export type Database = {
           time_taken?: number | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "quiz_attempts_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       quiz_question_pools: {
         Row: {
@@ -4456,6 +4966,84 @@ export type Database = {
             columns: ["submission_id"]
             isOneToOne: false
             referencedRelation: "assignment_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      submission_comments: {
+        Row: {
+          attachments: Json | null
+          author_id: string
+          author_type: string
+          comment_text: string
+          comment_type: string
+          created_at: string | null
+          deleted_at: string | null
+          edit_history: Json | null
+          id: string
+          is_draft: boolean | null
+          is_edited: boolean | null
+          is_private: boolean | null
+          parent_comment_id: string | null
+          rich_content: Json | null
+          submission_id: string
+          submission_type: string
+          thread_position: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          attachments?: Json | null
+          author_id: string
+          author_type: string
+          comment_text: string
+          comment_type: string
+          created_at?: string | null
+          deleted_at?: string | null
+          edit_history?: Json | null
+          id?: string
+          is_draft?: boolean | null
+          is_edited?: boolean | null
+          is_private?: boolean | null
+          parent_comment_id?: string | null
+          rich_content?: Json | null
+          submission_id: string
+          submission_type: string
+          thread_position?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          attachments?: Json | null
+          author_id?: string
+          author_type?: string
+          comment_text?: string
+          comment_type?: string
+          created_at?: string | null
+          deleted_at?: string | null
+          edit_history?: Json | null
+          id?: string
+          is_draft?: boolean | null
+          is_edited?: boolean | null
+          is_private?: boolean | null
+          parent_comment_id?: string | null
+          rich_content?: Json | null
+          submission_id?: string
+          submission_type?: string
+          thread_position?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "submission_comments_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "submission_comments_parent_comment_id_fkey"
+            columns: ["parent_comment_id"]
+            isOneToOne: false
+            referencedRelation: "submission_comments"
             referencedColumns: ["id"]
           },
         ]

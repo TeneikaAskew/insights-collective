@@ -11,7 +11,6 @@ import {
   Lock,
   Unlock,
   ChevronRight,
-  Clock,
   Target
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
@@ -52,55 +51,38 @@ export const ModuleProgressCard: React.FC<ModuleProgressCardProps> = ({
 }) => {
   const [isOpen, setIsOpen] = React.useState(false);
 
-  // Get module progress using the SQL function
+  // Single query against the live schema: content_items + progressions for
+  // lessons, plus assignments/quizzes with their student submissions/attempts.
+  // Progress is computed client-side — there is no calculate_module_progress
+  // RPC in the live database.
   const {
-    data: progress,
+    data: moduleData,
     isLoading,
-    error: progressError,
-    refetch: refetchProgress,
+    error: moduleError,
+    refetch,
   } = useQuery({
     queryKey: ['module-progress', moduleId, studentId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .rpc('calculate_module_progress', {
-          p_module_id: moduleId,
-          p_student_id: studentId,
-        })
-        .single();
+      // 1. Published content items in this module.
+      const itemsRes = await supabase
+        .from('content_items')
+        .select('id, title, type, position')
+        .eq('module_id', moduleId)
+        .eq('published', true)
+        .order('position');
+      if (itemsRes.error) throw new Error(itemsRes.error.message);
+      const items = itemsRes.data || [];
+      const itemIds = items.map((i) => i.id);
 
-      if (error) throw new Error(error.message || 'Failed to load module progress');
-      return data as ModuleProgress;
-    },
-    enabled: !!moduleId && !!studentId,
-  });
-
-  // Get detailed lesson/assignment/quiz data if details are shown
-  const {
-    data: moduleContent,
-    error: contentError,
-    refetch: refetchContent,
-  } = useQuery({
-    queryKey: ['module-content', moduleId],
-    queryFn: async () => {
-      const [lessonsRes, assignmentsRes, quizzesRes] = await Promise.all([
-        supabase
-          .from('lessons')
-          .select(`
-            id,
-            title,
-            type,
-            order_index,
-            estimated_time_minutes,
-            is_locked,
-            completions:lesson_completions!left(
-              id,
-              completed_at
-            )
-          `)
-          .eq('module_id', moduleId)
-          .eq('completions.student_id', studentId)
-          .order('order_index'),
-        
+      // 2. The student's progressions, assignments, and quizzes in parallel.
+      const [progressionsRes, assignmentsRes, quizzesRes] = await Promise.all([
+        itemIds.length
+          ? supabase
+              .from('content_item_progressions')
+              .select('content_item_id, workflow_state')
+              .eq('user_id', studentId)
+              .in('content_item_id', itemIds)
+          : Promise.resolve({ data: [], error: null } as any),
         supabase
           .from('assignments')
           .select(`
@@ -110,19 +92,18 @@ export const ModuleProgressCard: React.FC<ModuleProgressCardProps> = ({
             points,
             submissions:assignment_submissions!left(
               id,
-              status,
+              workflow_state,
               grade
             )
           `)
           .eq('module_id', moduleId)
-          .eq('submissions.student_id', studentId),
-        
+          .eq('submissions.user_id', studentId),
         supabase
           .from('quizzes')
           .select(`
             id,
             title,
-            total_points,
+            points_possible,
             attempts:quiz_attempts!left(
               id,
               score,
@@ -134,36 +115,62 @@ export const ModuleProgressCard: React.FC<ModuleProgressCardProps> = ({
       ]);
 
       // A failed query must surface as an error — silently rendering empty
-      // lesson/assignment/quiz lists would misrepresent the module content.
-      const queryError = lessonsRes.error ?? assignmentsRes.error ?? quizzesRes.error;
+      // lists would misrepresent the module content.
+      const queryError =
+        progressionsRes.error ?? assignmentsRes.error ?? quizzesRes.error;
       if (queryError) throw new Error(queryError.message || 'Failed to load module content');
 
-      return {
-        lessons: lessonsRes.data || [],
-        assignments: assignmentsRes.data || [],
-        quizzes: quizzesRes.data || [],
+      const doneItems = new Set(
+        (progressionsRes.data || [])
+          .filter((p: any) => p.workflow_state === 'read' || p.workflow_state === 'completed')
+          .map((p: any) => p.content_item_id)
+      );
+      const lessons = items.map((i) => ({ ...i, completed: doneItems.has(i.id) }));
+      const assignments = assignmentsRes.data || [];
+      const quizzes = quizzesRes.data || [];
+
+      const isAssignmentDone = (a: any) =>
+        (a.submissions || []).some(
+          (s: any) => s.workflow_state === 'graded' || s.grade != null
+        );
+      const isQuizDone = (q: any) =>
+        (q.attempts || []).some((at: any) => at.completed_at);
+
+      const progress: ModuleProgress = {
+        total_lessons: lessons.length,
+        completed_lessons: lessons.filter((l) => l.completed).length,
+        total_assignments: assignments.length,
+        completed_assignments: assignments.filter(isAssignmentDone).length,
+        total_quizzes: quizzes.length,
+        completed_quizzes: quizzes.filter(isQuizDone).length,
+        progress_percentage: 0,
       };
+      const total = progress.total_lessons + progress.total_assignments + progress.total_quizzes;
+      const done = progress.completed_lessons + progress.completed_assignments + progress.completed_quizzes;
+      progress.progress_percentage = total ? Math.round((done / total) * 100) : 0;
+
+      return { progress, lessons, assignments, quizzes };
     },
-    enabled: showDetails && !!moduleId && !!studentId,
+    enabled: !!moduleId && !!studentId,
   });
 
   // A failed progress fetch must render an error with retry — never the
   // loading skeleton forever (isLoading is false once the query errors).
-  if (progressError) {
+  if (moduleError) {
     return (
       <Card>
         <CardContent className="p-6">
           <CourseErrorState
             title={`Failed to load progress for ${moduleTitle}`}
-            error={progressError}
-            onRetry={() => void refetchProgress()}
+            error={moduleError}
+            onRetry={() => void refetch()}
           />
         </CardContent>
       </Card>
     );
   }
 
-  if (isLoading || !progress) {
+  if (isLoading || !moduleData) {
     return (
       <Card>
         <CardContent className="p-6">
@@ -176,6 +183,7 @@ export const ModuleProgressCard: React.FC<ModuleProgressCardProps> = ({
     );
   }
 
+  const { progress, lessons, assignments, quizzes } = moduleData;
   const totalItems = progress.total_lessons + progress.total_assignments + progress.total_quizzes;
   const completedItems = progress.completed_lessons + progress.completed_assignments + progress.completed_quizzes;
   const isCompleted = progress.progress_percentage === 100;
@@ -194,10 +202,10 @@ export const ModuleProgressCard: React.FC<ModuleProgressCardProps> = ({
   };
 
   const renderContentItem = (item: any, type: 'lesson' | 'assignment' | 'quiz') => {
-    const isItemCompleted = type === 'lesson' 
-      ? item.completions?.length > 0
+    const isItemCompleted = type === 'lesson'
+      ? item.completed === true
       : type === 'assignment'
-      ? item.submissions?.some((s: any) => s.status === 'graded')
+      ? item.submissions?.some((s: any) => s.workflow_state === 'graded' || s.grade != null)
       : item.attempts?.some((a: any) => a.completed_at);
 
     const icon = type === 'lesson' 
@@ -234,12 +242,6 @@ export const ModuleProgressCard: React.FC<ModuleProgressCardProps> = ({
           </div>
         </div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          {type === 'lesson' && item.estimated_time_minutes && (
-            <span className="flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              {item.estimated_time_minutes}m
-            </span>
-          )}
           {type === 'assignment' && (
             <>
               {item.points && <span>{item.points} pts</span>}
@@ -252,10 +254,10 @@ export const ModuleProgressCard: React.FC<ModuleProgressCardProps> = ({
           )}
           {type === 'quiz' && (
             <>
-              {item.total_points && <span>{item.total_points} pts</span>}
+              {item.points_possible && <span>{item.points_possible} pts</span>}
               {item.attempts?.[0]?.score && (
                 <Badge variant="outline">
-                  {item.attempts[0].score}/{item.total_points}
+                  {item.attempts[0].score}/{item.points_possible}
                 </Badge>
               )}
             </>
@@ -272,7 +274,7 @@ export const ModuleProgressCard: React.FC<ModuleProgressCardProps> = ({
           <div className="space-y-1">
             <CardTitle className="text-lg">{moduleTitle}</CardTitle>
             <CardDescription>
-              {totalItems} items • {completedItems} completed
+              {completedItems}/{totalItems} items completed
             </CardDescription>
           </div>
           {getStatusBadge()}
@@ -351,16 +353,8 @@ export const ModuleProgressCard: React.FC<ModuleProgressCardProps> = ({
           </div>
         )}
 
-        {/* Detailed content list. A failed content fetch shows an inline
-            error with retry instead of quietly hiding the details section. */}
-        {showDetails && !isLocked && contentError && (
-          <CourseErrorState
-            title="Failed to load module content"
-            error={contentError}
-            onRetry={() => void refetchContent()}
-          />
-        )}
-        {showDetails && !isLocked && !contentError && moduleContent && (
+        {/* Detailed content list. */}
+        {showDetails && !isLocked && (
           <Collapsible open={isOpen} onOpenChange={setIsOpen}>
             <CollapsibleTrigger asChild>
               <Button variant="ghost" className="w-full justify-between p-2">
@@ -372,24 +366,24 @@ export const ModuleProgressCard: React.FC<ModuleProgressCardProps> = ({
               </Button>
             </CollapsibleTrigger>
             <CollapsibleContent className="space-y-3 mt-3">
-              {moduleContent.lessons.length > 0 && (
+              {lessons.length > 0 && (
                 <div className="space-y-2">
                   <h4 className="text-sm font-medium text-muted-foreground">Lessons</h4>
-                  {moduleContent.lessons.map(lesson => renderContentItem(lesson, 'lesson'))}
+                  {lessons.map(lesson => renderContentItem(lesson, 'lesson'))}
                 </div>
               )}
-              
-              {moduleContent.assignments.length > 0 && (
+
+              {assignments.length > 0 && (
                 <div className="space-y-2">
                   <h4 className="text-sm font-medium text-muted-foreground">Assignments</h4>
-                  {moduleContent.assignments.map(assignment => renderContentItem(assignment, 'assignment'))}
+                  {assignments.map(assignment => renderContentItem(assignment, 'assignment'))}
                 </div>
               )}
-              
-              {moduleContent.quizzes.length > 0 && (
+
+              {quizzes.length > 0 && (
                 <div className="space-y-2">
                   <h4 className="text-sm font-medium text-muted-foreground">Quizzes</h4>
-                  {moduleContent.quizzes.map(quiz => renderContentItem(quiz, 'quiz'))}
+                  {quizzes.map(quiz => renderContentItem(quiz, 'quiz'))}
                 </div>
               )}
             </CollapsibleContent>

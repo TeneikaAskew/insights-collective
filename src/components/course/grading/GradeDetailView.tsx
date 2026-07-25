@@ -4,15 +4,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { GradeHistoryViewer } from './GradeHistoryViewer';
 import { SubmissionComments } from './SubmissionComments';
-import { 
-  History, 
-  MessageSquare, 
-  BarChart3, 
-  FileText, 
+import {
+  History,
+  MessageSquare,
+  BarChart3,
+  FileText,
   Clock,
   User,
   Award
 } from 'lucide-react';
+import { formatProfileName } from '@/lib/utils';
 
 interface GradeDetailViewProps {
   gradeId: string;
@@ -37,7 +38,8 @@ interface GradeDetailViewProps {
       time_limit?: number;
     };
     student?: {
-      full_name: string;
+      first_name: string | null;
+      last_name: string | null;
       avatar_url?: string;
     };
   };
@@ -102,7 +104,7 @@ export const GradeDetailView: React.FC<GradeDetailViewProps> = ({
               {grade?.student && (
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <User className="h-4 w-4" />
-                  {grade.student.full_name}
+                  {formatProfileName(grade.student)}
                 </div>
               )}
             </div>

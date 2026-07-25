@@ -41,8 +41,8 @@ function makeDiscussion(
 
 const profileJoin = {
   id: 'user-1',
-  email: 'ada@example.com',
-  full_name: 'Ada Lovelace',
+  first_name: 'Ada',
+  last_name: 'Lovelace',
   avatar_url: 'https://example.com/ada.png',
   roles: ['instructor'],
 };
@@ -65,7 +65,6 @@ describe('contentDiscussionService', () => {
       expect(result[0]).toMatchObject({
         id: 'd-1',
         user_name: 'Ada Lovelace',
-        user_email: 'ada@example.com',
         user_avatar: 'https://example.com/ada.png',
         is_instructor: true,
       });
