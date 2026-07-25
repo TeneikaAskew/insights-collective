@@ -32,6 +32,8 @@ export interface LessonEditorPaneProps {
   onSave: (itemId: string, draft: LessonDraft) => Promise<void> | void;
   onDelete?: (itemId: string) => void;
   onSavingChange?: (saving: boolean) => void;
+  /** Optional context that gives the AI generator richer prompts. */
+  aiContext?: Omit<AiContentContext, 'lessonTitle' | 'lessonType'>;
 }
 
 const LESSON_TYPES: { value: ContentItemType; label: string }[] = [
