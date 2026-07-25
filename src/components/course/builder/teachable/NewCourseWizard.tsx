@@ -477,28 +477,41 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
 
       {/* Footer */}
       <div
-        className="h-16 px-6 flex items-center justify-between flex-shrink-0"
+        className="flex flex-col flex-shrink-0"
         style={{ borderTop: '1px solid hsl(var(--tw-border))' }}
       >
-        <button
-          type="button"
-          onClick={() => (step === 0 ? onCancel() : setStep((s) => s - 1))}
-          className="text-sm font-semibold text-gray-600 hover:text-black"
-        >
-          {step === 0 ? 'Cancel' : '‹ Back'}
-        </button>
-        <button
-          type="button"
-          disabled={!canContinue() || submitting || generating}
-          onClick={handleNext}
-          className="inline-flex items-center gap-2 px-5 py-2 rounded-md text-sm font-bold disabled:opacity-40"
-          style={{
-            background: 'hsl(var(--tw-accent))',
-            color: 'hsl(var(--tw-accent-ink))',
-          }}
-        >
-          {submitting ? 'Creating…' : step === STEPS.length - 1 ? 'Create course' : 'Continue'}
-        </button>
+        {submitError && (
+          <div
+            role="alert"
+            className="px-6 py-3 text-sm font-medium border-b border-red-200 bg-red-50 text-red-700 flex items-start gap-2"
+          >
+            <span aria-hidden>⚠</span>
+            <span>
+              <strong>Couldn't create your course.</strong> {submitError}
+            </span>
+          </div>
+        )}
+        <div className="h-16 px-6 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => (step === 0 ? onCancel() : setStep((s) => s - 1))}
+            className="text-sm font-semibold text-gray-600 hover:text-black"
+          >
+            {step === 0 ? 'Cancel' : '‹ Back'}
+          </button>
+          <button
+            type="button"
+            disabled={!canContinue() || submitting || generating}
+            onClick={handleNext}
+            className="inline-flex items-center gap-2 px-5 py-2 rounded-md text-sm font-bold disabled:opacity-40"
+            style={{
+              background: 'hsl(var(--tw-accent))',
+              color: 'hsl(var(--tw-accent-ink))',
+            }}
+          >
+            {submitting ? 'Creating…' : step === STEPS.length - 1 ? 'Create course' : 'Continue'}
+          </button>
+        </div>
       </div>
     </div>
   );
