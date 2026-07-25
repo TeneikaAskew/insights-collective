@@ -6,9 +6,10 @@ import { createMockAuthProvider } from '@/test/mocks/authMocks';
 import ResumeChat from '@/components/resume/ResumeChat';
 import { fixtureResumeAnalysis } from '@/test/fixtures/resumeAnalysis';
 
-// jsdom has no scrollIntoView; the chat auto-scrolls on new messages.
+// jsdom has no Element.scrollTo; the chat auto-scrolls its own viewport on
+// new messages (deliberately NOT scrollIntoView — that scrolled the page).
 beforeAll(() => {
-  Element.prototype.scrollIntoView = vi.fn();
+  Element.prototype.scrollTo = vi.fn();
 });
 
 // The welcome message only renders for a signed-in user.

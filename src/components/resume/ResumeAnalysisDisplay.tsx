@@ -77,21 +77,29 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
       setStoredPdfBlobUrl(null);
       return;
     }
+    let cancelled = false;
     let blobUrl: string | null = null;
     const fetchPdf = async () => {
       try {
         const response = await fetch(resume.file_url);
-        if (!response.ok) return;
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const blob = await response.blob();
+        if (cancelled) return; // effect re-ran (e.g. StrictMode); don't leak a blob URL
         blobUrl = URL.createObjectURL(blob);
         setStoredPdfBlobUrl(blobUrl);
       } catch {
-        // preview unavailable; user can still download
+        // Blob fetch failed (network hiccup, blocked request, dev double-mount
+        // race) — fall back to embedding the signed URL directly so the
+        // preview still renders.
+        if (!cancelled) setStoredPdfBlobUrl(resume.file_url);
       }
     };
     fetchPdf();
-    return () => { if (blobUrl) URL.revokeObjectURL(blobUrl); };
-  }, [resume?.file_url, resumeFile]);
+    return () => {
+      cancelled = true;
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+    };
+  }, [resume?.file_url, resume?.file_name, resumeFile]);
 
   const renderFilePreviewLocal = () => {
     if (storedPdfBlobUrl && !resumeFile) {

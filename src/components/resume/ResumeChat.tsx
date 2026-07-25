@@ -156,9 +156,14 @@ const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
     }
   }, [messages, user]);
   
-  // Scroll to bottom whenever messages change
+  // Scroll to bottom whenever messages change. Scroll ONLY the chat's own
+  // viewport — scrollIntoView would also scroll every ancestor, yanking the
+  // whole page down when the Chat tab mounts with existing messages.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const viewport = messagesEndRef.current?.closest('[data-radix-scroll-area-viewport]');
+    if (viewport) {
+      viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' });
+    }
   }, [messages]);
   
   // Word-by-word typing animation processor with improved handling

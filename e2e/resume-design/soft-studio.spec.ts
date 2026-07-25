@@ -222,6 +222,14 @@ test.describe('Soft Studio resume page', () => {
       await expect(page.getByText(/82\.82|ready for review/i).first()).toBeVisible();
     });
 
+    test('opening the chat tab does not scroll the page', async ({ page }) => {
+      // Regression guard: the chat's auto-scroll must move only its own
+      // viewport, never the document (previously scrollIntoView yanked the
+      // page to the bottom when the tab mounted).
+      await page.waitForTimeout(600); // let smooth-scroll settle if it fires
+      expect(await page.evaluate(() => window.scrollY)).toBe(0);
+    });
+
     test('composer accepts input and enables send', async ({ page }) => {
       const composer = page.getByPlaceholder('Ask about your resume or career path...');
       const send = page.getByRole('button', { name: /send/i });
