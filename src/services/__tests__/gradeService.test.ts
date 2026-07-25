@@ -235,7 +235,7 @@ describe('gradeService', () => {
       mockSupabaseClient.from().select().eq.mockResolvedValue({
         data: [
           makeGradeRow({
-            student: { full_name: 'Ada Lovelace', email: 'ada@example.com' },
+            student: { first_name: 'Ada', last_name: 'Lovelace' },
             assignment: { title: 'Essay 1' },
             quiz: null,
           }),

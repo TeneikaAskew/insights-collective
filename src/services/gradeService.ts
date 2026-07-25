@@ -15,8 +15,8 @@ export const gradeService = {
         *,
         student:profiles!student_id(
           id,
-          full_name,
-          email,
+          first_name,
+          last_name,
           avatar_url
         ),
         assignment:assignments(
@@ -28,7 +28,7 @@ export const gradeService = {
         quiz:quizzes(
           id,
           title,
-          total_points,
+          points_possible,
           module_id
         )
       `)
@@ -54,7 +54,7 @@ export const gradeService = {
         quiz:quizzes(
           id,
           title,
-          total_points,
+          points_possible,
           module:modules(id, title)
         )
       `)
@@ -149,21 +149,20 @@ export const gradeService = {
       .select(`
         *,
         student:profiles!student_id(
-          full_name,
-          email
+          first_name,
+          last_name
         ),
         assignment:assignments(title),
         quiz:quizzes(title)
       `)
       .eq('course_id', courseId);
-    
+
     if (error) throw error;
 
     // Convert to CSV format
-    const headers = ['Student Name', 'Email', 'Assignment/Quiz', 'Type', 'Points Earned', 'Points Possible', 'Percentage', 'Letter Grade'];
+    const headers = ['Student Name', 'Assignment/Quiz', 'Type', 'Points Earned', 'Points Possible', 'Percentage', 'Letter Grade'];
     const rows = grades?.map(grade => [
-      grade.student.full_name,
-      grade.student.email,
+      `${grade.student.first_name ?? ''} ${grade.student.last_name ?? ''}`.trim(),
       grade.assignment?.title || grade.quiz?.title || '',
       grade.grade_type,
       grade.points_earned || '',
