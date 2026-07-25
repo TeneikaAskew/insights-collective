@@ -100,6 +100,7 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
 
   const handleFinish = async () => {
     setSubmitting(true);
+    setSubmitError(null);
     try {
       // Ensure a starter outline for scratch flow
       let finalOutline = outline;
@@ -116,6 +117,10 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
         aiDescription: aiDescription.trim(),
         outline: finalOutline,
       });
+    } catch (err: any) {
+      setSubmitError(
+        err?.message || 'Something went wrong creating the course. Please try again.',
+      );
     } finally {
       setSubmitting(false);
     }
