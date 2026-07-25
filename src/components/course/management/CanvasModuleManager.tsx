@@ -195,7 +195,7 @@ export function CanvasModuleManager({
         data,
         error
       } = await supabase.from('modules').update({
-import { useConfirm } from '@/components/dialogs/DialogsProvider';
+
         published: newPublishedState,
         updated_at: new Date().toISOString()
       }).eq('id', module.id).select().single();
