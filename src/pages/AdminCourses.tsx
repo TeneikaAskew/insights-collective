@@ -175,6 +175,9 @@ export default function AdminCourses() {
               <TabsTrigger value="progress" className="rounded-full px-5 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
                 <BarChart3 className="mr-2 h-4 w-4" /> Progress
               </TabsTrigger>
+              <TabsTrigger value="report" className="rounded-full px-5 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
+                <FileSpreadsheet className="mr-2 h-4 w-4" /> Report
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="courses" className="space-y-6">
