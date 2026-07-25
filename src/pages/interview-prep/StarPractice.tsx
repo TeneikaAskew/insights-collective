@@ -13,7 +13,6 @@ import { Check, AlertCircle, ChevronLeft, ChevronRight, RotateCw, Star, ArrowLef
 import { LocalStorageUtils } from '@/utils/localStorageUtils';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
-import '../../../src/components/interview-prep/flashcard.css';
 
 import { createLogger } from '@/utils/logger';
 

@@ -307,10 +307,12 @@ function App() {
                     <Route path="/interview-prep/code-practice" element={<InterviewCodePractice />} />
                     <Route path="/interview-prep/job-description" element={<JobDescription />} />
                     <Route path="/interview-prep/mock-interview-room" element={<MockInterviewRoom />} />
+                    <Route path="/interview-prep/mock-interview-room/:sessionId" element={<MockInterviewRoom />} />
                     <Route path="/interview-prep/mock-interviews" element={<InterviewMockInterviews />} />
                     <Route path="/interview-prep/star-practice" element={<StarPractice />} />
-                    <Route path="/mock-interviews" element={<MockInterviews />} />
-                    <Route path="/code-practice" element={<CodePractice />} />
+                    {/* Legacy near-duplicate pages — redirect to the interview-prep versions */}
+                    <Route path="/mock-interviews" element={<Navigate to="/interview-prep/mock-interviews" replace />} />
+                    <Route path="/code-practice" element={<Navigate to="/interview-prep/code-practice" replace />} />
 
                     {/* Career & AI Routes */}
                     <Route path="/career-agent" element={<CareerAgent />} />

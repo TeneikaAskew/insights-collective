@@ -62,8 +62,10 @@ export default function JobDescription() {
         // Only switch to study guide tab if there's data
         setActiveTab('study-guide');
       }
-      setIsLoading(false);
     }
+    // Always clear the loading state — logged-out visitors previously hung
+    // on the spinner forever because this only ran for signed-in users.
+    setIsLoading(false);
   }, [user]);
 
   const handleUrlExtract = async () => {
