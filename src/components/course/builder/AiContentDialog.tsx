@@ -281,7 +281,7 @@ export function AiContentDialog({
             type="button"
             variant="ghost"
             onClick={() => onOpenChange(false)}
-            disabled={loading}
+            disabled={loading || inserting !== null}
           >
             Cancel
           </Button>
@@ -290,22 +290,37 @@ export function AiContentDialog({
               type="button"
               variant="outline"
               onClick={() => handleInsert('append')}
-              disabled={loading || !html}
+              disabled={loading || !html || inserting !== null}
             >
-              Append to lesson
+              {inserting === 'append' ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                  Appending…
+                </>
+              ) : (
+                'Append to lesson'
+              )}
             </Button>
           )}
           <Button
             type="button"
             onClick={() => handleInsert('replace')}
-            disabled={loading || !html}
+            disabled={loading || !html || inserting !== null}
           >
-            {hasExisting ? 'Replace lesson content' : 'Insert into lesson'}
+            {inserting === 'replace' ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                {hasExisting ? 'Replacing…' : 'Inserting…'}
+              </>
+            ) : (
+              hasExisting ? 'Replace lesson content' : 'Insert into lesson'
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
+
 
 export default AiContentDialog;
