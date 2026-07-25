@@ -17,6 +17,7 @@ import { UnifiedCanvasEditor } from '@/components/ui/unified-canvas-editor';
 import { CanvasModuleContent } from '../canvas/CanvasModuleContent';
 import { Module } from '@/types/canvas';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import { useConfirm } from '@/components/dialogs/DialogsProvider';
 interface CanvasModuleManagerProps {
   courseId: string;
   courseDuration: number;
