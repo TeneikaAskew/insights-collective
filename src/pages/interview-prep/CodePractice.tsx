@@ -1,16 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Spinner } from '@/components/ui/spinner';
 import Editor from '@monaco-editor/react';
-import { Badge } from '@/components/ui/badge';
-import { Check, Code, ChevronLeft } from 'lucide-react';
+import { Check, Code, ChevronLeft, RotateCcw } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useNavigate } from 'react-router-dom';
-import { MonacoThemeProvider, MonacoCard } from '@/components/ui/theme-monaco';
+import { MonacoCard } from '@/components/ui/theme-monaco';
 
 import { createLogger } from '@/utils/logger';
 
@@ -152,6 +151,22 @@ const challengesByRole = {
   }
 };
 
+const templateForRole = (role: string) => {
+  if (role === 'data_analyst' || role === 'data_scientist') {
+    return '# Write your solution here\n\nimport pandas as pd\nimport numpy as np\n\ndef solution(data):\n    # Your code here\n    pass';
+  }
+  if (role === 'data_engineer') {
+    return '# Write your solution here\n\ndef parse_logs(logs, threshold):\n    # Your code here\n    pass';
+  }
+  return '// Write your solution here';
+};
+
+const difficultyChip: Record<string, string> = {
+  Easy: 'bg-ss-good-chip text-ss-good',
+  Medium: 'bg-ss-warn-chip text-ss-warn',
+  Hard: 'bg-ss-bad-chip text-ss-bad',
+};
+
 export default function CodePractice() {
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -165,17 +180,11 @@ export default function CodePractice() {
   useEffect(() => {
     // Update the current challenge when the selected role changes
     setCurrentChallenge(challengesByRole[selectedRole]);
-    
+
     // Reset the code editor with template based on the role
-    let template = '// Write your solution here';
-    if (selectedRole === 'data_analyst' || selectedRole === 'data_scientist') {
-      template = '# Write your solution here\n\nimport pandas as pd\nimport numpy as np\n\ndef solution(data):\n    # Your code here\n    pass';
-    } else if (selectedRole === 'data_engineer') {
-      template = '# Write your solution here\n\ndef parse_logs(logs, threshold):\n    # Your code here\n    pass';
-    }
-    
-    setCode(template);
+    setCode(templateForRole(selectedRole));
     setFeedback(null);
+    setActiveTab('code');
   }, [selectedRole]);
 
   const handleCodeChange = (value) => {
@@ -184,6 +193,10 @@ export default function CodePractice() {
 
   const handleRoleChange = (value) => {
     setSelectedRole(value);
+  };
+
+  const handleReset = () => {
+    setCode(templateForRole(selectedRole));
   };
 
   const handleSubmit = async () => {
@@ -205,7 +218,7 @@ export default function CodePractice() {
         setActiveTab('feedback');
         setLoading(false);
       }, 1500);
-      
+
     } catch (error) {
       logger.error('Error submitting code:', error);
       toast({
@@ -217,173 +230,230 @@ export default function CodePractice() {
     }
   };
 
+  const language =
+    selectedRole === 'data_analyst' || selectedRole === 'data_scientist' ? 'python' : 'javascript';
+  const showFeedback = activeTab === 'feedback' && feedback;
+
   return (
-    <AppLayout>
-      <div className="container mx-auto py-8">
-        <div className="mb-8">
-          <div className="flex items-center gap-2 mb-4">
-            <Button variant="outline" size="sm" onClick={() => navigate('/interview-prep')}>
-              <ChevronLeft className="h-4 w-4 mr-1" />
-              Back to Interview Prep
-            </Button>
+    <AppLayout fullWidth>
+      <div className="soft-studio ss-wash min-h-full px-4 sm:px-6 py-8">
+        <div className="mx-auto max-w-7xl">
+          <div className="mb-8">
+            <div className="flex items-center gap-2 mb-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/interview-prep')}
+                className="rounded-full font-bold"
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Interview prep
+              </Button>
+              <span className="text-sm text-muted-foreground">· Step 03</span>
+            </div>
+            <h1 className="text-3xl sm:text-4xl font-bold mb-2">Code Challenge Practice</h1>
+            <p className="text-muted-foreground text-lg">
+              Practice technical coding challenges with real-time feedback.
+            </p>
           </div>
-          <h1 className="text-4xl font-bold mb-2">Code Challenge Practice</h1>
-          <p className="text-muted-foreground">
-            Practice technical coding challenges with real-time feedback.
-          </p>
-        </div>
 
-        <div className="mb-6">
-          <label className="text-sm font-medium mb-2 block">Select your target role:</label>
-          <Select value={selectedRole} onValueChange={handleRoleChange}>
-            <SelectTrigger className="w-full sm:w-[300px]">
-              <SelectValue placeholder="Select a role" />
-            </SelectTrigger>
-            <SelectContent>
-              {jobRoles.map((role) => (
-                <SelectItem key={role.value} value={role.value}>{role.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground mt-2">
-            Questions will be tailored to the specific skills needed for your selected role
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="md:col-span-1">
-            <Card>
-              <CardHeader>
-                <CardTitle>{currentChallenge.title}</CardTitle>
-                <CardDescription>{currentChallenge.difficulty}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div>
-                    <p className="text-sm mb-4">{currentChallenge.description}</p>
-                    <p className="text-sm mb-4">{currentChallenge.detail}</p>
-                    <p className="text-sm mb-4">
-                      This is a common problem type for {jobRoles.find(role => role.value === selectedRole).label} interviews.
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <h3 className="text-sm font-medium mb-2">Example:</h3>
-                    <pre className="bg-muted p-2 rounded-md text-xs overflow-auto max-h-[150px] whitespace-pre-wrap">
-                      {currentChallenge.example}
-                    </pre>
-                  </div>
-                  
-                  <div>
-                    <h3 className="text-sm font-medium mb-2">Constraints:</h3>
-                    <ul className="list-disc list-inside space-y-1">
-                      {currentChallenge.constraints.map((constraint, index) => (
-                        <li key={index} className="text-sm">{constraint}</li>
-                      ))}
-                    </ul>
-                  </div>
-                  
-                  <div>
-                    <h3 className="text-sm font-medium mb-2">Hints:</h3>
-                    <ul className="list-disc list-inside space-y-1">
-                      {currentChallenge.hints.map((hint, index) => (
-                        <li key={index} className="text-sm">{hint}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+          <div className="mb-6">
+            <label className="text-sm font-medium mb-2 block">Select your target role:</label>
+            <div className="flex items-center gap-3 flex-wrap">
+              <Select value={selectedRole} onValueChange={handleRoleChange}>
+                <SelectTrigger className="w-full sm:w-[300px] rounded-xl bg-card">
+                  <SelectValue placeholder="Select a role" />
+                </SelectTrigger>
+                <SelectContent>
+                  {jobRoles.map((role) => (
+                    <SelectItem key={role.value} value={role.value}>{role.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <span className="rounded-full bg-ss-lav-chip px-3 py-1 text-xs font-medium text-ss-lav-deep">
+                {language === 'python' ? 'Python' : 'JavaScript'}
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Questions will be tailored to the specific skills needed for your selected role
+            </p>
           </div>
-          
-          <div className="md:col-span-2">
-            <MonacoCard className="h-full">
-              <CardHeader className="pb-2 border-b border-[#444444]">
-                <Tabs value={activeTab} onValueChange={setActiveTab}>
-                  <TabsList className="bg-[#333333]">
-                    <TabsTrigger value="code" className="data-[state=active]:bg-[#0e639c] data-[state=active]:text-white">Code Editor</TabsTrigger>
-                    <TabsTrigger value="feedback" disabled={!feedback} className="data-[state=active]:bg-[#0e639c] data-[state=active]:text-white">Feedback</TabsTrigger>
-                  </TabsList>
-                </Tabs>
-              </CardHeader>
-              
-              <CardContent>
-                <Tabs value={activeTab} onValueChange={setActiveTab}>
-                  <TabsContent value="code" className="mt-0">
-                    <div className="h-[500px] border rounded-md border-[#444444] overflow-hidden">
-                      <Editor
-                        height="100%"
-                        language={selectedRole === 'data_analyst' || selectedRole === 'data_scientist' ? 'python' : 'javascript'}
-                        theme="vs-dark"
-                        value={code}
-                        onChange={handleCodeChange}
-                        options={{
-                          minimap: { enabled: false },
-                          fontSize: 14,
-                          scrollBeyondLastLine: false,
-                        }}
-                      />
+
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
+            {/* Left page: the problem while composing, the result after submitting */}
+            <div className="lg:col-span-2">
+              {showFeedback ? (
+                <Card className="ss-card">
+                  <CardHeader>
+                    <div className="flex items-center gap-3">
+                      <CardTitle>Result</CardTitle>
+                      {feedback.correct ? (
+                        <span className="flex items-center rounded-full bg-ss-good-chip px-3 py-1 text-xs font-bold text-ss-good">
+                          <Check className="h-3.5 w-3.5 mr-1" />
+                          Correct
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-ss-bad-chip px-3 py-1 text-xs font-bold text-ss-bad">
+                          Incorrect
+                        </span>
+                      )}
                     </div>
-                    <div className="mt-4 flex justify-end">
-                      <Button onClick={handleSubmit} disabled={loading} className="bg-[#0e639c] hover:bg-[#1177bb] text-white">
-                        {loading ? <Spinner size="sm" className="mr-2" /> : null}
-                        Submit Solution
+                  </CardHeader>
+                  <CardContent className="space-y-5">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="rounded-2xl border bg-card px-4 py-3 text-center">
+                        <p className="text-xl font-bold">{feedback.runtime}</p>
+                        <p className="text-xs text-muted-foreground">runtime</p>
+                      </div>
+                      <div className="rounded-2xl border bg-card px-4 py-3 text-center">
+                        <p className="text-xl font-bold">{feedback.memory}</p>
+                        <p className="text-xs text-muted-foreground">memory</p>
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl bg-ss-card-warm border border-ss-peach/30 p-4">
+                      <h3 className="text-sm font-bold text-ss-peach-deep mb-2">Code Review</h3>
+                      <p className="text-sm">{feedback.feedback}</p>
+                    </div>
+
+                    <div className="rounded-2xl bg-ss-lav-chip p-4">
+                      <h3 className="text-sm font-bold text-ss-lav-deep mb-2">Suggestions</h3>
+                      <ol className="space-y-2">
+                        {feedback.suggestions.map((suggestion, index) => (
+                          <li key={index} className="flex gap-2 text-sm">
+                            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-card text-xs font-bold text-ss-lav-deep">
+                              {index + 1}
+                            </span>
+                            {suggestion}
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+
+                    <div className="flex justify-end">
+                      <Button onClick={() => setActiveTab('code')} className="rounded-full font-bold">
+                        <Code className="h-4 w-4 mr-2" />
+                        Continue Editing
                       </Button>
                     </div>
-                  </TabsContent>
-                  
-                  <TabsContent value="feedback">
-                    {feedback && (
-                      <div className="space-y-6 text-gray-200">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center">
-                            {feedback.correct ? (
-                              <Badge className="bg-green-900/50 text-green-400 border-green-700 mr-2">
-                                <Check className="h-4 w-4 mr-1" />
-                                Correct
-                              </Badge>
-                            ) : (
-                              <Badge variant="destructive" className="mr-2">
-                                Incorrect
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-4">
-                            <div className="text-xs text-gray-300">
-                              <span className="font-medium">Runtime:</span> {feedback.runtime}
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card className="ss-card">
+                  <CardHeader>
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <CardTitle>{currentChallenge.title}</CardTitle>
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-bold ${
+                          difficultyChip[currentChallenge.difficulty] ?? 'bg-ss-track text-muted-foreground'
+                        }`}
+                      >
+                        {currentChallenge.difficulty}
+                      </span>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-5">
+                      <div>
+                        <p className="text-sm font-medium mb-2">{currentChallenge.description}</p>
+                        <p className="text-sm text-muted-foreground mb-2">{currentChallenge.detail}</p>
+                        <p className="text-sm text-muted-foreground">
+                          This is a common problem type for {jobRoles.find(role => role.value === selectedRole).label} interviews.
+                        </p>
+                      </div>
+
+                      <div>
+                        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Example</h3>
+                        <pre className="bg-muted p-3 rounded-xl text-xs overflow-auto max-h-[150px] whitespace-pre-wrap">
+                          {currentChallenge.example}
+                        </pre>
+                      </div>
+
+                      <div>
+                        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Constraints</h3>
+                        <ul className="list-disc list-inside space-y-1">
+                          {currentChallenge.constraints.map((constraint, index) => (
+                            <li key={index} className="text-sm">{constraint}</li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      <div>
+                        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Hints</h3>
+                        <div className="space-y-2">
+                          {currentChallenge.hints.map((hint, index) => (
+                            <div key={index} className="rounded-xl bg-ss-lav-chip px-4 py-3 text-sm">
+                              <span className="font-bold text-ss-lav-deep">Hint {index + 1}.</span> {hint}
                             </div>
-                            <div className="text-xs text-gray-300">
-                              <span className="font-medium">Memory:</span> {feedback.memory}
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <div>
-                          <h3 className="text-sm font-medium mb-2 text-gray-100">Code Review</h3>
-                          <p className="text-sm text-gray-300">{feedback.feedback}</p>
-                        </div>
-                        
-                        <div>
-                          <h3 className="text-sm font-medium mb-2 text-gray-100">Suggestions</h3>
-                          <ul className="list-disc list-inside space-y-1">
-                            {feedback.suggestions.map((suggestion, index) => (
-                              <li key={index} className="text-sm text-gray-300">{suggestion}</li>
-                            ))}
-                          </ul>
-                        </div>
-                        
-                        <div className="flex justify-end">
-                          <Button variant="outline" onClick={() => setActiveTab('code')} className="border-[#444444] text-gray-300 hover:bg-[#333333]">
-                            <Code className="h-4 w-4 mr-2" />
-                            Continue Editing
-                          </Button>
+                          ))}
                         </div>
                       </div>
-                    )}
-                  </TabsContent>
-                </Tabs>
-              </CardContent>
-            </MonacoCard>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+
+            {/* Right page: the dark editor sitting in a soft frame */}
+            <div className="lg:col-span-3">
+              <MonacoCard className="rounded-[26px] overflow-hidden shadow-[0_14px_34px_-18px_rgba(90,80,120,0.55)] border-[#3A3644]">
+                <div className="flex items-center gap-2 px-5 py-3 border-b border-[#3A3644]">
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#EC6A5E]" aria-hidden="true" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#F4BF4F]" aria-hidden="true" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#61C554]" aria-hidden="true" />
+                  <span className="ml-2 font-mono text-xs text-gray-400">
+                    {language === 'python' ? 'solution.py' : 'solution.js'}
+                  </span>
+                  <Tabs value={activeTab} onValueChange={setActiveTab} className="ml-auto">
+                    <TabsList className="bg-transparent p-0 gap-1">
+                      <TabsTrigger
+                        value="code"
+                        className="rounded-full text-xs font-bold text-gray-400 data-[state=active]:bg-[#3A3644] data-[state=active]:text-white data-[state=active]:shadow-none"
+                      >
+                        Code Editor
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="feedback"
+                        disabled={!feedback}
+                        className="rounded-full text-xs font-bold text-gray-400 data-[state=active]:bg-[#3A3644] data-[state=active]:text-white data-[state=active]:shadow-none"
+                      >
+                        Feedback
+                      </TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                </div>
+
+                <div className="h-[500px]">
+                  <Editor
+                    height="100%"
+                    language={language}
+                    theme="vs-dark"
+                    value={code}
+                    onChange={handleCodeChange}
+                    options={{
+                      minimap: { enabled: false },
+                      fontSize: 14,
+                      scrollBeyondLastLine: false,
+                    }}
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3 px-5 py-4 border-t border-[#3A3644]">
+                  <Button
+                    variant="outline"
+                    onClick={handleReset}
+                    className="rounded-full font-bold border-[#4A445C] bg-transparent text-gray-300 hover:bg-[#333333] hover:text-white"
+                  >
+                    <RotateCcw className="h-4 w-4 mr-2" />
+                    Reset
+                  </Button>
+                  <Button onClick={handleSubmit} disabled={loading} className="rounded-full font-bold">
+                    {loading ? <Spinner size="sm" className="mr-2" /> : null}
+                    Submit Solution
+                  </Button>
+                </div>
+              </MonacoCard>
+            </div>
           </div>
         </div>
       </div>

@@ -113,6 +113,49 @@ test.describe('Job description page (Soft Studio, Split Desk)', () => {
   });
 });
 
+test.describe('Code practice page (Soft Studio, Problem Book)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/interview-prep/code-practice', { waitUntil: 'domcontentloaded' });
+    await page.getByText('Code Challenge Practice').waitFor({ timeout: 15_000 });
+  });
+
+  test('applies the Soft Studio theme with the problem-book layout', async ({ page }) => {
+    const wrapper = page.locator('.soft-studio').first();
+    await expect(wrapper).toBeVisible();
+    expect(await wrapper.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgb(250, 248, 245)');
+
+    // Original copy is preserved
+    await expect(page.getByText('Practice technical coding challenges with real-time feedback.')).toBeVisible();
+    await expect(page.getByText('Select your target role:')).toBeVisible();
+
+    // Problem page (left) and editor chrome (right) are both present
+    await expect(page.getByText('Two Sum')).toBeVisible();
+    await expect(page.getByText('Constraints')).toBeVisible();
+    await expect(page.getByText(/Hint 1\./)).toBeVisible();
+    await expect(page.getByText('solution.js')).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Feedback' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: /submit solution/i })).toBeEnabled();
+  });
+
+  test('submitting swaps the problem page for the result card', async ({ page }) => {
+    await page.getByRole('button', { name: /submit solution/i }).click();
+    await expect(page.getByText('Result', { exact: true })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('Correct', { exact: true })).toBeVisible();
+    await expect(page.getByText('Code Review')).toBeVisible();
+    await expect(page.getByText('Suggestions')).toBeVisible();
+
+    await page.getByRole('button', { name: /continue editing/i }).click();
+    await expect(page.getByText('Constraints')).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Feedback' })).toBeEnabled();
+  });
+
+  test('back button returns to the interview prep hub', async ({ page }) => {
+    await page.getByRole('button', { name: /interview prep/i }).click();
+    await page.waitForURL('**/interview-prep', { timeout: 15_000, waitUntil: 'domcontentloaded' });
+    await expect(page.getByRole('heading', { name: 'Interview Preparation' })).toBeVisible();
+  });
+});
+
 test.describe('STAR practice page (Soft Studio, Guided Coach)', () => {
   test('renders the themed no-questions state when logged out', async ({ page }) => {
     await page.goto('/interview-prep/star-practice', { waitUntil: 'domcontentloaded' });
