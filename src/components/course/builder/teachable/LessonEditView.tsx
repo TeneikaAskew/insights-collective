@@ -7,8 +7,10 @@ import type { ContentItem, ContentItemType } from '@/types/canvas';
 import { LessonEditorPane, type LessonDraft } from '../LessonEditorPane';
 import { AddContentPanel } from './AddContentPanel';
 import type { BuilderModule } from './types';
+import { TeachableBreadcrumb } from './TeachableBreadcrumb';
 
 interface LessonEditViewProps {
+  courseId?: string;
   courseTitle: string;
   modules: BuilderModule[];
   currentItem: ContentItem | null;
