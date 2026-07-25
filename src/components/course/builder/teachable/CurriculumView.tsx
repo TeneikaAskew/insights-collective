@@ -482,6 +482,7 @@ function LessonRow({ item, onRename, onDelete, onTogglePublish, onSelect }: Less
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(item.title);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   const commit = () => {
     setEditing(false);
