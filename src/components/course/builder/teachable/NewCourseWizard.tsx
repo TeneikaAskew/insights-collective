@@ -24,10 +24,19 @@ export interface NewCourseWizardResult {
   outline?: OutlineSection[];
 }
 
+export type CreationStepStatus = 'pending' | 'running' | 'done' | 'error' | 'skipped';
+export interface CreationStep {
+  id: string;
+  label: string;
+  status: CreationStepStatus;
+  detail?: string;
+}
+export type ProgressReporter = (steps: CreationStep[]) => void;
+
 interface NewCourseWizardProps {
   open: boolean;
   onCancel: () => void;
-  onFinish: (result: NewCourseWizardResult) => Promise<void>;
+  onFinish: (result: NewCourseWizardResult, onProgress: ProgressReporter) => Promise<void>;
 }
 
 const STEPS = ['About', 'Thumbnail', 'Outline', 'Confirm'] as const;
