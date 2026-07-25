@@ -2888,7 +2888,7 @@ export type Database = {
           completion_requirements?: Json | null
           course_id?: string | null
           created_at?: string | null
-          description: string
+          description?: string
           id?: string
           position: number
           prerequisite_module_ids?: string[] | null
@@ -2897,7 +2897,7 @@ export type Database = {
           requirements?: Json | null
           title: string
           updated_at?: string | null
-          week: number
+          week?: number
         }
         Update: {
           completion_requirements?: Json | null
