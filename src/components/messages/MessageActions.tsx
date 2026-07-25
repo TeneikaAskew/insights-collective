@@ -46,6 +46,8 @@ const MessageActions: React.FC<MessageActionsProps> = ({
   const { user } = useAuth();
   const [loading, setLoading] = useState<string | null>(null);
   const navigate = useNavigate();
+  const confirm = useConfirm();
+
 
   const handleMarkAsUnread = async () => {
     if (!user || !conversationId) return;
