@@ -59,6 +59,9 @@ const CourseMaterials = () => {
   const { user } = useAuth();
   const { canEdit, isInstructor, isAdmin } = useCoursePermissions(courseId);
   const canManage = canEdit || isInstructor || isAdmin;
+  const confirm = useConfirm();
+  const prompt = usePrompt();
+
 
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [folders, setFolders] = useState<FolderRow[]>([]);
