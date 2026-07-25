@@ -225,6 +225,7 @@ function App() {
           <PageVisibilityProvider>
             <OnboardingProvider>
               <TooltipProvider delayDuration={200}>
+              <DialogsProvider>
               <SecurityHeaders />
               <SecurityManager />
               <RouteTracker />
