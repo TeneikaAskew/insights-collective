@@ -8,6 +8,7 @@ import { LessonEditorPane, type LessonDraft } from '../LessonEditorPane';
 import { AddContentPanel } from './AddContentPanel';
 import type { BuilderModule } from './types';
 import { TeachableBreadcrumb } from './TeachableBreadcrumb';
+import { ConfirmDialog } from './ConfirmDialog';
 
 interface LessonEditViewProps {
   courseId?: string;
@@ -35,6 +36,7 @@ export function LessonEditView({
   onSavingChange,
 }: LessonEditViewProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 max-w-[1400px] mx-auto">
@@ -91,7 +93,7 @@ export function LessonEditView({
                           className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-red-50"
                           onClick={() => {
                             setMenuOpen(false);
-                            if (confirm('Delete this lesson?')) onDeleteLesson(currentItem.id);
+                            setConfirmDeleteOpen(true);
                           }}
                         >
                           Delete lesson
@@ -170,6 +172,18 @@ export function LessonEditView({
           <AddContentPanel onAdd={onAddContent} />
         </aside>
       </div>
+
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        onOpenChange={setConfirmDeleteOpen}
+        title="Delete this lesson?"
+        description="This will permanently remove the lesson and its content."
+        confirmLabel="Delete lesson"
+        onConfirm={() => {
+          if (currentItem) onDeleteLesson(currentItem.id);
+          setConfirmDeleteOpen(false);
+        }}
+      />
     </div>
   );
 }

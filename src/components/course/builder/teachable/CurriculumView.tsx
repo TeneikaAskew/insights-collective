@@ -34,6 +34,7 @@ import { sanitizeHTML } from '@/utils/sanitize';
 import type { ContentItem } from '@/types/canvas';
 import type { BuilderModule } from './types';
 import { TeachableBreadcrumb } from './TeachableBreadcrumb';
+import { ConfirmDialog } from './ConfirmDialog';
 
 function htmlToPlainText(html: string): string {
   if (!html) return '';
@@ -209,6 +210,7 @@ function SectionCard({
   const [menuOpen, setMenuOpen] = useState(false);
   const [descDraft, setDescDraft] = useState(module.description ?? '');
   const [descEditing, setDescEditing] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   const commit = () => {
     setEditing(false);
@@ -245,6 +247,7 @@ function SectionCard({
   };
 
   return (
+    <>
     <div
       ref={setNodeRef}
       style={style}
@@ -331,7 +334,7 @@ function SectionCard({
                 className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-600 hover:bg-red-50"
                 onClick={() => {
                   setMenuOpen(false);
-                  if (confirm('Delete this section and all its lessons?')) onDeleteModule(module.id);
+                  setConfirmDeleteOpen(true);
                 }}
               >
                 <Trash2 className="h-3.5 w-3.5" />
@@ -443,6 +446,18 @@ function SectionCard({
         </button>
       </div>
     </div>
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        onOpenChange={setConfirmDeleteOpen}
+        title="Delete this section?"
+        description="This will remove the section and all its lessons. This cannot be undone."
+        confirmLabel="Delete section"
+        onConfirm={() => {
+          onDeleteModule(module.id);
+          setConfirmDeleteOpen(false);
+        }}
+      />
+    </>
   );
 }
 
@@ -467,6 +482,7 @@ function LessonRow({ item, onRename, onDelete, onTogglePublish, onSelect }: Less
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(item.title);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   const commit = () => {
     setEditing(false);
@@ -574,7 +590,7 @@ function LessonRow({ item, onRename, onDelete, onTogglePublish, onSelect }: Less
               className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-600 hover:bg-red-50"
               onClick={() => {
                 setMenuOpen(false);
-                if (confirm('Delete this lesson?')) onDelete(item.id);
+                setConfirmDeleteOpen(true);
               }}
             >
               <Trash2 className="h-3.5 w-3.5" />
@@ -583,6 +599,17 @@ function LessonRow({ item, onRename, onDelete, onTogglePublish, onSelect }: Less
           </div>
         )}
       </div>
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        onOpenChange={setConfirmDeleteOpen}
+        title="Delete this lesson?"
+        description="This will permanently remove the lesson and its content."
+        confirmLabel="Delete lesson"
+        onConfirm={() => {
+          onDelete(item.id);
+          setConfirmDeleteOpen(false);
+        }}
+      />
     </li>
   );
 }
