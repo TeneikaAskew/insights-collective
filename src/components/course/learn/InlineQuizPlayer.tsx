@@ -12,6 +12,7 @@ import { UnifiedCanvasEditor } from '@/components/ui/unified-canvas-editor';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { sanitizeHTML } from '@/utils/sanitize';
 import CourseErrorState from '@/components/course/CourseErrorState';
 import type { ContentItem, Quiz, QuizQuestion } from '@/types/canvas';
 import { createLogger } from '@/utils/logger';
@@ -523,7 +524,7 @@ export function InlineQuizPlayer({ item, quiz, onCompleted }: InlineQuizPlayerPr
               <CardHeader>
                 <div className="flex items-start justify-between gap-3">
                   <CardTitle className="text-base">
-                    Q{idx + 1}. <span className="font-normal" dangerouslySetInnerHTML={{ __html: question.question_text }} />
+                    Q{idx + 1}. <span className="font-normal" dangerouslySetInnerHTML={{ __html: sanitizeHTML(question.question_text) }} />
                   </CardTitle>
                   <span
                     className={

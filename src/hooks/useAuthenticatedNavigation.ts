@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
 import { createLogger } from '@/utils/logger';
+import { safeInternalPath } from '@/utils/safeRedirect';
 
 const logger = createLogger('useAuthenticatedNavigation');
 
@@ -31,9 +32,10 @@ export const useAuthenticatedNavigation = () => {
       // Only store path if not already on login/register pages
       const currentPath = window.location.pathname;
       if (!['/login', '/register', '/auth/callback'].includes(currentPath)) {
-        localStorage.setItem('redirectAfterLogin', path);
-        storeRedirectPath?.(path);
-        logger.log('[useAuthenticatedNavigation] Stored redirect path:', path);
+        const safePath = safeInternalPath(path);
+        localStorage.setItem('redirectAfterLogin', safePath);
+        storeRedirectPath?.(safePath);
+        logger.log('[useAuthenticatedNavigation] Stored redirect path:', safePath);
       }
       
       // Show toast if message provided

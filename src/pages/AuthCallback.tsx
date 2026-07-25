@@ -6,13 +6,16 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 
 import { createLogger } from '@/utils/logger';
+import { safeInternalPath } from '@/utils/safeRedirect';
 
 const logger = createLogger('AuthCallback');
 
 const AuthCallback = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const redirect = searchParams.get('redirect') || '/resources';
+  // Sanitized at the single point it enters the component, so neither the
+  // localStorage write nor the navigate() calls below can leave the origin.
+  const redirect = safeInternalPath(searchParams.get('redirect'), '/resources');
   const [error, setError] = useState<string | null>(null);
   const [takingLonger, setTakingLonger] = useState(false);
 
