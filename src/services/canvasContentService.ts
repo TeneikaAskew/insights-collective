@@ -128,37 +128,39 @@ export class CanvasContentService {
 
     if (contentError) throw contentError;
 
-    // Create type-specific records
+    // Create type-specific records. NOTE: assignments and quizzes have several
+    // NOT NULL columns (title on both; course_id + description on assignments)
+    // that PostgREST will reject with a 400 if we omit them, so we always fall
+    // back to the parent content_item's values.
     if (input.type === 'assignment') {
-      // Handle assignment settings from either top-level or settings.assignment
       const assignmentData = input.settings?.assignment || {
-        points_possible: (input as CreateAssignmentInput).points_possible,
-        due_at: (input as CreateAssignmentInput).due_at,
+        points: (input as CreateAssignmentInput).points_possible,
+        due_date: (input as CreateAssignmentInput).due_at,
         submission_types: (input as CreateAssignmentInput).submission_types,
-        allowed_attempts: (input as CreateAssignmentInput).allowed_attempts,
-        unlock_at: (input as CreateAssignmentInput).unlock_at,
-        lock_at: (input as CreateAssignmentInput).lock_at,
-        grading_type: (input as CreateAssignmentInput).grading_type
+        max_attempts: (input as CreateAssignmentInput).allowed_attempts,
+        grading_type: (input as CreateAssignmentInput).grading_type,
       };
 
       const { data: assignment, error: assignmentError } = await supabase
         .from('assignments')
         .insert({
           content_item_id: contentItem.id,
-          points_possible: assignmentData.points_possible || 100,
-          due_at: assignmentData.due_at || null,
-          unlock_at: assignmentData.unlock_at || null,
-          lock_at: assignmentData.lock_at || null,
+          course_id: input.course_id,
+          module_id: input.module_id,
+          title: input.title,
+          description: (input.content ?? '') as string,
+          points: assignmentData.points ?? 100,
+          due_date: assignmentData.due_date ?? null,
           submission_types: assignmentData.submission_types || ['online_text_entry'],
-          allowed_attempts: assignmentData.allowed_attempts || 1,
-          grading_type: assignmentData.grading_type || 'points'
+          max_attempts: assignmentData.max_attempts ?? 1,
+          grading_type: assignmentData.grading_type || 'points',
+          is_published: false,
         })
         .select()
         .single();
 
       if (assignmentError) throw assignmentError;
-      
-      // Update settings to include assignment ID for reference
+
       contentItem.settings = { ...contentItem.settings, assignment_id: assignment.id };
     } else if (input.type === 'quiz') {
       const quizInput = input as CreateQuizInput;
@@ -166,15 +168,17 @@ export class CanvasContentService {
         .from('quizzes')
         .insert({
           content_item_id: contentItem.id,
+          module_id: input.module_id,
+          title: input.title,
+          description: input.content ?? null,
           quiz_type: quizInput.quiz_type || 'assignment',
-          time_limit: quizInput.time_limit
+          time_limit: quizInput.time_limit ?? null,
         })
         .select()
         .single();
 
       if (quizError) throw quizError;
 
-      // Add questions if provided
       if (quizInput.questions && quizInput.questions.length > 0) {
         const { error: questionsError } = await supabase
           .from('quiz_questions')
@@ -186,9 +190,6 @@ export class CanvasContentService {
               points: q.points,
               position: index,
               answers: q.answers,
-              correct_comments: q.correct_comments,
-              incorrect_comments: q.incorrect_comments,
-              neutral_comments: q.neutral_comments
             }))
           );
 

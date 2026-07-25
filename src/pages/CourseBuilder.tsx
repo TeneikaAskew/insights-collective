@@ -192,7 +192,11 @@ const CourseBuilder = () => {
         toast({ title: 'Course created', description: `“${r.title}” is ready to build.` });
         navigate(`/courses/${created.id}/builder`, { replace: true });
       } catch (err: any) {
+        logger.error('Course creation failed', err);
         toast({ title: 'Error', description: err.message, variant: 'destructive' });
+        // Rethrow so the wizard shows an inline error banner instead of
+        // silently closing on failure.
+        throw err;
       }
     },
     [navigate, toast],
