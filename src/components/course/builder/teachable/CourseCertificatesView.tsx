@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { Award, Info } from 'lucide-react';
 import type { BuilderCourse, CourseSettings } from './types';
+import { TeachableBreadcrumb } from './TeachableBreadcrumb';
 
 interface CourseCertificatesViewProps {
   course: BuilderCourse;
