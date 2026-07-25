@@ -1077,7 +1077,7 @@ const CourseDetail = () => {
               </section>
 
               {/* Two-column: Jump back in + Additional links */}
-              <div className="grid lg:grid-cols-[minmax(0,1fr)_360px] gap-6">
+              <div className="grid xl:grid-cols-[minmax(0,1fr)_340px] gap-6">
                 {/* Jump back in */}
                 <section className="rounded-2xl bg-white border border-neutral-200 p-6 md:p-8">
                   <h2 className="font-display text-3xl text-neutral-900 mb-6">Jump back in</h2>
@@ -1268,8 +1268,9 @@ const CourseDetail = () => {
         // Non-enrolled landing (kept close to previous pre-enroll layout)
         return (
           <div className="teachable-workspace bg-white rounded-2xl border border-neutral-200 overflow-hidden">
-            <div className="grid lg:grid-cols-[1fr_360px] gap-0">
-              <div className="p-8 lg:p-12">
+            <div className="grid xl:grid-cols-[minmax(0,1fr)_340px] gap-0">
+              <div className="p-6 sm:p-8 xl:p-12 min-w-0">
+
                 <p className="text-xs uppercase tracking-[0.15em] text-neutral-500 mb-3">
                   {course.category || 'Course'}{course.level ? ` • ${course.level}` : ''}
                 </p>
@@ -1340,8 +1341,9 @@ const CourseDetail = () => {
                 </div>
               </div>
 
-              <aside className="bg-neutral-50 border-t lg:border-t-0 lg:border-l border-neutral-200 p-8 lg:p-10">
-                <div className="lg:sticky lg:top-6">
+              <aside className="bg-neutral-50 border-t xl:border-t-0 xl:border-l border-neutral-200 p-6 sm:p-8 xl:p-10 min-w-0">
+                <div className="xl:sticky xl:top-6">
+
                   <div className="aspect-[16/9] rounded-xl overflow-hidden mb-6 bg-neutral-200">
                     {course.thumbnail ? (
                       <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover" />

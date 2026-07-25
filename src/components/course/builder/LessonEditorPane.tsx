@@ -13,10 +13,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Sparkles, Loader2 } from 'lucide-react';
 import { UnifiedCanvasEditor } from '@/components/ui/unified-canvas-editor';
 import { QuizContentEditor } from '@/components/course/builder/QuizContentEditor';
 import type { ContentItem, ContentItemType } from '@/types/canvas';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 export interface LessonDraft {
   title: string;
@@ -48,6 +50,36 @@ export function LessonEditorPane({
   onSavingChange,
 }: LessonEditorPaneProps) {
   const [draft, setDraft] = useState<LessonDraft | null>(null);
+  const [generatingAI, setGeneratingAI] = useState(false);
+
+  async function handleGenerateAI() {
+    if (!draft || !item) return;
+    if (!draft.title.trim()) {
+      toast.error('Add a lesson title first', {
+        description: 'AI uses the title as the prompt for generating content.',
+      });
+      return;
+    }
+    setGeneratingAI(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-lesson-content', {
+        body: { lessonTitle: draft.title },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      const html = (data as any)?.html as string | undefined;
+      if (!html) throw new Error('No content returned');
+      // Append if there's already content, otherwise replace.
+      const existing = (draft.content || '').replace(/<p>\s*<\/p>/gi, '').trim();
+      setField('content', existing ? `${existing}\n${html}` : html);
+      toast.success('AI content generated');
+    } catch (err: any) {
+      toast.error('Could not generate content', { description: err?.message || 'Try again.' });
+    } finally {
+      setGeneratingAI(false);
+    }
+  }
+
   const savedSnapshotRef = useRef<string>('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -163,7 +195,23 @@ export function LessonEditorPane({
           </div>
         ) : (
           <div className="space-y-2">
-            <Label>Content</Label>
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <Label>Content</Label>
+              <button
+                type="button"
+                onClick={handleGenerateAI}
+                disabled={generatingAI}
+                className="group inline-flex items-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary/10 hover:border-primary/50 disabled:opacity-60 disabled:cursor-not-allowed"
+                aria-label="Generate content with AI"
+              >
+                {generatingAI ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                <span>{generatingAI ? 'Generating…' : 'Generate content with AI'}</span>
+              </button>
+            </div>
             <UnifiedCanvasEditor
               key={`content-${item.id}`}
               content={draft.content}
@@ -173,6 +221,7 @@ export function LessonEditorPane({
             />
           </div>
         )}
+
       </CardContent>
     </Card>
   );

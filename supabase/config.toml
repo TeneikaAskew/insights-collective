@@ -61,3 +61,6 @@ verify_jwt = false
 verify_jwt = true
 
 
+
+[functions.generate-lesson-content]
+verify_jwt = true

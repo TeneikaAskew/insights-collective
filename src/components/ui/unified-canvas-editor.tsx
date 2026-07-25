@@ -341,9 +341,10 @@ export function UnifiedCanvasEditor({
   return (
     <div className="border rounded-lg overflow-hidden bg-background">
       {/* Enhanced Toolbar */}
-      <div className="border-b bg-muted/50 p-2 space-y-2">
-        {/* First Row - Text Formatting */}
+      <div className="border-b bg-muted/50 p-2">
+        {/* Toolbar */}
         <div className="flex items-center gap-1 flex-wrap">
+
           {/* Font Style Dropdown */}
           <Select 
             value="paragraph" 
@@ -497,10 +498,9 @@ export function UnifiedCanvasEditor({
           >
             <AlignJustify className="h-4 w-4" />
           </Toggle>
-        </div>
+          <Separator orientation="vertical" className="h-6" />
 
-        {/* Second Row - Lists, Quotes, Media */}
-        <div className="flex items-center gap-1 flex-wrap">
+
           {/* Lists */}
           <Toggle
             size="sm"
