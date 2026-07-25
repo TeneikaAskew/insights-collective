@@ -67,20 +67,23 @@ const PLACEHOLDER_COPY: Record<
 };
 
 const CourseBuilder = () => {
-  const { courseId } = useParams<{ courseId: string }>();
+  const { courseId: rawCourseId } = useParams<{ courseId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const isNew = courseId === 'new';
-  const { canEdit, loading: permissionsLoading } = useCoursePermissions(
-    isNew ? undefined : courseId,
-  );
+  // Treat both `/courses/new/builder` (no :courseId param) and `/courses/:courseId/builder`
+  // with `courseId === 'new'` as the new-course flow.
+  const isNew =
+    !rawCourseId ||
+    rawCourseId === 'new' ||
+    (typeof window !== 'undefined' && window.location.pathname.includes('/courses/new/builder'));
+  const courseId = isNew ? undefined : rawCourseId;
+  const { canEdit, loading: permissionsLoading } = useCoursePermissions(courseId);
 
   const [course, setCourse] = useState<BuilderCourse | null>(null);
   const [modules, setModules] = useState<BuilderModule[]>([]);
   const [loading, setLoading] = useState(!isNew);
   const [showWizard, setShowWizard] = useState(isNew);
-  logger.log('render', { courseId, isNew, showWizard, loading, permissionsLoading });
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
 
   const activeView: BuilderNavKey = (searchParams.get('view') as BuilderNavKey) || 'setup';
