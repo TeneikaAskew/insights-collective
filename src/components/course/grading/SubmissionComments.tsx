@@ -38,6 +38,7 @@ import { useSubmissionComments } from '@/hooks/useGradeHistory';
 import { SubmissionComment } from '@/services/gradeHistoryService';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
+import { useConfirm } from '@/components/dialogs/DialogsProvider';
 
 interface SubmissionCommentsProps {
   submissionId: string;
@@ -61,6 +62,7 @@ export const SubmissionComments: React.FC<SubmissionCommentsProps> = ({
   showPrivateComments = false,
 }) => {
   const { user } = useAuth();
+  const confirm = useConfirm();
   const {
     comments,
     isLoading,

@@ -19,6 +19,7 @@ import { Plus, BookOpen, Edit, Trash2 } from 'lucide-react';
 import ModuleManager from './ModuleManager';
 
 import { createLogger } from '@/utils/logger';
+import { useConfirm } from '@/components/dialogs/DialogsProvider';
 
 const logger = createLogger('CourseModuleManager');
 
@@ -36,6 +37,7 @@ interface Module {
 
 const CourseModuleManager = ({ courseId }: CourseModuleManagerProps) => {
   const { toast } = useToast();
+  const confirm = useConfirm();
   const [modules, setModules] = useState<Module[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedModule, setSelectedModule] = useState<Module | null>(null);

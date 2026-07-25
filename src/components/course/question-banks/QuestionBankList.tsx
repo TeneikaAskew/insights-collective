@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import CourseErrorState from '@/components/course/CourseErrorState';
+import { useConfirm } from '@/components/dialogs/DialogsProvider';
 
 interface QuestionBankListProps {
   courseId: string;
@@ -30,6 +31,7 @@ export const QuestionBankList: React.FC<QuestionBankListProps> = ({
 }) => {
   const { banks, isLoading, error, refetch, createBank, updateBank, deleteBank } = useQuestionBanks(courseId);
   const { user } = useAuth();
+  const confirm = useConfirm();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editingBank, setEditingBank] = useState<QuestionBank | null>(null);
   const [formData, setFormData] = useState({

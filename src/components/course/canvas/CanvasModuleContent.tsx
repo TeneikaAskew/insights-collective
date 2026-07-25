@@ -46,6 +46,7 @@ import CanvasContentService from '@/services/canvasContentService';
 import type { ContentItem, ContentItemType } from '@/types/canvas';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { format } from 'date-fns';
+import { useConfirm } from '@/components/dialogs/DialogsProvider';
 
 interface CanvasModuleContentProps {
   moduleId: string;
@@ -60,6 +61,7 @@ export function CanvasModuleContent({
 }: CanvasModuleContentProps) {
   const [contentItems, setContentItems] = useState<ContentItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const confirm = useConfirm();
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingItem, setEditingItem] = useState<ContentItem | null>(null);
   const [newItemType, setNewItemType] = useState<ContentItemType>('page');

@@ -27,6 +27,7 @@ export function CanvasModuleManager({
 }: CanvasModuleManagerProps) {
   const [modules, setModules] = useState<Module[]>([]);
   const [loading, setLoading] = useState(true);
+  const confirm = useConfirm();
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingModule, setEditingModule] = useState<Module | null>(null);
   const [selectedModule, setSelectedModule] = useState<Module | null>(null);
@@ -194,6 +195,7 @@ export function CanvasModuleManager({
         data,
         error
       } = await supabase.from('modules').update({
+import { useConfirm } from '@/components/dialogs/DialogsProvider';
         published: newPublishedState,
         updated_at: new Date().toISOString()
       }).eq('id', module.id).select().single();

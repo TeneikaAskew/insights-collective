@@ -27,6 +27,7 @@ import { Plus, BookOpen, Clock, Pencil, Trash2, Edit } from 'lucide-react';
 // EnhancedModuleContentEditor removed - using Canvas system now
 
 import { createLogger } from '@/utils/logger';
+import { useConfirm } from '@/components/dialogs/DialogsProvider';
 
 const logger = createLogger('ModuleManager');
 
@@ -40,6 +41,7 @@ interface ModuleManagerProps {
 const ModuleManager = ({ courseId, moduleId, module, onUpdate }: ModuleManagerProps) => {
   const { lessons, loading: lessonsLoading, addLesson, updateLesson, deleteLesson, refetch } = useLessons(moduleId);
   const { toast } = useToast();
+  const confirm = useConfirm();
   const [selectedLesson, setSelectedLesson] = useState<any>(null);
   const [addLessonOpen, setAddLessonOpen] = useState(false);
   const [editLessonOpen, setEditLessonOpen] = useState(false);

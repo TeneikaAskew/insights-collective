@@ -31,6 +31,7 @@ import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 import { createLogger } from '@/utils/logger';
+import { useConfirm } from '@/components/dialogs/DialogsProvider';
 
 const logger = createLogger('CourseContent');
 
@@ -64,6 +65,7 @@ export default function CourseContent({ courseId }: CourseContentProps) {
   const [selectedModule, setSelectedModule] = useState<string | null>(null);
   const [moduleContents, setModuleContents] = useState<ModuleContent[]>([]);
   const [loading, setLoading] = useState(true);
+  const confirm = useConfirm();
   const [isAddModuleOpen, setIsAddModuleOpen] = useState(false);
   const [isAddContentOpen, setIsAddContentOpen] = useState(false);
   const [isEditModuleOpen, setIsEditModuleOpen] = useState(false);
