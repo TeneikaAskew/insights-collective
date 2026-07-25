@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button';
 import { EventFormFields, eventTypes, eventFormats } from '@/components/events/modals/EventFormFields';
 import { useEventForm } from '@/components/events/hooks/useEventForm';
+import { toast } from 'sonner';
 
 import { createLogger } from '@/utils/logger';
 
