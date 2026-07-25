@@ -1341,8 +1341,9 @@ const CourseDetail = () => {
                 </div>
               </div>
 
-              <aside className="bg-neutral-50 border-t lg:border-t-0 lg:border-l border-neutral-200 p-8 lg:p-10">
-                <div className="lg:sticky lg:top-6">
+              <aside className="bg-neutral-50 border-t xl:border-t-0 xl:border-l border-neutral-200 p-6 sm:p-8 xl:p-10 min-w-0">
+                <div className="xl:sticky xl:top-6">
+
                   <div className="aspect-[16/9] rounded-xl overflow-hidden mb-6 bg-neutral-200">
                     {course.thumbnail ? (
                       <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover" />
