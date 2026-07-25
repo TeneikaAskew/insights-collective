@@ -217,6 +217,32 @@ function SectionCard({
   const [descDraft, setDescDraft] = useState(module.description ?? '');
   const [descEditing, setDescEditing] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [generatingSummary, setGeneratingSummary] = useState(false);
+
+  async function handleGenerateSummary() {
+    if (!onUpdateModuleDescription) return;
+    setGeneratingSummary(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-section-summary', {
+        body: {
+          sectionTitle: module.title || 'Untitled section',
+          courseTitle,
+          lessonTitles: module.items.map((i) => i.title).filter(Boolean),
+        },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      const summary = (data as any)?.summary as string | undefined;
+      if (!summary) throw new Error('No summary returned');
+      setDescDraft(summary);
+      onUpdateModuleDescription(module.id, summary);
+      toast.success('Section summary generated');
+    } catch (err: any) {
+      toast.error('Could not generate summary', { description: err?.message || 'Try again.' });
+    } finally {
+      setGeneratingSummary(false);
+    }
+  }
 
   const commit = () => {
     setEditing(false);
