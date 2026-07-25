@@ -128,6 +128,46 @@ async function saveSessionForRole(role: Role, creds: TestUser, baseURL: string):
   console.log(`[global-setup] Session saved for ${role} (${creds.email})`);
 }
 
+async function sweepLeakedSmokeCourses(): Promise<void> {
+  // Pre-run safety net: even if a previous smoke run was killed before its
+  // afterAll cleanup, orphan "Smoke Course …" rows are removed here BEFORE the
+  // next suite runs so they never accumulate in the live catalog.
+  const instructor = TEST_USERS.instructor;
+  if (!instructor.email || !instructor.password) return;
+  try {
+    const session = await signInViaApi(instructor.email, instructor.password);
+    const token = session.access_token;
+    const headers = {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    };
+    // Scope strictly by title prefix + this instructor's id — cannot touch real courses.
+    const instructorId = JSON.parse(
+      Buffer.from(token.split('.')[1], 'base64').toString('utf8'),
+    ).sub as string;
+    const url = `${SUPABASE_URL}/rest/v1/courses?instructor_id=eq.${instructorId}&title=like.Smoke%20Course%20*&select=id`;
+    const res = await fetch(url, { headers });
+    if (!res.ok) return;
+    const rows = (await res.json()) as Array<{ id: string }>;
+    for (const row of rows) {
+      const del = (p: string) =>
+        fetch(`${SUPABASE_URL}/rest/v1/${p}`, { method: 'DELETE', headers }).catch(() => undefined);
+      await del(`certificates?course_id=eq.${row.id}`);
+      await del(`enrollments?course_id=eq.${row.id}`);
+      await del(`assignments?course_id=eq.${row.id}`);
+      await del(`content_items?course_id=eq.${row.id}`);
+      await del(`modules?course_id=eq.${row.id}`);
+      await del(`courses?id=eq.${row.id}`);
+    }
+    if (rows.length) {
+      console.log(`[global-setup] Swept ${rows.length} leaked "Smoke Course" row(s) from prior runs.`);
+    }
+  } catch (err) {
+    console.warn(`[global-setup] Leaked-course sweep skipped: ${(err as Error).message}`);
+  }
+}
+
 async function globalSetup(config: FullConfig): Promise<void> {
   fs.mkdirSync(SESSIONS_DIR, { recursive: true });
 
@@ -137,6 +177,9 @@ async function globalSetup(config: FullConfig): Promise<void> {
     const { verifySeedData } = await import('./fixtures/seed-check.js');
     await verifySeedData();
   }
+
+  await sweepLeakedSmokeCourses();
+
 
   const baseURL =
     config.projects.find((p) => p.use?.baseURL)?.use?.baseURL || 'http://localhost:8080';
