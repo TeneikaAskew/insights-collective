@@ -168,6 +168,34 @@ async function sweepLeakedSmokeCourses(): Promise<void> {
   }
 }
 
+async function sweepLeakedAnnouncementProbes(): Promise<void> {
+  // Pre-run safety net for the messaging/notifications hardening spec. That
+  // spec inserts a real course_announcements row to verify the notification
+  // fan-out trigger, and the fan-out generates one notification per enrolled
+  // user. RLS scopes notification DELETE to auth.uid()=user_id, so the spec
+  // itself can only clean the announcement — the fan-out notifications need
+  // service_role. We only run this sweep when SUPABASE_SERVICE_ROLE_KEY is
+  // provided in the environment (CI/local opt-in); it's never bundled.
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceKey) return;
+  try {
+    const headers = {
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
+      'Content-Type': 'application/json',
+    };
+    const del = (p: string) =>
+      fetch(`${SUPABASE_URL}/rest/v1/${p}`, { method: 'DELETE', headers }).catch(() => undefined);
+    // Both filters are scoped strictly by the exact test title prefix. They
+    // cannot match real announcements or notifications.
+    await del(`notifications?title=like.New%20announcement:%20E2E%20hardening%20announcement%20*`);
+    await del(`course_announcements?title=like.E2E%20hardening%20announcement%20*`);
+    console.log('[global-setup] Swept any leaked "E2E hardening announcement" test probes.');
+  } catch (err) {
+    console.warn(`[global-setup] Announcement-probe sweep skipped: ${(err as Error).message}`);
+  }
+}
+
 async function globalSetup(config: FullConfig): Promise<void> {
   fs.mkdirSync(SESSIONS_DIR, { recursive: true });
 
@@ -179,6 +207,8 @@ async function globalSetup(config: FullConfig): Promise<void> {
   }
 
   await sweepLeakedSmokeCourses();
+  await sweepLeakedAnnouncementProbes();
+
 
 
   const baseURL =
