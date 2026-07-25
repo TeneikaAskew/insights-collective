@@ -172,6 +172,18 @@ export function LessonEditView({
           <AddContentPanel onAdd={onAddContent} />
         </aside>
       </div>
+
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        onOpenChange={setConfirmDeleteOpen}
+        title="Delete this lesson?"
+        description="This will permanently remove the lesson and its content."
+        confirmLabel="Delete lesson"
+        onConfirm={() => {
+          if (currentItem) onDeleteLesson(currentItem.id);
+          setConfirmDeleteOpen(false);
+        }}
+      />
     </div>
   );
 }
