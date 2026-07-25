@@ -925,5 +925,6 @@ git commit -m "chore: regenerate supabase types for new schema"
   grants, 5 public buckets allowing listing, 3 always-true RLS policies on unrelated tables, leaked-password
   protection disabled, outdated Postgres version).
 
-Follow-ups for the user, not blockers: enable leaked-password protection in Auth settings, and schedule the
-Postgres upgrade flagged by the advisor.
+Follow-up for the user, not a blocker: enable leaked-password protection in Auth settings. The Postgres
+version warning is acknowledged and declined — the user has decided not to upgrade, so treat that advisor
+finding as expected noise rather than an open item.
