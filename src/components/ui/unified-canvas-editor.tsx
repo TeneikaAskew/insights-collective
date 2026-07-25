@@ -341,9 +341,10 @@ export function UnifiedCanvasEditor({
   return (
     <div className="border rounded-lg overflow-hidden bg-background">
       {/* Enhanced Toolbar */}
-      <div className="border-b bg-muted/50 p-2 space-y-2">
-        {/* First Row - Text Formatting */}
+      <div className="border-b bg-muted/50 p-2">
+        {/* Toolbar */}
         <div className="flex items-center gap-1 flex-wrap">
+
           {/* Font Style Dropdown */}
           <Select 
             value="paragraph" 
