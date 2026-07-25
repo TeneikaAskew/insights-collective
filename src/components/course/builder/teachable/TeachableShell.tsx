@@ -144,10 +144,7 @@ export function TeachableShell({
             {isCollapsed ? (
               <PanelLeftOpen className="h-4 w-4" />
             ) : (
-              <>
-                <PanelLeftClose className="h-4 w-4" />
-                <span>Minimize</span>
-              </>
+              <PanelLeftClose className="h-4 w-4" />
             )}
           </button>
         </Hint>
