@@ -131,12 +131,17 @@ const CourseBuilder = () => {
   const handleWizardFinish = useCallback(
     async (r: NewCourseWizardResult) => {
       try {
+        const { data: userData } = await supabase.auth.getUser();
         const { data: created, error } = await supabase
           .from('courses')
           .insert({
             title: r.title,
             description: r.description || '',
+            category: 'General',
+            level: 'beginner',
             published: false,
+            status: 'draft',
+            instructor_id: userData.user?.id ?? null,
           })
           .select('id')
           .single();
