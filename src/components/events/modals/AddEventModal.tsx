@@ -41,7 +41,7 @@ export function AddEventModal({ open, onAddEvent, editEvent, onClose, children }
     
     if (errors.length > 0) {
       logger.error('Validation errors:', errors);
-      alert('Please fill in all required fields:\n' + errors.join('\n'));
+      toast.error('Please fill in all required fields', { description: errors.join('\n') });
       return;
     }
     
