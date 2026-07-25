@@ -21,6 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { archiveConversation, unarchiveConversation, deleteConversation, restoreConversation } from '@/services/conversationService';
+import { useConfirm } from '@/components/dialogs/DialogsProvider';
 
 import { createLogger } from '@/utils/logger';
 
