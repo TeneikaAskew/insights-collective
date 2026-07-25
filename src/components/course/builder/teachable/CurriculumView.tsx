@@ -246,6 +246,7 @@ function SectionCard({
   };
 
   return (
+    <>
     <div
       ref={setNodeRef}
       style={style}
