@@ -209,6 +209,7 @@ function SectionCard({
   const [menuOpen, setMenuOpen] = useState(false);
   const [descDraft, setDescDraft] = useState(module.description ?? '');
   const [descEditing, setDescEditing] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   const commit = () => {
     setEditing(false);
