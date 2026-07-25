@@ -5647,6 +5647,7 @@ export type Database = {
         Args: { course_id_param: string; user_id_param: string }
         Returns: boolean
       }
+      is_grading_staff: { Args: never; Returns: boolean }
       log_audit_event: {
         Args: {
           p_action: string
