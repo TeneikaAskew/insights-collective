@@ -38,6 +38,7 @@ import { createPortal } from 'react-dom';
 import ModuleManager from './ModuleManager';
 
 import { createLogger } from '@/utils/logger';
+import { useConfirm } from '@/components/dialogs/DialogsProvider';
 
 const logger = createLogger('WeekBasedModuleManager');
 
@@ -143,6 +144,7 @@ function ModuleCard({ module, onEdit, onDelete, onSelect }: { module: Module; on
 
 const WeekBasedModuleManager = ({ courseId, courseDuration }: WeekBasedModuleManagerProps) => {
   const { toast } = useToast();
+  const confirm = useConfirm();
   const [modules, setModules] = useState<Module[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedModule, setSelectedModule] = useState<Module | null>(null);
@@ -289,7 +291,7 @@ const WeekBasedModuleManager = ({ courseId, courseDuration }: WeekBasedModuleMan
   };
 
   const handleDeleteModule = async (moduleId: string) => {
-    if (!confirm('Are you sure you want to delete this module? All content will be permanently removed.')) {
+    if (!(await confirm({ title: 'Delete module?', description: 'All content will be permanently removed.', destructive: true, confirmLabel: 'Delete' }))) {
       return;
     }
 

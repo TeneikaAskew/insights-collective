@@ -25,6 +25,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCoursePermissions } from '@/hooks/useCoursePermissions';
 import { useQuery } from '@tanstack/react-query';
+import { useConfirm, usePrompt } from '@/components/dialogs/DialogsProvider';
 
 interface FolderRow {
   id: string;
@@ -58,6 +59,9 @@ const CourseMaterials = () => {
   const { user } = useAuth();
   const { canEdit, isInstructor, isAdmin } = useCoursePermissions(courseId);
   const canManage = canEdit || isInstructor || isAdmin;
+  const confirm = useConfirm();
+  const prompt = usePrompt();
+
 
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [folders, setFolders] = useState<FolderRow[]>([]);
@@ -136,7 +140,7 @@ const CourseMaterials = () => {
   }, [folders, currentFolderId]);
 
   const createFolder = async () => {
-    const name = window.prompt('Folder name');
+    const name = await prompt({ title: 'New folder', inputLabel: 'Folder name', placeholder: 'e.g. Handouts', confirmLabel: 'Create' });
     if (!name?.trim() || !courseId) return;
     const { error } = await supabase
       .from('course_material_folders')
@@ -150,7 +154,7 @@ const CourseMaterials = () => {
   };
 
   const renameItem = async (kind: 'folder' | 'file', id: string, current: string) => {
-    const name = window.prompt('New name', current);
+    const name = await prompt({ title: 'Rename', inputLabel: 'New name', defaultValue: current, confirmLabel: 'Rename' });
     if (!name?.trim()) return;
     const table = kind === 'folder' ? 'course_material_folders' : 'course_material_files';
     const { error } = await supabase.from(table).update({ name: name.trim() }).eq('id', id);
@@ -160,7 +164,8 @@ const CourseMaterials = () => {
   };
 
   const deleteFolder = async (id: string) => {
-    if (!window.confirm('Delete folder and everything inside?')) return;
+    const ok = await confirm({ title: 'Delete folder?', description: 'This deletes the folder and everything inside.', destructive: true, confirmLabel: 'Delete' });
+    if (!ok) return;
     const { error } = await supabase.from('course_material_folders').delete().eq('id', id);
     if (error) return toast.error(error.message);
     toast.success('Folder deleted');
@@ -168,7 +173,8 @@ const CourseMaterials = () => {
   };
 
   const deleteFile = async (file: FileRow) => {
-    if (!window.confirm(`Delete ${file.name}?`)) return;
+    const ok = await confirm({ title: `Delete ${file.name}?`, description: 'This permanently removes the file.', destructive: true, confirmLabel: 'Delete' });
+    if (!ok) return;
     await supabase.storage.from(file.bucket).remove([file.storage_path]);
     const { error } = await supabase.from('course_material_files').delete().eq('id', file.id);
     if (error) return toast.error(error.message);

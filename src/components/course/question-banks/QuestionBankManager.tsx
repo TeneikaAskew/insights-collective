@@ -22,6 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { useConfirm } from '@/components/dialogs/DialogsProvider';
 
 interface QuestionBankManagerProps {
   bank: QuestionBank;
@@ -30,6 +31,7 @@ interface QuestionBankManagerProps {
 
 export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({ bank, onBack }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const confirm = useConfirm();
   const [selectedType, setSelectedType] = useState<string>('all');
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -68,8 +70,8 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({ bank, 
     setShowQuestionEditor(true);
   };
 
-  const handleDeleteQuestion = (questionId: string) => {
-    if (confirm('Are you sure you want to delete this question?')) {
+  const handleDeleteQuestion = async (questionId: string) => {
+    if (await confirm({ title: 'Delete question?', description: 'This permanently removes the question.', destructive: true, confirmLabel: 'Delete' })) {
       deleteQuestion(questionId);
     }
   };

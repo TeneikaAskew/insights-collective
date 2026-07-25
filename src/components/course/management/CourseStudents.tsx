@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 
 import { createLogger } from '@/utils/logger';
+import { useConfirm } from '@/components/dialogs/DialogsProvider';
 
 const logger = createLogger('CourseStudents');
 
@@ -43,6 +44,7 @@ export default function CourseStudents({ courseId }: CourseStudentsProps) {
   const [students, setStudents] = useState<Student[]>([]);
   const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
+  const confirm = useConfirm();
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
   const [studentEmail, setStudentEmail] = useState('');
@@ -235,7 +237,7 @@ export default function CourseStudents({ courseId }: CourseStudentsProps) {
   };
 
   const handleRemoveStudent = async (enrollmentId: string, studentName: string) => {
-    if (!confirm(`Are you sure you want to unenroll ${studentName}?`)) {
+    if (!(await confirm({ title: `Unenroll ${studentName}?`, description: 'This removes the student from the course.', destructive: true, confirmLabel: 'Unenroll' }))) {
       return;
     }
     

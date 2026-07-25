@@ -40,6 +40,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import { useConfirm } from '@/components/dialogs/DialogsProvider';
 
 interface Quiz {
   id: string;
@@ -68,6 +69,7 @@ interface QuizManagerProps {
 export function QuizManager({ courseId, modules = [] }: QuizManagerProps) {
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [loading, setLoading] = useState(true);
+  const confirm = useConfirm();
   const [searchQuery, setSearchQuery] = useState('');
   const [showEditor, setShowEditor] = useState(false);
   const [editingQuizId, setEditingQuizId] = useState<string | null>(null);
@@ -190,7 +192,7 @@ export function QuizManager({ courseId, modules = [] }: QuizManagerProps) {
   };
 
   const handleDelete = async (quizId: string) => {
-    if (!window.confirm('Are you sure you want to delete this quiz? This action cannot be undone.')) {
+    if (!(await confirm({ title: 'Delete quiz?', description: 'This action cannot be undone.', destructive: true, confirmLabel: 'Delete' }))) {
       return;
     }
 
