@@ -141,6 +141,7 @@ test.describe('Code practice page (Soft Studio, Problem Book)', () => {
     await page.getByRole('button', { name: /submit solution/i }).click();
     await expect(page.getByText('Result', { exact: true })).toBeVisible({ timeout: 10_000 });
     await expect(page.getByText('Correct', { exact: true })).toBeVisible();
+    await expect(page.getByText('3/3')).toBeVisible();
     await expect(page.getByText('Code Review')).toBeVisible();
     await expect(page.getByText('Suggestions')).toBeVisible();
 

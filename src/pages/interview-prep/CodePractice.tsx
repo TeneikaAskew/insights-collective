@@ -208,6 +208,7 @@ export default function CodePractice() {
           correct: true,
           runtime: '42ms',
           memory: '8.2MB',
+          testsPassed: '3/3',
           feedback: `Your solution for the ${currentChallenge.title} challenge is correct and efficient.`,
           suggestions: [
             'Consider handling edge cases for empty inputs',
@@ -300,7 +301,7 @@ export default function CodePractice() {
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-5">
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-3 gap-3">
                       <div className="rounded-2xl border bg-card px-4 py-3 text-center">
                         <p className="text-xl font-bold">{feedback.runtime}</p>
                         <p className="text-xs text-muted-foreground">runtime</p>
@@ -308,6 +309,10 @@ export default function CodePractice() {
                       <div className="rounded-2xl border bg-card px-4 py-3 text-center">
                         <p className="text-xl font-bold">{feedback.memory}</p>
                         <p className="text-xs text-muted-foreground">memory</p>
+                      </div>
+                      <div className="rounded-2xl border bg-card px-4 py-3 text-center">
+                        <p className="text-xl font-bold">{feedback.testsPassed}</p>
+                        <p className="text-xs text-muted-foreground">test cases passed</p>
                       </div>
                     </div>
 

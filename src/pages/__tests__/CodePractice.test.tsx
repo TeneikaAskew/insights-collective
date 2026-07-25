@@ -75,6 +75,8 @@ describe('CodePractice page (Problem Book)', () => {
     expect(screen.getByText('Correct')).toBeInTheDocument();
     expect(screen.getByText('42ms')).toBeInTheDocument();
     expect(screen.getByText('8.2MB')).toBeInTheDocument();
+    expect(screen.getByText('3/3')).toBeInTheDocument();
+    expect(screen.getByText('test cases passed')).toBeInTheDocument();
     expect(screen.getByText('Code Review')).toBeInTheDocument();
     expect(screen.getByText(/your solution for the two sum challenge/i)).toBeInTheDocument();
     expect(screen.getByText('Suggestions')).toBeInTheDocument();
