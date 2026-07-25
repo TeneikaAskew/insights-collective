@@ -498,10 +498,9 @@ export function UnifiedCanvasEditor({
           >
             <AlignJustify className="h-4 w-4" />
           </Toggle>
-        </div>
+          <Separator orientation="vertical" className="h-6" />
 
-        {/* Second Row - Lists, Quotes, Media */}
-        <div className="flex items-center gap-1 flex-wrap">
+
           {/* Lists */}
           <Toggle
             size="sm"
