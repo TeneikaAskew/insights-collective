@@ -50,6 +50,36 @@ export function LessonEditorPane({
   onSavingChange,
 }: LessonEditorPaneProps) {
   const [draft, setDraft] = useState<LessonDraft | null>(null);
+  const [generatingAI, setGeneratingAI] = useState(false);
+
+  async function handleGenerateAI() {
+    if (!draft || !item) return;
+    if (!draft.title.trim()) {
+      toast.error('Add a lesson title first', {
+        description: 'AI uses the title as the prompt for generating content.',
+      });
+      return;
+    }
+    setGeneratingAI(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-lesson-content', {
+        body: { lessonTitle: draft.title },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      const html = (data as any)?.html as string | undefined;
+      if (!html) throw new Error('No content returned');
+      // Append if there's already content, otherwise replace.
+      const existing = (draft.content || '').replace(/<p>\s*<\/p>/gi, '').trim();
+      setField('content', existing ? `${existing}\n${html}` : html);
+      toast.success('AI content generated');
+    } catch (err: any) {
+      toast.error('Could not generate content', { description: err?.message || 'Try again.' });
+    } finally {
+      setGeneratingAI(false);
+    }
+  }
+
   const savedSnapshotRef = useRef<string>('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
