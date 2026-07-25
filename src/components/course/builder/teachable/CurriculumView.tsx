@@ -444,6 +444,18 @@ function SectionCard({
         </button>
       </div>
     </div>
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        onOpenChange={setConfirmDeleteOpen}
+        title="Delete this section?"
+        description="This will remove the section and all its lessons. This cannot be undone."
+        confirmLabel="Delete section"
+        onConfirm={() => {
+          onDeleteModule(module.id);
+          setConfirmDeleteOpen(false);
+        }}
+      />
+    </>
   );
 }
 
