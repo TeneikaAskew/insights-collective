@@ -13,10 +13,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Sparkles, Loader2 } from 'lucide-react';
 import { UnifiedCanvasEditor } from '@/components/ui/unified-canvas-editor';
 import { QuizContentEditor } from '@/components/course/builder/QuizContentEditor';
 import type { ContentItem, ContentItemType } from '@/types/canvas';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 export interface LessonDraft {
   title: string;
