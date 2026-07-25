@@ -50,6 +50,7 @@ export function AiContentDialog({
 }: AiContentDialogProps) {
   const [html, setHtml] = useState<string>('');
   const [loading, setLoading] = useState(false);
+  const [inserting, setInserting] = useState<null | 'replace' | 'append'>(null);
   const [variant, setVariant] = useState<AiVariant>('default');
   const [feedback, setFeedback] = useState('');
   const [error, setError] = useState<string | null>(null);
