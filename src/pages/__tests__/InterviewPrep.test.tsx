@@ -40,7 +40,7 @@ describe('InterviewPrep hub (Concept D)', () => {
   it('renders the four-step navigation with logged-out states', async () => {
     render(<InterviewPrep />);
 
-    expect(await screen.findByText('Interview prep, one calm step at a time.')).toBeInTheDocument();
+    expect(await screen.findByText('Interview Preparation')).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /analyze the job/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /practice star stories/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /drill code challenges/i })).toBeInTheDocument();

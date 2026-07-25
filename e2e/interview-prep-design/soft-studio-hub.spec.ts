@@ -8,7 +8,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Interview prep hub (Soft Studio, Concept D)', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/interview-prep', { waitUntil: 'domcontentloaded' });
-    await page.getByText('Interview prep, one calm step at a time.').waitFor({ timeout: 15_000 });
+    await page.getByRole('heading', { name: 'Interview Preparation' }).waitFor({ timeout: 15_000 });
   });
 
   test('applies the Soft Studio theme', async ({ page }) => {
@@ -109,7 +109,7 @@ test.describe('Job description page (Soft Studio, Split Desk)', () => {
   test('back button returns to the interview prep hub', async ({ page }) => {
     await page.getByRole('button', { name: /interview prep/i }).click();
     await page.waitForURL('**/interview-prep', { timeout: 15_000, waitUntil: 'domcontentloaded' });
-    await expect(page.getByText('Interview prep, one calm step at a time.')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Interview Preparation' })).toBeVisible();
   });
 });
 

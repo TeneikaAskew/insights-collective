@@ -285,11 +285,10 @@ export default function InterviewPrep() {
       <div className="soft-studio ss-wash min-h-full px-4 sm:px-6 py-8">
         <div className="mx-auto max-w-7xl space-y-8">
           <div>
-            <h1 className="text-3xl sm:text-4xl font-bold mb-2">Interview prep, one calm step at a time.</h1>
+            <h1 className="text-3xl sm:text-4xl font-bold mb-2">Interview Preparation</h1>
             <p className="text-muted-foreground text-lg max-w-3xl">
-              Four tools, in the order that works: analyze the job, practice your stories, drill the
-              technical round, then rehearse live. The numbered path is the navigation — each step opens
-              its overview below.
+              Prepare for your interviews with our comprehensive tools and resources designed to help
+              you stand out from other candidates and secure your dream job.
             </p>
           </div>
 
