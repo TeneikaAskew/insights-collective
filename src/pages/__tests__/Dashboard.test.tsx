@@ -5,6 +5,7 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@/test/utils/test-utils';
+import userEvent from '@testing-library/user-event';
 import { mockSupabaseClient } from '@/test/mocks/supabase';
 import { createMockAuthProvider } from '@/test/mocks/authMocks';
 import { useAuth } from '@/contexts/AuthContext';
@@ -90,5 +91,65 @@ describe('Dashboard', () => {
     // photo; they must render a neutral placeholder instead.
     expect(document.body.innerHTML).not.toContain('unsplash');
     expect(document.querySelector('img[src*="unsplash"]')).toBeNull();
+  });
+
+  it('maps notification rows to camelCase so dates render (no "Invalid Date")', async () => {
+    mockTables({
+      enrollments: { select: () => ({ data: [], error: null }) },
+      content_item_progressions: { select: () => ({ data: [], error: null }) },
+      certificates: { select: () => ({ data: [], error: null }) },
+      courses: { select: () => ({ data: [], error: null }) },
+      course_assignments: { select: () => ({ data: [], error: null }) },
+      assignments: { select: () => ({ data: [], error: null }) },
+      notifications: {
+        select: () => ({
+          data: [
+            {
+              id: 'n1',
+              title: 'Assignment graded',
+              message: 'See your grade',
+              type: 'assignment',
+              link: null,
+              is_read: false,
+              created_at: new Date('2026-07-01T12:00:00Z').toISOString(),
+            },
+          ],
+          error: null,
+        }),
+      },
+    });
+
+    render(<Dashboard />);
+
+    await userEvent.click(await screen.findByRole('tab', { name: 'Notifications' }));
+
+    expect(await screen.findByText('Assignment graded')).toBeInTheDocument();
+    // REGRESSION: raw snake_case rows were passed into NotificationItem,
+    // which reads createdAt/isRead — every date rendered "Invalid Date".
+    expect(document.body.innerHTML).not.toContain('Invalid Date');
+  });
+
+  it('shows an error state in the notifications tab when the fetch fails', async () => {
+    mockTables({
+      enrollments: { select: () => ({ data: [], error: null }) },
+      content_item_progressions: { select: () => ({ data: [], error: null }) },
+      certificates: { select: () => ({ data: [], error: null }) },
+      courses: { select: () => ({ data: [], error: null }) },
+      course_assignments: { select: () => ({ data: [], error: null }) },
+      assignments: { select: () => ({ data: [], error: null }) },
+      notifications: {
+        select: () => ({ data: null, error: { message: 'RLS denied' } }),
+      },
+    });
+
+    render(<Dashboard />);
+
+    await userEvent.click(await screen.findByRole('tab', { name: 'Notifications' }));
+
+    // REGRESSION: a failed fetch used to render "You don't have any
+    // notifications." — indistinguishable from an empty inbox.
+    expect(await screen.findByText(/Failed to load notifications/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
+    expect(screen.queryByText(/don't have any notifications/i)).not.toBeInTheDocument();
   });
 });

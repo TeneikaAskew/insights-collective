@@ -348,8 +348,8 @@ function App() {
 
                     {/* Blog & Content Routes */}
                     <Route path="/blog/:slug" element={<BlogPost />} />
-                    <Route path="/create-blog-post" element={<CreateBlogPost />} />
-                    <Route path="/edit-blog-post/:slug" element={<EditBlogPost />} />
+                    <Route path="/create-blog-post" element={<ProtectedRoute requireAdmin><CreateBlogPost /></ProtectedRoute>} />
+                    <Route path="/edit-blog-post/:slug" element={<ProtectedRoute requireAdmin><EditBlogPost /></ProtectedRoute>} />
 
                     {/* Resources & Tools Routes */}
                     <Route path="/resources" element={<Resources />} />
@@ -374,19 +374,22 @@ function App() {
                     <Route path="/survey/:surveySlug/edit" element={<SurveyFormEdit />} />
 
                     {/* Admin Routes */}
+                    {/* Every /admin route is wrapped in ProtectedRoute
+                        requireAdmin — previously only /admin itself was,
+                        leaving the rest reachable by any visitor (RLS aside). */}
                     <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminDashboard /></ProtectedRoute>} />
-                    <Route path="/admin/activity" element={<AdminActivity />} />
+                    <Route path="/admin/activity" element={<ProtectedRoute requireAdmin><AdminActivity /></ProtectedRoute>} />
                     <Route path="/admin/blog/*" element={<BlogAdmin />} />
-                    <Route path="/admin/blog-posts" element={<AdminBlogPosts />} />
-                    <Route path="/admin/courses" element={<AdminCourses />} />
-                    <Route path="/admin/course-edit/:id" element={<AdminCourseEditRedirect />} />
-                    <Route path="/admin/events" element={<AdminEvents />} />
-                    <Route path="/admin/users" element={<AdminUsers />} />
-                    <Route path="/admin/page-visibility" element={<AdminPageVisibility />} />
-                    <Route path="/admin/form-management" element={<FormManagement />} />
-                    <Route path="/admin/unified-form-management" element={<UnifiedFormManagement />} />
-                    <Route path="/admin/unified-form-management/submissions/:slug" element={<FormManagement />} />
-                    <Route path="/admin/unified-form-management/submissions/:slug/submission/:submissionId" element={<FormManagement />} />
+                    <Route path="/admin/blog-posts" element={<ProtectedRoute requireAdmin><AdminBlogPosts /></ProtectedRoute>} />
+                    <Route path="/admin/courses" element={<ProtectedRoute requireAdmin><AdminCourses /></ProtectedRoute>} />
+                    <Route path="/admin/course-edit/:id" element={<ProtectedRoute requireAdmin><AdminCourseEditRedirect /></ProtectedRoute>} />
+                    <Route path="/admin/events" element={<ProtectedRoute requireAdmin><AdminEvents /></ProtectedRoute>} />
+                    <Route path="/admin/users" element={<ProtectedRoute requireAdmin><AdminUsers /></ProtectedRoute>} />
+                    <Route path="/admin/page-visibility" element={<ProtectedRoute requireAdmin><AdminPageVisibility /></ProtectedRoute>} />
+                    <Route path="/admin/form-management" element={<ProtectedRoute requireAdmin><FormManagement /></ProtectedRoute>} />
+                    <Route path="/admin/unified-form-management" element={<ProtectedRoute requireAdmin><UnifiedFormManagement /></ProtectedRoute>} />
+                    <Route path="/admin/unified-form-management/submissions/:slug" element={<ProtectedRoute requireAdmin><FormManagement /></ProtectedRoute>} />
+                    <Route path="/admin/unified-form-management/submissions/:slug/submission/:submissionId" element={<ProtectedRoute requireAdmin><FormManagement /></ProtectedRoute>} />
                     <Route path="/admin/local-storage-debug" element={<ProtectedRoute requireAdmin><LocalStorageDebug /></ProtectedRoute>} />
 
                     {/* Legal & Info Routes */}

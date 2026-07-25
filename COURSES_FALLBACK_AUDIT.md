@@ -128,3 +128,14 @@ Round 2 verification: **704 tests in 65 files**, typecheck clean, lint 0 errors,
 - **Time-spent analytics:** no tracking source; the fabricated always-0 metric was removed rather than invented.
 - **RLS:** admin certificate revocation and some instructor queries depend on row-level-security policies that can't be verified from this environment; failures now surface visibly instead of silently.
 - **Edge functions** require deployment (`supabase functions deploy ...`) to take effect.
+
+## Round 3 — repo-wide sweep beyond the courses flow (2026-07-26)
+
+Three adversarial sweeps covered everything outside courses (blog, events, portfolio, career/AI, resume, messaging, admin, contexts, all edge functions) plus a code-vs-live-schema diff. Highlights (full detail in the round-3 PR):
+
+- **Security:** messages-helper edge function let any authenticated user act on anyone's conversations (service-role + client-supplied IDs — now JWT-resolved); auth-callback allowed `//host` open redirects; `/admin/*` and blog-authoring routes were unprotected client-side; PageVisibility gating failed OPEN on fetch errors.
+- **Data-destructive:** failed Profile and blog-post loads rendered blank editable forms whose save overwrote real data with blanks — both now block with error + retry.
+- **Ghost schema references** (verified live): `profiles.full_name/email`, `portfolio_pages.font_family`, `portfolio_projects.type`, blog FK hints (`blog_posts_category_id_fkey` — broke every public blog fetch), `profiles.is_admin`, RPC `increment`, tables `no_show_reports` and `cron_job_logs` (migrations added, pending `db push`).
+- **Fabricated output removed:** canned AI replies persisted into chat/resume history on API failure; hardcoded "76% Skill Alignment"/match-percent/salary cards; fake admin success toasts with no writes; unsplash/placeholder imagery written into the events DB; a default "Joshua B. Brown" career report.
+- **Boot-broken edge functions repaired:** auth-callback, generate-career-action-plan, evaluateCareerAdvice (dangling imports / undefined corsHeaders). AI/scraper functions now return honest error statuses instead of canned 200s; persistence failures are reported, not hidden.
+- Suite: 774 tests in 83 files. Edge-function changes require redeployment.

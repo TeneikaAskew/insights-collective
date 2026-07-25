@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 interface DbNotification {
@@ -47,9 +48,12 @@ function iconFor(type: string) {
 const Notifications = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [items, setItems] = useState<DbNotification[]>([]);
   const [courses, setCourses] = useState<Record<string, CourseLite>>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [activeTab, setActiveTab] = useState<string>('all');
 
   useEffect(() => {
@@ -62,26 +66,36 @@ const Notifications = () => {
     let alive = true;
     const load = async () => {
       setIsLoading(true);
-      const { data } = await supabase
+      setLoadError(null);
+      const { data, error } = await supabase
         .from('notifications')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(200);
       if (!alive) return;
+      if (error) {
+        // A failed fetch must not render as "Nothing here" / "all caught up".
+        setLoadError(error.message);
+        setIsLoading(false);
+        return;
+      }
       const rows = (data ?? []) as DbNotification[];
       setItems(rows);
 
       const courseIds = Array.from(new Set(rows.map((r) => r.course_id).filter(Boolean))) as string[];
       if (courseIds.length) {
-        const { data: courseRows } = await supabase
+        const { data: courseRows, error: coursesError } = await supabase
           .from('courses')
           .select('id, title')
           .in('id', courseIds);
         if (!alive) return;
-        const map: Record<string, CourseLite> = {};
-        (courseRows ?? []).forEach((c: any) => (map[c.id] = c));
-        setCourses(map);
+        if (!coursesError) {
+          // Course titles are cosmetic labels; the tab falls back to "Course".
+          const map: Record<string, CourseLite> = {};
+          (courseRows ?? []).forEach((c: any) => (map[c.id] = c));
+          setCourses(map);
+        }
       }
       setIsLoading(false);
     };
@@ -138,22 +152,51 @@ const Notifications = () => {
     return items.filter((n) => n.course_id === activeTab);
   }, [items, activeTab]);
 
+  // Optimistic mutations below roll back on a failed write and surface a
+  // destructive toast — the UI must never claim a write happened that didn't.
   const markAsRead = async (id: string) => {
+    const previous = items;
     setItems((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)));
-    await supabase.from('notifications').update({ is_read: true }).eq('id', id);
+    const { error } = await supabase.from('notifications').update({ is_read: true }).eq('id', id);
+    if (error) {
+      setItems(previous);
+      toast({
+        title: 'Failed to mark notification as read',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
   };
 
   const markAllRead = async () => {
     if (!user) return;
     const ids = filtered.filter((n) => !n.is_read).map((n) => n.id);
     if (!ids.length) return;
+    const previous = items;
     setItems((prev) => prev.map((n) => (ids.includes(n.id) ? { ...n, is_read: true } : n)));
-    await supabase.from('notifications').update({ is_read: true }).in('id', ids);
+    const { error } = await supabase.from('notifications').update({ is_read: true }).in('id', ids);
+    if (error) {
+      setItems(previous);
+      toast({
+        title: 'Failed to mark notifications as read',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
   };
 
   const removeOne = async (id: string) => {
+    const previous = items;
     setItems((prev) => prev.filter((n) => n.id !== id));
-    await supabase.from('notifications').delete().eq('id', id);
+    const { error } = await supabase.from('notifications').delete().eq('id', id);
+    if (error) {
+      setItems(previous);
+      toast({
+        title: 'Failed to delete notification',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleClick = (n: DbNotification) => {
@@ -189,9 +232,11 @@ const Notifications = () => {
           <div className="space-y-1 text-left">
             <h1 className="text-3xl font-bold tracking-tight">Notifications</h1>
             <p className="text-muted-foreground">
-              {totalUnread > 0
-                ? `${totalUnread} unread ${totalUnread === 1 ? 'notification' : 'notifications'}`
-                : "You're all caught up."}
+              {loadError
+                ? 'Notifications are unavailable right now.'
+                : totalUnread > 0
+                  ? `${totalUnread} unread ${totalUnread === 1 ? 'notification' : 'notifications'}`
+                  : "You're all caught up."}
             </p>
           </div>
           <Button variant="outline" onClick={markAllRead} disabled={!filtered.some((n) => !n.is_read)}>
@@ -233,9 +278,20 @@ const Notifications = () => {
 
           <TabsContent value={activeTab} className="mt-4">
             {isLoading ? (
-              <div className="py-16 text-center text-muted-foreground animate-spin">
-                <Bell className="h-6 w-6 mx-auto opacity-60" />
+              <div className="py-16 text-center text-muted-foreground">
+                <Bell className="h-6 w-6 mx-auto opacity-60 animate-spin" />
               </div>
+            ) : loadError ? (
+              <Card>
+                <CardContent className="py-16 text-center" role="alert">
+                  <Bell className="h-12 w-12 text-destructive/40 mx-auto mb-3" />
+                  <h3 className="text-lg font-medium">Failed to load notifications</h3>
+                  <p className="text-sm text-muted-foreground mb-4">{loadError}</p>
+                  <Button variant="outline" onClick={() => setReloadKey((k) => k + 1)}>
+                    Retry
+                  </Button>
+                </CardContent>
+              </Card>
             ) : filtered.length === 0 ? (
               <Card>
                 <CardContent className="py-16 text-center">

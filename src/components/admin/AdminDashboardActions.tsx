@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
+import { useCreateEvent } from '@/hooks/useEvents';
 
 const adminActions = [
   {
@@ -30,14 +31,27 @@ export const AdminDashboardActions = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
-  
-  const handleAddEvent = (eventData: any) => {
-    toast({
-      title: 'Event Added',
-      description: 'The event has been successfully added.',
-    });
-    setIsEventModalOpen(false);
-    navigate('/admin/events');
+  const createEvent = useCreateEvent();
+
+  // The old handler toasted "Event Added" without writing anything to the
+  // database. Persist the event for real, and only report verified success.
+  const handleAddEvent = async (eventData: any) => {
+    try {
+      const { id: _id, ...data } = eventData;
+      await createEvent.mutateAsync(data);
+      toast({
+        title: 'Event Added',
+        description: 'The event has been successfully added.',
+      });
+      setIsEventModalOpen(false);
+      navigate('/admin/events');
+    } catch (error: any) {
+      toast({
+        title: 'Failed to create event',
+        description: error?.message || 'The event could not be saved.',
+        variant: 'destructive',
+      });
+    }
   };
   
   // Note: Certificates are auto-issued by a Supabase trigger when a student

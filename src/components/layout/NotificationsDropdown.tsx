@@ -23,6 +23,7 @@ interface DbNotification {
 
 const NotificationsDropdown = () => {
   const [notifications, setNotifications] = useState<DbNotification[]>([]);
+  const [loadFailed, setLoadFailed] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
   
@@ -30,12 +31,18 @@ const NotificationsDropdown = () => {
     if (!user) return;
 
     const fetchNotifications = async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('notifications')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(10);
+      if (error) {
+        // A failed fetch must not clear the list / render "No notifications".
+        setLoadFailed(true);
+        return;
+      }
+      setLoadFailed(false);
       setNotifications(data || []);
     };
 
@@ -60,10 +67,11 @@ const NotificationsDropdown = () => {
   const unreadCount = notifications.filter(n => !n.is_read).length;
   
   const handleMarkAsRead = async (id: string) => {
-    await supabase
+    const { error } = await supabase
       .from('notifications')
       .update({ is_read: true })
       .eq('id', id);
+    if (error) return; // keep the unread state honest on a failed write
     setNotifications(prev => 
       prev.map(n => n.id === id ? { ...n, is_read: true } : n)
     );
@@ -73,10 +81,11 @@ const NotificationsDropdown = () => {
     if (!user) return;
     const unreadIds = notifications.filter(n => !n.is_read).map(n => n.id);
     if (unreadIds.length === 0) return;
-    await supabase
+    const { error } = await supabase
       .from('notifications')
       .update({ is_read: true })
       .in('id', unreadIds);
+    if (error) return; // keep the unread badges honest on a failed write
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
   };
   
@@ -142,6 +151,10 @@ const NotificationsDropdown = () => {
                 </div>
               </DropdownMenuItem>
             ))
+          ) : loadFailed ? (
+            <div className="py-4 text-center text-sm text-destructive" role="alert">
+              Couldn't load notifications
+            </div>
           ) : (
             <div className="py-4 text-center text-sm text-muted-foreground">
               No notifications

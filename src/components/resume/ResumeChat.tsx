@@ -261,12 +261,17 @@ Provide helpful, specific advice as a resume coach. Be constructive, honest, and
             }
           }
           
+          // Users can have multiple resume rows (one per upload) — .single()
+          // errored with PGRST116 for anyone with more than one, losing the
+          // stored roast. Take the most recent row instead.
           const { data, error } = await supabase
             .from('resumes')
             .select('resume_roast')
             .eq('user_id', user.id)
-            .single();
-          
+            .order('uploaded_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
           if (error) {
             logger.error('Error fetching stored assessment:', error);
             throw error;
@@ -630,24 +635,24 @@ Let's start by discussing your experience: **What specific challenges did you ta
         variant: "destructive"
       });
       
-      // Fallback response
-      const fallbackContent = "Thanks for sharing those details. Based on what you've told me, I'd recommend focusing on quantifying your achievements more clearly in your resume. Add specific metrics and outcomes to demonstrate your impact. Could you share a specific project where you made a significant contribution?";
-      
-      const fallbackMessage: Message = {
-        id: `assistant-fallback-${Date.now()}`,
+      // Surface the failure honestly. The old code injected fabricated
+      // "AI advice" as an assistant message and persisted it to the DB,
+      // making an API failure look like a real coaching response.
+      const failureNotice = "I wasn't able to generate a response just now. Please try sending your message again.";
+
+      const failureMessage: Message = {
+        id: `assistant-error-${Date.now()}`,
         role: 'assistant',
-        content: fallbackContent,
-        displayContent: fallbackContent, // No typing animation for fallback
+        content: failureNotice,
+        displayContent: failureNotice,
         timestamp: new Date(),
         useTypingAnimation: false
       };
-      
-      // Remove any streaming messages and add fallback
-      setMessages(prev => [...prev.filter(msg => !msg.isStreaming), fallbackMessage]);
-      
-      // Store fallback message in database
-      await storeMessageInDB(fallbackMessage);
-      
+
+      // Remove any streaming messages and show the error notice (not stored
+      // in the DB — it is not real conversation content).
+      setMessages(prev => [...prev.filter(msg => !msg.isStreaming), failureMessage]);
+
     } finally {
       setIsLoading(false);
     }

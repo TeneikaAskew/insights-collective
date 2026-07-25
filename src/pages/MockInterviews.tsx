@@ -252,10 +252,12 @@ export default function MockInterviews() {
       if (error) throw error;
 
       // Get admin users to notify
+      // profiles has no is_admin column — admin membership lives in the
+      // roles array (the old .eq('is_admin', true) query 400'd every time).
       const { data: adminUsers, error: adminError } = await supabase
         .from('profiles')
         .select('id')
-        .eq('is_admin', true);
+        .contains('roles', ['admin']);
         
       if (adminError) throw adminError;
       

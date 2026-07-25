@@ -194,27 +194,43 @@ Question Responses:
   }
 }
 
-// New function to track conversation history in the database
-async function trackConversation(conversationId: string, content: string, senderType: 'user' | 'assistant', supabaseClient: any): Promise<void> {
+// Track conversation history in the database.
+// BEHAVIOR CHANGE (silent-failure audit): supabase-js returns errors instead of
+// throwing, so the old try/catch never fired and failed inserts vanished without
+// even a log line — users lost chat history silently. We now check the returned
+// errors and report success/failure to the caller so the response can carry an
+// explicit persistence warning. The chat itself still succeeds.
+async function trackConversation(conversationId: string, content: string, senderType: 'user' | 'assistant', supabaseClient: any): Promise<boolean> {
   try {
-    if (!conversationId) return;
-    
-    await supabaseClient
+    if (!conversationId) return true;
+
+    const { error: insertError } = await supabaseClient
       .from('assistant_messages')
       .insert({
         conversation_id: conversationId,
         content,
         sender_type: senderType
       });
-      
-    // Update the conversation's updated_at timestamp
-    await supabaseClient
+
+    if (insertError) {
+      console.error(`Failed to persist ${senderType} message for conversation ${conversationId}:`, insertError);
+      return false;
+    }
+
+    // Update the conversation's updated_at timestamp (non-fatal if it fails)
+    const { error: updateError } = await supabaseClient
       .from('assistant_conversations')
       .update({ updated_at: new Date().toISOString() })
       .eq('id', conversationId);
-      
+
+    if (updateError) {
+      console.warn('Failed to bump conversation updated_at:', updateError);
+    }
+
+    return true;
   } catch (error) {
     console.error('Error tracking conversation:', error);
+    return false;
   }
 }
 
@@ -305,25 +321,28 @@ serve(async (req) => {
     // Create Supabase client for database operations
     let quizContext = '';
     let conversationHistory = '';
+    // Tracks whether chat-history persistence failed so the client can be told
+    let historyPersisted = true;
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
-    
+
     if (!supabaseUrl || !supabaseKey) {
       console.warn("Supabase credentials not found, conversation tracking disabled");
+      if (conversationId) historyPersisted = false;
     } else {
       const supabase = createClient(supabaseUrl, supabaseKey);
-      
+
       // Fetch quiz data if available
       if (quizAttemptId) {
         quizContext = await fetchQuizData(quizAttemptId, supabase);
       }
-      
+
       // Get conversation history if available
       if (conversationId) {
         conversationHistory = await getPreviousMessages(conversationId, supabase);
-        
+
         // Track user message in database
-        await trackConversation(conversationId, query, 'user', supabase);
+        historyPersisted = await trackConversation(conversationId, query, 'user', supabase) && historyPersisted;
       }
     }
     
@@ -407,13 +426,19 @@ serve(async (req) => {
       // Track assistant response in database
       if (conversationId && supabaseUrl && supabaseKey) {
         const supabase = createClient(supabaseUrl, supabaseKey);
-        await trackConversation(conversationId, aiResponse, 'assistant', supabase);
+        historyPersisted = await trackConversation(conversationId, aiResponse, 'assistant', supabase) && historyPersisted;
       }
-      
-      // Return the AI response
+
+      // Return the AI response. If history persistence failed, say so explicitly
+      // instead of pretending the messages were saved.
       return new Response(
-        JSON.stringify({ response: aiResponse }),
-        { 
+        JSON.stringify({
+          response: aiResponse,
+          ...(conversationId && !historyPersisted
+            ? { persistenceWarning: 'Failed to save this exchange to conversation history' }
+            : {})
+        }),
+        {
           headers: { 
             'Content-Type': 'application/json',
             ...corsHeaders

@@ -8,17 +8,35 @@ const logger = createLogger('blogService');
 // Get all blog posts with real data from Supabase
 export const getAllBlogPosts = async (): Promise<BlogPost[]> => {
   try {
+    // NOTE: the only FK on blog_posts is fk_blog_posts_category; there is no
+    // FK to profiles, so the author names are resolved with a second query.
+    // The previous hints (blog_posts_category_id_fkey / blog_posts_author_id_fkey)
+    // did not exist and made every fetch fail with PGRST200.
     const { data, error } = await supabase
       .from('blog_posts')
       .select(`
         *,
-        blog_categories!blog_posts_category_id_fkey(name),
-        blog_post_tags(tag_name),
-        profiles!blog_posts_author_id_fkey(first_name, last_name)
+        blog_categories!fk_blog_posts_category(name),
+        blog_post_tags(tag_name)
       `)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
+
+    const authorIds = Array.from(
+      new Set((data || []).map((post) => post.author_id).filter(Boolean))
+    ) as string[];
+    const authorNames = new Map<string, string>();
+    if (authorIds.length > 0) {
+      const { data: authors, error: authorsError } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name')
+        .in('id', authorIds);
+      if (authorsError) throw authorsError;
+      (authors || []).forEach((a: any) => {
+        authorNames.set(a.id, `${a.first_name || ''} ${a.last_name || ''}`.trim());
+      });
+    }
 
     return (data || []).map(post => ({
       id: post.id,
@@ -29,7 +47,7 @@ export const getAllBlogPosts = async (): Promise<BlogPost[]> => {
       publishedAt: post.published_at || post.created_at,
       updatedAt: post.updated_at,
       authorId: post.author_id,
-      authorName: post.profiles ? `${post.profiles.first_name} ${post.profiles.last_name}`.trim() : 'Unknown Author',
+      authorName: authorNames.get(post.author_id) || 'Unknown Author',
       imageUrl: post.image_url,
       tags: post.blog_post_tags?.map((tag: any) => tag.tag_name) || [],
       category: post.blog_categories?.name || 'Uncategorized',
@@ -42,7 +60,7 @@ export const getAllBlogPosts = async (): Promise<BlogPost[]> => {
     }));
   } catch (error) {
     logger.error('Error fetching blog posts:', error);
-    return [];
+    throw error;
   }
 };
 
@@ -74,32 +92,36 @@ export const getBlogPostBySlug = async (slug: string): Promise<BlogPost | null> 
     // Get category name
     let categoryName = 'Uncategorized';
     if (postData.category_id) {
-      const { data: categoryData } = await supabase
+      const { data: categoryData, error: categoryError } = await supabase
         .from('blog_categories')
         .select('name')
         .eq('id', postData.category_id)
         .maybeSingle();
+      if (categoryError) throw categoryError;
       categoryName = categoryData?.name || 'Uncategorized';
     }
 
     // Get author name
     let authorName = 'Unknown Author';
     if (postData.author_id) {
-      const { data: authorData } = await supabase
+      const { data: authorData, error: authorError } = await supabase
         .from('profiles')
         .select('first_name, last_name')
         .eq('id', postData.author_id)
         .maybeSingle();
+      if (authorError) throw authorError;
       if (authorData) {
         authorName = `${authorData.first_name} ${authorData.last_name}`.trim();
       }
     }
 
     // Get tags
-    const { data: tags } = await supabase
+    const { data: tags, error: tagsError } = await supabase
       .from('blog_post_tags')
       .select('tag_name')
       .eq('blog_post_id', postData.id);
+
+    if (tagsError) throw tagsError;
 
     const post: BlogPost = {
       id: postData.id,
@@ -130,7 +152,7 @@ export const getBlogPostBySlug = async (slug: string): Promise<BlogPost | null> 
     return post;
   } catch (error) {
     logger.error(`Error fetching blog post with slug ${slug}:`, error);
-    return null;
+    throw error;
   }
 };
 
@@ -143,12 +165,13 @@ export const createBlogPost = async (blogPost: BlogFormData): Promise<BlogPost |
     // Get category ID if category is provided
     let categoryId = null;
     if (blogPost.category) {
-      const { data: categoryData } = await supabase
+      const { data: categoryData, error: categoryError } = await supabase
         .from('blog_categories')
         .select('id')
         .eq('name', blogPost.category)
-        .single();
-      categoryId = categoryData?.id;
+        .maybeSingle();
+      if (categoryError) throw categoryError;
+      categoryId = categoryData?.id ?? null;
     }
 
     // Calculate read time
@@ -187,9 +210,11 @@ export const createBlogPost = async (blogPost: BlogFormData): Promise<BlogPost |
         tag_name: tag
       }));
 
-      await supabase
+      const { error: tagsError } = await supabase
         .from('blog_post_tags')
         .insert(tagInserts);
+
+      if (tagsError) throw tagsError;
     }
 
     // Get author information for return
@@ -221,7 +246,7 @@ export const createBlogPost = async (blogPost: BlogFormData): Promise<BlogPost |
     };
   } catch (error) {
     logger.error('Error creating blog post:', error);
-    return null;
+    throw error;
   }
 };
 
@@ -241,12 +266,13 @@ export const updateBlogPost = async (slug: string, blogPost: BlogFormData): Prom
     // Get category ID if category is provided
     let categoryId = null;
     if (blogPost.category) {
-      const { data: categoryData } = await supabase
+      const { data: categoryData, error: categoryError } = await supabase
         .from('blog_categories')
         .select('id')
         .eq('name', blogPost.category)
-        .single();
-      categoryId = categoryData?.id;
+        .maybeSingle();
+      if (categoryError) throw categoryError;
+      categoryId = categoryData?.id ?? null;
     }
 
     // Calculate read time
@@ -287,10 +313,12 @@ export const updateBlogPost = async (slug: string, blogPost: BlogFormData): Prom
     if (error) throw error;
 
     // Update tags - delete existing and insert new ones
-    await supabase
+    const { error: tagDeleteError } = await supabase
       .from('blog_post_tags')
       .delete()
       .eq('blog_post_id', existingPost.id);
+
+    if (tagDeleteError) throw tagDeleteError;
 
     if (blogPost.tags && blogPost.tags.length > 0) {
       const tagInserts = blogPost.tags.map(tag => ({
@@ -298,9 +326,11 @@ export const updateBlogPost = async (slug: string, blogPost: BlogFormData): Prom
         tag_name: tag
       }));
 
-      await supabase
+      const { error: tagInsertError } = await supabase
         .from('blog_post_tags')
         .insert(tagInserts);
+
+      if (tagInsertError) throw tagInsertError;
     }
 
     // Get author information for return  
@@ -332,7 +362,7 @@ export const updateBlogPost = async (slug: string, blogPost: BlogFormData): Prom
     };
   } catch (error) {
     logger.error('Error updating blog post:', error);
-    return null;
+    throw error;
   }
 };
 
@@ -348,7 +378,7 @@ export const deleteBlogPost = async (slug: string): Promise<boolean> => {
     return true;
   } catch (error) {
     logger.error('Error deleting blog post:', error);
-    return false;
+    throw error;
   }
 };
 
@@ -369,11 +399,13 @@ export const getBlogCategories = async (): Promise<BlogCategory[]> => {
       name: category.name,
       slug: category.slug,
       description: category.description,
-      count: category.blog_posts?.length || 0
+      // PostgREST returns the (count) embed as [{ count: N }] — using .length
+      // made every non-empty category read "1 articles".
+      count: category.blog_posts?.[0]?.count ?? 0
     }));
   } catch (error) {
     logger.error('Error fetching blog categories:', error);
-    return [];
+    throw error;
   }
 };
 
@@ -393,18 +425,32 @@ export const recordBlogPostView = async (postId: string, slug: string) => {
       });
     
     if (error) {
-      logger.error('Error recording blog post view:', error);
+      // View tracking is non-critical telemetry: warn, but never break the read path.
+      logger.warn('Failed to record blog post view (non-critical):', error);
     }
 
-    // Update view count on the post
-    await supabase.rpc('increment', {
-      table_name: 'blog_posts',
-      row_id: postId,
-      column_name: 'view_count'
-    });
-    
+    // Update view count on the post. The previous implementation called a
+    // non-existent 'increment' RPC, so view_count was never written. A
+    // read-then-write is not atomic but it is real; failures stay fail-quiet
+    // because view counts are telemetry.
+    const { data: current, error: readError } = await supabase
+      .from('blog_posts')
+      .select('view_count')
+      .eq('id', postId)
+      .maybeSingle();
+    if (readError || !current) {
+      logger.warn('Failed to read blog post view count (non-critical):', readError);
+      return;
+    }
+    const { error: writeError } = await supabase
+      .from('blog_posts')
+      .update({ view_count: (current.view_count ?? 0) + 1 })
+      .eq('id', postId);
+    if (writeError) {
+      logger.warn('Failed to increment blog post view count (non-critical):', writeError);
+    }
   } catch (error) {
-    logger.error('Error recording blog post view:', error);
+    logger.warn('Error recording blog post view (non-critical):', error);
   }
 };
 
@@ -463,14 +509,7 @@ export const getBlogPostAnalytics = async (
     };
   } catch (error) {
     logger.error('Error fetching blog post analytics:', error);
-    
-    return {
-      views: 0,
-      uniqueVisitors: 0,
-      averageTimeOnPage: 0,
-      bounceRate: 0,
-      conversionRate: 0
-    };
+    throw error;
   }
 };
 

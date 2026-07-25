@@ -60,15 +60,16 @@ export const UserPresenceBar = () => {
     return null;
   }
 
-  // If the online users list is empty, add debugging info but still show current user
-  const showDebugInfo = onlineUsers.length === 0;
-  if (showDebugInfo) {
-    logger.log('[UserPresenceBar] Online users list is empty, but still showing current user');
+  // There is no realtime presence subscription wired up anywhere —
+  // PageVisibilityContext never calls setOnlineUsers — so onlineUsers is
+  // always empty. Rendering a "1 online" bar in that state fabricates live
+  // presence data; hide the bar until real presence tracking exists.
+  if (onlineUsers.length === 0) {
+    return null;
   }
 
-  // Get total online count (even if it's just the current user)
   const otherUsers = onlineUsers.filter(u => u.id !== user.id);
-  const totalOnline = onlineUsers.length || 1; // At least show 1 for current user
+  const totalOnline = onlineUsers.length;
 
   // Get current user's display info, prioritizing profile data
   // Using user_metadata which exists on EnrichedUser instead of direct first_name/last_name

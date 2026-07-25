@@ -20,9 +20,16 @@ export const NotificationSettings = ({
   const { updateProfile, loading } = useProfileUpdate();
 
   const handleChange = async (newSettings: Partial<NotificationSettings>) => {
+    const previous = settings;
     const updatedSettings = { ...settings, ...newSettings };
     setSettings(updatedSettings);
-    await updateProfile({ notification_settings: updatedSettings });
+    try {
+      await updateProfile({ notification_settings: updatedSettings });
+    } catch {
+      // Roll back the optimistic toggle — the switch must not stay flipped
+      // when the write failed (useProfileUpdate already shows the error toast).
+      setSettings(previous);
+    }
   };
 
   return (

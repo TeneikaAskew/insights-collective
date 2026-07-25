@@ -40,26 +40,31 @@ export const MyCertificates = () => {
   const { toast } = useToast();
   const [certificates, setCertificates] = useState<CertificateRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user?.id) return;
     const load = async () => {
       setLoading(true);
+      setLoadError(null);
       const { data, error } = await supabase
         .from('certificates')
         .select('id, course_id, certificate_type, issued_at, verification_code, certificate_data, course:courses(title, category, level, duration)')
         .eq('user_id', user.id)
         .order('issued_at', { ascending: false });
       if (error) {
+        // A failed fetch must not tell the user they have no certificates.
         logger.error('Failed to load certificates', error);
+        setLoadError(error.message || 'Failed to load certificates');
       } else {
         setCertificates((data as any) || []);
       }
       setLoading(false);
     };
     load();
-  }, [user?.id]);
+  }, [user?.id, reloadKey]);
 
   const handleDownload = async (cert: CertificateRow) => {
     setDownloadingId(cert.id);
@@ -127,6 +132,20 @@ export const MyCertificates = () => {
         <Skeleton className="h-20 w-full" />
         <Skeleton className="h-20 w-full" />
       </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <Alert variant="destructive" role="alert" data-testid="certificates-error">
+        <Award className="h-4 w-4" />
+        <AlertDescription className="flex flex-col gap-3">
+          <span>Failed to load your certificates: {loadError}</span>
+          <Button variant="outline" size="sm" className="w-fit" onClick={() => setReloadKey((k) => k + 1)}>
+            Retry
+          </Button>
+        </AlertDescription>
+      </Alert>
     );
   }
 

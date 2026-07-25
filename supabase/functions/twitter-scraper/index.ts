@@ -143,7 +143,9 @@ async function getLastScrapedTweetId(): Promise<string | null> {
   return data?.value || null;
 }
 
-async function updateLastScrapedTweetId(tweetId: string) {
+// Returns false when the cursor update fails so the caller can report it
+// honestly (the next run will re-fetch and dedupe via upsert on tweet_id).
+async function updateLastScrapedTweetId(tweetId: string): Promise<boolean> {
   const { error } = await supabase
     .from('scrape_metadata')
     .upsert({
@@ -153,7 +155,9 @@ async function updateLastScrapedTweetId(tweetId: string) {
 
   if (error) {
     console.error('Error updating last scraped tweet ID:', error);
+    return false;
   }
+  return true;
 }
 
 async function storeTweets(tweets: any[], userInfo: any) {
@@ -199,10 +203,12 @@ async function scrapeTweets() {
     let allTweets: any[] = [];
     let hasMoreTweets = true;
     let nextToken: string | undefined;
-    
+    // Records a mid-pagination failure so partial results are reported honestly
+    let fetchWarning: string | null = null;
+
     // For full scrape (first run), we'll get more tweets
     const maxResults = lastScrapedTweetId ? 100 : 200;
-    
+
     while (hasMoreTweets) {
       try {
         const tweetsResponse = await getUserTweets(
@@ -229,7 +235,15 @@ async function scrapeTweets() {
         }
         
       } catch (error) {
+        // BEHAVIOR CHANGE (silent-failure audit): a fetch failure used to just
+        // `break`, and the run was reported as an unqualified success. If the
+        // FIRST batch fails we now surface the failure; if a later batch fails
+        // we keep the partial results but attach an explicit warning.
         console.error('Error fetching tweets batch:', error);
+        if (allTweets.length === 0) {
+          throw error;
+        }
+        fetchWarning = `Stopped early after ${allTweets.length} tweets: ${(error as Error)?.message || String(error)}`;
         break;
       }
     }
@@ -245,13 +259,19 @@ async function scrapeTweets() {
         new Date(current.created_at) > new Date(latest.created_at) ? current : latest
       );
       
-      await updateLastScrapedTweetId(mostRecentTweet.id);
-      
+      const cursorUpdated = await updateLastScrapedTweetId(mostRecentTweet.id);
+
+      // Honest reporting: include partial-failure warnings instead of a clean success
+      const warnings: string[] = [];
+      if (fetchWarning) warnings.push(fetchWarning);
+      if (!cursorUpdated) warnings.push('Failed to persist last_scraped_tweet_id; the next run will re-fetch and dedupe');
+
       return {
         success: true,
         tweetsProcessed: storedCount,
         isFirstRun: !lastScrapedTweetId,
-        lastTweetId: mostRecentTweet.id
+        lastTweetId: mostRecentTweet.id,
+        ...(warnings.length > 0 ? { warnings } : {})
       };
     } else {
       return {

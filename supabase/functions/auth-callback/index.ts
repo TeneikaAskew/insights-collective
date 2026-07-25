@@ -20,10 +20,19 @@ serve(async (req) => {
 
     console.log('Auth callback received. Redirecting to:', redirectTo);
 
+    // Silent-failure audit / fail-open fix: the old check only prefixed a '/'
+    // when missing, so a crafted `redirect=//evil.com` passed through as a
+    // protocol-relative URL — an open redirect on the auth callback. Only
+    // same-origin paths (single leading '/', no backslash tricks) are allowed.
+    const isSafePath = redirectTo.startsWith('/')
+      && !redirectTo.startsWith('//')
+      && !redirectTo.startsWith('/\\');
+    const location = isSafePath ? redirectTo : '/resources';
+
     // Create a response that redirects to the specified page or default to /resources
     const headers = new Headers({
       ...corsHeaders,
-      'Location': redirectTo.startsWith('/') ? redirectTo : `/${redirectTo}`,
+      'Location': location,
     });
 
     return new Response(null, {

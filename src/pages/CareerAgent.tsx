@@ -308,12 +308,13 @@ const CareerAgent: React.FC = () => {
 
     if (user && sessionId) {
       try {
-        await supabase.from('career_pathway_answers').insert({
+        const { error } = await supabase.from('career_pathway_answers').insert({
           user_id: user.id,
           session_id: sessionId,
           question: questionId,
           answer,
         });
+        if (error) throw error;
       } catch (err) {
         logger.error('Error saving answer:', err);
         toast({
@@ -462,22 +463,33 @@ const CareerAgent: React.FC = () => {
       setStructuredReport(report);
       setCareerAdviceReport(''); // clear old markdown report if any
 
-      // Save the report to career_pathway_results
+      // Save the report to career_pathway_results. Supabase resolves with
+      // { error } instead of throwing, so check it explicitly — the old code's
+      // catch was unreachable and a failed save still claimed success.
+      let reportSaved = false;
       if (user?.id) {
-        try {
-          await supabase.from("career_pathway_results").insert({
-            user_id: user.id,
-            session_id: sessionId,
-            report: JSON.stringify(report)
-          });
-        } catch (saveError) {
+        const { error: saveError } = await supabase.from("career_pathway_results").insert({
+          user_id: user.id,
+          session_id: sessionId,
+          report: JSON.stringify(report)
+        });
+        if (saveError) {
           logger.error("Error saving career pathway report:", saveError);
+          toast({
+            title: "Report not saved",
+            description: "Your report was generated but could not be saved — it may not appear on your Career Pathway page later.",
+            variant: "destructive",
+          });
+        } else {
+          reportSaved = true;
         }
       }
       setMessages(prev => [...prev, { 
         id: `bot_done_${Date.now()}`, 
         sender: 'bot', 
-        text: "Your personalized career pathway report is ready! I've prepared it below based on your answers and resume."
+        text: reportSaved
+          ? "Your personalized career pathway report is ready! I've prepared it below based on your answers and resume."
+          : "Your personalized career pathway report is ready below. Note: it couldn't be saved to your account, so it may not be available after you leave this page."
       }]);
     } catch(e) { 
       logger.error("Full error:", e);
@@ -591,15 +603,19 @@ const CareerAgent: React.FC = () => {
       
       // Save answer to database
       if (user?.id) {
-        try {
-          await supabase.from('career_pathway_answers').insert({
-            user_id: user.id,
-            session_id: sessionId,
-            question: currentQuestion.id,
-            answer: answer
+        const { error: answerError } = await supabase.from('career_pathway_answers').insert({
+          user_id: user.id,
+          session_id: sessionId,
+          question: currentQuestion.id,
+          answer: answer
+        });
+        if (answerError) {
+          logger.error('Error saving answer:', answerError);
+          toast({
+            title: 'Answer not saved',
+            description: 'Your answer could not be saved. Your final report may be incomplete.',
+            variant: 'destructive',
           });
-        } catch (err) {
-          logger.error('Error saving answer:', err);
         }
       }
       

@@ -60,13 +60,18 @@ export function useConversationMessages(conversationId?: string) {
 
         setMessages(messagesWithProfiles);
 
-        // Mark messages as read
-        await supabase
+        // Mark messages as read (read receipts are non-critical: warn on
+        // failure but don't block the loaded messages)
+        const { error: markReadError } = await supabase
           .from('messages')
           .update({ read: true })
           .eq('conversation_id', conversationId)
           .neq('sender_id', user.id)
           .eq('read', false);
+
+        if (markReadError) {
+          logger.warn('Failed to mark messages as read (non-critical):', markReadError);
+        }
 
       } catch (error) {
         logger.error('Error fetching messages:', error);
@@ -128,10 +133,14 @@ export function useConversationMessages(conversationId?: string) {
             
             // Mark message as read if it's not from the current user
             if (payload.new.sender_id !== user.id) {
-              await supabase
+              const { error: markReadError } = await supabase
                 .from('messages')
                 .update({ read: true })
                 .eq('id', payload.new.id);
+
+              if (markReadError) {
+                logger.warn('Failed to mark incoming message as read (non-critical):', markReadError);
+              }
             }
           } catch (error) {
             logger.error('Error processing real-time message:', error);

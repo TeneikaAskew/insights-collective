@@ -77,6 +77,11 @@ async function callLLMForSkillsAnalysis(resume, jobDescription, preCalculatedKey
       max_tokens: 2000
     })
   });
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('AI gateway error:', response.status, errorText);
+    throw new Error(`AI gateway returned ${response.status}`);
+  }
   const result = await response.json();
   console.log("AI Response: ", result);
   // *** FIXED: Updated to handle the chat completion response format ***
@@ -115,18 +120,12 @@ function extractCleanJson(text) {
   jsonText = jsonText.replace(/,\s*]/g, ']'); // Remove trailing commas in arrays
   return jsonText;
 }
-// Create a default response for error cases
-function createDefaultResponse(errorMessage) {
-  return {
-    technicalSkills: [],
-    functionalSkills: [],
-    responsibilities: [],
-    improvementSuggestions: [
-      "An error occurred while analyzing your resume: " + errorMessage,
-      "Please try again or use the manual keyword matching to guide your resume updates."
-    ]
-  };
-}
+// BEHAVIOR CHANGE (silent-failure audit): the old createDefaultResponse helper
+// returned empty skills arrays with the error buried inside
+// "improvementSuggestions" — a 200 response indistinguishable in shape from a
+// real analysis. Failures now return an explicit non-2xx error payload; the
+// client (JobDescriptionAnalyzer) already has a local-analysis fallback wired
+// to the error path.
 // Main serve function
 serve(async (req)=>{
   // Handle CORS for browser requests
@@ -162,9 +161,11 @@ serve(async (req)=>{
       });
     } catch (apiError) {
       console.error("API or parsing error:", apiError.message);
-      // Return a default response that won't break the client
-      const defaultResponse = createDefaultResponse(apiError.message);
-      return new Response(JSON.stringify(defaultResponse), {
+      // Upstream AI failure: report it honestly instead of a canned "analysis"
+      return new Response(JSON.stringify({
+        error: `AI skills analysis failed: ${apiError.message}`
+      }), {
+        status: 502,
         headers: {
           ...corsHeaders,
           'Content-Type': 'application/json'
@@ -173,9 +174,10 @@ serve(async (req)=>{
     }
   } catch (error) {
     console.error('Error processing request:', error);
-    // Return a default response for general errors
-    const defaultResponse = createDefaultResponse("Request processing error");
-    return new Response(JSON.stringify(defaultResponse), {
+    return new Response(JSON.stringify({
+      error: 'Request processing error'
+    }), {
+      status: 500,
       headers: {
         ...corsHeaders,
         'Content-Type': 'application/json'

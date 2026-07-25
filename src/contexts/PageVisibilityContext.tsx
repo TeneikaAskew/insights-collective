@@ -33,6 +33,8 @@ interface PageVisibilityContextType {
   isLoading: boolean;
   /** True once auth state AND page visibility data have both resolved at least once */
   isReady: boolean;
+  /** True when the page-visibility fetch failed; isPageVisible fails CLOSED for non-admins in this state */
+  loadError: boolean;
   onlineUsers: OnlineUser[];
   currentUserPresence: CurrentUserPresence | null;
   pageVisibility: PageVisibilityEntry[];
@@ -51,6 +53,7 @@ export const usePageVisibility = () => {
       isPageVisible: () => false,
       isLoading: true,
       isReady: false,
+      loadError: false,
       onlineUsers: [] as OnlineUser[],
       currentUserPresence: null,
       pageVisibility: [] as PageVisibilityEntry[],
@@ -75,6 +78,7 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
   const [pageVisibility, setPageVisibility] = useState<PageVisibilityEntry[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
   const [dataFetched, setDataFetched] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   // Derived: system is "ready" when both auth and page-visibility data have resolved
   const isReady = !authLoading && dataFetched;
@@ -105,13 +109,31 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
         .order('page_path');
 
       if (error) {
+        // BEHAVIOR CHANGE (silent-failure audit): previously a failed fetch left
+        // pageVisibility empty and marked the system "ready", which made every
+        // managed page default to VISIBLE (fail-open access control). We now
+        // record the failure, surface it, and isPageVisible fails CLOSED for
+        // non-admins until a successful fetch.
         logger.error('Error fetching page visibility data:', error);
+        setLoadError(true);
+        toast({
+          title: 'Error loading page visibility settings',
+          description: 'Access-controlled pages are hidden until settings can be loaded.',
+          variant: 'destructive',
+        });
         return;
       }
 
       setPageVisibility(data || []);
+      setLoadError(false);
     } catch (error) {
       logger.error('Error fetching page visibility data:', error);
+      setLoadError(true);
+      toast({
+        title: 'Error loading page visibility settings',
+        description: 'Access-controlled pages are hidden until settings can be loaded.',
+        variant: 'destructive',
+      });
     } finally {
       setDataLoading(false);
       setDataFetched(true);
@@ -125,6 +147,8 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
    *   regular user => visible_to_users
    *   no entry in DB => default visible
    *   not ready yet => hidden (fail-closed)
+   *   fetch failed  => hidden (fail-closed) — a DB/RLS failure must not
+   *                    silently grant access to gated pages
    */
   const isPageVisible = useCallback((path: string): boolean => {
     // Admin users always see everything
@@ -134,6 +158,12 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
 
     // While data is still loading, hide managed pages (fail-closed)
     if (!isReady) {
+      return false;
+    }
+
+    // If the visibility fetch failed, we cannot know which pages are gated.
+    // Fail closed rather than defaulting everything to visible.
+    if (loadError) {
       return false;
     }
 
@@ -154,7 +184,7 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
 
     // Regular signed-in user (student): visible only if "All Users" is on
     return pageEntry.visible_to_users;
-  }, [user?.roles, isReady, pageVisibility]);
+  }, [user?.roles, isReady, loadError, pageVisibility]);
 
   const updatePageVisibility = async (pageId: string, updates: Partial<PageVisibilityEntry>) => {
     try {
@@ -249,6 +279,10 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
 
       logger.log('Syncing pages to database:', availablePages);
 
+      // BEHAVIOR CHANGE (silent-failure audit): per-page upsert failures were
+      // logged and then reported as a full success ("N pages synchronized").
+      // We now count failures and report honest numbers.
+      const failedPages: string[] = [];
       for (const page of availablePages) {
         const { error } = await supabase
           .from('page_visibility')
@@ -264,15 +298,30 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
 
         if (error) {
           logger.error(`Error upserting page ${page.page_path}:`, error);
+          failedPages.push(page.page_path);
         }
       }
 
       await fetchPageVisibilityData();
 
-      toast({
-        title: 'Pages synced successfully',
-        description: `${availablePages.length} pages have been synchronized with the database.`,
-      });
+      if (failedPages.length === availablePages.length) {
+        toast({
+          title: 'Page sync failed',
+          description: `All ${availablePages.length} pages failed to sync. Check the console for details.`,
+          variant: 'destructive',
+        });
+      } else if (failedPages.length > 0) {
+        toast({
+          title: 'Pages partially synced',
+          description: `${availablePages.length - failedPages.length} of ${availablePages.length} pages synced; ${failedPages.length} failed (${failedPages.slice(0, 3).join(', ')}${failedPages.length > 3 ? ', …' : ''}).`,
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Pages synced successfully',
+          description: `${availablePages.length} pages have been synchronized with the database.`,
+        });
+      }
     } catch (error) {
       logger.error('Error syncing pages:', error);
       toast({
@@ -289,6 +338,7 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
     isPageVisible,
     isLoading,
     isReady,
+    loadError,
     onlineUsers,
     currentUserPresence,
     pageVisibility,

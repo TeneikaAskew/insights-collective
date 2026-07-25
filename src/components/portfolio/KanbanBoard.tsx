@@ -141,13 +141,17 @@ export function KanbanBoard({
         )
       );
       
-      // Call parent handler to update status in database
-      onStatusChange(projectId, newStatus);
-      
-      // Show toast notification
-      toast({
-        title: "Status updated",
-        description: `Project moved to ${newStatus}`,
+      // Call parent handler to update status in database. Roll the card back
+      // if the write fails — and let usePortfolio's own success/error toasts
+      // report the verified outcome instead of toasting success up front.
+      Promise.resolve(onStatusChange(projectId, newStatus)).catch(() => {
+        setLocalProjects(prevProjects =>
+          prevProjects.map(p =>
+            p.id === projectId
+              ? { ...p, status: project.status }
+              : p
+          )
+        );
       });
     }
   };

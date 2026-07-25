@@ -43,6 +43,14 @@ serve(async (req) => {
         { headers: { 'Authorization': `Bearer ${access_token}` } }
       );
 
+      // BEHAVIOR CHANGE (silent-failure audit): a failed Zoom API call used to
+      // fall through and return `{ recordings: [] }` with HTTP 200 — clients
+      // could not tell "no recordings" from "Zoom errored". A 404 (meeting has
+      // no recordings) legitimately maps to an empty list; other failures throw.
+      if (!res.ok && res.status !== 404) {
+        throw new Error(`Zoom recordings API error ${res.status}: ${await res.text()}`);
+      }
+
       if (res.ok) {
         const data = await res.json();
         recordings = (data.recording_files ?? []).map((f: any) => ({
@@ -69,6 +77,12 @@ serve(async (req) => {
         `https://api.zoom.us/v2/users/me/recordings?from=${fromDate}&to=${toDate}&page_size=50`,
         { headers: { 'Authorization': `Bearer ${access_token}` } }
       );
+
+      // Silent-failure audit: same as above — do not report an API failure as
+      // "no recordings in this window".
+      if (!res.ok) {
+        throw new Error(`Zoom recordings API error ${res.status}: ${await res.text()}`);
+      }
 
       if (res.ok) {
         const data = await res.json();

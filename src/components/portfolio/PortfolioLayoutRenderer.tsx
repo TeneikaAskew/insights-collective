@@ -12,7 +12,14 @@ interface PortfolioLayoutRendererProps {
   portfolioPage: PortfolioPage;
 }
 
-export function PortfolioLayoutRenderer({ portfolioPage }: PortfolioLayoutRendererProps) {
+export function PortfolioLayoutRenderer({ portfolioPage: rawPortfolioPage }: PortfolioLayoutRendererProps) {
+  // font_family is persisted inside profile_data (portfolio_pages has no such
+  // column); surface it where the layouts expect it.
+  const portfolioPage = {
+    ...rawPortfolioPage,
+    font_family:
+      (rawPortfolioPage.profile_data as any)?.font_family || rawPortfolioPage.font_family,
+  };
   const layout = portfolioPage.layout || 'classic';
 
   switch (layout) {

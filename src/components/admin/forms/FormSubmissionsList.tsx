@@ -50,26 +50,38 @@ export default function FormSubmissionsList({ formId, formSlug }: FormSubmission
       setTotalSubmissions(totalCount);
       setTotalPages(Math.ceil(totalCount / pageSize));
 
-      // Fetch submissions with pagination
+      // Fetch submissions with pagination. NOTE: form_submissions has no FK
+      // to profiles (and profiles has no email column), so the previous
+      // embedded select failed with PGRST200 on every load and the page
+      // always claimed "No one has submitted this form yet". Profiles are
+      // resolved with a separate query instead.
       const { data, error } = await supabase
         .from('form_submissions')
-        .select(`
-          *,
-          profiles:user_id (
-            first_name,
-            last_name,
-            email:id (
-              email
-            )
-          )
-        `)
+        .select('*')
         .eq('form_id', formId)
         .order('created_at', { ascending: false })
         .range((currentPage - 1) * pageSize, currentPage * pageSize - 1);
-      
+
       if (error) throw error;
-      
-      setSubmissions(data || []);
+
+      const rows = data || [];
+      const userIds = Array.from(new Set(rows.map((r: any) => r.user_id).filter(Boolean)));
+      const profilesById = new Map<string, any>();
+      if (userIds.length > 0) {
+        const { data: profileRows, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, first_name, last_name')
+          .in('id', userIds);
+        if (profilesError) throw profilesError;
+        (profileRows || []).forEach((p: any) => profilesById.set(p.id, p));
+      }
+
+      setSubmissions(
+        rows.map((r: any) => ({
+          ...r,
+          profiles: r.user_id ? profilesById.get(r.user_id) ?? null : null,
+        }))
+      );
     } catch (error) {
       logger.error('Error fetching submissions:', error);
       toast({

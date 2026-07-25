@@ -52,9 +52,14 @@ export const useAssistantChat = (initialAssistant: Assistant) => {
         
       if (error) {
         logger.error('Error fetching conversation history:', error);
+        toast({
+          title: "Error",
+          description: "Could not load your previous conversation history.",
+          variant: "destructive",
+        });
         return;
       }
-      
+
       if (data && data.length > 0) {
         const chatMessages: Message[] = data.map((msg) => ({
           id: msg.id,
@@ -179,11 +184,16 @@ export const useAssistantChat = (initialAssistant: Assistant) => {
       });
       
       if (error) throw error;
-      
+
+      // An empty payload is a failure, not a response — do not fabricate one.
+      if (!data?.response) {
+        throw new Error('No response received from assistant');
+      }
+
       const assistantMessage: Message = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
-        content: data?.response || "I'm sorry, I couldn't process your request at this time.",
+        content: data.response,
         timestamp: new Date(),
       };
       
@@ -207,39 +217,13 @@ export const useAssistantChat = (initialAssistant: Assistant) => {
       }
     } catch (error) {
       logger.error('Error sending message:', error);
+      // Surface the failure honestly — never inject a fabricated assistant
+      // reply that makes an API failure look like a successful response.
       toast({
         title: "Error",
         description: "Failed to get a response. Please try again.",
         variant: "destructive",
       });
-      
-      // Add fallback response if the API call fails
-      const { careerFocus, careerPath, salaryCap } = settings;
-      const fallbackMessage: Message = {
-        id: `assistant-fallback-${Date.now()}`,
-        role: 'assistant',
-        content: `Based on your interest in ${careerFocus} with a focus on ${careerPath} careers and a target salary up to $${(salaryCap/1000).toFixed(0)}K, I'd recommend exploring roles like Senior Data Analyst or ML Engineer. Would you like more specific information about either of these paths?`,
-        timestamp: new Date(),
-      };
-      
-      setMessages(prevMessages => [...prevMessages, fallbackMessage]);
-      
-      // Update chat with fallback response
-      if (currentChat) {
-        const updatedChat = {
-          ...currentChat,
-          messages: [...currentChat.messages, userMessage, fallbackMessage],
-          updatedAt: new Date()
-        };
-        setCurrentChat(updatedChat);
-        
-        // Update localStorage
-        const savedChats = JSON.parse(localStorage.getItem('assistantChats') || '[]');
-        const updatedChats = savedChats.map((chat: Chat) => 
-          chat.id === updatedChat.id ? updatedChat : chat
-        );
-        localStorage.setItem('assistantChats', JSON.stringify(updatedChats));
-      }
     } finally {
       setIsLoading(false);
     }

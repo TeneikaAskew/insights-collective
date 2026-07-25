@@ -44,6 +44,8 @@ const Profile = () => {
     bio: '',
   });
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [profileLoadError, setProfileLoadError] = useState<string | null>(null);
+  const [profileReloadKey, setProfileReloadKey] = useState(0);
 
   useEffect(() => {
     // Auth hydration is racy: Supabase's getSession() can resolve to null a tick
@@ -67,6 +69,7 @@ const Profile = () => {
 
     if (user) {
       const fetchProfile = async () => {
+        setProfileLoadError(null);
         const { data, error } = await supabase
           .from('profiles')
           .select('*')
@@ -80,12 +83,17 @@ const Profile = () => {
             bio: data.bio || '',
           };
           setFormData(profileData);
+        } else if (error) {
+          // Block the form: rendering blank fields after a failed load would
+          // let a save silently overwrite the user's real profile with blanks.
+          logger.error('Error loading profile:', error);
+          setProfileLoadError(error.message || 'Failed to load your profile');
         }
       };
 
       fetchProfile();
     }
-  }, [user, isAuthenticated, authLoading, navigate]);
+  }, [user, isAuthenticated, authLoading, navigate, profileReloadKey]);
 
   const handleInputChange = (field: keyof UserProfile, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -111,6 +119,23 @@ const Profile = () => {
   };
 
   if (!user) return null;
+
+  if (profileLoadError) {
+    return (
+      <AppLayout>
+        <div className="space-y-6">
+          <h1 className="text-3xl font-bold tracking-tight">Profile</h1>
+          <div className="border rounded-lg py-10 text-center" role="alert">
+            <p className="text-destructive font-medium mb-1">Failed to load your profile</p>
+            <p className="text-sm text-muted-foreground mb-4">{profileLoadError}</p>
+            <Button variant="outline" onClick={() => setProfileReloadKey((k) => k + 1)}>
+              Retry
+            </Button>
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>

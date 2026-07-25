@@ -62,11 +62,15 @@ export function useAdminUsers() {
         const { data: rolesData, error: rolesError } = await supabase
           .rpc('get_user_roles', { _user_id: profile.id });
 
-        let roles: string[] = ['student'];
-        if (!rolesError && rolesData) {
-          roles = Array.isArray(rolesData) ? rolesData : ['student'];
-          if (roles.length === 0) roles = ['student'];
+        // A roles lookup failure must not silently render every user as
+        // 'student' in the admin UI — fail the fetch and surface the error.
+        if (rolesError) {
+          logger.error('[useAdminUsers] Error fetching roles for user:', profile.id, rolesError);
+          throw new Error(rolesError.message || 'Failed to fetch user roles');
         }
+
+        let roles: string[] = Array.isArray(rolesData) ? rolesData : [];
+        if (roles.length === 0) roles = ['student'];
 
         transformedUsers.push({
           id: profile.id,

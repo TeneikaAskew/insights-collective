@@ -68,13 +68,16 @@ const AdminUsers = () => {
     deleteUsers,
   } = useAdminUsers();
   
+  const isAdmin = !!user?.roles?.includes('admin');
+  const authResolved = !!user;
+
   useEffect(() => {
     // Only fetch users when user is loaded and has admin privileges
     if (user && user.roles && user.roles.includes('admin')) {
       logger.log('[AdminUsers] User is admin, fetching users...');
       fetchUsers();
     } else if (user && user.roles && !user.roles.includes('admin')) {
-      logger.log('[AdminUsers] User is not admin, setting error...');
+      logger.log('[AdminUsers] User is not admin, showing access denied.');
     } else {
       logger.log('[AdminUsers] User not loaded yet, waiting...');
     }
@@ -302,7 +305,22 @@ const AdminUsers = () => {
     const u = users.find(usr => usr.id === id);
     return u ? `${u.first_name || ''} ${u.last_name || ''}`.trim() || 'Unnamed User' : id;
   });
-  
+
+  // Non-admins used to sit on an infinite spinner because fetchUsers() never
+  // ran and `loading` never left its initial true. Show an explicit denial.
+  if (authResolved && !isAdmin) {
+    return (
+      <AppLayout>
+        <div className="py-16 text-center" role="alert">
+          <h1 className="text-2xl font-semibold mb-2">Access denied</h1>
+          <p className="text-muted-foreground">
+            You need administrator privileges to manage users.
+          </p>
+        </div>
+      </AppLayout>
+    );
+  }
+
   return (
     <AppLayout>
       <div className="space-y-6">
@@ -339,10 +357,8 @@ const AdminUsers = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <Button variant="outline" size="sm">
-            <Filter className="h-4 w-4 mr-2" />
-            Filter
-          </Button>
+          {/* The old "Filter" button had no handler — filtering happens via
+              the search box and role tabs, so a dead control was removed. */}
         </div>
         
         <Tabs defaultValue="all" value={activeTab} onValueChange={handleTabChange}>

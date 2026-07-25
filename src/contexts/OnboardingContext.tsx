@@ -73,11 +73,17 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, []);
 
   const saveProgress = (completed: string[], dismissed: string[]) => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ 
-      completedTours: completed,
-      dismissedTours: dismissed,
-      lastUpdated: Date.now()
-    }));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        completedTours: completed,
+        dismissedTours: dismissed,
+        lastUpdated: Date.now()
+      }));
+    } catch (error) {
+      // Persistence of tour progress is best-effort (quota/private-mode failures
+      // must not crash skipTour/completeTour); warn so the failure is visible.
+      logger.warn('Failed to persist onboarding progress:', error);
+    }
   };
 
   const startTour = (tourId: string, force = false) => {

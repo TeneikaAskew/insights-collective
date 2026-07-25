@@ -10,7 +10,7 @@ import { Plus, Globe, Users, FileText, Share } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 
 export function PortfolioPagesTab() {
-  const { portfolioPages, pagesLoading } = usePortfolioPages();
+  const { portfolioPages, pagesLoading, portfolioPagesError } = usePortfolioPages();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   if (pagesLoading) {
@@ -18,6 +18,26 @@ export function PortfolioPagesTab() {
       <div className="flex justify-center items-center h-64">
         <Spinner size="lg" />
       </div>
+    );
+  }
+
+  // A failed load must not render zeroed stat cards and the "create your
+  // first portfolio" onboarding state to a user who has portfolios.
+  if (portfolioPagesError) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Failed to load your portfolio pages</CardTitle>
+          <CardDescription role="alert">
+            {portfolioPagesError instanceof Error ? portfolioPagesError.message : 'Please try again.'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button variant="outline" onClick={() => window.location.reload()}>
+            Retry
+          </Button>
+        </CardContent>
+      </Card>
     );
   }
 

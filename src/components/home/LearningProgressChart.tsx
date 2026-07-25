@@ -35,10 +35,11 @@ const LearningProgressChart = () => {
       }
 
       try {
-        const { data: enrollments } = await supabase
+        const { data: enrollments, error } = await supabase
           .from('enrollments')
           .select('completion_status, courses(title)')
           .eq('user_id', user.id);
+        if (error) throw error;
 
         const chartData: CourseProgress[] = (enrollments || []).map(e => ({
           name: ((e.courses as any)?.title || 'Course').substring(0, 20),

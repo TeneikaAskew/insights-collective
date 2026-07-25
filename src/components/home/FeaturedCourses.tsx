@@ -99,6 +99,11 @@ const FeaturedCourses = ({ courses }: FeaturedCoursesProps) => {
     }
   };
 
+  // Don't render a "Featured Courses" heading over a permanently empty grid.
+  if (!courses || courses.length === 0) {
+    return null;
+  }
+
   return (
     <section className="py-20 bg-white dark:bg-gray-900">
       <div className="container mx-auto px-4">
@@ -122,20 +127,23 @@ const FeaturedCourses = ({ courses }: FeaturedCoursesProps) => {
               <Link to={`/courses/${course.id}`} className="block group">
                 <div className="rounded-xl overflow-hidden border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-800 shadow-md hover:shadow-xl transition-all duration-300 h-full flex flex-col">
                   <div className="aspect-video overflow-hidden relative">
-                    <img 
-                      src={course.thumbnail} 
-                      alt={course.title} 
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
-                    />
-                    
-                    {/* Hot badge */}
-                    {course.rating && course.rating >= 4.5 && (
-                      <div className="absolute top-3 right-3 bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs font-bold px-2.5 py-1.5 rounded-full shadow-lg flex items-center">
-                        <Sparkles className="h-3 w-3 mr-1" />
-                        Top Rated
-                      </div>
+                    {course.thumbnail ? (
+                      <img
+                        src={course.thumbnail}
+                        alt={course.title}
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div
+                        className="w-full h-full bg-gradient-to-br from-primary/15 to-accent/15"
+                        aria-hidden="true"
+                      />
                     )}
-                    
+
+                    {/* NOTE: no "Top Rated" badge — courses have no rating
+                        column in the database, so any rating shown here would
+                        be fabricated. */}
+
                     {/* Progress overlay - only show if progress exists */}
                     {course.progress !== undefined && (
                       <div className="absolute bottom-0 left-0 w-full h-1.5 bg-gray-200">
@@ -152,12 +160,6 @@ const FeaturedCourses = ({ courses }: FeaturedCoursesProps) => {
                       <Badge className={`font-medium px-2.5 py-1 ${getCategoryColor(course.category)}`}>
                         {getCategoryLabel(course.category)}
                       </Badge>
-                      {course.rating && (
-                        <div className="flex items-center text-amber-500">
-                          <Star className="h-4 w-4 fill-current mr-1" />
-                          <span className="text-sm font-medium">{course.rating.toFixed(1)}</span>
-                        </div>
-                      )}
                     </div>
                     
                     <h3 className="text-xl font-semibold mb-3 line-clamp-1 group-hover:text-primary transition-colors duration-300">{course.title}</h3>

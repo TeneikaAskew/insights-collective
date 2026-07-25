@@ -185,7 +185,14 @@ serve(async (req) => {
       }
     }
 
-    // Store the recommendations using authenticated client (respects RLS)
+    // Store the recommendations using authenticated client (respects RLS).
+    // BEHAVIOR CHANGE (silent-failure audit): DB persistence errors were logged
+    // and then the response claimed unqualified success — users believed their
+    // recommendations were saved when they were not. The generated data is
+    // still returned, but the response now carries an honest `saved` flag and
+    // the save error.
+    let saved = false;
+    let saveError: string | null = null;
     try {
       const now = new Date().toISOString();
       const { data: existingData, error: fetchError } = await supabaseClient
@@ -206,8 +213,10 @@ serve(async (req) => {
 
         if (updateError) {
           console.error('Error updating portfolio data:', updateError);
+          saveError = updateError.message;
         } else {
           console.log('Updated portfolio recommendations in database');
+          saved = true;
         }
       } else {
         const { error: insertError } = await supabaseClient
@@ -224,12 +233,15 @@ serve(async (req) => {
 
         if (insertError) {
           console.error('Error inserting portfolio data:', insertError);
+          saveError = insertError.message;
         } else {
           console.log('Saved portfolio recommendations to database');
+          saved = true;
         }
       }
     } catch (dbError) {
       console.error('Error storing portfolio data in database:', dbError);
+      saveError = dbError?.message || String(dbError);
     }
 
     // For backward compatibility, also save to resumes table
@@ -254,7 +266,9 @@ serve(async (req) => {
     console.log("Returning successful response");
     return new Response(JSON.stringify({
       success: true,
-      data: portfolioData
+      data: portfolioData,
+      saved,
+      ...(saveError ? { saveError } : {})
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });

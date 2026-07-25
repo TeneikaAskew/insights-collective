@@ -10,14 +10,17 @@ export const useEventRegistrations = (eventId?: string) => {
   return useQuery({
     queryKey: ['event-registrations', eventId],
     queryFn: async () => {
+      // NOTE: profiles has no full_name/email columns in the live schema —
+      // selecting them made PostgREST reject the whole query. Select the
+      // real columns (first_name/last_name) instead.
       let query = supabase
         .from('event_registrations')
         .select(`
           *,
           profiles:user_id (
             id,
-            full_name,
-            email,
+            first_name,
+            last_name,
             avatar_url
           ),
           events:event_id (
@@ -184,13 +187,19 @@ export const useIsRegisteredForEvent = (eventId: string) => {
     queryKey: ['is-registered', eventId, user?.id],
     enabled: !!user && !!eventId,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('event_registrations')
         .select('id')
         .eq('event_id', eventId)
         .eq('user_id', user!.id)
-        .single();
-      
+        .maybeSingle();
+
+      // A query failure must not masquerade as "not registered".
+      if (error) {
+        logger.error('Error checking event registration:', error);
+        throw error;
+      }
+
       return !!data;
     }
   });

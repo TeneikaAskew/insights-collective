@@ -1,5 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7';
-import { corsHeaders, callLLMWithRetry } from '../_shared/utils.ts';
+// Silent-failure audit: callLLMWithRetry was imported here but is NOT exported by
+// _shared/utils.ts (it lives in resume-analyzer/utils.ts) — the dangling named
+// import broke the module at boot. It was never used in this file; removed.
+import { corsHeaders } from '../_shared/utils.ts';
 // CORS handling for preflight requests
 function handleCors(req) {
   if (req.method === 'OPTIONS') {
@@ -11,14 +14,24 @@ function handleCors(req) {
 }
 // Fetch user's latest resume and career pathway report
 async function getUserCareerData(supabase, userId) {
+  // BEHAVIOR CHANGE (silent-failure audit): DB errors here used to be logged and
+  // replaced with empty defaults, so a user WITH a resume/report silently got a
+  // generic plan presented as personalized. A missing row (maybeSingle -> null
+  // data, no error) still falls back to defaults; a real query error now throws.
   const { data: resumeData, error: resumeError } = await supabase.from('resumes').select('sentences, analysis').eq('user_id', userId).order('updated_at', {
     ascending: false
   }).limit(1).maybeSingle();
-  if (resumeError) console.error('Error fetching resume data:', resumeError);
+  if (resumeError) {
+    console.error('Error fetching resume data:', resumeError);
+    throw new Error(`Failed to fetch resume data: ${resumeError.message}`);
+  }
   const { data: pathwayData, error: pathwayError } = await supabase.from('career_pathway_results').select('report').eq('user_id', userId).order('created_at', {
     ascending: false
   }).limit(1).maybeSingle();
-  if (pathwayError) console.error('Error fetching pathway data:', pathwayError);
+  if (pathwayError) {
+    console.error('Error fetching pathway data:', pathwayError);
+    throw new Error(`Failed to fetch career pathway data: ${pathwayError.message}`);
+  }
   return {
     resume: resumeData || {
       sentences: [],
@@ -110,6 +123,9 @@ Be supportive, actionable, and focused. The plan should feel like a natural exte
 
 Using only this information, generate the Career Action Plan in the exact JSON format described above.`;
     const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+    if (!lovableApiKey) {
+      throw new Error('LOVABLE_API_KEY not configured');
+    }
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -126,12 +142,25 @@ Using only this information, generate the Career Action Plan in the exact JSON f
         max_tokens: 5000,
       }),
     });
+    // BEHAVIOR CHANGE (silent-failure audit): a non-2xx gateway response used to
+    // fall through to `data.choices[0]` and die with a confusing TypeError; an
+    // unparseable model reply became `{error, raw}` which normalizeActionPlan
+    // quietly turned into an all-empty "plan" returned (and saved!) as success.
+    // Both now throw so the handler can return an explicit error.
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('AI gateway error:', response.status, errorText);
+      throw new Error(`AI gateway returned ${response.status}: ${errorText.slice(0, 300)}`);
+    }
     const data = await response.json();
-    let plan;
-    try {
-      plan = JSON.parse(data.choices[0].message.content);
-    } catch (e) {
-      plan = { error: "Invalid JSON from LLM", raw: data.choices[0].message.content };
+    const content = data?.choices?.[0]?.message?.content;
+    if (!content) {
+      throw new Error('AI gateway returned no content');
+    }
+    const plan = extractJsonPayload(content);
+    if (!plan || plan.error) {
+      console.error('Unparseable action plan from LLM:', content?.slice?.(0, 500));
+      throw new Error('AI returned an unparseable action plan');
     }
     return plan;
   } catch (error) {
@@ -220,7 +249,13 @@ Deno.serve(async (req)=>{
     console.log('Raw action plan:', rawPlan);
     const actionPlan = normalizeActionPlan(rawPlan);
     console.log('Normalized action plan:', actionPlan);
-    // Store the action plan in Supabase
+    // Store the action plan in Supabase.
+    // BEHAVIOR CHANGE (silent-failure audit): persistence errors were swallowed
+    // and the response still claimed unqualified success. The plan is still
+    // returned (generation succeeded), but the response now carries an honest
+    // `saved` flag plus the save error so the client can tell the difference.
+    let saved = false;
+    let saveError: string | null = null;
     try {
       // Find the latest record for this user to get its session_id
       const { data: existingRecord, error: fetchError } = await supabase.from('career_pathway_results').select('session_id').eq('user_id', userId).order('created_at', {
@@ -233,22 +268,29 @@ Deno.serve(async (req)=>{
       // If we have an existing session_id, use it
       if (existingRecord?.session_id) {
         console.log('Using existing session_id:', existingRecord.session_id);
-        const { data: savedData, error: saveError } = await supabase.from('career_pathway_results').update({
+        const { data: savedData, error: updateError } = await supabase.from('career_pathway_results').update({
           action_plan: actionPlan,
           created_at: new Date().toISOString()
         }).eq('user_id', userId).eq('session_id', existingRecord.session_id);
-        if (saveError) {
-          console.error('Error saving action plan with existing session:', saveError);
-          throw saveError;
+        if (updateError) {
+          console.error('Error saving action plan with existing session:', updateError);
+          throw updateError;
         }
         console.log('Saved action plan with existing session_id:', savedData);
+        saved = true;
+      } else {
+        saveError = 'No existing career_pathway_results session found to attach the plan to';
+        console.warn(saveError);
       }
     } catch (e) {
       console.error('Exception saving action plan:', e);
+      saveError = e?.message || String(e);
     }
     return new Response(JSON.stringify({
       success: true,
-      data: actionPlan
+      data: actionPlan,
+      saved,
+      ...(saveError ? { saveError } : {})
     }), {
       headers: {
         ...corsHeaders,

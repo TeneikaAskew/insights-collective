@@ -37,93 +37,18 @@ import { createLogger } from '@/utils/logger';
 
 const logger = createLogger('handleTakeQuiz');
 
-const sampleReportData: CareerReportData = {
-  userName: "Joshua B. Brown",
-  summary: "Based on your quiz answers and resume, we have generated a comprehensive report to guide your career growth in the data field. Your experience in program management, data-driven marketing, and logistics has equipped you with a unique set of skills that can be leveraged to excel in various roles.",
-  recommendedRoles: [
-    {
-      title: "Data Program Manager",
-      description: "Oversee data-related projects, ensuring timely completion, budget adherence, and stakeholder satisfaction.",
-      salaryRange: "$80,000 - $110,000 per year",
-      matchPercentage: 92
-    },
-    {
-      title: "Business Intelligence Analyst",
-      description: "Analyze complex data to inform business decisions, drive strategic growth, and optimize operations.",
-      salaryRange: "$60,000 - $90,000 per year",
-      matchPercentage: 85
-    },
-    {
-      title: "Operations Research Analyst",
-      description: "Apply advanced analytical methods to help organizations solve complex problems and make informed decisions.",
-      salaryRange: "$70,000 - $100,000 per year",
-      matchPercentage: 78
-    }
-  ],
-  skillsAndCourses: [
-    {
-      skill: "Data analysis",
-      course: "Data Analysis with Python",
-      provider: "Coursera",
-      level: "Intermediate"
-    },
-    {
-      skill: "Program management",
-      course: "Project Management Professional (PMP) Certification",
-      provider: "Coursera",
-      level: "Advanced"
-    },
-    {
-      skill: "Business intelligence",
-      course: "Business Intelligence and Data Visualization",
-      provider: "edX",
-      level: "Intermediate"
-    },
-    {
-      skill: "Leadership",
-      course: "Leadership and Management",
-      provider: "Udemy",
-      level: "Beginner"
-    }
-  ],
-  nextStepRecommendations: "Considering your experience in program management and data-driven marketing, we recommend that you explore roles that leverage your analytical and leadership skills. Your future vision of working in data and desired role as a data professional align with the recommended roles.",
-  potentialRoles: [
-    "Data Scientist",
-    "Operations Manager",
-    "Business Analyst"
-  ],
-  careerPathSteps: [
-    {
-      title: "Upskill",
-      description: "Enhance your data analysis and programming skills through online courses or certifications.",
-      timeframe: "3-6 months"
-    },
-    {
-      title: "Network",
-      description: "Attend industry events and connect with professionals in your desired field to build relationships and learn about new opportunities.",
-      timeframe: "Ongoing"
-    },
-    {
-      title: "Gain experience",
-      description: "Seek out projects or roles that allow you to apply your skills and build a portfolio of data-related work.",
-      timeframe: "6-12 months"
-    }
-  ],
-  keyTakeaways: [
-    "Your experience in program management and data-driven marketing is highly valuable in the data field.",
-    "Developing your analytical and leadership skills will be crucial to success in your desired role.",
-    "Exploring different roles and industries will help you find the best fit for your skills and interests."
-  ]
-};
+// NOTE: the fabricated sample report (a fake person with invented match
+// scores) was removed — this component now renders nothing without real data.
 
 interface InteractiveCareerReportSectionProps {
   reportData?: CareerReportData;
 }
 
-const InteractiveCareerReportSection: React.FC<InteractiveCareerReportSectionProps> = ({ 
-  reportData = sampleReportData // Use sample data as fallback
+const InteractiveCareerReportSection: React.FC<InteractiveCareerReportSectionProps> = ({
+  reportData
 }) => {
   const [activeTab, setActiveTab] = useState('overview');
+  
   const navigate = useNavigate();
   const { initiateCareerCoachChat } = useCareerCoach();
   const { addProject } = usePortfolio();
@@ -159,8 +84,7 @@ const InteractiveCareerReportSection: React.FC<InteractiveCareerReportSectionPro
             description: `Career pathway milestone: ${item}`,
             required_skills: [],
             effort_level: 'Medium',
-            status: 'Idea',
-            type: 'milestone'
+            status: 'Idea'
           };
           break;
         
@@ -170,8 +94,7 @@ const InteractiveCareerReportSection: React.FC<InteractiveCareerReportSectionPro
             description: `Create content about: ${item.topics.join(', ')}`,
             required_skills: item.topics,
             effort_level: 'Low',
-            status: 'Idea',
-            type: 'content'
+            status: 'Idea'
           };
           break;
         
@@ -181,8 +104,7 @@ const InteractiveCareerReportSection: React.FC<InteractiveCareerReportSectionPro
             description: item.description,
             required_skills: [],
             effort_level: 'Medium',
-            status: 'Idea',
-            type: 'project'
+            status: 'Idea'
           };
           break;
       }
@@ -207,6 +129,11 @@ const InteractiveCareerReportSection: React.FC<InteractiveCareerReportSectionPro
     // If no portfolio data exists, navigate to portfolio explorer
     navigate('/portfolio-explorer');
   };
+
+  // Without a real report there is nothing truthful to show.
+  if (!reportData) {
+    return null;
+  }
 
   return (
     <Card className="w-full mt-6 shadow-md">

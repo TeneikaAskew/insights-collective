@@ -92,6 +92,13 @@ async function fetchTweets(userId: string, sinceId?: string): Promise<any[]> {
         console.log(`Rate limited. Retrying after ${retryAfter} seconds`)
         await new Promise(resolve => setTimeout(resolve, Math.min(retryAfter * 1000, 60000))) // Max 1 minute wait
         retries++
+        if (retries >= maxRetries) {
+          // BEHAVIOR CHANGE (silent-failure audit): exhausting the rate-limit
+          // retries used to fall out of the loop and `return []`, which the
+          // caller reported as a successful scrape with "0 new tweets". Throw
+          // instead so the failure is visible.
+          throw new Error('Twitter API rate limit: retries exhausted without a successful response')
+        }
         continue
       }
 
@@ -123,8 +130,10 @@ async function fetchTweets(userId: string, sinceId?: string): Promise<any[]> {
       throw error
     }
   }
-  
-  return []
+
+  // Silent-failure audit: reaching this point means every retry failed; do not
+  // masquerade as "no new tweets".
+  throw new Error('Failed to fetch tweets: all retries exhausted')
 }
 
 async function getLastScrapedTweetId(): Promise<string | null> {
@@ -225,9 +234,18 @@ async function storeTweets(tweets: any[], userInfo: any): Promise<void> {
   console.log(`Successfully stored ${tweetsToInsert.length} tweets`)
 }
 
+// Best-effort cron logging.
+// KNOWN ISSUE (flagged, do not "fix" here): the `cron_job_logs` table does NOT
+// exist in the live database, so every insert fails. supabase-js returns the
+// error rather than throwing, so the old try/catch never fired and the failure
+// was 100% invisible. We now check the returned error and WARN — logging must
+// never break the scrape itself. A migration creating `cron_job_logs`
+// (job_name text, success boolean, response_data jsonb, error_message text,
+// created_at timestamptz) needs to be added separately before these logs will
+// ever land.
 async function logCronExecution(jobName: string, success: boolean, responseData?: any, errorMessage?: string): Promise<void> {
   try {
-    await supabase
+    const { error } = await supabase
       .from('cron_job_logs')
       .insert({
         job_name: jobName,
@@ -235,8 +253,15 @@ async function logCronExecution(jobName: string, success: boolean, responseData?
         response_data: responseData || null,
         error_message: errorMessage || null
       })
+
+    if (error) {
+      console.warn(
+        `Failed to log cron execution (job=${jobName}); the cron_job_logs table is likely missing from the database:`,
+        error.message
+      )
+    }
   } catch (error) {
-    console.error('Failed to log cron execution:', error)
+    console.warn('Failed to log cron execution:', error)
   }
 }
 
@@ -294,13 +319,17 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders })
   }
 
+  // Silent-failure audit: the request body was previously re-read with
+  // req.json() inside the catch block, but the body stream was already consumed
+  // — so failed automated runs always parsed as {} and were never logged as
+  // automated failures. Parse once, up front.
+  const body = await req.json().catch(() => ({}))
+  const isAutomated = body.automated || false
+  const source = body.source || 'manual'
+
   try {
     console.log('Tweet scraping function called')
-    
-    const body = await req.json().catch(() => ({}))
-    const isAutomated = body.automated || false
-    const source = body.source || 'manual'
-    
+
     const result = await scrapeTweets(isAutomated, source)
     
     // Log cron execution if automated
@@ -323,20 +352,19 @@ Deno.serve(async (req) => {
     )
   } catch (error: any) {
     console.error('Error in tweet scraping:', error)
-    
-    // Log cron execution failure if automated
-    const body = await req.json().catch(() => ({}))
-    if (body.automated) {
+
+    // Log cron execution failure if automated (body was parsed once, above)
+    if (isAutomated) {
       await logCronExecution('daily-tweet-scraper', false, null, error.message)
     }
-    
+
     return new Response(
       JSON.stringify({
         success: false,
         error: error.message,
         details: error.stack,
-        automated: body.automated || false,
-        source: body.source || 'manual'
+        automated: isAutomated,
+        source: source
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -73,6 +73,7 @@ export function BlogPostFormV2({ postId }: BlogPostFormV2Props) {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const [wordCount, setWordCount] = useState(0);
@@ -144,6 +145,7 @@ export function BlogPostFormV2({ postId }: BlogPostFormV2Props) {
     if (!postId) return;
     
     setLoading(true);
+    setLoadError(null);
     try {
       // Get the blog post
       const { data: post, error: postError } = await supabase
@@ -155,11 +157,13 @@ export function BlogPostFormV2({ postId }: BlogPostFormV2Props) {
       if (postError) throw postError;
       if (!post) throw new Error('Post not found');
 
-      // Get tags for this post
-      const { data: tags } = await supabase
+      // Get tags for this post. An unchecked failure here used to load the
+      // form with zero tags — and saving then deleted the post's real tags.
+      const { data: tags, error: tagsError } = await supabase
         .from('blog_post_tags')
         .select('tag_name')
         .eq('blog_post_id', postId);
+      if (tagsError) throw tagsError;
 
       // Set form values with proper field mapping
       form.reset({
@@ -180,8 +184,11 @@ export function BlogPostFormV2({ postId }: BlogPostFormV2Props) {
       });
 
       setLastSaved(new Date(post.updated_at));
-    } catch (error) {
+    } catch (error: any) {
       logger.error('Error loading post:', error);
+      // Block the editor: rendering a blank form here would let a save
+      // overwrite the real post with empty fields.
+      setLoadError(error?.message || 'Failed to load blog post');
       toast({
         title: 'Error',
         description: 'Failed to load blog post',
@@ -305,6 +312,18 @@ export function BlogPostFormV2({ postId }: BlogPostFormV2Props) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-3" role="alert">
+        <p className="font-medium text-destructive">Failed to load blog post</p>
+        <p className="text-sm text-muted-foreground">{loadError}</p>
+        <Button type="button" variant="outline" onClick={loadPost}>
+          Retry
+        </Button>
       </div>
     );
   }

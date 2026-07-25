@@ -38,31 +38,34 @@ export default function FormSubmissionDetail({ formId, submissionId, form }: For
       setLoading(true);
       setError(null);
 
+      // form_submissions has no FK to profiles and profiles has no email
+      // column — the previous embedded select failed with PGRST200 on every
+      // load. Fetch the submission, then resolve the profile separately.
       const { data, error } = await supabase
         .from('form_submissions')
-        .select(`
-          *,
-          profiles:user_id (
-            first_name,
-            last_name,
-            email:id (
-              email
-            )
-          )
-        `)
+        .select('*')
         .eq('id', submissionId)
         .eq('form_id', formId)
         .single();
-      
+
       if (error) throw error;
-      
+
       setSubmission(data);
-      
-      if (data?.profiles) {
-        setUserInfo({
-          name: `${data.profiles.first_name || ''} ${data.profiles.last_name || ''}`.trim(),
-          email: data.profiles.email?.email || ''
-        });
+
+      if (data?.user_id) {
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('first_name, last_name')
+          .eq('id', data.user_id)
+          .maybeSingle();
+        if (profileError) throw profileError;
+        if (profile) {
+          setUserInfo({
+            name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim(),
+            // Email lives in auth.users and is not readable from the client.
+            email: ''
+          });
+        }
       }
     } catch (error) {
       logger.error('Error fetching submission details:', error);

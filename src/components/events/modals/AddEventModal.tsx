@@ -56,9 +56,12 @@ export function AddEventModal({ open, onAddEvent, editEvent, onClose, children }
       location: (formState.eventFormat === 'in-person' || formState.eventFormat === 'hybrid') ? formState.location : null,
       link: (formState.eventFormat === 'virtual' || formState.eventFormat === 'hybrid') ? formState.link : null,
       date: dateString,
-      start_time: formState.startTime,
+      // Empty strings are not valid for the Postgres time column — send null.
+      start_time: formState.startTime || null,
       end_time: formState.endTime || null,
-      image: formState.image || formState.imagePreview || 'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=MnwxfDB8MXxyYW5kb218MHx8fHx8fHx8MTY4MTY5ODY2OA&ixlib=rb-4.0.3&q=80&utm_campaign=api-credit&utm_medium=referral&utm_source=unsplash_source&w=1080',
+      // No stock-photo fallback: an event without artwork stores null and the
+      // UI renders a neutral placeholder instead of a fabricated image.
+      image: formState.image || formState.imagePreview || null,
       capacity: formState.capacity ? parseInt(formState.capacity) : null,
       calendly_link: formState.calendlyLink,
     };

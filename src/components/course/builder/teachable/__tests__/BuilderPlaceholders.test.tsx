@@ -97,8 +97,8 @@ describe('NewCourseWizard', () => {
     expect(screen.queryByText('Set a price')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByText('Start from scratch'));
-    fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
-    expect(screen.getByText("You're all set")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(screen.getByText('Review and create')).toBeInTheDocument();
     // The confirm summary must not advertise a pricing choice that feeds nothing.
     expect(screen.queryByText('Pricing')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Create course' })).toBeInTheDocument();

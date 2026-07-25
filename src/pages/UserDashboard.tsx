@@ -33,6 +33,16 @@ const UserDashboard: React.FC = () => {
   return (
     <div className="container mx-auto p-6 max-w-4xl space-y-8 min-h-screen">
       <h1 className="text-4xl font-bold text-amber-600 mb-4">Dashboard</h1>
+      {/* This page is a static product preview: none of the content below is
+          loaded from the signed-in user's account. Label it so hardcoded
+          goals/roadmaps are not mistaken for real data. */}
+      <div
+        className="rounded-md border border-amber-300 bg-amber-50 text-amber-900 px-4 py-2 text-sm"
+        role="note"
+      >
+        Sample preview — the goals, roadmap, and saved careers below are example
+        data, not your account&apos;s data.
+      </div>
       <section>
         <h2 className="text-2xl font-semibold mb-2">Career Goals</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">

@@ -105,18 +105,6 @@ const UpcomingEvents = ({ events }: UpcomingEventsProps) => {
     return eventDate < today;
   };
 
-  // Get default image based on event type
-  const getDefaultImage = (type: string): string => {
-    const images = {
-      workshop: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&h=450&fit=crop',
-      webinar: 'https://images.unsplash.com/photo-1587825140708-dfaf72ae4b04?w=800&h=450&fit=crop',
-      conference: 'https://images.unsplash.com/photo-1505373877841-8d25f7d46678?w=800&h=450&fit=crop',
-      meetup: 'https://images.unsplash.com/photo-1515169067868-5387ec356754?w=800&h=450&fit=crop',
-      hackathon: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=800&h=450&fit=crop',
-      panel: 'https://images.unsplash.com/photo-1591115765373-5207764f72e7?w=800&h=450&fit=crop',
-    };
-    return images[type.toLowerCase()] || images.conference;
-  };
 
   return (
     <section className="py-20 bg-white dark:bg-gray-900">
@@ -148,11 +136,22 @@ const UpcomingEvents = ({ events }: UpcomingEventsProps) => {
                 <Link to={`/events/${event.id}`} className="block group">
                   <div className="rounded-xl overflow-hidden border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-800 shadow-md hover:shadow-xl transition-all duration-300 h-full flex flex-col">
                     <div className="aspect-video overflow-hidden relative">
-                      <img 
-                        src={event.image || getDefaultImage(event.type)} 
-                        alt={event.title} 
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
-                      />
+                      {/* No stock-photo fallback: events without real artwork
+                          render a neutral gradient block instead. */}
+                      {event.image ? (
+                        <img
+                          src={event.image}
+                          alt={event.title}
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        />
+                      ) : (
+                        <div
+                          className="w-full h-full bg-gradient-to-br from-primary/15 to-accent/15 flex items-center justify-center"
+                          aria-hidden="true"
+                        >
+                          <Calendar className="h-10 w-10 text-primary/40" />
+                        </div>
+                      )}
                       
                       {/* Date overlay */}
                       <div className="absolute top-3 left-3 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm rounded-lg p-2.5 text-center shadow-lg">

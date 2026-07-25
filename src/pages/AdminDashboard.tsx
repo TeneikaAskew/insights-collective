@@ -72,9 +72,11 @@ const EditCourseDialog = ({ course, onSave }: { course: any, onSave: () => void 
   const { toast } = useToast();
   
   const handleSave = () => {
+    // No backing write exists for this demo dialog — never claim success.
     toast({
-      title: "Course updated",
-      description: "The course has been successfully updated.",
+      title: "Course editing not available",
+      description: "This dialog isn't connected to the database yet — no changes were saved.",
+      variant: "destructive",
     });
     onSave();
   };
@@ -147,9 +149,11 @@ const AddUserDialog = ({ onSave }: { onSave: () => void }) => {
   const { toast } = useToast();
   
   const handleSave = () => {
+    // No backing write exists for this demo dialog — never claim success.
     toast({
-      title: "User added",
-      description: "The user has been successfully added to the platform.",
+      title: "Adding users not available",
+      description: "This dialog isn't connected to the database yet — no user was created.",
+      variant: "destructive",
     });
     onSave();
   };
@@ -212,9 +216,11 @@ const ManageCourseUsersDialog = ({ course, onSave }: { course: any, onSave: () =
   const { toast } = useToast();
   
   const handleSave = () => {
+    // No backing write exists for this demo dialog — never claim success.
     toast({
-      title: "Users updated",
-      description: "The course enrollment has been successfully updated.",
+      title: "Enrollment management not available",
+      description: "This dialog isn't connected to the database yet — no changes were saved.",
+      variant: "destructive",
     });
     onSave();
   };
@@ -303,9 +309,11 @@ const IssueCertificateDialog = ({ onIssue }: { onIssue: () => void }) => {
   const { toast } = useToast();
   
   const handleIssue = () => {
+    // No backing write exists for this demo dialog — never claim success.
     toast({
-      title: "Certificate issued",
-      description: "The certificate has been successfully issued to the user.",
+      title: "Certificate issuing not available",
+      description: "This dialog isn't connected to the database yet — no certificate was issued.",
+      variant: "destructive",
     });
     onIssue();
   };
@@ -360,9 +368,11 @@ const CreateCourseDialog = ({ onSave }: { onSave: () => void }) => {
   const { toast } = useToast();
   
   const handleSave = () => {
+    // No backing write exists for this demo dialog — never claim success.
     toast({
-      title: "Course created",
-      description: "The new course has been successfully created.",
+      title: "Course creation not available",
+      description: "This dialog isn't connected to the database yet — no course was created. Use the Course Builder instead.",
+      variant: "destructive",
     });
     onSave();
   };
@@ -633,32 +643,49 @@ const AdminDashboard = () => {
 
   // Load real KPI counts so the header stats aren't hardcoded placeholders.
   const [userCount, setUserCount] = useState<number | null>(null);
+  const [statsError, setStatsError] = useState<string | null>(null);
+  const [statsReloadKey, setStatsReloadKey] = useState(0);
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      setStatsError(null);
       const [enrollRes, certRes, profileRes] = await Promise.all([
         supabase.from('enrollments').select('id', { count: 'exact', head: true }),
         supabase.from('certificates').select('id', { count: 'exact', head: true }),
         supabase.from('profiles').select('id', { count: 'exact', head: true }),
       ]);
       if (cancelled) return;
+      // A failed count must render as "—", never as an authoritative 0.
+      const failure = enrollRes.error || certRes.error || profileRes.error;
+      if (failure) {
+        setStatsError(failure.message);
+        setEnrollmentCount(enrollRes.error ? null : enrollRes.count ?? 0);
+        setCertificateCount(certRes.error ? null : certRes.count ?? 0);
+        setUserCount(profileRes.error ? null : profileRes.count ?? 0);
+        return;
+      }
       setEnrollmentCount(enrollRes.count ?? 0);
       setCertificateCount(certRes.count ?? 0);
       setUserCount(profileRes.count ?? 0);
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [statsReloadKey]);
 
-  if (!user || !user.roles || !user.roles.includes('admin')) return null;
-
+  // Hooks must run unconditionally on every render — the previous early
+  // return above this call crashed React with "Rendered more hooks than
+  // during the previous render" once auth resolved.
   const { courses } = useCoursesManagement();
   const allCourses = courses;
 
-  // Function to handle notifications for various actions
+  if (!user || !user.roles || !user.roles.includes('admin')) return null;
+
+  // These demo management panels have no backing writes yet. Never report a
+  // successful mutation that did not happen.
   const handleAction = (action: string, itemType: string) => {
     toast({
-      title: `${action} successful`,
-      description: `The ${itemType} has been ${action.toLowerCase()}d successfully.`,
+      title: `${action} not available`,
+      description: `${itemType} management from this dashboard isn't wired up yet — no changes were saved.`,
+      variant: 'destructive',
     });
   };
   
@@ -672,6 +699,17 @@ const AdminDashboard = () => {
           </p>
         </div>
         
+        {statsError && (
+          <div className="rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm flex items-center justify-between gap-4" role="alert">
+            <span className="text-destructive">
+              Failed to load platform statistics: {statsError}
+            </span>
+            <Button variant="outline" size="sm" onClick={() => setStatsReloadKey((k) => k + 1)}>
+              Retry
+            </Button>
+          </div>
+        )}
+
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="pb-2">

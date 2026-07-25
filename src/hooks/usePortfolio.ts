@@ -73,7 +73,7 @@ export function usePortfolio() {
   });
 
   // Fetch previously generated portfolio recommendations - improved reliability
-  const { data: previousRecommendations, isLoading: recommendationsLoading, refetch: refetchRecommendations } = useQuery({
+  const { data: previousRecommendations, isLoading: recommendationsLoading, error: recommendationsError, refetch: refetchRecommendations } = useQuery({
     queryKey: ['portfolio-recommendations', user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
@@ -89,42 +89,35 @@ export function usePortfolio() {
         logger.error('Error retrieving from local storage:', err);
       }
 
-      try {
-        // Check the portfolio table which is the primary source
-        const { data: portfolioData, error: portfolioError } = await supabase
-          .from('portfolio')
-          .select('recommendations')
-          .eq('user_id', user.id)
-          .maybeSingle();
+      // Check the portfolio table which is the primary source. A query
+      // failure must surface via the query error state instead of being
+      // silently converted into "no recommendations".
+      const { data: portfolioData, error: portfolioError } = await supabase
+        .from('portfolio')
+        .select('recommendations')
+        .eq('user_id', user.id)
+        .maybeSingle();
 
-        if (portfolioError) {
-          if (portfolioError.code !== 'PGRST116') { // Not found error
-            logger.error('Error fetching portfolio recommendations from portfolio table:', portfolioError);
-          } else {
-            logger.log('No portfolio recommendations found for this user');
-          }
-          return null;
-        }
-
-        if (portfolioData?.recommendations) {
-          logger.info('Found portfolio recommendations in portfolio table');
-          
-          // Store in local storage for faster retrieval next time
-          try {
-            localStorage.setItem(getLocalStorageKey(), JSON.stringify(portfolioData.recommendations));
-          } catch (storageErr) {
-            logger.error('Error storing recommendations in local storage:', storageErr);
-          }
-          
-          return portfolioData.recommendations as PortfolioInsightData;
-        }
-
-        logger.info('No portfolio recommendations found');
-        return null;
-      } catch (err) {
-        logger.error('Error in fetchPreviousRecommendations:', err);
-        return null;
+      if (portfolioError) {
+        logger.error('Error fetching portfolio recommendations from portfolio table:', portfolioError);
+        throw portfolioError;
       }
+
+      if (portfolioData?.recommendations) {
+        logger.info('Found portfolio recommendations in portfolio table');
+
+        // Store in local storage for faster retrieval next time
+        try {
+          localStorage.setItem(getLocalStorageKey(), JSON.stringify(portfolioData.recommendations));
+        } catch (storageErr) {
+          logger.error('Error storing recommendations in local storage:', storageErr);
+        }
+
+        return portfolioData.recommendations as PortfolioInsightData;
+      }
+
+      logger.info('No portfolio recommendations found');
+      return null;
     },
     enabled: !!user?.id,
     staleTime: 300000, // Keep fresh for 5 minutes
@@ -404,6 +397,7 @@ export function usePortfolio() {
     isLoading,
     previousRecommendations,
     recommendationsLoading,
+    recommendationsError,
     refetchRecommendations
   };
 }

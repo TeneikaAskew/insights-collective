@@ -21,6 +21,7 @@ export default function Blog() {
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [categories, setCategories] = useState<BlogCategory[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedTag, setSelectedTag] = useState<string>('');
@@ -41,14 +42,18 @@ export default function Blog() {
 
   const loadBlogData = async () => {
     try {
+      setLoading(true);
+      setLoadError(null);
       const [postsData, categoriesData] = await Promise.all([
         getAllBlogPosts(),
         getBlogCategories()
       ]);
       setPosts(postsData);
       setCategories(categoriesData);
-    } catch (error) {
+    } catch (error: any) {
+      // A failed fetch must be visibly distinct from "no articles yet".
       logger.error('Error loading blog data:', error);
+      setLoadError(error?.message || 'Failed to load blog articles.');
     } finally {
       setLoading(false);
     }
@@ -91,6 +96,24 @@ export default function Blog() {
     setSelectedTag('');
     setSearchParams({});
   };
+
+  if (loadError) {
+    return (
+      <AppLayout>
+        <div className="container mx-auto py-8 px-4">
+          <Card>
+            <CardContent className="py-12 text-center" role="alert">
+              <p className="text-red-600 font-medium mb-2">Failed to load blog articles</p>
+              <p className="text-gray-500 mb-4">{loadError}</p>
+              <Button variant="outline" onClick={loadBlogData}>
+                Retry
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </AppLayout>
+    );
+  }
 
   if (loading) {
     return (
@@ -162,12 +185,17 @@ export default function Blog() {
               </SelectContent>
             </Select>
             <div className="flex gap-2">
-              <Select value={selectedTag} onValueChange={setSelectedTag}>
+              {/* Radix Select throws on an empty-string item value; use a
+                  sentinel and map it back to "no tag filter". */}
+              <Select
+                value={selectedTag || '__all__'}
+                onValueChange={(value) => setSelectedTag(value === '__all__' ? '' : value)}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Filter by tag" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Tags</SelectItem>
+                  <SelectItem value="__all__">All Tags</SelectItem>
                   {allTags.map(tag => (
                     <SelectItem key={tag} value={tag}>
                       {tag}

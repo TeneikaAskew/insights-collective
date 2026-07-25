@@ -102,32 +102,23 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
     }));
   };
 
+  // The mutations in usePortfolio already toast verified success/failure —
+  // toasting success here, before the write resolved, reported updates and
+  // deletes that may never have happened.
   const handleUpdateProject = () => {
     logger.log('Updating project with form data:', formData);
     onUpdate(formData);
     setIsDialogOpen(false);
-    toast({
-      title: "Project updated",
-      description: "Your project has been updated successfully.",
-    });
   };
 
   const handleDeleteProject = () => {
     onDelete(project.id);
     setIsDeleteDialogOpen(false);
-    toast({
-      title: "Project deleted",
-      description: "Your project has been deleted successfully.",
-    });
   };
 
   const handleStatusChange = (newStatus: ProjectStatus) => {
     if (onStatusChange) {
       onStatusChange(project.id, newStatus);
-      toast({
-        title: "Status updated",
-        description: `Project status changed to ${newStatus}`,
-      });
     }
   };
 

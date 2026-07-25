@@ -6,6 +6,7 @@ import { Upload } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useProfileUpdate } from '@/hooks/useProfileUpdate';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 
 import { createLogger } from '@/utils/logger';
 
@@ -13,6 +14,7 @@ const logger = createLogger('ProfileAvatar');
 
 export const ProfileAvatar = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [uploading, setUploading] = useState(false);
   const { updateProfile } = useProfileUpdate();
   const [preview, setPreview] = useState<string | null>(user?.avatar || null);
@@ -37,11 +39,17 @@ export const ProfileAvatar = () => {
       await updateProfile({ avatar_url: data.publicUrl });
       setPreview(data.publicUrl);
     } catch (error: any) {
+      // A failed upload must not end silently with the old avatar in place.
       logger.error('Error uploading avatar:', error);
+      toast({
+        title: 'Avatar upload failed',
+        description: error?.message || 'Could not upload your avatar. Please try again.',
+        variant: 'destructive',
+      });
     } finally {
       setUploading(false);
     }
-  }, [user, updateProfile]);
+  }, [user, updateProfile, toast]);
 
   return (
     <div className="flex flex-col items-center gap-4">
