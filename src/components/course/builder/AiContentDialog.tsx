@@ -50,6 +50,7 @@ export function AiContentDialog({
 }: AiContentDialogProps) {
   const [html, setHtml] = useState<string>('');
   const [loading, setLoading] = useState(false);
+  const [inserting, setInserting] = useState<null | 'replace' | 'append'>(null);
   const [variant, setVariant] = useState<AiVariant>('default');
   const [feedback, setFeedback] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -145,17 +146,27 @@ export function AiContentDialog({
     if (!html) return;
     // eslint-disable-next-line no-console
     console.log('[AI lesson content] insert', { mode, chars: html.length });
-    try {
-      onApply(html, mode);
-      toast.success(
-        mode === 'append' ? 'Appended AI draft to lesson' : 'Inserted AI draft into lesson',
-      );
-      onOpenChange(false);
-    } catch (err: any) {
-      // eslint-disable-next-line no-console
-      console.error('[AI lesson content] insert failed', err);
-      toast.error('Could not insert content', { description: err?.message });
-    }
+    setInserting(mode);
+    // Give React a paint frame so the button spinner + overlay render before we
+    // do the (potentially heavy) HTML setContent on the TipTap editor.
+    requestAnimationFrame(() => {
+      try {
+        onApply(html, mode);
+        toast.success(
+          mode === 'append' ? 'Appended AI draft to lesson' : 'Inserted AI draft into lesson',
+        );
+        // Small delay so the "Inserting…" state is visible even on fast machines.
+        setTimeout(() => {
+          setInserting(null);
+          onOpenChange(false);
+        }, 250);
+      } catch (err: any) {
+        // eslint-disable-next-line no-console
+        console.error('[AI lesson content] insert failed', err);
+        setInserting(null);
+        toast.error('Could not insert content', { description: err?.message });
+      }
+    });
   }
 
   const hasExisting = Boolean(existingContent && existingContent.replace(/<[^>]+>/g, '').trim());
@@ -270,7 +281,7 @@ export function AiContentDialog({
             type="button"
             variant="ghost"
             onClick={() => onOpenChange(false)}
-            disabled={loading}
+            disabled={loading || inserting !== null}
           >
             Cancel
           </Button>
@@ -279,22 +290,37 @@ export function AiContentDialog({
               type="button"
               variant="outline"
               onClick={() => handleInsert('append')}
-              disabled={loading || !html}
+              disabled={loading || !html || inserting !== null}
             >
-              Append to lesson
+              {inserting === 'append' ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                  Appending…
+                </>
+              ) : (
+                'Append to lesson'
+              )}
             </Button>
           )}
           <Button
             type="button"
             onClick={() => handleInsert('replace')}
-            disabled={loading || !html}
+            disabled={loading || !html || inserting !== null}
           >
-            {hasExisting ? 'Replace lesson content' : 'Insert into lesson'}
+            {inserting === 'replace' ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                {hasExisting ? 'Replacing…' : 'Inserting…'}
+              </>
+            ) : (
+              hasExisting ? 'Replace lesson content' : 'Insert into lesson'
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
+
 
 export default AiContentDialog;
