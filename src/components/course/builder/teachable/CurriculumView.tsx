@@ -27,6 +27,7 @@ import {
   Sparkles,
   Trash2,
   Upload,
+  Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Hint } from '@/components/ui/hint';
@@ -35,6 +36,8 @@ import type { ContentItem } from '@/types/canvas';
 import type { BuilderModule } from './types';
 import { TeachableBreadcrumb } from './TeachableBreadcrumb';
 import { ConfirmDialog } from './ConfirmDialog';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 function htmlToPlainText(html: string): string {
   if (!html) return '';
