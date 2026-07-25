@@ -156,12 +156,7 @@ export const UserPresenceBar = () => {
         </div>
       </div>
       
-      {/* Dev-only debug hint. Never surfaced in production — users saw a noisy amber banner. */}
-      {showDebugInfo && import.meta.env.DEV && (
-        <div className="mt-1 text-xs text-amber-500">
-          <p>No other users detected. Presence system may need a refresh.</p>
-        </div>
-      )}
+      {/* Dev-only debug hint removed — showDebugInfo state was never wired. */}
 
     </div>
   );
