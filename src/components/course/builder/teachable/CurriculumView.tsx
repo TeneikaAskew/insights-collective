@@ -177,6 +177,7 @@ export function CurriculumView(props: CurriculumViewProps) {
 // --- Section card ---
 interface SectionCardProps {
   module: BuilderModule;
+  courseTitle?: string;
   onRenameModule: (id: string, title: string) => void;
   onUpdateModuleDescription?: (id: string, description: string) => void;
   onDeleteModule: (id: string) => void;
@@ -190,6 +191,7 @@ interface SectionCardProps {
 
 function SectionCard({
   module,
+  courseTitle,
   onRenameModule,
   onUpdateModuleDescription,
   onDeleteModule,
