@@ -219,25 +219,19 @@ BEGIN
       );
     END IF;
     RETURN NEW;
-  ELSIF TG_OP = 'DELETE' THEN
-    INSERT INTO public.grade_history (
-      grade_id, assignment_id, quiz_id, student_id, course_id,
-      previous_points_earned, previous_points_possible, previous_percentage, previous_letter_grade, previous_comments,
-      change_type, changed_by
-    ) VALUES (
-      OLD.id, OLD.assignment_id, OLD.quiz_id, OLD.student_id, OLD.course_id,
-      OLD.points_earned, OLD.points_possible, OLD.percentage, OLD.letter_grade, OLD.comments,
-      'deleted', auth.uid()
-    );
-    RETURN OLD;
   END IF;
   RETURN NULL;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
+-- NOTE: no DELETE branch. grade_history.grade_id is NOT NULL with ON DELETE
+-- CASCADE, so a delete-history row would either violate the FK (AFTER DELETE)
+-- or be cascade-removed with its parent (BEFORE DELETE) — delete history is
+-- unrecordable under this FK design. The 'deleted' change_type remains in the
+-- CHECK constraint for manual entries written while the grade still exists.
 DROP TRIGGER IF EXISTS track_grade_changes_trigger ON public.grades;
 CREATE TRIGGER track_grade_changes_trigger
-  AFTER INSERT OR UPDATE OR DELETE ON public.grades
+  AFTER INSERT OR UPDATE ON public.grades
   FOR EACH ROW EXECUTE FUNCTION public.track_grade_changes();
 
 -- Notify students when their grade history records a change.
