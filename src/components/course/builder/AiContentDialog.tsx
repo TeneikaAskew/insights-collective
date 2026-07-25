@@ -143,8 +143,19 @@ export function AiContentDialog({
 
   function handleInsert(mode: 'replace' | 'append') {
     if (!html) return;
-    onApply(html, mode);
-    onOpenChange(false);
+    // eslint-disable-next-line no-console
+    console.log('[AI lesson content] insert', { mode, chars: html.length });
+    try {
+      onApply(html, mode);
+      toast.success(
+        mode === 'append' ? 'Appended AI draft to lesson' : 'Inserted AI draft into lesson',
+      );
+      onOpenChange(false);
+    } catch (err: any) {
+      // eslint-disable-next-line no-console
+      console.error('[AI lesson content] insert failed', err);
+      toast.error('Could not insert content', { description: err?.message });
+    }
   }
 
   const hasExisting = Boolean(existingContent && existingContent.replace(/<[^>]+>/g, '').trim());
