@@ -98,8 +98,8 @@ class BlogServiceV2 {
         *,
         author:profiles!author_id (
           id,
-          email,
-          full_name,
+          first_name,
+          last_name,
           avatar_url
         ),
         category:blog_categories (
@@ -149,8 +149,8 @@ class BlogServiceV2 {
         *,
         author:profiles!author_id (
           id,
-          email,
-          full_name,
+          first_name,
+          last_name,
           avatar_url
         ),
         category:blog_categories (
@@ -181,8 +181,8 @@ class BlogServiceV2 {
         *,
         author:profiles!author_id (
           id,
-          email,
-          full_name,
+          first_name,
+          last_name,
           avatar_url
         ),
         category:blog_categories (
@@ -513,8 +513,8 @@ class BlogServiceV2 {
         *,
         author:profiles!author_id (
           id,
-          email,
-          full_name,
+          first_name,
+          last_name,
           avatar_url
         ),
         replies:blog_comments!parent_id (

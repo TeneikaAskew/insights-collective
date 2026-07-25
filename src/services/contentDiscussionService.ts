@@ -5,6 +5,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { createLogger } from '@/utils/logger';
+import { formatProfileName } from '@/lib/utils';
 
 const logger = createLogger('ContentDiscussionService');
 
@@ -34,7 +35,6 @@ export interface ContentDiscussion {
 
 export interface ContentDiscussionWithUser extends ContentDiscussion {
   user_name?: string;
-  user_email?: string;
   user_avatar?: string;
   is_instructor?: boolean;
 }
@@ -69,8 +69,8 @@ class ContentDiscussionService {
         *,
         profiles!content_discussions_user_id_fkey(
           id,
-          email,
-          full_name,
+          first_name,
+          last_name,
           avatar_url,
           roles
         )
@@ -85,8 +85,7 @@ class ContentDiscussionService {
     // Transform data to include user info
     const discussions = (data || []).map((item: any) => ({
       ...item,
-      user_name: item.profiles?.full_name || 'Anonymous',
-      user_email: item.profiles?.email,
+      user_name: item.profiles ? formatProfileName(item.profiles) : 'Anonymous',
       user_avatar: item.profiles?.avatar_url,
       is_instructor:
         item.profiles?.roles?.includes('instructor') ||
@@ -111,8 +110,8 @@ class ContentDiscussionService {
         *,
         profiles!content_discussions_user_id_fkey(
           id,
-          email,
-          full_name,
+          first_name,
+          last_name,
           avatar_url,
           roles
         )
@@ -128,8 +127,7 @@ class ContentDiscussionService {
 
     const discussions = (data || []).map((item: any) => ({
       ...item,
-      user_name: item.profiles?.full_name || 'Anonymous',
-      user_email: item.profiles?.email,
+      user_name: item.profiles ? formatProfileName(item.profiles) : 'Anonymous',
       user_avatar: item.profiles?.avatar_url,
       is_instructor:
         item.profiles?.roles?.includes('instructor') ||

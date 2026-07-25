@@ -111,7 +111,7 @@ export const assignmentService = {
           workflow_state,
           submitted_at,
           grade,
-          student:profiles!user_id(id, full_name, avatar_url)
+          student:profiles!user_id(id, first_name, last_name, avatar_url)
         )
       `)
       .eq('id', id)
@@ -277,8 +277,8 @@ export const assignmentService = {
         *,
         student:profiles!user_id(
           id,
-          full_name,
-          email,
+          first_name,
+          last_name,
           avatar_url
         )
       `)
