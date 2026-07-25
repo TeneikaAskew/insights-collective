@@ -121,7 +121,7 @@ export function supabaseError(message: string, code = 'PGRST000') {
 // terminal method (`single`, `order`, `then`, …) without re-calling `from()`
 // and accidentally asserting against a stale builder reference.
 export function getQueryBuilder() {
-  return (mockSupabaseClient.from as ReturnType<typeof vi.fn>)();
+  return (mockSupabaseClient.from as unknown as (...args: any[]) => any)();
 }
 
 // Rebuild the query builder so mock state does not leak between tests.
