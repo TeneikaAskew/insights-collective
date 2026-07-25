@@ -88,3 +88,31 @@ The guide as a binder: analyzed-job bar + pill tabs (Competencies /
 Practice questions / Checklist with live count), progress and new-analysis
 pinned in a right rail. Most compact per screen; matches the hub's pill
 grammar most directly.
+
+---
+
+# Sub-page: STAR Practice — layout alternatives
+
+Three Soft Studio arrangements of the wizard (question header with streak,
+S/T/A/R composition, AI feedback with per-step scores, strengths/improvements,
+and suggestions). Interactive switcher artifact includes a Compose / AI
+feedback state toggle per variant.
+
+## STAR Concept A — Focus Wizard
+![STAR A](./star-concept-a-focus-wizard.png)
+One step at a time in a centered column: color-coded step segments, a single
+hint + textarea, previous/next. Closest to the current wizard; least
+overwhelming for anxious first-timers.
+
+## STAR Concept B — Storyboard
+![STAR B](./star-concept-b-storyboard.png)
+All four STAR fields on one 2×2 board with color-coded edges and inline
+hints — write in any order, submit when the story reads well. Best for
+revising existing stories; feedback recaps score each panel in place.
+
+## STAR Concept C — Coach Split
+![STAR C](./star-concept-c-coach-split.png)
+Write on the left, coached on the right: the warm rail shows per-step tips
+while composing and becomes the full AI feedback panel (scores, strengths,
+improvements, suggestions) after submitting. Feedback lives beside your
+answer instead of below it.
