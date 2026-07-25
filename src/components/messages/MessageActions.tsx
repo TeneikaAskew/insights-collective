@@ -152,7 +152,8 @@ const MessageActions: React.FC<MessageActionsProps> = ({
   const handleDelete = async () => {
     if (!user || !conversationId) return;
     
-    if (!window.confirm('Are you sure you want to delete this conversation?')) {
+    const ok = await confirm({ title: 'Delete conversation?', description: 'This permanently removes the conversation.', destructive: true, confirmLabel: 'Delete' });
+    if (!ok) {
       return;
     }
     
