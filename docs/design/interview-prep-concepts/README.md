@@ -116,3 +116,38 @@ Write on the left, coached on the right: the warm rail shows per-step tips
 while composing and becomes the full AI feedback panel (scores, strengths,
 improvements, suggestions) after submitting. Feedback lives beside your
 answer instead of below it.
+
+---
+
+# Sub-page: Code Practice — layout alternatives
+
+Three Soft Studio arrangements for the code challenge workspace (role select,
+challenge brief with example/constraints/hints, dark Monaco editor, and the
+submit → feedback loop with runtime/memory/test stats, code review, and
+suggestions). The interesting problem here is how the dark editor sits inside
+the soft theme: in every concept it keeps its dark chrome but gets the Soft
+Studio radius, border, and shadow so it reads as a "window" on the plaster
+ground. Interactive switcher artifact includes an Editor / Feedback state
+toggle per variant.
+
+## Code Concept A — Soft Frame
+![Code A editor](./code-concept-a-editor.png)
+![Code A feedback](./code-concept-a-feedback.png)
+The current split, softened: challenge briefing card on the left, the dark
+editor in a soft frame on the right. On submit, the editor column flips to
+the Result card (stats tiles, warm code review, lavender suggestions) while
+the brief stays put for reference.
+
+## Code Concept B — Full Bench
+![Code B editor](./code-concept-b-editor.png)
+Editor-first: a slim collapsible brief bar above a full-width editor bench —
+maximum room for code, closest to a real IDE. Feedback replaces the bench
+below the same slim brief.
+
+## Code Concept C — Problem Book
+![Code C editor](./code-concept-c-editor.png)
+![Code C feedback](./code-concept-c-feedback.png)
+Reading-first: the problem as a rich left page (example, constraints,
+numbered hints always visible), the editor as the right page. On submit the
+left page becomes the Result card, so feedback sits beside the code that
+earned it.
