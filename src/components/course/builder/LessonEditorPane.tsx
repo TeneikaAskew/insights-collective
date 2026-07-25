@@ -174,17 +174,12 @@ export function LessonEditorPane({
               <Label>Content</Label>
               <button
                 type="button"
-                onClick={handleGenerateAI}
-                disabled={generatingAI}
-                className="group inline-flex items-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary/10 hover:border-primary/50 disabled:opacity-60 disabled:cursor-not-allowed"
+                onClick={() => setAiOpen(true)}
+                className="group inline-flex items-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary/10 hover:border-primary/50"
                 aria-label="Generate content with AI"
               >
-                {generatingAI ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Sparkles className="h-4 w-4" />
-                )}
-                <span>{generatingAI ? 'Generating…' : 'Generate content with AI'}</span>
+                <Sparkles className="h-4 w-4" />
+                <span>Generate content with AI</span>
               </button>
             </div>
             <UnifiedCanvasEditor
@@ -196,6 +191,23 @@ export function LessonEditorPane({
             />
           </div>
         )}
+
+        <AiContentDialog
+          open={aiOpen}
+          onOpenChange={setAiOpen}
+          existingContent={draft.content || ''}
+          context={{
+            lessonTitle: draft.title,
+            lessonType: draft.type,
+            ...(aiContext || {}),
+          }}
+          onApply={(html, mode) => {
+            const existing = (draft.content || '').replace(/<p>\s*<\/p>/gi, '').trim();
+            const next = mode === 'append' && existing ? `${existing}\n${html}` : html;
+            setField('content', next);
+          }}
+        />
+
 
       </CardContent>
     </Card>
