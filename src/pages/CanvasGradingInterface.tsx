@@ -17,6 +17,7 @@ import { supabase } from '@/integrations/supabase/client';
 import CanvasContentService from '@/services/canvasContentService';
 import CourseErrorState from '@/components/course/CourseErrorState';
 import { withCoursePermission } from '@/components/course/withCoursePermission';
+import { SubmissionComments } from '@/components/course/grading/SubmissionComments';
 import {
   CheckCircle,
   Save,
@@ -497,6 +498,13 @@ function CanvasGradingInterface() {
                         Previously graded on {format(new Date(selectedSubmission.graded_at), 'MMM d, yyyy at h:mm a')}
                       </AlertDescription>
                     </Alert>
+                  )}
+
+                  {selectedSubmission && (
+                    <SubmissionComments
+                      submissionId={selectedSubmission.id}
+                      submissionType="assignment"
+                    />
                   )}
                 </CardContent>
 

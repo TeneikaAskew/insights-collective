@@ -57,6 +57,16 @@ vi.mock('@/hooks/use-toast', () => ({
   toast: toastMock,
 }));
 
+vi.mock('@/components/course/grading/SubmissionComments', () => ({
+  SubmissionComments: ({ submissionId, submissionType }: any) => (
+    <div
+      data-testid="submission-comments"
+      data-submission-id={submissionId}
+      data-submission-type={submissionType}
+    />
+  ),
+}));
+
 vi.mock('@/contexts/AuthContext', () => ({
   AuthProvider: ({ children }: any) => children,
   useAuth: () => ({
@@ -169,6 +179,22 @@ describe('CanvasGradingInterface', () => {
     expect(screen.getByLabelText('Score')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Save & next' })).toBeInTheDocument();
     expect(screen.getByText('1 of 2 graded • 1 still needs grading • 100 pts')).toBeInTheDocument();
+  });
+
+  it('mounts the submission comments panel for the selected submission', async () => {
+    vi.mocked(CanvasContentService.getContentItem).mockResolvedValue(contentItem as any);
+    useTables({
+      assignment_submissions: makeTableBuilder({
+        data: [makeGradingSubmission({ body: 'Great essay text' })],
+        error: null,
+      }),
+    });
+
+    render(<CanvasGradingInterface />);
+
+    const panel = await screen.findByTestId('submission-comments');
+    expect(panel).toHaveAttribute('data-submission-id', 'sub-1');
+    expect(panel).toHaveAttribute('data-submission-type', 'assignment');
   });
 
   it('shows an error state with retry when loading fails, not a blank grading screen', async () => {
