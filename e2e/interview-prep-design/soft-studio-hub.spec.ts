@@ -76,3 +76,39 @@ test.describe('Interview prep hub (Soft Studio, Concept D)', () => {
     await expect(page.locator('.animate-spin')).toHaveCount(0);
   });
 });
+
+test.describe('Job description page (Soft Studio, Split Desk)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/interview-prep/job-description', { waitUntil: 'domcontentloaded' });
+    await page.getByText('Job Description Analysis').first().waitFor({ timeout: 15_000 });
+  });
+
+  test('applies the Soft Studio theme with the split layout', async ({ page }) => {
+    const wrapper = page.locator('.soft-studio').first();
+    await expect(wrapper).toBeVisible();
+    expect(await wrapper.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgb(250, 248, 245)');
+
+    // Input rail and study-guide pane are both present at once
+    await expect(page.getByPlaceholder('https://example.com/jobs/123')).toBeVisible();
+    await expect(page.getByPlaceholder('Or paste the job description here...')).toBeVisible();
+    await expect(page.getByText('Your study guide will appear here')).toBeVisible();
+  });
+
+  test('gates the extract and analyze actions on input', async ({ page }) => {
+    const extract = page.getByRole('button', { name: /extract/i });
+    const analyze = page.getByRole('button', { name: /analyze description/i });
+    await expect(extract).toBeDisabled();
+    await expect(analyze).toBeDisabled();
+
+    await page.getByPlaceholder('https://example.com/jobs/123').fill('https://example.com/jobs/1');
+    await expect(extract).toBeEnabled();
+    await page.getByPlaceholder('Or paste the job description here...').fill('Senior ML Engineer role');
+    await expect(analyze).toBeEnabled();
+  });
+
+  test('back button returns to the interview prep hub', async ({ page }) => {
+    await page.getByRole('button', { name: /interview prep/i }).click();
+    await page.waitForURL('**/interview-prep', { timeout: 15_000, waitUntil: 'domcontentloaded' });
+    await expect(page.getByText('Interview prep, one calm step at a time.')).toBeVisible();
+  });
+});
