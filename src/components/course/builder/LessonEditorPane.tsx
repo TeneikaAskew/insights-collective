@@ -53,6 +53,7 @@ export function LessonEditorPane({
 }: LessonEditorPaneProps) {
   const [draft, setDraft] = useState<LessonDraft | null>(null);
   const [aiOpen, setAiOpen] = useState(false);
+  const [aiApplying, setAiApplying] = useState(false);
 
 
   const savedSnapshotRef = useRef<string>('');
