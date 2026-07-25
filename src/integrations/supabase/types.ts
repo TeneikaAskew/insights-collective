@@ -4830,7 +4830,6 @@ export type Database = {
         Returns: boolean
       }
       clean_old_security_events: { Args: never; Returns: undefined }
-      debug_module_insert: { Args: { target_course_id: string }; Returns: Json }
       delete_all_user_resumes: {
         Args: { user_id_param: string }
         Returns: undefined
