@@ -469,12 +469,17 @@ function SectionCard({
         </button>
         <button
           type="button"
-          className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-500 hover:text-black"
-          disabled
-          title="Coming soon"
+          onClick={handleGenerateSummary}
+          disabled={generatingSummary || !onUpdateModuleDescription}
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:text-primary/80 disabled:opacity-60 disabled:cursor-not-allowed"
+          title="Generate a short section summary with AI"
         >
-          <Sparkles className="h-4 w-4" />
-          Section summary
+          {generatingSummary ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Sparkles className="h-4 w-4" />
+          )}
+          {generatingSummary ? 'Generating…' : 'Section summary'}
         </button>
       </div>
     </div>
