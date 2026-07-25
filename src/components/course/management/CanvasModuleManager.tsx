@@ -130,7 +130,7 @@ export function CanvasModuleManager({
     }
   };
   const handleDeleteModule = async (moduleId: string) => {
-    if (!confirm('Are you sure you want to delete this module and all its content?')) {
+    if (!(await confirm({ title: 'Delete module?', description: 'This also deletes all its content.', destructive: true, confirmLabel: 'Delete' }))) {
       return;
     }
     try {

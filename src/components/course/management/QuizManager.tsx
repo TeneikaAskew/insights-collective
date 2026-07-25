@@ -190,7 +190,7 @@ export function QuizManager({ courseId, modules = [] }: QuizManagerProps) {
   };
 
   const handleDelete = async (quizId: string) => {
-    if (!window.confirm('Are you sure you want to delete this quiz? This action cannot be undone.')) {
+    if (!(await confirm({ title: 'Delete quiz?', description: 'This action cannot be undone.', destructive: true, confirmLabel: 'Delete' }))) {
       return;
     }
 

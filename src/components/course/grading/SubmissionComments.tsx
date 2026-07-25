@@ -119,7 +119,7 @@ export const SubmissionComments: React.FC<SubmissionCommentsProps> = ({
   };
 
   const handleDeleteComment = (commentId: string) => {
-    if (confirm('Are you sure you want to delete this comment?')) {
+    if (await confirm({ title: 'Delete comment?', description: 'This permanently removes the comment.', destructive: true, confirmLabel: 'Delete' })) {
       deleteComment(commentId);
     }
   };

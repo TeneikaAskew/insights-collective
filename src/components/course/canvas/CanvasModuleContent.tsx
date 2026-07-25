@@ -179,7 +179,7 @@ export function CanvasModuleContent({
   };
 
   const handleDeleteItem = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this content item?')) return;
+    if (!(await confirm({ title: 'Delete content item?', description: 'This permanently removes this content item.', destructive: true, confirmLabel: 'Delete' }))) return;
 
     try {
       await CanvasContentService.deleteContentItem(id);

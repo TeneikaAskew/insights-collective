@@ -133,7 +133,7 @@ const ModuleManager = ({ courseId, moduleId, module, onUpdate }: ModuleManagerPr
   };
 
   const handleDeleteLesson = async (lessonId: string) => {
-    if (!confirm('Are you sure you want to delete this lesson? All content blocks will be moved back to the module level.')) {
+    if (!(await confirm({ title: 'Delete lesson?', description: 'All content blocks will be moved back to the module level.', destructive: true, confirmLabel: 'Delete' }))) {
       return;
     }
 

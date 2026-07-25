@@ -69,7 +69,7 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({ bank, 
   };
 
   const handleDeleteQuestion = (questionId: string) => {
-    if (confirm('Are you sure you want to delete this question?')) {
+    if (await confirm({ title: 'Delete question?', description: 'This permanently removes the question.', destructive: true, confirmLabel: 'Delete' })) {
       deleteQuestion(questionId);
     }
   };

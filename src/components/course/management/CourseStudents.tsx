@@ -235,7 +235,7 @@ export default function CourseStudents({ courseId }: CourseStudentsProps) {
   };
 
   const handleRemoveStudent = async (enrollmentId: string, studentName: string) => {
-    if (!confirm(`Are you sure you want to unenroll ${studentName}?`)) {
+    if (!(await confirm({ title: `Unenroll ${studentName}?`, description: 'This removes the student from the course.', destructive: true, confirmLabel: 'Unenroll' }))) {
       return;
     }
     

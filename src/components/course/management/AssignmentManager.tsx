@@ -79,7 +79,7 @@ export function AssignmentManager({ courseId, modules = [] }: AssignmentManagerP
   };
 
   const handleDelete = async (assignmentId: string) => {
-    if (window.confirm('Are you sure you want to delete this assignment? This action cannot be undone.')) {
+    if (await confirm({ title: 'Delete assignment?', description: 'This action cannot be undone.', destructive: true, confirmLabel: 'Delete' })) {
       deleteMutation.mutate(assignmentId);
     }
   };

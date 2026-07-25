@@ -124,7 +124,7 @@ const CourseModuleManager = ({ courseId }: CourseModuleManagerProps) => {
   };
 
   const handleDeleteModule = async (moduleId: string) => {
-    if (!confirm('Are you sure you want to delete this module? All content will be permanently removed.')) {
+    if (!(await confirm({ title: 'Delete module?', description: 'All content will be permanently removed.', destructive: true, confirmLabel: 'Delete' }))) {
       return;
     }
 

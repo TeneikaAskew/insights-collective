@@ -143,7 +143,7 @@ const LessonManagerWithMigration = ({ moduleId }: LessonManagerWithMigrationProp
   };
 
   const handleDeleteLesson = async (lessonId: string) => {
-    if (!confirm('Are you sure you want to delete this lesson? All content will be permanently removed.')) {
+    if (!(await confirm({ title: 'Delete lesson?', description: 'All content will be permanently removed.', destructive: true, confirmLabel: 'Delete' }))) {
       return;
     }
 
