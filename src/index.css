@@ -40,8 +40,8 @@
     --sidebar-foreground: 0 0% 17%; /* Dark gray text */
     --sidebar-primary: 217 88% 56%; /* Insight Blue */
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 164 61% 60%; /* Aqua Teal */
-    --sidebar-accent-foreground: 0 0% 17%; /* Dark gray for better readability */
+    --sidebar-accent: 217 88% 56%; /* Insight Blue — active pill background */
+    --sidebar-accent-foreground: 0 0% 100%; /* White text for WCAG AA contrast */
     --sidebar-border: 214 31% 91%; /* Light border */
     --sidebar-ring: 217 88% 56%; /* Insight Blue */
     
