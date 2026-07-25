@@ -16,7 +16,9 @@ import { createLogger } from '@/utils/logger';
 const logger = createLogger('AssistantInterface');
 
 const AssistantInterface = () => {
-  const { assistantId } = useParams();
+  // The route is /assistant/:id — reading a non-existent `assistantId` param
+  // made every assistant card silently open the default Career Explorer.
+  const { id: assistantId } = useParams();
   const { isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [selectedAssistant, setSelectedAssistant] = useState<Assistant | null>(null);

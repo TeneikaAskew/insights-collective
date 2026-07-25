@@ -181,7 +181,10 @@ const CreateFormDialog: React.FC<CreateFormDialogProps> = ({ open, onOpenChange 
           form_link: `/survey/${slug}`,
           slug,
           status: false,
-          form_structure: formStructure
+          form_structure: formStructure,
+          // The deadline picker's value used to be silently dropped from the
+          // payload even though forms.deadline exists.
+          deadline: deadline ? deadline.toISOString() : null
         })
         .select('id, slug')
         .single();

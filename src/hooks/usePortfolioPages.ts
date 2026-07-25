@@ -103,8 +103,12 @@ export const usePortfolioPages = () => {
 
     logger.log('Query by custom_url result:', { data, error });
 
-    // If not found by custom URL, try by ID
-    if (!data && !error) {
+    // If not found by custom URL, try by ID — but only when the identifier is
+    // actually a UUID. portfolio_pages.id is a uuid column, so querying it
+    // with an arbitrary slug raised Postgres 22P02 and every mistyped public
+    // URL surfaced as an error instead of a clean not-found.
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
+    if (!data && !error && isUuid) {
       logger.log('Trying to fetch by ID:', identifier);
       ({ data, error } = await supabase
         .from('portfolio_pages')

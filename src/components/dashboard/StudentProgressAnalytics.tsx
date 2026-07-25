@@ -54,6 +54,8 @@ interface CourseAnalytics {
 const StudentProgressAnalytics: React.FC = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [courses, setCourses] = useState<CourseAnalytics[]>([]);
 
   useEffect(() => {
@@ -62,6 +64,7 @@ const StudentProgressAnalytics: React.FC = () => {
       if (!user) return;
       try {
         setLoading(true);
+        setLoadError(null);
 
         const { data: enrollments, error: enrollErr } = await supabase
           .from('enrollments')
@@ -79,32 +82,35 @@ const StudentProgressAnalytics: React.FC = () => {
         const courseIds = courseRows.map((c: any) => c.id);
 
         // Modules
-        const { data: modules } = await supabase
+        const { data: modules, error: modulesErr } = await supabase
           .from('modules')
           .select('id, title, week, course_id, position')
           .in('course_id', courseIds)
           .order('week', { ascending: true });
+        if (modulesErr) throw modulesErr;
 
         const moduleIds = (modules || []).map((m) => m.id);
 
         // Content items
-        const { data: items } = await supabase
+        const { data: items, error: itemsErr } = await supabase
           .from('content_items')
           .select('id, module_id, position, title')
           .in('module_id', moduleIds.length ? moduleIds : ['00000000-0000-0000-0000-000000000000'])
           .eq('published', true)
           .order('position', { ascending: true });
+        if (itemsErr) throw itemsErr;
 
         const itemIds = (items || []).map((i) => i.id);
 
         // Progressions
-        const { data: progressions } = itemIds.length
+        const { data: progressions, error: progErr } = itemIds.length
           ? await supabase
               .from('content_item_progressions')
               .select('content_item_id, workflow_state')
               .eq('user_id', user.id)
               .in('content_item_id', itemIds)
-          : { data: [] as any[] };
+          : { data: [] as any[], error: null };
+        if (progErr) throw progErr;
 
         const completedItems = new Set<string>(
           (progressions || [])
@@ -113,19 +119,21 @@ const StudentProgressAnalytics: React.FC = () => {
         );
 
         // Assignments + submissions
-        const { data: assignments } = await supabase
+        const { data: assignments, error: assignErr } = await supabase
           .from('assignments')
           .select('id, title, course_id, due_date')
           .in('course_id', courseIds);
+        if (assignErr) throw assignErr;
 
         const assignmentIds = (assignments || []).map((a) => a.id);
-        const { data: submissions } = assignmentIds.length
+        const { data: submissions, error: subErr } = assignmentIds.length
           ? await supabase
               .from('assignment_submissions')
               .select('assignment_id, status, grade')
               .eq('student_id', user.id)
               .in('assignment_id', assignmentIds)
-          : { data: [] as any[] };
+          : { data: [] as any[], error: null };
+        if (subErr) throw subErr;
 
         const subByAssignment = new Map<string, any>();
         (submissions || []).forEach((s: any) => subByAssignment.set(s.assignment_id, s));
@@ -213,8 +221,11 @@ const StudentProgressAnalytics: React.FC = () => {
         });
 
         if (!cancelled) setCourses(result);
-      } catch (err) {
+      } catch (err: any) {
+        // A failed load must not render zeroed stat tiles or the
+        // "enroll in a course" empty state to an enrolled student.
         logger.error('Failed to load progress analytics', err);
+        if (!cancelled) setLoadError(err?.message || 'Failed to load progress analytics');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -223,7 +234,7 @@ const StudentProgressAnalytics: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [user, reloadKey]);
 
   const summary = useMemo(() => {
     const totals = courses.reduce(
@@ -248,6 +259,20 @@ const StudentProgressAnalytics: React.FC = () => {
       <div className="flex items-center justify-center py-16 text-muted-foreground">
         <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading progress…
       </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <Card>
+        <CardContent className="py-10 text-center" role="alert">
+          <p className="text-destructive font-medium mb-1">Failed to load progress analytics</p>
+          <p className="text-sm text-muted-foreground mb-4">{loadError}</p>
+          <Button variant="outline" onClick={() => setReloadKey((k) => k + 1)}>
+            Retry
+          </Button>
+        </CardContent>
+      </Card>
     );
   }
 

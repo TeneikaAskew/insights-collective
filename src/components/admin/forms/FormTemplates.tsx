@@ -250,10 +250,12 @@ export function FormTemplates() {
   };
 
   const handleSaveTemplate = async () => {
-    // In a real implementation, this would save to a custom templates table
+    // There is no custom-templates table yet — never report a success for a
+    // write that did not happen.
     toast({
-      title: "Success",
-      description: "Template saved successfully",
+      title: "Custom templates not available",
+      description: "Saving custom templates isn't supported yet — nothing was saved.",
+      variant: "destructive",
     });
     setSaveDialogOpen(false);
   };

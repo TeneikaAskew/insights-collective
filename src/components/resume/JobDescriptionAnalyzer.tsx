@@ -617,6 +617,7 @@ const analyzeJobMatch = async () => {
     
     // STEP 2: Try to use AI for the skill analysis and improvement suggestions
     let analysisResult;
+    let usedFallbackAnalysis = false;
     const preCalculatedKeywords = {
       matchedKeywords: matchedKeywords.map(k => k.keyword),
       missingKeywords: missingKeywords
@@ -654,7 +655,8 @@ const analyzeJobMatch = async () => {
       logger.log("[Job Description Analyzer] AI skill analysis complete");
     } catch (aiError) {
       logger.error("AI skill analysis failed, using basic analysis for all parts:", aiError);
-      
+      usedFallbackAnalysis = true;
+
       // Fallback to completely local analysis using the old methods
       analysisResult = {
         overallScore: keywordScore,
@@ -685,10 +687,19 @@ const analyzeJobMatch = async () => {
       }
     }, 100);
     
-    toast({
-      title: "Analysis Complete",
-      description: "Your resume has been analyzed against the job description.",
-    });
+    // Never present the keyword-scan fallback as a completed AI analysis.
+    if (usedFallbackAnalysis) {
+      toast({
+        title: "AI analysis unavailable",
+        description: "Showing a basic keyword comparison instead — the AI-powered analysis failed. Try again for full results.",
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Analysis Complete",
+        description: "Your resume has been analyzed against the job description.",
+      });
+    }
   } catch (error) {
     logger.error("Error analyzing job match:", error);
     toast({
@@ -1140,7 +1151,6 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                   </TabsContent>
                 </Tabs>
               </div>
-              // Modify these three ScrollArea sections in your JobDescriptionAnalyzer component
 
 
               {/* Skills Section - Enhanced for better readability */}

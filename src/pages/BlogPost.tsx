@@ -23,6 +23,7 @@ export default function BlogPostPage() {
   const { toast } = useToast();
   const [post, setPost] = useState<BlogPost | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const isAdmin = user?.roles?.includes('admin');
 
@@ -34,6 +35,8 @@ export default function BlogPostPage() {
 
   const loadBlogPost = async (postSlug: string) => {
     try {
+      setLoading(true);
+      setLoadError(null);
       logger.log('Loading blog post with slug:', postSlug);
       const postData = await getBlogPostBySlug(postSlug);
       logger.log('Retrieved blog post data:', postData);
@@ -44,9 +47,11 @@ export default function BlogPostPage() {
         return;
       }
       setPost(postData);
-    } catch (error) {
+    } catch (error: any) {
+      // A fetch failure must not masquerade as "Blog post not found".
       logger.error('Error loading blog post:', error);
       setPost(null);
+      setLoadError(error?.message || 'Failed to load this blog post.');
     } finally {
       setLoading(false);
     }
@@ -119,6 +124,25 @@ export default function BlogPostPage() {
                 <div key={i} className="h-4 bg-gray-200 rounded"></div>
               ))}
             </div>
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <AppLayout>
+        <div className="container mx-auto py-8 px-4 text-center" role="alert">
+          <h1 className="text-2xl font-bold mb-2">Failed to load blog post</h1>
+          <p className="text-gray-500 mb-4">{loadError}</p>
+          <div className="flex justify-center gap-3">
+            <Button variant="outline" onClick={() => slug && loadBlogPost(slug)}>
+              Retry
+            </Button>
+            <Link to="/blog">
+              <Button>Back to Blog</Button>
+            </Link>
           </div>
         </div>
       </AppLayout>

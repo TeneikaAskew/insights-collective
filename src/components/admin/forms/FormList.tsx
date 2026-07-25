@@ -68,29 +68,19 @@ export function FormList({ searchTerm }: FormListProps) {
             .single();
 
           if (insertError) {
+            // Do NOT fabricate a phantom "temp-" row that admins could edit,
+            // feature, or try to delete — show only what really exists.
             logger.error("Error inserting fellowship form:", insertError);
-            // Add to the list with required properties for FormData
-            setForms([...formsList, {
-              ...fellowshipFormTemplate,
-              id: 'temp-' + Date.now(), // Generate a temporary ID
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            } as FormData]);
+            setForms(formsList);
           } else if (insertedForm) {
             // Add to the list
             logger.log("Fellowship form inserted:", insertedForm);
             setForms([...formsList, insertedForm]);
           }
         } catch (insertErr) {
+          // Same as above: no fabricated fallback row.
           logger.error("Exception inserting fellowship form:", insertErr);
-          // Add to the list with required properties for FormData
-          const fellowshipFormTemplate = createFellowshipForm();
-          setForms([...formsList, {
-            ...fellowshipFormTemplate,
-            id: 'temp-' + Date.now(), // Generate a temporary ID
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          } as FormData]);
+          setForms(formsList);
         }
       } else {
         // Form exists in database
@@ -103,15 +93,9 @@ export function FormList({ searchTerm }: FormListProps) {
         description: "Failed to load forms",
         variant: "destructive"
       });
-      
-      // Fallback: Show at least the fellowship form template
-      const fellowshipFormTemplate = createFellowshipForm();
-      setForms([{
-        ...fellowshipFormTemplate,
-        id: 'temp-' + Date.now(), // Generate a temporary ID
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      } as FormData]);
+      // A failed load must not fabricate a phantom form row; leave the list
+      // empty — the destructive toast above reports the failure.
+      setForms([]);
     } finally {
       setLoading(false);
     }

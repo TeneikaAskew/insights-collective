@@ -24,11 +24,15 @@ interface ActivityEntry {
 const AdminActivity = () => {
   const [activities, setActivities] = useState<ActivityEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const fetchActivities = async () => {
       try {
+        setLoading(true);
+        setLoadError(null);
         const { data, error } = await supabase
           .from('security_events')
           .select('id, user_id, event_type, severity, description, created_at')
@@ -37,14 +41,16 @@ const AdminActivity = () => {
 
         if (error) throw error;
         setActivities(data || []);
-      } catch (err) {
+      } catch (err: any) {
+        // A failed fetch must not render as "No activities found".
         console.error('Error fetching activities:', err);
+        setLoadError(err?.message || 'Failed to load activity log');
       } finally {
         setLoading(false);
       }
     };
     fetchActivities();
-  }, []);
+  }, [reloadKey]);
 
   const filteredActivities = activities.filter(a =>
     a.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -114,6 +120,14 @@ const AdminActivity = () => {
           <CardContent>
             {loading ? (
               <div className="text-center py-8 text-muted-foreground">Loading activities...</div>
+            ) : loadError ? (
+              <div className="text-center py-8" role="alert">
+                <p className="text-destructive font-medium mb-1">Failed to load activity log</p>
+                <p className="text-sm text-muted-foreground mb-4">{loadError}</p>
+                <Button variant="outline" size="sm" onClick={() => setReloadKey((k) => k + 1)}>
+                  Retry
+                </Button>
+              </div>
             ) : (
               <Table>
                 <TableHeader>
@@ -141,7 +155,11 @@ const AdminActivity = () => {
                             {activity.severity}
                           </Badge>
                         </TableCell>
-                        <TableCell>{formatDistanceToNow(new Date(activity.created_at), { addSuffix: true })}</TableCell>
+                        <TableCell>
+                          {activity.created_at
+                            ? formatDistanceToNow(new Date(activity.created_at), { addSuffix: true })
+                            : '—'}
+                        </TableCell>
                       </TableRow>
                     ))
                   )}

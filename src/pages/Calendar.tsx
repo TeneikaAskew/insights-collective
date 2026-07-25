@@ -27,7 +27,7 @@ const CalendarPage = () => {
     .filter(([_, enabled]) => enabled)
     .map(([type, _]) => type);
 
-  const { events = [], isLoading } = useUserCalendar(user?.id, {
+  const { events = [], isLoading, error: calendarError } = useUserCalendar(user?.id, {
     types: filterTypes,
   });
   
@@ -193,6 +193,10 @@ const CalendarPage = () => {
                       </Link>
                     ))}
                   </div>
+                ) : calendarError ? (
+                  <p className="text-destructive" role="alert">
+                    Failed to load your calendar: {calendarError instanceof Error ? calendarError.message : 'Please try again.'}
+                  </p>
                 ) : (
                   <p className="text-muted-foreground">No events scheduled for this day.</p>
                 )}
@@ -245,7 +249,13 @@ const CalendarPage = () => {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-muted-foreground">No upcoming events.</p>
+                  calendarError ? (
+                    <p className="text-destructive" role="alert">
+                      Failed to load your calendar: {calendarError instanceof Error ? calendarError.message : 'Please try again.'}
+                    </p>
+                  ) : (
+                    <p className="text-muted-foreground">No upcoming events.</p>
+                  )
                 )}
               </TabsContent>
             </Tabs>

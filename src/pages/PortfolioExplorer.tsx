@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { QuestionnaireAnswers, PortfolioInsightData, ProjectIdea, ProjectStatus, PortfolioProject } from '@/types/portfolio';
 import { Check, RefreshCw, WandSparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 import { createLogger } from '@/utils/logger';
 
@@ -36,9 +37,11 @@ function PortfolioExplorer() {
   // Add a flag to control tab navigation behavior
   const [forceDiscoverTab, setForceDiscoverTab] = useState(false);
   
+  const { toast } = useToast();
   const {
     projects,
     projectsLoading,
+    projectsError,
     generatePortfolioIdeas,
     addProject,
     updateProjectStatus,
@@ -187,8 +190,15 @@ function PortfolioExplorer() {
       setTimeout(() => {
         setActiveTab('ideas');
       }, 500);
-    } catch (error) {
+    } catch (error: any) {
+      // A failed submit must not end silently — the user clicked a button
+      // and nothing would happen otherwise.
       logger.error("Error saving questionnaire data:", error);
+      toast({
+        title: 'Failed to save your answers',
+        description: error?.message || 'Your questionnaire could not be saved. Please try again.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -527,6 +537,21 @@ function PortfolioExplorer() {
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#9b87f5]"></div>
                 <p className="mt-4 text-gray-500">Loading your projects...</p>
               </div>
+            ) : projectsError ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Failed to load your projects</CardTitle>
+                  <CardDescription role="alert">
+                    {projectsError instanceof Error ? projectsError.message : 'Please try again.'}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button variant="outline" onClick={() => window.location.reload()}>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Retry
+                  </Button>
+                </CardContent>
+              </Card>
             ) : projects && projects.length > 0 ? (
               <KanbanBoard 
                 projects={projects}

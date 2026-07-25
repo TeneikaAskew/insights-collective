@@ -40,7 +40,11 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
   const [customUrl, setCustomUrl] = useState(portfolioPage.custom_url || '');
   const [theme, setTheme] = useState<PortfolioTheme>(portfolioPage.theme as PortfolioTheme || 'default');
   const [layout, setLayout] = useState(portfolioPage.layout || 'classic');
-  const [fontFamily, setFontFamily] = useState(portfolioPage.font_family || 'Inter');
+  // font_family is not a real column on portfolio_pages — it is persisted
+  // inside the profile_data JSON blob instead (see handleSave).
+  const [fontFamily, setFontFamily] = useState(
+    (portfolioPage.profile_data as any)?.font_family || portfolioPage.font_family || 'Inter'
+  );
   const [profileData, setProfileData] = useState<ProfileData>(portfolioPage.profile_data || {
     avatar_url: '',
     professional_summary: '',
@@ -63,7 +67,7 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
     customUrl: portfolioPage.custom_url || '',
     theme: portfolioPage.theme || 'default',
     layout: portfolioPage.layout || 'classic',
-    fontFamily: portfolioPage.font_family || 'Inter',
+    fontFamily: (portfolioPage.profile_data as any)?.font_family || portfolioPage.font_family || 'Inter',
     profileData: portfolioPage.profile_data || {}
   });
 
@@ -186,8 +190,10 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
         custom_url: customUrl,
         theme,
         layout,
-        font_family: fontFamily,
-        profile_data: profileData,
+        // portfolio_pages has NO font_family column — sending it made
+        // PostgREST reject the whole update (PGRST204), silently blocking
+        // every editor save. The font is stored inside profile_data instead.
+        profile_data: { ...(profileData as any), font_family: fontFamily },
       });
       
       // Update the saved baseline to match current state

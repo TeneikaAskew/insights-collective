@@ -219,7 +219,7 @@ const AdminBlogPosts = () => {
             </p>
           </div>
           
-          <Link to="/admin/blog/create">
+          <Link to="/admin/blog/new">
             <Button className="gap-2">
               <Plus className="h-4 w-4" />
               New Post
@@ -427,7 +427,7 @@ const AdminBlogPosts = () => {
                                 </Link>
                               </DropdownMenuItem>
                               <DropdownMenuItem asChild>
-                                <Link to={`/admin/blog/edit/${post.slug}`} className="flex items-center">
+                                <Link to={`/admin/blog/edit/${post.id}`} className="flex items-center">
                                   <Edit className="mr-2 h-4 w-4" />
                                   Edit
                                 </Link>
@@ -450,7 +450,7 @@ const AdminBlogPosts = () => {
                       <TableCell colSpan={6} className="text-center py-8">
                         <p className="text-muted-foreground">No blog posts found</p>
                         <p className="text-sm text-muted-foreground mt-2">
-                          <Link to="/admin/blog/create" className="text-primary hover:underline">
+                          <Link to="/admin/blog/new" className="text-primary hover:underline">
                             Create your first blog post
                           </Link>
                         </p>

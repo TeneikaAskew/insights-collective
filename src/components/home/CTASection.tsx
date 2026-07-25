@@ -84,7 +84,9 @@ const CTASection = () => {
             </div>
             <div className="flex flex-col items-center">
               <div className="text-3xl font-bold mb-1">{stats.students > 0 ? stats.students.toLocaleString() : '—'}</div>
-              <div className="text-sm text-white/70">Active Students</div>
+              {/* profiles counts every account (students, instructors, admins),
+                  so label it honestly. */}
+              <div className="text-sm text-white/70">Community Members</div>
             </div>
             <div className="flex flex-col items-center">
               <div className="text-3xl font-bold mb-1">{stats.completionRate > 0 ? `${stats.completionRate}%` : '—'}</div>

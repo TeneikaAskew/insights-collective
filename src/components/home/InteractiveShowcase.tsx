@@ -69,7 +69,7 @@ const InteractiveShowcase = () => {
               <TabsContent value="skills" className="mt-0">
                 <h3 className="text-xl font-semibold mb-4">Most In-Demand Data Skills</h3>
                 <p className="text-muted-foreground mb-6">
-                  Based on analysis of job postings across major tech hubs in the last quarter.
+                  Illustrative sample data for demonstration purposes.
                 </p>
                 <div className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
@@ -111,7 +111,7 @@ const InteractiveShowcase = () => {
               <TabsContent value="roles" className="mt-0">
                 <h3 className="text-xl font-semibold mb-4">Data Professional Roles Distribution</h3>
                 <p className="text-muted-foreground mb-6">
-                  Current distribution of data professional roles in the job market.
+                  Illustrative sample distribution for demonstration purposes.
                 </p>
                 <div className="h-80 flex items-center justify-center">
                   <ResponsiveContainer width="100%" height="100%">

@@ -73,6 +73,14 @@ export function UnifiedExportReport({ courses }: Props) {
       supabase.functions.invoke('admin-users', { body: { action: 'listUsers' } }),
     ]);
 
+    // A failed query must abort the report — otherwise the export "succeeds"
+    // with fabricated zeros for enrollments/completions/certificates.
+    if (enrollRes.error) throw enrollRes.error;
+    if (itemsRes.error) throw itemsRes.error;
+    if (progRes.error) throw progRes.error;
+    if (certRes.error) throw certRes.error;
+    if (usersRes.error) throw usersRes.error;
+
     const enrollments = (enrollRes.data ?? []) as any[];
     const items = (itemsRes.data ?? []) as any[];
     const progressions = (progRes.data ?? []) as any[];

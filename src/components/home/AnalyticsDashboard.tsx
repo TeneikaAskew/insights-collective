@@ -73,7 +73,11 @@ const AnalyticsDashboard = () => {
               <div className="p-6">
                 <div className="mb-4 flex justify-between items-center">
                   <h3 className="text-lg font-semibold">Learning Performance Overview</h3>
-                  <span className="text-xs text-muted-foreground">Last updated: Today</span>
+                  {/* These numbers are an illustrative product preview, not the
+                      viewer's data — say so instead of faking freshness. */}
+                  <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground border rounded px-1.5 py-0.5">
+                    Sample preview
+                  </span>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4 mb-8">

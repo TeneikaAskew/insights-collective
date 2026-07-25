@@ -107,16 +107,20 @@ const AdminPageVisibility = () => {
       logger.log("Starting page sync...");
       await syncAvailablePages();
       setHasSynced(true);
-      
+
       setSyncStatus('success');
-      toast({
-        title: "Pages synced",
-        description: `All available pages have been synced with the visibility settings.`,
-      });
+      // No page-level success toast here: syncAvailablePages itself reports
+      // the real per-page outcome (success / partial / failed) — an
+      // unconditional "All pages synced" toast on top of it could contradict
+      // a partial failure.
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       setErrorMessage(`Failed to sync pages: ${errorMsg}`);
       setSyncStatus('error');
+      // Mark the auto-sync as attempted even on failure — otherwise the
+      // effect above re-fires forever, looping destructive "Sync failed"
+      // toasts. The admin can still retry via the Sync button.
+      setHasSynced(true);
       toast({
         title: "Sync failed",
         description: "There was an error syncing the page visibility.",

@@ -198,7 +198,7 @@ const CareerPathway: React.FC = () => {
     return data.report.recommendedRoles.map(role => ({
       title: role.title,
       description: role.description || 'No description available',
-      level: role.salaryRange ? `${role.matchPercentage || 80}% Match` : 'Intermediate', // Use matchPercentage for level or default
+      level: role.matchPercentage ? `${role.matchPercentage}% Match` : 'Intermediate',
       requirements: [] // Add empty requirements array since it's optional but expected
     }));
   };
@@ -216,8 +216,28 @@ const CareerPathway: React.FC = () => {
     }));
   };
 
-  // If there's an error or no report data found
-  if (isError || !data?.report || Object.keys(data.report).length === 0) {
+  // A load failure must NOT render as "you haven't taken the assessment" —
+  // a user with a saved report would be told to start over.
+  if (isError) {
+    return (
+      <AppLayout>
+        <div className="container mx-auto py-16 px-4">
+          <Card className="max-w-xl mx-auto">
+            <CardContent className="p-8 text-center" role="alert">
+              <h2 className="text-2xl font-bold mb-2">Failed to load your career pathway</h2>
+              <p className="text-muted-foreground mb-6">
+                {error instanceof Error ? error.message : 'Please try again.'}
+              </p>
+              <Button onClick={() => window.location.reload()}>Retry</Button>
+            </CardContent>
+          </Card>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  // No report data found (genuinely not taken yet)
+  if (!data?.report || Object.keys(data.report).length === 0) {
     return <AppLayout>
         
         <motion.div initial={{
@@ -313,28 +333,9 @@ const CareerPathway: React.FC = () => {
                       </div>
                     </CardContent>
                   </Card>
-                  <Card>
-                    <CardContent className="p-6 flex items-start gap-4">
-                      <div className="bg-amber-100 p-3 rounded-full">
-                        <TrendingUp className="h-6 w-6 text-amber-600" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-lg">Growth Potential</h3>
-                        <p className="text-2xl font-bold">High</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-6 flex items-start gap-4">
-                      <div className="bg-green-100 p-3 rounded-full">
-                        <Award className="h-6 w-6 text-green-600" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-lg">Skill Alignment</h3>
-                        <p className="text-2xl font-bold">76%</p>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  {/* NOTE: the "Growth Potential: High" and "Skill Alignment:
+                      76%" cards were hardcoded constants, not computed from the
+                      user's report — removed rather than shown as fake metrics. */}
                 </div>
                 {/* Potential Roles */}
                 {data?.report?.potentialRoles && data.report.potentialRoles.length > 0 && (
@@ -515,16 +516,18 @@ const CareerPathway: React.FC = () => {
                           <div className="flex-1">
                             <h3 className="font-semibold text-xl text-gray-900">{role.title}</h3>
                             <div className="flex items-center gap-3 mt-1 mb-3">
-                              <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100">
-                                {role.salaryRange || '$80-120K'}
-                              </Badge>
-                              <span className="text-sm text-muted-foreground">Match: {90 - index * 5}%</span>
+                              {/* Only render salary/match values that actually
+                                  came from the report — no invented defaults. */}
+                              {role.salaryRange && (
+                                <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100">
+                                  {role.salaryRange}
+                                </Badge>
+                              )}
+                              {typeof (role as any).matchPercentage === 'number' && (
+                                <span className="text-sm text-muted-foreground">Match: {(role as any).matchPercentage}%</span>
+                              )}
                             </div>
                             <p className="text-gray-600">{role.description}</p>
-                            
-                            <div className="mt-4 flex flex-wrap gap-2">
-                              {['SQL', 'Python', 'Data Visualization', 'Communication'].map(skill => <Badge key={skill} variant="outline">{skill}</Badge>)}
-                            </div>
                           </div>
                           <div>
                             <Button onClick={() => navigate(`/explore-data-careers?role=${encodeURIComponent(role.title.toLowerCase().replace(/\s+/g, '-'))}`)} variant="outline" size="sm">

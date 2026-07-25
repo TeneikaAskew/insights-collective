@@ -17,7 +17,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 export default function Events() {
   const { user } = useAuth();
-  const { data, isLoading } = useEventsWithRegistrations();
+  const { data, isLoading, isError, error, refetch } = useEventsWithRegistrations();
   const registerMutation = useRegisterForEvent();
   const unregisterMutation = useUnregisterFromEvent();
   
@@ -135,12 +135,35 @@ export default function Events() {
     );
   }
   
+  // A failed load must be distinct from "no upcoming events yet".
+  if (isError) {
+    return (
+      <AppLayout>
+        <div className="space-y-8">
+          <EventsHeader />
+          <div className="py-12 text-center border rounded-lg" role="alert">
+            <p className="text-destructive font-medium mb-1">Failed to load events</p>
+            <p className="text-sm text-muted-foreground mb-4">
+              {error instanceof Error ? error.message : 'Please try again.'}
+            </p>
+            <button
+              className="inline-flex items-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent"
+              onClick={() => refetch()}
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
+
   return (
     <AppLayout>
       <div className="space-y-8">
         <EventsHeader />
-        
-        <EventsFilter 
+
+        <EventsFilter
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
           typeFilter={typeFilter}

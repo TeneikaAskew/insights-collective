@@ -33,7 +33,10 @@ export default function EventDetail() {
     }
   });
   
-  const { data: registrationCount = 0 } = useEventRegistrationCount(id!);
+  // Track the count query's error separately: a failed count must render as
+  // unknown ("—"), not as an authoritative 0 / "N spots remaining".
+  const { data: registrationCount = 0, isError: registrationCountError } =
+    useEventRegistrationCount(id!);
   const { data: isRegistered = false } = useIsRegisteredForEvent(id!);
   const registerMutation = useRegisterForEvent();
   const unregisterMutation = useUnregisterFromEvent();
@@ -249,7 +252,9 @@ export default function EventDetail() {
                 {event.capacity && (
                   <div className="flex items-center">
                     <Users className="h-5 w-5 mr-2" />
-                    <span>{registrationCount} / {event.capacity} registered</span>
+                    <span>
+                      {registrationCountError ? '—' : registrationCount} / {event.capacity} registered
+                    </span>
                   </div>
                 )}
               </div>
@@ -335,9 +340,15 @@ export default function EventDetail() {
                 )}
 
                 <div className="text-sm text-muted-foreground">
-                  <p><strong>{registrationCount}</strong> people registered</p>
-                  {event.capacity && (
-                    <p><strong>{event.capacity - registrationCount}</strong> spots remaining</p>
+                  {registrationCountError ? (
+                    <p>Registration count unavailable right now.</p>
+                  ) : (
+                    <>
+                      <p><strong>{registrationCount}</strong> people registered</p>
+                      {event.capacity && (
+                        <p><strong>{event.capacity - registrationCount}</strong> spots remaining</p>
+                      )}
+                    </>
                   )}
                 </div>
               </CardContent>

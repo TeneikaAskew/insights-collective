@@ -67,6 +67,8 @@ const Dashboard = () => {
               .eq('user_id', user.id)
               .in('course_id', enrolledIds),
           ]);
+          if (progRes.error) throw progRes.error;
+          if (certRes.error) throw certRes.error;
           const progressions = (progRes.data ?? []).map((p: any) => {
             const ci = Array.isArray(p.content_items) ? p.content_items[0] : p.content_items;
             const mod = Array.isArray(ci?.modules) ? ci?.modules[0] : ci?.modules;
@@ -101,10 +103,11 @@ const Dashboard = () => {
           if (coursesError) throw coursesError;
           
           // Real enrollment counts per course — no fake rating/enrollment placeholders.
-          const { data: enrollRows } = await supabase
+          const { data: enrollRows, error: enrollRowsError } = await supabase
             .from('enrollments')
             .select('course_id')
             .in('course_id', courseIds);
+          if (enrollRowsError) throw enrollRowsError;
           const enrollCounts = new Map<string, number>();
           (enrollRows || []).forEach((r: any) => {
             enrollCounts.set(r.course_id, (enrollCounts.get(r.course_id) || 0) + 1);
@@ -179,10 +182,11 @@ const Dashboard = () => {
           
           if (coursesError) throw coursesError;
           
-          const { data: enrollRows } = await supabase
+          const { data: enrollRows, error: enrollRowsError } = await supabase
             .from('enrollments')
             .select('course_id')
             .in('course_id', courseIds);
+          if (enrollRowsError) throw enrollRowsError;
           const enrollCounts = new Map<string, number>();
           (enrollRows || []).forEach((r: any) => {
             enrollCounts.set(r.course_id, (enrollCounts.get(r.course_id) || 0) + 1);
@@ -224,42 +228,84 @@ const Dashboard = () => {
   }, [user, toast]);
   
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [notificationsError, setNotificationsError] = useState<string | null>(null);
+  const [notificationsReloadKey, setNotificationsReloadKey] = useState(0);
   const [upcomingDeadlines, setUpcomingDeadlines] = useState<any[]>([]);
+  const [deadlinesError, setDeadlinesError] = useState<string | null>(null);
+  const [deadlinesReloadKey, setDeadlinesReloadKey] = useState(0);
 
   // Fetch real notifications from DB
   useEffect(() => {
     const fetchNotifications = async () => {
       if (!user) return;
       try {
-        const { data } = await supabase
+        setNotificationsError(null);
+        const { data, error } = await supabase
           .from('notifications')
           .select('*')
           .eq('user_id', user.id)
           .eq('is_read', false)
           .order('created_at', { ascending: false })
           .limit(10);
-        setNotifications(data || []);
-      } catch (err) {
+        if (error) throw error;
+        // Map DB rows (snake_case) to the shape NotificationItem renders
+        // (camelCase); passing raw rows made every date show "Invalid Date".
+        setNotifications((data || []).map((n: any) => ({
+          id: n.id,
+          title: n.title,
+          message: n.message,
+          type: n.type,
+          link: n.link,
+          isRead: n.is_read,
+          createdAt: n.created_at,
+        })));
+      } catch (err: any) {
         logger.error('Error fetching notifications:', err);
+        setNotificationsError(err?.message || 'Failed to load notifications');
       }
     };
     fetchNotifications();
-  }, [user]);
+  }, [user, notificationsReloadKey]);
+
+  const markAllNotificationsRead = async () => {
+    const previous = notifications;
+    const unreadIds = previous.filter((n) => !n.isRead).map((n) => n.id);
+    if (unreadIds.length === 0) return;
+    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    const { error } = await supabase
+      .from('notifications')
+      .update({ is_read: true })
+      .in('id', unreadIds);
+    if (error) {
+      // Roll back the optimistic update — never report success on a failed write.
+      logger.error('Error marking notifications read:', error);
+      setNotifications(previous);
+      toast({
+        title: 'Failed to mark notifications as read',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
 
   // Fetch real upcoming deadlines from assignments
   useEffect(() => {
     const fetchDeadlines = async () => {
       if (!user || enrolledCourses.length === 0) return;
       try {
+        setDeadlinesError(null);
         const courseIds = enrolledCourses.map(c => c.id);
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('assignments')
           .select('id, title, due_date, course_id, courses(title)')
           .in('course_id', courseIds)
+          // Students must not see instructors' unpublished drafts as deadlines.
+          .eq('is_published', true)
           .gte('due_date', new Date().toISOString())
           .order('due_date', { ascending: true })
           .limit(5);
-        
+        if (error) throw error;
+
         setUpcomingDeadlines((data || []).map(d => ({
           id: d.id,
           title: d.title,
@@ -267,12 +313,13 @@ const Dashboard = () => {
           dueDate: d.due_date,
           type: 'assignment'
         })));
-      } catch (err) {
+      } catch (err: any) {
         logger.error('Error fetching deadlines:', err);
+        setDeadlinesError(err?.message || 'Failed to load deadlines');
       }
     };
     fetchDeadlines();
-  }, [user, enrolledCourses]);
+  }, [user, enrolledCourses, deadlinesReloadKey]);
   
   const formatDueDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -456,7 +503,18 @@ const Dashboard = () => {
               </Button>
             </div>
             
-            {upcomingDeadlines.length > 0 ? (
+            {deadlinesError ? (
+              <Card>
+                <CardContent className="py-10 text-center" role="alert">
+                  <p className="text-muted-foreground mb-4">
+                    Failed to load upcoming deadlines: {deadlinesError}
+                  </p>
+                  <Button variant="outline" onClick={() => setDeadlinesReloadKey((k) => k + 1)}>
+                    Retry
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : upcomingDeadlines.length > 0 ? (
               <div className="space-y-4">
                 {upcomingDeadlines.map((deadline) => (
                   <Card key={deadline.id}>
@@ -506,13 +564,24 @@ const Dashboard = () => {
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold">Notifications</h2>
               {notifications.some(n => !n.isRead) && (
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" onClick={markAllNotificationsRead}>
                   Mark All as Read
                 </Button>
               )}
             </div>
-            
-            {notifications.length > 0 ? (
+
+            {notificationsError ? (
+              <Card>
+                <CardContent className="py-10 text-center" role="alert">
+                  <p className="text-muted-foreground mb-4">
+                    Failed to load notifications: {notificationsError}
+                  </p>
+                  <Button variant="outline" onClick={() => setNotificationsReloadKey((k) => k + 1)}>
+                    Retry
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : notifications.length > 0 ? (
               <Card>
                 <CardContent className="p-0 divide-y">
                   {notifications.map((notification) => (

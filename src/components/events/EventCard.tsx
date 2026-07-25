@@ -82,7 +82,18 @@ export function EventCard({
     onClick={handleCardClick}
   >
       <div className="relative w-full pt-[50%] overflow-hidden">
-        <img src={event.image || "https://via.placeholder.com/600x300?text=Event"} alt={event.title} className="absolute inset-0 w-full h-full object-cover" />
+        {/* No external placeholder-service image: events without artwork get a
+            neutral block instead of a fabricated remote picture. */}
+        {event.image ? (
+          <img src={event.image} alt={event.title} className="absolute inset-0 w-full h-full object-cover" />
+        ) : (
+          <div
+            className="absolute inset-0 w-full h-full bg-muted flex items-center justify-center"
+            aria-hidden="true"
+          >
+            <Calendar className="h-10 w-10 text-muted-foreground/40" />
+          </div>
+        )}
         <Badge className="absolute top-2 right-2 text-white bg-energeticAmber">{event.type}</Badge>
         {isRegistered && <Badge className="absolute top-2 left-2 bg-green-500 text-white">Registered</Badge>}
       </div>

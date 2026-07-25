@@ -31,10 +31,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useResources, Resource, parseArrayField, normalizeString } from '@/hooks/useResources';
+import { supabase } from '@/integrations/supabase/client';
 import { Spinner } from '@/components/ui/spinner';
 
 const ResourceManagement = () => {
-  const { resources, isLoading } = useResources();
+  const { resources, isLoading, error: resourcesError } = useResources();
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
@@ -120,19 +121,29 @@ const ResourceManagement = () => {
   };
 
   const handleDeleteResource = async (resource: Resource) => {
-    // In a real implementation, this would call Supabase to delete the resource
+    // Real delete — the old handler only toasted "would be deleted".
+    const { error } = await supabase.from('resources').delete().eq('id', resource.id);
+    if (error) {
+      toast({
+        title: 'Failed to delete resource',
+        description: error.message,
+        variant: 'destructive',
+      });
+      return;
+    }
     toast({
-      title: 'Delete Resource',
-      description: `Resource "${resource.full_text?.substring(0, 50)}..." would be deleted`,
-      variant: 'destructive',
+      title: 'Resource deleted',
+      description: 'The resource has been removed.',
     });
   };
 
   const handleSaveResource = async () => {
-    // In a real implementation, this would save changes to Supabase
+    // The edit form is not wired to a database write yet — never claim the
+    // save succeeded.
     toast({
-      title: 'Resource Updated',
-      description: 'Resource has been successfully updated',
+      title: 'Editing not available',
+      description: 'Resource editing is not connected to the database yet — no changes were saved.',
+      variant: 'destructive',
     });
     setShowEditDialog(false);
     setEditingResource(null);
@@ -184,21 +195,15 @@ const ResourceManagement = () => {
             Manage resources displayed on the /resources page ({filteredResources.length} of {resources.length} resources)
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline">
-            <Upload className="h-4 w-4 mr-2" />
-            Import
-          </Button>
-          <Button variant="outline">
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </Button>
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Resource
-          </Button>
-        </div>
+        {/* The old Import / Export / Add Resource buttons had no handlers —
+            dead controls styled as functional were removed. */}
       </div>
+
+      {resourcesError && (
+        <div className="rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive" role="alert">
+          Failed to load resources: {resourcesError.message}. The counts and table below may be incomplete.
+        </div>
+      )}
 
       {/* Analytics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
