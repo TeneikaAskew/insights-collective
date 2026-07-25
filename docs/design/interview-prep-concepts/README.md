@@ -48,3 +48,15 @@ turns the marketing page into a personal dashboard.
 - Legacy near-duplicate routes `/mock-interviews` and `/code-practice` should
   redirect to the `/interview-prep/*` versions or be updated in tandem
   (`MonacoCard` is shared between both code pages).
+
+## Concept D — Guided Studio (A + C blend)
+
+![Concept D](./ip-concept-d-guided-studio.png)
+
+The numbered path IS the navigation: C's stepper (with Complete / Up next /
+Available / scheduled state chips) replaces A's tab bar — selecting a step
+swaps the overview below. The middle row is A's pair exactly: the feature
+overview card (checklist + Lora testimonial + CTAs) and the warm
+"Why this matters" evidence card, both themed to the selected step. C's
+"Continue where you left off" card anchors the page with the user's actual
+current STAR question, progress segments, and streak.
