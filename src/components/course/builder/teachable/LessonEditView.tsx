@@ -107,17 +107,37 @@ export function LessonEditView({
 
             <div className="p-6">
               {currentItem ? (
-                <LessonEditorPane
-                  item={currentItem}
-                  onSave={onSaveLesson}
-                  onSavingChange={onSavingChange}
-                />
+                (() => {
+                  const parentModule = modules.find((m) =>
+                    m.items.some((it) => it.id === currentItem.id),
+                  );
+                  const siblings = parentModule
+                    ? parentModule.items
+                        .filter((it) => it.id !== currentItem.id)
+                        .map((it) => it.title)
+                        .filter(Boolean)
+                    : [];
+                  return (
+                    <LessonEditorPane
+                      item={currentItem}
+                      onSave={onSaveLesson}
+                      onSavingChange={onSavingChange}
+                      aiContext={{
+                        courseTitle,
+                        sectionTitle: parentModule?.title,
+                        sectionSummary: (parentModule as any)?.summary,
+                        siblingLessonTitles: siblings,
+                      }}
+                    />
+                  );
+                })()
               ) : (
                 <div className="text-center py-20 text-sm text-gray-500">
                   Pick a lesson from the outline or add one from the panel to the right.
                 </div>
               )}
             </div>
+
           </div>
         </div>
 
