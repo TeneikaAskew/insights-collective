@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Trash2, Sparkles } from 'lucide-react';
+import { Trash2, Sparkles, Loader2 } from 'lucide-react';
 import { UnifiedCanvasEditor } from '@/components/ui/unified-canvas-editor';
 import { QuizContentEditor } from '@/components/course/builder/QuizContentEditor';
 import type { ContentItem, ContentItemType } from '@/types/canvas';
