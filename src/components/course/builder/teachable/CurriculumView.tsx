@@ -103,17 +103,12 @@ export function CurriculumView(props: CurriculumViewProps) {
         <span>{courseTitle}</span>
       </div>
 
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between gap-4 mb-8">
         <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl">Curriculum</h2>
-      </div>
-
-      {/* Toolbar */}
-      <div className="flex items-center gap-2 mb-6">
-        <div className="flex-1" />
         <button
           type="button"
           onClick={onAddModule}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-bold rounded-md"
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-bold rounded-md shrink-0"
           style={{
             background: 'hsl(var(--tw-accent))',
             color: 'hsl(var(--tw-accent-ink))',
