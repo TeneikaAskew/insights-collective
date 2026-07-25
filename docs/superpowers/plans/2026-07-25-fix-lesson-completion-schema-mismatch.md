@@ -44,7 +44,7 @@ The card (mounted on `/courses/:courseId/progress` via `CourseProgressOverview`)
 - Consumes: `supabase` client, `ModuleProgress` from `@/types/course` (unchanged: `{ total_lessons, completed_lessons, total_assignments, completed_assignments, total_quizzes, completed_quizzes, progress_percentage }`).
 - Produces: same component props (unchanged — `CourseProgressOverview.tsx:469-487` keeps working): `{ moduleId, moduleTitle, studentId, isLocked?, unlockDate?, prerequisites?, onLessonClick?, showDetails? }`. `onLessonClick` now receives a **content_item id**.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `src/components/course/__tests__/ModuleProgressCard.test.tsx`:
 
@@ -190,12 +190,12 @@ describe('ModuleProgressCard', () => {
 
 Note: adjust the `2 / 4` assertion to whatever "completed/total" copy the card renders (it currently renders `{completedItems}/{totalItems} items completed` — keep that copy and assert on it).
 
-- [ ] **Step 2: Run the test, verify it fails**
+- [x] **Step 2: Run the test, verify it fails**
 
 Run: `npm run test -- --run src/components/course/__tests__/ModuleProgressCard.test.tsx`
 Expected: FAIL — the current component calls `supabase.rpc('calculate_module_progress')` and never resolves past the loading skeleton (mocked rpc returns `{data: null}`), and it queries `lessons`.
 
-- [ ] **Step 3: Rewrite the component's data layer**
+- [x] **Step 3: Rewrite the component's data layer**
 
 In `src/components/course/ModuleProgressCard.tsx`, replace the two `useQuery` blocks (the RPC query at ~lines 56-75 and the detail query at ~lines 78-148) with ONE query:
 
@@ -308,17 +308,17 @@ Then update the render body:
 - Replace `item.total_points` with `item.points_possible` in the quiz row.
 - Keep `onLessonClick?.(item.id)` — it now navigates by content_item id, which is what `onNavigateToLesson` handlers use in the canvas model.
 
-- [ ] **Step 4: Run the new test file, verify it passes**
+- [x] **Step 4: Run the new test file, verify it passes**
 
 Run: `npm run test -- --run src/components/course/__tests__/ModuleProgressCard.test.tsx`
 Expected: PASS (3 tests).
 
-- [ ] **Step 5: Run the neighboring suites that mock or mount this component**
+- [x] **Step 5: Run the neighboring suites that mock or mount this component**
 
 Run: `npm run test -- --run src/components/course/__tests__/CourseProgressOverview.test.tsx src/pages/__tests__/CourseProgress.test.tsx`
 Expected: PASS — both mock ModuleProgressCard away, so they should be unaffected; if one fails, the mock path changed and must be fixed here, not there.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/components/course/ModuleProgressCard.tsx src/components/course/__tests__/ModuleProgressCard.test.tsx
@@ -343,7 +343,7 @@ Create the three tables `lessonCompletionService` needs (`lesson_completions`, `
 - Consumes: existing `assignment_submissions` live columns (`user_id`, `workflow_state`, `grade`).
 - Produces: SQL tables `lesson_completions(lesson_id, user_id, completed_at, completion_method)`, `lesson_completion_requirements(lesson_id, requirement_type, requirement_data)`, `content_progress(lesson_id, user_id, progress_percentage, time_spent, last_accessed)`. Service API signatures unchanged (params still named `studentId`).
 
-- [ ] **Step 1: Author the migration file**
+- [x] **Step 1: Author the migration file**
 
 Create `supabase/migrations/20260725120000_lesson_completion_system.sql` with exactly this content:
 
@@ -435,7 +435,7 @@ CREATE POLICY "Users manage own content progress" ON public.content_progress
   FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 ```
 
-- [ ] **Step 2: Update the failing tests first (they define the corrected contract)**
+- [x] **Step 2: Update the failing tests first (they define the corrected contract)**
 
 In `src/services/__tests__/lessonCompletionService.test.ts`:
 - `markLessonComplete` insert assertion: `{ lesson_id: 'lesson-1', user_id: 'student-1', completion_method: 'manual' }` (was `student_id`).
@@ -446,7 +446,7 @@ In `src/services/__tests__/lessonCompletionService.test.ts`:
 Run: `npm run test -- --run src/services/__tests__/lessonCompletionService.test.ts`
 Expected: FAIL (service still uses old names).
 
-- [ ] **Step 3: Fix the service**
+- [x] **Step 3: Fix the service**
 
 In `src/services/lessonCompletionService.ts`:
 - `markLessonComplete` insert: `student_id: studentId` → `user_id: studentId`.
@@ -456,18 +456,18 @@ In `src/services/lessonCompletionService.ts`:
 - `content_progress` queries already use `user_id` — leave them.
 - In `src/types/course.ts`, if `LessonCompletion` has `student_id`, rename the field to `user_id`. Check `useLessonCompletion.ts`, its test, and `LessonCompletionButton.tsx` for reads of `.student_id` on completion rows and rename those reads.
 
-- [ ] **Step 4: Run the service + hook + neighboring tests**
+- [x] **Step 4: Run the service + hook + neighboring tests**
 
 Run: `npm run test -- --run src/services/__tests__/lessonCompletionService.test.ts src/hooks/__tests__/useLessonCompletion.test.tsx`
 Expected: PASS.
 
-- [ ] **Step 5: Delete the superseded unapplied migration**
+- [x] **Step 5: Delete the superseded unapplied migration**
 
 ```bash
 git rm supabase/migrations/unapplied/20250715090000-canvas-style-course-enhancements.sql
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add supabase/migrations/20260725120000_lesson_completion_system.sql src/services/lessonCompletionService.ts src/services/__tests__/lessonCompletionService.test.ts src/types/course.ts src/hooks/useLessonCompletion.ts src/hooks/__tests__/useLessonCompletion.test.tsx src/components/course/LessonCompletionButton.tsx
@@ -492,7 +492,7 @@ Create `grades`, `grade_history`, `submission_comments`, `grade_change_notificat
 - Consumes: live `profiles(first_name, last_name, avatar_url)`, `quizzes(points_possible)`, `assignment_submissions(user_id)`, `course_assignments(user_id, course_id, role)`.
 - Produces: the five tables below, with `student_id` column naming (matches the services); `grades` has `UNIQUE NULLS NOT DISTINCT (course_id, student_id, assignment_id, quiz_id)` so `gradeService.upsertGrade`'s `onConflict: 'course_id,student_id,assignment_id,quiz_id'` works. Person-name embeds change shape: `{ first_name, last_name, avatar_url }` instead of `{ full_name, avatar_url }` — the `GradeHistoryEntry.changer/student` and `SubmissionComment.author` interfaces in `gradeHistoryService.ts` change accordingly, and a shared helper renders "First Last".
 
-- [ ] **Step 1: Author the migration file**
+- [x] **Step 1: Author the migration file**
 
 Create `supabase/migrations/20260725121000_grades_and_history_system.sql`:
 
@@ -778,7 +778,7 @@ CREATE TRIGGER update_comment_updated_at_trigger
   FOR EACH ROW EXECUTE FUNCTION public.update_comment_updated_at();
 ```
 
-- [ ] **Step 2: Fix the latent wrong-column embeds (tests first where they assert on them)**
+- [x] **Step 2: Fix the latent wrong-column embeds (tests first where they assert on them)**
 
 In `src/services/gradeService.ts`:
 - `getGradesByCourse` + `exportGradesToCSV`: `student:profiles!student_id(id, full_name, email, avatar_url)` → `student:profiles!student_id(id, first_name, last_name, avatar_url)`.
@@ -793,18 +793,18 @@ In the three grading components (`GradeHistoryViewer.tsx`, `SubmissionComments.t
 
 Update `src/services/__tests__/gradeService.test.ts` / `gradeHistoryService.test.ts` fixtures and assertions only where they reference `full_name`, `email`, or `total_points`.
 
-- [ ] **Step 3: Run the affected suites**
+- [x] **Step 3: Run the affected suites**
 
 Run: `npm run test -- --run src/services/__tests__/gradeService.test.ts src/services/__tests__/gradeHistoryService.test.ts src/hooks/__tests__/useGrades.test.tsx src/hooks/__tests__/useGradeHistory.test.tsx`
 Expected: PASS.
 
-- [ ] **Step 4: Delete the superseded unapplied migration**
+- [x] **Step 4: Delete the superseded unapplied migration**
 
 ```bash
 git rm supabase/migrations/unapplied/20250723000001-add-grade-history-and-comments.sql
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add supabase/migrations/20260725121000_grades_and_history_system.sql src/services/gradeService.ts src/services/gradeHistoryService.ts src/components/course/grading src/services/__tests__/gradeService.test.ts src/services/__tests__/gradeHistoryService.test.ts
@@ -825,7 +825,7 @@ git commit -m "feat: add grades and grade-history schema, fix profile/quiz colum
 - Consumes: `SubmissionComments` props `{ submissionId: string; submissionType: 'assignment' | 'quiz' }` from `src/components/course/grading/SubmissionComments.tsx:43-60`. `AssignmentSubmission.submission_type` is `string | null` (`src/types/canvas.ts:96`) — submissions graded here are always assignment submissions, so pass the literal `'assignment'`, NOT the nullable field.
 - Produces: nothing new for later tasks.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 If `src/pages/__tests__/CanvasGradingInterface.test.tsx` exists, add this test to it (reusing its existing setup); otherwise create the file with the project's standard page-test shape (`render` from `@/test/utils/test-utils`, `vi.mocked(useAuth)` with an instructor user, supabase tables routed like `src/pages/__tests__/Dashboard.test.tsx`). Mock the comments component itself:
 
@@ -847,7 +847,7 @@ expect(panel).toHaveAttribute('data-submission-type', 'assignment');
 
 Run it, expect FAIL (component not mounted yet).
 
-- [ ] **Step 2: Mount the component**
+- [x] **Step 2: Mount the component**
 
 In `src/pages/CanvasGradingInterface.tsx`: import `{ SubmissionComments }` from `@/components/course/grading/SubmissionComments`, and inside the grading `CardContent`, after the "Previously graded" `Alert` block (~line 500) and before `</CardContent>`, add:
 
@@ -860,12 +860,12 @@ In `src/pages/CanvasGradingInterface.tsx`: import `{ SubmissionComments }` from 
 )}
 ```
 
-- [ ] **Step 3: Run the page's test file + full grading-adjacent suites**
+- [x] **Step 3: Run the page's test file + full grading-adjacent suites**
 
 Run: `npm run test -- --run src/pages/__tests__/CanvasGradingInterface.test.tsx`
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/pages/CanvasGradingInterface.tsx src/pages/__tests__/CanvasGradingInterface.test.tsx
@@ -878,10 +878,10 @@ git commit -m "feat: mount submission comments panel in grading interface"
 
 Performed by the session controller (has Supabase MCP access), not an implementer subagent.
 
-- [ ] **Step 1:** Apply `20260725120000_lesson_completion_system.sql` via `apply_migration` (name `lesson_completion_system`).
-- [ ] **Step 2:** Apply `20260725121000_grades_and_history_system.sql` via `apply_migration` (name `grades_and_history_system`).
-- [ ] **Step 3:** Verify: query `information_schema.tables` for all 8 new tables; run `get_advisors` (security) and address any ERROR-level findings on the new tables.
-- [ ] **Step 4:** Regenerate `src/integrations/supabase/types.ts` via `generate_typescript_types`; write and commit:
+- [x] **Step 1:** Apply `20260725120000_lesson_completion_system.sql` via `apply_migration` (name `lesson_completion_system`).
+- [x] **Step 2:** Apply `20260725121000_grades_and_history_system.sql` via `apply_migration` (name `grades_and_history_system`).
+- [x] **Step 3:** Verify: query `information_schema.tables` for all 8 new tables; run `get_advisors` (security) and address any ERROR-level findings on the new tables.
+- [x] **Step 4:** Regenerate `src/integrations/supabase/types.ts` via `generate_typescript_types`; write and commit:
 
 ```bash
 git add src/integrations/supabase/types.ts
@@ -892,10 +892,10 @@ git commit -m "chore: regenerate supabase types for new schema"
 
 ### Task 6: Full verification
 
-- [ ] **Step 1:** `npm run test -- --run` — full suite green.
-- [ ] **Step 2:** `npm run lint` — no new errors (repo baseline has warnings).
-- [ ] **Step 3:** Live smoke via SQL: insert-free checks that PostgREST embeds used by the fixed services resolve, e.g. `SELECT 1 FROM grades LIMIT 1;`, `SELECT 1 FROM lesson_completions LIMIT 1;` (empty result = OK, error = broken), and confirm the CourseProgress queries: `SELECT id, title FROM content_items WHERE published = true LIMIT 1;`.
-- [ ] **Step 4:** Commit any stragglers; otherwise nothing to commit.
+- [x] **Step 1:** `npm run test -- --run` — full suite green.
+- [x] **Step 2:** `npm run lint` — no new errors (repo baseline has warnings).
+- [x] **Step 3:** Live smoke via SQL: insert-free checks that PostgREST embeds used by the fixed services resolve, e.g. `SELECT 1 FROM grades LIMIT 1;`, `SELECT 1 FROM lesson_completions LIMIT 1;` (empty result = OK, error = broken), and confirm the CourseProgress queries: `SELECT id, title FROM content_items WHERE published = true LIMIT 1;`.
+- [x] **Step 4:** Commit any stragglers; otherwise nothing to commit.
 
 ---
 
@@ -903,3 +903,27 @@ git commit -m "chore: regenerate supabase types for new schema"
 
 - `LessonCompletionButton` + the legacy lesson stack UI (`LessonManagerWithMigration`, `ModuleManager`): the mounted student player (`LessonViewer` in `CourseLearn`) already has "Mark as done" on `content_item_progressions`; the legacy `lessons` UI is unrouted (`/courses/:id/management` redirects to the builder). Mounting a second, parallel completion system would confuse the product. The backend now works; if the requirements feature is wanted in the modern flow, port `lessonCompletionService` to key off `content_item_id` and add the editor to `LessonEditView` (builder) — a separate feature effort.
 - `GradeDetailView`/`GradeHistoryViewer`: no natural insertion point in the single-page `CanvasGradingInterface` without a redesign (needs a history tab/modal). Backend works after Task 3; wiring is a UX decision.
+
+---
+
+## Final verification record (2026-07-25)
+
+- Full suite: `npm run test -- --run` — **91 files / 826 tests passed**. (Stack traces printed by
+  `AuthContext.test.tsx` are the intentional "must be used within an AuthProvider" assertions, not failures.)
+- Lint: `npm run lint` — **0 errors, 61 warnings** (all pre-existing `react-refresh/only-export-components`
+  and unused-var warnings; repo baseline).
+- Schema, live project `siuqvhscuiycvdrtiqsh`: `grades`, `grade_history`, `lesson_completions`,
+  `submission_comments` all present; smoke selects return empty (no rows yet) rather than erroring.
+  `content_items WHERE published = true` → 57 rows, so the CourseProgress query has live data.
+- PostgREST embeds verified by foreign key: `grades` → `assignments`/`courses`/`quizzes`/`profiles` (×2),
+  `grade_history` → `grades`/`assignments`/`courses`/`quizzes`/`profiles` (×2), `lesson_completions` →
+  `lessons`/`profiles`, `quiz_attempts` → `quizzes`, `submission_comments` → `profiles` + self-reference.
+  `submission_comments.submission_id` intentionally carries no FK — it is polymorphic over
+  `assignment_submissions` and `quiz_attempts`, discriminated by `submission_type` and enforced in RLS.
+- Security advisors: **0 ERROR-level findings**, and none of the four new tables appear in any advisory.
+  The 106 warnings are repo-wide pre-existing patterns (48 anon + 48 authenticated security-definer function
+  grants, 5 public buckets allowing listing, 3 always-true RLS policies on unrelated tables, leaked-password
+  protection disabled, outdated Postgres version).
+
+Follow-ups for the user, not blockers: enable leaked-password protection in Auth settings, and schedule the
+Postgres upgrade flagged by the advisor.
