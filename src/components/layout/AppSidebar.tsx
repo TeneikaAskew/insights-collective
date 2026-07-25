@@ -237,7 +237,7 @@ const AppSidebar = () => {
         </div>
       </SidebarHeader>
       
-      <SidebarContent className="py-2 px-2 bg-gray-50 dark:bg-gray-900">
+      <SidebarContent className="py-2 px-2 group-data-[collapsible=icon]:px-0 bg-gray-50 dark:bg-gray-900">
         {isAuthenticated && <div className={`mb-4 ${open ? 'px-2' : 'flex justify-center'}`}>
             <div className={`flex items-center ${open ? 'space-x-2' : 'justify-center'} mb-2`}>
               <Avatar className="border-2 border-[#9b87f5]/20 w-7 h-7 flex-shrink-0">
