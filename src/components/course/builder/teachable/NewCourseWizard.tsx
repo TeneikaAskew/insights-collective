@@ -151,6 +151,7 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
 
   return (
     <div className="teachable-workspace fixed inset-0 z-50 bg-white flex flex-col">
+      {submitting && <CreationProgressOverlay steps={progressSteps} />}
       {/* Top bar */}
       <div
         className="h-14 px-6 flex items-center justify-between flex-shrink-0"
