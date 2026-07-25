@@ -195,7 +195,23 @@ export function LessonEditorPane({
           </div>
         ) : (
           <div className="space-y-2">
-            <Label>Content</Label>
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <Label>Content</Label>
+              <button
+                type="button"
+                onClick={handleGenerateAI}
+                disabled={generatingAI}
+                className="group inline-flex items-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary/10 hover:border-primary/50 disabled:opacity-60 disabled:cursor-not-allowed"
+                aria-label="Generate content with AI"
+              >
+                {generatingAI ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                <span>{generatingAI ? 'Generating…' : 'Generate content with AI'}</span>
+              </button>
+            </div>
             <UnifiedCanvasEditor
               key={`content-${item.id}`}
               content={draft.content}
@@ -205,6 +221,7 @@ export function LessonEditorPane({
             />
           </div>
         )}
+
       </CardContent>
     </Card>
   );
