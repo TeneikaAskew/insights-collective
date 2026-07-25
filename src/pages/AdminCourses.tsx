@@ -9,9 +9,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Edit, Trash2, Plus, FilterX, Download, Filter, Users, Award, Eye, PlusCircle, BarChart3 } from 'lucide-react';
+import { Search, Edit, Trash2, Plus, FilterX, Download, Filter, Users, Award, Eye, PlusCircle, BarChart3, FileSpreadsheet } from 'lucide-react';
 import { Hint } from '@/components/ui/hint';
 import { CourseProgressDashboard } from '@/components/admin/CourseProgressDashboard';
+import { UnifiedExportReport } from '@/components/admin/UnifiedExportReport';
 import {
   DropdownMenu,
   DropdownMenuContent,
