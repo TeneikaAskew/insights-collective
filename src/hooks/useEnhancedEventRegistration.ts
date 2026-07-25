@@ -68,12 +68,22 @@ export function useEnhancedEventRegistration({ eventId }: UseEnhancedEventRegist
 
     try {
       // Check if already registered (prevent race conditions)
-      const { data: existingRegistration } = await supabase
+      const { data: existingRegistration, error: checkError } = await supabase
         .from('event_registrations')
         .select('id')
         .eq('event_id', eventId)
         .eq('user_id', user.id)
         .maybeSingle();
+
+      if (checkError) {
+        logger.error('Error checking existing registration:', checkError);
+        toast({
+          title: 'Registration Failed',
+          description: 'Could not verify your registration status. Please try again.',
+          variant: 'destructive'
+        });
+        return;
+      }
 
       if (existingRegistration) {
         setIsRegistered(true);

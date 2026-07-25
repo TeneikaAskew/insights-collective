@@ -103,6 +103,19 @@ export const mockSupabaseClient = {
   functions: {
     invoke: vi.fn(),
   },
+  // Realtime stubs: hooks that subscribe to postgres_changes need a chainable
+  // channel object. `on` returns the channel so `.on(...).on(...).subscribe()`
+  // chains work; subscribe accepts the status callback without invoking it.
+  channel: vi.fn(() => {
+    const channel: any = {
+      on: vi.fn(() => channel),
+      subscribe: vi.fn(() => channel),
+      unsubscribe: vi.fn(),
+      topic: 'mock-topic',
+    };
+    return channel;
+  }),
+  removeChannel: vi.fn().mockResolvedValue('ok'),
 };
 
 // Shape of a PostgrestError, for injecting failures into query mocks:

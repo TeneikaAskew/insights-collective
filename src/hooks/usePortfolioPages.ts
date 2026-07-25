@@ -250,12 +250,14 @@ export const usePortfolioPages = () => {
       customDescription?: string;
     }) => {
       // Get the current highest display order
-      const { data: existingProjects } = await supabase
+      const { data: existingProjects, error: orderError } = await supabase
         .from('portfolio_page_projects')
         .select('display_order')
         .eq('portfolio_page_id', portfolioPageId)
         .order('display_order', { ascending: false })
         .limit(1);
+
+      if (orderError) throw orderError;
 
       const nextDisplayOrder = existingProjects && existingProjects.length > 0 
         ? existingProjects[0].display_order + 1 

@@ -25,6 +25,7 @@ export function useUserProfile(user: User | null) {
     }
 
     const loadProfile = async () => {
+      setError(null);
       try {
         // Fetch profile and roles in parallel
         const [profileResult, rolesResult] = await Promise.all([
@@ -45,7 +46,13 @@ export function useUserProfile(user: User | null) {
         }
 
         if (rolesError) {
+          // BEHAVIOR CHANGE (silent-failure audit): a failed roles RPC used to be
+          // logged and then silently replaced with fallback/default roles, leaving
+          // the user (and any consumer of useAuth().error) unaware that their
+          // effective roles may be wrong. We still fail CLOSED (default roles),
+          // but the error is now surfaced through the hook's error state.
           logger.error('Error fetching roles from user_roles:', rolesError);
+          setError(new Error(`Failed to load user roles: ${rolesError.message}`));
         }
 
         // Canonical roles from user_roles table, fall back to profile.roles, then default

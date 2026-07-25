@@ -44,8 +44,20 @@ export default function AdminEvents() {
   const { toast } = useToast();
   
   // Fetch events from Supabase
-  const { data: events = [], isLoading: eventsLoading } = useEvents();
-  const { data: registrations = [], isLoading: registrationsLoading } = useEventRegistrations();
+  const {
+    data: events = [],
+    isLoading: eventsLoading,
+    isError: eventsError,
+    error: eventsErrorDetail,
+    refetch: refetchEvents,
+  } = useEvents();
+  const {
+    data: registrations = [],
+    isLoading: registrationsLoading,
+    isError: registrationsError,
+    error: registrationsErrorDetail,
+    refetch: refetchRegistrations,
+  } = useEventRegistrations();
   const createEvent = useCreateEvent();
   const updateEvent = useUpdateEvent();
   const deleteEvent = useDeleteEvent();
@@ -54,9 +66,13 @@ export default function AdminEvents() {
   const attendees = registrations.map(reg => ({
     id: reg.id,
     eventId: reg.event_id,
-    name: reg.profiles?.full_name || 'Unknown',
-    email: reg.profiles?.email || 'No email',
-    registrationDate: new Date(reg.registered_at).toISOString().split('T')[0]
+    name: [reg.profiles?.first_name, reg.profiles?.last_name].filter(Boolean).join(' ') || 'Unknown',
+    // Email lives in auth.users, not in the public profiles table, so it is
+    // not available from this query. Render a dash, not fake data.
+    email: '—',
+    registrationDate: reg.registered_at
+      ? new Date(reg.registered_at).toISOString().split('T')[0]
+      : '—'
   }));
 
   const handleAddEvent = async (newEvent: Omit<Event, 'id' | 'created_at' | 'updated_at'> & { id?: string }) => {
@@ -183,7 +199,8 @@ export default function AdminEvents() {
           </Button>
         </div>
 
-        <AddEventModal 
+        <AddEventModal
+          key={eventToEdit?.id ?? 'new'}
           open={isModalOpen}
           onAddEvent={handleAddEvent} 
           editEvent={eventToEdit} 
@@ -213,6 +230,16 @@ export default function AdminEvents() {
                     <Skeleton className="h-10 w-full" />
                     <Skeleton className="h-20 w-full" />
                     <Skeleton className="h-20 w-full" />
+                  </div>
+                ) : eventsError ? (
+                  <div className="py-8 text-center" role="alert">
+                    <p className="text-destructive font-medium mb-1">Failed to load events</p>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      {eventsErrorDetail instanceof Error ? eventsErrorDetail.message : 'Please try again.'}
+                    </p>
+                    <Button variant="outline" size="sm" onClick={() => refetchEvents()}>
+                      Retry
+                    </Button>
                   </div>
                 ) : (
                 <div className="space-y-4">
@@ -277,7 +304,10 @@ export default function AdminEvents() {
                       View and manage attendee registrations.
                     </CardDescription>
                   </div>
-                  <Select value={selectedEvent || 'all'} onValueChange={setSelectedEvent}>
+                  <Select
+                    value={selectedEvent || 'all'}
+                    onValueChange={(value) => setSelectedEvent(value === 'all' ? null : value)}
+                  >
                     <SelectTrigger className="w-[220px]">
                       <SelectValue placeholder="Filter by event" />
                     </SelectTrigger>
@@ -298,10 +328,22 @@ export default function AdminEvents() {
                     <Skeleton className="h-10 w-full" />
                     <Skeleton className="h-20 w-full" />
                   </div>
+                ) : registrationsError ? (
+                  <div className="py-8 text-center" role="alert">
+                    <p className="text-destructive font-medium mb-1">Failed to load registrations</p>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      {registrationsErrorDetail instanceof Error
+                        ? registrationsErrorDetail.message
+                        : 'Please try again.'}
+                    </p>
+                    <Button variant="outline" size="sm" onClick={() => refetchRegistrations()}>
+                      Retry
+                    </Button>
+                  </div>
                 ) : (
-                  <EventsRegistrationsTable 
-                    attendees={filteredAttendees} 
-                    events={events} 
+                  <EventsRegistrationsTable
+                    attendees={filteredAttendees}
+                    events={events}
                   />
                 )}
               </CardContent>

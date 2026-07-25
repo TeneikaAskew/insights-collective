@@ -41,7 +41,7 @@ export const useAuthProvider = () => {
   const { toast } = useToast();
   const redirect = useAuthRedirect();
 
-  const { enrichedUser, loading: profileLoading } = useUserProfile(session?.user ?? null);
+  const { enrichedUser, loading: profileLoading, error: profileError } = useUserProfile(session?.user ?? null);
 
   const isAuthenticated = !!enrichedUser;
   
@@ -260,7 +260,10 @@ export const useAuthProvider = () => {
     session,
     user: enrichedUser,
     loading: loading || profileLoading,
-    error,
+    // Silent-failure audit: profile/role fetch failures used to be swallowed
+    // inside useUserProfile, leaving `error` null while the user ran with
+    // fallback roles. Surface them so consumers can react.
+    error: error ?? (profileError ? profileError.message : null),
     login,
     register,
     logout,

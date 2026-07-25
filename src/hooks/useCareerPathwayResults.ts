@@ -29,36 +29,38 @@ export const useCareerPathwayResults = () => {
         .maybeSingle();
 
       logger.log("Career pathway results query result:", data);
-      
-      // If there's data in Supabase, parse and return it
-      if (data && !error) {
-        try {
-          // Parse the career report
-          const parsedReport = parseCareerReport(data.report);
-          logger.log("Successfully parsed career pathway report data");
-          
-          // Validate the action plan
-          const actionPlan = data.action_plan;
-          if (actionPlan && typeof actionPlan === 'object' && Object.keys(actionPlan).length > 0) {
-            logger.log("Found valid action plan data:", Object.keys(actionPlan));
-          } else {
-            logger.log("No valid action plan found in database");
-          }
-          
-          return {
-            report: parsedReport,
-            actionPlan: actionPlan
-          };
-        } catch (err) {
-          logger.error("Error parsing career report from Supabase:", err);
-        }
-      } else if (error) {
+
+      // A query failure must surface as an error state, not as
+      // "assessment not completed yet".
+      if (error) {
         logger.error("Error fetching career pathway results:", error);
-      } else {
-        logger.log("No career pathway results found for user");
+        throw error;
       }
-      
-      // If no data in Supabase or parsing error, return a default structure
+
+      // If there's data in Supabase, parse and return it
+      if (data) {
+        // Parse the career report — a parse failure means the stored report is
+        // corrupted, which is an error, not a missing assessment.
+        const parsedReport = parseCareerReport(data.report);
+        logger.log("Successfully parsed career pathway report data");
+
+        // Validate the action plan
+        const actionPlan = data.action_plan;
+        if (actionPlan && typeof actionPlan === 'object' && Object.keys(actionPlan).length > 0) {
+          logger.log("Found valid action plan data:", Object.keys(actionPlan));
+        } else {
+          logger.log("No valid action plan found in database");
+        }
+
+        return {
+          report: parsedReport,
+          actionPlan: actionPlan
+        };
+      }
+
+      logger.log("No career pathway results found for user");
+
+      // Genuinely no results yet: return the empty "not completed" structure
       return {
         report: {
           userName: 'there',
