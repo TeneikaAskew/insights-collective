@@ -120,7 +120,7 @@ export const SubmissionComments: React.FC<SubmissionCommentsProps> = ({
     setEditText('');
   };
 
-  const handleDeleteComment = (commentId: string) => {
+  const handleDeleteComment = async (commentId: string) => {
     if (await confirm({ title: 'Delete comment?', description: 'This permanently removes the comment.', destructive: true, confirmLabel: 'Delete' })) {
       deleteComment(commentId);
     }
