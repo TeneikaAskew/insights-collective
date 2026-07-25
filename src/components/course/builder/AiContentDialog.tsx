@@ -146,17 +146,27 @@ export function AiContentDialog({
     if (!html) return;
     // eslint-disable-next-line no-console
     console.log('[AI lesson content] insert', { mode, chars: html.length });
-    try {
-      onApply(html, mode);
-      toast.success(
-        mode === 'append' ? 'Appended AI draft to lesson' : 'Inserted AI draft into lesson',
-      );
-      onOpenChange(false);
-    } catch (err: any) {
-      // eslint-disable-next-line no-console
-      console.error('[AI lesson content] insert failed', err);
-      toast.error('Could not insert content', { description: err?.message });
-    }
+    setInserting(mode);
+    // Give React a paint frame so the button spinner + overlay render before we
+    // do the (potentially heavy) HTML setContent on the TipTap editor.
+    requestAnimationFrame(() => {
+      try {
+        onApply(html, mode);
+        toast.success(
+          mode === 'append' ? 'Appended AI draft to lesson' : 'Inserted AI draft into lesson',
+        );
+        // Small delay so the "Inserting…" state is visible even on fast machines.
+        setTimeout(() => {
+          setInserting(null);
+          onOpenChange(false);
+        }, 250);
+      } catch (err: any) {
+        // eslint-disable-next-line no-console
+        console.error('[AI lesson content] insert failed', err);
+        setInserting(null);
+        toast.error('Could not insert content', { description: err?.message });
+      }
+    });
   }
 
   const hasExisting = Boolean(existingContent && existingContent.replace(/<[^>]+>/g, '').trim());
