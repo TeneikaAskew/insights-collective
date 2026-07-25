@@ -42,6 +42,15 @@ Security advisor lints: 116 → 108, with `rls_enabled_no_policy` eliminated and
 1. **Upgrade Postgres** — current 15.8.1.054 has outstanding security patches (Settings → Infrastructure).
 2. **Enable leaked-password protection** (Auth → Providers → Password — HaveIBeenPwned check).
 
+## Migration-folder reconciliation (2026-07-25)
+
+The repo held 124 migration files but the live ledger only recorded 44. Object-level verification (probing every `CREATE TABLE` target against the live DB) classified them:
+
+- **78 files: applied-but-unledgered** — all their objects exist live (they were executed directly, outside the ledger). `scripts/reconcile_migration_ledger.sql` records them in `supabase_migrations.schema_migrations` so `supabase db push` stops treating them as pending. ⚠️ **This script still needs to be run** — the Supabase connection dropped before it executed. It's idempotent.
+- **1 file: partially applied with a live-code dependency** — `submission_attachments` (from `20250716000000-canvas-style-content-system.sql`) never existed, yet the assignment-submission page inserts into it, so **every file-upload attachment record has been failing**. Created via the `create_submission_attachments` migration (applied live, with own-rows + instructor RLS); table added to `types.ts`.
+- **3 files: never applied, dead features** — moved to `supabase/migrations/unapplied/` with a README (grade-history stack, lesson-completions/grades/module-prerequisites stack, legacy content-blocks). Re-split deliberately if those features are ever built.
+- **1 filename collision fixed** — two files shared version `20260412000000`; `fix_forms_rls_insert` renamed to `20260412000500`.
+
 ## Performance advisor backlog (informational)
 
 - 263 policies re-evaluate `auth.uid()` per row (`auth_rls_initplan`) — wrapping as `(SELECT auth.uid())` across policies is a worthwhile sweep as data grows.
