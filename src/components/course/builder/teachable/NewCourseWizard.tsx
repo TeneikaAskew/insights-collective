@@ -111,6 +111,7 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
   const handleFinish = async () => {
     setSubmitting(true);
     setSubmitError(null);
+    setProgressSteps([]);
     try {
       // Ensure a starter outline for scratch flow
       let finalOutline = outline;
@@ -119,14 +120,17 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
           { title: 'Section 1', lessons: [{ title: 'Introduction', type: 'page' }] },
         ];
       }
-      await onFinish({
-        title: title.trim(),
-        description: description.trim(),
-        thumbnailFile,
-        outlineMethod,
-        aiDescription: aiDescription.trim(),
-        outline: finalOutline,
-      });
+      await onFinish(
+        {
+          title: title.trim(),
+          description: description.trim(),
+          thumbnailFile,
+          outlineMethod,
+          aiDescription: aiDescription.trim(),
+          outline: finalOutline,
+        },
+        setProgressSteps,
+      );
     } catch (err: any) {
       setSubmitError(
         err?.message || 'Something went wrong creating the course. Please try again.',
