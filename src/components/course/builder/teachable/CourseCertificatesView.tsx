@@ -39,11 +39,8 @@ export function CourseCertificatesView({ course, onSave }: CourseCertificatesVie
 
   return (
     <div className="px-4 sm:px-6 lg:px-10 py-6 lg:py-10 max-w-[900px] mx-auto">
-      <div className="text-xs uppercase tracking-widest text-muted-foreground mb-3">
-        <span className="underline underline-offset-4">Courses</span>
-        <span className="mx-2 opacity-50">|</span>
-        <span>{course.title}</span>
-      </div>
+      <TeachableBreadcrumb courseId={course.id} courseTitle={course.title} current="Certificates" />
+
 
       <div className="flex items-center gap-3 mb-8">
         <div className="w-10 h-10 rounded-md flex items-center justify-center bg-primary/15">

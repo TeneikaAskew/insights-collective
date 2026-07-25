@@ -629,6 +629,7 @@ const CourseBuilder = () => {
 
       {activeView === 'curriculum' && (
         <CurriculumView
+          courseId={course.id}
           courseTitle={course.title}
           modules={modules}
           onAddModule={addSection}
@@ -647,6 +648,7 @@ const CourseBuilder = () => {
 
       {activeView === 'lesson' && (
         <LessonEditView
+          courseId={course.id}
           courseTitle={course.title}
           modules={modules}
           currentItem={currentLesson}
@@ -678,6 +680,7 @@ const CourseBuilder = () => {
         activeView !== 'certificates' &&
         PLACEHOLDER_COPY[activeView as keyof typeof PLACEHOLDER_COPY] && (
           <PlaceholderView
+            courseId={course.id}
             courseTitle={course.title}
             title={PLACEHOLDER_COPY[activeView as keyof typeof PLACEHOLDER_COPY].title}
             description={PLACEHOLDER_COPY[activeView as keyof typeof PLACEHOLDER_COPY].description}
