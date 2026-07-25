@@ -1077,7 +1077,7 @@ const CourseDetail = () => {
               </section>
 
               {/* Two-column: Jump back in + Additional links */}
-              <div className="grid lg:grid-cols-[minmax(0,1fr)_360px] gap-6">
+              <div className="grid xl:grid-cols-[minmax(0,1fr)_340px] gap-6">
                 {/* Jump back in */}
                 <section className="rounded-2xl bg-white border border-neutral-200 p-6 md:p-8">
                   <h2 className="font-display text-3xl text-neutral-900 mb-6">Jump back in</h2>
