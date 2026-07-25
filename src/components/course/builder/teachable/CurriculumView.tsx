@@ -33,6 +33,7 @@ import { Hint } from '@/components/ui/hint';
 import { sanitizeHTML } from '@/utils/sanitize';
 import type { ContentItem } from '@/types/canvas';
 import type { BuilderModule } from './types';
+import { TeachableBreadcrumb } from './TeachableBreadcrumb';
 
 function htmlToPlainText(html: string): string {
   if (!html) return '';
