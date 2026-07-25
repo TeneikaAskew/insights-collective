@@ -261,30 +261,35 @@ function NavGroup({
   items,
   activeKey,
   onNavigate,
+  collapsed = false,
 }: {
   items: { key: BuilderNavKey; label: string; icon: typeof LayoutGrid; comingSoon?: boolean }[];
   activeKey: BuilderNavKey;
   onNavigate: (key: BuilderNavKey) => void;
+  collapsed?: boolean;
 }) {
   return (
     <div className="space-y-0.5">
       {items.map(({ key, label, icon: Icon, comingSoon }) => {
         const active = key === activeKey;
-        return (
+        const button = (
           <button
             key={key}
             type="button"
             onClick={() => onNavigate(key)}
+            title={collapsed ? label : undefined}
+            aria-label={collapsed ? label : undefined}
             className={cn(
-              'w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-left transition-colors',
+              'w-full flex items-center rounded-md text-sm font-medium text-left transition-colors',
+              collapsed ? 'justify-center px-2 py-2' : 'gap-3 px-3 py-2',
               active
                 ? 'bg-primary text-primary-foreground font-semibold'
                 : 'text-primary hover:bg-primary hover:text-primary-foreground',
             )}
           >
             <Icon className="h-4 w-4 flex-shrink-0" />
-            <span className="truncate">{label}</span>
-            {comingSoon && (
+            {!collapsed && <span className="truncate">{label}</span>}
+            {!collapsed && comingSoon && (
               <Badge
                 variant="outline"
                 className="ml-auto flex-shrink-0 border-current text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0 text-inherit"
@@ -294,6 +299,7 @@ function NavGroup({
             )}
           </button>
         );
+        return button;
       })}
     </div>
   );
