@@ -2125,6 +2125,33 @@ export type Database = {
           },
         ]
       }
+      cron_job_logs: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          job_name: string
+          response_data: Json | null
+          success: boolean
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          job_name: string
+          response_data?: Json | null
+          success: boolean
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          job_name?: string
+          response_data?: Json | null
+          success?: boolean
+        }
+        Relationships: []
+      }
       debug_token_attempts: {
         Row: {
           attempt_time: string
@@ -2927,6 +2954,44 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      no_show_reports: {
+        Row: {
+          created_at: string
+          id: string
+          reason: string
+          reported_user_id: string
+          reporter_id: string
+          session_id: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          reason: string
+          reported_user_id: string
+          reporter_id: string
+          session_id: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          reason?: string
+          reported_user_id?: string
+          reporter_id?: string
+          session_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "no_show_reports_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "mock_sessions"
             referencedColumns: ["id"]
           },
         ]

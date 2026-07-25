@@ -24,10 +24,19 @@ export interface NewCourseWizardResult {
   outline?: OutlineSection[];
 }
 
+export type CreationStepStatus = 'pending' | 'running' | 'done' | 'error' | 'skipped';
+export interface CreationStep {
+  id: string;
+  label: string;
+  status: CreationStepStatus;
+  detail?: string;
+}
+export type ProgressReporter = (steps: CreationStep[]) => void;
+
 interface NewCourseWizardProps {
   open: boolean;
   onCancel: () => void;
-  onFinish: (result: NewCourseWizardResult) => Promise<void>;
+  onFinish: (result: NewCourseWizardResult, onProgress: ProgressReporter) => Promise<void>;
 }
 
 const STEPS = ['About', 'Thumbnail', 'Outline', 'Confirm'] as const;
@@ -36,6 +45,7 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [progressSteps, setProgressSteps] = useState<CreationStep[]>([]);
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -101,6 +111,7 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
   const handleFinish = async () => {
     setSubmitting(true);
     setSubmitError(null);
+    setProgressSteps([]);
     try {
       // Ensure a starter outline for scratch flow
       let finalOutline = outline;
@@ -109,14 +120,17 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
           { title: 'Section 1', lessons: [{ title: 'Introduction', type: 'page' }] },
         ];
       }
-      await onFinish({
-        title: title.trim(),
-        description: description.trim(),
-        thumbnailFile,
-        outlineMethod,
-        aiDescription: aiDescription.trim(),
-        outline: finalOutline,
-      });
+      await onFinish(
+        {
+          title: title.trim(),
+          description: description.trim(),
+          thumbnailFile,
+          outlineMethod,
+          aiDescription: aiDescription.trim(),
+          outline: finalOutline,
+        },
+        setProgressSteps,
+      );
     } catch (err: any) {
       setSubmitError(
         err?.message || 'Something went wrong creating the course. Please try again.',
@@ -137,6 +151,7 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
 
   return (
     <div className="teachable-workspace fixed inset-0 z-50 bg-white flex flex-col">
+      {submitting && <CreationProgressOverlay steps={progressSteps} />}
       {/* Top bar */}
       <div
         className="h-14 px-6 flex items-center justify-between flex-shrink-0"
@@ -653,6 +668,107 @@ function Field({
         {label} {required && <span className="text-red-500">*</span>}
       </label>
       {children}
+    </div>
+  );
+}
+
+function CreationProgressOverlay({ steps }: { steps: CreationStep[] }) {
+  const displaySteps: CreationStep[] =
+    steps.length > 0
+      ? steps
+      : [{ id: 'starting', label: 'Starting…', status: 'running' }];
+  const activeIndex = displaySteps.findIndex((s) => s.status === 'running');
+  const doneCount = displaySteps.filter(
+    (s) => s.status === 'done' || s.status === 'skipped',
+  ).length;
+  const hasError = displaySteps.some((s) => s.status === 'error');
+  const total = displaySteps.length;
+  const pct = total > 0 ? Math.round((doneCount / total) * 100) : 0;
+
+  return (
+    <div
+      role="dialog"
+      aria-live="polite"
+      aria-label="Creating course"
+      className="absolute inset-0 z-[60] bg-white/95 backdrop-blur-sm flex items-center justify-center px-6"
+    >
+      <div
+        className="w-full max-w-md rounded-xl p-6 shadow-lg"
+        style={{ border: '1px solid hsl(var(--tw-border))', background: '#fff' }}
+      >
+        <div className="flex items-center gap-3 mb-4">
+          {hasError ? (
+            <span className="h-8 w-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center text-lg">
+              !
+            </span>
+          ) : (
+            <Loader2 className="h-6 w-6 animate-spin text-gray-700" />
+          )}
+          <div>
+            <div className="font-semibold text-base">
+              {hasError ? 'Something went wrong' : 'Creating your course'}
+            </div>
+            <div className="text-xs text-gray-500">
+              {hasError
+                ? 'See details below.'
+                : activeIndex >= 0
+                  ? displaySteps[activeIndex].label
+                  : 'Wrapping up…'}
+            </div>
+          </div>
+        </div>
+
+        <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden mb-4">
+          <div
+            className="h-full transition-all"
+            style={{
+              width: `${pct}%`,
+              background: hasError ? '#dc2626' : 'hsl(var(--tw-accent))',
+            }}
+          />
+        </div>
+
+        <ol className="space-y-2">
+          {displaySteps.map((s) => (
+            <li key={s.id} className="flex items-start gap-3 text-sm">
+              <span className="mt-0.5">
+                {s.status === 'done' && (
+                  <span className="inline-flex h-4 w-4 rounded-full bg-emerald-500 text-white items-center justify-center">
+                    <Check className="h-3 w-3" strokeWidth={3} />
+                  </span>
+                )}
+                {s.status === 'running' && (
+                  <Loader2 className="h-4 w-4 animate-spin text-gray-600" />
+                )}
+                {s.status === 'pending' && (
+                  <span className="inline-block h-4 w-4 rounded-full border border-gray-300" />
+                )}
+                {s.status === 'error' && (
+                  <span className="inline-flex h-4 w-4 rounded-full bg-red-500 text-white items-center justify-center text-[10px] font-bold">
+                    !
+                  </span>
+                )}
+                {s.status === 'skipped' && (
+                  <span className="inline-block h-4 w-4 rounded-full border border-dashed border-gray-300" />
+                )}
+              </span>
+              <span
+                className={cn(
+                  'flex-1 leading-tight',
+                  s.status === 'pending' && 'text-gray-400',
+                  s.status === 'error' && 'text-red-600',
+                  s.status === 'skipped' && 'text-gray-400 line-through',
+                )}
+              >
+                <div>{s.label}</div>
+                {s.detail && (
+                  <div className="text-xs text-gray-500 mt-0.5">{s.detail}</div>
+                )}
+              </span>
+            </li>
+          ))}
+        </ol>
+      </div>
     </div>
   );
 }
