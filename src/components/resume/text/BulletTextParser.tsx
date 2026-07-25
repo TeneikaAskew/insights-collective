@@ -232,17 +232,18 @@ export const HighlightedBulletText: React.FC<{ text: string }> = ({ text }) => {
           <span 
             key={idx} 
             className={`transition-colors duration-200 ${
-              part.category === BULLET_CATEGORIES.industry.label // Fixed: using lowercase property
-                ? 'text-[#1E40AF] font-bold' : 
-              part.category === BULLET_CATEGORIES.action.label // Fixed: using lowercase property 
-                ? 'text-[#D97706] font-bold' : 
-              part.category === BULLET_CATEGORIES.metrics.label // Fixed: using lowercase property
-                ? 'text-[#0D9488] font-bold' : 
-              part.category === BULLET_CATEGORIES.clarity.label // Fixed: using lowercase property
-                ? 'text-[#2563EB] font-bold' :
-              part.category === BULLET_CATEGORIES.achievement.label // Fixed: using lowercase property
-                ? 'text-[#059669] font-bold' :
-              'text-gray-600'
+              // Highlight colors mirror the chart palette in BulletChartData.tsx
+              part.category === BULLET_CATEGORIES.industry.label
+                ? 'text-[#624EBE] font-bold' :
+              part.category === BULLET_CATEGORIES.action.label
+                ? 'text-[#B97143] font-bold' :
+              part.category === BULLET_CATEGORIES.metrics.label
+                ? 'text-[#3FA391] font-bold' :
+              part.category === BULLET_CATEGORIES.clarity.label
+                ? 'text-[#A794EB] font-bold' :
+              part.category === BULLET_CATEGORIES.achievement.label
+                ? 'text-[#4E9B70] font-bold' :
+              'text-muted-foreground'
             }`}
           >
             {part.text}

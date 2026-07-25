@@ -69,6 +69,10 @@ const Assistants = lazy(() => import('@/pages/Assistants'));
 const AssistantInterface = lazy(() => import('@/pages/AssistantInterface'));
 const ExploreDataCareers = lazy(() => import('@/pages/ExploreDataCareers'));
 const Resume = lazy(() => import('@/pages/Resume'));
+// Dev-only design preview (tree-shaken out of production builds)
+const SoftStudioPreview = import.meta.env.DEV
+  ? lazy(() => import('@/pages/dev/SoftStudioPreview'))
+  : null;
 
 // Events & Social Pages
 const Events = lazy(() => import('@/pages/Events'));
@@ -316,6 +320,9 @@ function App() {
                     <Route path="/assistant-interface" element={<AssistantInterface />} />
                     <Route path="/explore-data-careers" element={<ExploreDataCareers />} />
                     <Route path="/resume" element={<Resume />} />
+                    {SoftStudioPreview && (
+                      <Route path="/dev/soft-studio" element={<SoftStudioPreview />} />
+                    )}
 
                     {/* Events & Social Routes */}
                     <Route path="/events" element={<Events />} />

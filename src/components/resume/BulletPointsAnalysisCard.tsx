@@ -190,12 +190,12 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
   const renderLoadingOverlay = () => {
     if (isAnalyzing) {
       return (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 z-10 rounded-lg">
-          <Loader2 className="animate-spin h-8 w-8 mb-4 text-blue-600" />
-          <p className="text-lg font-medium text-gray-700">
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/80 z-10 rounded-[26px]">
+          <Loader2 className="animate-spin h-8 w-8 mb-4 text-primary" />
+          <p className="text-lg font-medium text-foreground">
             {isAnalyzing ? "Analyzing your resume..." : "Generating improved bullet points..."}
           </p>
-          <p className="text-sm text-gray-500 mt-2 text-center max-w-md">
+          <p className="text-sm text-muted-foreground mt-2 text-center max-w-md">
             Our AI is analyzing your resume bullets and creating enhanced versions with better metrics and action verbs.
           </p>
         </div>
@@ -205,7 +205,7 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
   };
 
   return (
-    <Card className="relative">
+    <Card className="ss-card relative">
       {renderLoadingOverlay()}
       <CardHeader className={`${isAnalyzing ? "opacity-50" : ""}`}>
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-4">
@@ -214,12 +214,12 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
             <CardDescription>Transform your experience into compelling stories</CardDescription>
           </div>
           <Tabs defaultValue={viewMode} onValueChange={(value) => setViewMode(value as 'list' | 'detail')}>
-            <TabsList className="grid w-full grid-cols-2 h-8">
-              <TabsTrigger value="detail" className={`${viewMode === 'detail' ? 'bg-[#9b87f5] text-white' : ''}`}>
+            <TabsList className="grid w-full grid-cols-2 gap-1 bg-transparent p-0">
+              <TabsTrigger value="detail" className="rounded-full border border-border px-3 py-1.5 text-xs font-bold text-muted-foreground data-[state=active]:bg-foreground data-[state=active]:text-background data-[state=active]:border-foreground data-[state=active]:shadow-none">
                 <FileText className="h-4 w-4 mr-1" />
                 Detail
               </TabsTrigger>
-              <TabsTrigger value="list" className={`${viewMode === 'list' ? 'bg-[#9b87f5] text-white' : ''}`}>
+              <TabsTrigger value="list" className="rounded-full border border-border px-3 py-1.5 text-xs font-bold text-muted-foreground data-[state=active]:bg-foreground data-[state=active]:text-background data-[state=active]:border-foreground data-[state=active]:shadow-none">
                 <BookOpen className="h-4 w-4 mr-1" />
                 All
               </TabsTrigger>
@@ -229,38 +229,38 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
 
         {/* Improved stats card grid with better centering */}
         <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-4">
-          <Card className="bg-purple-50 border-purple-100">
+          <Card className="ss-tile">
             <CardContent className="p-2 sm:p-4 flex flex-col items-center justify-center h-full">
-              <p className="text-xs sm:text-sm font-medium text-purple-800 text-center mb-1">Total Bullets</p>
-              <p className="text-xl sm:text-2xl font-bold text-purple-900">{bulletCount}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground text-center mb-1">Total Bullets</p>
+              <p className="text-xl sm:text-2xl font-bold text-ss-lav-deep">{bulletCount}</p>
             </CardContent>
           </Card>
 
-          <Card className="bg-green-50 border-green-200">
+          <Card className="ss-tile">
             <CardContent className="p-2 sm:p-4 flex flex-col items-center justify-center h-full">
-              <p className="text-xs sm:text-sm font-medium text-green-800 text-center mb-1">XYZ Average</p>
-              <p className="text-xl sm:text-2xl font-bold text-green-900">{averageXYZScore}%</p>
+              <p className="text-xs sm:text-sm text-muted-foreground text-center mb-1">XYZ Average</p>
+              <p className="text-xl sm:text-2xl font-bold text-foreground">{averageXYZScore}%</p>
             </CardContent>
           </Card>
 
-          <Card className="bg-blue-50 border-blue-200">
+          <Card className="ss-tile">
             <CardContent className="p-2 sm:p-4 flex flex-col items-center justify-center h-full">
-              <p className="text-xs sm:text-sm font-medium text-blue-800 text-center mb-1">Balance Rating</p>
-              <p className="text-xl sm:text-2xl font-bold text-blue-900">{averageBalanceRating}%</p>
+              <p className="text-xs sm:text-sm text-muted-foreground text-center mb-1">Balance Rating</p>
+              <p className="text-xl sm:text-2xl font-bold text-foreground">{averageBalanceRating}%</p>
             </CardContent>
           </Card>
 
-          <Card className="bg-indigo-50 border-indigo-100">
+          <Card className="ss-tile">
             <CardContent className="p-2 sm:p-4 flex flex-col items-center justify-center h-full">
-              <p className="text-xs sm:text-sm font-medium text-indigo-800 text-center mb-1">Strong Points</p>
-              <p className="text-xl sm:text-2xl font-bold text-indigo-900">{strongBullets}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground text-center mb-1">Strong Points</p>
+              <p className="text-xl sm:text-2xl font-bold text-ss-good">{strongBullets}</p>
             </CardContent>
           </Card>
 
-          <Card className="bg-amber-50 border-amber-100">
+          <Card className="ss-tile">
             <CardContent className="p-2 sm:p-4 flex flex-col items-center justify-center h-full">
-              <p className="text-xs sm:text-sm font-medium text-amber-800 text-center mb-1">Need Work</p>
-              <p className="text-xl sm:text-2xl font-bold text-amber-900">{improvableBullets}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground text-center mb-1">Need Work</p>
+              <p className="text-xl sm:text-2xl font-bold text-ss-warn">{improvableBullets}</p>
             </CardContent>
           </Card>
         </div>
@@ -281,7 +281,7 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
                   <div className="flex-1">
                     <label className="block text-sm font-medium mb-2">Select a bullet point:</label>
                     <select 
-                      className="w-full border rounded p-2"
+                      className="w-full border border-input bg-background rounded-xl p-2"
                       value={selectedBulletIndex}
                       onChange={e => {
                         setSelectedBulletIndex(parseInt(e.target.value));
@@ -299,9 +299,9 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
                   </div>
                 </div>
 
-                <div className="bg-gray-50 p-4 rounded-lg">
+                <div className="bg-background p-4 rounded-2xl border border-border">
                   <h3 className="text-lg font-medium mb-2">Original Bullet</h3>
-                  <div className="text-gray-700">
+                  <div className="text-foreground/80">
                     <HighlightedBulletText text={selectedBullet?.original || ''} />
                   </div>
                 </div>
@@ -312,40 +312,40 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
               <TabsContent value="analysis" className="space-y-4">
                 {/* Explanatory boxes for Word Balance and XYZ Quality */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-6 mb-4 sm:mb-6">
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4 flex items-start gap-2 sm:gap-3">
-                    <Scale className="h-5 w-5 sm:h-8 sm:w-8 text-blue-400 mt-1 flex-shrink-0" />
+                  <div className="bg-ss-lav-chip border border-ss-lav/30 rounded-2xl p-3 sm:p-4 flex items-start gap-2 sm:gap-3">
+                    <Scale className="h-5 w-5 sm:h-8 sm:w-8 text-ss-lav mt-1 flex-shrink-0" />
                     <div>
-                      <h4 className="text-sm sm:text-lg font-medium text-blue-800 mb-1 sm:mb-2 flex items-center gap-1 sm:gap-2 flex-wrap">
+                      <h4 className="text-sm sm:text-lg font-medium text-ss-lav-deep mb-1 sm:mb-2 flex items-center gap-1 sm:gap-2 flex-wrap">
                         Word Balance Score:
-                        <span className="text-blue-900 font-bold">{selectedBullet?.word_balance?.word_balance_score ||  displayBullet?.word_balance?.word_balance_score || 0}%</span>
+                        <span className="font-bold">{selectedBullet?.word_balance?.word_balance_score ||  displayBullet?.word_balance?.word_balance_score || 0}%</span>
                       </h4>
-                      <ul className="text-xs sm:text-sm text-blue-700 space-y-0.5 sm:space-y-1 list-disc list-outside pl-4 sm:pl-5 text-left">
+                      <ul className="text-xs sm:text-sm text-foreground/75 space-y-0.5 sm:space-y-1 list-disc list-outside pl-4 sm:pl-5 text-left">
                         <li>Industry-specific terms: <span className="font-semibold">35-45%</span></li>
                         <li>Action words: <span className="font-semibold">10-15%</span></li>
                         <li>Metrics: <span className="font-semibold">10-15%</span></li>
                         <li>Common words: <span className="font-semibold">25-35%</span></li>
                       </ul>
-                      <p className="text-xs text-blue-600 mt-1 sm:mt-2 hidden sm:block">
+                      <p className="text-xs text-muted-foreground mt-1 sm:mt-2 hidden sm:block">
                         A good balance creates compelling, professional content that resonates with both ATS systems and hiring managers.
                       </p>
                     </div>
                   </div>
-                  
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 sm:p-4 flex items-start gap-2 sm:gap-3">
-                    <BarChart2 className="h-5 w-5 sm:h-8 sm:w-8 text-green-400 mt-1 flex-shrink-0" />
+
+                  <div className="bg-ss-good-chip border border-ss-good/30 rounded-2xl p-3 sm:p-4 flex items-start gap-2 sm:gap-3">
+                    <BarChart2 className="h-5 w-5 sm:h-8 sm:w-8 text-ss-good mt-1 flex-shrink-0" />
                     <div>
-                      <h4 className="text-sm sm:text-lg font-medium text-green-800 mb-1 sm:mb-2 flex items-center gap-1 sm:gap-2 flex-wrap">
+                      <h4 className="text-sm sm:text-lg font-medium text-ss-good mb-1 sm:mb-2 flex items-center gap-1 sm:gap-2 flex-wrap">
                         XYZ Quality Score:
-                        <span className="text-green-900 font-bold">{calculateXYZScore(displayBullet)}%</span>
+                        <span className="font-bold">{calculateXYZScore(displayBullet)}%</span>
                       </h4>
-                      <ul className="text-xs sm:text-sm text-green-700 space-y-0.5 sm:space-y-1 list-disc list-outside pl-4 sm:pl-5 text-left">
+                      <ul className="text-xs sm:text-sm text-foreground/75 space-y-0.5 sm:space-y-1 list-disc list-outside pl-4 sm:pl-5 text-left">
                         <li>Action Words <span className="font-semibold">(10 pts)</span></li>
                         <li>Metrics/Results <span className="font-semibold">(30 pts)</span></li>
                         <li>Clarity/Conciseness <span className="font-semibold">(15 pts)</span></li>
                         <li>Industry Keywords <span className="font-semibold">(25 pts)</span></li>
                         <li>Achievement Focus <span className="font-semibold">(20 pts)</span></li>
                       </ul>
-                      <p className="text-xs text-green-600 mt-1 sm:mt-2 hidden sm:block">
+                      <p className="text-xs text-muted-foreground mt-1 sm:mt-2 hidden sm:block">
                         This framework ensures your bullet points tell compelling stories that demonstrate impact and expertise.
                       </p>
                     </div>
@@ -362,9 +362,9 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
                             <span className="capitalize">{key.replace('_pct', '')}</span>
                             <span className="font-medium">{value}%</span>
                           </div>
-                          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                            <div 
-                              className="h-full bg-blue-400 rounded-full"
+                          <div className="h-2 bg-ss-track rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-ss-lav rounded-full"
                               style={{ width: `${value}%` }}
                             />
                           </div>
@@ -382,9 +382,9 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
                             <span className="capitalize">{XYZ_LABELS[key as keyof typeof XYZ_LABELS]}</span>
                             <span className="font-medium">{value}/{XYZ_MAX_SCORES[key as keyof typeof XYZ_MAX_SCORES]}</span>
                           </div>
-                          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                            <div 
-                              className="h-full bg-green-700 rounded-full"
+                          <div className="h-2 bg-ss-track rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-ss-good rounded-full"
                               style={{ width: `${(value/XYZ_MAX_SCORES[key as keyof typeof XYZ_MAX_SCORES]) * 100}%` }}
                             />
                           </div>
@@ -396,9 +396,9 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
               </TabsContent>
 
               <TabsContent value="improve" className="space-y-4">
-                <div className="bg-green-50 border border-green-100 rounded-lg p-4">
-                  <h3 className="text-lg font-medium mb-2 text-green-800">AI Improved Version</h3>
-                  <p className="text-gray-700">
+                <div className="bg-ss-good-chip border border-ss-good/30 rounded-2xl p-4">
+                  <h3 className="text-lg font-medium mb-2 text-ss-good">AI Improved Version</h3>
+                  <p className="text-foreground/80">
                     {displayBullet?.rewritten || "No improvements available yet"}
                   </p>
                 </div>
@@ -417,8 +417,8 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
 
                 <div className="space-y-2">
                   <h3 className="text-lg font-medium">Improvement Tips</h3>
-                  <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
-                    <ul className="list-disc list-inside space-y-2 text-gray-700">
+                  <div className="bg-ss-lav-chip border border-ss-lav/30 rounded-2xl p-4">
+                    <ul className="list-disc list-inside space-y-2 text-foreground/80">
                       {Array.isArray(displayBullet?.tips) 
                         ? displayBullet.tips.map((tip, index) => (
                             <li key={index}>{tip}</li>
@@ -432,7 +432,7 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
                 <div className="flex justify-end">
                   <Button
                     onClick={handleEdit}
-                    className="bg-[#9b87f5] hover:bg-[#8B5CF6] text-white"
+                    className="rounded-full font-bold"
                   >
                     <Edit2 className="h-4 w-4 mr-2" />
                     Edit Bullet Point
@@ -440,7 +440,7 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
                 </div>
 
                 {isEditing && (
-                  <div className="space-y-4 bg-white border rounded-lg p-4">
+                  <div className="space-y-4 bg-card border border-border rounded-2xl p-4">
                     <Textarea 
                       value={editedText}
                       onChange={e => setEditedText(e.target.value)}
@@ -464,12 +464,12 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <BarChart2 className="h-4 w-4 text-[#9b87f5]" />
+                <BarChart2 className="h-4 w-4 text-ss-lav-deep" />
                 <h3 className="font-medium">All Bullet Points ({bulletCount})</h3>
               </div>
-              
-              <select 
-                className="text-sm border rounded px-2 py-1"
+
+              <select
+                className="text-sm border border-input bg-background rounded-xl px-2 py-1"
                 value={sortMethod}
                 onChange={(e) => sortBullets(e.target.value)}
               >

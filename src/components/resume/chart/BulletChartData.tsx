@@ -5,14 +5,16 @@ import { createLogger } from '@/utils/logger';
 
 const logger = createLogger('BULLET_CATEGORIES');
 
-// Define bullet categories
+// Define bullet categories — colors from the Soft Studio palette.
+// Labels are logic keys consumed by BulletTextParser; recolor only, never rename.
+// Any color change here must be mirrored in chart/ChartComponents.tsx class maps.
 export const BULLET_CATEGORIES = {
-  action: { label: 'Action', color: '#1F75FE' },    // insight-blue
-  metrics: { label: 'Metrics', color: '#5ED3B5' },  // aqua-teal
-  clarity: { label: 'Clarity', color: '#C7BCF5' },  // vira-purple
-  industry: { label: 'Industry', color: '#F9A826' }, // energetic-amber
-  achievement: { label: 'Achievement', color: '#8A8F9E' }, // slate-gray
-  common: { label: 'Common', color: '#2C2C2C' }     // slate-gray
+  action: { label: 'Action', color: '#B97143' },      // ss-peach-deep
+  metrics: { label: 'Metrics', color: '#3FA391' },    // ss-teal
+  clarity: { label: 'Clarity', color: '#A794EB' },    // ss-lav
+  industry: { label: 'Industry', color: '#624EBE' },  // ss-lav-deep
+  achievement: { label: 'Achievement', color: '#4E9B70' }, // ss-good
+  common: { label: 'Common', color: '#837E8C' }       // ss-muted
 };
 
 // Define type for xyz_scores to avoid empty object type error

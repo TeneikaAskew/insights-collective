@@ -75,21 +75,25 @@ const ATSScoreCard: React.FC<ATSScoreCardProps> = ({ analysis }) => {
   const passRate = Math.round((atsFeedback.filter(item => item.check).length / atsFeedback.length) * 100);
   
   const getScoreColor = (score: number) => {
-    if (score >= 90) return "text-green-600";
-    if (score >= 75) return "text-emerald-600";
-    if (score >= 60) return "text-yellow-600";
-    if (score >= 45) return "text-orange-600";
-    return "text-red-600";
+    if (score >= 75) return "text-ss-good";
+    if (score >= 60) return "text-ss-warn";
+    return "text-ss-bad";
   };
-  
+
+  const getScoreChip = (score: number) => {
+    if (score >= 75) return "bg-ss-good-chip";
+    if (score >= 60) return "bg-ss-warn-chip";
+    return "bg-ss-bad-chip";
+  };
+
   const getBadgeColor = (impact: string) => {
-    if (impact === "Critical") return "bg-red-100 text-red-800";
-    if (impact === "High") return "bg-amber-100 text-amber-800";
-    return "bg-blue-100 text-blue-800";
+    if (impact === "Critical") return "bg-ss-bad-chip text-ss-bad";
+    if (impact === "High") return "bg-ss-warn-chip text-ss-warn";
+    return "bg-ss-lav-chip text-ss-lav-deep";
   };
 
   return (
-    <Card className="border shadow-sm hover:shadow-md transition-all">
+    <Card className="ss-card transition-all">
       <CardHeader className="pb-4">
         <div className="flex justify-between items-center">
           <div>
@@ -98,72 +102,72 @@ const ATSScoreCard: React.FC<ATSScoreCardProps> = ({ analysis }) => {
               How well your resume will perform through Applicant Tracking Systems
             </CardDescription>
           </div>
-          <div className={`text-3xl md:text-4xl font-extrabold ${getScoreColor(atsScore)} px-4 py-2 rounded-full bg-opacity-10 ${atsScore >= 75 ? 'bg-green-100' : atsScore >= 60 ? 'bg-yellow-100' : 'bg-red-100'}`}>
+          <div className={`text-3xl md:text-4xl font-extrabold ${getScoreColor(atsScore)} px-4 py-2 rounded-full ${getScoreChip(atsScore)}`}>
             {atsScore}%
           </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-6 pb-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-4">
-            <TabsTrigger value="general" className="rounded-md py-3">General ATS Score</TabsTrigger>
-            <TabsTrigger value="job-match" className="rounded-md py-3">Job-Specific Analysis</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 gap-2 mb-4 bg-transparent p-0">
+            <TabsTrigger value="general" className="rounded-full border border-border py-3 font-bold text-muted-foreground data-[state=active]:bg-foreground data-[state=active]:text-background data-[state=active]:border-foreground data-[state=active]:shadow-none">General ATS Score</TabsTrigger>
+            <TabsTrigger value="job-match" className="rounded-full border border-border py-3 font-bold text-muted-foreground data-[state=active]:bg-foreground data-[state=active]:text-background data-[state=active]:border-foreground data-[state=active]:shadow-none">Job-Specific Analysis</TabsTrigger>
           </TabsList>
-          
+
           <TabsContent value="general" className="mt-0 space-y-6">
-            <Progress value={atsScore} className="h-2.5 bg-gray-100" />
-            
+            <Progress value={atsScore} className="h-2.5 bg-ss-track" indicatorClassName="bg-ss-good" />
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-5 rounded-lg border border-blue-100 text-center">
-                <p className="text-sm text-gray-600 mb-1">Keyword Match</p>
+              <div className="ss-tile p-5">
+                <p className="text-sm text-muted-foreground mb-1">Keyword Match</p>
                 <p className={`text-2xl font-bold ${getScoreColor(keywordMatchScore)}`}>{keywordMatchScore}%</p>
               </div>
-              <div className="bg-gradient-to-br from-purple-50 to-indigo-50 p-5 rounded-lg border border-purple-100 text-center">
-                <p className="text-sm text-gray-600 mb-1">Format Detection</p>
+              <div className="ss-tile p-5">
+                <p className="text-sm text-muted-foreground mb-1">Format Detection</p>
                 <p className={`text-2xl font-bold ${getScoreColor(formatDetectionScore)}`}>{formatDetectionScore}%</p>
               </div>
-              <div className="bg-gradient-to-br from-indigo-50 to-blue-50 p-5 rounded-lg border border-indigo-100 text-center">
-                <p className="text-sm text-gray-600 mb-1">Readability</p>
+              <div className="ss-tile p-5">
+                <p className="text-sm text-muted-foreground mb-1">Readability</p>
                 <p className={`text-2xl font-bold ${getScoreColor(readabilityScore)}`}>{readabilityScore}%</p>
               </div>
             </div>
-            
-            <Card className="overflow-hidden">
-              <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100">
+
+            <Card className="ss-card overflow-hidden">
+              <div className="p-4 bg-ss-lav-chip border-b border-border">
                 <h3 className="font-semibold">ATS Checks ({passRate}% Pass Rate)</h3>
               </div>
-              <CardContent className="divide-y divide-gray-100 p-0">
+              <CardContent className="divide-y divide-border p-0">
                 {atsFeedback.map((item, index) => (
-                  <div key={index} className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors">
+                  <div key={index} className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
                     <div className="flex items-center">
                       {item.check ? (
-                        <div className="bg-green-100 p-1.5 rounded-full mr-3">
-                          <Check className="h-4 w-4 text-green-600" />
+                        <div className="bg-ss-good-chip p-1.5 rounded-full mr-3">
+                          <Check className="h-4 w-4 text-ss-good" />
                         </div>
                       ) : (
-                        <div className="bg-red-100 p-1.5 rounded-full mr-3">
-                          <XCircle className="h-4 w-4 text-red-600" />
+                        <div className="bg-ss-bad-chip p-1.5 rounded-full mr-3">
+                          <XCircle className="h-4 w-4 text-ss-bad" />
                         </div>
                       )}
-                      <span className={item.check ? "text-gray-800" : "text-gray-500"}>{item.message}</span>
+                      <span className={item.check ? "text-foreground" : "text-muted-foreground"}>{item.message}</span>
                     </div>
-                    <Badge className={`${getBadgeColor(item.impact)} font-normal`}>{item.impact}</Badge>
+                    <Badge className={`${getBadgeColor(item.impact)} font-normal rounded-full`}>{item.impact}</Badge>
                   </div>
                 ))}
               </CardContent>
             </Card>
-            
-            <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex items-start">
-              <AlertCircle className="h-5 w-5 text-blue-600 mr-3 flex-shrink-0 mt-0.5" />
+
+            <div className="ss-card-warm border border-ss-peach/40 p-4 rounded-2xl flex items-start">
+              <AlertCircle className="h-5 w-5 text-ss-peach-deep mr-3 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm text-blue-900">
-                  <span className="font-medium">Pro Tip:</span> Most employers use ATS systems to filter resumes. 
-                  A score above 80% significantly increases your chances of getting past automated filters and into human hands. 
-                   <a 
-                      href="https://docs.google.com/document/d/1CKGglaXyYad16IFiYSDpGd2ofro5dYmi4eD1JNeHkD4/edit?usp=sharing" 
-                      target="_blank" 
+                <p className="text-sm text-foreground">
+                  <span className="font-medium text-ss-peach-deep">Pro Tip:</span> Most employers use ATS systems to filter resumes.
+                  A score above 80% significantly increases your chances of getting past automated filters and into human hands.
+                   <a
+                      href="https://docs.google.com/document/d/1CKGglaXyYad16IFiYSDpGd2ofro5dYmi4eD1JNeHkD4/edit?usp=sharing"
+                      target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-600 underline hover:text-blue-800"
+                      className="text-ss-peach-deep underline hover:opacity-80"
                     > Use this 100% ATS-optimized resume template
                     </a> to increase your chances further.
                 </p>
