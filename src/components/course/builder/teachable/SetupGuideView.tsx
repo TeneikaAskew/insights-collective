@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ClipboardList, LayoutGrid, Image as ImageIcon, Pencil, Eye, Trash2, Check, X } from 'lucide-react';
 import type { BuilderCourse, BuilderModule } from './types';
+import { TeachableBreadcrumb } from './TeachableBreadcrumb';
 
 interface SetupGuideViewProps {
   course: BuilderCourse;
