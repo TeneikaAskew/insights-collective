@@ -60,3 +60,31 @@ overview card (checklist + Lora testimonial + CTAs) and the warm
 "Why this matters" evidence card, both themed to the selected step. C's
 "Continue where you left off" card anchors the page with the user's actual
 current STAR question, progress segments, and streak.
+
+---
+
+# Sub-page: Job Description Analysis — layout alternatives
+
+Three Soft Studio arrangements of the page's real content (URL/paste input,
+competency clouds, practice questions with deep-links, and the skills
+checklist with its "N of M prepared" counter). Interactive switcher artifact
+lives outside the repo; boards below.
+
+## JD Concept A — Split Desk
+![JD A](./jd-concept-a-split-desk.png)
+Input rail on the left (sticky, with a compact progress card), the living
+study guide stacked on the right. Everything visible at once; best for
+users who iterate on multiple postings.
+
+## JD Concept B — Guided Flow
+![JD B](./jd-concept-b-guided-flow.png)
+One column: analyzed-job bar (Re-analyze / Reset), three readiness tiles,
+then competencies → questions → checklist, with "analyze another posting"
+tucked at the end. Best reading order; closest to the current page's flow.
+
+## JD Concept C — Study Binder
+![JD C](./jd-concept-c-study-binder.png)
+The guide as a binder: analyzed-job bar + pill tabs (Competencies /
+Practice questions / Checklist with live count), progress and new-analysis
+pinned in a right rail. Most compact per screen; matches the hub's pill
+grammar most directly.
