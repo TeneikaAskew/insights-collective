@@ -61,7 +61,7 @@ By following these recommendations, you can create a successful career path in t
       setParsedReport(parsed);
     } catch (error) {
       logger.error('Error parsing report:', error);
-      alert('Error parsing report. Check console for details.');
+      toast.error('Error parsing report. Check console for details.');
     }
   };
 
