@@ -154,6 +154,7 @@ export function CurriculumView(props: CurriculumViewProps) {
                 <SectionCard
                   key={m.id}
                   module={m}
+                  courseTitle={courseTitle}
                   onRenameModule={onRenameModule}
                   onUpdateModuleDescription={onUpdateModuleDescription}
                   onDeleteModule={onDeleteModule}
