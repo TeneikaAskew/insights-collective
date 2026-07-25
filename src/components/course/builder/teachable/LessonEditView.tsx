@@ -8,6 +8,7 @@ import { LessonEditorPane, type LessonDraft } from '../LessonEditorPane';
 import { AddContentPanel } from './AddContentPanel';
 import type { BuilderModule } from './types';
 import { TeachableBreadcrumb } from './TeachableBreadcrumb';
+import { ConfirmDialog } from './ConfirmDialog';
 
 interface LessonEditViewProps {
   courseId?: string;
