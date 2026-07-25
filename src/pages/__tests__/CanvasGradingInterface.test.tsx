@@ -127,7 +127,7 @@ const contentItem = {
   assignment: { id: 'assignment-1', points_possible: 100 },
 };
 
-const alice = { id: 'u1', email: 'alice@example.com', full_name: 'Alice Adams' };
+const alice = { id: 'u1', first_name: 'Alice', last_name: 'Adams' };
 
 function makeGradingSubmission(overrides: Record<string, unknown> = {}) {
   return makeSubmission({
@@ -164,7 +164,7 @@ describe('CanvasGradingInterface', () => {
             id: 'sub-2',
             workflow_state: 'graded',
             grade: 90,
-            user: { id: 'u2', email: 'bob@example.com', full_name: 'Bob Brown' },
+            user: { id: 'u2', first_name: 'Bob', last_name: 'Brown' },
           }),
         ],
         error: null,
