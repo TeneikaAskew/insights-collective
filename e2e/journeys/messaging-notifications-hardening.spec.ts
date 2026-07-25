@@ -163,10 +163,17 @@ test.describe('Messaging + notifications — real signed-in RPC gating', () => {
       )
       .toBeGreaterThan(0);
 
-    // Cleanup — delete the probe announcement. Notifications for other users are cleaned by admin OOB if needed.
+    // Cleanup — delete the probe announcement, and delete this student's own
+    // fan-out notification row (RLS blocks deleting others'). Any residual
+    // fan-out rows for other enrolled users are swept in global-setup via
+    // SUPABASE_SERVICE_ROLE_KEY when available.
     await fetch(`${SUPABASE_URL}/rest/v1/course_announcements?id=eq.${announcement.id}`, {
       method: 'DELETE',
       headers: authHeaders(instructorToken),
     });
+    await fetch(
+      `${SUPABASE_URL}/rest/v1/notifications?title=eq.${encodeURIComponent(expectedTitle)}`,
+      { method: 'DELETE', headers: authHeaders(studentToken) },
+    );
   });
 });
