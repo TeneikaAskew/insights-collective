@@ -275,12 +275,12 @@ const AppSidebar = () => {
               {menuItems.map((item, index) => (
                   <motion.div key={item.title} custom={index} initial="hidden" animate="visible" variants={menuItemVariants}>
                     <SidebarMenuItem>
-                      <SidebarMenuButton asChild isActive={item.active} className={`transition-all duration-200 ${item.active ? 'bg-[#9b87f5]/10 text-[#9b87f5] font-medium border-r-2 border-[#9b87f5]' : 'text-gray-700 dark:text-gray-300 hover:text-[#9b87f5] hover:bg-[#9b87f5]/5'}`}>
-                        <Link to={item.url} className={`flex items-center ${open ? 'space-x-2' : 'justify-center'} rounded-md px-2 py-1.5 ${item.highlight && open ? 'bg-[#9b87f5]/5 border border-[#9b87f5]/20' : ''}`}>
-                          <item.icon className={`h-3.5 w-3.5 flex-shrink-0 ${item.active ? 'text-[#9b87f5]' : 'text-gray-500 dark:text-gray-400'}`} />
+                      <SidebarMenuButton asChild isActive={item.active} className={`transition-all duration-200 ${item.active ? 'font-medium' : 'text-gray-700 dark:text-gray-300 hover:text-primary hover:bg-primary/5'}`}>
+                        <Link to={item.url} className={`flex items-center ${open ? 'space-x-2' : 'justify-center'} rounded-md px-2 py-1.5 ${item.highlight && open && !item.active ? 'bg-primary/5 border border-primary/20' : ''}`}>
+                          <item.icon className={`h-3.5 w-3.5 flex-shrink-0 ${item.active ? 'text-sidebar-accent-foreground' : 'text-gray-500 dark:text-gray-400'}`} />
                           {open && <span className="text-xs truncate">{item.title}</span>}
                           {open && item.highlight && !item.active && (
-                            <Badge className="ml-auto h-4 text-[10px] bg-[#9b87f5]/20 text-[#9b87f5] hover:bg-[#9b87f5]/30">
+                            <Badge className="ml-auto h-4 text-[10px] bg-primary/15 text-primary hover:bg-primary/25">
                               New
                             </Badge>
                           )}
@@ -300,16 +300,16 @@ const AppSidebar = () => {
             <SidebarGroupContent>
               <SidebarMenu>
                 {isAdmin && visibleAdminMenuItems.map(item => <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild isActive={item.active} className={`transition-all duration-200 ${item.active ? 'bg-[#9b87f5]/10 text-[#9b87f5] font-medium border-r-2 border-[#9b87f5]' : 'text-gray-700 dark:text-gray-400 hover:text-[#9b87f5] hover:bg-[#9b87f5]/5'}`}>
+                    <SidebarMenuButton asChild isActive={item.active} className={`transition-all duration-200 ${item.active ? 'font-medium' : 'text-gray-700 dark:text-gray-400 hover:text-primary hover:bg-primary/5'}`}>
                       <Link to={item.url} className={`flex items-center ${open ? 'space-x-2' : 'justify-center'} rounded-md px-2 py-1.5`}>
-                        <item.icon className={`h-3.5 w-3.5 flex-shrink-0 ${item.active ? 'text-[#9b87f5]' : 'text-gray-500'}`} />
+                        <item.icon className={`h-3.5 w-3.5 flex-shrink-0 ${item.active ? 'text-sidebar-accent-foreground' : 'text-gray-500'}`} />
                         {open && <span className="text-xs truncate">{item.title}</span>}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>)}
                 
                 {isInstructor && !isAdmin && <SidebarMenuItem>
-                    <SidebarMenuButton asChild className="text-gray-700 dark:text-gray-400 hover:text-[#9b87f5] hover:bg-[#9b87f5]/5">
+                    <SidebarMenuButton asChild className="text-gray-700 dark:text-gray-400 hover:text-primary hover:bg-primary/5">
                       <Link to="/course-management" className={`flex items-center ${open ? 'space-x-2' : 'justify-center'} rounded-md px-2 py-1.5`}>
                         <BookOpen className="h-3.5 w-3.5 flex-shrink-0 text-gray-500" />
                         {open && <span className="text-xs truncate">My Courses</span>}

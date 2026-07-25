@@ -40,8 +40,8 @@
     --sidebar-foreground: 0 0% 17%; /* Dark gray text */
     --sidebar-primary: 217 88% 56%; /* Insight Blue */
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 164 61% 60%; /* Aqua Teal */
-    --sidebar-accent-foreground: 0 0% 17%; /* Dark gray for better readability */
+    --sidebar-accent: 217 88% 45%; /* Darker Insight Blue for AA contrast on white text */
+    --sidebar-accent-foreground: 0 0% 100%; /* White text — ~5.4:1 contrast passes WCAG AA */
     --sidebar-border: 214 31% 91%; /* Light border */
     --sidebar-ring: 217 88% 56%; /* Insight Blue */
     
@@ -244,14 +244,14 @@
     @apply rounded-full font-medium shadow-sm transition-all duration-300 flex items-center justify-center gap-2 hover:shadow-md hover:-translate-y-0.5;
   }
   
-  /* Important overrides for sidebar active items */
-  .data-\[active\=true\]\:text-sidebar-accent-foreground[data-active=true],
+  /* Sidebar active-row styling — use tokenized accent for WCAG-safe contrast.
+     Previous rule forced light-purple text on a light-teal pill, failing AA. */
   .sidebar-active-item {
-    color: rgb(155 135 245) !important;
+    color: hsl(var(--sidebar-accent-foreground));
   }
-  
+
   [data-active=true] svg {
-    color: rgb(155 135 245) !important;
+    color: hsl(var(--sidebar-accent-foreground));
   }
   
   /* Custom scrollbar for the Monaco theme */
