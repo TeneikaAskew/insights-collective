@@ -244,14 +244,14 @@
     @apply rounded-full font-medium shadow-sm transition-all duration-300 flex items-center justify-center gap-2 hover:shadow-md hover:-translate-y-0.5;
   }
   
-  /* Important overrides for sidebar active items */
-  .data-\[active\=true\]\:text-sidebar-accent-foreground[data-active=true],
+  /* Sidebar active-row styling — use tokenized accent for WCAG-safe contrast.
+     Previous rule forced light-purple text on a light-teal pill, failing AA. */
   .sidebar-active-item {
-    color: rgb(155 135 245) !important;
+    color: hsl(var(--sidebar-accent-foreground));
   }
-  
+
   [data-active=true] svg {
-    color: rgb(155 135 245) !important;
+    color: hsl(var(--sidebar-accent-foreground));
   }
   
   /* Custom scrollbar for the Monaco theme */
