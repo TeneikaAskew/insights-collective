@@ -27,6 +27,7 @@ import {
   Sparkles,
   Trash2,
   Upload,
+  Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Hint } from '@/components/ui/hint';
@@ -35,6 +36,8 @@ import type { ContentItem } from '@/types/canvas';
 import type { BuilderModule } from './types';
 import { TeachableBreadcrumb } from './TeachableBreadcrumb';
 import { ConfirmDialog } from './ConfirmDialog';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 function htmlToPlainText(html: string): string {
   if (!html) return '';
@@ -151,6 +154,7 @@ export function CurriculumView(props: CurriculumViewProps) {
                 <SectionCard
                   key={m.id}
                   module={m}
+                  courseTitle={courseTitle}
                   onRenameModule={onRenameModule}
                   onUpdateModuleDescription={onUpdateModuleDescription}
                   onDeleteModule={onDeleteModule}
@@ -173,6 +177,7 @@ export function CurriculumView(props: CurriculumViewProps) {
 // --- Section card ---
 interface SectionCardProps {
   module: BuilderModule;
+  courseTitle?: string;
   onRenameModule: (id: string, title: string) => void;
   onUpdateModuleDescription?: (id: string, description: string) => void;
   onDeleteModule: (id: string) => void;
@@ -186,6 +191,7 @@ interface SectionCardProps {
 
 function SectionCard({
   module,
+  courseTitle,
   onRenameModule,
   onUpdateModuleDescription,
   onDeleteModule,
@@ -211,6 +217,32 @@ function SectionCard({
   const [descDraft, setDescDraft] = useState(module.description ?? '');
   const [descEditing, setDescEditing] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [generatingSummary, setGeneratingSummary] = useState(false);
+
+  async function handleGenerateSummary() {
+    if (!onUpdateModuleDescription) return;
+    setGeneratingSummary(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-section-summary', {
+        body: {
+          sectionTitle: module.title || 'Untitled section',
+          courseTitle,
+          lessonTitles: module.items.map((i) => i.title).filter(Boolean),
+        },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      const summary = (data as any)?.summary as string | undefined;
+      if (!summary) throw new Error('No summary returned');
+      setDescDraft(summary);
+      onUpdateModuleDescription(module.id, summary);
+      toast.success('Section summary generated');
+    } catch (err: any) {
+      toast.error('Could not generate summary', { description: err?.message || 'Try again.' });
+    } finally {
+      setGeneratingSummary(false);
+    }
+  }
 
   const commit = () => {
     setEditing(false);
@@ -437,12 +469,17 @@ function SectionCard({
         </button>
         <button
           type="button"
-          className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-500 hover:text-black"
-          disabled
-          title="Coming soon"
+          onClick={handleGenerateSummary}
+          disabled={generatingSummary || !onUpdateModuleDescription}
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:text-primary/80 disabled:opacity-60 disabled:cursor-not-allowed"
+          title="Generate a short section summary with AI"
         >
-          <Sparkles className="h-4 w-4" />
-          Section summary
+          {generatingSummary ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Sparkles className="h-4 w-4" />
+          )}
+          {generatingSummary ? 'Generating…' : 'Section summary'}
         </button>
       </div>
     </div>

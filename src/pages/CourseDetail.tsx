@@ -1077,7 +1077,7 @@ const CourseDetail = () => {
               </section>
 
               {/* Two-column: Jump back in + Additional links */}
-              <div className="grid xl:grid-cols-[minmax(0,1fr)_340px] gap-6">
+              <div className="grid 2xl:grid-cols-[minmax(0,1fr)_340px] gap-6">
                 {/* Jump back in */}
                 <section className="rounded-2xl bg-white border border-neutral-200 p-6 md:p-8">
                   <h2 className="font-display text-3xl text-neutral-900 mb-6">Jump back in</h2>
@@ -1268,8 +1268,8 @@ const CourseDetail = () => {
         // Non-enrolled landing (kept close to previous pre-enroll layout)
         return (
           <div className="teachable-workspace bg-white rounded-2xl border border-neutral-200 overflow-hidden">
-            <div className="grid xl:grid-cols-[minmax(0,1fr)_340px] gap-0">
-              <div className="p-6 sm:p-8 xl:p-12 min-w-0">
+            <div className="grid 2xl:grid-cols-[minmax(0,1fr)_340px] gap-0">
+              <div className="p-6 sm:p-8 2xl:p-12 min-w-0">
 
                 <p className="text-xs uppercase tracking-[0.15em] text-neutral-500 mb-3">
                   {course.category || 'Course'}{course.level ? ` • ${course.level}` : ''}
