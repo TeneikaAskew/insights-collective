@@ -80,6 +80,7 @@ const CourseBuilder = () => {
   const [modules, setModules] = useState<BuilderModule[]>([]);
   const [loading, setLoading] = useState(!isNew);
   const [showWizard, setShowWizard] = useState(isNew);
+  logger.log('render', { courseId, isNew, showWizard, loading, permissionsLoading });
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
 
   const activeView: BuilderNavKey = (searchParams.get('view') as BuilderNavKey) || 'setup';
