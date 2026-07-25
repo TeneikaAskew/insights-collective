@@ -136,6 +136,28 @@ const CourseBuilder = () => {
     async (r: NewCourseWizardResult) => {
       try {
         const { data: userData } = await supabase.auth.getUser();
+        const instructorId = userData.user?.id ?? null;
+
+        // 1) Upload thumbnail first (if provided) so we can persist its URL on insert
+        let thumbnailUrl: string | null = null;
+        if (r.thumbnailFile && instructorId) {
+          const ext = r.thumbnailFile.name.split('.').pop() || 'jpg';
+          const path = `course-thumbnails/${instructorId}-${Date.now()}.${ext}`;
+          const { error: uploadError } = await supabase.storage
+            .from('course-materials')
+            .upload(path, r.thumbnailFile, {
+              upsert: true,
+              contentType: r.thumbnailFile.type,
+            });
+          if (!uploadError) {
+            const { data: pub } = supabase.storage.from('course-materials').getPublicUrl(path);
+            thumbnailUrl = pub.publicUrl;
+          } else {
+            logger.error('Thumbnail upload failed', uploadError);
+          }
+        }
+
+        // 2) Create the course
         const { data: created, error } = await supabase
           .from('courses')
           .insert({
@@ -145,23 +167,26 @@ const CourseBuilder = () => {
             level: 'beginner',
             published: false,
             status: 'draft',
-            instructor_id: userData.user?.id ?? null,
+            instructor_id: instructorId,
+            ...(thumbnailUrl ? { image_url: thumbnailUrl, thumbnail: thumbnailUrl } : {}),
           })
           .select('id')
           .single();
         if (error) throw error;
 
-        // Seed a starter section if user picked "scratch" or "ai"
-        if (r.outlineMethod === 'scratch' || r.outlineMethod === 'ai') {
-          const seedTitle = r.outlineMethod === 'ai' ? 'Getting Started' : 'Section 1';
-          const mod = await CanvasContentService.createModule(created.id, seedTitle);
-          await CanvasContentService.createContentItem({
-            course_id: created.id,
-            module_id: mod.id,
-            type: 'page',
-            title: 'Introduction',
-            content: '',
-          });
+        // 3) Seed curriculum from the wizard outline (AI or scratch)
+        const outline = r.outline ?? [];
+        for (const section of outline) {
+          const mod = await CanvasContentService.createModule(created.id, section.title);
+          for (const lesson of section.lessons) {
+            await CanvasContentService.createContentItem({
+              course_id: created.id,
+              module_id: mod.id,
+              type: lesson.type,
+              title: lesson.title,
+              content: '',
+            });
+          }
         }
 
         toast({ title: 'Course created', description: `“${r.title}” is ready to build.` });
@@ -172,6 +197,7 @@ const CourseBuilder = () => {
     },
     [navigate, toast],
   );
+
 
   // --- Navigation ---
   const goToView = useCallback(
