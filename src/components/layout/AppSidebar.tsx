@@ -300,23 +300,24 @@ const AppSidebar = () => {
             </SidebarGroupLabel>}
             <SidebarGroupContent>
               <SidebarMenu>
-                {isAdmin && visibleAdminMenuItems.map(item => <SidebarMenuItem key={item.title}>
+                {isAdmin && visibleAdminMenuItems.map(item => <SidebarMenuItem key={item.title} className={open ? '' : 'flex justify-center'}>
                     <SidebarMenuButton asChild isActive={item.active} className={`transition-all duration-200 ${item.active ? 'font-medium' : 'text-gray-700 dark:text-gray-400 hover:text-sidebar-accent hover:bg-sidebar-accent/10'}`}>
-                      <Link to={item.url} className={`flex items-center rounded-md py-1.5 ${open ? 'space-x-2 px-2' : 'justify-center w-full px-0'}`}>
+                      <Link to={item.url} className={`flex items-center rounded-md py-1.5 ${open ? 'space-x-2 px-2' : 'justify-center w-8 h-8 px-0 mx-auto'}`}>
                         <item.icon className={`h-3.5 w-3.5 flex-shrink-0 ${item.active ? 'text-sidebar-accent-foreground' : 'text-gray-500'}`} />
                         {open && <span className="text-xs truncate">{item.title}</span>}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>)}
                 
-                {isInstructor && !isAdmin && <SidebarMenuItem>
+                {isInstructor && !isAdmin && <SidebarMenuItem className={open ? '' : 'flex justify-center'}>
                     <SidebarMenuButton asChild className="text-gray-700 dark:text-gray-400 hover:text-sidebar-accent hover:bg-sidebar-accent/10">
-                      <Link to="/course-management" className={`flex items-center rounded-md py-1.5 ${open ? 'space-x-2 px-2' : 'justify-center w-full px-0'}`}>
+                      <Link to="/course-management" className={`flex items-center rounded-md py-1.5 ${open ? 'space-x-2 px-2' : 'justify-center w-8 h-8 px-0 mx-auto'}`}>
                         <BookOpen className="h-3.5 w-3.5 flex-shrink-0 text-gray-500" />
                         {open && <span className="text-xs truncate">My Courses</span>}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>}
+
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>}
