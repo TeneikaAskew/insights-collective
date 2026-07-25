@@ -23,6 +23,7 @@ interface LessonEditViewProps {
 }
 
 export function LessonEditView({
+  courseId,
   courseTitle,
   modules,
   currentItem,
@@ -37,23 +38,13 @@ export function LessonEditView({
 
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 max-w-[1400px] mx-auto">
-      <div className="text-xs uppercase tracking-widest text-gray-500 mb-3">
-        <span className="underline underline-offset-4 cursor-pointer">Courses</span>
-        <span className="mx-2 opacity-50">|</span>
-        <span className="underline underline-offset-4 cursor-pointer">{courseTitle}</span>
-        {currentItem && (
-          <>
-            <span className="mx-2 opacity-50">|</span>
-            <span>{currentItem.title}</span>
-          </>
-        )}
-      </div>
+      <TeachableBreadcrumb
+        courseId={courseId}
+        courseTitle={courseTitle}
+        current={currentItem?.title}
+      />
 
-      <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl mb-6 truncate">
-        {currentItem?.title || 'Edit lesson'}
-      </h2>
-
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-6 mt-3">
         {/* Center content */}
         <div>
           <div
