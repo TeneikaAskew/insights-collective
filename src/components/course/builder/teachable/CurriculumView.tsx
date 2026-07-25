@@ -48,6 +48,7 @@ function looksLikeHtml(text: string): boolean {
 }
 
 interface CurriculumViewProps {
+  courseId?: string;
   courseTitle: string;
   modules: BuilderModule[];
   onAddModule: () => void;
