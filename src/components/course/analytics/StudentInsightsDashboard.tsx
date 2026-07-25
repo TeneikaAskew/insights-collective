@@ -131,17 +131,45 @@ export const StudentInsightsDashboard: React.FC<StudentInsightsProps> = ({
       if (modulesError) throw modulesError;
       const totalModules = modules?.length || 0;
 
-      const { data: completedModules, error: completedModulesError } = await supabase
-        .from('module_progressions')
-        .select('module_id')
-        .eq('user_id', studentId)
-        .eq('workflow_state', 'completed')
-        .in(
-          'module_id',
-          modules?.map((m) => m.id) || []
-        );
+      // Module completion is derived from content_item_progressions — nothing
+      // in the system writes module_progressions, so reading it always showed
+      // 0 completed modules. A module counts as complete when every one of its
+      // published content items is read/completed (same semantics as
+      // useCourseProgress).
+      const moduleIds = (modules ?? []).map((m) => m.id);
+      let completedModules: { module_id: string }[] = [];
+      if (moduleIds.length > 0) {
+        const { data: moduleItems, error: moduleItemsError } = await supabase
+          .from('content_items')
+          .select('id, module_id')
+          .in('module_id', moduleIds)
+          .eq('published', true);
+        if (moduleItemsError) throw moduleItemsError;
 
-      if (completedModulesError) throw completedModulesError;
+        const itemIds = (moduleItems ?? []).map((i) => i.id);
+        let doneItemIds = new Set<string>();
+        if (itemIds.length > 0) {
+          const { data: itemProgress, error: itemProgressError } = await supabase
+            .from('content_item_progressions')
+            .select('content_item_id, workflow_state')
+            .eq('user_id', studentId)
+            .in('content_item_id', itemIds)
+            .in('workflow_state', ['read', 'completed']);
+          if (itemProgressError) throw itemProgressError;
+          doneItemIds = new Set((itemProgress ?? []).map((p) => p.content_item_id));
+        }
+
+        const itemsByModule = new Map<string, string[]>();
+        (moduleItems ?? []).forEach((i) => {
+          itemsByModule.set(i.module_id, [...(itemsByModule.get(i.module_id) ?? []), i.id]);
+        });
+        completedModules = moduleIds
+          .filter((mid) => {
+            const items = itemsByModule.get(mid) ?? [];
+            return items.length > 0 && items.every((iid) => doneItemIds.has(iid));
+          })
+          .map((mid) => ({ module_id: mid }));
+      }
 
       // Load assignment stats
       const { data: assignments, error: assignmentsError } = await supabase
