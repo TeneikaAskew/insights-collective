@@ -4357,6 +4357,44 @@ export type Database = {
           },
         ]
       }
+      submission_attachments: {
+        Row: {
+          content_type: string | null
+          created_at: string | null
+          filename: string
+          id: string
+          size: number | null
+          submission_id: string
+          url: string
+        }
+        Insert: {
+          content_type?: string | null
+          created_at?: string | null
+          filename: string
+          id?: string
+          size?: number | null
+          submission_id: string
+          url: string
+        }
+        Update: {
+          content_type?: string | null
+          created_at?: string | null
+          filename?: string
+          id?: string
+          size?: number | null
+          submission_id?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "submission_attachments_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "assignment_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       survey_drafts: {
         Row: {
           form_data: Json
