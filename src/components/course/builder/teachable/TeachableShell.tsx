@@ -196,7 +196,7 @@ export function TeachableShell({
                 <X className="h-4 w-4" />
               </button>
             </Hint>
-            {sidebarBody}
+            {renderSidebarBody(false)}
           </aside>
         </div>
       )}
