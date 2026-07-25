@@ -198,7 +198,7 @@ const CourseCalendar = () => {
       setZoomMeetingId(data.meeting_id);
       setZoomStartUrl(data.start_url);
     } catch (err: any) {
-      alert(`Zoom error: ${err.message}`);
+      toast.error('Zoom error', { description: err.message });
     } finally {
       setIsCreatingZoom(false);
     }
