@@ -11,6 +11,15 @@ function countTokens(text: string): number {
 
 const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
 
+// Silent-failure audit: corsHeaders was referenced throughout this file but
+// never defined or imported — every request (including the OPTIONS preflight)
+// died with an uncaught ReferenceError. Defined here to restore the function.
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Content-Type': 'application/json',
+};
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -143,12 +152,35 @@ serve(async (req) => {
 
     const data = await response.json();
     console.log("Response from Together.ai API:", data);
+    const content = data?.choices?.[0]?.message?.content;
+    if (!content) {
+      console.error('AI gateway returned no content');
+      return new Response(
+        JSON.stringify({ error: "AI returned no content" }),
+        { status: 502, headers: corsHeaders }
+      );
+    }
     let report;
     try {
-      report = JSON.parse(data.choices[0].message.content);
+      report = JSON.parse(content);
     } catch (e) {
-      // fallback or error handling
-      report = { error: "Invalid JSON from LLM", raw: data.choices[0].message.content };
+      // Try to salvage a JSON object wrapped in prose/markdown before giving up
+      const match = content.match(/\{[\s\S]*\}/);
+      if (match) {
+        try {
+          report = JSON.parse(match[0]);
+        } catch { /* fall through to error below */ }
+      }
+    }
+    if (!report) {
+      // BEHAVIOR CHANGE (silent-failure audit): an unparseable model reply used
+      // to be returned as a 200 body shaped like `{error, raw}` which the
+      // client then stored as a "report". Return an explicit non-2xx error.
+      console.error('Invalid JSON from LLM:', content.slice(0, 500));
+      return new Response(
+        JSON.stringify({ error: "Invalid JSON from LLM", raw: content }),
+        { status: 502, headers: corsHeaders }
+      );
     }
     console.log("Generated structured career advice successfully: ", report);
     return new Response(

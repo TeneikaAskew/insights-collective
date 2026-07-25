@@ -751,10 +751,14 @@ serve(async (req) => {
 
     let payload;
 
-    // Fire off getResumeRoast early for action='analyze' but don't await
+    // Fire off getResumeRoast early for action='analyze' but don't await.
+    // getResumeRoast now throws on failure (see below), so attach a catch here:
+    // the roast is supplemental to 'analyze' and its failure is logged, not fatal.
     let roastPromise;
     if (action === 'analyze' && resolvedText) {
-      roastPromise = getResumeRoast(resolvedText, userId);
+      roastPromise = getResumeRoast(resolvedText, userId).catch((err) => {
+        console.warn('Background roast generation failed during analyze:', err?.message || err);
+      });
     }
 
     switch (action) {
@@ -904,7 +908,7 @@ export async function analyzeResume(resumeText, userId, sentences = []) {
   
   // Wait for AI analysis to complete
   const aiAnalysis = await aiAnalysisPromise;
-  
+
   // Complete the results with AI analysis
   const completeResults = {
     ...results,
@@ -912,9 +916,16 @@ export async function analyzeResume(resumeText, userId, sentences = []) {
     elevator_pitch: aiAnalysis.elevator_pitch,
     explanation: aiAnalysis.explanation
   };
-  
-  // If we started a DB save, update with complete results
+
+  // If we started a DB save, update with complete results.
+  // BEHAVIOR CHANGE (silent-failure audit): both save helpers swallow their
+  // errors into a boolean; previously that boolean was ignored and the response
+  // implied the analysis was persisted. Downstream (improve-bullets) reads the
+  // analysis back from the DB, so a failed save produced baffling follow-up
+  // errors. The response now carries an explicit analysis_saved flag.
+  let analysisSaved = null;
   if (dbSavePromise && userId) {
+    const initialSaved = await dbSavePromise;
     // Update DB with AI analysis results
     const finalAnalysisData = {
       bullets: results.bullets,
@@ -925,12 +936,16 @@ export async function analyzeResume(resumeText, userId, sentences = []) {
       elevator_pitch: aiAnalysis.elevator_pitch,
       explanation: aiAnalysis.explanation
     };
-    
-    await updateAnalysisInDatabase(userId, finalAnalysisData);
+
+    const updated = await updateAnalysisInDatabase(userId, finalAnalysisData);
+    analysisSaved = Boolean(initialSaved && updated);
+    if (!analysisSaved) {
+      console.error(`Resume analysis for user ${userId} was NOT fully persisted (initial save: ${initialSaved}, final update: ${updated})`);
+    }
   }
   const endTime = Date.now();
   console.log(`Analyze resume completed in ${(endTime - startTime) / 1000}s`);
-  return completeResults;
+  return userId ? { ...completeResults, analysis_saved: analysisSaved } : completeResults;
 }
 
 // Helper function to analyze bullets in parallel with controlled concurrency
@@ -1331,24 +1346,31 @@ async function getResumeRoast(resumeText, userId) {
     // Set cache expiration (30 minutes)
     setTimeout(() => roastCache.delete(cacheKey), 30 * 60 * 1000);
     
-    // Store in database if user ID provided
+    // Store in database if user ID provided (supabase-js returns errors, it
+    // does not throw — check the result instead of assuming success)
     if (userId) {
-      await supabase.from('resumes').update({
+      const { error: roastSaveError } = await supabase.from('resumes').update({
         resume_roast: cleanRoast
       }).eq('user_id', userId);
-      
+      if (roastSaveError) {
+        console.warn('Failed to persist resume roast:', roastSaveError.message);
+      }
+
       const endTime = Date.now();
       console.log(`Roast/Assessment: Function completed in ${(endTime - startTime) / 1000}s`);
     }
-    
+
     return {
       roast: cleanRoast
     };
   } catch (err) {
+    // BEHAVIOR CHANGE (silent-failure audit): AI failures used to be replaced
+    // by a canned one-liner ("Your resume needs more specific accomplishments
+    // and metrics.") returned with HTTP 200 as if it were the model's roast.
+    // Rethrow so the handler returns an explicit error; the background caller
+    // for action='analyze' attaches its own .catch.
     console.error('Error getting resume roast:', err);
-    return {
-      roast: 'Your resume needs more specific accomplishments and metrics.'
-    };
+    throw err instanceof Error ? err : new Error(String(err));
   }
 }
 // import { serve } from "https://deno.land/std@0.168.0/http/server.ts";

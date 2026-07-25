@@ -38,9 +38,13 @@ Deno.serve(async (req) => {
     const { title, description } = await req.json();
     const key = Deno.env.get("LOVABLE_API_KEY");
     if (!key) {
+      // BEHAVIOR CHANGE (silent-failure audit): error paths in this function
+      // returned HTTP 200, hiding failures from anything that only checks the
+      // status. Errors now use honest non-2xx statuses (the client checks both
+      // invoke `error` and `data.error`, so it handles either shape).
       return new Response(
         JSON.stringify({ error: "Missing LOVABLE_API_KEY" }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -68,7 +72,7 @@ Deno.serve(async (req) => {
       console.error("Gateway error", res.status, errText);
       return new Response(
         JSON.stringify({ error: `AI Gateway ${res.status}`, detail: errText }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -86,7 +90,7 @@ Deno.serve(async (req) => {
     if (!parsed || !Array.isArray(parsed.sections)) {
       return new Response(
         JSON.stringify({ error: "Model returned no outline", raw }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -107,7 +111,7 @@ Deno.serve(async (req) => {
   } catch (err: any) {
     console.error("generate-course-outline error", err);
     return new Response(JSON.stringify({ error: err?.message || "Unknown error" }), {
-      status: 200,
+      status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

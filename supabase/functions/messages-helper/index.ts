@@ -29,6 +29,39 @@ serve(async (req) => {
     );
     console.log('[messages-helper] Supabase admin client initialized.');
 
+    // BEHAVIOR CHANGE (silent-failure audit / auth fail-open): this function
+    // runs every query with the SERVICE ROLE key but previously trusted the
+    // client-supplied userId/currentUserId/senderId — any authenticated user
+    // could read or act on anyone else's conversations. We now resolve the
+    // caller's identity from their JWT and require the acting-user parameter
+    // to match it.
+    const authHeader = req.headers.get('Authorization') ?? '';
+    const token = authHeader.replace('Bearer ', '');
+    if (!token) {
+      return new Response(JSON.stringify({ error: 'Not authorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const { data: { user: caller }, error: callerError } = await supabaseAdmin.auth.getUser(token);
+    if (callerError || !caller) {
+      console.error('[messages-helper] Failed to authenticate caller:', callerError?.message);
+      return new Response(JSON.stringify({ error: 'Not authorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // The parameter that identifies the acting user differs per action.
+    const actingUserId = requestBody.userId ?? requestBody.currentUserId ?? requestBody.senderId;
+    if (actingUserId && actingUserId !== caller.id) {
+      console.error(`[messages-helper] Caller ${caller.id} attempted to act as ${actingUserId} (action: ${action})`);
+      return new Response(JSON.stringify({ error: 'Forbidden: cannot act on behalf of another user' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     console.log(`[messages-helper] Processing action: ${action}`);
 
     let result;

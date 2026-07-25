@@ -473,7 +473,10 @@ Deno.serve(async (req) => {
     console.log('LinkedIn post scraping function called')
     
     const result = await scrapePosts()
-    
+
+    // BEHAVIOR CHANGE (silent-failure audit): scrapePosts() converts internal
+    // errors into `result.error`, but this handler previously returned HTTP 200
+    // either way. Failed scrapes now get a non-2xx status.
     return new Response(
       JSON.stringify({
         success: !result.error,
@@ -482,7 +485,7 @@ Deno.serve(async (req) => {
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200
+        status: result.error ? 502 : 200
       }
     )
   } catch (error: any) {

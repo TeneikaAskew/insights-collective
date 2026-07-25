@@ -4,6 +4,17 @@ export const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Silent-failure audit: auth-callback imports parseQueryParams from this module,
+// but it was never exported — the function failed to boot with a module-resolution
+// error on every cold start. Provide the missing helper.
+export const parseQueryParams = (url: string): Record<string, string> => {
+  try {
+    return Object.fromEntries(new URL(url).searchParams.entries());
+  } catch {
+    return {};
+  }
+};
+
 export const handleError = (error: any) => {
   console.error("Error details:", {
     message: error.message,
