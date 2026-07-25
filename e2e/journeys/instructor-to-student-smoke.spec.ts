@@ -90,40 +90,50 @@ test.describe('Smoke — instructor course creation through student progress', (
   test.afterAll(async () => {
     const it = state.instructorToken;
     if (!it) return;
-    // Cascade-friendly cleanup order
-    if (state.submissionId) {
-      await fetch(`${SUPABASE_URL}/rest/v1/assignment_submissions?id=eq.${state.submissionId}`, {
-        method: 'DELETE', headers: h(it),
-      });
-    }
-    if (state.assignmentId) {
-      await fetch(`${SUPABASE_URL}/rest/v1/assignments?id=eq.${state.assignmentId}`, {
-        method: 'DELETE', headers: h(it),
-      });
-    }
+    // Cascade-friendly cleanup order — best-effort per resource so a failure
+    // partway through the spec still tears the rest down.
+    const tryDelete = async (path: string) => {
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/${path}`, { method: 'DELETE', headers: h(it) });
+      } catch {
+        /* best-effort */
+      }
+    };
+
+    if (state.submissionId) await tryDelete(`assignment_submissions?id=eq.${state.submissionId}`);
+    if (state.assignmentId) await tryDelete(`assignments?id=eq.${state.assignmentId}`);
     for (const id of [state.assignmentItemId, state.lessonItemId].filter(Boolean)) {
-      await fetch(`${SUPABASE_URL}/rest/v1/content_item_progressions?content_item_id=eq.${id}`, {
-        method: 'DELETE', headers: h(it),
-      });
-      await fetch(`${SUPABASE_URL}/rest/v1/content_items?id=eq.${id}`, {
-        method: 'DELETE', headers: h(it),
-      });
+      await tryDelete(`content_item_progressions?content_item_id=eq.${id}`);
+      await tryDelete(`content_items?id=eq.${id}`);
     }
-    if (state.moduleId) {
-      await fetch(`${SUPABASE_URL}/rest/v1/modules?id=eq.${state.moduleId}`, {
-        method: 'DELETE', headers: h(it),
-      });
-    }
+    if (state.moduleId) await tryDelete(`modules?id=eq.${state.moduleId}`);
     if (state.courseId) {
-      await fetch(`${SUPABASE_URL}/rest/v1/enrollments?course_id=eq.${state.courseId}`, {
-        method: 'DELETE', headers: h(it),
-      });
-      await fetch(`${SUPABASE_URL}/rest/v1/certificates?course_id=eq.${state.courseId}`, {
-        method: 'DELETE', headers: h(it),
-      });
-      await fetch(`${SUPABASE_URL}/rest/v1/courses?id=eq.${state.courseId}`, {
-        method: 'DELETE', headers: h(it),
-      });
+      await tryDelete(`enrollments?course_id=eq.${state.courseId}`);
+      await tryDelete(`certificates?course_id=eq.${state.courseId}`);
+      await tryDelete(`courses?id=eq.${state.courseId}`);
+    }
+
+    // Belt-and-suspenders sweep: catch any prior-run "Smoke Course …" rows
+    // owned by this instructor that leaked because the process was killed
+    // before afterAll ran. Scoped strictly by title prefix + instructor_id,
+    // so it can never delete real catalog courses.
+    try {
+      const leaked = await fetch(
+        `${SUPABASE_URL}/rest/v1/courses?instructor_id=eq.${state.instructorId}&title=like.Smoke%20Course%20*&select=id`,
+        { headers: h(it) },
+      );
+      const rows = (await leaked.json()) as Array<{ id: string }>;
+      for (const row of rows) {
+        await tryDelete(`certificates?course_id=eq.${row.id}`);
+        await tryDelete(`enrollments?course_id=eq.${row.id}`);
+        await tryDelete(`assignment_submissions?assignment_id=in.(select id from assignments where course_id=eq.${row.id})`);
+        await tryDelete(`assignments?course_id=eq.${row.id}`);
+        await tryDelete(`content_items?course_id=eq.${row.id}`);
+        await tryDelete(`modules?course_id=eq.${row.id}`);
+        await tryDelete(`courses?id=eq.${row.id}`);
+      }
+    } catch {
+      /* best-effort sweep */
     }
   });
 
