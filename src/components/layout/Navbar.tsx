@@ -18,7 +18,7 @@ const Navbar = () => {
     logout
   } = useAuth();
   return <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 z-50">
-      <div className="flex h-14 items-center px-4 gap-4 w-full">
+      <div className="flex h-14 items-center pl-4 pr-6 sm:pr-8 gap-4 w-full">
         <div>
           <Button variant="ghost" size="icon" onClick={toggleSidebar}>
             <Menu className="h-5 w-5" />
