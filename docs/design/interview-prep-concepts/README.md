@@ -151,3 +151,42 @@ Reading-first: the problem as a rich left page (example, constraints,
 numbered hints always visible), the editor as the right page. On submit the
 left page becomes the Result card, so feedback sits beside the code that
 earned it.
+
+---
+
+# Sub-page: Mock Interviews + Interview Room — layout alternatives
+
+Two decisions here, one per page. The scheduler (A/B/C) reorganizes the
+Find Sessions / Set Availability / Upcoming Sessions / Guidelines feature
+set; the interview room (R1/R2) decides where the video stage sits relative
+to the interviewer's evaluation form. Any scheduler pick can pair with any
+room pick.
+
+## Mock Concept A — Split Desk
+![Mock A](./mock-concept-a-split-desk.png)
+Keeps the four pill tabs. Find Sessions becomes a split desk like the Job
+Description page: date/time/type/role rail on the left, Available Users and
+a warm Upcoming Sessions card on the right — booking and your schedule
+visible at once.
+
+## Mock Concept B — One Desk
+![Mock B](./mock-concept-b-one-desk.png)
+No tabs. One page: availability status chips up top, a single booking card
+with a 1-2-3 flow (date → time & type → partner), and Upcoming Sessions
+full-width below. Availability and Guidelines open from pill buttons.
+
+## Mock Concept C — Session Book
+![Mock C](./mock-concept-c-session-book.png)
+Sessions-first: your next session is the hero (warm card with join button
+and countdown), history beside it, and a compact three-column booking card
+below. Availability and Guidelines stay as tabs.
+
+## Room R1 — Stage
+![Room R1](./mock-room-r1-stage.png)
+Full-width dark stage with both tiles and a labeled control bar (Camera /
+Mic / End Session), questions and evaluation side by side beneath it.
+
+## Room R2 — Side Desk
+![Room R2](./mock-room-r2-side-desk.png)
+Meeting-app arrangement: large remote tile with self-view picture-in-picture
+on the left, sticky evaluation form on the right, questions below the video.
