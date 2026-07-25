@@ -35,6 +35,7 @@ const STEPS = ['About', 'Thumbnail', 'Outline', 'Confirm'] as const;
 export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardProps) {
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
