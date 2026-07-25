@@ -34,6 +34,7 @@ import { sanitizeHTML } from '@/utils/sanitize';
 import type { ContentItem } from '@/types/canvas';
 import type { BuilderModule } from './types';
 import { TeachableBreadcrumb } from './TeachableBreadcrumb';
+import { ConfirmDialog } from './ConfirmDialog';
 
 function htmlToPlainText(html: string): string {
   if (!html) return '';
