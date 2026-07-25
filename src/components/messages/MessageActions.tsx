@@ -21,6 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { archiveConversation, unarchiveConversation, deleteConversation, restoreConversation } from '@/services/conversationService';
+import { useConfirm } from '@/components/dialogs/DialogsProvider';
 
 import { createLogger } from '@/utils/logger';
 
@@ -45,6 +46,8 @@ const MessageActions: React.FC<MessageActionsProps> = ({
   const { user } = useAuth();
   const [loading, setLoading] = useState<string | null>(null);
   const navigate = useNavigate();
+  const confirm = useConfirm();
+
 
   const handleMarkAsUnread = async () => {
     if (!user || !conversationId) return;
@@ -149,7 +152,8 @@ const MessageActions: React.FC<MessageActionsProps> = ({
   const handleDelete = async () => {
     if (!user || !conversationId) return;
     
-    if (!window.confirm('Are you sure you want to delete this conversation?')) {
+    const ok = await confirm({ title: 'Delete conversation?', description: 'This permanently removes the conversation.', destructive: true, confirmLabel: 'Delete' });
+    if (!ok) {
       return;
     }
     

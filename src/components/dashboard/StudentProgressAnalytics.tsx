@@ -129,8 +129,8 @@ const StudentProgressAnalytics: React.FC = () => {
         const { data: submissions, error: subErr } = assignmentIds.length
           ? await supabase
               .from('assignment_submissions')
-              .select('assignment_id, status, grade')
-              .eq('student_id', user.id)
+              .select('assignment_id, workflow_state, grade')
+              .eq('user_id', user.id)
               .in('assignment_id', assignmentIds)
           : { data: [] as any[], error: null };
         if (subErr) throw subErr;
@@ -162,13 +162,17 @@ const StudentProgressAnalytics: React.FC = () => {
           const overallPercent = totalItems ? Math.round((completedCount / totalItems) * 100) : 0;
 
           const courseAssignments = (assignments || []).filter((a) => a.course_id === course.id);
+          // Drafts and unsubmitted rows are still the student's to-do, not
+          // work awaiting feedback.
+          const isPending = (sub: any) =>
+            !sub || sub.workflow_state === 'draft' || sub.workflow_state === 'unsubmitted';
           let submitted = 0;
           let graded = 0;
           let pending = 0;
           courseAssignments.forEach((a) => {
             const sub = subByAssignment.get(a.id);
-            if (!sub) pending += 1;
-            else if (sub.status === 'graded' || sub.grade != null) graded += 1;
+            if (isPending(sub)) pending += 1;
+            else if (sub.workflow_state === 'graded' || sub.grade != null) graded += 1;
             else submitted += 1;
           });
 
@@ -176,7 +180,7 @@ const StudentProgressAnalytics: React.FC = () => {
           let nextAction: CourseAnalytics['nextAction'];
           const nextIncompleteWeek = weeks.find((w) => w.percent < 100 && w.firstIncompleteItemId);
           const nextPendingAssignment = courseAssignments
-            .filter((a) => !subByAssignment.get(a.id))
+            .filter((a) => isPending(subByAssignment.get(a.id)))
             .sort((a, b) => (a.due_date || '').localeCompare(b.due_date || ''))[0];
 
           if (overallPercent >= 100 && pending === 0 && submitted === 0) {

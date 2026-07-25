@@ -7,7 +7,7 @@ import { Edit2, Check, X } from 'lucide-react';
 import { AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import BulletPointChart from './BulletPointChart';
 import { HighlightedBulletText } from './text/BulletTextParser';
-import { XYZQualityScore, getBadgeColor } from './score/BulletScoreDisplay';
+import { WordBalanceScore, XYZQualityScore, getBadgeColor } from './score/BulletScoreDisplay';
 import { Textarea } from '@/components/ui/textarea';
 
 interface BulletPointItemProps {
@@ -72,7 +72,7 @@ const BulletPointItem: React.FC<BulletPointItemProps> = ({
   const displayBullet = editedBullet || bullet;
 
   return (
-    <AccordionItem value={`bullet-${index}`} className="border rounded-lg p-1">
+    <AccordionItem value={`bullet-${index}`} className="border border-border bg-card rounded-2xl p-1">
       <AccordionTrigger className="px-4 py-3 hover:no-underline">
         <div className="flex flex-1 items-center justify-between">
           <div className="flex-1 text-left mr-4 line-clamp-1">
@@ -88,7 +88,7 @@ const BulletPointItem: React.FC<BulletPointItemProps> = ({
         <div className="space-y-6">
           <div className="space-y-4">
             <h4 className="text-sm font-medium">Original:</h4>
-            <div className="text-sm bg-slate-50 p-3 rounded">
+            <div className="text-sm bg-background border border-border p-3 rounded-xl">
               <HighlightedBulletText text={original} />
             </div>
             
@@ -133,7 +133,7 @@ const BulletPointItem: React.FC<BulletPointItemProps> = ({
                 </div>
               </div>
             ) : (
-              <div className="text-sm bg-green-50 p-3 rounded">
+              <div className="text-sm bg-ss-good-chip p-3 rounded-xl">
                 <HighlightedBulletText text={displayBullet.rewritten} />
               </div>
             )}
@@ -145,10 +145,11 @@ const BulletPointItem: React.FC<BulletPointItemProps> = ({
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-            <div>
-              {/* Word Balance Score component has been removed as requested */}
-            </div>
-            
+            <WordBalanceScore
+              wordBalance={displayBullet.word_balance}
+              wordBalanceScore={displayBullet.word_balance?.word_balance_score ?? displayBullet.word_balance_score ?? 0}
+            />
+
             <XYZQualityScore xyzScores={displayBullet.xyz_scores} />
           </div>
           

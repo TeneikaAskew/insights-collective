@@ -14,7 +14,7 @@ export const SecurityHeaders = () => {
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: https: blob:",
       "connect-src 'self' wss: https:",
-      "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://youtube.com https://player.vimeo.com",
+      "frame-src 'self' blob: https://www.youtube.com https://www.youtube-nocookie.com https://youtube.com https://player.vimeo.com",
       "object-src 'none'",
       "base-uri 'self'"
     ].join('; ');

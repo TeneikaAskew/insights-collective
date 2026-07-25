@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, Link, useParams, useL
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { OnboardingProvider } from '@/contexts/OnboardingContext';
+import { DialogsProvider } from '@/components/dialogs/DialogsProvider';
 import { PageVisibilityProvider } from '@/contexts/PageVisibilityContext';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -68,6 +69,10 @@ const Assistants = lazy(() => import('@/pages/Assistants'));
 const AssistantInterface = lazy(() => import('@/pages/AssistantInterface'));
 const ExploreDataCareers = lazy(() => import('@/pages/ExploreDataCareers'));
 const Resume = lazy(() => import('@/pages/Resume'));
+// Dev-only design preview (tree-shaken out of production builds)
+const SoftStudioPreview = import.meta.env.DEV
+  ? lazy(() => import('@/pages/dev/SoftStudioPreview'))
+  : null;
 
 // Events & Social Pages
 const Events = lazy(() => import('@/pages/Events'));
@@ -224,6 +229,7 @@ function App() {
           <PageVisibilityProvider>
             <OnboardingProvider>
               <TooltipProvider delayDuration={200}>
+              <DialogsProvider>
               <SecurityHeaders />
               <SecurityManager />
               <RouteTracker />
@@ -314,6 +320,9 @@ function App() {
                     <Route path="/assistant-interface" element={<AssistantInterface />} />
                     <Route path="/explore-data-careers" element={<ExploreDataCareers />} />
                     <Route path="/resume" element={<Resume />} />
+                    {SoftStudioPreview && (
+                      <Route path="/dev/soft-studio" element={<SoftStudioPreview />} />
+                    )}
 
                     {/* Events & Social Routes */}
                     <Route path="/events" element={<Events />} />
@@ -406,6 +415,7 @@ function App() {
                 <GoogleAnalytics />
                 <SEOMetaTags />
               </div>
+              </DialogsProvider>
               </TooltipProvider>
             </OnboardingProvider>
           </PageVisibilityProvider>

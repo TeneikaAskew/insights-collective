@@ -54,7 +54,7 @@ describe('lessonCompletionService', () => {
 
   describe('markLessonComplete', () => {
     it('should insert a completion and return it', async () => {
-      const completion = { id: 'lc-1', lesson_id: 'lesson-1', student_id: 'student-1' };
+      const completion = { id: 'lc-1', lesson_id: 'lesson-1', user_id: 'student-1' };
 
       mockSupabaseClient.from().insert().select().single.mockResolvedValue({
         data: completion,
@@ -67,7 +67,7 @@ describe('lessonCompletionService', () => {
       expect(mockSupabaseClient.from).toHaveBeenCalledWith('lesson_completions');
       expect(getQueryBuilder().insert).toHaveBeenCalledWith({
         lesson_id: 'lesson-1',
-        student_id: 'student-1',
+        user_id: 'student-1',
         completion_method: 'manual',
       });
     });
@@ -119,7 +119,7 @@ describe('lessonCompletionService', () => {
 
   describe('getLessonCompletion', () => {
     it('should return the completion record', async () => {
-      const completion = { id: 'lc-1', lesson_id: 'lesson-1', student_id: 'student-1' };
+      const completion = { id: 'lc-1', lesson_id: 'lesson-1', user_id: 'student-1' };
 
       mockSupabaseClient.from().select().eq().eq().single.mockResolvedValue({
         data: completion,
@@ -374,9 +374,9 @@ describe('lessonCompletionService', () => {
       });
       builder.maybeSingle.mockImplementation(async () => {
         const match = submissions.find((s) => {
-          if (filters['student_id'] && s.student_id !== filters['student_id']) return false;
+          if (filters['user_id'] && s.user_id !== filters['user_id']) return false;
           if (filters['assignment_id'] && s.assignment_id !== filters['assignment_id']) return false;
-          if (filters['in:status'] && !filters['in:status'].includes(s.status)) return false;
+          if (filters['in:workflow_state'] && !filters['in:workflow_state'].includes(s.workflow_state)) return false;
           return true;
         });
         return { data: match ?? null, error: null };
@@ -388,8 +388,8 @@ describe('lessonCompletionService', () => {
       const submissionBuilder = makeFilteringSubmissionBuilder([
         makeSubmission({
           assignment_id: 'assignment-1',
-          student_id: 'student-1',
-          status: 'submitted',
+          user_id: 'student-1',
+          workflow_state: 'submitted',
         }),
       ]);
 
@@ -409,15 +409,15 @@ describe('lessonCompletionService', () => {
       expect(result.requirements[0]).toMatchObject({ type: 'submit', met: true });
       // Regression: the query must be scoped to the requirement's assignment
       expect(submissionBuilder.eq).toHaveBeenCalledWith('assignment_id', 'assignment-1');
-      expect(submissionBuilder.eq).toHaveBeenCalledWith('student_id', 'student-1');
+      expect(submissionBuilder.eq).toHaveBeenCalledWith('user_id', 'student-1');
     });
 
     it("should NOT mark 'submit' met when the only submission is for a different assignment", async () => {
       const submissionBuilder = makeFilteringSubmissionBuilder([
         makeSubmission({
           assignment_id: 'some-other-assignment',
-          student_id: 'student-1',
-          status: 'submitted',
+          user_id: 'student-1',
+          workflow_state: 'submitted',
         }),
       ]);
 
@@ -567,7 +567,7 @@ describe('lessonCompletionService', () => {
       });
       expect(completionsBuilder.insert).toHaveBeenCalledWith({
         lesson_id: 'lesson-1',
-        student_id: 'student-1',
+        user_id: 'student-1',
         completion_method: 'automatic',
       });
     });

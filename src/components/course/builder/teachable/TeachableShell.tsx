@@ -17,6 +17,8 @@ import {
   Eye,
   Menu,
   X,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Hint } from '@/components/ui/hint';
@@ -77,34 +79,76 @@ export function TeachableShell({
   const secondary = NAV_ITEMS.filter((n) => n.group === 'secondary');
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return window.localStorage.getItem('builderNavCollapsed') === '1';
+  });
+
+  const toggleCollapsed = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('builderNavCollapsed', next ? '1' : '0');
+      }
+      return next;
+    });
+  };
+
   const handleNav = (key: BuilderNavKey) => {
     setDrawerOpen(false);
     onNavigate(key);
   };
 
-  const sidebarBody = (
+  const renderSidebarBody = (isCollapsed: boolean) => (
     <>
-      <div className="px-5 pt-5 pb-4">
+      <div className={cn('pt-5 pb-4', isCollapsed ? 'px-2' : 'px-5')}>
         <Link
           to="/admin/courses"
-          className="inline-flex items-center gap-1.5 text-xs uppercase tracking-widest font-semibold text-sidebar-foreground/80 hover:text-sidebar-foreground"
+          className={cn(
+            'inline-flex items-center gap-1.5 text-xs uppercase tracking-widest font-semibold text-sidebar-foreground/80 hover:text-sidebar-foreground',
+            isCollapsed && 'justify-center w-full',
+          )}
+          title="Back to courses"
         >
           <ArrowLeft className="h-3 w-3" />
-          Courses
+          {!isCollapsed && 'Courses'}
         </Link>
-        <h1
-          className="mt-4 text-lg leading-snug line-clamp-3 font-semibold text-foreground"
-          title={courseTitle}
-        >
-          {courseTitle || 'Untitled course'}
-        </h1>
+        {!isCollapsed && (
+          <h1
+            className="mt-4 text-lg leading-snug line-clamp-3 font-semibold text-foreground"
+            title={courseTitle}
+          >
+            {courseTitle || 'Untitled course'}
+          </h1>
+        )}
       </div>
 
-      <nav className="px-3 pb-4 space-y-1 flex-1 overflow-y-auto">
-        <NavGroup items={primary} activeKey={activeKey} onNavigate={handleNav} />
+      <nav className={cn('pb-4 space-y-1 flex-1 overflow-y-auto', isCollapsed ? 'px-2' : 'px-3')}>
+        <NavGroup items={primary} activeKey={activeKey} onNavigate={handleNav} collapsed={isCollapsed} />
         <div className="my-4 border-t border-sidebar-border" />
-        <NavGroup items={secondary} activeKey={activeKey} onNavigate={handleNav} />
+        <NavGroup items={secondary} activeKey={activeKey} onNavigate={handleNav} collapsed={isCollapsed} />
       </nav>
+
+      <div className={cn('border-t border-sidebar-border p-2', isCollapsed ? 'flex justify-center' : '')}>
+        <Hint label={isCollapsed ? 'Expand navigation' : 'Minimize navigation'}>
+          <button
+            type="button"
+            onClick={toggleCollapsed}
+            aria-label={isCollapsed ? 'Expand navigation' : 'Minimize navigation'}
+            aria-expanded={!isCollapsed}
+            className={cn(
+              'flex items-center gap-2 rounded-md text-sm font-medium text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors',
+              isCollapsed ? 'p-2 justify-center' : 'w-full px-3 py-2',
+            )}
+          >
+            {isCollapsed ? (
+              <PanelLeftOpen className="h-4 w-4" />
+            ) : (
+              <PanelLeftClose className="h-4 w-4" />
+            )}
+          </button>
+        </Hint>
+      </div>
     </>
   );
 
@@ -119,9 +163,12 @@ export function TeachableShell({
       {/* Desktop left rail */}
       <aside
         data-onboarding="builder-nav"
-        className="hidden lg:flex w-64 flex-shrink-0 flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border"
+        className={cn(
+          'hidden lg:flex flex-shrink-0 flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border transition-[width] duration-200',
+          collapsed ? 'w-16' : 'w-64',
+        )}
       >
-        {sidebarBody}
+        {renderSidebarBody(collapsed)}
       </aside>
 
       {/* Mobile drawer */}
@@ -146,7 +193,7 @@ export function TeachableShell({
                 <X className="h-4 w-4" />
               </button>
             </Hint>
-            {sidebarBody}
+            {renderSidebarBody(false)}
           </aside>
         </div>
       )}
@@ -211,30 +258,35 @@ function NavGroup({
   items,
   activeKey,
   onNavigate,
+  collapsed = false,
 }: {
   items: { key: BuilderNavKey; label: string; icon: typeof LayoutGrid; comingSoon?: boolean }[];
   activeKey: BuilderNavKey;
   onNavigate: (key: BuilderNavKey) => void;
+  collapsed?: boolean;
 }) {
   return (
     <div className="space-y-0.5">
       {items.map(({ key, label, icon: Icon, comingSoon }) => {
         const active = key === activeKey;
-        return (
+        const button = (
           <button
             key={key}
             type="button"
             onClick={() => onNavigate(key)}
+            title={collapsed ? label : undefined}
+            aria-label={collapsed ? label : undefined}
             className={cn(
-              'w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-left transition-colors',
+              'w-full flex items-center rounded-md text-sm font-medium text-left transition-colors',
+              collapsed ? 'justify-center px-2 py-2' : 'gap-3 px-3 py-2',
               active
                 ? 'bg-primary text-primary-foreground font-semibold'
                 : 'text-primary hover:bg-primary hover:text-primary-foreground',
             )}
           >
             <Icon className="h-4 w-4 flex-shrink-0" />
-            <span className="truncate">{label}</span>
-            {comingSoon && (
+            {!collapsed && <span className="truncate">{label}</span>}
+            {!collapsed && comingSoon && (
               <Badge
                 variant="outline"
                 className="ml-auto flex-shrink-0 border-current text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0 text-inherit"
@@ -244,6 +296,7 @@ function NavGroup({
             )}
           </button>
         );
+        return button;
       })}
     </div>
   );

@@ -1,20 +1,20 @@
 // ABOUTME: Simple placeholder view for builder sections that aren't fully implemented yet.
 // ABOUTME: Used for Design templates, Certificates, Pricing, Sales pages, Students, Reports.
 
+import { TeachableBreadcrumb } from './TeachableBreadcrumb';
+
 interface PlaceholderViewProps {
+  courseId?: string;
   courseTitle: string;
   title: string;
   description: string;
 }
 
-export function PlaceholderView({ courseTitle, title, description }: PlaceholderViewProps) {
+export function PlaceholderView({ courseId, courseTitle, title, description }: PlaceholderViewProps) {
   return (
     <div className="px-4 sm:px-6 lg:px-10 py-6 lg:py-10 max-w-[1200px] mx-auto">
-      <div className="text-xs uppercase tracking-widest text-gray-500 mb-3">
-        <span className="underline underline-offset-4 cursor-pointer">Courses</span>
-        <span className="mx-2 opacity-50">|</span>
-        <span>{courseTitle}</span>
-      </div>
+      <TeachableBreadcrumb courseId={courseId} courseTitle={courseTitle} current={title} />
+
       <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl mb-4">{title}</h2>
       <div
         className="rounded-xl bg-white p-12 text-center"

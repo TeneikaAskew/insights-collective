@@ -7,8 +7,11 @@ import type { ContentItem, ContentItemType } from '@/types/canvas';
 import { LessonEditorPane, type LessonDraft } from '../LessonEditorPane';
 import { AddContentPanel } from './AddContentPanel';
 import type { BuilderModule } from './types';
+import { TeachableBreadcrumb } from './TeachableBreadcrumb';
+import { ConfirmDialog } from './ConfirmDialog';
 
 interface LessonEditViewProps {
+  courseId?: string;
   courseTitle: string;
   modules: BuilderModule[];
   currentItem: ContentItem | null;
@@ -21,6 +24,7 @@ interface LessonEditViewProps {
 }
 
 export function LessonEditView({
+  courseId,
   courseTitle,
   modules,
   currentItem,
@@ -32,26 +36,17 @@ export function LessonEditView({
   onSavingChange,
 }: LessonEditViewProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 max-w-[1400px] mx-auto">
-      <div className="text-xs uppercase tracking-widest text-gray-500 mb-3">
-        <span className="underline underline-offset-4 cursor-pointer">Courses</span>
-        <span className="mx-2 opacity-50">|</span>
-        <span className="underline underline-offset-4 cursor-pointer">{courseTitle}</span>
-        {currentItem && (
-          <>
-            <span className="mx-2 opacity-50">|</span>
-            <span>{currentItem.title}</span>
-          </>
-        )}
-      </div>
+      <TeachableBreadcrumb
+        courseId={courseId}
+        courseTitle={courseTitle}
+        current={currentItem?.title}
+      />
 
-      <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl mb-6 truncate">
-        {currentItem?.title || 'Edit lesson'}
-      </h2>
-
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-6 mt-3">
         {/* Center content */}
         <div>
           <div
@@ -98,7 +93,7 @@ export function LessonEditView({
                           className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-red-50"
                           onClick={() => {
                             setMenuOpen(false);
-                            if (confirm('Delete this lesson?')) onDeleteLesson(currentItem.id);
+                            setConfirmDeleteOpen(true);
                           }}
                         >
                           Delete lesson
@@ -112,17 +107,37 @@ export function LessonEditView({
 
             <div className="p-6">
               {currentItem ? (
-                <LessonEditorPane
-                  item={currentItem}
-                  onSave={onSaveLesson}
-                  onSavingChange={onSavingChange}
-                />
+                (() => {
+                  const parentModule = modules.find((m) =>
+                    m.items.some((it) => it.id === currentItem.id),
+                  );
+                  const siblings = parentModule
+                    ? parentModule.items
+                        .filter((it) => it.id !== currentItem.id)
+                        .map((it) => it.title)
+                        .filter(Boolean)
+                    : [];
+                  return (
+                    <LessonEditorPane
+                      item={currentItem}
+                      onSave={onSaveLesson}
+                      onSavingChange={onSavingChange}
+                      aiContext={{
+                        courseTitle,
+                        sectionTitle: parentModule?.title,
+                        sectionSummary: (parentModule as any)?.summary,
+                        siblingLessonTitles: siblings,
+                      }}
+                    />
+                  );
+                })()
               ) : (
                 <div className="text-center py-20 text-sm text-gray-500">
                   Pick a lesson from the outline or add one from the panel to the right.
                 </div>
               )}
             </div>
+
           </div>
         </div>
 
@@ -177,6 +192,18 @@ export function LessonEditView({
           <AddContentPanel onAdd={onAddContent} />
         </aside>
       </div>
+
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        onOpenChange={setConfirmDeleteOpen}
+        title="Delete this lesson?"
+        description="This will permanently remove the lesson and its content."
+        confirmLabel="Delete lesson"
+        onConfirm={() => {
+          if (currentItem) onDeleteLesson(currentItem.id);
+          setConfirmDeleteOpen(false);
+        }}
+      />
     </div>
   );
 }

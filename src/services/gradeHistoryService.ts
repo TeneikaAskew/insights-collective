@@ -32,7 +32,8 @@ export interface GradeHistoryEntry {
   submission_id?: string;
   created_at: string;
   changer?: {
-    full_name: string;
+    first_name: string | null;
+    last_name: string | null;
     avatar_url?: string;
   };
   assignment?: {
@@ -63,7 +64,8 @@ export interface SubmissionComment {
   updated_at: string;
   deleted_at?: string;
   author?: {
-    full_name: string;
+    first_name: string | null;
+    last_name: string | null;
     avatar_url?: string;
   };
   replies?: SubmissionComment[];
@@ -93,7 +95,7 @@ export const gradeHistoryService = {
       .from('grade_history')
       .select(`
         *,
-        changer:profiles!changed_by(full_name, avatar_url),
+        changer:profiles!changed_by(first_name, last_name, avatar_url),
         assignment:assignments(title),
         quiz:quizzes(title)
       `)
@@ -109,7 +111,7 @@ export const gradeHistoryService = {
       .from('grade_history')
       .select(`
         *,
-        changer:profiles!changed_by(full_name, avatar_url),
+        changer:profiles!changed_by(first_name, last_name, avatar_url),
         assignment:assignments(title),
         quiz:quizzes(title)
       `)
@@ -126,10 +128,10 @@ export const gradeHistoryService = {
       .from('grade_history')
       .select(`
         *,
-        changer:profiles!changed_by(full_name, avatar_url),
+        changer:profiles!changed_by(first_name, last_name, avatar_url),
         assignment:assignments(title),
         quiz:quizzes(title),
-        student:profiles!student_id(full_name)
+        student:profiles!student_id(first_name, last_name)
       `)
       .eq('course_id', courseId)
       .order('changed_at', { ascending: false })
@@ -156,7 +158,7 @@ export const gradeHistoryService = {
       .from('submission_comments')
       .select(`
         *,
-        author:profiles!author_id(full_name, avatar_url)
+        author:profiles!author_id(first_name, last_name, avatar_url)
       `)
       .eq('submission_id', submissionId)
       .eq('submission_type', submissionType)
@@ -183,7 +185,7 @@ export const gradeHistoryService = {
       .insert(comment)
       .select(`
         *,
-        author:profiles!author_id(full_name, avatar_url)
+        author:profiles!author_id(first_name, last_name, avatar_url)
       `)
       .single();
 
@@ -198,7 +200,7 @@ export const gradeHistoryService = {
       .eq('id', commentId)
       .select(`
         *,
-        author:profiles!author_id(full_name, avatar_url)
+        author:profiles!author_id(first_name, last_name, avatar_url)
       `)
       .single();
 

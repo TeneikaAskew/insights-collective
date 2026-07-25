@@ -48,7 +48,7 @@ export function CourseProgressTimeline({ courseId, modules, title = 'Weekly chec
       )
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'assignment_submissions', filter: `student_id=eq.${user.id}` },
+        { event: '*', schema: 'public', table: 'assignment_submissions', filter: `user_id=eq.${user.id}` },
         () => { void refetch(); },
       )
       .on(

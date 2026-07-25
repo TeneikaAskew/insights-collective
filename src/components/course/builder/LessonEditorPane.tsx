@@ -13,10 +13,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Sparkles, Loader2 } from 'lucide-react';
 import { UnifiedCanvasEditor } from '@/components/ui/unified-canvas-editor';
 import { QuizContentEditor } from '@/components/course/builder/QuizContentEditor';
 import type { ContentItem, ContentItemType } from '@/types/canvas';
+import { AiContentDialog, type AiContentContext } from '@/components/course/builder/AiContentDialog';
 
 export interface LessonDraft {
   title: string;
@@ -31,6 +32,8 @@ export interface LessonEditorPaneProps {
   onSave: (itemId: string, draft: LessonDraft) => Promise<void> | void;
   onDelete?: (itemId: string) => void;
   onSavingChange?: (saving: boolean) => void;
+  /** Optional context that gives the AI generator richer prompts. */
+  aiContext?: Omit<AiContentContext, 'lessonTitle' | 'lessonType'>;
 }
 
 const LESSON_TYPES: { value: ContentItemType; label: string }[] = [
@@ -46,8 +49,13 @@ export function LessonEditorPane({
   onSave,
   onDelete,
   onSavingChange,
+  aiContext,
 }: LessonEditorPaneProps) {
   const [draft, setDraft] = useState<LessonDraft | null>(null);
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiApplying, setAiApplying] = useState(false);
+
+
   const savedSnapshotRef = useRef<string>('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -163,16 +171,59 @@ export function LessonEditorPane({
           </div>
         ) : (
           <div className="space-y-2">
-            <Label>Content</Label>
-            <UnifiedCanvasEditor
-              key={`content-${item.id}`}
-              content={draft.content}
-              onChange={(content) => setField('content', content)}
-              placeholder="Start writing your lesson…"
-              minHeight="320px"
-            />
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <Label>Content</Label>
+              <button
+                type="button"
+                onClick={() => setAiOpen(true)}
+                className="group inline-flex items-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary/10 hover:border-primary/50"
+                aria-label="Generate content with AI"
+              >
+                <Sparkles className="h-4 w-4" />
+                <span>Generate content with AI</span>
+              </button>
+            </div>
+            <div className="relative">
+              <UnifiedCanvasEditor
+                key={`content-${item.id}`}
+                content={draft.content}
+                onChange={(content) => setField('content', content)}
+                placeholder="Start writing your lesson…"
+                minHeight="320px"
+              />
+              {aiApplying && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center rounded-md bg-background/70 backdrop-blur-sm">
+                  <div className="flex items-center gap-2 rounded-full border bg-background px-4 py-2 text-sm font-medium text-primary shadow-sm">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Inserting AI content…
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
+
+        <AiContentDialog
+          open={aiOpen}
+          onOpenChange={setAiOpen}
+          existingContent={draft.content || ''}
+          context={{
+            lessonTitle: draft.title,
+            lessonType: draft.type,
+            ...(aiContext || {}),
+          }}
+          onApply={(html, mode) => {
+            setAiApplying(true);
+            const existing = (draft.content || '').replace(/<p>\s*<\/p>/gi, '').trim();
+            const next = mode === 'append' && existing ? `${existing}\n${html}` : html;
+            setField('content', next);
+            // Clear the overlay once the editor has rendered the new content.
+            setTimeout(() => setAiApplying(false), 700);
+          }}
+        />
+
+
+
       </CardContent>
     </Card>
   );

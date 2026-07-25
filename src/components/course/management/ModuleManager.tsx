@@ -27,6 +27,7 @@ import { Plus, BookOpen, Clock, Pencil, Trash2, Edit } from 'lucide-react';
 // EnhancedModuleContentEditor removed - using Canvas system now
 
 import { createLogger } from '@/utils/logger';
+import { useConfirm } from '@/components/dialogs/DialogsProvider';
 
 const logger = createLogger('ModuleManager');
 
@@ -40,6 +41,7 @@ interface ModuleManagerProps {
 const ModuleManager = ({ courseId, moduleId, module, onUpdate }: ModuleManagerProps) => {
   const { lessons, loading: lessonsLoading, addLesson, updateLesson, deleteLesson, refetch } = useLessons(moduleId);
   const { toast } = useToast();
+  const confirm = useConfirm();
   const [selectedLesson, setSelectedLesson] = useState<any>(null);
   const [addLessonOpen, setAddLessonOpen] = useState(false);
   const [editLessonOpen, setEditLessonOpen] = useState(false);
@@ -133,7 +135,7 @@ const ModuleManager = ({ courseId, moduleId, module, onUpdate }: ModuleManagerPr
   };
 
   const handleDeleteLesson = async (lessonId: string) => {
-    if (!confirm('Are you sure you want to delete this lesson? All content blocks will be moved back to the module level.')) {
+    if (!(await confirm({ title: 'Delete lesson?', description: 'All content blocks will be moved back to the module level.', destructive: true, confirmLabel: 'Delete' }))) {
       return;
     }
 

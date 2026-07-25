@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button';
 import { EventFormFields, eventTypes, eventFormats } from '@/components/events/modals/EventFormFields';
 import { useEventForm } from '@/components/events/hooks/useEventForm';
+import { toast } from 'sonner';
 
 import { createLogger } from '@/utils/logger';
 
@@ -40,7 +41,7 @@ export function AddEventModal({ open, onAddEvent, editEvent, onClose, children }
     
     if (errors.length > 0) {
       logger.error('Validation errors:', errors);
-      alert('Please fill in all required fields:\n' + errors.join('\n'));
+      toast.error('Please fill in all required fields', { description: errors.join('\n') });
       return;
     }
     

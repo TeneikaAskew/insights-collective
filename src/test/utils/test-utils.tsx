@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { PageVisibilityProvider } from '@/contexts/PageVisibilityContext';
 import { OnboardingProvider } from '@/contexts/OnboardingContext';
+import { DialogsProvider } from '@/components/dialogs/DialogsProvider';
 
 // Create a custom render function that includes all providers
 const AllTheProviders = ({ children }: { children: React.ReactNode }) => {
@@ -22,7 +23,9 @@ const AllTheProviders = ({ children }: { children: React.ReactNode }) => {
         <AuthProvider>
           <PageVisibilityProvider>
             <OnboardingProvider>
-              {children}
+              <DialogsProvider>
+                {children}
+              </DialogsProvider>
             </OnboardingProvider>
           </PageVisibilityProvider>
         </AuthProvider>

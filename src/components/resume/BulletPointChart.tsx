@@ -23,14 +23,14 @@ const BulletPointChart: React.FC<BulletPointChartProps> = ({
   // Extra safety check for dataWithPercent 
   if (!dataWithPercent || !Array.isArray(dataWithPercent)) {
     return (
-      <div className="mt-4 border rounded-lg p-6 bg-white shadow-sm">
+      <div className="mt-4 border border-border rounded-2xl p-6 bg-card shadow-sm">
         <p>No chart data available.</p>
       </div>
     );
   }
 
   return (
-    <div className="mt-4 border rounded-lg p-6 bg-white shadow-sm">
+    <div className="mt-4 border border-border rounded-2xl p-6 bg-card shadow-sm">
       <div className="flex flex-col md:flex-row gap-8">
         <div className="flex-1">
           <h3 className="text-md font-semibold text-center mb-4">Do you have a good plot?</h3>

@@ -17,6 +17,7 @@ import { UnifiedCanvasEditor } from '@/components/ui/unified-canvas-editor';
 import { CanvasModuleContent } from '../canvas/CanvasModuleContent';
 import { Module } from '@/types/canvas';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import { useConfirm } from '@/components/dialogs/DialogsProvider';
 interface CanvasModuleManagerProps {
   courseId: string;
   courseDuration: number;
@@ -27,6 +28,7 @@ export function CanvasModuleManager({
 }: CanvasModuleManagerProps) {
   const [modules, setModules] = useState<Module[]>([]);
   const [loading, setLoading] = useState(true);
+  const confirm = useConfirm();
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingModule, setEditingModule] = useState<Module | null>(null);
   const [selectedModule, setSelectedModule] = useState<Module | null>(null);
@@ -130,7 +132,7 @@ export function CanvasModuleManager({
     }
   };
   const handleDeleteModule = async (moduleId: string) => {
-    if (!confirm('Are you sure you want to delete this module and all its content?')) {
+    if (!(await confirm({ title: 'Delete module?', description: 'This also deletes all its content.', destructive: true, confirmLabel: 'Delete' }))) {
       return;
     }
     try {
@@ -194,6 +196,7 @@ export function CanvasModuleManager({
         data,
         error
       } = await supabase.from('modules').update({
+
         published: newPublishedState,
         updated_at: new Date().toISOString()
       }).eq('id', module.id).select().single();

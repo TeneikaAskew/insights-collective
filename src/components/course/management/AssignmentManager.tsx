@@ -42,6 +42,7 @@ import {
 import { format } from 'date-fns';
 import { EnhancedAssignment } from '@/types/course';
 import { useToast } from '@/hooks/use-toast';
+import { useConfirm } from '@/components/dialogs/DialogsProvider';
 
 interface AssignmentManagerProps {
   courseId: string;
@@ -50,6 +51,7 @@ interface AssignmentManagerProps {
 
 export function AssignmentManager({ courseId, modules = [] }: AssignmentManagerProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const confirm = useConfirm();
   const [showForm, setShowForm] = useState(false);
   const [editingAssignment, setEditingAssignment] = useState<EnhancedAssignment | undefined>();
   const [filterStatus, setFilterStatus] = useState<'all' | 'published' | 'draft'>('all');
@@ -79,7 +81,7 @@ export function AssignmentManager({ courseId, modules = [] }: AssignmentManagerP
   };
 
   const handleDelete = async (assignmentId: string) => {
-    if (window.confirm('Are you sure you want to delete this assignment? This action cannot be undone.')) {
+    if (await confirm({ title: 'Delete assignment?', description: 'This action cannot be undone.', destructive: true, confirmLabel: 'Delete' })) {
       deleteMutation.mutate(assignmentId);
     }
   };

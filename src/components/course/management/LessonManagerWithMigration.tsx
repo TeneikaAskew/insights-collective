@@ -19,6 +19,7 @@ import { Plus, BookOpen, Edit, Trash2, Clock } from 'lucide-react';
 import { CanvasEditor } from '@/components/ui/canvas-editor';
 
 import { createLogger } from '@/utils/logger';
+import { useConfirm } from '@/components/dialogs/DialogsProvider';
 
 const logger = createLogger('LessonManagerWithMigration');
 
@@ -28,6 +29,7 @@ interface LessonManagerWithMigrationProps {
 
 const LessonManagerWithMigration = ({ moduleId }: LessonManagerWithMigrationProps) => {
   const { toast } = useToast();
+  const confirm = useConfirm();
   const { lessons, loading, addLesson, updateLesson, deleteLesson, refetch } = useLessons(moduleId);
   
   const [addLessonOpen, setAddLessonOpen] = useState(false);
@@ -143,7 +145,7 @@ const LessonManagerWithMigration = ({ moduleId }: LessonManagerWithMigrationProp
   };
 
   const handleDeleteLesson = async (lessonId: string) => {
-    if (!confirm('Are you sure you want to delete this lesson? All content will be permanently removed.')) {
+    if (!(await confirm({ title: 'Delete lesson?', description: 'All content will be permanently removed.', destructive: true, confirmLabel: 'Delete' }))) {
       return;
     }
 

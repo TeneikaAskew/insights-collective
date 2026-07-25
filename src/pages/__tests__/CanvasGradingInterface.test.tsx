@@ -57,6 +57,16 @@ vi.mock('@/hooks/use-toast', () => ({
   toast: toastMock,
 }));
 
+vi.mock('@/components/course/grading/SubmissionComments', () => ({
+  SubmissionComments: ({ submissionId, submissionType }: any) => (
+    <div
+      data-testid="submission-comments"
+      data-submission-id={submissionId}
+      data-submission-type={submissionType}
+    />
+  ),
+}));
+
 vi.mock('@/contexts/AuthContext', () => ({
   AuthProvider: ({ children }: any) => children,
   useAuth: () => ({
@@ -117,7 +127,7 @@ const contentItem = {
   assignment: { id: 'assignment-1', points_possible: 100 },
 };
 
-const alice = { id: 'u1', email: 'alice@example.com', full_name: 'Alice Adams' };
+const alice = { id: 'u1', first_name: 'Alice', last_name: 'Adams' };
 
 function makeGradingSubmission(overrides: Record<string, unknown> = {}) {
   return makeSubmission({
@@ -154,7 +164,7 @@ describe('CanvasGradingInterface', () => {
             id: 'sub-2',
             workflow_state: 'graded',
             grade: 90,
-            user: { id: 'u2', email: 'bob@example.com', full_name: 'Bob Brown' },
+            user: { id: 'u2', first_name: 'Bob', last_name: 'Brown' },
           }),
         ],
         error: null,
@@ -169,6 +179,22 @@ describe('CanvasGradingInterface', () => {
     expect(screen.getByLabelText('Score')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Save & next' })).toBeInTheDocument();
     expect(screen.getByText('1 of 2 graded • 1 still needs grading • 100 pts')).toBeInTheDocument();
+  });
+
+  it('mounts the submission comments panel for the selected submission', async () => {
+    vi.mocked(CanvasContentService.getContentItem).mockResolvedValue(contentItem as any);
+    useTables({
+      assignment_submissions: makeTableBuilder({
+        data: [makeGradingSubmission({ body: 'Great essay text' })],
+        error: null,
+      }),
+    });
+
+    render(<CanvasGradingInterface />);
+
+    const panel = await screen.findByTestId('submission-comments');
+    expect(panel).toHaveAttribute('data-submission-id', 'sub-1');
+    expect(panel).toHaveAttribute('data-submission-type', 'assignment');
   });
 
   it('shows an error state with retry when loading fails, not a blank grading screen', async () => {

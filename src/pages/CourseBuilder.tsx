@@ -133,14 +133,53 @@ const CourseBuilder = () => {
 
   // --- Wizard finish ---
   const handleWizardFinish = useCallback(
-    async (r: NewCourseWizardResult) => {
+    async (r: NewCourseWizardResult, onProgress: (steps: any[]) => void) => {
+      const outline = r.outline ?? [];
+      const totalLessons = outline.reduce((sum, s) => sum + s.lessons.length, 0);
+
+      // Build initial step list — thumbnail step is skipped when no file
+      const steps: {
+        id: string;
+        label: string;
+        status: 'pending' | 'running' | 'done' | 'error' | 'skipped';
+        detail?: string;
+      }[] = [
+        {
+          id: 'thumbnail',
+          label: r.thumbnailFile ? 'Uploading thumbnail' : 'Skipping thumbnail (none provided)',
+          status: r.thumbnailFile ? 'pending' : 'skipped',
+        },
+        { id: 'course', label: 'Creating course record', status: 'pending' },
+        {
+          id: 'curriculum',
+          label: `Seeding curriculum (${outline.length} section${outline.length === 1 ? '' : 's'}, ${totalLessons} lesson${totalLessons === 1 ? '' : 's'})`,
+          status: outline.length > 0 ? 'pending' : 'skipped',
+        },
+      ];
+      const emit = () => onProgress(steps.map((s) => ({ ...s })));
+      emit();
+
+      const setStep = (
+        id: string,
+        status: (typeof steps)[number]['status'],
+        detail?: string,
+      ) => {
+        const s = steps.find((x) => x.id === id);
+        if (s) {
+          s.status = status;
+          if (detail !== undefined) s.detail = detail;
+        }
+        emit();
+      };
+
       try {
         const { data: userData } = await supabase.auth.getUser();
         const instructorId = userData.user?.id ?? null;
 
-        // 1) Upload thumbnail first (if provided) so we can persist its URL on insert
+        // 1) Upload thumbnail first (if provided)
         let thumbnailUrl: string | null = null;
         if (r.thumbnailFile && instructorId) {
+          setStep('thumbnail', 'running');
           const ext = r.thumbnailFile.name.split('.').pop() || 'jpg';
           const path = `course-thumbnails/${instructorId}-${Date.now()}.${ext}`;
           const { error: uploadError } = await supabase.storage
@@ -149,15 +188,26 @@ const CourseBuilder = () => {
               upsert: true,
               contentType: r.thumbnailFile.type,
             });
-          if (!uploadError) {
-            const { data: pub } = supabase.storage.from('course-materials').getPublicUrl(path);
-            thumbnailUrl = pub.publicUrl;
-          } else {
+          if (uploadError) {
             logger.error('Thumbnail upload failed', uploadError);
+            // Do not block course creation on thumbnail failure — surface it
+            // as a non-fatal step error so the user sees what happened.
+            setStep(
+              'thumbnail',
+              'error',
+              `${uploadError.message || 'Upload failed'} — continuing without a thumbnail. You can add one later in Setup.`,
+            );
+          } else {
+            const { data: pub } = supabase.storage
+              .from('course-materials')
+              .getPublicUrl(path);
+            thumbnailUrl = pub.publicUrl;
+            setStep('thumbnail', 'done');
           }
         }
 
         // 2) Create the course
+        setStep('course', 'running');
         const { data: created, error } = await supabase
           .from('courses')
           .insert({
@@ -172,27 +222,40 @@ const CourseBuilder = () => {
           })
           .select('id')
           .single();
-        if (error) throw error;
+        if (error) {
+          setStep('course', 'error', error.message);
+          throw error;
+        }
+        setStep('course', 'done');
 
-        // 3) Seed curriculum from the wizard outline (AI or scratch)
-        const outline = r.outline ?? [];
-        for (const section of outline) {
-          const mod = await CanvasContentService.createModule(created.id, section.title);
-          for (const lesson of section.lessons) {
-            await CanvasContentService.createContentItem({
-              course_id: created.id,
-              module_id: mod.id,
-              type: lesson.type,
-              title: lesson.title,
-              content: '',
-            });
+        // 3) Seed curriculum from the wizard outline
+        if (outline.length > 0) {
+          setStep('curriculum', 'running', '0 of ' + totalLessons + ' lessons');
+          let done = 0;
+          for (const section of outline) {
+            const mod = await CanvasContentService.createModule(created.id, section.title);
+            for (const lesson of section.lessons) {
+              await CanvasContentService.createContentItem({
+                course_id: created.id,
+                module_id: mod.id,
+                type: lesson.type,
+                title: lesson.title,
+                content: '',
+              });
+              done += 1;
+              setStep('curriculum', 'running', `${done} of ${totalLessons} lessons`);
+            }
           }
+          setStep('curriculum', 'done', `${totalLessons} lesson${totalLessons === 1 ? '' : 's'} created`);
         }
 
         toast({ title: 'Course created', description: `“${r.title}” is ready to build.` });
         navigate(`/courses/${created.id}/builder`, { replace: true });
       } catch (err: any) {
         logger.error('Course creation failed', err);
+        // Mark any still-running step as error so the overlay reflects the failure
+        const running = steps.find((s) => s.status === 'running');
+        if (running) setStep(running.id, 'error', err?.message);
         toast({ title: 'Error', description: err.message, variant: 'destructive' });
         // Rethrow so the wizard shows an inline error banner instead of
         // silently closing on failure.
@@ -566,6 +629,7 @@ const CourseBuilder = () => {
 
       {activeView === 'curriculum' && (
         <CurriculumView
+          courseId={course.id}
           courseTitle={course.title}
           modules={modules}
           onAddModule={addSection}
@@ -584,6 +648,7 @@ const CourseBuilder = () => {
 
       {activeView === 'lesson' && (
         <LessonEditView
+          courseId={course.id}
           courseTitle={course.title}
           modules={modules}
           currentItem={currentLesson}
@@ -615,6 +680,7 @@ const CourseBuilder = () => {
         activeView !== 'certificates' &&
         PLACEHOLDER_COPY[activeView as keyof typeof PLACEHOLDER_COPY] && (
           <PlaceholderView
+            courseId={course.id}
             courseTitle={course.title}
             title={PLACEHOLDER_COPY[activeView as keyof typeof PLACEHOLDER_COPY].title}
             description={PLACEHOLDER_COPY[activeView as keyof typeof PLACEHOLDER_COPY].description}

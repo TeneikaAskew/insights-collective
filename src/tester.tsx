@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { CareerReportData } from '@/components/assistants/utils/types';
+import { toast } from 'sonner';
 
 import { createLogger } from '@/utils/logger';
 
@@ -60,7 +61,7 @@ By following these recommendations, you can create a successful career path in t
       setParsedReport(parsed);
     } catch (error) {
       logger.error('Error parsing report:', error);
-      alert('Error parsing report. Check console for details.');
+      toast.error('Error parsing report. Check console for details.');
     }
   };
 

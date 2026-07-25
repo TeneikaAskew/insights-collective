@@ -27,12 +27,17 @@ import {
   Sparkles,
   Trash2,
   Upload,
+  Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Hint } from '@/components/ui/hint';
 import { sanitizeHTML } from '@/utils/sanitize';
 import type { ContentItem } from '@/types/canvas';
 import type { BuilderModule } from './types';
+import { TeachableBreadcrumb } from './TeachableBreadcrumb';
+import { ConfirmDialog } from './ConfirmDialog';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 function htmlToPlainText(html: string): string {
   if (!html) return '';
@@ -47,6 +52,7 @@ function looksLikeHtml(text: string): boolean {
 }
 
 interface CurriculumViewProps {
+  courseId?: string;
   courseTitle: string;
   modules: BuilderModule[];
   onAddModule: () => void;
@@ -64,6 +70,7 @@ interface CurriculumViewProps {
 
 export function CurriculumView(props: CurriculumViewProps) {
   const {
+    courseId,
     courseTitle,
     modules,
     onAddModule,
@@ -97,23 +104,19 @@ export function CurriculumView(props: CurriculumViewProps) {
 
   return (
     <div className="px-4 sm:px-6 lg:px-10 py-6 lg:py-10 max-w-[1200px] mx-auto">
-      <div className="text-xs uppercase tracking-widest text-gray-500 mb-3">
-        <span className="underline underline-offset-4 cursor-pointer">Courses</span>
-        <span className="mx-2 opacity-50">|</span>
-        <span>{courseTitle}</span>
-      </div>
+      <TeachableBreadcrumb
+        courseId={courseId}
+        courseTitle={courseTitle}
+        current="Curriculum"
+      />
 
-      <div className="flex items-center justify-between mb-8">
+
+      <div className="flex items-center justify-between gap-4 mb-8">
         <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl">Curriculum</h2>
-      </div>
-
-      {/* Toolbar */}
-      <div className="flex items-center gap-2 mb-6">
-        <div className="flex-1" />
         <button
           type="button"
           onClick={onAddModule}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-bold rounded-md"
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-bold rounded-md shrink-0"
           style={{
             background: 'hsl(var(--tw-accent))',
             color: 'hsl(var(--tw-accent-ink))',
@@ -151,6 +154,7 @@ export function CurriculumView(props: CurriculumViewProps) {
                 <SectionCard
                   key={m.id}
                   module={m}
+                  courseTitle={courseTitle}
                   onRenameModule={onRenameModule}
                   onUpdateModuleDescription={onUpdateModuleDescription}
                   onDeleteModule={onDeleteModule}
@@ -173,6 +177,7 @@ export function CurriculumView(props: CurriculumViewProps) {
 // --- Section card ---
 interface SectionCardProps {
   module: BuilderModule;
+  courseTitle?: string;
   onRenameModule: (id: string, title: string) => void;
   onUpdateModuleDescription?: (id: string, description: string) => void;
   onDeleteModule: (id: string) => void;
@@ -186,6 +191,7 @@ interface SectionCardProps {
 
 function SectionCard({
   module,
+  courseTitle,
   onRenameModule,
   onUpdateModuleDescription,
   onDeleteModule,
@@ -210,6 +216,33 @@ function SectionCard({
   const [menuOpen, setMenuOpen] = useState(false);
   const [descDraft, setDescDraft] = useState(module.description ?? '');
   const [descEditing, setDescEditing] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [generatingSummary, setGeneratingSummary] = useState(false);
+
+  async function handleGenerateSummary() {
+    if (!onUpdateModuleDescription) return;
+    setGeneratingSummary(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-section-summary', {
+        body: {
+          sectionTitle: module.title || 'Untitled section',
+          courseTitle,
+          lessonTitles: module.items.map((i) => i.title).filter(Boolean),
+        },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      const summary = (data as any)?.summary as string | undefined;
+      if (!summary) throw new Error('No summary returned');
+      setDescDraft(summary);
+      onUpdateModuleDescription(module.id, summary);
+      toast.success('Section summary generated');
+    } catch (err: any) {
+      toast.error('Could not generate summary', { description: err?.message || 'Try again.' });
+    } finally {
+      setGeneratingSummary(false);
+    }
+  }
 
   const commit = () => {
     setEditing(false);
@@ -246,6 +279,7 @@ function SectionCard({
   };
 
   return (
+    <>
     <div
       ref={setNodeRef}
       style={style}
@@ -332,7 +366,7 @@ function SectionCard({
                 className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-600 hover:bg-red-50"
                 onClick={() => {
                   setMenuOpen(false);
-                  if (confirm('Delete this section and all its lessons?')) onDeleteModule(module.id);
+                  setConfirmDeleteOpen(true);
                 }}
               >
                 <Trash2 className="h-3.5 w-3.5" />
@@ -435,15 +469,32 @@ function SectionCard({
         </button>
         <button
           type="button"
-          className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-500 hover:text-black"
-          disabled
-          title="Coming soon"
+          onClick={handleGenerateSummary}
+          disabled={generatingSummary || !onUpdateModuleDescription}
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:text-primary/80 disabled:opacity-60 disabled:cursor-not-allowed"
+          title="Generate a short section summary with AI"
         >
-          <Sparkles className="h-4 w-4" />
-          Section summary
+          {generatingSummary ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Sparkles className="h-4 w-4" />
+          )}
+          {generatingSummary ? 'Generating…' : 'Section summary'}
         </button>
       </div>
     </div>
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        onOpenChange={setConfirmDeleteOpen}
+        title="Delete this section?"
+        description="This will remove the section and all its lessons. This cannot be undone."
+        confirmLabel="Delete section"
+        onConfirm={() => {
+          onDeleteModule(module.id);
+          setConfirmDeleteOpen(false);
+        }}
+      />
+    </>
   );
 }
 
@@ -468,6 +519,7 @@ function LessonRow({ item, onRename, onDelete, onTogglePublish, onSelect }: Less
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(item.title);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   const commit = () => {
     setEditing(false);
@@ -575,7 +627,7 @@ function LessonRow({ item, onRename, onDelete, onTogglePublish, onSelect }: Less
               className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-600 hover:bg-red-50"
               onClick={() => {
                 setMenuOpen(false);
-                if (confirm('Delete this lesson?')) onDelete(item.id);
+                setConfirmDeleteOpen(true);
               }}
             >
               <Trash2 className="h-3.5 w-3.5" />
@@ -584,6 +636,17 @@ function LessonRow({ item, onRename, onDelete, onTogglePublish, onSelect }: Less
           </div>
         )}
       </div>
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        onOpenChange={setConfirmDeleteOpen}
+        title="Delete this lesson?"
+        description="This will permanently remove the lesson and its content."
+        confirmLabel="Delete lesson"
+        onConfirm={() => {
+          onDelete(item.id);
+          setConfirmDeleteOpen(false);
+        }}
+      />
     </li>
   );
 }

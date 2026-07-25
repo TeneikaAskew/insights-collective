@@ -19,21 +19,22 @@ export interface ChartDataItem {
   category: string;
 }
 
-// Get color class based on category
+// Get color class based on category — must stay in sync with the hex palette
+// in BulletChartData.tsx (BULLET_CATEGORIES).
 export const getCategoryColorClass = (category: string): string => {
   switch (category) {
     case 'action':
-      return 'bg-[#1F75FE]'; // insight-blue
+      return 'bg-[#B97143]'; // ss-peach-deep
     case 'metrics':
-      return 'bg-[#5ED3B5]'; // aqua-teal
+      return 'bg-[#3FA391]'; // ss-teal
     case 'clarity':
-      return 'bg-[#C7BCF5]'; // vira-purple
+      return 'bg-[#A794EB]'; // ss-lav
     case 'industry':
-      return 'bg-[#F9A826]'; // energetic-amber
+      return 'bg-[#624EBE]'; // ss-lav-deep
     case 'achievement':
-      return 'bg-[#8A8F9E]'; // dusty-gray
+      return 'bg-[#4E9B70]'; // ss-good
     default:
-      return 'bg-[#2C2C2C]'; // slate-gray
+      return 'bg-[#837E8C]'; // ss-muted
   }
 };
 
@@ -41,17 +42,17 @@ export const getCategoryColorClass = (category: string): string => {
 export const getCategoryTextColorClass = (category: string): string => {
   switch (category) {
     case 'action':
-      return 'text-[#1F75FE]'; // insight-blue
+      return 'text-[#B97143]'; // ss-peach-deep
     case 'metrics':
-      return 'text-[#5ED3B5]'; // aqua-teal
+      return 'text-[#3FA391]'; // ss-teal
     case 'clarity':
-      return 'text-[#C7BCF5]'; // vira-purple
+      return 'text-[#A794EB]'; // ss-lav
     case 'industry':
-      return 'text-[#F9A826]'; // energetic-amber
+      return 'text-[#624EBE]'; // ss-lav-deep
     case 'achievement':
-      return 'text-[#8A8F9E]'; // dusty-gray
+      return 'text-[#4E9B70]'; // ss-good
     default:
-      return 'text-[#2C2C2C]'; // slate-gray
+      return 'text-[#837E8C]'; // ss-muted
   }
 };
 
@@ -73,7 +74,7 @@ export const BulletDonutChart: React.FC<{
       </ResponsiveContainer>
       <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center">
         <div className="text-3xl font-bold">{totalScore}</div>
-        <div className="text-sm text-gray-500">Story Score</div>
+        <div className="text-sm text-muted-foreground">Story Score</div>
       </div>
     </div>;
 };
@@ -87,8 +88,8 @@ export const DistributionBar: React.FC<{
   // Calculate scaled score percentage = (actual / target) * 100
   const scaledScore = item.target > 0 ? Math.round(item.percent / item.target * 100) : 0;
 
-  // Determine color of score: green if scaledScore >= 100%, else red
-  const scoreColorClass = scaledScore >= 100 ? "text-green-600 font-semibold" : "text-red-600 font-semibold";
+  // Determine color of score: good if scaledScore >= 100%, else bad
+  const scoreColorClass = scaledScore >= 100 ? "text-ss-good font-semibold" : "text-ss-bad font-semibold";
 
   // Bar width based on scaled score capped at 100%
   const barWidthPercent = Math.min(scaledScore, 100);
@@ -104,12 +105,12 @@ export const DistributionBar: React.FC<{
           </span>
         </div>
       </div>
-      <div className="h-2 w-full bg-gray-200 rounded relative overflow-visible">
+      <div className="h-2 w-full bg-ss-track rounded relative overflow-visible">
         <div className={`h-full rounded ${getCategoryColorClass(item.category)}`} style={{
         width: `${barWidthPercent}%`
       }}></div>
         {/* Line indicator for Goal at 100% */}
-        <div className="absolute top-0 left-[60%] h-full w-[2px] bg-gray-900 opacity-40" style={{
+        <div className="absolute top-0 left-[60%] h-full w-[2px] bg-foreground opacity-40" style={{
         transform: 'translateX(-1px)'
       }} aria-label="Goal marker" title="Goal"></div>
       </div>
@@ -129,7 +130,7 @@ export const ScoreWithIcon: React.FC<{
   const isPassing = score >= maxScore * 0.6; // 60% threshold
 
   return <div className="flex items-center">
-      {isPassing ? <CheckCircle className="h-4 w-4 text-green-500 mr-2" /> : <AlertTriangle className="h-4 w-4 text-red-500 mr-2" />}
+      {isPassing ? <CheckCircle className="h-4 w-4 text-ss-good mr-2" /> : <AlertTriangle className="h-4 w-4 text-ss-warn mr-2" />}
       <span>{label}: {score}/{maxScore}</span>
     </div>;
 };
