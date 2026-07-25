@@ -8,7 +8,7 @@ export const lessonCompletionService = {
       .from('lesson_completions')
       .insert({
         lesson_id: lessonId,
-        student_id: studentId,
+        user_id: studentId,
         completion_method: method,
       })
       .select()
@@ -29,7 +29,7 @@ export const lessonCompletionService = {
       .from('lesson_completions')
       .delete()
       .eq('lesson_id', lessonId)
-      .eq('student_id', studentId);
+      .eq('user_id', studentId);
     
     if (error) throw error;
   },
@@ -40,7 +40,7 @@ export const lessonCompletionService = {
       .from('lesson_completions')
       .select('*')
       .eq('lesson_id', lessonId)
-      .eq('student_id', studentId)
+      .eq('user_id', studentId)
       .single();
     
     if (error && error.code === 'PGRST116') {
@@ -64,7 +64,7 @@ export const lessonCompletionService = {
           module_id
         )
       `)
-      .eq('student_id', studentId)
+      .eq('user_id', studentId)
       .eq('lesson.module_id', moduleId);
     
     if (error) throw error;
@@ -87,7 +87,7 @@ export const lessonCompletionService = {
           )
         )
       `)
-      .eq('student_id', studentId)
+      .eq('user_id', studentId)
       .eq('lesson.module.course_id', courseId);
     
     if (error) throw error;
@@ -193,9 +193,9 @@ export const lessonCompletionService = {
             const { data: submissionData, error: submissionError } = await supabase
               .from('assignment_submissions')
               .select('*')
-              .eq('student_id', studentId)
+              .eq('user_id', studentId)
               .eq('assignment_id', submitAssignmentId)
-              .in('status', ['submitted', 'graded'])
+              .in('workflow_state', ['submitted', 'graded'])
               .limit(1)
               .maybeSingle();
 
@@ -220,7 +220,7 @@ export const lessonCompletionService = {
             const { data: gradeData, error: gradeError } = await supabase
               .from('assignment_submissions')
               .select('grade')
-              .eq('student_id', studentId)
+              .eq('user_id', studentId)
               .eq('assignment_id', scoreAssignmentId)
               .not('grade', 'is', null)
               .gte('grade', minScore)

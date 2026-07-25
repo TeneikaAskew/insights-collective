@@ -213,7 +213,7 @@ export interface LessonCompletionRequirement {
 export interface LessonCompletion {
   id: string;
   lesson_id: string;
-  student_id: string;
+  user_id: string;
   completed_at: string;
   completion_method?: 'manual' | 'automatic' | 'requirement_met';
 }
