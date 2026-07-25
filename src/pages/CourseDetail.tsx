@@ -1268,8 +1268,9 @@ const CourseDetail = () => {
         // Non-enrolled landing (kept close to previous pre-enroll layout)
         return (
           <div className="teachable-workspace bg-white rounded-2xl border border-neutral-200 overflow-hidden">
-            <div className="grid lg:grid-cols-[1fr_360px] gap-0">
-              <div className="p-8 lg:p-12">
+            <div className="grid xl:grid-cols-[minmax(0,1fr)_340px] gap-0">
+              <div className="p-6 sm:p-8 xl:p-12 min-w-0">
+
                 <p className="text-xs uppercase tracking-[0.15em] text-neutral-500 mb-3">
                   {course.category || 'Course'}{course.level ? ` • ${course.level}` : ''}
                 </p>
