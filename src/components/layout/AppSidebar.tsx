@@ -273,10 +273,11 @@ const AppSidebar = () => {
           <SidebarGroupContent>
             <SidebarMenu>
               {menuItems.map((item, index) => (
-                  <motion.div key={item.title} custom={index} initial="hidden" animate="visible" variants={menuItemVariants}>
-                    <SidebarMenuItem>
+                  <motion.div key={item.title} custom={index} initial="hidden" animate="visible" variants={menuItemVariants} className={open ? '' : 'flex justify-center'}>
+                    <SidebarMenuItem className={open ? '' : 'w-8'}>
                       <SidebarMenuButton asChild isActive={item.active} className={`transition-all duration-200 ${item.active ? 'font-medium' : 'text-gray-700 dark:text-gray-300 hover:text-sidebar-accent hover:bg-sidebar-accent/10'}`}>
-                        <Link to={item.url} className={`flex items-center rounded-md py-1.5 ${open ? 'space-x-2 px-2' : 'justify-center w-full px-0'} ${item.highlight && open && !item.active ? 'bg-sidebar-accent/10 border border-sidebar-accent/30' : ''}`}>
+                        <Link to={item.url} className={`flex items-center rounded-md py-1.5 ${open ? 'space-x-2 px-2' : 'justify-center w-8 h-8 px-0 mx-auto'} ${item.highlight && open && !item.active ? 'bg-sidebar-accent/10 border border-sidebar-accent/30' : ''}`}>
+
                           <item.icon className={`h-3.5 w-3.5 flex-shrink-0 ${item.active ? 'text-sidebar-accent-foreground' : 'text-gray-500 dark:text-gray-400'}`} />
                           {open && <span className="text-xs truncate">{item.title}</span>}
                           {open && item.highlight && !item.active && (
