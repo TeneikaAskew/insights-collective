@@ -69,7 +69,7 @@ import {
 } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { sanitizeHtmlContent, isValidUrl } from '@/utils/securityUtils';
 import { cn } from '@/lib/utils';
@@ -209,6 +209,16 @@ export function UnifiedCanvasEditor({
       },
     },
   });
+
+  // Sync external content changes (e.g. AI-generated content inserted from a dialog)
+  // into the editor. TipTap's `content` prop only seeds the initial value.
+  useEffect(() => {
+    if (!editor) return;
+    const current = editor.getHTML();
+    if (typeof content === 'string' && content !== current) {
+      editor.commands.setContent(content || '', false);
+    }
+  }, [content, editor]);
 
   if (!editor) {
     return null;
