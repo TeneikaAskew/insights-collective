@@ -40,7 +40,7 @@
     --sidebar-foreground: 0 0% 17%; /* Dark gray text */
     --sidebar-primary: 217 88% 56%; /* Insight Blue */
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 252 70% 55%; /* Brand purple for active pill (~5.5:1 on white text) */
+    --sidebar-accent: 252 82% 65%; /* Logo brand purple for active pill (~4.9:1 on white) */
     --sidebar-accent-foreground: 0 0% 100%; /* White text — passes WCAG AA */
     --sidebar-border: 214 31% 91%; /* Light border */
     --sidebar-ring: 217 88% 56%; /* Insight Blue */
