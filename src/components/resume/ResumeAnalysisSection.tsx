@@ -34,6 +34,11 @@ interface ResumeAnalysisSectionProps {
   isExtracting?: boolean;
 }
 
+// Pill-shaped tab trigger for the Soft Studio theme; the active pill is
+// ink-filled. tailwind-merge in cn() lets these override the shadcn defaults.
+const softTabClass =
+  "flex items-center justify-center gap-2 rounded-full border border-border bg-card/70 px-4 py-2.5 text-sm font-bold text-muted-foreground transition-colors hover:text-foreground data-[state=active]:bg-foreground data-[state=active]:text-background data-[state=active]:border-foreground data-[state=active]:shadow-none";
+
 const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
   loading,
   isAnalyzing,
@@ -66,7 +71,7 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
 
   if (loading && !resume && !analysis && !resumeFile && !fileError) {
     return (
-      <Card className="shadow-lg border-t-4 border-t-[#9b87f5]">
+      <Card className="ss-card">
         <CardHeader className="pb-2">
           <div className="flex justify-between items-center">
             <div>
@@ -99,7 +104,7 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
   const showTabs = !!analysis; // Show tabs only if analysis data is present.
 
   return (
-    <Card className="shadow-lg border-t-4 border-t-[#9b87f5]">
+    <Card className="ss-card">
       <CardHeader className="pb-2">
         <div className="flex justify-between items-center">
           <div>
@@ -110,17 +115,17 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
           </div>
           <div className="flex items-center gap-1 sm:gap-2 flex-wrap justify-end">
             {analysis && (
-              <div className="hidden sm:flex items-center bg-[#9b87f5]/10 rounded-full px-3 py-1">
-                <span className="text-xs sm:text-sm font-medium text-[#9b87f5]">Industry-Leading Analysis</span>
+              <div className="hidden sm:flex ss-chip">
+                <span>Industry-Leading Analysis</span>
               </div>
             )}
             {handleRefreshData && (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleRefreshData} 
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRefreshData}
                 disabled={loading || isAnalyzing || isPollingForImprovements}
-                className="whitespace-nowrap text-xs sm:text-sm px-2 sm:px-3"
+                className="whitespace-nowrap text-xs sm:text-sm px-3 sm:px-4 rounded-full font-bold"
               >
                 <RefreshCw className={`h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 ${loading || isAnalyzing ? 'animate-spin' : ''}`} />
                 <span className="hidden sm:inline">Refresh Data</span>
@@ -133,24 +138,24 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
       <CardContent className="flex flex-col">
         {showTabs ? (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex flex-col flex-grow">
-            <TabsList className="grid grid-cols-2 sm:grid-cols-4 mb-6">
-              <TabsTrigger value="overview" className="flex items-center gap-2">
+            <TabsList className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-6 bg-transparent p-0">
+              <TabsTrigger value="overview" className={softTabClass}>
                 <ChartBar className="h-4 w-4" />
                 <span>Overview</span>
               </TabsTrigger>
-              <TabsTrigger 
-                value="storytelling" 
-                className="flex items-center gap-2" 
+              <TabsTrigger
+                value="storytelling"
+                className={softTabClass}
                 disabled={!analysis || !Array.isArray(analysis.bullets) || analysis.bullets.length === 0}
               >
                 <Target className="h-4 w-4" />
                 <span>Storytelling</span>
               </TabsTrigger>
-              <TabsTrigger value="ats" className="flex items-center gap-2" disabled={!analysis}>
+              <TabsTrigger value="ats" className={softTabClass} disabled={!analysis}>
                 <FileCheck className="h-4 w-4" />
                 <span>ATS Score</span>
               </TabsTrigger>
-              <TabsTrigger value="chat" className="flex items-center gap-2" disabled={!analysis}>
+              <TabsTrigger value="chat" className={softTabClass} disabled={!analysis}>
                 <MessageCircle className="h-4 w-4" />
                 <span>Chat</span>
               </TabsTrigger>

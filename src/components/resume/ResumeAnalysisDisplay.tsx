@@ -138,7 +138,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
   // Render the upload card - always visible
   const renderUploadCard = () => {
     return (
-      <Card className="mb-6">
+      <Card className="ss-card mb-6">
         <CardHeader>
           <CardTitle>Your Resume</CardTitle>
           <CardDescription>
@@ -155,8 +155,8 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
           )}
 
           {(!resume && !resumeFile) ? (
-            <div className="border-2 border-dashed border-muted-foreground/20 rounded-md p-8 text-center">
-              <FileUp className="h-10 w-10 text-muted-foreground mx-auto mb-4" />
+            <div className="border-2 border-dashed border-ss-lav rounded-2xl p-8 text-center transition-colors hover:bg-ss-lav-chip/60">
+              <FileUp className="h-10 w-10 text-ss-lav mx-auto mb-4" />
               <p className="text-muted-foreground mb-4">Drag and drop your resume here, or click to browse</p>
               <input
                 type="file"
@@ -166,14 +166,14 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
                 onChange={handleFileChange}
                 disabled={uploading || isAnalyzing}
               />
-              <Button asChild variant="outline">
+              <Button asChild variant="outline" className="rounded-full font-bold">
                 <label htmlFor="resume-upload-display">Browse Files</label>
               </Button>
             </div>
           ) : (
-            <div className="border rounded-md p-4">
+            <div className="bg-ss-lav-chip rounded-2xl p-4">
               <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-                <File className="h-6 w-6 text-primary shrink-0" />
+                <File className="h-6 w-6 text-ss-lav-deep shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm sm:text-base truncate">
                     {resumeFile ? resumeFile.name : (resume?.file_name || resume?.file_path?.split('/').pop())}
@@ -230,7 +230,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
             <Button
               onClick={handleUpload}
               disabled={!resumeFile || uploading || isAnalyzing || isExtracting}
-              className="w-full"
+              className="w-full rounded-full font-bold"
             >
               {isExtracting ? (
                 <><Loader2 className="h-4 w-4 animate-spin mr-2" />Extracting text...</>
@@ -246,20 +246,20 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
     <div>
       <div className="space-y-6">
         {needsImprovementAlert && (
-          <Alert variant="destructive" className="bg-red-50 text-red-800 border-red-200">
-            <AlertTriangle className="h-4 w-4 text-red-600" />
-            <AlertTitle className="text-red-800">Critical Improvements Needed</AlertTitle>
-            <AlertDescription className="text-red-700">
+          <Alert variant="destructive" className="bg-ss-bad-chip text-ss-bad border-ss-bad/30 rounded-2xl">
+            <AlertTriangle className="h-4 w-4 text-ss-bad" />
+            <AlertTitle className="text-ss-bad">Critical Improvements Needed</AlertTitle>
+            <AlertDescription className="text-ss-bad/90">
               Your resume may be getting filtered out by ATS systems. Follow the action plan to significantly improve your chances.
             </AlertDescription>
           </Alert>
         )}
-        
+
         {excellentResumeAlert && (
-          <Alert className="bg-green-50 text-green-800 border-green-200">
-            <Sparkles className="h-4 w-4 text-green-600" />
-            <AlertTitle className="text-green-800">Excellent Resume</AlertTitle>
-            <AlertDescription className="text-green-700">
+          <Alert className="bg-ss-good-chip text-ss-good border-ss-good/30 rounded-2xl">
+            <Sparkles className="h-4 w-4 text-ss-good" />
+            <AlertTitle className="text-ss-good">Excellent Resume</AlertTitle>
+            <AlertDescription className="text-ss-good/90">
               Your resume ranks in the top tier. The recommendations will help you perfect it even further.
             </AlertDescription>
           </Alert>
@@ -273,7 +273,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
             
             {/* Preview Section - Show if resume exists */}
             {(resume || resumeFile) && (
-              <Card>
+              <Card className="ss-card">
                 <CardHeader>
                   <CardTitle>Resume Preview</CardTitle>
                 </CardHeader>
@@ -285,10 +285,10 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
 
             {/* Key Insights Section - Show if analysis exists */}
             {analysis && (
-              <Card className="mt-6">
+              <Card className="ss-card mt-6">
                 <CardHeader className="pb-2">
                   <CardTitle className="flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4 text-[#9b87f5]" />
+                    <TrendingUp className="h-4 w-4 text-ss-lav-deep" />
                     <span>Key Insights</span>
                   </CardTitle>
                   {isPollingForImprovements && (
@@ -301,22 +301,22 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
                 <CardContent>
                   <div className="space-y-4">
                     {highestScoringBullet && (
-                      <div className="border-l-4 border-green-400 pl-3 py-1">
+                      <div className="border-l-4 border-ss-good pl-3 py-1">
                         <p className="text-xs text-muted-foreground mb-1">STRONGEST POINT</p>
                         <p className="text-sm">{highestScoringBullet.original}</p>
                       </div>
                     )}
                     {lowestScoringBullet && (
-                      <div className="border-l-4 border-amber-400 pl-3 py-1">
+                      <div className="border-l-4 border-ss-warn pl-3 py-1">
                         <p className="text-xs text-muted-foreground mb-1">NEEDS IMPROVEMENT</p>
                         <p className="text-sm">{lowestScoringBullet.original}</p>
                       </div>
                     )}
-                    <div className="border-l-4 border-blue-400 pl-3 py-1">
+                    <div className="border-l-4 border-ss-teal pl-3 py-1">
                       <p className="text-xs text-muted-foreground mb-1">INDUSTRY ALIGNMENT</p>
                       <p className="text-sm">{(resume_percent > 75) ? 'Strong' : (resume_percent > 60) ? 'Fair' : 'Weak'} industry alignment</p>
                     </div>
-                    <div className="border-l-4 border-purple-400 pl-3 py-1">
+                    <div className="border-l-4 border-ss-lav pl-3 py-1">
                       <p className="text-xs text-muted-foreground mb-1">STORYTELLING QUALITY</p>
                       <p className="text-sm">{bulletPoints && bulletPoints.length > 0 ? bulletPoints.length : 0} bullet points analyzed</p>
                       <p className="text-xs text-muted-foreground">Average quality score: {bulletPoints && bulletPoints.length > 0 ?
@@ -343,7 +343,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
                 analysisDate={resume?.updated_at}
               />
             ) : (
-              <Card className="h-full flex items-center justify-center min-h-[200px]">
+              <Card className="ss-card h-full flex items-center justify-center min-h-[200px]">
                 <CardContent className="text-center p-6">
                   <File className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground">

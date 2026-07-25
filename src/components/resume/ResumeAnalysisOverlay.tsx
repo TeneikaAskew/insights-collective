@@ -158,7 +158,7 @@ export const ResumeAnalysisOverlay: React.FC<ResumeAnalysisOverlayProps> = ({
 
   return (
     <div className="fixed inset-0 bg-background/90 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-card shadow-lg rounded-lg max-w-2xl w-full p-6">
+      <div className="bg-card shadow-lg rounded-[26px] max-w-2xl w-full p-6">
         <div className="space-y-6">
           <div className="flex flex-col items-center text-center space-y-4">
             <Spinner size="lg" className="text-primary" />

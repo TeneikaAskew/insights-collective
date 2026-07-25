@@ -13,7 +13,6 @@ import { Button } from '@/components/ui/button';
 import { AlertCircle, RefreshCw, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { LocalStorageUtils } from '@/utils/localStorageUtils';
-import BulletPointChart from '@/components/resume/BulletPointChart';
 
 import { createLogger } from '@/utils/logger';
 
@@ -28,7 +27,7 @@ const AnalysisProgress: React.FC<{
   if (!isAnalyzing && !isPollingForImprovements) return null;
 
   return (
-    <div className="mb-4 bg-slate-50 p-4 rounded-lg border border-slate-200">
+    <div className="mb-4 bg-card p-4 rounded-2xl border border-border shadow-sm">
       <div className="flex items-center justify-between">
         <div className="flex items-center">
           <Loader2 className="h-4 w-4 mr-2 animate-spin text-primary" />
@@ -37,14 +36,14 @@ const AnalysisProgress: React.FC<{
           </span>
         </div>
         {pollingStatus === 'polling' && (
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-muted-foreground">
             Attempt {pollingAttempt + 1}
           </span>
         )}
       </div>
-      
+
       <div className="mt-2">
-        <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+        <div className="h-2 bg-ss-track rounded-full overflow-hidden">
           <div 
             className="h-full bg-primary transition-all duration-500 ease-in-out"
             style={{ 
@@ -54,7 +53,7 @@ const AnalysisProgress: React.FC<{
         </div>
       </div>
       
-      <p className="mt-2 text-sm text-slate-600">
+      <p className="mt-2 text-sm text-muted-foreground">
         {isAnalyzing 
           ? "We're analyzing your resume content and structure..."
           : pollingStatus === 'polling'
@@ -806,7 +805,7 @@ const Resume = () => {
   });
   
   return <AppLayout fullWidth>
-      <div className="mx-auto py-6 space-y-6 px-6 max-w-full">
+      <div className="soft-studio ss-wash mx-auto py-8 space-y-6 px-6 max-w-full min-h-full">
         {/* Analysis overlay that appears during processing */}
         <ResumeAnalysisOverlay 
           isVisible={showAnalysisOverlay} 

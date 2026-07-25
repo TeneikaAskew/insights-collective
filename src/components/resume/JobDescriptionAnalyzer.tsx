@@ -900,25 +900,25 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
   };
 
   const getScoreColor = (score: number) => {
-    if (score >= 80) return "text-green-600";
-    if (score >= 60) return "text-amber-600";
-    return "text-red-600";
+    if (score >= 80) return "text-ss-good";
+    if (score >= 60) return "text-ss-warn";
+    return "text-ss-bad";
   };
-  
+
   const getScoreBackground = (score: number) => {
-    if (score >= 80) return "bg-green-100";
-    if (score >= 60) return "bg-amber-100";
-    return "bg-red-100";
+    if (score >= 80) return "bg-ss-good-chip";
+    if (score >= 60) return "bg-ss-warn-chip";
+    return "bg-ss-bad-chip";
   };
 
   const getImportanceBadge = (importance: string) => {
     switch(importance) {
       case 'high':
-        return <Badge className="bg-red-100 text-red-800 border border-red-200">high</Badge>;
+        return <Badge className="bg-ss-bad-chip text-ss-bad border border-ss-bad/30 rounded-full">high</Badge>;
       case 'medium':
-        return <Badge className="bg-amber-100 text-amber-800 border border-amber-200">medium</Badge>;
+        return <Badge className="bg-ss-warn-chip text-ss-warn border border-ss-warn/30 rounded-full">medium</Badge>;
       default:
-        return <Badge className="bg-blue-100 text-blue-800 border border-blue-200">low</Badge>;
+        return <Badge className="bg-ss-lav-chip text-ss-lav-deep border border-ss-lav/30 rounded-full">low</Badge>;
     }
   };
 
@@ -1057,13 +1057,14 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                   </span>
                 </div>
                 <div className="relative pt-1">
-                  <Progress 
-                    value={analysisResult.overallScore} 
-                    className={`h-3 rounded-full ${
-                      analysisResult.overallScore >= 80 ? 'bg-gray-200 [&>div]:bg-green-500' : 
-                      analysisResult.overallScore >= 60 ? 'bg-gray-200 [&>div]:bg-amber-500' : 
-                      'bg-gray-200 [&>div]:bg-red-500'
-                    }`}
+                  <Progress
+                    value={analysisResult.overallScore}
+                    className="h-3 rounded-full bg-ss-track"
+                    indicatorClassName={
+                      analysisResult.overallScore >= 80 ? 'bg-ss-good' :
+                      analysisResult.overallScore >= 60 ? 'bg-ss-warn' :
+                      'bg-ss-bad'
+                    }
                   />
                   <div className="flex justify-between text-xs text-muted-foreground mt-1">
                     <span>Low Match</span>
@@ -1080,25 +1081,25 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                   <TabsList className="grid grid-cols-2 mb-4">
                     <TabsTrigger value="matched">
                       <span className="flex items-center gap-1">
-                        <Check className="h-4 w-4 text-green-600" />
-                        Matched Keywords 
-                        <Badge variant="outline" className="bg-green-100 text-green-800 ml-1">
+                        <Check className="h-4 w-4 text-ss-good" />
+                        Matched Keywords
+                        <Badge variant="outline" className="bg-ss-good-chip text-ss-good ml-1">
                           {analysisResult.keywordMatches.filter(k => k.matched).length}
                         </Badge>
                       </span>
                     </TabsTrigger>
                     <TabsTrigger value="missing">
                       <span className="flex items-center gap-1">
-                        <X className="h-4 w-4 text-red-600" />
+                        <X className="h-4 w-4 text-ss-bad" />
                         Missing Keywords
-                        <Badge variant="outline" className="bg-red-100 text-red-800 ml-1">
+                        <Badge variant="outline" className="bg-ss-bad-chip text-ss-bad ml-1">
                           {analysisResult.missingKeywords.length}
                         </Badge>
                       </span>
                     </TabsTrigger>
                   </TabsList>
                   <TabsContent value="matched" className="mt-0">
-                    <Card className="border-green-100">
+                    <Card className="border-ss-good/30">
                       <CardContent className="p-4">
                         <p className="text-sm text-muted-foreground mb-3">
                           Keywords in the job description that appear in your resume:
@@ -1107,7 +1108,7 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                           {analysisResult.keywordMatches
                             .filter(k => k.matched)
                             .map((match, index) => (
-                              <Badge key={index} className="bg-green-100 text-green-800 border border-green-200 py-1">
+                              <Badge key={index} className="bg-ss-good-chip text-ss-good border border-ss-good/30 py-1 rounded-full">
                                 {match.keyword} {match.frequency > 1 ? `${match.frequency}×` : ''}
                               </Badge>
                             ))
@@ -1120,14 +1121,14 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                     </Card>
                   </TabsContent>
                   <TabsContent value="missing" className="mt-0">
-                    <Card className="border-red-100">
+                    <Card className="border-ss-bad/30">
                       <CardContent className="p-4">
                         <p className="text-sm text-muted-foreground mb-3">
                           Important keywords in the job description missing from your resume:
                         </p>
                         <div className="flex flex-wrap gap-2">
                           {analysisResult.missingKeywords.map((keyword, index) => (
-                            <Badge key={index} variant="outline" className="bg-red-50 border-red-200 py-1">
+                            <Badge key={index} variant="outline" className="bg-ss-bad-chip border-ss-bad/30 text-ss-bad py-1 rounded-full">
                               {keyword}
                             </Badge>
                           ))}
@@ -1140,17 +1141,14 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                   </TabsContent>
                 </Tabs>
               </div>
-              // Modify these three ScrollArea sections in your JobDescriptionAnalyzer component
-
-
               {/* Skills Section - Enhanced for better readability */}
-              
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Technical Skills - UPDATED to show matched skills first */}
                 <Card>
                   <CardContent className="p-4 pt-5 space-y-3">
                     <h4 className="font-semibold flex items-center gap-2">
-                      <Badge className="bg-blue-100 text-blue-800 rounded-sm">Technical</Badge>
+                      <Badge className="bg-ss-lav-chip text-ss-lav-deep rounded-full">Technical</Badge>
                       Skills
                     </h4>
                     <ScrollArea className="h-[350px] pr-4">
@@ -1167,7 +1165,7 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                             return importanceOrder[a.importance] - importanceOrder[b.importance];
                           })
                           .map((skill, index) => (
-                            <div key={index} className={`flex justify-between items-center p-2 rounded-md ${skill.matched ? 'bg-green-50' : 'bg-muted/30'}`}>
+                            <div key={index} className={`flex justify-between items-center p-2 rounded-md ${skill.matched ? 'bg-ss-good-chip' : 'bg-muted/30'}`}>
                               <div className="flex items-center gap-2">
                                 {skill.matched ? 
                                   <Check className="h-4 w-4 text-green-600" /> : 
@@ -1190,7 +1188,7 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                 <Card>
                   <CardContent className="p-4 pt-5 space-y-3">
                     <h4 className="font-semibold flex items-center gap-2">
-                      <Badge className="bg-purple-100 text-purple-800 rounded-sm">Functional</Badge>
+                      <Badge className="bg-ss-teal-chip text-ss-teal rounded-full">Functional</Badge>
                       Skills
                     </h4>
                     <ScrollArea className="h-[350px] pr-4">
@@ -1206,7 +1204,7 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                             return importanceOrder[a.importance] - importanceOrder[b.importance];
                           })
                           .map((skill, index) => (
-                            <div key={index} className={`flex justify-between items-center p-2 rounded-md ${skill.matched ? 'bg-green-50' : 'bg-muted/30'}`}>
+                            <div key={index} className={`flex justify-between items-center p-2 rounded-md ${skill.matched ? 'bg-ss-good-chip' : 'bg-muted/30'}`}>
                               <div className="flex items-center gap-2">
                                 {skill.matched ? 
                                   <Check className="h-4 w-4 text-green-600" /> : 
@@ -1229,7 +1227,7 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                 <Card>
                   <CardContent className="p-4 pt-5 space-y-3">
                     <h4 className="font-semibold flex items-center gap-2">
-                      <Badge className="bg-amber-100 text-amber-800 rounded-sm">Key</Badge>
+                      <Badge className="bg-ss-warn-chip text-ss-warn rounded-full">Key</Badge>
                       Responsibilities
                     </h4>
                     <ScrollArea className="h-[350px] pr-4">
@@ -1245,7 +1243,7 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                             return importanceOrder[a.importance] - importanceOrder[b.importance];
                           })
                           .map((resp, index) => (
-                            <div key={index} className={`flex justify-between items-center p-2 rounded-md ${resp.matched ? 'bg-green-50' : 'bg-muted/30'}`}>
+                            <div key={index} className={`flex justify-between items-center p-2 rounded-md ${resp.matched ? 'bg-ss-good-chip' : 'bg-muted/30'}`}>
                               <div className="flex items-center gap-2">
                                 {resp.matched ? 
                                   <Check className="h-4 w-4 text-green-600" /> : 
@@ -1287,7 +1285,7 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
               </Card>
 
               {/* Pro Tip - Enhanced visual appeal */}
-              <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 flex items-start space-x-3">
+              <div className="ss-card-warm border border-ss-peach/40 rounded-2xl p-4 flex items-start space-x-3">
                 <Info className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
                 <div>
                   <p className="text-sm text-blue-900">

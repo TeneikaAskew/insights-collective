@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@400;500;700&family=Lora:ital,wght@1,500&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -152,6 +152,99 @@
     font-family: var(--tw-serif);
     font-weight: 400;
     letter-spacing: -0.01em;
+  }
+
+  /* Scoped Soft Studio theme for the Resume Analysis page.
+     Overrides shadcn tokens inside the wrapper only — the navbar, sidebar,
+     and every other route keep reading the :root values. */
+  .soft-studio {
+    /* shadcn token overrides (HSL triples) */
+    --background: 36 33% 97%;          /* plaster #FAF8F5 */
+    --foreground: 253 10% 18%;         /* ink #2C2A33 */
+    --card: 0 0% 100%;
+    --card-foreground: 253 10% 18%;
+    --primary: 256 43% 53%;            /* lavender-deep #624EBE */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 254 66% 75%;          /* lavender #A794EB */
+    --secondary-foreground: 0 0% 100%;
+    --muted: 260 24% 94%;              /* track #EDE9F3 */
+    --muted-foreground: 264 4% 53%;    /* #837E8C */
+    --accent: 258 68% 96%;             /* lavender-chip #F3EFFC */
+    --accent-foreground: 256 43% 53%;
+    --border: 253 10% 18% / 0.12;
+    --input: 253 10% 18% / 0.16;
+    --ring: 254 66% 75%;
+    --radius: 0.9rem;
+
+    /* Soft Studio palette */
+    --ss-lav: 254 66% 75%;             /* #A794EB */
+    --ss-lav-deep: 256 43% 53%;        /* #624EBE */
+    --ss-lav-chip: 258 68% 96%;        /* #F3EFFC */
+    --ss-peach: 26 75% 76%;            /* #F0BE96 */
+    --ss-peach-deep: 23 47% 49%;       /* #B97143 */
+    --ss-card-warm: 30 100% 98%;       /* #FFF9F3 */
+    --ss-track: 260 24% 94%;           /* #EDE9F3 */
+    --ss-good: 146 33% 46%;            /* #4E9B70 */
+    --ss-good-chip: 145 33% 93%;       /* #E7F3EC */
+    --ss-warn: 28 54% 51%;             /* #C97F3D */
+    --ss-warn-chip: 32 78% 93%;        /* #FBEEDF */
+    --ss-bad: 9 51% 52%;               /* #C25B49 */
+    --ss-bad-chip: 11 64% 94%;         /* #F9E8E4 */
+    --ss-teal: 169 44% 44%;            /* #3FA391 */
+    --ss-teal-chip: 168 38% 92%;       /* #E4F3F0 */
+    --ss-shadow: 0 14px 34px -18px rgba(90, 80, 120, 0.35);
+
+    font-family: 'Outfit', 'Inter', system-ui, sans-serif;
+    color: hsl(var(--foreground));
+  }
+
+  .soft-studio h1,
+  .soft-studio h2,
+  .soft-studio h3,
+  .soft-studio h4,
+  .soft-studio h5,
+  .soft-studio h6 {
+    font-family: 'Outfit', 'Inter', system-ui, sans-serif;
+    @apply font-bold;
+  }
+
+  .soft-studio .ss-serif {
+    font-family: 'Lora', Georgia, serif;
+    font-style: italic;
+    font-weight: 500;
+  }
+
+  /* Soft gradient washes behind the page content */
+  .soft-studio.ss-wash {
+    background-color: hsl(var(--background));
+    background-image:
+      radial-gradient(46rem 30rem at 86% -6%, rgba(196, 180, 250, 0.55), transparent 62%),
+      radial-gradient(40rem 28rem at 2% 108%, rgba(250, 216, 190, 0.55), transparent 60%);
+    background-attachment: local;
+  }
+
+  .soft-studio .ss-card {
+    border-radius: 26px;
+    border: 1px solid hsl(var(--border));
+    box-shadow: var(--ss-shadow);
+  }
+
+  .soft-studio .ss-card-warm {
+    background-color: hsl(var(--ss-card-warm));
+  }
+
+  .soft-studio .ss-chip {
+    @apply inline-flex items-center rounded-full px-3 py-1 text-xs sm:text-sm font-medium;
+    background-color: hsl(var(--ss-lav-chip));
+    color: hsl(var(--ss-lav-deep));
+  }
+
+  .soft-studio .ss-tile {
+    @apply text-center;
+    border-radius: 20px;
+    border: 1px solid hsl(var(--border));
+    background-color: hsl(var(--card));
+    box-shadow: var(--ss-shadow);
   }
 
 

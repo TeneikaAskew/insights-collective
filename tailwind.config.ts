@@ -21,6 +21,8 @@ export default {
 			fontFamily: {
 				sans: ['Inter', 'system-ui', 'sans-serif'],
 				display: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+				outfit: ['Outfit', 'Inter', 'system-ui', 'sans-serif'],
+				lora: ['Lora', 'Georgia', 'serif'],
 			},
 			colors: {
 				border: 'hsl(var(--border))',
@@ -55,6 +57,25 @@ export default {
 				card: {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
+				},
+				/* Soft Studio palette — resolves only inside a .soft-studio wrapper
+				   (the --ss-* vars are defined there); used by the resume feature. */
+				ss: {
+					lav: 'hsl(var(--ss-lav))',
+					'lav-deep': 'hsl(var(--ss-lav-deep))',
+					'lav-chip': 'hsl(var(--ss-lav-chip))',
+					peach: 'hsl(var(--ss-peach))',
+					'peach-deep': 'hsl(var(--ss-peach-deep))',
+					'card-warm': 'hsl(var(--ss-card-warm))',
+					track: 'hsl(var(--ss-track))',
+					good: 'hsl(var(--ss-good))',
+					'good-chip': 'hsl(var(--ss-good-chip))',
+					warn: 'hsl(var(--ss-warn))',
+					'warn-chip': 'hsl(var(--ss-warn-chip))',
+					bad: 'hsl(var(--ss-bad))',
+					'bad-chip': 'hsl(var(--ss-bad-chip))',
+					teal: 'hsl(var(--ss-teal))',
+					'teal-chip': 'hsl(var(--ss-teal-chip))',
 				},
 			sidebar: {
 				DEFAULT: 'hsl(var(--sidebar-background))',

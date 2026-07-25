@@ -72,7 +72,7 @@ const BulletPointItem: React.FC<BulletPointItemProps> = ({
   const displayBullet = editedBullet || bullet;
 
   return (
-    <AccordionItem value={`bullet-${index}`} className="border rounded-lg p-1">
+    <AccordionItem value={`bullet-${index}`} className="border border-border bg-card rounded-2xl p-1">
       <AccordionTrigger className="px-4 py-3 hover:no-underline">
         <div className="flex flex-1 items-center justify-between">
           <div className="flex-1 text-left mr-4 line-clamp-1">
@@ -88,7 +88,7 @@ const BulletPointItem: React.FC<BulletPointItemProps> = ({
         <div className="space-y-6">
           <div className="space-y-4">
             <h4 className="text-sm font-medium">Original:</h4>
-            <div className="text-sm bg-slate-50 p-3 rounded">
+            <div className="text-sm bg-background border border-border p-3 rounded-xl">
               <HighlightedBulletText text={original} />
             </div>
             
@@ -133,7 +133,7 @@ const BulletPointItem: React.FC<BulletPointItemProps> = ({
                 </div>
               </div>
             ) : (
-              <div className="text-sm bg-green-50 p-3 rounded">
+              <div className="text-sm bg-ss-good-chip p-3 rounded-xl">
                 <HighlightedBulletText text={displayBullet.rewritten} />
               </div>
             )}

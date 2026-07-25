@@ -672,10 +672,10 @@ Let's start by discussing your experience: **What specific challenges did you ta
                   ? 'justify-start' 
                   : 'justify-end'
               }`}>
-                <div className={`max-w-3xl p-3 rounded-lg ${
-                  message.role === 'assistant' 
-                    ? 'bg-slate-100 text-slate-800' 
-                    : 'bg-blue-600 text-white'
+                <div className={`max-w-3xl p-4 ${
+                  message.role === 'assistant'
+                    ? 'bg-ss-lav-chip text-foreground rounded-2xl rounded-bl-md'
+                    : 'bg-ss-lav-deep text-white rounded-2xl rounded-br-md'
                 }`}>
                   {message.role === 'assistant' ? (
                     <div 
@@ -693,7 +693,7 @@ Let's start by discussing your experience: **What specific challenges did you ta
                   )}
                   
                   {message.isStreaming && (
-                    <span className="inline-block w-1.5 h-4 bg-slate-400 ml-1 animate-pulse"></span>
+                    <span className="inline-block w-1.5 h-4 bg-ss-lav ml-1 animate-pulse"></span>
                   )}
                 </div>
               </div>
@@ -709,11 +709,11 @@ Let's start by discussing your experience: **What specific challenges did you ta
           
           {isLoading && !messages.some(m => m.isStreaming) && (
             <div className="flex justify-start">
-              <div className="max-w-3xl p-3 rounded-lg bg-slate-100 text-slate-800">
+              <div className="max-w-3xl p-4 rounded-2xl rounded-bl-md bg-ss-lav-chip text-foreground">
                 <div className="flex space-x-2">
-                  <div className="w-1.5 h-2 rounded-full bg-slate-400 animate-pulse"></div>
-                  <div className="w-1.5 h-2 rounded-full bg-slate-400 animate-pulse delay-75"></div>
-                  <div className="w-1.5 h-2 rounded-full bg-slate-400 animate-pulse delay-150"></div>
+                  <div className="w-1.5 h-2 rounded-full bg-ss-lav animate-pulse"></div>
+                  <div className="w-1.5 h-2 rounded-full bg-ss-lav animate-pulse delay-75"></div>
+                  <div className="w-1.5 h-2 rounded-full bg-ss-lav animate-pulse delay-150"></div>
                 </div>
               </div>
             </div>
@@ -733,10 +733,10 @@ Let's start by discussing your experience: **What specific challenges did you ta
             rows={2}
             disabled={isLoading}
           />
-          <Button 
-            onClick={handleSendMessage} 
+          <Button
+            onClick={handleSendMessage}
             disabled={isLoading || !inputValue.trim()}
-            className="self-end"
+            className="self-end h-11 w-11 rounded-full p-0"
           >
             <Send className="h-4 w-4" />
             <span className="sr-only">Send</span>
