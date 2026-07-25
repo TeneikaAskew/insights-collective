@@ -57,3 +57,7 @@ verify_jwt = false
 [functions.verify-certificate]
 verify_jwt = false
 
+[functions.generate-course-outline]
+verify_jwt = true
+
+
