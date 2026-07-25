@@ -112,3 +112,16 @@ test.describe('Job description page (Soft Studio, Split Desk)', () => {
     await expect(page.getByText('Interview prep, one calm step at a time.')).toBeVisible();
   });
 });
+
+test.describe('STAR practice page (Soft Studio, Guided Coach)', () => {
+  test('renders the themed no-questions state when logged out', async ({ page }) => {
+    await page.goto('/interview-prep/star-practice', { waitUntil: 'domcontentloaded' });
+    await expect(page.getByText('No Questions Available')).toBeVisible({ timeout: 15_000 });
+
+    const wrapper = page.locator('.soft-studio').first();
+    await expect(wrapper).toBeVisible();
+    expect(await wrapper.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgb(250, 248, 245)');
+    await expect(page.getByRole('button', { name: /go back/i })).toBeVisible();
+    await expect(page.locator('.animate-spin')).toHaveCount(0);
+  });
+});
