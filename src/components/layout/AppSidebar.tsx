@@ -310,7 +310,7 @@ const AppSidebar = () => {
                 
                 {isInstructor && !isAdmin && <SidebarMenuItem>
                     <SidebarMenuButton asChild className="text-gray-700 dark:text-gray-400 hover:text-sidebar-accent hover:bg-sidebar-accent/10">
-                      <Link to="/course-management" className={`flex items-center ${open ? 'space-x-2' : 'justify-center'} rounded-md px-2 py-1.5`}>
+                      <Link to="/course-management" className={`flex items-center rounded-md py-1.5 ${open ? 'space-x-2 px-2' : 'justify-center w-full px-0'}`}>
                         <BookOpen className="h-3.5 w-3.5 flex-shrink-0 text-gray-500" />
                         {open && <span className="text-xs truncate">My Courses</span>}
                       </Link>
