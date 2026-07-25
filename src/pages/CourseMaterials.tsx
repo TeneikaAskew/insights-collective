@@ -25,6 +25,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCoursePermissions } from '@/hooks/useCoursePermissions';
 import { useQuery } from '@tanstack/react-query';
+import { useConfirm, usePrompt } from '@/components/dialogs/DialogsProvider';
 
 interface FolderRow {
   id: string;
