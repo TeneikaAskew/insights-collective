@@ -24,8 +24,8 @@
     --muted: 0 0% 98%; /* Soft White */
     --muted-foreground: 220 6% 58%; /* Dusty Gray */
 
-    --accent: 164 61% 60%; /* Aqua Teal */
-    --accent-foreground: 222 47.4% 11.2%;
+    --accent: 252 82% 95%; /* Brand purple tint — active/hover surfaces */
+    --accent-foreground: 252 60% 30%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
@@ -74,8 +74,8 @@
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 220 6% 58%; /* Dusty Gray */
 
-    --accent: 164 61% 60%; /* Aqua Teal */
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 252 40% 25%; /* Brand purple — dark surface */
+    --accent-foreground: 0 0% 98%;
 
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
