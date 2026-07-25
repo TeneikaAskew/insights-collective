@@ -157,6 +157,43 @@ test.describe('Code practice page (Soft Studio, Problem Book)', () => {
   });
 });
 
+test.describe('Mock interviews page (Soft Studio, Split Desk)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/interview-prep/mock-interviews', { waitUntil: 'domcontentloaded' });
+    await page.getByRole('heading', { name: 'Mock Interviews' }).waitFor({ timeout: 15_000 });
+  });
+
+  test('renders themed with no spinner when logged out', async ({ page }) => {
+    const wrapper = page.locator('.soft-studio').first();
+    await expect(wrapper).toBeVisible();
+    expect(await wrapper.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgb(250, 248, 245)');
+
+    await expect(page.getByText('Schedule and participate in mock interviews with peers.')).toBeVisible();
+    await expect(page.locator('.animate-spin')).toHaveCount(0);
+
+    for (const name of ['Find Sessions', 'Set Availability', 'Upcoming Sessions', 'Guidelines']) {
+      await expect(page.getByRole('tab', { name })).toBeVisible();
+    }
+    // Split desk: booking rail + partners pane visible together
+    await expect(page.getByText('Find Available Partners')).toBeVisible();
+    await expect(page.getByText('Please select a date first')).toBeVisible();
+  });
+
+  test('guidelines tab keeps the full content', async ({ page }) => {
+    await page.getByRole('tab', { name: 'Guidelines' }).click();
+    await expect(page.getByText('Interview Guidelines')).toBeVisible();
+    await expect(page.getByText('Why Mock Interviews Matter')).toBeVisible();
+    await expect(page.getByText('Final Reminders')).toBeVisible();
+    await expect(page.getByRole('link', { name: 'StrataScratch' })).toBeVisible();
+  });
+
+  test('back button returns to the interview prep hub', async ({ page }) => {
+    await page.getByRole('button', { name: /interview prep/i }).click();
+    await page.waitForURL('**/interview-prep', { timeout: 15_000, waitUntil: 'domcontentloaded' });
+    await expect(page.getByRole('heading', { name: 'Interview Preparation' })).toBeVisible();
+  });
+});
+
 test.describe('STAR practice page (Soft Studio, Guided Coach)', () => {
   test('renders the themed no-questions state when logged out', async ({ page }) => {
     await page.goto('/interview-prep/star-practice', { waitUntil: 'domcontentloaded' });
