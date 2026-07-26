@@ -4,6 +4,7 @@ import { buildGoogleCalendarSubscribeUrl, buildWebcalUrl } from '@/utils/calenda
 import { Button } from '@/components/ui/button';
 import { Calendar, Download, Copy, Check, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { securityConfig } from '@/config/security';
 
 interface CourseCalendarSyncProps {
   courseId: string;
@@ -17,8 +18,9 @@ export function CourseCalendarSync({ courseId, courseTitle }: CourseCalendarSync
   const [downloading, setDownloading] = useState(false);
 
   const feedUrl = useMemo(() => {
-    const base = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, '');
-    if (!base) return '';
+    // Same source as the Supabase client, which carries a fallback — reading
+    // the raw env var here produced an empty feed URL wherever it is unset.
+    const base = securityConfig.supabase.url.replace(/\/$/, '');
     return `${base}/functions/v1/course-calendar-feed?course_id=${encodeURIComponent(courseId)}`;
   }, [courseId]);
 

@@ -54,10 +54,13 @@ const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
 
     if (isAuthenticated && user) {
       checkAdminAccess();
-    } else {
+    } else if (!session && !loading) {
+      // Same gap as ProtectedRoute: isAuthenticated lags the session while the
+      // profile loads, and answering false in that window locks a real admin
+      // out before has_admin_access can reply.
       setHasAdminAccess(false);
     }
-  }, [isAuthenticated, user, location.pathname]);
+  }, [isAuthenticated, user, session, loading, location.pathname]);
 
   // Enhanced security checks
   if (loading || (session !== null && !isAuthenticated) || hasAdminAccess === null) {

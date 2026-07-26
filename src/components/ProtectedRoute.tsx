@@ -57,10 +57,16 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireAdmin 
 
     if (isAuthenticated && user) {
       checkAdminAccess();
-    } else {
+    } else if (!session && !loading) {
+      // Only conclude "not an admin" once auth has settled with no session at
+      // all. isAuthenticated is derived from the enriched profile, which loads
+      // after the session: in that gap this branch used to write a definitive
+      // false, which stopped the loading check below from holding the route
+      // and redirected a real admin away — logging them as an unauthorized
+      // access attempt — before has_admin_access could reply.
       setHasAdminAccess(!requireAdmin);
     }
-  }, [isAuthenticated, user, requireAdmin, location.pathname]);
+  }, [isAuthenticated, user, session, loading, requireAdmin, location.pathname]);
 
   React.useEffect(() => {
     // Validate and store redirect path securely
