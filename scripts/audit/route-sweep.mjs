@@ -20,7 +20,6 @@ import path from 'node:path';
 import { chromium } from 'playwright';
 
 const BASE = process.env.E2E_BASE_URL ?? 'http://localhost:8080';
-const SESSIONS = path.resolve('.playwright-sessions');
 
 // Real seeded rows — placeholders would make every page a Not Found and tell us
 // nothing about the queries a working page issues.
@@ -59,17 +58,64 @@ function fill(routePath) {
 const { routes } = JSON.parse(fs.readFileSync('.e2e-audit/route-reachability.json', 'utf8'));
 const targets = routes.filter((r) => !r.redirect).map((r) => ({ route: r.path, url: fill(r.path) })).filter((t) => t.url);
 
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL ?? 'https://siuqvhscuiycvdrtiqsh.supabase.co';
+const ANON =
+  process.env.VITE_SUPABASE_ANON_KEY ||
+  process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  (fs.readFileSync('src/config/security.ts', 'utf8').match(/VITE_SUPABASE_ANON_KEY \|\| "([^"]+)"/) ?? [])[1];
+
+/**
+ * Sign in fresh rather than reusing .playwright-sessions/*.json.
+ *
+ * Those files are written by global-setup and the access tokens in them expire
+ * in an hour. A sweep run against stale ones reported 401s on code_challenges
+ * and enrollments for the MEMBER role and looked like a permissions defect;
+ * signing in again returned 200 for both. A diagnostic that produces false
+ * defects is worse than no diagnostic.
+ */
+async function freshSessionValue(role) {
+  const email = process.env[`E2E_${role.toUpperCase()}_EMAIL`];
+  const password = process.env[`E2E_${role.toUpperCase()}_PASSWORD`] ?? process.env.E2E_TEST_PASSWORD;
+  if (!email || !password) return null;
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { apikey: ANON, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!res.ok) return null;
+  const t = await res.json();
+  return JSON.stringify({
+    access_token: t.access_token,
+    refresh_token: t.refresh_token,
+    token_type: 'bearer',
+    expires_in: t.expires_in,
+    expires_at: Math.floor(Date.now() / 1000) + t.expires_in,
+    user: t.user,
+  });
+}
+
 const browser = await chromium.launch();
 const results = [];
 
 for (const role of ROLES) {
-  const statePath = path.join(SESSIONS, `${role}.json`);
-  const storageState = role === 'public' ? undefined : (fs.existsSync(statePath) ? statePath : undefined);
-  if (role !== 'public' && !storageState) {
-    console.error(`skipping ${role}: no session file (run the suite once to create it)`);
-    continue;
+  let session = null;
+  if (role !== 'public') {
+    session = await freshSessionValue(role);
+    if (!session) {
+      console.error(`skipping ${role}: could not sign in (set E2E_${role.toUpperCase()}_EMAIL / _PASSWORD)`);
+      continue;
+    }
   }
-  const context = await browser.newContext({ storageState, viewport: { width: 1280, height: 900 } });
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  if (session) {
+    await context.addInitScript(
+      ({ value }) => {
+        localStorage.setItem('supabase.auth.token', value);
+        localStorage.setItem('e2e:disable-tours', '1');
+      },
+      { value: session },
+    );
+  }
 
   for (const { route, url } of targets) {
     const page = await context.newPage();
