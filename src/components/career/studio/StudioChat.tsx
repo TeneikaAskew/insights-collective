@@ -14,7 +14,7 @@ const CoachAvatar: React.FC<{ small?: boolean }> = ({ small }) => (
 );
 
 export const ActsStepper: React.FC<{ currentAct: number; allDone?: boolean }> = ({ currentAct, allDone }) => (
-  <div className="flex items-center gap-1.5 flex-wrap" aria-label="Conversation progress">
+  <div className="flex items-center gap-1.5 flex-wrap" aria-label="Conversation progress" data-testid="acts-stepper">
     {ACTS.map((act, i) => {
       const done = allDone || i < currentAct;
       const now = !allDone && i === currentAct;
@@ -83,7 +83,7 @@ const StudioChat: React.FC<StudioChatProps> = ({
   }, [messages.length, lastMessage?.text, composing]);
 
   return (
-    <div className="bg-card ss-card flex flex-col overflow-hidden">
+    <div className="bg-card ss-card flex flex-col overflow-hidden" data-testid="coach-panel">
       <div className="flex items-center gap-3 px-5 py-4 border-b border-ss-track">
         <CoachAvatar />
         <div className="min-w-0">
@@ -103,7 +103,12 @@ const StudioChat: React.FC<StudioChatProps> = ({
           {messages.map((msg) => {
             const isBot = msg.sender === 'bot';
             return (
-              <div key={msg.id} className={`flex items-end gap-2 ${isBot ? '' : 'justify-end'}`}>
+              <div
+                key={msg.id}
+                data-testid="coach-message"
+                data-sender={msg.sender}
+                className={`flex items-end gap-2 ${isBot ? '' : 'justify-end'}`}
+              >
                 {isBot && <CoachAvatar small />}
                 <div
                   className={`max-w-[84%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
@@ -141,6 +146,7 @@ const StudioChat: React.FC<StudioChatProps> = ({
           disabled={inputDisabled}
           placeholder={placeholder}
           autoComplete="off"
+          data-testid="coach-input"
           className="flex-1 rounded-full border border-input bg-background px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ss-lav disabled:opacity-60"
         />
         <button
@@ -148,6 +154,7 @@ const StudioChat: React.FC<StudioChatProps> = ({
           onClick={onSubmit}
           disabled={inputDisabled || !inputValue.trim()}
           aria-label="Send"
+          data-testid="coach-send"
           className="flex-none w-11 h-11 rounded-full bg-ss-lav-deep text-white grid place-content-center transition-colors hover:bg-ss-lav-deep/90 disabled:bg-ss-track disabled:text-muted-foreground"
         >
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">

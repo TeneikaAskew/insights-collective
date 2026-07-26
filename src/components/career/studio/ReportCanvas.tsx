@@ -26,13 +26,16 @@ const cleanStepTitle = (title?: string): string => {
 };
 
 const Ghost: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className="rounded-[20px] border-2 border-dashed border-ss-track grid place-content-center text-center min-h-24 px-5 py-6 text-sm text-muted-foreground">
+  <div
+    data-testid="canvas-ghost"
+    className="rounded-[20px] border-2 border-dashed border-ss-track grid place-content-center text-center min-h-24 px-5 py-6 text-sm text-muted-foreground"
+  >
     {children}
   </div>
 );
 
 const CanvasCard: React.FC<{ warm?: boolean; children: React.ReactNode }> = ({ warm, children }) => (
-  <div className={`ss-card bg-card p-5 animate-fade-in ${warm ? 'ss-card-warm' : ''}`}>
+  <div data-testid="canvas-card" className={`ss-card bg-card p-5 animate-fade-in ${warm ? 'ss-card-warm' : ''}`}>
     {children}
   </div>
 );

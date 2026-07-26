@@ -331,7 +331,7 @@ const ActionPlanSection: React.FC<ActionPlanSectionProps> = ({ initialActionPlan
   // ---------- No plan yet ----------
   if (!plan) {
     return (
-      <section className="ss-card bg-card p-7" aria-label="Career action plan">
+      <section className="ss-card bg-card p-7" aria-label="Career action plan" data-testid="action-plan-section">
         <h2 className="text-xl font-bold tracking-tight mb-1.5">Your action plan</h2>
         <p className="text-sm text-muted-foreground mb-5 max-w-xl">
           Turn your pathway into a week-by-week plan — skills with named courses, portfolio projects,
@@ -361,7 +361,7 @@ const ActionPlanSection: React.FC<ActionPlanSectionProps> = ({ initialActionPlan
 
   // ---------- Plan ----------
   return (
-    <section aria-label="Career action plan">
+    <section aria-label="Career action plan" data-testid="action-plan-section">
       <div className="flex items-center gap-3 flex-wrap mb-4">
         <h2 className="text-xl font-bold tracking-tight">Your action plan</h2>
         <span className="ss-chip">Generated from your pathway report + resume</span>
@@ -391,6 +391,7 @@ const ActionPlanSection: React.FC<ActionPlanSectionProps> = ({ initialActionPlan
             type="button"
             role="tab"
             aria-selected={key === active}
+            data-testid="plan-timeframe-tab"
             onClick={() => setActiveTimeframe(key)}
             className={`text-sm font-bold rounded-full px-4 py-2 border transition-colors ${
               key === active
@@ -486,7 +487,7 @@ const ActionPlanSection: React.FC<ActionPlanSectionProps> = ({ initialActionPlan
               const done = entryApplies(progress[`${active}:${idx}`], milestone);
               const state = buttonState('milestone', milestone, TIMEFRAME_LABELS[active]);
               return (
-                <div key={idx} className="flex items-start gap-2.5 py-1.5">
+                <div key={idx} className="flex items-start gap-2.5 py-1.5" data-testid="plan-milestone">
                   <label className="flex items-start gap-2.5 flex-1 cursor-pointer">
                     <input
                       type="checkbox"

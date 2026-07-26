@@ -366,7 +366,7 @@ const CareerPathway: React.FC = () => {
   if (!isAuthenticated) {
     return (
       <AppLayout>
-        <div className="soft-studio ss-wash min-h-full py-16 px-6">
+        <div className="soft-studio ss-wash min-h-full py-16 px-6" data-testid="career-pathway-signin">
           <div className="ss-card bg-card max-w-md mx-auto p-8 text-center">
             <div className="w-16 h-16 mx-auto rounded-full bg-ss-lav-chip grid place-content-center mb-5">
               <Map className="h-8 w-8 text-ss-lav-deep" />
@@ -402,7 +402,7 @@ const CareerPathway: React.FC = () => {
 
   return (
     <AppLayout>
-      <div className="soft-studio ss-wash min-h-full py-10 px-4 sm:px-6">
+      <div className="soft-studio ss-wash min-h-full py-10 px-4 sm:px-6" data-testid="career-pathway-page">
         <div className="max-w-6xl mx-auto">
           <header className="mb-8">
             <h1 className="text-3xl sm:text-4xl font-bold tracking-tight [text-wrap:balance]">
@@ -429,6 +429,7 @@ const CareerPathway: React.FC = () => {
                 headerAction={
                   <button
                     type="button"
+                    data-testid="start-over"
                     onClick={() => void handleStartOver()}
                     className="text-xs font-bold rounded-full border border-border px-3 py-1.5 text-muted-foreground transition-colors hover:text-ss-bad hover:border-ss-bad"
                   >
@@ -442,6 +443,7 @@ const CareerPathway: React.FC = () => {
                       <button
                         key={reply}
                         type="button"
+                        data-testid="quick-reply"
                         onClick={() => void handleAnswer(reply)}
                         className="text-left text-sm text-ss-lav-deep border-[1.5px] border-ss-lav rounded-3xl px-4 py-2.5 bg-white/70 transition-colors hover:bg-ss-lav-chip focus:outline-none focus-visible:ring-2 focus-visible:ring-ss-lav"
                       >
@@ -530,7 +532,7 @@ const CareerPathway: React.FC = () => {
               </StudioChat>
 
               {phase === 'ready' && report && (
-                <div className="ss-card ss-card-warm flex items-center gap-3 flex-wrap rounded-full px-6 py-3.5 animate-fade-in">
+                <div data-testid="pathway-savebar" className="ss-card ss-card-warm flex items-center gap-3 flex-wrap rounded-full px-6 py-3.5 animate-fade-in">
                   <span className="font-bold text-sm">Your pathway is ready</span>
                   {savedOk ? (
                     <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium bg-ss-good-chip text-ss-good">
