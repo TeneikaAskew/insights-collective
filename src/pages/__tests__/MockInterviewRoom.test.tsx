@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@/test/utils/test-utils';
+import { render, screen, fireEvent } from '@/test/utils/test-utils';
 import { mockSupabaseClient } from '@/test/mocks/supabase';
 import MockInterviewRoom from '@/pages/interview-prep/MockInterviewRoom';
 
@@ -85,6 +85,23 @@ describe('MockInterviewRoom page (Side Desk)', () => {
     expect(
       screen.getByPlaceholderText("Provide detailed feedback about the candidate's performance...")
     ).toBeInTheDocument();
+  });
+
+  it('opens the meeting link, falling back to a Jitsi room', async () => {
+    const open = vi.spyOn(window, 'open').mockImplementation(() => null);
+
+    mockSession({ ...BASE_SESSION, meeting_url: 'https://zoom.us/j/999', video_platform: 'Zoom' });
+    const { unmount } = render(<MockInterviewRoom />);
+    fireEvent.click(await screen.findByRole('button', { name: /join video call/i }));
+    expect(open).toHaveBeenCalledWith('https://zoom.us/j/999', '_blank', 'noopener');
+    unmount();
+
+    open.mockClear();
+    mockSession({ ...BASE_SESSION, meeting_url: null });
+    render(<MockInterviewRoom />);
+    fireEvent.click(await screen.findByRole('button', { name: /join video call/i }));
+    expect(open).toHaveBeenCalledWith('https://meet.jit.si/insights-mock-session-1', '_blank', 'noopener');
+    open.mockRestore();
   });
 
   it('hides the questions and evaluation form for the interviewee', async () => {

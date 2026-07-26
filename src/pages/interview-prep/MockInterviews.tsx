@@ -32,7 +32,13 @@ interface MockSession {
   status: 'scheduled' | 'completed' | 'canceled';
   study_guide_id: string | null;
   video_platform: string;
+  meeting_url?: string | null;
 }
+
+// Jitsi rooms need no account, no API key, and no vendor setup — they are
+// the fallback whenever the Zoom integration is unavailable. The room name
+// is derived from the session id so it is unguessable.
+const jitsiRoomUrl = (sessionId: string) => `https://meet.jit.si/insights-mock-${sessionId}`;
 
 interface TimeSlot {
   id: string;
@@ -245,7 +251,45 @@ export default function MockInterviews() {
 
       if (error) throw error;
 
-      setSessions([...sessions, session]);
+      // Give the session a joinable video link. Zoom when the integration is
+      // configured; otherwise a Jitsi room (no account needed on either side).
+      // A link failure must never lose the booking, so this is best-effort.
+      let meetingUrl = jitsiRoomUrl(session.id);
+      let platform = 'Jitsi Meet';
+      let startUrl: string | null = null;
+      let meetingId: string | null = null;
+      try {
+        const { data: zoom, error: zoomError } = await supabase.functions.invoke('create-zoom-meeting', {
+          body: {
+            title: `Mock Interview — ${capitalize(selectedType)}`,
+            start_time: sessionTime.toISOString(),
+            duration: 60,
+            agenda: 'Peer mock interview scheduled from Insights Collective',
+          },
+        });
+        if (!zoomError && zoom?.join_url) {
+          meetingUrl = zoom.join_url;
+          startUrl = zoom.start_url ?? null;
+          meetingId = zoom.meeting_id ? String(zoom.meeting_id) : null;
+          platform = 'Zoom';
+        }
+      } catch (linkError) {
+        logger.error('Zoom meeting creation failed, using Jitsi room:', linkError);
+      }
+
+      const { data: linked } = await supabase
+        .from('mock_sessions')
+        .update({
+          meeting_url: meetingUrl,
+          start_url: startUrl,
+          meeting_id: meetingId,
+          video_platform: platform,
+        })
+        .eq('id', session.id)
+        .select()
+        .single();
+
+      setSessions([...sessions, linked || { ...session, meeting_url: meetingUrl, video_platform: platform }]);
       toast({
         title: 'Success',
         description: 'Mock interview session scheduled successfully.',
@@ -325,10 +369,22 @@ export default function MockInterviews() {
       </div>
 
       {session.status === 'scheduled' && (
-        <Button className="w-full mt-2 rounded-full font-bold" onClick={() => handleJoinSession(session.id)}>
-          <Video className="h-4 w-4 mr-2" />
-          Join Session
-        </Button>
+        <div className="flex flex-wrap gap-2 mt-2">
+          <Button
+            className="flex-1 rounded-full font-bold"
+            onClick={() => window.open(session.meeting_url || jitsiRoomUrl(session.id), '_blank', 'noopener')}
+          >
+            <Video className="h-4 w-4 mr-2" />
+            Join video call
+          </Button>
+          <Button
+            variant="outline"
+            className="flex-1 rounded-full font-bold"
+            onClick={() => handleJoinSession(session.id)}
+          >
+            Open prep room
+          </Button>
+        </div>
       )}
     </div>
   );

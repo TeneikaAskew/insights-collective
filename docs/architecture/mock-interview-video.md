@@ -1,6 +1,23 @@
 # Mock Interview Video — Architecture Options
 
-Status: proposed (decision needed: Option A vs Option B, or A-then-B)
+Status: **Option A implemented** (Zoom links with a Jitsi fallback); Option B
+remains available if fully in-app calls become a product goal.
+
+Implemented:
+- Migration `20260727000200` adds `meeting_url`, `start_url`, `meeting_id`
+  to `mock_sessions` (applied to production).
+- `handleSchedule` creates a Zoom meeting via the existing
+  `create-zoom-meeting` function and stores its `join_url`; if Zoom is
+  unavailable or unconfigured it stores a **Jitsi** room derived from the
+  session id (`https://meet.jit.si/insights-mock-<sessionId>`) — no
+  account or API key needed on either side. A link failure never loses
+  the booking.
+- Scheduled sessions show **Join video call** (opens the link) alongside
+  **Open prep room** (the in-app cockpit). The room shows the same Join
+  button and labels its video area as a camera check, so nobody mistakes
+  the self-view for the interview.
+- Sessions booked before this change fall back to a Jitsi room derived
+  from their id, so they are joinable too.
 Related pages: `src/pages/interview-prep/MockInterviews.tsx`,
 `src/pages/interview-prep/MockInterviewRoom.tsx`
 

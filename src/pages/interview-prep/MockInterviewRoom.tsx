@@ -27,7 +27,13 @@ interface MockSession {
   type: 'behavioral' | 'technical';
   status: 'scheduled' | 'completed' | 'canceled';
   study_guide_id: string | null;
+  meeting_url?: string | null;
+  video_platform?: string | null;
 }
+
+// Matches the scheduler's fallback so older sessions booked before meeting
+// links existed still have somewhere to meet.
+const jitsiRoomUrl = (sessionId: string) => `https://meet.jit.si/insights-mock-${sessionId}`;
 
 const formatCountdown = (totalSeconds: number): string => {
   const hours = Math.floor(totalSeconds / 3600);
@@ -281,8 +287,19 @@ export default function MockInterviewRoom() {
             </span>
           </div>
         </div>
+        <p className="mt-3 text-center text-xs text-gray-400">
+          Camera check — the interview itself runs on{' '}
+          {session.video_platform || 'your meeting link'}. Use Join video call below.
+        </p>
       </div>
       <div className="flex flex-wrap justify-center gap-3 border-t border-[#3A3644] px-5 py-4">
+        <Button
+          onClick={() => window.open(session.meeting_url || jitsiRoomUrl(session.id), '_blank', 'noopener')}
+          className="rounded-full font-bold"
+        >
+          <Video className="h-4 w-4 mr-2" />
+          Join video call
+        </Button>
         <Button
           variant="outline"
           onClick={toggleVideo}

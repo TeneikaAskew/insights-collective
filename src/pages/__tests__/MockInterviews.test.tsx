@@ -143,8 +143,9 @@ describe('MockInterviews page (Split Desk)', () => {
     expect(screen.getByText('Technical')).toBeInTheDocument();
     expect(screen.getByText('Completed')).toBeInTheDocument();
     expect(screen.getByText('You are the Interviewee')).toBeInTheDocument();
-    // Only the scheduled future session gets a join button
-    expect(screen.getAllByRole('button', { name: /join session/i }).length).toBe(1);
+    // Only the scheduled future session gets join actions
+    expect(screen.getAllByRole('button', { name: /join video call/i }).length).toBe(1);
+    expect(screen.getAllByRole('button', { name: /open prep room/i }).length).toBe(1);
   });
 
   it('navigates back to the interview prep hub', async () => {
@@ -154,6 +155,35 @@ describe('MockInterviews page (Split Desk)', () => {
     render(<MockInterviews />);
     fireEvent.click(await screen.findByRole('button', { name: /interview prep/i }));
     expect(navigate).toHaveBeenCalledWith('/interview-prep');
+  });
+
+  it('offers a video-call link and a prep room on scheduled sessions', async () => {
+    userState.user = { id: 'user-1' };
+    mockQueries({
+      sessions: [{ ...SESSIONS[0], meeting_url: 'https://zoom.us/j/123', video_platform: 'Zoom' }],
+    });
+    const open = vi.spyOn(window, 'open').mockImplementation(() => null);
+
+    render(<MockInterviews />);
+    await screen.findByText('Find Available Partners');
+
+    fireEvent.click(await screen.findByRole('button', { name: /join video call/i }));
+    expect(open).toHaveBeenCalledWith('https://zoom.us/j/123', '_blank', 'noopener');
+
+    fireEvent.click(screen.getByRole('button', { name: /open prep room/i }));
+    expect(navigate).toHaveBeenCalledWith('/interview-prep/mock-interview-room/s1');
+    open.mockRestore();
+  });
+
+  it('falls back to a Jitsi room when a session has no stored link', async () => {
+    userState.user = { id: 'user-1' };
+    mockQueries({ sessions: [{ ...SESSIONS[0], meeting_url: null }] });
+    const open = vi.spyOn(window, 'open').mockImplementation(() => null);
+
+    render(<MockInterviews />);
+    fireEvent.click(await screen.findByRole('button', { name: /join video call/i }));
+    expect(open).toHaveBeenCalledWith('https://meet.jit.si/insights-mock-s1', '_blank', 'noopener');
+    open.mockRestore();
   });
 
   it('keeps the full guidelines content', async () => {
