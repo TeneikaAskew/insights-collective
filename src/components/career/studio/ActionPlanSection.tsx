@@ -116,9 +116,14 @@ const AddToPortfolioButton: React.FC<{
 
 interface ActionPlanSectionProps {
   initialActionPlan?: ActionPlan | null;
+  /**
+   * Milestone progress for the active timeframe, reported upward so the page
+   * can show it while this section is on the hidden panel.
+   */
+  onMilestoneProgress?: (progress: { done: number; total: number }) => void;
 }
 
-const ActionPlanSection: React.FC<ActionPlanSectionProps> = ({ initialActionPlan }) => {
+const ActionPlanSection: React.FC<ActionPlanSectionProps> = ({ initialActionPlan, onMilestoneProgress }) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -327,6 +332,12 @@ const ActionPlanSection: React.FC<ActionPlanSectionProps> = ({ initialActionPlan
   const milestonesDone = timeframeData
     ? timeframeData.milestones.filter((m, i) => entryApplies(progress[`${active}:${i}`], m)).length
     : 0;
+
+  // Report progress up before the early return below, so the page's badge is
+  // right whether or not a plan exists yet.
+  useEffect(() => {
+    onMilestoneProgress?.({ done: milestonesDone, total: milestoneCount });
+  }, [onMilestoneProgress, milestonesDone, milestoneCount]);
 
   // ---------- No plan yet ----------
   if (!plan) {
