@@ -303,6 +303,11 @@ const CareerPathway: React.FC = () => {
     initializedRef.current = true;
 
     (async () => {
+      // "Start over" can land while this restore is still loading answers.
+      // reset() bumps the coach generation, so a change means the user has
+      // already begun a retake and restoring the saved report would silently
+      // undo their click.
+      const g = coach.genRef.current;
       const hasRealReport = !resultsError && isRealReport(savedResults?.report);
       const showSavedReport = () => {
         setReport(savedResults!.report);
@@ -321,6 +326,8 @@ const CareerPathway: React.FC = () => {
         .eq('user_id', user.id)
         .eq('is_reset', false)
         .order('created_at', { ascending: true });
+
+      if (g !== coach.genRef.current) return;
 
       if (error) {
         logger.error('Error loading previous answers:', error);
