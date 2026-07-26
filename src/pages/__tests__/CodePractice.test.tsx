@@ -13,9 +13,9 @@ vi.mock('react-router-dom', async (importOriginal) => {
   };
 });
 
-const userState = vi.hoisted(() => ({ user: null as null | { id: string } }));
+const userState = vi.hoisted(() => ({ user: null as null | { id: string }, loading: false }));
 vi.mock('@/hooks/use-user', () => ({
-  useUser: () => ({ user: userState.user }),
+  useUser: () => ({ user: userState.user, loading: userState.loading }),
 }));
 
 vi.mock('@/components/layout/AppLayout', () => ({
@@ -63,11 +63,79 @@ function mockChallengeQuery(rows: unknown[]) {
 beforeEach(() => {
   navigate.mockClear();
   userState.user = null;
+  userState.loading = false;
   mockChallengeQuery([]);
   vi.useRealTimers();
 });
 
 describe('CodePractice page (Problem Book)', () => {
+  // Submitting before auth or the challenge has resolved used to take the demo
+  // path, handing a signed-in user invented "3/3 test cases passed" feedback
+  // for code that was never executed.
+  describe('does not fake a result before it knows what it is evaluating', () => {
+    const submitButton = () => screen.getByRole('button', { name: /submit solution/i });
+
+    it('blocks submitting while auth is still resolving', async () => {
+      userState.loading = true;
+      render(<CodePractice />);
+
+      await waitFor(() => expect(submitButton()).toBeDisabled());
+      fireEvent.click(submitButton());
+      expect(mockSupabaseClient.functions.invoke).not.toHaveBeenCalled();
+      expect(screen.queryByText('Demo')).not.toBeInTheDocument();
+    });
+
+    it('blocks a signed-in submit while the challenge query is in flight', async () => {
+      userState.user = { id: 'user-1' };
+      // Never resolves: the challenge stays in flight for the whole test.
+      mockSupabaseClient.from.mockImplementation(() => {
+        const chain: any = {
+          select: vi.fn(() => chain),
+          contains: vi.fn(() => chain),
+          order: vi.fn(() => chain),
+          limit: vi.fn(() => new Promise(() => {})),
+        };
+        return chain;
+      });
+      render(<CodePractice />);
+
+      await waitFor(() => expect(submitButton()).toBeDisabled());
+      fireEvent.click(submitButton());
+      expect(mockSupabaseClient.functions.invoke).not.toHaveBeenCalled();
+      expect(screen.queryByText('Demo')).not.toBeInTheDocument();
+    });
+
+    it('blocks a signed-in submit when the challenge lookup fails, and offers a retry', async () => {
+      userState.user = { id: 'user-1' };
+      // A failed lookup is not evidence that no challenge exists.
+      mockSupabaseClient.from.mockImplementation(() => {
+        const chain: any = {
+          select: vi.fn(() => chain),
+          contains: vi.fn(() => chain),
+          order: vi.fn(() => chain),
+          limit: vi.fn(() => Promise.resolve({ data: null, error: { message: 'permission denied' } })),
+        };
+        return chain;
+      });
+      render(<CodePractice />);
+
+      expect(await screen.findByTestId('challenge-load-error')).toBeInTheDocument();
+      expect(submitButton()).toBeDisabled();
+      fireEvent.click(submitButton());
+      expect(mockSupabaseClient.functions.invoke).not.toHaveBeenCalled();
+      expect(screen.queryByText('Demo')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
+    });
+
+    it('still allows the honest demo once the query comes back empty', async () => {
+      userState.user = null;
+      mockChallengeQuery([]);
+      render(<CodePractice />);
+
+      await waitFor(() => expect(submitButton()).toBeEnabled());
+    });
+  });
+
   it('renders the original heading, role selector, and default challenge', () => {
     render(<CodePractice />);
 
