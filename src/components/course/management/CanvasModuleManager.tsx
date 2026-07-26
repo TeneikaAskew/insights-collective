@@ -412,7 +412,7 @@ export function CanvasModuleManager({
               <UnifiedCanvasEditor content={formData.description} onChange={value => setFormData({
               ...formData,
               description: value
-            })} placeholder="Provide an overview of what students will learn in this module..." minHeight="200px" showAdvancedFeatures={false} />
+            })} courseId={courseId} placeholder="Provide an overview of what students will learn in this module..." minHeight="200px" showAdvancedFeatures={false} />
             </div>
 
             <div className="flex items-center space-x-2 pt-4 border-t">

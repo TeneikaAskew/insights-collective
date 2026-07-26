@@ -2,6 +2,7 @@
 // File path: supabase/functions/analyze-job-skills/index.ts
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { corsHeaders } from '../_shared/utils.ts';
+import { requireUser } from '../_shared/auth.ts';
 // Simple token estimation without external dependency
 function countTokens(text: string): number {
   // Approximate: ~4 characters per token for English text
@@ -134,6 +135,10 @@ serve(async (req)=>{
       headers: corsHeaders
     });
   }
+  // Deployed with verify_jwt=false: an unauthenticated, uncapped LLM endpoint.
+  const auth = await requireUser(req);
+  if (auth.response) return auth.response;
+
   try {
     // Parse request body
     const requestData = await req.json();

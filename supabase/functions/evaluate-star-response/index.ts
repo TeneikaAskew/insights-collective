@@ -6,6 +6,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
 import { corsHeaders, handleError, safeParseJSON } from "../_shared/utils.ts";
+import { requireUser } from "../_shared/auth.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const GROQ = Deno.env.get("GROQ");
@@ -163,9 +164,9 @@ Evaluate this STAR response and provide feedback in the following JSON format:
 Return ONLY the JSON object with no additional explanation or text.`;
 }
 
-async function evaluateStarResponse(responseId: string) {
+async function evaluateStarResponse(responseId: string, callerId: string) {
   console.log(`[evaluate-star-response] Starting evaluation for response ID: ${responseId}`);
-  
+
   try {
     // Create Supabase client with service role key for admin access
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
@@ -187,6 +188,14 @@ async function evaluateStarResponse(responseId: string) {
 
     if (!starResponse) {
       console.error(`[evaluate-star-response] STAR response not found with ID: ${responseId}`);
+      throw new Error("STAR response not found");
+    }
+
+    // The client above is service-role and bypasses RLS, so ownership has to be
+    // re-checked here. Without it, a bare response id was enough to read anyone's
+    // interview answers and overwrite their feedback.
+    if (starResponse.user_id !== callerId) {
+      console.warn(`[evaluate-star-response] Caller ${callerId} does not own response ${responseId}`);
       throw new Error("STAR response not found");
     }
 
@@ -413,6 +422,9 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  const auth = await requireUser(req);
+  if (auth.response) return auth.response;
+
   try {
     const requestData = await req.json();
     console.log(`[evaluate-star-response] Request received with data:`, {
@@ -433,7 +445,7 @@ serve(async (req) => {
     }
 
     console.log(`[evaluate-star-response] Processing request for STAR response ID: ${responseId}`);
-    const feedbackData = await evaluateStarResponse(responseId);
+    const feedbackData = await evaluateStarResponse(responseId, auth.user.id);
     console.log(`[evaluate-star-response] Evaluation completed successfully, returning response`);
     console.log("Ending time: ", new Date().toISOString());
     console.log("Time taken: ", new Date().getTime() - startTime);

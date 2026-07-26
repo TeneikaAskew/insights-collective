@@ -76,10 +76,13 @@ export function useCourseData(courseId?: string) {
 
         logger.log('Transformed course data:', transformedCourse);
 
-        // Fetch enrollment count
+        // Fetch enrollment count. Select an explicit non-secret column rather
+        // than '*': table SELECT on enrollments is column-scoped (the
+        // calendar_feed_token column is withheld), so a '*' expansion would hit
+        // the ungranted column.
         const { count, error: countError } = await supabase
           .from('enrollments')
-          .select('*', { count: 'exact', head: true })
+          .select('id', { count: 'exact', head: true })
           .eq('course_id', courseId);
 
         if (countError) {

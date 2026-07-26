@@ -1,6 +1,7 @@
 
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { requireUser } from "../_shared/auth.ts";
 
 const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
 
@@ -14,6 +15,11 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+
+  // Deployed with verify_jwt=false: an unauthenticated LLM endpoint billed to
+  // this project.
+  const auth = await requireUser(req);
+  if (auth.response) return auth.response;
 
   try {
     const { conversationHistory, messageType } = await req.json();

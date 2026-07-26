@@ -1,3 +1,10 @@
+-- Blog RPC functions (increment_blog_views, track_blog_view, get_popular_posts,
+-- get_related_posts). Originally collided on version 20250628 with
+-- blog_management_system and had never been applied to prod, even though the
+-- frontend calls increment_blog_views and track_blog_view — so those calls were
+-- failing in production. Given a distinct version, applied, and hardened:
+-- search_path is pinned on each SECURITY DEFINER function.
+
 -- Function to increment blog post views
 CREATE OR REPLACE FUNCTION increment_blog_views(post_id UUID)
 RETURNS void AS $$
@@ -6,7 +13,7 @@ BEGIN
   SET views_count = views_count + 1
   WHERE id = post_id;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- Function to track blog post views with analytics
 CREATE OR REPLACE FUNCTION track_blog_view(
@@ -70,7 +77,7 @@ BEGIN
   SET views_count = views_count + 1
   WHERE id = post_id;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- Function to get popular posts
 CREATE OR REPLACE FUNCTION get_popular_posts(
@@ -101,7 +108,7 @@ BEGIN
   ORDER BY bp.views_count DESC
   LIMIT limit_count;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- Function to get related posts by category and tags
 CREATE OR REPLACE FUNCTION get_related_posts(
@@ -169,7 +176,7 @@ BEGIN
   ORDER BY similarity_score DESC, published_at DESC
   LIMIT limit_count;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- Grant execute permissions
 GRANT EXECUTE ON FUNCTION increment_blog_views(UUID) TO authenticated;

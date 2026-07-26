@@ -129,6 +129,18 @@ serve(async (req: Request) => {
     });
   }
 
+  // A calendar client subscribing to an ICS URL cannot send an Authorization
+  // header, so the subscriber is identified by a per-enrollment token in the URL.
+  // Without this the only gate was `course.published`, which made every published
+  // course's assignment, quiz and announcement schedule world-readable.
+  const feedToken = url.searchParams.get('token');
+  if (!feedToken) {
+    return new Response(JSON.stringify({ error: 'Missing token query parameter' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
@@ -142,6 +154,23 @@ serve(async (req: Request) => {
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
   try {
+    const { data: subscriberId, error: tokenError } = await supabase
+      .rpc('resolve_calendar_feed_token', { p_course_id: courseId, p_token: feedToken });
+
+    if (tokenError) {
+      console.error('course-calendar-feed: token lookup failed:', tokenError.message);
+      throw new Error(`token lookup: ${tokenError.message}`);
+    }
+
+    if (!subscriberId) {
+      // Same response for an unknown course and a bad token, so the feed cannot
+      // be used to probe which course ids exist.
+      return new Response(JSON.stringify({ error: 'Calendar feed not found' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const { data: course, error: courseError } = await supabase
       .from('courses')
       .select('id, title, published')
@@ -290,7 +319,8 @@ serve(async (req: Request) => {
         ...corsHeaders,
         'Content-Type': 'text/calendar; charset=utf-8',
         'Content-Disposition': `inline; filename="${course.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}-calendar.ics"`,
-        'Cache-Control': 'public, max-age=300',
+        // Per-subscriber content: must not be stored by shared caches.
+        'Cache-Control': 'private, max-age=300',
       },
     });
   } catch (err: any) {

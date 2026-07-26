@@ -164,6 +164,7 @@ export function LessonEditorPane({
                 key={`instructions-${item.id}`}
                 content={draft.content}
                 onChange={(content) => setField('content', content)}
+                courseId={item.course_id}
                 placeholder="Instructions shown above the quiz…"
                 minHeight="160px"
               />
@@ -188,6 +189,7 @@ export function LessonEditorPane({
                 key={`content-${item.id}`}
                 content={draft.content}
                 onChange={(content) => setField('content', content)}
+                courseId={item.course_id}
                 placeholder="Start writing your lesson…"
                 minHeight="320px"
               />
