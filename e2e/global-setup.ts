@@ -88,11 +88,9 @@ async function bootstrapPassword(adminToken: string, email: string, password: st
 
 async function saveSessionForRole(role: Role, creds: TestUser, baseURL: string): Promise<void> {
   if (!creds.email || !creds.password) {
-    console.warn(
-      `[global-setup] Skipping ${role}: no credentials (set E2E_${role.toUpperCase()}_PASSWORD or E2E_TEST_PASSWORD)`,
+    throw new Error(
+      `no credentials (set E2E_${role.toUpperCase()}_EMAIL / E2E_${role.toUpperCase()}_PASSWORD, or E2E_TEST_PASSWORD)`,
     );
-    fs.writeFileSync(path.join(SESSIONS_DIR, `${role}.json`), JSON.stringify({ cookies: [], origins: [] }));
-    return;
   }
 
   const tokenData = await signInViaApi(creds.email, creds.password);
@@ -123,9 +121,25 @@ async function saveSessionForRole(role: Role, creds: TestUser, baseURL: string):
   );
   const page = await context.newPage();
   await page.goto(baseURL, { waitUntil: 'domcontentloaded' });
-  await context.storageState({ path: path.join(SESSIONS_DIR, `${role}.json`) });
+  const state = await context.storageState({ path: path.join(SESSIONS_DIR, `${role}.json`) });
   await browser.close();
-  console.log(`[global-setup] Session saved for ${role} (${creds.email})`);
+
+  // Verify before claiming success. "Session saved for <role>" used to print
+  // after writing the file, without ever checking the app accepted the token —
+  // and both callers wrote an empty {cookies:[],origins:[]} on failure, so a
+  // rotated password silently turned every role project into a signed-out run
+  // that still passed (nearly all assertions are "a heading exists").
+  const hasToken = state.origins.some((o) =>
+    o.localStorage.some((e) => e.name === 'supabase.auth.token' && e.value.includes('access_token')),
+  );
+  if (!hasToken) {
+    throw new Error(
+      `signed in as ${creds.email} but the app did not persist the session at ${baseURL} — ` +
+        `storageState has no supabase.auth.token entry. Check the app is served there and that ` +
+        `src/integrations/supabase/client.ts still uses storageKey 'supabase.auth.token'.`,
+    );
+  }
+  console.log(`[global-setup] Session saved and verified for ${role} (${creds.email})`);
 }
 
 async function sweepLeakedSmokeCourses(): Promise<void> {
@@ -207,13 +221,30 @@ async function sweepLeakedAnnouncementProbes(): Promise<void> {
       Authorization: `Bearer ${serviceKey}`,
       'Content-Type': 'application/json',
     };
-    const del = (p: string) =>
-      fetch(`${SUPABASE_URL}/rest/v1/${p}`, { method: 'DELETE', headers }).catch(() => undefined);
+    // Check every response. This sweep used to fire-and-forget with
+    // `.catch(() => undefined)` and then print unconditional success — the same
+    // bug the smoke-course sweep above documents having fixed, where a 4xx or an
+    // FK error was indistinguishable from a clean run.
+    const failures: string[] = [];
+    const del = async (p: string) => {
+      try {
+        const r = await fetch(`${SUPABASE_URL}/rest/v1/${p}`, { method: 'DELETE', headers });
+        if (!r.ok) failures.push(`${p} → ${r.status} ${(await r.text()).slice(0, 160)}`);
+      } catch (e) {
+        failures.push(`${p} → ${(e as Error).message}`);
+      }
+    };
     // Both filters are scoped strictly by the exact test title prefix. They
     // cannot match real announcements or notifications.
     await del(`notifications?title=like.New%20announcement:%20E2E%20hardening%20announcement%20*`);
     await del(`course_announcements?title=like.E2E%20hardening%20announcement%20*`);
-    console.log('[global-setup] Swept any leaked "E2E hardening announcement" test probes.');
+    if (failures.length) {
+      console.warn(
+        `[global-setup] Announcement-probe sweep could not finish:\n  ${failures.join('\n  ')}`,
+      );
+    } else {
+      console.log('[global-setup] Swept any leaked "E2E hardening announcement" test probes.');
+    }
   } catch (err) {
     console.warn(`[global-setup] Announcement-probe sweep skipped: ${(err as Error).message}`);
   }
@@ -257,13 +288,22 @@ async function globalSetup(config: FullConfig): Promise<void> {
     }
   }
 
+  // Fail the run rather than degrade it. Writing an empty storageState here let
+  // ~60 member specs continue as signed-out smoke tests, green, with no signal.
+  const sessionFailures: string[] = [];
   for (const role of ['admin', 'instructor', 'member'] as const) {
     try {
       await saveSessionForRole(role, TEST_USERS[role], baseURL);
     } catch (err) {
-      console.warn(`[global-setup] Session for ${role} failed: ${(err as Error).message}`);
-      fs.writeFileSync(path.join(SESSIONS_DIR, `${role}.json`), JSON.stringify({ cookies: [], origins: [] }));
+      sessionFailures.push(`${role}: ${(err as Error).message}`);
     }
+  }
+  if (sessionFailures.length) {
+    throw new Error(
+      `[global-setup] Could not establish ${sessionFailures.length} role session(s). ` +
+        `Every role-scoped project would run signed out and still report pass, so the run is ` +
+        `stopped here.\n  ${sessionFailures.join('\n  ')}`,
+    );
   }
 }
 

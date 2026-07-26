@@ -1,5 +1,40 @@
 import { test as base, expect } from '@playwright/test';
-import type { ConsoleMessage } from '@playwright/test';
+import type { ConsoleMessage, Response } from '@playwright/test';
+import fs from 'fs';
+import path from 'path';
+
+/**
+ * Audit mode (`E2E_AUDIT_CONSOLE=1`) records EVERY console error and EVERY
+ * failed network response — including the ones the ignore lists below suppress —
+ * to test-results/console-audit.jsonl.
+ *
+ * The ignore lists have grown two rules that between them hide most of what this
+ * fixture exists to catch: `/\/rest\/v1\//` suppresses every PostgREST failure,
+ * and `/^\[[A-Z][A-Za-z0-9]+\] \[\d{2}:\d{2}:\d{2}/` suppresses 110 of the app's
+ * 187 logger prefixes. Two real page-breaking 42703 errors
+ * (/courses/:id/quiz-results and /courses/:id/progress) were invisible to the
+ * whole suite because of the first one.
+ *
+ * Deleting those rules outright would bury the real defects under noise from the
+ * nine placeholder fixture IDs in helpers/route-helpers.ts, which is what the
+ * rules were compensating for. So: record first, tighten once the fixtures are
+ * real. Audit mode never changes pass/fail.
+ */
+const AUDIT = process.env.E2E_AUDIT_CONSOLE === '1';
+// Deliberately NOT under test-results/ — Playwright wipes that directory at the
+// start of every run, taking the log with it.
+const AUDIT_FILE =
+  process.env.E2E_AUDIT_FILE ?? path.join(process.cwd(), '.e2e-audit', 'console-audit.jsonl');
+
+function auditRecord(entry: Record<string, unknown>): void {
+  if (!AUDIT) return;
+  try {
+    fs.mkdirSync(path.dirname(AUDIT_FILE), { recursive: true });
+    fs.appendFileSync(AUDIT_FILE, `${JSON.stringify(entry)}\n`);
+  } catch {
+    // Recording is diagnostic only — never let it affect a test result.
+  }
+}
 
 /**
  * Known-noisy messages that are safe to ignore.
@@ -29,9 +64,13 @@ const IGNORED_PATTERNS: RegExp[] = [
   /Warning: An update to .* inside a test was not wrapped in act/,
   // Monaco editor workers (loaded via CDN, may fail in offline environments)
   /monaco.*worker/i,
-  // Third-party analytics / tracking (not our code)
+  // Third-party analytics / tracking (not our code). Anchored to real vendors —
+  // a bare /analytics/i also swallowed the app's own [CourseAnalytics],
+  // [StudentInsights] and analytics-query errors.
   /gtag/,
-  /analytics/i,
+  /google-analytics\.com/,
+  /googletagmanager\.com/,
+  /segment\.(io|com)/,
   // Expected auth errors in login tests (bad credentials, intercepted auth)
   /AuthApiError/,
   /Invalid login credentials/,
@@ -168,12 +207,20 @@ export const test = base.extend<ConsoleFixtures>({
   consoleErrors: [
     async ({ page }, use, testInfo) => {
       const errors: ConsoleMessage[] = [];
+      const where = { spec: testInfo.titlePath[0], test: testInfo.title, project: testInfo.project.name };
 
       // Capture console.error() calls
       const onConsole = (msg: ConsoleMessage) => {
-        if (msg.type() === 'error' && !shouldIgnore(msg)) {
-          errors.push(msg);
-        }
+        if (msg.type() !== 'error') return;
+        const ignored = shouldIgnore(msg);
+        auditRecord({
+          ...where,
+          kind: 'console',
+          ignored,
+          text: msg.text().slice(0, 500),
+          url: msg.location()?.url ?? '',
+        });
+        if (!ignored) errors.push(msg);
       };
 
       // Capture uncaught exceptions (window.onerror / unhandledrejection)
@@ -183,18 +230,36 @@ export const test = base.extend<ConsoleFixtures>({
           text: () => `[pageerror] ${err.message}`,
           location: () => ({ url: '', lineNumber: 0, columnNumber: 0 }),
         } as unknown as ConsoleMessage;
-        if (!shouldIgnore(fakeMsg)) {
-          errors.push(fakeMsg);
-        }
+        const ignored = shouldIgnore(fakeMsg);
+        auditRecord({ ...where, kind: 'pageerror', ignored, text: fakeMsg.text().slice(0, 500), url: '' });
+        if (!ignored) errors.push(fakeMsg);
+      };
+
+      // Audit only: every non-2xx response. A console message is not emitted for
+      // a failed fetch/XHR the app handles itself, so PostgREST errors that the
+      // app swallows are invisible to the listeners above — those are exactly
+      // the ones worth cataloguing.
+      const onResponse = (res: Response) => {
+        if (!AUDIT || res.status() < 400) return;
+        auditRecord({
+          ...where,
+          kind: 'response',
+          ignored: null,
+          status: res.status(),
+          method: res.request().method(),
+          url: res.url().slice(0, 400),
+        });
       };
 
       page.on('console', onConsole);
       page.on('pageerror', onPageError);
+      if (AUDIT) page.on('response', onResponse);
 
       await use(errors);
 
       page.off('console', onConsole);
       page.off('pageerror', onPageError);
+      if (AUDIT) page.off('response', onResponse);
 
       // Assert after the test body runs
       if (errors.length > 0) {

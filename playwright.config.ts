@@ -59,7 +59,14 @@ export default defineConfig({
         '**/auth/**',
         '**/landing/**',
         '**/visual/**',
-        // Signed-out spec — handled by chromium-public
+        // Signed-out specs — handled by chromium-public. These four were absent
+        // from this list while chromium-public claimed them, so ~44 test
+        // executions ran twice: once authenticated, once not, with identical
+        // assertions either way.
+        '**/legal/**',
+        '**/survey/**',
+        '**/blog/**',
+        '**/portfolio/public-portfolio.spec.ts',
         '**/career/career-pathway-public.spec.ts',
         // Instructor-only specs — handled by chromium-instructor project
         '**/courses/course-builder.spec.ts',
