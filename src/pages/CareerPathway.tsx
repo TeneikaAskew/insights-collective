@@ -406,11 +406,11 @@ const CareerPathway: React.FC = () => {
         <div className="max-w-6xl mx-auto">
           <header className="mb-8">
             <h1 className="text-3xl sm:text-4xl font-bold tracking-tight [text-wrap:balance]">
-              Hey {userName}, let’s map your career.
+              Hey {userName}, here's your career insights.
             </h1>
-            <p className="text-muted-foreground mt-2 max-w-2xl">
-              A conversation on the left, your pathway taking shape on the right — recommended roles,
-              the skills to get there, and the route step by step.
+            <p className="text-muted-foreground mt-2 max-w-3xl">
+              Based on your assessment, we've created personalized recommendations to help you build a
+              fulfilling career path aligned with your strengths and goals.
             </p>
           </header>
 
