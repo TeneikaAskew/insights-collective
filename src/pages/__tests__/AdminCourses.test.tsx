@@ -292,7 +292,8 @@ describe('AdminCourses', () => {
 
     it('revokes a certificate through the confirm dialog via a real delete call', async () => {
       const user = userEvent.setup();
-      const deleteBuilder = tableResult({ data: null, error: null });
+      // count: 1 — the revoke actually deleted a row (admin/instructor policy).
+      const deleteBuilder = tableResult({ data: null, error: null, count: 1 });
       wireHappyCoursesLoad({
         certificates: [
           tableResult({ data: [certificateRow], error: null }), // initial load
@@ -359,6 +360,40 @@ describe('AdminCourses', () => {
         );
       });
       // The row must not be optimistically removed on a failed delete
+      expect(screen.getByText('Ada Lovelace')).toBeInTheDocument();
+    });
+
+    it('treats a zero-row delete as a failure instead of false success', async () => {
+      const user = userEvent.setup();
+      // No error, but count: 0 — RLS matched no rows (e.g. missing admin DELETE
+      // policy). This previously reported false success and dropped the row.
+      const deleteBuilder = tableResult({ data: null, error: null, count: 0 });
+      wireHappyCoursesLoad({
+        certificates: [
+          tableResult({ data: [certificateRow], error: null }), // initial load
+          deleteBuilder, // 0-row revoke delete
+        ],
+      });
+
+      render(<AdminCourses />);
+      await openCertificatesTab(user);
+
+      const row = (await screen.findByText('Ada Lovelace')).closest('tr') as HTMLElement;
+      const buttons = within(row).getAllByRole('button');
+      await user.click(buttons[buttons.length - 1]);
+
+      const revokeButton = await screen.findByRole('button', { name: 'Revoke' });
+      fireEvent.click(revokeButton);
+
+      await waitFor(() => {
+        expect(toastSpy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: 'Revoke failed',
+            variant: 'destructive',
+          }),
+        );
+      });
+      // Row stays because nothing was actually deleted.
       expect(screen.getByText('Ada Lovelace')).toBeInTheDocument();
     });
   });

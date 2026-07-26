@@ -36,10 +36,22 @@ export function FormList({ searchTerm }: FormListProps) {
   const { isAdmin } = useAuth();
 
   useEffect(() => {
-    fetchForms();
+    let cancelled = false;
+    (async () => {
+      const list = await fetchForms();
+      if (cancelled) return;
+      // Self-heal the built-in fellowship form only when it is genuinely
+      // missing — the common path performs zero writes.
+      if (!list.some(form => form.slug === 'ai-fellowship')) {
+        await ensureFellowshipForm();
+        if (!cancelled) await fetchForms();
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
-  const fetchForms = async () => {
+  // Pure read: load forms and update state. Never writes.
+  const fetchForms = async (): Promise<FormData[]> => {
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -49,43 +61,9 @@ export function FormList({ searchTerm }: FormListProps) {
 
       if (error) throw error;
 
-      // Check if the ai-fellowship form exists in the database
-      const formsList = data || [];
-      const fellowshipFormIndex = formsList.findIndex(form => form.slug === 'ai-fellowship');
-      
-      if (fellowshipFormIndex === -1) {
-        // If not in database, create it
-        try {
-          logger.log("Creating fellowship form in FormList component...");
-          const fellowshipFormTemplate = createFellowshipForm();
-          
-          logger.log("Fellowship form to be inserted:", fellowshipFormTemplate);
-          
-          const { data: insertedForm, error: insertError } = await supabase
-            .from('forms')
-            .insert(fellowshipFormTemplate)
-            .select()
-            .single();
-
-          if (insertError) {
-            // Do NOT fabricate a phantom "temp-" row that admins could edit,
-            // feature, or try to delete — show only what really exists.
-            logger.error("Error inserting fellowship form:", insertError);
-            setForms(formsList);
-          } else if (insertedForm) {
-            // Add to the list
-            logger.log("Fellowship form inserted:", insertedForm);
-            setForms([...formsList, insertedForm]);
-          }
-        } catch (insertErr) {
-          // Same as above: no fabricated fallback row.
-          logger.error("Exception inserting fellowship form:", insertErr);
-          setForms(formsList);
-        }
-      } else {
-        // Form exists in database
-        setForms(formsList);
-      }
+      const formsList = (data || []) as FormData[];
+      setForms(formsList);
+      return formsList;
     } catch (error) {
       logger.error('Error fetching forms:', error);
       toast({
@@ -96,8 +74,26 @@ export function FormList({ searchTerm }: FormListProps) {
       // A failed load must not fabricate a phantom form row; leave the list
       // empty — the destructive toast above reports the failure.
       setForms([]);
+      return [];
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Idempotent, race-safe seeding of the built-in fellowship form. forms.slug
+  // is UNIQUE, so ignoreDuplicates turns concurrent seeds into a no-op instead
+  // of a duplicate row or a unique-violation error. Kept out of fetchForms so
+  // the list read has no side effects.
+  const ensureFellowshipForm = async () => {
+    try {
+      const { error } = await supabase
+        .from('forms')
+        .upsert(createFellowshipForm(), { onConflict: 'slug', ignoreDuplicates: true });
+      if (error) {
+        logger.error('Error ensuring fellowship form:', error);
+      }
+    } catch (err) {
+      logger.error('Exception ensuring fellowship form:', err);
     }
   };
 

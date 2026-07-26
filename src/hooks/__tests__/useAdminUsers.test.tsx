@@ -1,14 +1,11 @@
-// ABOUTME: Regression tests for useAdminUsers silent-failure fix.
-// ABOUTME: A roles RPC failure must fail the fetch with an error, not render every user as 'student'.
+// ABOUTME: Regression tests for useAdminUsers role loading.
+// ABOUTME: Roles are loaded in one batched user_roles query; a failure must
+// ABOUTME: fail the fetch with an error, not render every user as 'student'.
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { renderHook, act, waitFor } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { useAdminUsers } from '../useAdminUsers';
-import {
-  mockSupabaseClient,
-  supabaseError,
-  getQueryBuilder,
-} from '@/test/mocks/supabase';
+import { mockSupabaseClient, supabaseError } from '@/test/mocks/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 
 const { mockToast } = vi.hoisted(() => ({ mockToast: vi.fn() }));
@@ -26,21 +23,43 @@ const profileRow = {
   created_at: '2026-01-01T00:00:00Z',
 };
 
+// Chainable builder that resolves (via await / .then) to `result`.
+function makeBuilder(result: any) {
+  const builder: any = {};
+  for (const m of ['select', 'insert', 'update', 'delete', 'eq', 'in', 'order', 'limit']) {
+    builder[m] = vi.fn(() => builder);
+  }
+  builder.single = vi.fn(() => Promise.resolve(result));
+  builder.maybeSingle = vi.fn(() => Promise.resolve(result));
+  builder.then = (onFulfilled: any, onRejected: any) =>
+    Promise.resolve(result).then(onFulfilled, onRejected);
+  return builder;
+}
+
+// Wire `from()` to return a distinct builder per table.
+function wireTables(tables: Record<string, any>) {
+  (mockSupabaseClient.from as any).mockImplementation((table: string) => {
+    if (!(table in tables)) {
+      throw new Error(`Unexpected table in test: ${table}`);
+    }
+    return tables[table];
+  });
+}
+
 describe('useAdminUsers.fetchUsers', () => {
   beforeEach(() => {
     mockToast.mockClear();
-    (mockSupabaseClient.rpc as any).mockReset();
+    (mockSupabaseClient.from as any).mockReset();
     vi.mocked(useAuth).mockReturnValue({
       user: { id: 'admin-1', roles: ['admin'] },
     } as any);
   });
 
-  it('fails the fetch when the roles RPC errors instead of defaulting everyone to student', async () => {
-    const builder = getQueryBuilder();
-    builder.then.mockImplementation((resolve: (value: unknown) => void) =>
-      resolve({ data: [profileRow], error: null })
-    );
-    (mockSupabaseClient.rpc as any).mockResolvedValue(supabaseError('roles rpc failed'));
+  it('fails the fetch when the roles query errors instead of defaulting everyone to student', async () => {
+    wireTables({
+      profiles: makeBuilder({ data: [profileRow], error: null }),
+      user_roles: makeBuilder(supabaseError('roles query failed')),
+    });
 
     const { result } = renderHook(() => useAdminUsers());
 
@@ -55,14 +74,13 @@ describe('useAdminUsers.fetchUsers', () => {
     );
   });
 
-  it('uses canonical roles from the RPC on success', async () => {
-    const builder = getQueryBuilder();
-    builder.then.mockImplementation((resolve: (value: unknown) => void) =>
-      resolve({ data: [profileRow], error: null })
-    );
-    (mockSupabaseClient.rpc as any).mockResolvedValue({
-      data: ['instructor'],
-      error: null,
+  it('uses canonical roles from user_roles on success', async () => {
+    wireTables({
+      profiles: makeBuilder({ data: [profileRow], error: null }),
+      user_roles: makeBuilder({
+        data: [{ user_id: 'user-1', role: 'instructor' }],
+        error: null,
+      }),
     });
 
     const { result } = renderHook(() => useAdminUsers());
@@ -76,12 +94,11 @@ describe('useAdminUsers.fetchUsers', () => {
     expect(result.current.users[0].roles).toEqual(['instructor']);
   });
 
-  it('defaults to student only when the RPC succeeds with no roles', async () => {
-    const builder = getQueryBuilder();
-    builder.then.mockImplementation((resolve: (value: unknown) => void) =>
-      resolve({ data: [profileRow], error: null })
-    );
-    (mockSupabaseClient.rpc as any).mockResolvedValue({ data: [], error: null });
+  it('defaults to student only when a user has no user_roles rows', async () => {
+    wireTables({
+      profiles: makeBuilder({ data: [profileRow], error: null }),
+      user_roles: makeBuilder({ data: [], error: null }),
+    });
 
     const { result } = renderHook(() => useAdminUsers());
 

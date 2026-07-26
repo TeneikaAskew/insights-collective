@@ -54,34 +54,43 @@ export function useAdminUsers() {
 
       logger.log('[useAdminUsers] Raw profiles from query:', profiles?.length || 0);
 
-      // Fetch roles from user_roles table for each user
-      const transformedUsers: AdminUserResponse[] = [];
-      
-      for (const profile of (profiles || [])) {
-        // Use the get_user_roles RPC to fetch canonical roles
-        const { data: rolesData, error: rolesError } = await supabase
-          .rpc('get_user_roles', { _user_id: profile.id });
+      // Fetch every user's roles in ONE query instead of a get_user_roles RPC
+      // per profile (previously N+1). user_roles is the canonical source and
+      // admins can read all rows via its RLS policy.
+      const profileIds = (profiles || []).map((p) => p.id);
+      const rolesByUser = new Map<string, string[]>();
+      if (profileIds.length > 0) {
+        const { data: roleRows, error: rolesError } = await supabase
+          .from('user_roles')
+          .select('user_id, role')
+          .in('user_id', profileIds);
 
         // A roles lookup failure must not silently render every user as
         // 'student' in the admin UI — fail the fetch and surface the error.
         if (rolesError) {
-          logger.error('[useAdminUsers] Error fetching roles for user:', profile.id, rolesError);
+          logger.error('[useAdminUsers] Error fetching roles:', rolesError);
           throw new Error(rolesError.message || 'Failed to fetch user roles');
         }
 
-        let roles: string[] = Array.isArray(rolesData) ? rolesData : [];
-        if (roles.length === 0) roles = ['student'];
+        (roleRows || []).forEach((r: any) => {
+          const list = rolesByUser.get(r.user_id) || [];
+          list.push(r.role);
+          rolesByUser.set(r.user_id, list);
+        });
+      }
 
-        transformedUsers.push({
+      const transformedUsers: AdminUserResponse[] = (profiles || []).map((profile) => {
+        const roles = rolesByUser.get(profile.id);
+        return {
           id: profile.id,
           first_name: profile.first_name || '',
           last_name: profile.last_name || '',
           avatar_url: profile.avatar_url,
           bio: profile.bio || '',
-          roles,
-          created_at: profile.created_at
-        });
-      }
+          roles: roles && roles.length > 0 ? roles : ['student'],
+          created_at: profile.created_at,
+        };
+      });
 
       logger.log('[useAdminUsers] Transformed users:', transformedUsers.length);
       setUsers(transformedUsers);
@@ -109,10 +118,14 @@ export function useAdminUsers() {
     }
   }, [user, toast]);
 
-  const updateUserRole = async (userId: string, roles: string[]) => {
+  const updateUserRole = async (
+    userId: string,
+    roles: string[],
+    options: { skipRefresh?: boolean; silent?: boolean } = {}
+  ) => {
     try {
       logger.log('[useAdminUsers] Updating user roles:', userId, roles);
-      
+
       if (!userId || !Array.isArray(roles)) {
         throw new Error('Invalid parameters provided');
       }
@@ -124,23 +137,30 @@ export function useAdminUsers() {
       });
 
       if (error) throw new Error(error.message || 'Failed to update user roles');
-      
-      // Refresh the users list to get updated data
-      await fetchUsers();
-      
-      toast({
-        title: 'Success',
-        description: 'User roles updated successfully.',
-      });
-      
+
+      // Refresh the users list to get updated data. Bulk callers pass
+      // skipRefresh and refetch once at the end instead of once per user.
+      if (!options.skipRefresh) {
+        await fetchUsers();
+      }
+
+      if (!options.silent) {
+        toast({
+          title: 'Success',
+          description: 'User roles updated successfully.',
+        });
+      }
+
       return { success: true };
     } catch (err: any) {
       logger.error('[useAdminUsers] Error updating user roles:', err);
-      toast({
-        title: 'Error',
-        description: err.message || 'Failed to update user roles. Please try again.',
-        variant: 'destructive',
-      });
+      if (!options.silent) {
+        toast({
+          title: 'Error',
+          description: err.message || 'Failed to update user roles. Please try again.',
+          variant: 'destructive',
+        });
+      }
       return { success: false, error: err.message };
     }
   };

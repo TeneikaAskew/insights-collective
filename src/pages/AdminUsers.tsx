@@ -128,11 +128,12 @@ const AdminUsers = () => {
     if (!selectedUser) return;
     
     try {
-      if (!updatedRoles.includes('student')) {
-        updatedRoles.push('student');
-      }
-      
-      const result = await updateUserRole(selectedUser.id, updatedRoles);
+      // Copy before adding 'student' — never mutate React state in place.
+      const rolesToSave = updatedRoles.includes('student')
+        ? [...updatedRoles]
+        : [...updatedRoles, 'student'];
+
+      const result = await updateUserRole(selectedUser.id, rolesToSave);
       
       if (!result.success) throw new Error(result.error);
       
@@ -268,13 +269,18 @@ const AdminUsers = () => {
       let successCount = 0;
       let failCount = 0;
 
+      // Skip the per-user refetch/toast — refetch once after the whole batch.
       for (const userId of selectedUsers) {
-        const result = await updateUserRole(userId, roles);
+        const result = await updateUserRole(userId, roles, { skipRefresh: true, silent: true });
         if (result.success) {
           successCount++;
         } else {
           failCount++;
         }
+      }
+
+      if (successCount > 0) {
+        await fetchUsers();
       }
 
       if (failCount > 0) {
