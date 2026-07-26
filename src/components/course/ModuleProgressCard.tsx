@@ -104,10 +104,11 @@ export const ModuleProgressCard: React.FC<ModuleProgressCardProps> = ({
             id,
             title,
             points_possible,
-            attempts:quiz_attempts!left(
+            attempts:quiz_submissions!left(
               id,
               score,
-              completed_at
+              finished_at,
+              workflow_state
             )
           `)
           .eq('module_id', moduleId)
@@ -133,8 +134,11 @@ export const ModuleProgressCard: React.FC<ModuleProgressCardProps> = ({
         (a.submissions || []).some(
           (s: any) => s.workflow_state === 'graded' || s.grade != null
         );
+      // quiz_submissions is the table the live quiz flow writes; quiz_attempts
+      // was only ever written by the deleted QuizTaker and is empty, so this
+      // previously counted zero completed quizzes for everyone.
       const isQuizDone = (q: any) =>
-        (q.attempts || []).some((at: any) => at.completed_at);
+        (q.attempts || []).some((at: any) => at.workflow_state === 'complete');
 
       const progress: ModuleProgress = {
         total_lessons: lessons.length,

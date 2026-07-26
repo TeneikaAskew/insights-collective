@@ -31,13 +31,18 @@ export interface AssignmentProgress {
   feedback?: string;
 }
 
+// A completed quiz_submissions row (workflow_state 'complete'). The legacy
+// shape named the timestamp completed_at and lived on quiz_attempts; the live
+// table records finished_at.
 export interface QuizProgress {
   id: string;
   user_id: string;
   quiz_id: string;
-  score: number;
-  completed_at: string;
-  answers: any;
+  score: number | null;
+  kept_score?: number | null;
+  finished_at: string | null;
+  workflow_state: string;
+  attempt?: number;
 }
 
 export function useModuleProgress(moduleId?: string) {
@@ -97,18 +102,26 @@ export function useModuleProgress(moduleId?: string) {
       if (assignmentError) throw assignmentError;
       setAssignmentProgress(assignmentData || []);
 
-      // Fetch quiz progress for this module
+      // Fetch quiz progress for this module.
+      //
+      // This reads quiz_submissions, not quiz_attempts. quiz_attempts was only
+      // ever written by the unrouted QuizTaker component (now deleted) and is
+      // empty, so quiz progress silently counted zero for every student. The
+      // live quiz flow (InlineQuizPlayer / CanvasQuizTaking → score-quiz)
+      // writes quiz_submissions, and a finished attempt is workflow_state
+      // 'complete'.
       const { data: quizData, error: quizError } = await supabase
-        .from('quiz_attempts')
+        .from('quiz_submissions')
         .select(`
           *,
           quizzes!inner(
-            content_item_id
-          ),
-          content_items!inner(module_id)
+            content_item_id,
+            content_items!inner(module_id)
+          )
         `)
-        .eq('content_items.module_id', moduleId)
-        .eq('user_id', user.id);
+        .eq('quizzes.content_items.module_id', moduleId)
+        .eq('user_id', user.id)
+        .eq('workflow_state', 'complete');
 
       if (quizError) throw quizError;
       setQuizProgress(quizData || []);

@@ -69,12 +69,16 @@ describe('useModuleProgress', () => {
       last_accessed_at: '2026-01-02T00:00:00Z',
     };
     const assignmentRows = [{ id: 'ap-1', user_id: 'user-1', content_item_id: 'item-1', workflow_state: 'submitted' }];
-    const quizRows = [{ id: 'qa-1', user_id: 'user-1', quiz_id: 'quiz-1', score: 8 }];
+    // Quiz progress comes from quiz_submissions (the table the live quiz flow
+    // writes); quiz_attempts was only written by the deleted QuizTaker.
+    const quizRows = [
+      { id: 'qs-1', user_id: 'user-1', quiz_id: 'quiz-1', score: 8, workflow_state: 'complete', finished_at: '2026-01-02T00:00:00Z' },
+    ];
 
     mockTables({
       module_progress: { maybeSingle: { data: moduleRow, error: null } },
       content_item_progressions: { result: { data: assignmentRows, error: null } },
-      quiz_attempts: { result: { data: quizRows, error: null } },
+      quiz_submissions: { result: { data: quizRows, error: null } },
     });
 
     const { result } = renderHook(() => useModuleProgress(MODULE_ID));
@@ -85,6 +89,24 @@ describe('useModuleProgress', () => {
     expect(result.current.moduleProgress).toEqual(moduleRow);
     expect(result.current.assignmentProgress).toEqual(assignmentRows);
     expect(result.current.quizProgress).toEqual(quizRows);
+  });
+
+  // REGRESSION: quiz progress must come from quiz_submissions. Reading
+  // quiz_attempts (only ever written by the removed QuizTaker component) made
+  // completed quizzes count as zero for every student.
+  it('reads quiz progress from quiz_submissions, not quiz_attempts', async () => {
+    mockTables({
+      module_progress: { maybeSingle: { data: null, error: null } },
+      content_item_progressions: { result: { data: [], error: null } },
+      quiz_submissions: { result: { data: [], error: null } },
+    });
+
+    const { result } = renderHook(() => useModuleProgress(MODULE_ID));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    const tablesQueried = vi.mocked(mockSupabaseClient.from as any).mock.calls.map((c: any[]) => c[0]);
+    expect(tablesQueried).toContain('quiz_submissions');
+    expect(tablesQueried).not.toContain('quiz_attempts');
   });
 
   it('exposes error state when the fetch fails (no default data)', async () => {
