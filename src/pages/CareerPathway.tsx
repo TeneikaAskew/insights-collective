@@ -83,6 +83,7 @@ const CareerPathway: React.FC = () => {
   const answersRef = useRef<Record<string, string>>({});
   const resumeTextRef = useRef<string>('');
   const initializedRef = useRef(false);
+  const headerRef = useRef<HTMLElement>(null);
   const reducedRef = useRef(
     typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches,
   );
@@ -414,10 +415,15 @@ const CareerPathway: React.FC = () => {
   const activeView: PathwayView = showViewSwitch ? view : 'pathway';
 
   // Switching swaps the whole page body, so land at the top of the new view
-  // rather than wherever the previous one was scrolled to.
+  // rather than wherever the previous one was scrolled to. AppLayout locks the
+  // viewport and scrolls its <main> instead, so window.scrollTo does nothing —
+  // scroll the element that actually owns the overflow.
   const changeView = (next: PathwayView) => {
     setView(next);
-    window.scrollTo({ top: 0, behavior: reducedRef.current ? 'auto' : 'smooth' });
+    headerRef.current?.scrollIntoView({
+      behavior: reducedRef.current ? 'auto' : 'smooth',
+      block: 'start',
+    });
   };
 
   const composerDisabled = !awaitingInput || phase !== 'chat';
@@ -432,7 +438,10 @@ const CareerPathway: React.FC = () => {
     <AppLayout>
       <div className="soft-studio ss-wash min-h-full py-10 px-4 sm:px-6" data-testid="career-pathway-page">
         <div className="max-w-6xl mx-auto">
-          <header className="mb-8 flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
+          <header
+            ref={headerRef}
+            className="mb-8 flex flex-wrap items-start justify-between gap-x-6 gap-y-4 scroll-mt-4"
+          >
             <div>
               <h1 className="text-3xl sm:text-4xl font-bold tracking-tight [text-wrap:balance]">
                 Hey {userName}, here's your career insights.
