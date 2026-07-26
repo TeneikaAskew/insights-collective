@@ -7,12 +7,10 @@ import { useToast } from '@/hooks/use-toast';
 import { useUser } from '@/hooks/use-user';
 import { supabase } from '@/integrations/supabase/client';
 import { Spinner } from '@/components/ui/spinner';
-import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { format } from 'date-fns';
-import { Video, VideoOff, Mic, MicOff, Phone, Clock, ChevronLeft, Award, BookOpen, Sparkles } from 'lucide-react';
+import { Video, VideoOff, Mic, MicOff, Phone, Clock, ChevronLeft } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
 
 import { createLogger } from '@/utils/logger';
@@ -29,22 +27,21 @@ interface MockSession {
   type: 'behavioral' | 'technical';
   status: 'scheduled' | 'completed' | 'canceled';
   study_guide_id: string | null;
+  meeting_url?: string | null;
+  video_platform?: string | null;
 }
 
-interface PeerReview {
-  id: string;
-  session_id: string;
-  reviewer_id: string;
-  reviewee_id: string;
-  rubric_scores: {
-    communication: number;
-    technical_knowledge: number;
-    problem_solving: number;
-    overall_impression: number;
-  };
-  notes: string;
-  created_at: string;
-}
+// Matches the scheduler's fallback so older sessions booked before meeting
+// links existed still have somewhere to meet.
+const jitsiRoomUrl = (sessionId: string) => `https://meet.jit.si/insights-mock-${sessionId}`;
+
+const formatCountdown = (totalSeconds: number): string => {
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+};
 
 export default function MockInterviewRoom() {
   const { sessionId } = useParams();
@@ -74,6 +71,13 @@ export default function MockInterviewRoom() {
       cleanupWebRTC();
     };
   }, []);
+
+  // Tick the countdown once per second until the session starts
+  useEffect(() => {
+    if (remainingTime === null || remainingTime <= 0) return;
+    const timer = setTimeout(() => setRemainingTime(remainingTime - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [remainingTime]);
 
   const loadSession = async () => {
     try {
@@ -165,6 +169,8 @@ export default function MockInterviewRoom() {
   };
 
   const endSession = async () => {
+    if (!window.confirm('End this session for both participants?')) return;
+
     try {
       const { error } = await supabase
         .from('mock_sessions')
@@ -209,13 +215,15 @@ export default function MockInterviewRoom() {
 
   if (isLoading) {
     return (
-      <AppLayout>
-        <div className="container mx-auto py-8">
-          <Card className="bg-gradient-to-r from-purple-50 to-indigo-50 border-purple-200 shadow-lg">
-            <CardContent className="flex items-center justify-center py-12">
-              <Spinner size="lg" className="text-indigo-600" />
-            </CardContent>
-          </Card>
+      <AppLayout fullWidth>
+        <div className="soft-studio ss-wash min-h-full px-4 sm:px-6 py-8">
+          <div className="mx-auto max-w-7xl">
+            <Card className="ss-card">
+              <CardContent className="flex items-center justify-center py-12">
+                <Spinner size="lg" />
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </AppLayout>
     );
@@ -223,20 +231,22 @@ export default function MockInterviewRoom() {
 
   if (!session) {
     return (
-      <AppLayout>
-        <div className="container mx-auto py-8">
-          <Card className="bg-gradient-to-r from-red-100 to-orange-100 border-red-200 shadow-lg">
-            <CardContent className="py-8 text-center">
-              <p className="text-red-600 font-medium">Session not found</p>
-              <Button 
-                onClick={() => navigate('/interview-prep/mock-interviews')}
-                variant="outline" 
-                className="mt-4 border-red-200 hover:bg-red-100 text-red-600"
-              >
-                Return to Mock Interviews
-              </Button>
-            </CardContent>
-          </Card>
+      <AppLayout fullWidth>
+        <div className="soft-studio ss-wash min-h-full px-4 sm:px-6 py-8">
+          <div className="mx-auto max-w-7xl">
+            <Card className="ss-card">
+              <CardContent className="py-10 text-center">
+                <p className="font-medium text-ss-bad">Session not found</p>
+                <Button
+                  onClick={() => navigate('/interview-prep/mock-interviews')}
+                  variant="outline"
+                  className="mt-4 rounded-full font-bold"
+                >
+                  Return to Mock Interviews
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </AppLayout>
     );
@@ -246,235 +256,209 @@ export default function MockInterviewRoom() {
     (session.user1_id === user?.id && session.role1 === 'interviewer') ||
     (session.user2_id === user?.id && session.role2 === 'interviewer');
 
-  return (
-    <AppLayout>
-      <div className="container mx-auto py-8 relative">
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/30 via-purple-100/20 to-blue-100/30 rounded-xl -z-10"></div>
-        
-        <div className="mb-8 relative">
-          <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 rounded-2xl -z-10"></div>
-          <div className="flex items-center gap-2 mb-4">
-            <Button variant="outline" size="sm" onClick={() => navigate('/interview-prep/mock-interviews')} 
-              className="border-indigo-200 bg-white/90 hover:bg-indigo-50 shadow-sm text-indigo-700">
-              <ChevronLeft className="h-4 w-4 mr-1 text-indigo-600" />
-              <span>Back to Mock Interviews</span>
-            </Button>
-          </div>
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-indigo-700 to-purple-700 bg-clip-text text-transparent">
-                {session.type === 'behavioral' ? 'Behavioral' : 'Technical'} Interview
-              </h1>
-              <p className="text-indigo-600">
-                {format(new Date(session.session_time), 'PPP p')}
-              </p>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 bg-white/90 p-2 rounded-full px-4 shadow-sm">
-                <Clock className="h-4 w-4 text-indigo-500" />
-                <span className="text-sm text-indigo-700 font-medium">
-                  {remainingTime ? `Starts in ${Math.floor(remainingTime / 60)}:${remainingTime % 60}` : 'In Progress'}
-                </span>
-              </div>
-              <Badge variant="outline" 
-                className="bg-gradient-to-r from-indigo-100 to-purple-100 border-indigo-200 text-indigo-800 px-3 py-1 shadow-sm">
-                {isInterviewer ? 'Interviewer' : 'Interviewee'}
-              </Badge>
-            </div>
+  const evaluationCriteria: { key: keyof typeof reviewScores; label: string }[] = [
+    { key: 'communication', label: 'Communication' },
+    { key: 'technical_knowledge', label: 'Technical Knowledge' },
+    { key: 'problem_solving', label: 'Problem Solving' },
+    { key: 'overall_impression', label: 'Overall Impression' },
+  ];
+
+  const videoStage = (
+    <div className="overflow-hidden rounded-[26px] border border-[#3A3644] bg-[#242130] shadow-[0_14px_34px_-18px_rgba(90,80,120,0.55)]">
+      <div className="p-4 sm:p-5">
+        <div className="relative aspect-video overflow-hidden rounded-2xl bg-black">
+          <video
+            ref={remoteVideoRef}
+            autoPlay
+            playsInline
+            className="h-full w-full object-cover"
+          />
+          {/* Self view, picture-in-picture */}
+          <div className="absolute bottom-3 right-3 w-1/4 overflow-hidden rounded-xl border-2 border-white/40 bg-black shadow-lg">
+            <video
+              ref={localVideoRef}
+              autoPlay
+              playsInline
+              muted
+              className="aspect-video h-full w-full object-cover"
+            />
+            <span className="absolute bottom-1 left-1.5 rounded-full bg-black/50 px-2 py-0.5 text-[10px] font-bold text-white">
+              You
+            </span>
           </div>
         </div>
+        <p className="mt-3 text-center text-xs text-gray-400">
+          Camera check — the interview itself runs on{' '}
+          {session.video_platform || 'your meeting link'}. Use Join video call below.
+        </p>
+      </div>
+      <div className="flex flex-wrap justify-center gap-3 border-t border-[#3A3644] px-5 py-4">
+        <Button
+          onClick={() => window.open(session.meeting_url || jitsiRoomUrl(session.id), '_blank', 'noopener')}
+          className="rounded-full font-bold"
+        >
+          <Video className="h-4 w-4 mr-2" />
+          Join video call
+        </Button>
+        <Button
+          variant="outline"
+          onClick={toggleVideo}
+          aria-label={isVideoEnabled ? 'Turn camera off' : 'Turn camera on'}
+          className="rounded-full font-bold border-[#4A445C] bg-transparent text-gray-300 hover:bg-[#333333] hover:text-white"
+        >
+          {isVideoEnabled ? <Video className="h-4 w-4 mr-2" /> : <VideoOff className="h-4 w-4 mr-2" />}
+          Camera
+        </Button>
+        <Button
+          variant="outline"
+          onClick={toggleAudio}
+          aria-label={isAudioEnabled ? 'Mute microphone' : 'Unmute microphone'}
+          className="rounded-full font-bold border-[#4A445C] bg-transparent text-gray-300 hover:bg-[#333333] hover:text-white"
+        >
+          {isAudioEnabled ? <Mic className="h-4 w-4 mr-2" /> : <MicOff className="h-4 w-4 mr-2" />}
+          Mic
+        </Button>
+        <Button
+          variant="destructive"
+          onClick={endSession}
+          className="rounded-full font-bold"
+        >
+          <Phone className="h-4 w-4 mr-2" />
+          End Session
+        </Button>
+      </div>
+    </div>
+  );
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-8">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="aspect-video bg-black rounded-lg overflow-hidden relative shadow-xl border-4 border-indigo-200 transform transition-all hover:scale-[1.01]">
-                <div className="absolute inset-0 bg-gradient-to-tl from-indigo-900/30 via-transparent to-purple-900/20"></div>
-                <video
-                  ref={localVideoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/40 p-2 rounded-full backdrop-blur-sm">
-                  <Button
-                    variant="secondary"
-                    size="icon"
-                    onClick={toggleVideo}
-                    className="bg-white/20 hover:bg-white/30 border-none"
-                  >
-                    {isVideoEnabled ? (
-                      <Video className="h-4 w-4 text-white" />
-                    ) : (
-                      <VideoOff className="h-4 w-4 text-white" />
-                    )}
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="icon"
-                    onClick={toggleAudio}
-                    className="bg-white/20 hover:bg-white/30 border-none"
-                  >
-                    {isAudioEnabled ? (
-                      <Mic className="h-4 w-4 text-white" />
-                    ) : (
-                      <MicOff className="h-4 w-4 text-white" />
-                    )}
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="icon"
-                    onClick={endSession}
-                    className="bg-red-500/90 hover:bg-red-600/90 border-none"
-                  >
-                    <Phone className="h-4 w-4" />
-                  </Button>
-                </div>
+  const questionsCard = (
+    <Card className="ss-card">
+      <CardHeader>
+        <CardTitle>Interview Questions</CardTitle>
+        <CardDescription>
+          Suggested questions based on the selected interview type.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <ul className="space-y-3">
+          {(session.type === 'behavioral'
+            ? [
+                'Tell me about a challenging project you worked on.',
+                'How do you handle conflicts in a team?',
+                'Describe a situation where you had to learn something quickly.',
+              ]
+            : [
+                'Explain the concept of object-oriented programming.',
+                'What are the differences between arrays and linked lists?',
+                'How would you optimize a slow database query?',
+              ]
+          ).map((question) => (
+            <li
+              key={question}
+              className="rounded-xl border-l-4 border-l-ss-lav bg-ss-lav-chip px-4 py-3 text-sm"
+            >
+              {question}
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
+  );
+
+  return (
+    <AppLayout fullWidth>
+      <div className="soft-studio ss-wash min-h-full px-4 sm:px-6 py-8">
+        <div className="mx-auto max-w-7xl">
+          <div className="mb-8">
+            <div className="flex items-center gap-2 mb-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/interview-prep/mock-interviews')}
+                className="rounded-full font-bold"
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Mock Interviews
+              </Button>
+            </div>
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <h1 className="text-3xl sm:text-4xl font-bold mb-2">
+                  {session.type === 'behavioral' ? 'Behavioral' : 'Technical'} Interview
+                </h1>
+                <p className="text-muted-foreground text-lg">
+                  {format(new Date(session.session_time), 'PPP p')}
+                </p>
               </div>
-              <div className="aspect-video bg-black rounded-lg overflow-hidden shadow-xl border-4 border-purple-200 transform transition-all hover:scale-[1.01]">
-                <div className="absolute inset-0 bg-gradient-to-br from-purple-900/30 via-transparent to-indigo-900/20"></div>
-                <video
-                  ref={remoteVideoRef}
-                  autoPlay
-                  playsInline
-                  className="w-full h-full object-cover"
-                />
+              <div className="flex items-center gap-3">
+                <span
+                  className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${
+                    remainingTime ? 'bg-ss-warn-chip text-ss-warn' : 'bg-ss-good-chip text-ss-good'
+                  }`}
+                >
+                  <Clock className="h-3.5 w-3.5" />
+                  {remainingTime ? `Starts in ${formatCountdown(remainingTime)}` : 'In Progress'}
+                </span>
+                <span className="rounded-full bg-ss-lav-chip px-3 py-1 text-xs font-bold text-ss-lav-deep">
+                  {isInterviewer ? 'Interviewer' : 'Interviewee'}
+                </span>
               </div>
             </div>
-
-            {isInterviewer && (
-              <Card className="bg-gradient-to-br from-amber-50 to-orange-50 border-amber-100 overflow-hidden shadow-lg">
-                <CardHeader className="bg-gradient-to-r from-amber-100/50 to-orange-100/50 border-b border-amber-100/50">
-                  <div className="flex items-center">
-                    <BookOpen className="h-5 w-5 text-amber-600 mr-2" />
-                    <CardTitle className="text-amber-900 font-display">Interview Questions</CardTitle>
-                  </div>
-                  <CardDescription className="text-amber-700">
-                    Suggested questions based on the selected interview type.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-4">
-                    {session.type === 'behavioral' ? (
-                      <>
-                        <li className="p-3 bg-white/70 rounded-md border-l-4 border-amber-400 text-amber-800 shadow-sm hover:bg-white/90 transition-colors">Tell me about a challenging project you worked on.</li>
-                        <li className="p-3 bg-white/70 rounded-md border-l-4 border-amber-400 text-amber-800 shadow-sm hover:bg-white/90 transition-colors">How do you handle conflicts in a team?</li>
-                        <li className="p-3 bg-white/70 rounded-md border-l-4 border-amber-400 text-amber-800 shadow-sm hover:bg-white/90 transition-colors">Describe a situation where you had to learn something quickly.</li>
-                      </>
-                    ) : (
-                      <>
-                        <li className="p-3 bg-white/70 rounded-md border-l-4 border-orange-400 text-orange-800 shadow-sm hover:bg-white/90 transition-colors">Explain the concept of object-oriented programming.</li>
-                        <li className="p-3 bg-white/70 rounded-md border-l-4 border-orange-400 text-orange-800 shadow-sm hover:bg-white/90 transition-colors">What are the differences between arrays and linked lists?</li>
-                        <li className="p-3 bg-white/70 rounded-md border-l-4 border-orange-400 text-orange-800 shadow-sm hover:bg-white/90 transition-colors">How would you optimize a slow database query?</li>
-                      </>
-                    )}
-                  </ul>
-                </CardContent>
-              </Card>
-            )}
           </div>
 
-          {isInterviewer && (
-            <Card className="bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-100 overflow-hidden shadow-lg">
-              <CardHeader className="bg-gradient-to-r from-emerald-100/50 to-teal-100/50 border-b border-emerald-100/50">
-                <div className="flex items-center">
-                  <Award className="h-5 w-5 text-emerald-600 mr-2" />
-                  <CardTitle className="text-emerald-900 font-display">Evaluation Form</CardTitle>
-                </div>
-                <CardDescription className="text-emerald-700">
-                  Rate the candidate's performance and provide feedback.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6 pt-4">
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label className="text-sm font-medium text-emerald-900">Communication</label>
-                      <span className="text-sm text-emerald-600 font-medium bg-emerald-100 px-2 py-0.5 rounded-full shadow-sm">
-                        {reviewScores.communication}/10
-                      </span>
-                    </div>
-                    <Slider
-                      value={[reviewScores.communication]}
-                      min={1}
-                      max={10}
-                      step={1}
-                      className="text-emerald-500"
-                      onValueChange={([value]) =>
-                        setReviewScores(prev => ({ ...prev, communication: value }))
-                      }
-                    />
+          {isInterviewer ? (
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
+              <div className="lg:col-span-3 space-y-6">
+                {videoStage}
+                {questionsCard}
+              </div>
+
+              <Card className="ss-card bg-ss-card-warm lg:col-span-2 lg:sticky lg:top-6">
+                <CardHeader>
+                  <CardTitle>Evaluation Form</CardTitle>
+                  <CardDescription>
+                    Rate the candidate's performance and provide feedback.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="space-y-4">
+                    {evaluationCriteria.map(({ key, label }) => (
+                      <div key={key} className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="text-sm font-medium">{label}</label>
+                          <span className="rounded-full bg-ss-lav-chip px-2.5 py-0.5 text-sm font-bold text-ss-lav-deep tabular-nums">
+                            {reviewScores[key]}/10
+                          </span>
+                        </div>
+                        <Slider
+                          value={[reviewScores[key]]}
+                          min={1}
+                          max={10}
+                          step={1}
+                          onValueChange={([value]) =>
+                            setReviewScores(prev => ({ ...prev, [key]: value }))
+                          }
+                        />
+                      </div>
+                    ))}
                   </div>
 
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label className="text-sm font-medium text-emerald-900">Technical Knowledge</label>
-                      <span className="text-sm text-emerald-600 font-medium bg-emerald-100 px-2 py-0.5 rounded-full shadow-sm">
-                        {reviewScores.technical_knowledge}/10
-                      </span>
-                    </div>
-                    <Slider
-                      value={[reviewScores.technical_knowledge]}
-                      min={1}
-                      max={10}
-                      step={1}
-                      className="text-emerald-500"
-                      onValueChange={([value]) =>
-                        setReviewScores(prev => ({ ...prev, technical_knowledge: value }))
-                      }
+                    <label className="text-sm font-medium">Feedback Notes</label>
+                    <Textarea
+                      placeholder="Provide detailed feedback about the candidate's performance..."
+                      value={reviewNotes}
+                      onChange={(e) => setReviewNotes(e.target.value)}
+                      className="min-h-[200px] rounded-xl bg-card"
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Your review is saved when you end the session.
+                    </p>
                   </div>
-
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label className="text-sm font-medium text-emerald-900">Problem Solving</label>
-                      <span className="text-sm text-emerald-600 font-medium bg-emerald-100 px-2 py-0.5 rounded-full shadow-sm">
-                        {reviewScores.problem_solving}/10
-                      </span>
-                    </div>
-                    <Slider
-                      value={[reviewScores.problem_solving]}
-                      min={1}
-                      max={10}
-                      step={1}
-                      className="text-emerald-500"
-                      onValueChange={([value]) =>
-                        setReviewScores(prev => ({ ...prev, problem_solving: value }))
-                      }
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label className="text-sm font-medium text-emerald-900">Overall Impression</label>
-                      <span className="text-sm text-emerald-600 font-medium bg-emerald-100 px-2 py-0.5 rounded-full shadow-sm">
-                        {reviewScores.overall_impression}/10
-                      </span>
-                    </div>
-                    <Slider
-                      value={[reviewScores.overall_impression]}
-                      min={1}
-                      max={10}
-                      step={1}
-                      className="text-emerald-500"
-                      onValueChange={([value]) =>
-                        setReviewScores(prev => ({ ...prev, overall_impression: value }))
-                      }
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-emerald-900">Feedback Notes</label>
-                  <Textarea
-                    placeholder="Provide detailed feedback about the candidate's performance..."
-                    value={reviewNotes}
-                    onChange={(e) => setReviewNotes(e.target.value)}
-                    className="min-h-[200px] border-emerald-200 focus:border-emerald-300 bg-white/80 shadow-sm focus:ring-emerald-200"
-                  />
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
+          ) : (
+            <div className="mx-auto max-w-4xl">{videoStage}</div>
           )}
         </div>
       </div>
