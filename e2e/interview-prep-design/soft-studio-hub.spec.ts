@@ -150,6 +150,27 @@ test.describe('Code practice page (Soft Studio, Problem Book)', () => {
     await expect(page.getByRole('tab', { name: 'Feedback' })).toBeEnabled();
   });
 
+  // Logged-out visitors get the simulation — it must say so, so nobody
+  // mistakes canned numbers for a real evaluation. (Signed-in AI-judged and
+  // executed modes need a live backend: scripts/verify-code-evaluation.mjs.)
+  test('labels the logged-out result as a demo', async ({ page }) => {
+    await page.getByRole('button', { name: /submit solution/i }).click();
+    await expect(page.getByText('Result', { exact: true })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('Demo', { exact: true })).toBeVisible();
+    await expect(page.getByText('AI-judged')).toHaveCount(0);
+    await expect(page.getByText('Executed')).toHaveCount(0);
+  });
+
+  // Monaco itself loads from a CDN that sandboxed/offline runs can't reach,
+  // so this asserts the editor chrome the redesign owns rather than the
+  // editor internals. Reset semantics are unit-tested.
+  test('reset keeps the editor chrome intact', async ({ page }) => {
+    await page.getByRole('button', { name: /reset/i }).click();
+    await expect(page.getByText('solution.js')).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Code Editor' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /submit solution/i })).toBeEnabled();
+  });
+
   test('back button returns to the interview prep hub', async ({ page }) => {
     await page.getByRole('button', { name: /interview prep/i }).click();
     await page.waitForURL('**/interview-prep', { timeout: 15_000, waitUntil: 'domcontentloaded' });
