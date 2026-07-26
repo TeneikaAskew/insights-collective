@@ -27,8 +27,8 @@ const LocalStorageDebugPage: React.FC = () => {
   const [testKey, setTestKey] = useState<string>('');
   
   const { toast } = useToast();
-  const { user } = useAuth();
-  
+  const { user, isAuthenticated } = useAuth();
+
   const searchRef = useRef<HTMLInputElement>(null);
 
   const refreshItems = () => {
@@ -75,8 +75,15 @@ const LocalStorageDebugPage: React.FC = () => {
   };
 
   const clearResumeData = () => {
-    const userId = user?.id || '47cf8181-c9a4-4cb9-8aa4-d6967e128c36';
-    LocalStorageUtils.clearResumeItems(userId);
+    if (!user?.id) {
+      toast({
+        title: "No user session",
+        description: "Cannot clear resume data without an authenticated user.",
+        variant: "destructive"
+      });
+      return;
+    }
+    LocalStorageUtils.clearResumeItems(user.id);
     refreshItems();
     toast({
       title: "Resume data cleared",
@@ -187,8 +194,16 @@ const LocalStorageDebugPage: React.FC = () => {
             <p className="text-sm text-muted-foreground">View and manage localStorage data</p>
           </div>
           <div className="flex items-center gap-2">
-            <Unlock className="h-4 w-4 text-green-500" />
-            <span className="text-sm font-medium text-green-500">Authenticated</span>
+            {isAuthenticated ? (
+              <>
+                <Unlock className="h-4 w-4 text-green-500" />
+                <span className="text-sm font-medium text-green-500">
+                  {user?.email ? `Authenticated — ${user.email}` : 'Authenticated'}
+                </span>
+              </>
+            ) : (
+              <span className="text-sm font-medium text-destructive">Not authenticated</span>
+            )}
           </div>
         </div>
         

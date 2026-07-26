@@ -180,12 +180,14 @@ const AppSidebar = () => {
     url: "/admin/page-visibility",
     icon: Eye,
     active: location.pathname === '/admin/page-visibility'
-  }, {
+  },
+  // Debug Tools is a dev-only surface (the route itself is DEV-gated in App.tsx).
+  ...(import.meta.env.DEV ? [{
     title: "Debug Tools",
     url: "/admin/local-storage-debug",
     icon: Database,
     active: location.pathname === '/admin/local-storage-debug'
-  }];
+  }] : [])];
 
   const isAdmin = user?.roles?.includes('admin');
   const isInstructor = user?.roles?.includes('instructor');

@@ -2,6 +2,7 @@
 import { BlogPost, BlogFormData, BlogCategory, BlogAnalytics } from '@/types/blog';
 import { supabase } from '@/integrations/supabase/client';
 import { createLogger } from '@/utils/logger';
+import { sanitizeHTML } from '@/utils/sanitize';
 
 const logger = createLogger('blogService');
 
@@ -174,8 +175,12 @@ export const createBlogPost = async (blogPost: BlogFormData): Promise<BlogPost |
       categoryId = categoryData?.id ?? null;
     }
 
+    // Sanitize HTML on write so stored content is clean regardless of how it is
+    // later rendered (defense in depth beyond render-time sanitization).
+    const sanitizedContent = sanitizeHTML(blogPost.content || '');
+
     // Calculate read time
-    const readTime = calculateReadTime(blogPost.content);
+    const readTime = calculateReadTime(sanitizedContent);
 
     // Set published_at if status is published
     const publishedAt = blogPost.status === 'published' ? new Date().toISOString() : null;
@@ -185,7 +190,7 @@ export const createBlogPost = async (blogPost: BlogFormData): Promise<BlogPost |
       .from('blog_posts')
       .insert({
         title: blogPost.title,
-        content: blogPost.content,
+        content: sanitizedContent,
         excerpt: blogPost.excerpt,
         slug: blogPost.slug,
         author_id: user.id,
@@ -275,8 +280,11 @@ export const updateBlogPost = async (slug: string, blogPost: BlogFormData): Prom
       categoryId = categoryData?.id ?? null;
     }
 
+    // Sanitize HTML on write (see createBlogPost).
+    const sanitizedContent = sanitizeHTML(blogPost.content || '');
+
     // Calculate read time
-    const readTime = calculateReadTime(blogPost.content);
+    const readTime = calculateReadTime(sanitizedContent);
 
     // Set published_at if status changed to published
     let publishedAt = undefined;
@@ -287,7 +295,7 @@ export const updateBlogPost = async (slug: string, blogPost: BlogFormData): Prom
     // Update blog post
     const updateData: any = {
       title: blogPost.title,
-      content: blogPost.content,
+      content: sanitizedContent,
       excerpt: blogPost.excerpt,
       slug: blogPost.slug,
       image_url: blogPost.imageUrl,

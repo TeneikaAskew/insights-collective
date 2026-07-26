@@ -613,9 +613,24 @@ function CertificatesTab({ courses }: { courses: Course[] }) {
   };
 
   const handleRevokeCertificate = async (certificate: CertRow) => {
-    const { error } = await supabase.from('certificates').delete().eq('id', certificate.id);
+    // Ask PostgREST for the affected-row count. Without an admin/instructor
+    // DELETE policy a revoke of another user's certificate matches zero rows
+    // and returns no error, so a plain "no error" check reports false success
+    // while the certificate stays valid. Treat 0 rows deleted as a failure.
+    const { error, count } = await supabase
+      .from('certificates')
+      .delete({ count: 'exact' })
+      .eq('id', certificate.id);
     if (error) {
       toast({ title: 'Revoke failed', description: error.message, variant: 'destructive' });
+      return;
+    }
+    if (!count) {
+      toast({
+        title: 'Revoke failed',
+        description: 'You do not have permission to revoke this certificate, or it no longer exists.',
+        variant: 'destructive',
+      });
       return;
     }
     setCerts(prev => prev.filter(c => c.id !== certificate.id));

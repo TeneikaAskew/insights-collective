@@ -401,7 +401,12 @@ function App() {
                     <Route path="/admin/unified-form-management" element={<ProtectedRoute requireAdmin><UnifiedFormManagement /></ProtectedRoute>} />
                     <Route path="/admin/unified-form-management/submissions/:slug" element={<ProtectedRoute requireAdmin><FormManagement /></ProtectedRoute>} />
                     <Route path="/admin/unified-form-management/submissions/:slug/submission/:submissionId" element={<ProtectedRoute requireAdmin><FormManagement /></ProtectedRoute>} />
-                    <Route path="/admin/local-storage-debug" element={<ProtectedRoute requireAdmin><LocalStorageDebug /></ProtectedRoute>} />
+                    {/* Debug Tools is a dev-only surface: it inspects raw
+                        localStorage (secrets are redacted, but it should not
+                        ship to production at all). Gate the route to DEV. */}
+                    {import.meta.env.DEV && (
+                      <Route path="/admin/local-storage-debug" element={<ProtectedRoute requireAdmin><LocalStorageDebug /></ProtectedRoute>} />
+                    )}
 
                     {/* Legal & Info Routes */}
                     <Route path="/privacy-policy" element={<PrivacyPolicy />} />
