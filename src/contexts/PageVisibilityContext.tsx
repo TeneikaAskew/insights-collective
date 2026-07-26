@@ -248,7 +248,8 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
         { page_path: '/interview-prep/star-practice', page_name: 'STAR Practice' },
         { page_path: '/mock-interviews', page_name: 'Mock Interviews' },
         { page_path: '/code-practice', page_name: 'Code Practice' },
-        { page_path: '/career-agent', page_name: 'Career Agent' },
+        // /career-agent is a redirect to /career-pathway now — it has no page
+        // of its own to show or hide.
         { page_path: '/career-pathway', page_name: 'Career Pathway' },
         { page_path: '/assistants', page_name: 'AI Assistants' },
         { page_path: '/explore-data-careers', page_name: 'Explore Data Careers' },
