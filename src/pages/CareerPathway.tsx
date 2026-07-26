@@ -14,6 +14,11 @@ import { Map } from 'lucide-react';
 import StudioChat from '@/components/career/studio/StudioChat';
 import ReportCanvas, { ALL_REVEALED } from '@/components/career/studio/ReportCanvas';
 import ActionPlanSection from '@/components/career/studio/ActionPlanSection';
+import PathwayViewSwitch, {
+  PATHWAY_PANEL_ID,
+  PLAN_PANEL_ID,
+  type PathwayView,
+} from '@/components/career/studio/PathwayViewSwitch';
 import { useCoachChat } from '@/components/career/studio/useCoachChat';
 import {
   INTRO_MESSAGES,
@@ -69,12 +74,16 @@ const CareerPathway: React.FC = () => {
   // True once a report was generated in this session — the cached action plan
   // from a previous pathway must not be shown against a fresh report.
   const [generatedThisSession, setGeneratedThisSession] = useState(false);
+  // Which half of the finished pathway is on screen. The plan is a peer view
+  // rather than a section below the report, so neither is a scroll away.
+  const [view, setView] = useState<PathwayView>('pathway');
+  const [milestones, setMilestones] = useState<{ done: number; total: number } | null>(null);
 
   const sessionIdRef = useRef<string>(crypto.randomUUID());
   const answersRef = useRef<Record<string, string>>({});
   const resumeTextRef = useRef<string>('');
   const initializedRef = useRef(false);
-  const planSectionRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
   const reducedRef = useRef(
     typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches,
   );
@@ -283,6 +292,8 @@ const CareerPathway: React.FC = () => {
     setSavedOk(true);
     setInputValue('');
     setResumeFile(null);
+    setView('pathway');
+    setMilestones(null);
     void beginFresh();
   }, [user?.id, coach, toast, beginFresh]);
 
@@ -293,6 +304,11 @@ const CareerPathway: React.FC = () => {
     initializedRef.current = true;
 
     (async () => {
+      // "Start over" can land while this restore is still loading answers.
+      // reset() bumps the coach generation, so a change means the user has
+      // already begun a retake and restoring the saved report would silently
+      // undo their click.
+      const g = coach.genRef.current;
       const hasRealReport = !resultsError && isRealReport(savedResults?.report);
       const showSavedReport = () => {
         setReport(savedResults!.report);
@@ -311,6 +327,8 @@ const CareerPathway: React.FC = () => {
         .eq('user_id', user.id)
         .eq('is_reset', false)
         .order('created_at', { ascending: true });
+
+      if (g !== coach.genRef.current) return;
 
       if (error) {
         logger.error('Error loading previous answers:', error);
@@ -392,6 +410,22 @@ const CareerPathway: React.FC = () => {
     );
   }
 
+  // The switch only means something once there is a plan view to switch to.
+  const showViewSwitch = phase === 'ready' && !!report;
+  const activeView: PathwayView = showViewSwitch ? view : 'pathway';
+
+  // Switching swaps the whole page body, so land at the top of the new view
+  // rather than wherever the previous one was scrolled to. AppLayout locks the
+  // viewport and scrolls its <main> instead, so window.scrollTo does nothing —
+  // scroll the element that actually owns the overflow.
+  const changeView = (next: PathwayView) => {
+    setView(next);
+    headerRef.current?.scrollIntoView({
+      behavior: reducedRef.current ? 'auto' : 'smooth',
+      block: 'start',
+    });
+  };
+
   const composerDisabled = !awaitingInput || phase !== 'chat';
   const composerPlaceholder =
     phase === 'ready' ? 'Your pathway is ready — use “Start over” to retake it'
@@ -404,166 +438,192 @@ const CareerPathway: React.FC = () => {
     <AppLayout>
       <div className="soft-studio ss-wash min-h-full py-10 px-4 sm:px-6" data-testid="career-pathway-page">
         <div className="max-w-6xl mx-auto">
-          <header className="mb-8">
-            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight [text-wrap:balance]">
-              Hey {userName}, let’s map your career.
-            </h1>
-            <p className="text-muted-foreground mt-2 max-w-2xl">
-              A conversation on the left, your pathway taking shape on the right — recommended roles,
-              the skills to get there, and the route step by step.
-            </p>
+          <header
+            ref={headerRef}
+            className="mb-8 flex flex-wrap items-start justify-between gap-x-6 gap-y-4 scroll-mt-4"
+          >
+            <div>
+              <h1 className="text-3xl sm:text-4xl font-bold tracking-tight [text-wrap:balance]">
+                Hey {userName}, here's your career insights.
+              </h1>
+              <p className="text-muted-foreground mt-2 max-w-3xl">
+                Based on your assessment, we've created personalized recommendations to help you build a
+                fulfilling career path aligned with your strengths and goals.
+              </p>
+            </div>
+            {showViewSwitch && (
+              <PathwayViewSwitch value={activeView} onChange={changeView} milestones={milestones} />
+            )}
           </header>
 
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.1fr] gap-6 items-start">
-            <div className="flex flex-col gap-4">
-              <StudioChat
-                messages={coach.messages}
-                composing={coach.composing}
-                currentAct={actIndexForQuestion(currentQuestion)}
-                actsDone={phase === 'generating' || phase === 'ready' || phase === 'resume-choice' || phase === 'resume-upload'}
-                inputValue={inputValue}
-                onInputChange={setInputValue}
-                onSubmit={() => void handleAnswer(inputValue)}
-                inputDisabled={composerDisabled}
-                placeholder={composerPlaceholder}
-                headerAction={
-                  <button
-                    type="button"
-                    data-testid="start-over"
-                    onClick={() => void handleStartOver()}
-                    className="text-xs font-bold rounded-full border border-border px-3 py-1.5 text-muted-foreground transition-colors hover:text-ss-bad hover:border-ss-bad"
-                  >
-                    Start over
-                  </button>
-                }
-              >
-                {showQuickReplies && phase === 'chat' && awaitingInput && (
-                  <div className="flex flex-col gap-2 ml-10 mt-1">
-                    {quickReplies.map((reply) => (
-                      <button
-                        key={reply}
-                        type="button"
-                        data-testid="quick-reply"
-                        onClick={() => void handleAnswer(reply)}
-                        className="text-left text-sm text-ss-lav-deep border-[1.5px] border-ss-lav rounded-3xl px-4 py-2.5 bg-white/70 transition-colors hover:bg-ss-lav-chip focus:outline-none focus-visible:ring-2 focus-visible:ring-ss-lav"
-                      >
-                        {reply}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {phase === 'resume-choice' && (
-                  <div className="flex flex-col gap-2 ml-10 mt-1">
+          <div
+            id={PATHWAY_PANEL_ID}
+            role={showViewSwitch ? 'tabpanel' : undefined}
+            aria-labelledby={showViewSwitch ? `${PATHWAY_PANEL_ID}-tab` : undefined}
+            hidden={activeView !== 'pathway'}
+          >
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.1fr] gap-6 items-start">
+              <div className="flex flex-col gap-4">
+                <StudioChat
+                  messages={coach.messages}
+                  composing={coach.composing}
+                  currentAct={actIndexForQuestion(currentQuestion)}
+                  actsDone={phase === 'generating' || phase === 'ready' || phase === 'resume-choice' || phase === 'resume-upload'}
+                  inputValue={inputValue}
+                  onInputChange={setInputValue}
+                  onSubmit={() => void handleAnswer(inputValue)}
+                  inputDisabled={composerDisabled}
+                  placeholder={composerPlaceholder}
+                  headerAction={
                     <button
                       type="button"
-                      onClick={() => {
-                        coach.addUser('Use my resume on file');
-                        void generateReport(resumeTextRef.current);
-                      }}
-                      className="text-left text-sm text-ss-lav-deep border-[1.5px] border-ss-lav rounded-3xl px-4 py-2.5 bg-white/70 transition-colors hover:bg-ss-lav-chip"
+                      data-testid="start-over"
+                      onClick={() => void handleStartOver()}
+                      className="text-xs font-bold rounded-full border border-border px-3 py-1.5 text-muted-foreground transition-colors hover:text-ss-bad hover:border-ss-bad"
                     >
-                      Use my resume on file
+                      Start over
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        coach.addUser('Upload a new resume');
-                        setPhase('resume-upload');
-                      }}
-                      className="text-left text-sm text-ss-lav-deep border-[1.5px] border-ss-lav rounded-3xl px-4 py-2.5 bg-white/70 transition-colors hover:bg-ss-lav-chip"
-                    >
-                      Upload a new resume
-                    </button>
-                  </div>
-                )}
-
-                {phase === 'resume-upload' && (
-                  <div className="ml-10 mt-1 rounded-[18px] border-2 border-dashed border-ss-lav bg-white/60 p-4">
-                    <label htmlFor="resume-upload-input" className="block text-sm font-bold mb-2">
-                      Upload your resume (PDF or DOCX)
-                    </label>
-                    <input
-                      id="resume-upload-input"
-                      type="file"
-                      accept=".pdf,.docx"
-                      disabled={resumeUploading}
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        const okType = file.type === 'application/pdf' ||
-                          file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-                        if (okType) {
-                          setResumeFile(file);
-                        } else {
-                          toast({
-                            title: 'Invalid file type',
-                            description: 'Only PDF or DOCX files are allowed.',
-                            variant: 'destructive',
-                          });
-                        }
-                      }}
-                      className="block w-full text-sm text-muted-foreground file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-ss-lav-chip file:text-ss-lav-deep hover:file:bg-ss-lav-chip/70"
-                    />
-                    {resumeFile && (
-                      <button
-                        type="button"
-                        onClick={() => void handleResumeUpload()}
-                        disabled={resumeUploading}
-                        className="mt-3 rounded-full bg-ss-lav-deep text-white text-sm font-bold px-5 py-2.5 transition-colors hover:bg-ss-lav-deep/90 disabled:opacity-60"
-                      >
-                        {resumeUploading ? 'Uploading…' : 'Upload and continue'}
-                      </button>
-                    )}
-                  </div>
-                )}
-
-                {phase === 'error' && (
-                  <div className="ml-10 mt-1">
-                    <button
-                      type="button"
-                      onClick={() => void generateReport(resumeTextRef.current)}
-                      className="rounded-full bg-ss-lav-deep text-white text-sm font-bold px-5 py-2.5 transition-colors hover:bg-ss-lav-deep/90"
-                    >
-                      Retry generating my report
-                    </button>
-                  </div>
-                )}
-              </StudioChat>
-
-              {phase === 'ready' && report && (
-                <div data-testid="pathway-savebar" className="ss-card ss-card-warm flex items-center gap-3 flex-wrap rounded-full px-6 py-3.5 animate-fade-in">
-                  <span className="font-bold text-sm">Your pathway is ready</span>
-                  {savedOk ? (
-                    <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium bg-ss-good-chip text-ss-good">
-                      Saved to your profile
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium bg-ss-bad-chip text-ss-bad">
-                      Not saved — may not persist
-                    </span>
+                  }
+                >
+                  {showQuickReplies && phase === 'chat' && awaitingInput && (
+                    <div className="flex flex-col gap-2 ml-10 mt-1">
+                      {quickReplies.map((reply) => (
+                        <button
+                          key={reply}
+                          type="button"
+                          data-testid="quick-reply"
+                          onClick={() => void handleAnswer(reply)}
+                          className="text-left text-sm text-ss-lav-deep border-[1.5px] border-ss-lav rounded-3xl px-4 py-2.5 bg-white/70 transition-colors hover:bg-ss-lav-chip focus:outline-none focus-visible:ring-2 focus-visible:ring-ss-lav"
+                        >
+                          {reply}
+                        </button>
+                      ))}
+                    </div>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => planSectionRef.current?.scrollIntoView({ behavior: reducedRef.current ? 'auto' : 'smooth', block: 'start' })}
-                    className="ml-auto rounded-full bg-ss-lav-deep text-white text-sm font-bold px-5 py-2 transition-colors hover:bg-ss-lav-deep/90"
-                  >
-                    Get action plan
-                  </button>
-                </div>
-              )}
-            </div>
 
-            <div className="lg:sticky lg:top-6">
-              <ReportCanvas report={report} revealStage={revealStage} />
+                  {phase === 'resume-choice' && (
+                    <div className="flex flex-col gap-2 ml-10 mt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          coach.addUser('Use my resume on file');
+                          void generateReport(resumeTextRef.current);
+                        }}
+                        className="text-left text-sm text-ss-lav-deep border-[1.5px] border-ss-lav rounded-3xl px-4 py-2.5 bg-white/70 transition-colors hover:bg-ss-lav-chip"
+                      >
+                        Use my resume on file
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          coach.addUser('Upload a new resume');
+                          setPhase('resume-upload');
+                        }}
+                        className="text-left text-sm text-ss-lav-deep border-[1.5px] border-ss-lav rounded-3xl px-4 py-2.5 bg-white/70 transition-colors hover:bg-ss-lav-chip"
+                      >
+                        Upload a new resume
+                      </button>
+                    </div>
+                  )}
+
+                  {phase === 'resume-upload' && (
+                    <div className="ml-10 mt-1 rounded-[18px] border-2 border-dashed border-ss-lav bg-white/60 p-4">
+                      <label htmlFor="resume-upload-input" className="block text-sm font-bold mb-2">
+                        Upload your resume (PDF or DOCX)
+                      </label>
+                      <input
+                        id="resume-upload-input"
+                        type="file"
+                        accept=".pdf,.docx"
+                        disabled={resumeUploading}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const okType = file.type === 'application/pdf' ||
+                            file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+                          if (okType) {
+                            setResumeFile(file);
+                          } else {
+                            toast({
+                              title: 'Invalid file type',
+                              description: 'Only PDF or DOCX files are allowed.',
+                              variant: 'destructive',
+                            });
+                          }
+                        }}
+                        className="block w-full text-sm text-muted-foreground file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-ss-lav-chip file:text-ss-lav-deep hover:file:bg-ss-lav-chip/70"
+                      />
+                      {resumeFile && (
+                        <button
+                          type="button"
+                          onClick={() => void handleResumeUpload()}
+                          disabled={resumeUploading}
+                          className="mt-3 rounded-full bg-ss-lav-deep text-white text-sm font-bold px-5 py-2.5 transition-colors hover:bg-ss-lav-deep/90 disabled:opacity-60"
+                        >
+                          {resumeUploading ? 'Uploading…' : 'Upload and continue'}
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {phase === 'error' && (
+                    <div className="ml-10 mt-1">
+                      <button
+                        type="button"
+                        onClick={() => void generateReport(resumeTextRef.current)}
+                        className="rounded-full bg-ss-lav-deep text-white text-sm font-bold px-5 py-2.5 transition-colors hover:bg-ss-lav-deep/90"
+                      >
+                        Retry generating my report
+                      </button>
+                    </div>
+                  )}
+                </StudioChat>
+
+                {phase === 'ready' && report && (
+                  <div data-testid="pathway-savebar" className="ss-card ss-card-warm flex items-center gap-3 flex-wrap rounded-full px-6 py-3.5 animate-fade-in">
+                    <span className="font-bold text-sm">Your pathway is ready</span>
+                    {savedOk ? (
+                      <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium bg-ss-good-chip text-ss-good">
+                        Saved to your profile
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium bg-ss-bad-chip text-ss-bad">
+                        Not saved — may not persist
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      data-testid="get-action-plan"
+                      onClick={() => changeView('plan')}
+                      className="ml-auto rounded-full bg-ss-lav-deep text-white text-sm font-bold px-5 py-2 transition-colors hover:bg-ss-lav-deep/90"
+                    >
+                      Get action plan
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="lg:sticky lg:top-6">
+                <ReportCanvas report={report} revealStage={revealStage} />
+              </div>
             </div>
           </div>
 
+          {/* Kept mounted while the pathway view is on screen: unmounting would
+              drop the fetched plan and re-run its progress load on every switch. */}
           {phase === 'ready' && (
-            <div ref={planSectionRef} className="mt-10 scroll-mt-6">
+            <div
+              id={PLAN_PANEL_ID}
+              role={showViewSwitch ? 'tabpanel' : undefined}
+              aria-labelledby={showViewSwitch ? `${PLAN_PANEL_ID}-tab` : undefined}
+              hidden={activeView !== 'plan'}
+            >
               {/* A plan cached from a previous pathway must not appear against a
                   freshly generated report — the user regenerates from the new one. */}
-              <ActionPlanSection initialActionPlan={generatedThisSession ? null : savedResults?.actionPlan ?? null} />
+              <ActionPlanSection
+                initialActionPlan={generatedThisSession ? null : savedResults?.actionPlan ?? null}
+                onMilestoneProgress={setMilestones}
+              />
             </div>
           )}
 
