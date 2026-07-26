@@ -119,16 +119,17 @@ A second Edge Function, `execute-code`, that actually runs submissions.
 
 | Option | Cost | Key | Python + pandas? | Notes |
 |---|---|---|---|---|
-| **Piston public API** (emkc.org) | Free | None | ❌ stdlib only | ~5 req/s shared rate limit; great for JS + stdlib-Python challenges |
-| **Judge0 CE** (RapidAPI) | Free tier ~50 req/day, paid beyond | `RAPIDAPI_KEY` | ❌ (CE) | Mature, returns time + memory per run |
-| **Judge0 Extra CE** | Same | Same | ✅ "Python for ML" runtime (pandas, numpy, scikit-learn) | Needed for the Data Analyst / Data Scientist pandas challenges |
-| **Self-hosted Piston** (Docker) | Infra cost | None | ✅ custom packages | Most control; most ops burden |
+| ~~Piston public API~~ (emkc.org) | — | — | — | **No longer freely available** — public access was discontinued; the hosted endpoints now require a token granted case-by-case via the maintainer's Discord. Not a dependable foundation. |
+| **Judge0 CE** (RapidAPI) | Free tier ~50 req/day, paid beyond | `RAPIDAPI_KEY` | ❌ (CE) | Runs the JavaScript (id 63) and stdlib-Python (id 71) challenges; returns time + memory per run |
+| **Judge0 Extra CE** (RapidAPI) | Same subscription model | Same key | ✅ "Python for ML" runtime (id 10: pandas, numpy, scikit-learn) | Needed for the Data Analyst pandas challenges |
+| **Self-hosted Piston** (Docker, MIT) | Infra cost | None | ✅ custom packages | Most control; most ops burden. `execute-code` honors a `PISTON_URL` env var pointing at your own instance |
 
-**Recommendation**: start with **Piston public** for JavaScript and
-stdlib-Python challenges (zero cost, zero keys), and route pandas-tagged
-challenges to **Judge0 Extra CE** (one `RAPIDAPI_KEY` secret) or keep them
-AI-judged until usage justifies self-hosting. The function should pick the
-executor per challenge via a `runtime` field on the challenge row.
+**Decision (updated)**: `execute-code` routes `python-ml` challenges to
+**Judge0 Extra CE** and everything else to **Judge0 CE** — one
+`RAPIDAPI_KEY` covers both APIs (subscribe to each on RapidAPI; the key is
+shared per RapidAPI account). If a self-hosted Piston is ever stood up, set
+`PISTON_URL` and the non-pandas challenges switch to it automatically,
+cutting Judge0 usage to just the pandas runs.
 
 ### Harness design
 
@@ -225,9 +226,16 @@ verify after deploying):
 supabase db push                        # applies the Phase 0 migration
 supabase functions deploy review-code
 supabase functions deploy execute-code
-# GROQ is already set if STAR evaluation works. For pandas execution:
-supabase secrets set RAPIDAPI_KEY=<your RapidAPI key for judge0-extra-ce>
+# GROQ is already set if STAR evaluation works. For real execution:
+supabase secrets set RAPIDAPI_KEY=<your RapidAPI key>   # subscribe to Judge0 CE + Judge0 Extra CE
+# Optional: self-hosted Piston for non-pandas challenges
+supabase secrets set PISTON_URL=https://<your-piston-host>/api/v2/piston/execute
 ```
+
+Getting the RapidAPI key: create an account at rapidapi.com → search
+"Judge0 CE" → subscribe (Basic plan is free, ~50 runs/day) → do the same
+for "Judge0 Extra CE" → your key is shown under "Header Parameters" as
+`X-RapidAPI-Key` on either API's endpoints page. One key works for both.
 
 **Remaining:**
 

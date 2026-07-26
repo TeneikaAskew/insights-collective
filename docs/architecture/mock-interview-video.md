@@ -76,17 +76,45 @@ What it takes:
 Effort: medium (1–2 weeks including TURN setup and cross-network testing).
 Risk: medium — connectivity long-tail is real and support-heavy.
 
-## Ruled out — Google Meet API
+## Option C — Google Meet (possible, but the heaviest link generator)
 
-Programmatic Meet creation requires a Google Workspace account with the
-Calendar/Meet REST APIs, domain-wide delegation, and OAuth consent — far
-more setup than Zoom (already integrated) for no user-visible gain. Keeping
-`video_platform: 'Google Meet'` as an unlinked string is the status quo
-being fixed, not an option.
+Asked and answered honestly: yes, Meet links can be generated, but it is
+the most setup-intensive of the link options. Programmatic Meet creation
+requires a **Google Cloud project + OAuth consent screen + the Calendar API
+(or Meet REST API)**, and meetings must be created *as some Google
+account*: either every scheduler connects their own Google account (an
+OAuth flow and refresh-token storage the app doesn't have today), or the
+platform runs a Google Workspace account with a service account +
+domain-wide delegation (a paid Workspace requirement). Compare Zoom: the
+Edge Function already exists and the account is already configured.
+
+If the real concern is "some people may not have Zoom": **joining a Zoom
+meeting from a browser requires no Zoom account and no app install** — the
+join link opens a web client, participants just enter a name. Nobody needs
+to *have* Zoom to attend; only the platform account creates meetings.
+
+### The zero-vendor alternative for the no-account case: Jitsi
+
+If avoiding vendor accounts entirely matters, **Jitsi Meet** deserves a
+look before Google Meet: `https://meet.jit.si/<unique-room-slug>` is a
+valid, working video room with **no API, no key, no account** — the
+scheduler just stores a generated slug (e.g.
+`insights-mock-{sessionId}`) as the meeting URL. Free, open source,
+browser-based, works for 1:1 calls out of the box. Trade-offs: rooms are
+guessable-by-slug unless random (use the session UUID), moderated features
+are limited on the public instance, and it's a shared public service —
+self-hostable later if usage grows. As a *fallback* platform next to Zoom
+(or even as the primary), it's the fastest path to "everyone can join."
+
+A clean shape for the scheduler: a `video_platform` choice at booking —
+"Zoom" (platform-created meeting via the existing function) or "Jitsi"
+(instant link, no vendor) — with the room's "Join video call" button
+working identically for both.
 
 ## Recommendation
 
-**A now, B later if in-app calls become a product goal.** Option A ships a
+**A now (with Jitsi as the no-account fallback), B later if in-app calls
+become a product goal.** Option A ships a
 working mock-interview experience this week with zero new vendors, and
 nothing in it is throwaway: the room, evaluation form, and peer reviews all
 carry forward. If the platform later wants fully in-app calls (recording,

@@ -1,8 +1,10 @@
 // ABOUTME: Edge function that really executes Code Practice submissions in a
 // ABOUTME: sandbox (Phase 2 of docs/architecture/code-evaluation.md).
-// Routing: javascript / python-stdlib challenges run on the free public
-// Piston API (no key); python-ml (pandas) challenges need Judge0 Extra CE's
-// "Python for ML" runtime and are only available when RAPIDAPI_KEY is set.
+// Routing: Judge0 CE (via RapidAPI) runs javascript / python-stdlib
+// challenges and Judge0 Extra CE's "Python for ML" runtime runs the pandas
+// ones — one RAPIDAPI_KEY covers both. The public Piston API is no longer
+// freely available; set PISTON_URL to a self-hosted Piston instance to use
+// it instead of Judge0 CE for the non-pandas challenges.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
@@ -10,11 +12,14 @@ import { corsHeaders, handleError } from "../_shared/utils.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-const RAPIDAPI_KEY = Deno.env.get("RAPIDAPI_KEY"); // optional; enables python-ml
+const RAPIDAPI_KEY = Deno.env.get("RAPIDAPI_KEY");
+const PISTON_URL = Deno.env.get("PISTON_URL"); // optional self-hosted Piston, e.g. https://piston.internal/api/v2/piston/execute
 
-const PISTON_URL = "https://emkc.org/api/v2/piston/execute";
+const JUDGE0_CE_URL = "https://judge0-ce.p.rapidapi.com";
 const JUDGE0_EXTRA_URL = "https://judge0-extra-ce.p.rapidapi.com";
-const JUDGE0_PYTHON_ML = 10; // "Python for ML (3.7.7)" — includes pandas/numpy/scikit-learn
+const JUDGE0_CE_PYTHON = 71; // Python (3.8.1)
+const JUDGE0_CE_JAVASCRIPT = 63; // JavaScript (Node.js 12.14.0)
+const JUDGE0_PYTHON_ML = 10; // Extra CE "Python for ML (3.7.7)" — includes pandas/numpy/scikit-learn
 
 const MAX_SUBMISSIONS_PER_MINUTE = 10;
 
@@ -64,7 +69,7 @@ try {
 }
 
 async function runOnPiston(language: string, source: string): Promise<{ stdout: string; stderr: string; timeMs?: number; memoryKb?: number }> {
-  const response = await fetch(PISTON_URL, {
+  const response = await fetch(PISTON_URL!, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -86,18 +91,18 @@ async function runOnPiston(language: string, source: string): Promise<{ stdout: 
   };
 }
 
-async function runOnJudge0(source: string): Promise<{ stdout: string; stderr: string; timeMs?: number; memoryKb?: number }> {
+async function runOnJudge0(source: string, host: string, languageId: number): Promise<{ stdout: string; stderr: string; timeMs?: number; memoryKb?: number }> {
   if (!RAPIDAPI_KEY) {
-    throw new Error("RAPIDAPI_KEY is not configured — pandas challenges need Judge0 Extra CE");
+    throw new Error("RAPIDAPI_KEY is not configured — real execution needs a Judge0 subscription (or set PISTON_URL to a self-hosted Piston)");
   }
-  const response = await fetch(`${JUDGE0_EXTRA_URL}/submissions?base64_encoded=false&wait=true`, {
+  const response = await fetch(`${host}/submissions?base64_encoded=false&wait=true`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "X-RapidAPI-Key": RAPIDAPI_KEY,
-      "X-RapidAPI-Host": "judge0-extra-ce.p.rapidapi.com",
+      "X-RapidAPI-Host": host.replace("https://", ""),
     },
-    body: JSON.stringify({ source_code: source, language_id: JUDGE0_PYTHON_ML }),
+    body: JSON.stringify({ source_code: source, language_id: languageId }),
   });
   if (!response.ok) {
     throw new Error(`Judge0 error: ${response.status} ${await response.text()}`);
@@ -109,6 +114,22 @@ async function runOnJudge0(source: string): Promise<{ stdout: string; stderr: st
     timeMs: data.time ? Math.round(parseFloat(data.time) * 1000) : undefined,
     memoryKb: data.memory ?? undefined,
   };
+}
+
+// python-ml → Judge0 Extra CE (pandas). Everything else → self-hosted Piston
+// when configured, otherwise Judge0 CE.
+function runInSandbox(challenge: any, source: string) {
+  if (challenge.runtime === "python-ml") {
+    return runOnJudge0(source, JUDGE0_EXTRA_URL, JUDGE0_PYTHON_ML);
+  }
+  if (PISTON_URL) {
+    return runOnPiston(challenge.language, source);
+  }
+  return runOnJudge0(
+    source,
+    JUDGE0_CE_URL,
+    challenge.language === "javascript" ? JUDGE0_CE_JAVASCRIPT : JUDGE0_CE_PYTHON,
+  );
 }
 
 function deepEqual(a: unknown, b: unknown): boolean {
@@ -198,8 +219,7 @@ serve(async (req) => {
         : buildPythonHarness(challenge, code, cases);
 
     const startedAt = Date.now();
-    const run =
-      challenge.runtime === "python-ml" ? await runOnJudge0(source) : await runOnPiston(challenge.language, source);
+    const run = await runInSandbox(challenge, source);
 
     const lines = run.stdout.split("\n").filter((l: string) => l.trim() !== "");
     const results = cases.map((c, i) => {
