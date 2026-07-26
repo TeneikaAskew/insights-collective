@@ -28,15 +28,41 @@ interface InlineQuizPlayerProps {
 export function InlineQuizPlayer({ item, quiz, onCompleted }: InlineQuizPlayerProps) {
   const { user } = useAuth();
   const { toast } = useToast();
+  // Questions arrive through get_quiz_questions_for_taking, which strips the
+  // `correct` flag from every option server-side. The list query that supplies
+  // `quiz` deliberately carries no answer data at all.
+  const [fetchedQuestions, setFetchedQuestions] = useState<any[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!quiz?.id) return;
+    (async () => {
+      const { data, error } = await supabase
+        .rpc('get_quiz_questions_for_taking', { p_quiz_id: quiz.id });
+      if (cancelled) return;
+      if (error) {
+        logger.error('Failed to load quiz questions', error);
+        setFetchedQuestions([]);
+        return;
+      }
+      setFetchedQuestions(data || []);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [quiz?.id]);
+
   const questions = useMemo(
     () =>
-      [...(quiz.questions || [])]
+      // Prefer the sanitized RPC result; fall back to whatever the parent
+      // supplied when it returns nothing (e.g. an older cached payload).
+      [...(fetchedQuestions?.length ? fetchedQuestions : (quiz.questions ?? []))]
         .map((question) => ({
           ...question,
           answers: Array.isArray(question.answers) ? question.answers : [],
         }))
-        .sort((a, b) => a.position - b.position),
-    [quiz.questions],
+        .sort((a, b) => (a.position ?? 0) - (b.position ?? 0)),
+    [fetchedQuestions, quiz.questions],
   );
 
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -231,71 +257,19 @@ export function InlineQuizPlayer({ item, quiz, onCompleted }: InlineQuizPlayerPr
     try {
       setSubmitting(true);
 
-      let totalScore = 0;
-      const answerRecords = questions.map((question) => {
-        const userAnswer = answers[question.id];
-        let correct = false;
-        let points = 0;
-
-        switch (question.question_type) {
-          case 'multiple_choice':
-          case 'true_false': {
-            const correctAnswer = question.answers.find((answer) => answer.correct);
-            correct = userAnswer === correctAnswer?.id;
-            points = correct ? question.points : 0;
-            break;
-          }
-          case 'multiple_answers': {
-            const correctAnswers = question.answers
-              .filter((answer) => answer.correct)
-              .map((answer) => answer.id);
-            const userAnswers = (userAnswer as string[]) || [];
-            correct =
-              correctAnswers.length === userAnswers.length &&
-              correctAnswers.every((id) => userAnswers.includes(id));
-            points = correct ? question.points : 0;
-            break;
-          }
-          case 'short_answer':
-          case 'essay':
-          case 'matching':
-            points = 0;
-            break;
-        }
-
-        totalScore += points;
-
-        return {
-          quiz_submission_id: activeSubmission.id,
-          quiz_question_id: question.id,
-          answer_data: { answer: userAnswer },
-          correct,
-          points,
-        };
+      // Grading happens server-side (see supabase/functions/score-quiz): the
+      // browser holds no answer key and cannot set its own score.
+      const { data: scored, error: scoreError } = await supabase.functions.invoke('score-quiz', {
+        body: {
+          submissionId: activeSubmission.id,
+          answers,
+          timeSpent: quiz.time_limit ? quiz.time_limit * 60 - (timeRemaining || 0) : null,
+        },
       });
+      if (scoreError) throw scoreError;
+      if (scored?.error) throw new Error(scored.error);
 
-      if (answerRecords.length > 0) {
-        const { error: answersError } = await supabase
-          .from('quiz_submission_answers')
-          .upsert(answerRecords, {
-            onConflict: 'quiz_submission_id,quiz_question_id',
-          });
-
-        if (answersError) throw answersError;
-      }
-
-      const { error: submissionError } = await supabase
-        .from('quiz_submissions')
-        .update({
-          finished_at: new Date().toISOString(),
-          time_spent: quiz.time_limit ? quiz.time_limit * 60 - (timeRemaining || 0) : null,
-          score: totalScore,
-          kept_score: totalScore,
-          workflow_state: 'complete',
-        })
-        .eq('id', activeSubmission.id);
-
-      if (submissionError) throw submissionError;
+      const totalScore = scored?.score ?? 0;
 
       await onCompleted?.(item.id);
       setQuizStarted(false);

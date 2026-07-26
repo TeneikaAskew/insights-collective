@@ -113,6 +113,52 @@ describe('InlineQuizPlayer', () => {
     expect(screen.getByRole('radio', { name: 'Four' })).toBeInTheDocument();
   });
 
+  // SECURITY: grading is server-side. The player must submit its answers to
+  // the score-quiz function and must never compute or write a score itself.
+  it('submits answers for server-side scoring instead of grading in the browser', async () => {
+    // 1st call: prior-attempt lookup (none). 2nd: the insert that starts this
+    // attempt. 3rd+: any subsequent write.
+    // 1st call: prior-attempt lookup (none). Every call after that resolves to
+    // the submission row (the builder repeats its last result).
+    const submissionsBuilder = makeTableBuilder(
+      { data: [], error: null },
+      { data: makeQuizSubmission({ id: 'sub-1', attempt: 1, workflow_state: 'pending_review' }), error: null },
+    );
+    const answersBuilder = makeTableBuilder({ data: [], error: null });
+    useTables({
+      quiz_submissions: submissionsBuilder,
+      quiz_submission_answers: answersBuilder,
+    });
+    (mockSupabaseClient.functions.invoke as any).mockResolvedValue({
+      data: { score: 1, pointsPossible: 1, results: [] },
+      error: null,
+    });
+
+    render(<InlineQuizPlayer item={item} quiz={quiz} />);
+    await screen.findByText('What is 2+2?');
+    fireEvent.click(screen.getByRole('radio', { name: 'Four' }));
+    // Answering starts the attempt; wait for it before submitting, otherwise
+    // ensureSubmission is still in flight and submit no-ops.
+    await waitFor(() => expect(submissionsBuilder.insert).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    await waitFor(() => {
+      expect(mockSupabaseClient.functions.invoke).toHaveBeenCalledWith(
+        'score-quiz',
+        expect.objectContaining({
+          body: expect.objectContaining({ answers: expect.any(Object) }),
+        }),
+      );
+    });
+
+    // The browser neither writes graded answer rows nor a score of its own.
+    expect(answersBuilder.upsert).not.toHaveBeenCalled();
+    const scoreWrites = (submissionsBuilder.update as any).mock.calls.filter(
+      ([payload]: any[]) => payload && ('score' in payload || 'kept_score' in payload),
+    );
+    expect(scoreWrites).toHaveLength(0);
+  });
+
   // REGRESSION: a failed prior-attempt lookup must fail CLOSED — no
   // questions, no way to start (and thus insert) a fresh attempt.
   it('shows an error state and blocks the quiz when the prior-attempt lookup fails', async () => {

@@ -213,77 +213,20 @@ export default function CanvasQuizTaking() {
     try {
       setSubmitting(true);
 
-      // Calculate score
-      let totalScore = 0;
-      const answerRecords = [];
-
-      for (const question of questions) {
-        const userAnswer = answers[question.id];
-        let correct = false;
-        let points = 0;
-
-        // Grade based on question type
-        switch (question.question_type) {
-          case 'multiple_choice':
-            const correctAnswer = question.answers.find(a => a.correct);
-            correct = userAnswer === correctAnswer?.id;
-            points = correct ? question.points : 0;
-            break;
-          
-          case 'true_false':
-            correct = userAnswer === question.answers.find(a => a.correct)?.id;
-            points = correct ? question.points : 0;
-            break;
-          
-          case 'multiple_answers':
-            const correctAnswers = question.answers.filter(a => a.correct).map(a => a.id);
-            const userAnswers = userAnswer as string[] || [];
-            correct = correctAnswers.length === userAnswers.length && 
-                     correctAnswers.every(id => userAnswers.includes(id));
-            points = correct ? question.points : 0;
-            break;
-          
-          // Essay and short answer need manual grading
-          case 'essay':
-          case 'short_answer':
-            points = 0; // Will be graded manually
-            break;
-        }
-
-        totalScore += points;
-
-        answerRecords.push({
-          quiz_submission_id: submission.id,
-          quiz_question_id: question.id,
-          answer_data: { answer: userAnswer },
-          correct,
-          points
-        });
-      }
-
-      // Save all answers
-      await supabase
-        .from('quiz_submission_answers')
-        .upsert(answerRecords, {
-          onConflict: 'quiz_submission_id,quiz_question_id'
-        });
-
-      // Update submission
-      await supabase
-        .from('quiz_submissions')
-        .update({
-          finished_at: new Date().toISOString(),
-          time_spent: quiz.time_limit ? (quiz.time_limit * 60 - (timeRemaining || 0)) : null,
-          score: totalScore,
-          // Kept-score policy: deliberately "latest attempt". Each submission
-          // row's kept_score is the score of that attempt, and downstream
-          // consumers read the most recent attempt's row. There is no
-          // keep-highest (or keep-average) specification for quizzes, so no
-          // cross-attempt comparison is performed here on purpose.
-          kept_score: totalScore,
-          workflow_state: 'complete'
-        })
-        .eq('id', submission.id);
+      // Grading happens server-side: the browser never sees the answer key and
+      // never decides its own score. score-quiz writes the answers, the
+      // per-question correctness, and the submission's score with the service
+      // role. Kept-score policy is unchanged ("latest attempt") and now lives
+      // in the function.
+      const { data: scored, error: scoreError } = await supabase.functions.invoke('score-quiz', {
+        body: {
+          submissionId: submission.id,
+          answers,
+          timeSpent: quiz.time_limit ? quiz.time_limit * 60 - (timeRemaining || 0) : null,
+        },
+      });
+      if (scoreError) throw scoreError;
+      if (scored?.error) throw new Error(scored.error);
 
       toast({
         title: autoSubmit ? 'Quiz auto-submitted' : 'Quiz submitted',

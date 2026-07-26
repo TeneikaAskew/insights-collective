@@ -210,22 +210,28 @@ describe('CanvasContentService', () => {
   });
 
   describe('Quizzes', () => {
-    it('should get quiz with questions', async () => {
-      const quiz = {
-        id: 'q1',
-        questions: [
-          { id: 'qq1', question_text: 'What is 2+2?' }
-        ]
-      };
-
+    // Questions come from get_quiz_questions_for_taking, which strips the
+    // `correct` flag server-side — the quizzes row itself carries no answer
+    // key any more.
+    it('should get quiz with questions from the sanitized RPC', async () => {
       mockSupabaseClient.from().select().eq().single.mockResolvedValue({
-        data: quiz,
+        data: { id: 'q1' },
+        error: null
+      });
+      (mockSupabaseClient.rpc as any).mockResolvedValue({
+        data: [{ id: 'qq1', question_text: 'What is 2+2?', answers: [{ id: 'a1', text: 'Four' }] }],
         error: null
       });
 
       const result = await CanvasContentService.getQuiz('ci-1');
 
+      expect(mockSupabaseClient.rpc).toHaveBeenCalledWith(
+        'get_quiz_questions_for_taking',
+        { p_quiz_id: 'q1' }
+      );
       expect(result?.questions).toHaveLength(1);
+      // The option is present for rendering, with no correctness marker.
+      expect(result?.questions?.[0].answers?.[0]).not.toHaveProperty('correct');
     });
 
     it('should update quiz', async () => {
