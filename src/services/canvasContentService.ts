@@ -22,7 +22,7 @@ export class CanvasContentService {
       .select(`
         *,
         assignment:assignments(*),
-        quiz:quizzes(*, questions:quiz_questions(*))
+        quiz:quizzes(*, questions:quiz_questions(id, quiz_id, question_text, question_type, points, position, created_at))
       `)
       .eq('module_id', moduleId)
       .order('position');
@@ -46,7 +46,7 @@ export class CanvasContentService {
         .select(`
           *,
           assignment:assignments(*),
-          quiz:quizzes(*, questions:quiz_questions(*))
+          quiz:quizzes(*, questions:quiz_questions(id, quiz_id, question_text, question_type, points, position, created_at))
         `)
         .eq('id', id)
         .single();
@@ -341,18 +341,26 @@ export class CanvasContentService {
   }
 
   // Quizzes
+  //
+  // Questions come from get_quiz_questions_for_taking, which returns the
+  // answer OPTIONS with the `correct` flag stripped server-side. The answer
+  // key is not readable by `authenticated` (20260728000000) and grading runs
+  // in the score-quiz edge function, so the browser never holds it.
   static async getQuiz(contentItemId: string): Promise<Quiz | null> {
     const { data, error } = await supabase
       .from('quizzes')
-      .select(`
-        *,
-        questions:quiz_questions(*)
-      `)
+      .select('*')
       .eq('content_item_id', contentItemId)
       .single();
 
     if (error && error.code !== 'PGRST116') throw error;
-    return data;
+    if (!data) return null;
+
+    const { data: questions, error: questionsError } = await supabase
+      .rpc('get_quiz_questions_for_taking', { p_quiz_id: data.id });
+    if (questionsError) throw questionsError;
+
+    return { ...data, questions: questions || [] };
   }
 
   static async updateQuiz(
