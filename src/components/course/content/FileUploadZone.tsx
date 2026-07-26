@@ -11,6 +11,13 @@ interface FileUploadZoneProps {
   onFileUploaded: (file: UploadedFile) => void;
   /** Course the upload belongs to — becomes the first path segment the bucket policies key off. */
   courseId: string;
+  /**
+   * When set, the file is uploaded as this user's assignment submission
+   * (path submissions/<courseId>/<userId>/...), which the course_submission_*
+   * policies authorize for an enrolled student. Omit for course-material uploads,
+   * which require course-staff permission.
+   */
+  submissionUserId?: string;
   acceptedTypes?: 'images' | 'videos' | 'documents' | 'all';
   maxSize?: number;
   className?: string;
@@ -19,6 +26,7 @@ interface FileUploadZoneProps {
 const FileUploadZone: React.FC<FileUploadZoneProps> = ({
   onFileUploaded,
   courseId,
+  submissionUserId,
   acceptedTypes = 'all',
   maxSize = 50 * 1024 * 1024, // 50MB default
   className
@@ -62,12 +70,12 @@ const FileUploadZone: React.FC<FileUploadZoneProps> = ({
     if (!file) return;
 
     const bucket = getBucket(file.type);
-    const uploadedFile = await uploadFile(file, bucket, courseId);
+    const uploadedFile = await uploadFile(file, bucket, courseId, { submissionUserId });
 
     if (uploadedFile) {
       onFileUploaded(uploadedFile);
     }
-  }, [uploadFile, onFileUploaded, courseId]);
+  }, [uploadFile, onFileUploaded, courseId, submissionUserId]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,

@@ -23,7 +23,8 @@ export function useFileUpload() {
   const uploadFile = async (
     file: File,
     bucket: 'course-images' | 'course-videos' | 'course-documents',
-    courseId: string
+    courseId: string,
+    opts?: { submissionUserId?: string }
   ): Promise<UploadedFile | null> => {
     if (!file) return null;
 
@@ -44,10 +45,15 @@ export function useFileUpload() {
       // Generate unique filename
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-      // The course id has to be the first path segment: the bucket policies
-      // resolve it with split_part(name, '/', 1)::uuid to decide who may read
-      // or write the object.
-      const filePath = `${courseId}/${fileName}`;
+      // Path layout is load-bearing — the storage policies parse it with
+      // split_part(name, '/', n). Course materials live at <courseId>/<file>
+      // (writable only by course staff); student assignment attachments live at
+      // submissions/<courseId>/<userId>/<file>, which the course_submission_*
+      // policies authorize for the enrolled owner without granting general
+      // course-material writes.
+      const filePath = opts?.submissionUserId
+        ? `submissions/${courseId}/${opts.submissionUserId}/${fileName}`
+        : `${courseId}/${fileName}`;
 
       // Upload file
       const { data, error } = await supabase.storage

@@ -80,6 +80,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { createLogger } from '@/utils/logger';
+import { resolveHtmlCourseAssets } from '@/utils/storageAssets';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
@@ -219,13 +220,37 @@ export function UnifiedCanvasEditor({
 
   // Sync external content changes (e.g. AI-generated content inserted from a dialog)
   // into the editor. TipTap's `content` prop only seeds the initial value.
+  //
+  // In read-only mode, resolve private course-bucket asset URLs to fresh signed
+  // URLs before rendering — a stored public or expired-signed URL would not load
+  // for a private bucket. Editing keeps the raw reference so it round-trips
+  // unchanged (render sites re-sign it on read).
   useEffect(() => {
     if (!editor) return;
-    const current = editor.getHTML();
-    if (typeof content === 'string' && content !== current) {
-      editor.commands.setContent(content || '', false);
+    const raw = typeof content === 'string' ? content : '';
+
+    if (readOnly) {
+      let cancelled = false;
+      resolveHtmlCourseAssets(raw)
+        .then((resolved) => {
+          if (!cancelled && !editor.isDestroyed && resolved !== editor.getHTML()) {
+            editor.commands.setContent(resolved, false);
+          }
+        })
+        .catch(() => {
+          if (!editor.isDestroyed && raw !== editor.getHTML()) {
+            editor.commands.setContent(raw, false);
+          }
+        });
+      return () => {
+        cancelled = true;
+      };
     }
-  }, [content, editor]);
+
+    if (raw !== editor.getHTML()) {
+      editor.commands.setContent(raw, false);
+    }
+  }, [content, editor, readOnly]);
 
   if (!editor) {
     return null;
