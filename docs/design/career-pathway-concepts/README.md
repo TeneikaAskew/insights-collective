@@ -23,9 +23,12 @@ placeholders so it stays readable in review.
 ## Concept A — Segmented switch
 ![Concept A](./concept-a-segmented-switch.png)
 A two-way switch ("Coach & pathway" / "Action plan") lives in the empty header
-space, carrying a live milestone count. One view at a time, so the page never
-exceeds a screen or two and the control stays visible while scrolling. Shortest
-page; the action plan is one tap rather than a scroll.
+space, carrying a live milestone count. One view at a time, so neither half is
+buried under the other, and the action plan is one tap from the top of the page
+rather than a scroll past the whole report.
+
+The switch sits in the header and scrolls with it, exactly as in the prototype —
+it is not pinned. Switching returns you to the top of the new view.
 
 The action plan panel:
 ![Concept A — action plan](./concept-a-action-plan.png)
