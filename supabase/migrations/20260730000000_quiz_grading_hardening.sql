@@ -118,12 +118,23 @@ END;
 $function$;
 
 -- ---------------------------------------------------------------------------
--- 2. Reveal-gate the learner's view of their own graded answer rows
+-- 2. Learner reads their own graded answer rows (plain owner scope)
 -- ---------------------------------------------------------------------------
--- quiz_submission_answers carries per-question correct/points. Without gating,
--- a multi-attempt learner could read attempt 1's grading before attempt 2 — the
--- same leak get_quiz_questions_for_taking closes for the key. Gate the learner's
--- read the same way (no attempt remaining + show_correct_answers). Instructors
+-- quiz_submission_answers stores each learner's OWN submitted answers plus their
+-- per-question correct/points. An earlier iteration tried to also withhold this
+-- between attempts by making the rows invisible until attempts were exhausted,
+-- but that gate did more harm than good:
+--   * It checked the quiz-wide completed count, not the row's own submission, so
+--     concurrent pending-but-graded submissions (score-quiz commits answer rows
+--     before finalizing) became readable once any attempt hit the limit — the
+--     very answer-oracle it was meant to close.
+--   * The rows stay writable, so hiding them broke the clients' autosave upsert
+--     and made both result views (CanvasQuizResults, InlineQuizPlayer) render
+--     "0/N, all incorrect", contradicting the real score.
+-- Revealing a learner their OWN correctness is standard formative-quiz behavior;
+-- the answer KEY is still withheld during taking by get_quiz_questions_for_taking
+-- (§1) and grading stays server-side. So this reverts to a plain owner scope,
+-- matching the INSERT/UPDATE/DELETE policies already on this table. Instructors
 -- keep their own separate policy.
 DROP POLICY IF EXISTS "Users can view their own quiz submission answers" ON public.quiz_submission_answers;
 CREATE POLICY "Users can view their own quiz submission answers" ON public.quiz_submission_answers
@@ -132,18 +143,8 @@ CREATE POLICY "Users can view their own quiz submission answers" ON public.quiz_
     EXISTS (
       SELECT 1
       FROM public.quiz_submissions qs
-      JOIN public.quizzes q ON q.id = qs.quiz_id
       WHERE qs.id = quiz_submission_answers.quiz_submission_id
         AND qs.user_id = auth.uid()
-        AND COALESCE(q.show_correct_answers, true)
-        AND q.allowed_attempts IS NOT NULL
-        AND q.allowed_attempts > 0
-        AND (
-          SELECT count(*) FROM public.quiz_submissions s2
-          WHERE s2.quiz_id = qs.quiz_id
-            AND s2.user_id = auth.uid()
-            AND s2.workflow_state = 'complete'
-        ) >= q.allowed_attempts
     )
   );
 
@@ -177,8 +178,9 @@ DECLARE
   v_completed integer;
   v_reveal boolean;
 BEGIN
-  SELECT user_id, quiz_id, workflow_state
-    INTO v_user, v_quiz, v_state
+  -- Read only the immutable routing columns first; they build the lock key.
+  SELECT user_id, quiz_id
+    INTO v_user, v_quiz
   FROM public.quiz_submissions
   WHERE id = p_submission_id;
 
@@ -187,6 +189,15 @@ BEGIN
   END IF;
 
   PERFORM pg_advisory_xact_lock(hashtext(v_user::text), hashtext(v_quiz::text));
+
+  -- Re-read workflow_state INSIDE the lock. A concurrent finalize of this same
+  -- submission may have completed it while we waited on the lock; reading state
+  -- before the lock would let the loser re-finalize an already-complete row and
+  -- return reveal:true off a stale count.
+  SELECT workflow_state
+    INTO v_state
+  FROM public.quiz_submissions
+  WHERE id = p_submission_id;
 
   IF v_state = 'complete' THEN
     RAISE EXCEPTION 'Attempt already submitted';
@@ -224,5 +235,11 @@ BEGIN
 END;
 $function$;
 
+-- Only the score-quiz service-role client may finalize. Revoke the default
+-- PUBLIC grant and the caller roles, then grant service_role explicitly so the
+-- migration is self-contained on a fresh project (Supabase's default privileges
+-- happen to grant service_role EXECUTE on creation, but do not rely on that).
 REVOKE EXECUTE ON FUNCTION public.finalize_quiz_submission(uuid, integer, integer)
   FROM public, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.finalize_quiz_submission(uuid, integer, integer)
+  TO service_role;

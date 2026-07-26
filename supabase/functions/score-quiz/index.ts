@@ -179,10 +179,11 @@ serve(async (req) => {
     }
 
     // Finalize atomically: the DB function takes a per-user/quiz advisory lock,
-    // re-checks the attempt limit inside it, writes the kept score, and reports
-    // whether answers may now be revealed (last attempt used + show_correct_answers).
-    // Run with the service role, so the grade-pinning triggers accept the write.
-    const { data: finalizeData, error: finalizeError } = await supabase.rpc(
+    // re-reads the submission state and attempt count inside it, then writes the
+    // kept score. Run with the service role, so the grade-pinning triggers accept
+    // the write. The attempt limit is enforced here, not in the read-then-write
+    // above, so concurrent pending attempts can't all slip past the limit.
+    const { error: finalizeError } = await supabase.rpc(
       "finalize_quiz_submission",
       {
         p_submission_id: submission.id,
@@ -201,24 +202,20 @@ serve(async (req) => {
       });
     }
 
-    const reveal = finalizeData?.reveal === true;
-
+    // The learner may see their OWN per-question correctness — the answer KEY
+    // stays hidden (get_quiz_questions_for_taking withholds it during taking and
+    // the browser never graded). The result views read the graded rows from
+    // quiz_submission_answers directly under a plain owner RLS scope; this
+    // response mirrors them for callers that want the score inline.
     return new Response(
       JSON.stringify({
         score: totalScore,
         pointsPossible,
-        // Per-question correctness is withheld until answers may be revealed
-        // (no attempt remaining, and the quiz permits it). Otherwise a learner
-        // could read attempt N's grading before attempt N+1. Matches the row
-        // visibility gate on quiz_submission_answers and the taking RPC.
-        reveal,
-        results: reveal
-          ? graded.map((row) => ({
-              questionId: row.quiz_question_id,
-              correct: row.correct,
-              points: row.points,
-            }))
-          : [],
+        results: graded.map((row) => ({
+          questionId: row.quiz_question_id,
+          correct: row.correct,
+          points: row.points,
+        })),
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
