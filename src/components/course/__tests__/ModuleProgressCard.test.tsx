@@ -37,7 +37,7 @@ function mockTables(tables: Record<string, QueryResult>) {
   return { builders, queried };
 }
 
-function stubHappyPath() {
+function stubHappyPath(overrides: Record<string, any> = {}) {
   return mockTables({
     content_items: {
       data: [
@@ -60,6 +60,7 @@ function stubHappyPath() {
         attempts: [],
       }],
     },
+    ...overrides,
   });
 }
 
@@ -111,6 +112,32 @@ describe('ModuleProgressCard', () => {
     // i1 completed + a1 graded = 2 done; i2 + q1 not done. 2/4 = 50%.
     expect(screen.getByText(/50%/)).toBeInTheDocument();
     expect(screen.getByText(/2\s*\/\s*4/)).toBeInTheDocument();
+  });
+
+  // REGRESSION: quiz completion comes from quiz_submissions.workflow_state.
+  // The card previously embedded quiz_attempts and checked completed_at — a
+  // table nothing writes — so finished quizzes never counted.
+  it('counts a completed quiz_submissions row as a finished quiz', async () => {
+    stubHappyPath({
+      quizzes: {
+        data: [{
+          id: 'q1', title: 'Quiz 1', points_possible: 5,
+          attempts: [{ id: 'qs1', score: 5, finished_at: '2026-01-02T00:00:00Z', workflow_state: 'complete' }],
+        }],
+      },
+    });
+
+    render(
+      <ModuleProgressCard
+        moduleId="m1"
+        moduleTitle="Week 1"
+        studentId="user-1"
+        showDetails={true}
+      />
+    );
+
+    // 3 of 4 items done: 1 content item + 1 graded assignment + 1 quiz = 75%
+    expect(await screen.findByText('75%')).toBeInTheDocument();
   });
 
   it('renders the error state with retry when a query fails', async () => {
