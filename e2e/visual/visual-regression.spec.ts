@@ -102,6 +102,11 @@ test.describe('visual regression', () => {
       const context = await browser.newContext({
         viewport: { width: 1280, height: 800 },
         storageState: storageStateFor(route.role),
+        // JS-driven motion survives `animations: 'disabled'` — the landing
+        // hero swaps its headline word on a 2.5s interval, so which word (and
+        // therefore which headline width) got captured was a coin toss.
+        // Components that honour this preference settle deterministically.
+        reducedMotion: 'reduce',
       });
       const page = await context.newPage();
 
