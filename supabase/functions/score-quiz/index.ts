@@ -124,33 +124,29 @@ serve(async (req) => {
       });
     }
 
-    // Attempt limit is enforced here, not just in the UI. The learner INSERT
-    // policy lets a client create any owned quiz_submissions row, so without
-    // this check someone could insert attempts 2..N, score each one, and use
-    // the per-question results as an answer oracle.
-    const { data: quiz } = await supabase
-      .from("quizzes")
-      .select("allowed_attempts")
-      .eq("id", submission.quiz_id)
-      .single();
-
-    const allowed = quiz?.allowed_attempts ?? null;
-    // null / <= 0 means unlimited, matching the schema's default semantics.
-    if (typeof allowed === "number" && allowed > 0) {
-      const { count: completedCount } = await supabase
-        .from("quiz_submissions")
-        .select("id", { count: "exact", head: true })
-        .eq("quiz_id", submission.quiz_id)
-        .eq("user_id", userId)
-        .eq("workflow_state", "complete");
-
-      if ((completedCount ?? 0) >= allowed) {
-        return new Response(
-          JSON.stringify({ error: "You have used all available attempts for this quiz" }),
-          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
-      }
+    // Owning the submission row is not enough. The learner INSERT policy lets any
+    // authenticated user create an owned quiz_submissions row for ANY quiz id, and
+    // grading below reads the answer key with the service role (RLS bypassed). So
+    // re-check that the caller can actually access this quiz — otherwise the
+    // per-question results become an answer oracle for unpublished or otherwise
+    // inaccessible quizzes.
+    const { data: canAccess, error: accessError } = await supabase.rpc("can_access_quiz", {
+      viewer_id: userId,
+      quiz_id: submission.quiz_id,
+    });
+    if (accessError) throw accessError;
+    if (!canAccess) {
+      return new Response(JSON.stringify({ error: "You do not have access to this quiz" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
+
+    // The attempt limit is enforced atomically in finalize_quiz_submission()
+    // below (a per-user/quiz advisory lock + re-check inside the lock), so that
+    // concurrent requests for separately-numbered pending attempts can't each
+    // observe a sub-limit count and all finalize. It is not checked here, where
+    // the read-then-write would race.
 
     const { data: questions, error: questionsError } = await supabase
       .from("quiz_questions")
@@ -182,33 +178,47 @@ serve(async (req) => {
       if (answersError) throw answersError;
     }
 
-    // Kept-score policy unchanged from the client implementation: latest
-    // attempt. Written with the service role, so the freeze trigger from
-    // 20260727001000 applies to everyone else but not to this authoritative
-    // write.
-    const { error: updateError } = await supabase
-      .from("quiz_submissions")
-      .update({
-        finished_at: new Date().toISOString(),
-        time_spent: typeof timeSpent === "number" ? timeSpent : null,
-        score: totalScore,
-        kept_score: totalScore,
-        workflow_state: "complete",
-      })
-      .eq("id", submission.id);
-    if (updateError) throw updateError;
+    // Finalize atomically: the DB function takes a per-user/quiz advisory lock,
+    // re-checks the attempt limit inside it, writes the kept score, and reports
+    // whether answers may now be revealed (last attempt used + show_correct_answers).
+    // Run with the service role, so the grade-pinning triggers accept the write.
+    const { data: finalizeData, error: finalizeError } = await supabase.rpc(
+      "finalize_quiz_submission",
+      {
+        p_submission_id: submission.id,
+        p_score: totalScore,
+        p_time_spent: typeof timeSpent === "number" ? timeSpent : null,
+      },
+    );
+    if (finalizeError) {
+      const msg = finalizeError.message || "";
+      const status = /attempt limit/i.test(msg) ? 403
+        : /already submitted/i.test(msg) ? 409
+        : 500;
+      return new Response(JSON.stringify({ error: msg || "Failed to finalize submission" }), {
+        status,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const reveal = finalizeData?.reveal === true;
 
     return new Response(
       JSON.stringify({
         score: totalScore,
         pointsPossible,
-        // Per-question outcome for the results view. Safe post-submission:
-        // it reports what the student got right, not the unattempted key.
-        results: graded.map((row) => ({
-          questionId: row.quiz_question_id,
-          correct: row.correct,
-          points: row.points,
-        })),
+        // Per-question correctness is withheld until answers may be revealed
+        // (no attempt remaining, and the quiz permits it). Otherwise a learner
+        // could read attempt N's grading before attempt N+1. Matches the row
+        // visibility gate on quiz_submission_answers and the taking RPC.
+        reveal,
+        results: reveal
+          ? graded.map((row) => ({
+              questionId: row.quiz_question_id,
+              correct: row.correct,
+              points: row.points,
+            }))
+          : [],
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
