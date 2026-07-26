@@ -149,7 +149,7 @@ describe('AdminCourses', () => {
       expect(screen.getByTestId('spinner')).toBeInTheDocument();
     });
 
-    it('renders the loaded course cards with enrollment counts', async () => {
+    it('renders the loaded course rows with enrollment counts', async () => {
       wireHappyCoursesLoad();
 
       render(<AdminCourses />);
@@ -157,7 +157,7 @@ describe('AdminCourses', () => {
       await waitFor(() => {
         expect(screen.getByText('Intro to Data Analytics')).toBeInTheDocument();
       });
-      expect(screen.getByText('Learn the basics of data analytics.')).toBeInTheDocument();
+      // Roster table row: title, enrolled count, instructor, and status chip.
       expect(screen.getByText('2 enrolled')).toBeInTheDocument();
       expect(screen.getByText('Grace Hopper')).toBeInTheDocument();
       expect(screen.getByText('Published')).toBeInTheDocument();

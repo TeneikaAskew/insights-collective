@@ -1,47 +1,47 @@
 
-import { useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useMemo, useState } from 'react';
 import { downloadCsv } from '@/utils/csv';
 import { useNavigate } from 'react-router-dom';
-import AppLayout from '@/components/layout/AppLayout';
+import { cn } from '@/lib/utils';
+import AdminSoftStudio from '@/components/admin/AdminSoftStudio';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Edit, Trash2, Plus, FilterX, Download, Filter, Users, Award, Eye, PlusCircle, BarChart3, FileSpreadsheet } from 'lucide-react';
+import {
+  Search, Edit, Trash2, Plus, FilterX, Download, Users, Award, Eye, BarChart3,
+  FileSpreadsheet, GraduationCap, CheckCircle, ArrowUpDown, ArrowUp, ArrowDown, X,
+} from 'lucide-react';
 import { Hint } from '@/components/ui/hint';
 import { CourseProgressDashboard } from '@/components/admin/CourseProgressDashboard';
 import { UnifiedExportReport } from '@/components/admin/UnifiedExportReport';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { 
-  AlertDialog, 
-  AlertDialogAction, 
-  AlertDialogCancel, 
-  AlertDialogContent, 
-  AlertDialogDescription, 
-  AlertDialogFooter, 
-  AlertDialogHeader, 
-  AlertDialogTitle, 
-  AlertDialogTrigger 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useCoursesManagement } from '@/hooks/useCoursesManagement';
 import { useCourseEnrollments } from '@/hooks/useCourseEnrollments';
-
+import { useCourseCertificates, type CertRow } from '@/hooks/useCourseCertificates';
+import { useCourseRosterStats } from '@/hooks/useCourseRosterStats';
+import { getInitials, avatarColor } from '@/utils/adminUiUtils';
 
 import { Course } from '@/types/course';
 import { Spinner } from '@/components/ui/spinner';
 import CourseErrorState from '@/components/course/CourseErrorState';
+
+type SortKey = 'title' | 'status' | 'enrolled' | 'progress';
 
 export default function AdminCourses() {
   const {
@@ -49,18 +49,20 @@ export default function AdminCourses() {
     loading: coursesLoading,
     error: coursesError,
     refetch: refetchCourses,
-    saveCourse,
-    createCourse,
-    updateCourse,
     deleteCourse,
     publishCourse,
     unpublishCourse,
   } = useCoursesManagement();
 
+  const { statsByCourse } = useCourseRosterStats();
+
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [activeTab, setActiveTab] = useState('courses');
+  const [sortKey, setSortKey] = useState<SortKey>('title');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -75,6 +77,7 @@ export default function AdminCourses() {
         title: 'Course Deleted',
         description: `"${course.title}" has been successfully removed.`,
       });
+      setSelectedCourse((cur) => (cur?.id === course.id ? null : cur));
     }
   };
 
@@ -82,8 +85,6 @@ export default function AdminCourses() {
     // Route into the Teachable-style course builder wizard
     navigate('/courses/new/builder');
   };
-
-
 
   const handleTogglePublish = async (course: Course) => {
     if (course.published) {
@@ -94,19 +95,57 @@ export default function AdminCourses() {
   };
 
   const filteredCourses = courses.filter((course) => {
-    const matchesSearch = 
+    const matchesSearch =
       course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       course.description.toLowerCase().includes(searchQuery.toLowerCase());
-    
+
     const matchesCategory = categoryFilter === 'all' || course.category === categoryFilter;
-    
-    const matchesStatus = 
-      statusFilter === 'all' || 
-      (statusFilter === 'published' && course.published) || 
+
+    const matchesStatus =
+      statusFilter === 'all' ||
+      (statusFilter === 'published' && course.published) ||
       (statusFilter === 'draft' && !course.published);
-    
+
     return matchesSearch && matchesCategory && matchesStatus;
   });
+
+  const progressOf = (course: Course): number | null => {
+    const s = statsByCourse[course.id];
+    return s ? s.avgProgress : null;
+  };
+
+  const sortedCourses = useMemo(() => {
+    const dir = sortDir === 'asc' ? 1 : -1;
+    return [...filteredCourses].sort((a, b) => {
+      switch (sortKey) {
+        case 'title':
+          return a.title.localeCompare(b.title) * dir;
+        case 'status':
+          return (Number(a.published) - Number(b.published)) * dir;
+        case 'enrolled':
+          return ((a.enrollmentCount ?? 0) - (b.enrollmentCount ?? 0)) * dir;
+        case 'progress':
+          return ((progressOf(a) ?? -1) - (progressOf(b) ?? -1)) * dir;
+        default:
+          return 0;
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredCourses, sortKey, sortDir, statsByCourse]);
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir(key === 'title' || key === 'status' ? 'asc' : 'desc');
+    }
+  };
+
+  const sortIcon = (key: SortKey) => {
+    if (sortKey !== key) return <ArrowUpDown className="h-3.5 w-3.5 opacity-50" />;
+    return sortDir === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />;
+  };
 
   const clearFilters = () => {
     setSearchQuery('');
@@ -114,15 +153,16 @@ export default function AdminCourses() {
     setStatusFilter('all');
   };
 
-  const categories = [...new Set(courses.map(course => course.category))];
+  const hasFilters = searchQuery || categoryFilter !== 'all' || statusFilter !== 'all';
+  const categories = [...new Set(courses.map((course) => course.category))];
 
   if (coursesLoading) {
     return (
-      <AppLayout>
+      <AdminSoftStudio>
         <div className="flex justify-center items-center h-[50vh]">
           <Spinner size="lg" />
         </div>
-      </AppLayout>
+      </AdminSoftStudio>
     );
   }
 
@@ -130,7 +170,7 @@ export default function AdminCourses() {
   // this page depends on the course list, so surface the failure with a retry.
   if (coursesError) {
     return (
-      <AppLayout>
+      <AdminSoftStudio>
         <div className="max-w-3xl mx-auto py-16 px-4">
           <CourseErrorState
             title="Failed to load courses"
@@ -138,238 +178,496 @@ export default function AdminCourses() {
             onRetry={() => refetchCourses()}
           />
         </div>
-      </AppLayout>
+      </AdminSoftStudio>
     );
   }
 
+  const tabTrigger = 'rounded-xl px-4 py-2 data-[state=active]:bg-card data-[state=active]:text-ss-lav-deep data-[state=active]:shadow-[var(--ss-shadow)]';
+
   return (
-    <AppLayout>
-      <div className="teachable-workspace bg-white -mx-4 md:-mx-6 lg:-mx-8 -my-4 px-4 md:px-8 lg:px-12 py-10 min-h-[calc(100vh-4rem)]">
-        <div className="max-w-7xl mx-auto space-y-8">
-          <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-4 pb-6 border-b border-neutral-200">
-            <div>
-              <p className="text-xs uppercase tracking-[0.15em] text-neutral-500 mb-2">Admin</p>
-              <h1 className="font-display text-4xl md:text-5xl text-neutral-900">Manage courses &amp; enrollments</h1>
-              <p className="text-neutral-600 mt-2 max-w-2xl">
-                Create courses with the guided builder, publish them, and keep an eye on enrollments and certificates.
-              </p>
+    <AdminSoftStudio>
+      {/* Header */}
+      <header className="flex flex-col md:flex-row md:justify-between md:items-end gap-4 mb-7">
+        <div>
+          <p className="ss-serif text-ss-lav-deep text-lg mb-1">Insights Collective · Admin</p>
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Manage courses &amp; enrollments</h1>
+          <p className="text-muted-foreground mt-1 max-w-2xl">
+            Create courses with the guided builder, publish them, and keep an eye on enrollments and certificates.
+          </p>
+        </div>
+        <Button onClick={handleAddCourse} className="rounded-xl">
+          <Plus className="mr-2 h-4 w-4" /> New course
+        </Button>
+      </header>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="mb-6 bg-muted rounded-2xl p-1 h-auto flex-wrap">
+          <TabsTrigger value="courses" className={tabTrigger}>Courses</TabsTrigger>
+          <TabsTrigger value="enrollments" className={tabTrigger}>
+            <Users className="mr-2 h-4 w-4" /> Enrollments
+          </TabsTrigger>
+          <TabsTrigger value="certificates" className={tabTrigger}>
+            <Award className="mr-2 h-4 w-4" /> Certificates
+          </TabsTrigger>
+          <TabsTrigger value="progress" className={tabTrigger}>
+            <BarChart3 className="mr-2 h-4 w-4" /> Progress
+          </TabsTrigger>
+          <TabsTrigger value="report" className={tabTrigger}>
+            <FileSpreadsheet className="mr-2 h-4 w-4" /> Report
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="courses" className="space-y-4">
+          {/* Filters */}
+          <div className="flex flex-col md:flex-row gap-3">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search courses"
+                className="pl-10 rounded-xl bg-card"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
             </div>
-            <Button
-              onClick={handleAddCourse}
-              className="h-11 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-6 shadow-none"
-            >
-              <Plus className="mr-2 h-4 w-4" /> New course
-            </Button>
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="w-full md:w-[200px] rounded-xl bg-card">
+                <SelectValue placeholder="Category" />
+              </SelectTrigger>
+              <SelectContent className="soft-studio">
+                <SelectItem value="all">All categories</SelectItem>
+                {categories.map((c) => (
+                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full md:w-[180px] rounded-xl bg-card">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent className="soft-studio">
+                <SelectItem value="all">All statuses</SelectItem>
+                <SelectItem value="published">Published</SelectItem>
+                <SelectItem value="draft">Draft</SelectItem>
+              </SelectContent>
+            </Select>
+            {hasFilters && (
+              <Button variant="ghost" onClick={clearFilters} className="rounded-xl">
+                <FilterX className="mr-2 h-4 w-4" /> Clear
+              </Button>
+            )}
           </div>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="mb-6 bg-neutral-100 rounded-full p-1 h-auto">
-              <TabsTrigger value="courses" className="rounded-full px-5 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                Courses
-              </TabsTrigger>
-              <TabsTrigger value="enrollments" className="rounded-full px-5 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                <Users className="mr-2 h-4 w-4" /> Enrollments
-              </TabsTrigger>
-              <TabsTrigger value="certificates" className="rounded-full px-5 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                <Award className="mr-2 h-4 w-4" /> Certificates
-              </TabsTrigger>
-              <TabsTrigger value="progress" className="rounded-full px-5 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                <BarChart3 className="mr-2 h-4 w-4" /> Progress
-              </TabsTrigger>
-              <TabsTrigger value="report" className="rounded-full px-5 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                <FileSpreadsheet className="mr-2 h-4 w-4" /> Report
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="courses" className="space-y-6">
-              {/* Filters */}
-              <div className="flex flex-col md:flex-row gap-3">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
-                  <Input
-                    placeholder="Search courses"
-                    className="pl-11 h-11 rounded-full border-neutral-300 bg-white"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                </div>
-                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                  <SelectTrigger className="w-full md:w-[200px] h-11 rounded-full border-neutral-300 bg-white">
-                    <SelectValue placeholder="Category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All categories</SelectItem>
-                    {categories.map((c) => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-full md:w-[180px] h-11 rounded-full border-neutral-300 bg-white">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All statuses</SelectItem>
-                    <SelectItem value="published">Published</SelectItem>
-                    <SelectItem value="draft">Draft</SelectItem>
-                  </SelectContent>
-                </Select>
-                {(searchQuery || categoryFilter !== 'all' || statusFilter !== 'all') && (
-                  <Button variant="ghost" onClick={clearFilters} className="h-11 rounded-full">
-                    <FilterX className="mr-2 h-4 w-4" /> Clear
-                  </Button>
-                )}
+          {/* Roster table */}
+          {sortedCourses.length === 0 ? (
+            hasFilters ? (
+              <div className="text-center py-16 rounded-3xl border border-dashed border-border bg-card">
+                <h3 className="text-xl font-bold mb-1">No courses match your filters</h3>
+                <p className="text-muted-foreground mb-4">Try a different search or clear the filters.</p>
+                <Button variant="outline" onClick={clearFilters} className="rounded-xl bg-card">
+                  <FilterX className="mr-2 h-4 w-4" /> Clear filters
+                </Button>
               </div>
-
-              {/* Card grid */}
-              {filteredCourses.length === 0 ? (
-                <div className="text-center py-20 border border-dashed rounded-2xl">
-                  <h3 className="font-display text-2xl text-neutral-900 mb-2">No courses yet</h3>
-                  <p className="text-neutral-500 mb-4">Get started by creating your first course.</p>
-                  <Button
-                    onClick={handleAddCourse}
-                    className="h-11 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-none"
-                  >
-                    <Plus className="mr-2 h-4 w-4" /> New course
-                  </Button>
-                </div>
-              ) : (
-                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                  {filteredCourses.map((course) => (
-                    <div
-                      key={course.id}
-                      className="group rounded-2xl border border-neutral-200 bg-white overflow-hidden hover:border-neutral-900 transition-all"
-                    >
-                      <button
-                        onClick={() => handleEditCourse(course)}
-                        className="block w-full text-left"
-                      >
-                        <div className="aspect-[16/9] bg-neutral-100 overflow-hidden">
-                          {(course as any).image_url || (course as any).thumbnail ? (
-                            <img
-                              src={(course as any).image_url || (course as any).thumbnail}
-                              alt={course.title}
-                              className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-neutral-300">
-                              <BookOpenIcon />
-                            </div>
-                          )}
-                        </div>
-                        <div className="p-5">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Badge
-                              variant={course.published ? 'default' : 'secondary'}
-                              className={
-                                course.published
-                                  ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-0'
-                                  : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-100 border-0'
-                              }
-                            >
-                              {course.published ? 'Published' : 'Draft'}
-                            </Badge>
-                            {course.category && (
-                              <span className="text-[11px] uppercase tracking-[0.15em] text-neutral-500">
-                                {course.category}
-                              </span>
-                            )}
-                          </div>
-                          <h3 className="font-display text-xl text-neutral-900 mb-2 line-clamp-2 leading-tight">
-                            {course.title}
-                          </h3>
-                          <p className="text-sm text-neutral-600 line-clamp-2 mb-4">
-                            {course.description}
-                          </p>
-                          <div className="flex items-center justify-between text-xs text-neutral-500">
-                            <span>{course.enrollmentCount || 0} enrolled</span>
-                            <span>{course.instructor?.name || 'Unassigned'}</span>
-                          </div>
-                        </div>
-                      </button>
-                      <div className="px-5 py-3 border-t border-neutral-100 flex items-center justify-between gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEditCourse(course)}
-                          className="rounded-full"
+            ) : (
+              <div className="text-center py-16 rounded-3xl border border-dashed border-border bg-card">
+                <h3 className="text-xl font-bold mb-1">No courses yet</h3>
+                <p className="text-muted-foreground mb-4">Get started by creating your first course.</p>
+                <Button onClick={handleAddCourse} className="rounded-xl">
+                  <Plus className="mr-2 h-4 w-4" /> New course
+                </Button>
+              </div>
+            )
+          ) : (
+            <div className="rounded-3xl border border-border bg-card overflow-hidden shadow-[var(--ss-shadow)]">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead>
+                        <button className="inline-flex items-center gap-1.5 hover:text-foreground" onClick={() => toggleSort('title')}>
+                          Course {sortIcon('title')}
+                        </button>
+                      </TableHead>
+                      <TableHead>Instructor</TableHead>
+                      <TableHead>
+                        <button className="inline-flex items-center gap-1.5 hover:text-foreground" onClick={() => toggleSort('status')}>
+                          Status {sortIcon('status')}
+                        </button>
+                      </TableHead>
+                      <TableHead className="text-right">
+                        <button className="inline-flex items-center gap-1.5 hover:text-foreground ml-auto" onClick={() => toggleSort('enrolled')}>
+                          Enrolled {sortIcon('enrolled')}
+                        </button>
+                      </TableHead>
+                      <TableHead className="w-[190px]">
+                        <button className="inline-flex items-center gap-1.5 hover:text-foreground" onClick={() => toggleSort('progress')}>
+                          Progress {sortIcon('progress')}
+                        </button>
+                      </TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sortedCourses.map((course) => {
+                      const progress = progressOf(course);
+                      const thumb = (course as any).image_url || (course as any).thumbnail;
+                      return (
+                        <TableRow
+                          key={course.id}
+                          className={cn('cursor-pointer', selectedCourse?.id === course.id && 'bg-ss-lav-chip')}
+                          onClick={() => setSelectedCourse(course)}
                         >
-                          <Edit className="h-3.5 w-3.5 mr-1.5" /> Edit
-                        </Button>
-                        <div className="flex items-center gap-1">
-                          <Hint label={course.published ? 'Hide this course from the catalog' : 'Make this course visible in the catalog'}>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleTogglePublish(course)}
-                              className="rounded-full text-neutral-600"
-                            >
-                              <Eye className="h-3.5 w-3.5 mr-1.5" />
-                              {course.published ? 'Unpublish' : 'Publish'}
-                            </Button>
-                          </Hint>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Hint label="Delete this course permanently">
-                                <Button variant="ghost" size="sm" className="rounded-full text-destructive hover:text-destructive">
-                                  <Trash2 className="h-3.5 w-3.5" />
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <div className="h-10 w-10 rounded-lg bg-muted overflow-hidden flex items-center justify-center text-ss-lav-deep shrink-0">
+                                {thumb ? (
+                                  <img src={thumb} alt={course.title} className="h-full w-full object-cover" />
+                                ) : (
+                                  <BookOpenIcon />
+                                )}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="font-semibold truncate">{course.title}</p>
+                                {course.category && (
+                                  <p className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">{course.category}</p>
+                                )}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {course.instructor?.name || 'Unassigned'}
+                          </TableCell>
+                          <TableCell>
+                            {course.published ? (
+                              <Badge className="border-transparent bg-ss-good-chip text-ss-good">Published</Badge>
+                            ) : (
+                              <Badge className="border-transparent bg-ss-track text-muted-foreground">Draft</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">{course.enrollmentCount ?? 0} enrolled</TableCell>
+                          <TableCell>
+                            {progress == null ? (
+                              <span className="text-muted-foreground">—</span>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <div className="h-1.5 w-24 rounded-full bg-muted overflow-hidden">
+                                  <div className="h-full rounded-full bg-ss-lav-deep" style={{ width: `${progress}%` }} />
+                                </div>
+                                <span className="text-xs tabular-nums">{progress}%</span>
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex justify-end gap-1">
+                              <Hint label="Edit this course">
+                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => handleEditCourse(course)}>
+                                  <Edit className="h-4 w-4" />
                                 </Button>
                               </Hint>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete this course?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  This permanently deletes "{course.title}" and cannot be undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => handleDeleteCourse(course)}
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                >
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </TabsContent>
+                              <Hint label={course.published ? 'Hide this course from the catalog' : 'Make this course visible in the catalog'}>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => handleTogglePublish(course)}>
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                              </Hint>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Hint label="Delete this course permanently">
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-destructive hover:text-destructive">
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </Hint>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent className="soft-studio">
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Delete this course?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      This permanently deletes "{course.title}" and cannot be undone.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => handleDeleteCourse(course)}
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    >
+                                      Delete
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
+        </TabsContent>
 
-            <TabsContent value="enrollments">
-              <EnrollmentsTab courses={courses} />
-            </TabsContent>
+        <TabsContent value="enrollments">
+          <EnrollmentsTab courses={courses} />
+        </TabsContent>
 
-            <TabsContent value="certificates">
-              <CertificatesTab courses={courses} />
-            </TabsContent>
+        <TabsContent value="certificates">
+          <CertificatesTab courses={courses} />
+        </TabsContent>
 
-            <TabsContent value="progress">
-              <CourseProgressDashboard courses={courses} />
-            </TabsContent>
+        <TabsContent value="progress">
+          <CourseProgressDashboard courses={courses} />
+        </TabsContent>
 
-            <TabsContent value="report">
-              <UnifiedExportReport courses={courses} />
-            </TabsContent>
-          </Tabs>
-        </div>
-      </div>
-    </AppLayout>
+        <TabsContent value="report">
+          <UnifiedExportReport courses={courses} />
+        </TabsContent>
+      </Tabs>
+
+      {/* Course detail drawer — hooks live inside so they only run when open */}
+      <Sheet open={!!selectedCourse} onOpenChange={(open) => { if (!open) setSelectedCourse(null); }}>
+        <SheetContent className="soft-studio bg-background w-full sm:max-w-lg overflow-y-auto">
+          {selectedCourse && (
+            <CourseDetailDrawer
+              course={selectedCourse}
+              enrollmentCount={selectedCourse.enrollmentCount ?? 0}
+              avgProgress={progressOf(selectedCourse)}
+              onEdit={() => handleEditCourse(selectedCourse)}
+              onTogglePublish={() => handleTogglePublish(selectedCourse)}
+              onDelete={() => handleDeleteCourse(selectedCourse)}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
+    </AdminSoftStudio>
   );
 }
 
 function BookOpenIcon() {
   return (
-    <svg viewBox="0 0 24 24" width="42" height="42" fill="none" stroke="currentColor" strokeWidth="1.5">
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5">
       <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
       <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
     </svg>
+  );
+}
+
+// Detail drawer for a single course — Overview / Enrollments / Certificates.
+// Reuses the same data hooks as the standalone Enrollments and Certificates
+// tabs so the drawer never diverges from them.
+type DrawerSub = 'overview' | 'enrollments' | 'certificates';
+
+function CourseDetailDrawer({
+  course,
+  enrollmentCount,
+  avgProgress,
+  onEdit,
+  onTogglePublish,
+  onDelete,
+}: {
+  course: Course;
+  enrollmentCount: number;
+  avgProgress: number | null;
+  onEdit: () => void;
+  onTogglePublish: () => void;
+  onDelete: () => void;
+}) {
+  const [sub, setSub] = useState<DrawerSub>('overview');
+  const { enrollments, loading: enrollmentsLoading } = useCourseEnrollments(course.id);
+  const { certs, loading: certsLoading, revoke } = useCourseCertificates(course.id);
+
+  const subTab = (key: DrawerSub, label: string) => (
+    <button
+      onClick={() => setSub(key)}
+      className={cn(
+        'px-3 py-1.5 text-sm font-medium rounded-lg',
+        sub === key ? 'bg-ss-lav-chip text-ss-lav-deep' : 'text-muted-foreground hover:text-foreground',
+      )}
+    >
+      {label}
+    </button>
+  );
+
+  const enrollmentName = (e: (typeof enrollments)[number]) =>
+    e.user ? `${e.user.first_name} ${e.user.last_name}`.trim() || 'Student' : 'Unknown User';
+
+  return (
+    <>
+      <SheetHeader className="text-left">
+        <SheetTitle className="text-xl">{course.title}</SheetTitle>
+        <SheetDescription>
+          {course.category || 'Uncategorized'} · {course.published ? 'Published' : 'Draft'} ·{' '}
+          {course.instructor?.name || 'Unassigned'}
+        </SheetDescription>
+      </SheetHeader>
+
+      <div className="flex gap-1 mt-4 mb-4 border-b border-border pb-2">
+        {subTab('overview', 'Overview')}
+        {subTab('enrollments', 'Enrollments')}
+        {subTab('certificates', 'Certificates')}
+      </div>
+
+      {sub === 'overview' && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-3 gap-2">
+            <div className="rounded-xl border border-border bg-card p-3">
+              <div className="text-xl font-bold tabular-nums">{enrollmentCount}</div>
+              <div className="text-xs text-muted-foreground">Enrolled</div>
+            </div>
+            <div className="rounded-xl border border-border bg-card p-3">
+              <div className="text-xl font-bold tabular-nums">{avgProgress == null ? '—' : `${avgProgress}%`}</div>
+              <div className="text-xs text-muted-foreground">Avg progress</div>
+            </div>
+            <div className="rounded-xl border border-border bg-card p-3">
+              <div className="text-xl font-bold tabular-nums">{certsLoading ? '—' : certs.length}</div>
+              <div className="text-xs text-muted-foreground">Certificates</div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" className="rounded-xl bg-card" onClick={onEdit}>
+              <Edit className="h-4 w-4 mr-2" /> Edit
+            </Button>
+            <Button variant="outline" size="sm" className="rounded-xl bg-card" onClick={onTogglePublish}>
+              <Eye className="h-4 w-4 mr-2" /> {course.published ? 'Unpublish' : 'Publish'}
+            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="sm" className="rounded-xl bg-card text-destructive hover:text-destructive">
+                  <Trash2 className="h-4 w-4 mr-2" /> Delete
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent className="soft-studio">
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete this course?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This permanently deletes "{course.title}" and cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={onDelete}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground font-semibold mb-2">Recent enrollments</p>
+            {enrollmentsLoading ? (
+              <p className="text-sm text-muted-foreground py-3">Loading…</p>
+            ) : enrollments.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-3">No enrollments found for this course.</p>
+            ) : (
+              <div className="divide-y divide-border">
+                {enrollments.slice(0, 5).map((e) => (
+                  <div key={e.id} className="flex items-center gap-3 py-2">
+                    <span
+                      className="h-7 w-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
+                      style={{ background: avatarColor(e.user_id) }}
+                    >
+                      {getInitials(e.user?.first_name, e.user?.last_name)}
+                    </span>
+                    <span className="text-sm truncate">{enrollmentName(e)}</span>
+                    <span className="ml-auto text-xs text-muted-foreground tabular-nums">{e.completion_status}%</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {sub === 'enrollments' && (
+        <div>
+          {enrollmentsLoading ? (
+            <p className="text-sm text-muted-foreground py-3">Loading…</p>
+          ) : enrollments.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-3">No enrollments found for this course.</p>
+          ) : (
+            <div className="divide-y divide-border">
+              {enrollments.map((e) => (
+                <div key={e.id} className="flex items-center gap-3 py-2.5">
+                  <span
+                    className="h-8 w-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold shrink-0"
+                    style={{ background: avatarColor(e.user_id) }}
+                  >
+                    {getInitials(e.user?.first_name, e.user?.last_name)}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm truncate">{enrollmentName(e)}</p>
+                    <p className="text-xs text-muted-foreground">{new Date(e.enrolled_at).toLocaleDateString()}</p>
+                  </div>
+                  <span className="ml-auto text-xs text-muted-foreground tabular-nums">{e.completion_status}%</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {sub === 'certificates' && (
+        <div>
+          {certsLoading ? (
+            <p className="text-sm text-muted-foreground py-3">Loading certificates…</p>
+          ) : certs.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-3">No certificates issued for this course yet.</p>
+          ) : (
+            <div className="divide-y divide-border">
+              {certs.map((cert) => (
+                <div key={cert.id} className="flex items-center gap-3 py-2.5">
+                  <span
+                    className="h-8 w-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold shrink-0"
+                    style={{ background: avatarColor(cert.user_id) }}
+                  >
+                    {getInitials(...cert.student_name.split(' ') as [string, string])}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm truncate">{cert.student_name}</p>
+                    <code className="text-[11px] text-ss-lav-deep">{cert.verification_code}</code>
+                  </div>
+                  <div className="ml-auto flex gap-1">
+                    <Hint label="Open the public verification page">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-lg"
+                        onClick={() => window.open(`/verify-certificate/${cert.verification_code}`, '_blank', 'noopener')}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </Hint>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-destructive hover:text-destructive">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent className="soft-studio">
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Revoke this certificate?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This deletes the certificate for {cert.student_name}. The verification code will stop working.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => revoke(cert)}>Revoke</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </>
   );
 }
 
@@ -536,57 +834,13 @@ function EnrollmentsTab({ courses }: { courses: Course[] }) {
   );
 }
 
-// Certificates tab component — real data from public.certificates.
-type CertRow = {
-  id: string;
-  user_id: string;
-  course_id: string;
-  certificate_type: string;
-  issued_at: string;
-  verification_code: string;
-  student_name: string;
-  student_email: string;
-};
-
+// Certificates tab component — real data via the shared useCourseCertificates
+// hook (also used by the course detail drawer), so the fetch + count-checked
+// revoke live in one place.
 function CertificatesTab({ courses }: { courses: Course[] }) {
   const [selectedCourseId, setSelectedCourseId] = useState<string>(courses[0]?.id || '');
   const [searchTerm, setSearchTerm] = useState('');
-  const [certs, setCerts] = useState<CertRow[]>([]);
-  const [loading, setLoading] = useState(false);
-  const { toast } = useToast();
-
-  useEffect(() => {
-    if (!selectedCourseId) { setCerts([]); return; }
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('certificates')
-        .select('id, user_id, course_id, certificate_type, issued_at, verification_code, profiles:user_id(first_name, last_name)')
-        .eq('course_id', selectedCourseId)
-        .order('issued_at', { ascending: false });
-      if (cancelled) return;
-      if (error) {
-        toast({ title: 'Failed to load certificates', description: error.message, variant: 'destructive' });
-        setCerts([]);
-      } else {
-        setCerts(
-          (data || []).map((r: any) => ({
-            id: r.id,
-            user_id: r.user_id,
-            course_id: r.course_id,
-            certificate_type: r.certificate_type || 'completion',
-            issued_at: r.issued_at,
-            verification_code: r.verification_code,
-            student_name: `${r.profiles?.first_name || ''} ${r.profiles?.last_name || ''}`.trim() || 'Student',
-            student_email: '',
-          })),
-        );
-      }
-      setLoading(false);
-    })();
-    return () => { cancelled = true; };
-  }, [selectedCourseId, toast]);
+  const { certs, loading, revoke } = useCourseCertificates(selectedCourseId);
 
   const filteredCertificates = certs.filter(cert =>
     cert.student_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -600,34 +854,7 @@ function CertificatesTab({ courses }: { courses: Course[] }) {
     window.open(`/verify-certificate/${certificate.verification_code}`, '_blank', 'noopener');
   };
 
-  const handleRevokeCertificate = async (certificate: CertRow) => {
-    // Ask PostgREST for the affected-row count. Without an admin/instructor
-    // DELETE policy a revoke of another user's certificate matches zero rows
-    // and returns no error, so a plain "no error" check reports false success
-    // while the certificate stays valid. Treat 0 rows deleted as a failure.
-    const { error, count } = await supabase
-      .from('certificates')
-      .delete({ count: 'exact' })
-      .eq('id', certificate.id);
-    if (error) {
-      toast({ title: 'Revoke failed', description: error.message, variant: 'destructive' });
-      return;
-    }
-    if (!count) {
-      toast({
-        title: 'Revoke failed',
-        description: 'You do not have permission to revoke this certificate, or it no longer exists.',
-        variant: 'destructive',
-      });
-      return;
-    }
-    setCerts(prev => prev.filter(c => c.id !== certificate.id));
-    toast({
-      title: 'Certificate revoked',
-      description: `Certificate for ${certificate.student_name} has been revoked.`,
-      variant: 'destructive',
-    });
-  };
+  const handleRevokeCertificate = (certificate: CertRow) => revoke(certificate);
 
   return (
     <Card>
