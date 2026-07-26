@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import AppLayout from '@/components/layout/AppLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -53,6 +54,7 @@ const CareerPathway: React.FC = () => {
   const { toast } = useToast();
   const { uploading: resumeUploading, uploadResume } = useResume();
   const { data: savedResults, isLoading: resultsLoading, isError: resultsError } = useCareerPathwayResults();
+  const queryClient = useQueryClient();
   const coach = useCoachChat();
 
   const [phase, setPhase] = useState<Phase>('loading');
@@ -64,6 +66,9 @@ const CareerPathway: React.FC = () => {
   const [revealStage, setRevealStage] = useState(0);
   const [savedOk, setSavedOk] = useState(true);
   const [resumeFile, setResumeFile] = useState<File | null>(null);
+  // True once a report was generated in this session — the cached action plan
+  // from a previous pathway must not be shown against a fresh report.
+  const [generatedThisSession, setGeneratedThisSession] = useState(false);
 
   const sessionIdRef = useRef<string>(crypto.randomUUID());
   const answersRef = useRef<Record<string, string>>({});
@@ -156,9 +161,13 @@ const CareerPathway: React.FC = () => {
         if (saveError) {
           logger.error('Error saving career pathway report:', saveError);
           saveFailed = true;
+        } else {
+          // The cached results (old report + old action plan) are stale now.
+          void queryClient.invalidateQueries({ queryKey: ['careerPathwayResults', user.id] });
         }
       }
       setSavedOk(!saveFailed);
+      setGeneratedThisSession(true);
 
       // Reveal the canvas one card at a time — the generation is the show.
       for (let stage = 1; stage <= ALL_REVEALED; stage++) {
@@ -284,17 +293,18 @@ const CareerPathway: React.FC = () => {
     initializedRef.current = true;
 
     (async () => {
-      // Returning user with a saved report: land on the finished pathway.
-      if (!resultsError && isRealReport(savedResults?.report)) {
-        setReport(savedResults.report);
+      const hasRealReport = !resultsError && isRealReport(savedResults?.report);
+      const showSavedReport = () => {
+        setReport(savedResults!.report);
         setRevealStage(ALL_REVEALED);
         setSavedOk(true);
         coach.restore([{ sender: 'bot', text: WELCOME_BACK_MESSAGE }]);
         setPhase('ready');
-        return;
-      }
+      };
 
-      // Otherwise resume (or begin) the conversation.
+      // Check active answers BEFORE restoring a saved report: after "Start
+      // over", a mid-retake refresh must resume the conversation — the old
+      // report would otherwise hijack the retake.
       const { data: previousAnswers, error } = await supabase
         .from('career_pathway_answers')
         .select('question, answer, created_at')
@@ -304,7 +314,8 @@ const CareerPathway: React.FC = () => {
 
       if (error) {
         logger.error('Error loading previous answers:', error);
-        void beginFresh();
+        if (hasRealReport) showSavedReport();
+        else void beginFresh();
         return;
       }
 
@@ -317,12 +328,22 @@ const CareerPathway: React.FC = () => {
         nextIndex += 1;
       }
 
+      // No active answers — a saved report is genuinely the latest state.
       if (nextIndex === 0) {
-        void beginFresh();
+        if (hasRealReport) showSavedReport();
+        else void beginFresh();
         return;
       }
 
-      // Rebuild the transcript instantly, then continue with the live cadence.
+      // A fully answered conversation with a saved report is the normal
+      // returning-user case (answers are not reset after generation).
+      if (nextIndex >= pathwayQuestions.length && hasRealReport) {
+        showSavedReport();
+        return;
+      }
+
+      // Active retake in progress — rebuild the transcript instantly, then
+      // continue with the live cadence.
       const history: Array<{ sender: 'user' | 'bot'; text: string }> = [
         { sender: 'bot', text: 'Welcome back — picking up where we left off.' },
       ];
@@ -538,7 +559,9 @@ const CareerPathway: React.FC = () => {
 
           {phase === 'ready' && (
             <div ref={planSectionRef} className="mt-10 scroll-mt-6">
-              <ActionPlanSection initialActionPlan={savedResults?.actionPlan ?? null} />
+              {/* A plan cached from a previous pathway must not appear against a
+                  freshly generated report — the user regenerates from the new one. */}
+              <ActionPlanSection initialActionPlan={generatedThisSession ? null : savedResults?.actionPlan ?? null} />
             </div>
           )}
 

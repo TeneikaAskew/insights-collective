@@ -72,9 +72,22 @@ const isValidTimeframe = (data: unknown): data is ActionPlanTimeframe => {
 export const isValidActionPlan = (plan: unknown): plan is ActionPlan =>
   !!plan && typeof plan === 'object' && TIMEFRAME_KEYS.some((key) => isValidTimeframe((plan as ActionPlan)[key]));
 
-type ProgressState = Record<string, boolean>; // `${timeframe}:${index}` -> completed
+// Keyed by `${timeframe}:${index}`, but completion only applies when the
+// stored milestone text still matches the rendered milestone — a regenerated
+// plan reorders/rewrites milestones, and positional state must not leak
+// across generations. (Empty stored text accepts legacy rows.)
+interface ProgressEntry { completed: boolean; text: string }
+type ProgressState = Record<string, ProgressEntry>;
 
 const progressStorageKey = (userId: string) => `action_plan_progress_${userId}`;
+
+const normalizeProgressEntry = (value: unknown): ProgressEntry =>
+  typeof value === 'boolean'
+    ? { completed: value, text: '' } // legacy localStorage shape
+    : { completed: !!(value as ProgressEntry)?.completed, text: (value as ProgressEntry)?.text ?? '' };
+
+const entryApplies = (entry: ProgressEntry | undefined, milestoneText: string): boolean =>
+  !!entry && entry.completed && (entry.text === '' || entry.text === milestoneText);
 
 const AddToPortfolioButton: React.FC<{
   isAdded: boolean;
@@ -145,12 +158,12 @@ const ActionPlanSection: React.FC<ActionPlanSectionProps> = ({ initialActionPlan
       try {
         const { data, error } = await supabase
           .from('action_plan_progress' as never)
-          .select('timeframe, milestone_index, completed');
+          .select('timeframe, milestone_index, milestone_text, completed');
         if (error) throw error;
         if (cancelled) return;
         const next: ProgressState = {};
-        (data as Array<{ timeframe: string; milestone_index: number; completed: boolean }> | null)?.forEach((row) => {
-          next[`${row.timeframe}:${row.milestone_index}`] = row.completed;
+        (data as Array<{ timeframe: string; milestone_index: number; milestone_text: string | null; completed: boolean }> | null)?.forEach((row) => {
+          next[`${row.timeframe}:${row.milestone_index}`] = { completed: row.completed, text: row.milestone_text ?? '' };
         });
         setProgress(next);
         setProgressRemote(true);
@@ -159,7 +172,12 @@ const ActionPlanSection: React.FC<ActionPlanSectionProps> = ({ initialActionPlan
         setProgressRemote(false);
         try {
           const raw = localStorage.getItem(progressStorageKey(user.id));
-          if (!cancelled && raw) setProgress(JSON.parse(raw));
+          if (!cancelled && raw) {
+            const parsed = JSON.parse(raw) as Record<string, unknown>;
+            const next: ProgressState = {};
+            Object.entries(parsed).forEach(([key, value]) => { next[key] = normalizeProgressEntry(value); });
+            setProgress(next);
+          }
         } catch { /* ignore corrupt cache */ }
       }
     })();
@@ -169,8 +187,8 @@ const ActionPlanSection: React.FC<ActionPlanSectionProps> = ({ initialActionPlan
   const toggleMilestone = useCallback(async (timeframe: TimeframeKey, index: number, text: string) => {
     if (!user?.id) return;
     const key = `${timeframe}:${index}`;
-    const completed = !progress[key];
-    const next = { ...progress, [key]: completed };
+    const completed = !entryApplies(progress[key], text);
+    const next: ProgressState = { ...progress, [key]: { completed, text } };
     setProgress(next);
 
     if (progressRemote) {
@@ -307,7 +325,7 @@ const ActionPlanSection: React.FC<ActionPlanSectionProps> = ({ initialActionPlan
 
   const milestoneCount = timeframeData?.milestones?.length ?? 0;
   const milestonesDone = timeframeData
-    ? timeframeData.milestones.filter((_, i) => progress[`${active}:${i}`]).length
+    ? timeframeData.milestones.filter((m, i) => entryApplies(progress[`${active}:${i}`], m)).length
     : 0;
 
   // ---------- No plan yet ----------
@@ -465,7 +483,7 @@ const ActionPlanSection: React.FC<ActionPlanSectionProps> = ({ initialActionPlan
           <div className="ss-card bg-card p-6">
             <h3 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-3">Milestones to achieve</h3>
             {timeframeData.milestones.length ? timeframeData.milestones.map((milestone, idx) => {
-              const done = !!progress[`${active}:${idx}`];
+              const done = entryApplies(progress[`${active}:${idx}`], milestone);
               const state = buttonState('milestone', milestone, TIMEFRAME_LABELS[active]);
               return (
                 <div key={idx} className="flex items-start gap-2.5 py-1.5">
