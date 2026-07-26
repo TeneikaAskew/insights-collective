@@ -91,7 +91,7 @@ ol.path li .line { position:absolute; left:13px; top:2rem; bottom:0; width:2px; 
 /* ---------- chat ---------- */
 .avatar { width:34px; height:34px; border-radius:50%; flex:none;
   background:linear-gradient(135deg,var(--lav),var(--peach)); display:grid; place-content:center; color:#fff; font-weight:700; }
-.msgs { display:flex; flex-direction:column; gap:.5rem; max-height:19rem; overflow-y:auto; padding-right:.3rem; }
+.msgs { display:flex; flex-direction:column; gap:.5rem; max-height:min(27rem,55vh); overflow-y:auto; padding-right:.3rem; }
 .msg { background:var(--lav-chip); border-radius:18px 18px 18px 6px; padding:.65rem .9rem; font-size:.9rem;
   line-height:1.5; max-width:86%; align-self:flex-start; }
 .msg.me { background:var(--lav-deep); color:#fff; border-radius:18px 18px 6px 18px; align-self:flex-end; }
@@ -183,6 +183,8 @@ footer.sig .mark { letter-spacing:.18em; font-size:.72rem; font-weight:700; text
 
 @media (max-width:900px){
   .grid2,.grid-half,.g-rail { grid-template-columns:1fr !important; }
+  /* Single column: a sticky chat would pin itself over the cards below it. */
+  .grid2 > .sticky-col { position:static; }
   .railnav { position:static; flex-direction:row; overflow-x:auto; gap:.3rem; padding-bottom:.5rem; }
   .railnav a { border-left:none; border-bottom:3px solid transparent; border-radius:10px 10px 0 0; white-space:nowrap; }
   .railnav a.active { border-left-color:transparent; border-bottom-color:var(--lav-deep); }
@@ -647,7 +649,10 @@ function render(){
   });
   document.getElementById('a-panel-pathway').style.display = state.panel === 'pathway' ? '' : 'none';
   document.getElementById('a-panel-plan').style.display = state.panel === 'plan' ? '' : 'none';
-  Array.prototype.forEach.call(document.querySelectorAll('.msgs'), function(m){ m.scrollTop = m.scrollHeight; });
+  // After layout, so a bubble that just wrapped to two lines still ends up in view.
+  requestAnimationFrame(function(){
+    Array.prototype.forEach.call(document.querySelectorAll('.msgs'), function(m){ m.scrollTop = m.scrollHeight; });
+  });
 }
 
 /* ============================ toast ============================ */
