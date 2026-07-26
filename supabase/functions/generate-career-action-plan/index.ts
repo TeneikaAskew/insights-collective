@@ -1,5 +1,11 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7';
-import { corsHeaders } from '../_shared/utils.ts';
+
+// Inlined (previously from ../_shared/utils.ts) so the function bundle is
+// self-contained for dashboard/MCP deploys as well as the CLI.
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
 
 // CORS handling for preflight requests
 function handleCors(req) {

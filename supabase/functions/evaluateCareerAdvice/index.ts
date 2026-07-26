@@ -90,7 +90,10 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const answers = body?.answers;
+    // `pathwayAnswers` is the key the previous client sent — accepted during
+    // rollover so the currently-deployed frontend keeps working. Its old
+    // `prompt` field is intentionally ignored: the prompt is server-owned now.
+    const answers = body?.answers ?? body?.pathwayAnswers;
     const resumeText = typeof body?.resumeText === 'string' ? body.resumeText : '';
 
     if (!answers || typeof answers !== 'object' || Object.keys(answers).length === 0) {
