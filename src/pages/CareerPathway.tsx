@@ -1,752 +1,587 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Briefcase, BookOpen, Users, FileText, TrendingUp, Star, Award, CheckCircle, User, Play, Loader2, GraduationCap, ArrowRight } from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import AppLayout from '@/components/layout/AppLayout';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { useCareerPathwayResults } from '@/hooks/useCareerPathwayResults';
-import CareerAIRecommendations from '@/components/career/CareerAIRecommendations';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/AuthContext';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Progress } from '@/components/ui/progress';
-import CareerActionPlan from '@/components/assistants/CareerActionPlan';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import CareerHeader from '@/components/career/CareerHeader';
-import { Helmet } from 'react-helmet-async';
-import OnboardingGuide from '@/components/onboarding/OnboardingGuide';
-import { useOnboarding } from '@/contexts/OnboardingContext';
+import { supabase } from '@/integrations/supabase/client';
+import { useCareerPathwayResults } from '@/hooks/useCareerPathwayResults';
+import { useResume } from '@/hooks/resume/useResume';
+import { pathwayQuestions, quickReplies } from '@/data/careerPathwayData';
+import { CareerReportData } from '@/components/assistants/types';
+import { Map } from 'lucide-react';
+
+import StudioChat from '@/components/career/studio/StudioChat';
+import ReportCanvas, { ALL_REVEALED } from '@/components/career/studio/ReportCanvas';
+import ActionPlanSection from '@/components/career/studio/ActionPlanSection';
+import { useCoachChat } from '@/components/career/studio/useCoachChat';
+import {
+  INTRO_MESSAGES,
+  WELCOME_BACK_MESSAGE,
+  RESUME_FOUND_MESSAGE,
+  RESUME_MISSING_MESSAGE,
+  GENERATING_MESSAGE,
+  DONE_MESSAGE,
+  DONE_UNSAVED_MESSAGE,
+  ackFor,
+  actIndexForQuestion,
+  actIntro,
+  questionText,
+} from '@/components/career/studio/coachScript';
 
 import { createLogger } from '@/utils/logger';
 
-const logger = createLogger('userName');
+const logger = createLogger('CareerPathway');
 
-// Define the ActionPlan interface
-interface ActionPlanTimeframe {
-  skills: Array<{
-    name: string;
-    courses: Array<string | {
-      title: string;
-      provider: string;
-      url?: string;
-    }>;
-  }>;
-  projects: Array<{
-    title: string;
-    description: string;
-  }>;
-  content: Array<{
-    platform: string;
-    topics: string[];
-  }>;
-  milestones: string[];
-  narrative: string;
-}
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-interface ActionPlan {
-  "6_weeks": ActionPlanTimeframe;
-  "9_weeks": ActionPlanTimeframe;
-  "12_weeks": ActionPlanTimeframe;
-  "6_months": ActionPlanTimeframe;
-  "12_months": ActionPlanTimeframe;
-  recommendedSkills?: Array<any>;
-  careerPathRoles?: Array<any>;
-}
+type Phase =
+  | 'loading'        // restoring saved state
+  | 'chat'           // answering questions
+  | 'resume-choice'  // existing resume found — use it or upload new
+  | 'resume-upload'  // waiting for a file
+  | 'generating'     // report being generated
+  | 'ready'          // report on the canvas
+  | 'error';         // generation failed, retry available
 
-// Sample data for skill building purposes
-const userSkills = ["Data Analysis", "SQL", "Problem Solving", "Communication"];
+/** The results hook returns a placeholder report when nothing is saved yet. */
+const isRealReport = (report?: CareerReportData | null): report is CareerReportData =>
+  !!report && ((report.recommendedRoles?.length ?? 0) > 0 || (report.keyTakeaways?.length ?? 0) > 0);
+
 const CareerPathway: React.FC = () => {
   const navigate = useNavigate();
-  const {
-    user
-  } = useAuth();
-  const {
-    data,
-    isLoading,
-    error,
-    isError
-  } = useCareerPathwayResults();
-  const [activeTab, setActiveTab] = useState('overview');
-  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
-  const [activeTimeframe, setActiveTimeframe] = useState<string>("6_weeks");
-  const [actionPlan, setActionPlan] = useState<ActionPlan | null>(null);
-  const {
-    toast
-  } = useToast();
-  const { completedTours, startTour } = useOnboarding();
-  const timeframeLabels = {
-    "6_weeks": "6 Weeks",
-    "9_weeks": "9 Weeks",
-    "12_weeks": "12 Weeks",
-    "6_months": "6 Months",
-    "12_months": "12 Months"
-  };
-  useEffect(() => {
-    logger.log("Career pathway report data:", data);
-    // Set the action plan from the data if it exists
-    if (data?.actionPlan) {
-      setActionPlan(data.actionPlan);
+  const { user, isAuthenticated } = useAuth();
+  const { toast } = useToast();
+  const { uploading: resumeUploading, uploadResume } = useResume();
+  const { data: savedResults, isLoading: resultsLoading, isError: resultsError } = useCareerPathwayResults();
+  const queryClient = useQueryClient();
+  const coach = useCoachChat();
+
+  const [phase, setPhase] = useState<Phase>('loading');
+  const [currentQuestion, setCurrentQuestion] = useState(0);
+  const [inputValue, setInputValue] = useState('');
+  const [awaitingInput, setAwaitingInput] = useState(false);
+  const [showQuickReplies, setShowQuickReplies] = useState(false);
+  const [report, setReport] = useState<CareerReportData | null>(null);
+  const [revealStage, setRevealStage] = useState(0);
+  const [savedOk, setSavedOk] = useState(true);
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
+  // True once a report was generated in this session — the cached action plan
+  // from a previous pathway must not be shown against a fresh report.
+  const [generatedThisSession, setGeneratedThisSession] = useState(false);
+
+  const sessionIdRef = useRef<string>(crypto.randomUUID());
+  const answersRef = useRef<Record<string, string>>({});
+  const resumeTextRef = useRef<string>('');
+  const initializedRef = useRef(false);
+  const planSectionRef = useRef<HTMLDivElement>(null);
+  const reducedRef = useRef(
+    typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches,
+  );
+
+  const userName =
+    (user as { first_name?: string })?.first_name ||
+    (user?.user_metadata as { first_name?: string })?.first_name ||
+    user?.email?.split('@')[0] ||
+    'there';
+
+  // ---------------- conversation flow ----------------
+
+  const askQuestion = useCallback(async (index: number) => {
+    const g = coach.genRef.current;
+    setCurrentQuestion(index);
+    setAwaitingInput(false);
+    if (index > 0 && actIndexForQuestion(index) !== actIndexForQuestion(index - 1)) {
+      const intro = actIntro(actIndexForQuestion(index));
+      if (intro) {
+        await coach.say(intro);
+        if (g !== coach.genRef.current) return;
+        await sleep(280);
+      }
     }
-  }, [data]);
+    await coach.say(questionText(index));
+    if (g !== coach.genRef.current) return;
+    setShowQuickReplies(index === 0);
+    setAwaitingInput(true);
+  }, [coach]);
 
-  // Auto-start tour for first-time visitors to this page
-  useEffect(() => {
-    if (data?.report && Object.keys(data.report).length > 0 && !completedTours.includes('career-pathway')) {
-      const timer = setTimeout(() => {
-        startTour('career-pathway');
-      }, 1000);
-      return () => clearTimeout(timer);
+  const startResumeStep = useCallback(async () => {
+    const g = coach.genRef.current;
+    setAwaitingInput(false);
+    setShowQuickReplies(false);
+    // Query the latest resume text directly — the hook's cached copy can be stale.
+    let text = '';
+    if (user?.id) {
+      const { data } = await supabase
+        .from('resumes')
+        .select('text')
+        .eq('user_id', user.id)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      text = data?.text ?? '';
     }
-  }, [data?.report, completedTours, startTour]);
-
-  // Get user name from available properties
-  const userName = (user as any)?.first_name || (user as any)?.user_metadata?.first_name || user?.email?.split('@')[0] || 'there';
-  const handleTakeQuiz = () => {
-    navigate('/career-agent');
-  };
-
-  // Parser function to clean step titles/names
-  const cleanStepTitle = (title: string): string => {
-    if (!title) return '';
-    
-    // Remove step prefixes like "Step 1:", "Step 2:", etc.
-    const cleanedTitle = title
-      .replace(/^Step\s*\d+\s*:?\s*/i, '')
-      .replace(/^\d+\.\s*/, '')
-      .replace(/^Phase\s*\d+\s*:?\s*/i, '')
-      .replace(/^Stage\s*\d+\s*:?\s*/i, '')
-      .trim();
-    
-    return cleanedTitle || title; // Return original if cleaning resulted in empty string
-  };
-
-  // Generate action plan
-  const generateActionPlan = async () => {
-    if (!user) {
-      toast({
-        title: "Authentication Required",
-        description: "Please log in to generate your career action plan.",
-        variant: "destructive"
-      });
-      return;
+    if (g !== coach.genRef.current) return;
+    resumeTextRef.current = text;
+    if (text) {
+      await coach.say(RESUME_FOUND_MESSAGE);
+      if (g !== coach.genRef.current) return;
+      setPhase('resume-choice');
+    } else {
+      await coach.say(RESUME_MISSING_MESSAGE);
+      if (g !== coach.genRef.current) return;
+      setPhase('resume-upload');
     }
-    setIsGeneratingPlan(true);
+  }, [coach, user?.id]);
+
+  const generateReport = useCallback(async (resumeText: string) => {
+    const g = coach.genRef.current;
+    resumeTextRef.current = resumeText;
+    setPhase('generating');
+    setRevealStage(0);
+    await coach.say(GENERATING_MESSAGE);
     try {
-      const {
-        data,
-        error
-      } = await supabase.functions.invoke('generate-career-action-plan', {
-        body: {
-          userId: user.id
+      const { data, error } = await supabase.functions.invoke('evaluateCareerAdvice', {
+        body: { answers: answersRef.current, resumeText },
+      });
+      if (error) throw new Error(error.message);
+      if (!data || data.error) throw new Error(data?.error || 'No report returned');
+      if (g !== coach.genRef.current) return;
+
+      const freshReport = data as CareerReportData;
+      setReport(freshReport);
+
+      let saveFailed = false;
+      if (user?.id) {
+        const { error: saveError } = await supabase.from('career_pathway_results').insert({
+          user_id: user.id,
+          session_id: sessionIdRef.current,
+          report: JSON.stringify(freshReport),
+        });
+        if (saveError) {
+          logger.error('Error saving career pathway report:', saveError);
+          saveFailed = true;
+        } else {
+          // The cached results (old report + old action plan) are stale now.
+          void queryClient.invalidateQueries({ queryKey: ['careerPathwayResults', user.id] });
         }
+      }
+      setSavedOk(!saveFailed);
+      setGeneratedThisSession(true);
+
+      // Reveal the canvas one card at a time — the generation is the show.
+      for (let stage = 1; stage <= ALL_REVEALED; stage++) {
+        if (g !== coach.genRef.current) return;
+        setRevealStage(stage);
+        await sleep(reducedRef.current ? 80 : 650);
+      }
+      await coach.say(saveFailed ? DONE_UNSAVED_MESSAGE : DONE_MESSAGE);
+      if (g !== coach.genRef.current) return;
+      setPhase('ready');
+    } catch (e) {
+      logger.error('Report generation failed:', e);
+      if (g !== coach.genRef.current) return;
+      await coach.say('Something went wrong while generating your report. Give it a moment, then hit retry below.');
+      if (g !== coach.genRef.current) return;
+      setPhase('error');
+    }
+  }, [coach, user?.id]);
+
+  const handleAnswer = useCallback(async (rawText: string) => {
+    const text = rawText.trim();
+    if (!text || phase !== 'chat' || !awaitingInput) return;
+    const g = coach.genRef.current;
+    const index = currentQuestion;
+    const question = pathwayQuestions[index];
+
+    setAwaitingInput(false);
+    setShowQuickReplies(false);
+    setInputValue('');
+    coach.addUser(text);
+    answersRef.current = { ...answersRef.current, [question.id]: text };
+
+    if (user?.id) {
+      const { error } = await supabase.from('career_pathway_answers').insert({
+        user_id: user.id,
+        session_id: sessionIdRef.current,
+        question: question.id,
+        answer: text,
       });
       if (error) {
-        logger.error("Error invoking function:", error);
-        throw error;
-      }
-      if (data?.success && data?.data) {
-        setActionPlan(data.data);
+        logger.error('Error saving answer:', error);
         toast({
-          title: "Action Plan Generated",
-          description: "Your personalized career action plan is ready!"
+          title: 'Answer not saved',
+          description: 'Your answer could not be saved — your progress may not survive a refresh.',
+          variant: 'destructive',
         });
+      }
+    }
+    if (g !== coach.genRef.current) return;
+
+    await coach.readPause(text);
+    if (g !== coach.genRef.current) return;
+    await coach.say(ackFor(index, text));
+    if (g !== coach.genRef.current) return;
+    await sleep(280);
+
+    if (index + 1 < pathwayQuestions.length) {
+      await askQuestion(index + 1);
+    } else {
+      await startResumeStep();
+    }
+  }, [phase, awaitingInput, currentQuestion, coach, user?.id, toast, askQuestion, startResumeStep]);
+
+  const handleResumeUpload = useCallback(async () => {
+    if (!resumeFile || !user?.id) return;
+    const g = coach.genRef.current;
+    const ok = await uploadResume(resumeFile);
+    setResumeFile(null);
+    if (g !== coach.genRef.current) return;
+    if (!ok) {
+      await coach.say("That upload didn't go through — try again with a PDF or DOCX.");
+      return;
+    }
+    const { data } = await supabase
+      .from('resumes')
+      .select('text')
+      .eq('user_id', user.id)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (g !== coach.genRef.current) return;
+    await generateReport(data?.text ?? '');
+  }, [resumeFile, user?.id, uploadResume, coach, generateReport]);
+
+  const beginFresh = useCallback(async () => {
+    const g = coach.genRef.current;
+    setPhase('chat');
+    for (const line of INTRO_MESSAGES) {
+      await coach.say(line);
+      if (g !== coach.genRef.current) return;
+      await sleep(300);
+    }
+    await askQuestion(0);
+  }, [coach, askQuestion]);
+
+  const handleStartOver = useCallback(async () => {
+    if (!user?.id) return;
+    const { error } = await supabase
+      .from('career_pathway_answers')
+      .update({ is_reset: true, updated_at: new Date().toISOString() })
+      .eq('user_id', user.id)
+      .eq('is_reset', false);
+    if (error) {
+      logger.error('Error resetting answers:', error);
+      toast({ title: 'Couldn’t start over', description: 'Please try again.', variant: 'destructive' });
+      return;
+    }
+    coach.reset();
+    answersRef.current = {};
+    sessionIdRef.current = crypto.randomUUID();
+    setReport(null);
+    setRevealStage(0);
+    setSavedOk(true);
+    setInputValue('');
+    setResumeFile(null);
+    void beginFresh();
+  }, [user?.id, coach, toast, beginFresh]);
+
+  // ---------------- restore on load ----------------
+
+  useEffect(() => {
+    if (!user?.id || resultsLoading || initializedRef.current) return;
+    initializedRef.current = true;
+
+    (async () => {
+      const hasRealReport = !resultsError && isRealReport(savedResults?.report);
+      const showSavedReport = () => {
+        setReport(savedResults!.report);
+        setRevealStage(ALL_REVEALED);
+        setSavedOk(true);
+        coach.restore([{ sender: 'bot', text: WELCOME_BACK_MESSAGE }]);
+        setPhase('ready');
+      };
+
+      // Check active answers BEFORE restoring a saved report: after "Start
+      // over", a mid-retake refresh must resume the conversation — the old
+      // report would otherwise hijack the retake.
+      const { data: previousAnswers, error } = await supabase
+        .from('career_pathway_answers')
+        .select('question, answer, created_at')
+        .eq('user_id', user.id)
+        .eq('is_reset', false)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        logger.error('Error loading previous answers:', error);
+        if (hasRealReport) showSavedReport();
+        else void beginFresh();
+        return;
+      }
+
+      const answersMap: Record<string, string> = {};
+      previousAnswers?.forEach((row) => { answersMap[row.question] = row.answer; });
+      answersRef.current = answersMap;
+
+      let nextIndex = 0;
+      while (nextIndex < pathwayQuestions.length && answersMap[pathwayQuestions[nextIndex].id]) {
+        nextIndex += 1;
+      }
+
+      // No active answers — a saved report is genuinely the latest state.
+      if (nextIndex === 0) {
+        if (hasRealReport) showSavedReport();
+        else void beginFresh();
+        return;
+      }
+
+      // A fully answered conversation with a saved report is the normal
+      // returning-user case (answers are not reset after generation).
+      if (nextIndex >= pathwayQuestions.length && hasRealReport) {
+        showSavedReport();
+        return;
+      }
+
+      // Active retake in progress — rebuild the transcript instantly, then
+      // continue with the live cadence.
+      const history: Array<{ sender: 'user' | 'bot'; text: string }> = [
+        { sender: 'bot', text: 'Welcome back — picking up where we left off.' },
+      ];
+      for (let i = 0; i < nextIndex; i++) {
+        history.push({ sender: 'bot', text: questionText(i) });
+        history.push({ sender: 'user', text: answersMap[pathwayQuestions[i].id] });
+      }
+      coach.restore(history);
+      setPhase('chat');
+      if (nextIndex < pathwayQuestions.length) {
+        void askQuestion(nextIndex);
       } else {
-        throw new Error("Failed to generate action plan");
+        void startResumeStep();
       }
-    } catch (error) {
-      logger.error("Error generating action plan:", error);
-      toast({
-        title: "Generation Failed",
-        description: "We couldn't generate your action plan. Please try again later.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsGeneratingPlan(false);
-    }
-  };
+    })();
+  }, [user?.id, resultsLoading, resultsError, savedResults, coach, beginFresh, askQuestion, startResumeStep]);
 
-  // Animation variants
-  const fadeInUp = {
-    initial: {
-      opacity: 0,
-      y: 20
-    },
-    animate: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: 0.6
-      }
-    },
-    exit: {
-      opacity: 0,
-      transition: {
-        duration: 0.2
-      }
-    }
-  };
+  // ---------------- render ----------------
 
-  // Prepare data for the career components
-  const mapRecommendedRolesToCareerPathRoles = () => {
-    if (!data?.report?.recommendedRoles || data.report.recommendedRoles.length === 0) {
-      return [];
-    }
-    return data.report.recommendedRoles.map(role => ({
-      title: role.title,
-      description: role.description || 'No description available',
-      level: role.matchPercentage ? `${role.matchPercentage}% Match` : 'Intermediate',
-      requirements: [] // Add empty requirements array since it's optional but expected
-    }));
-  };
-  
-  const mapSkillsAndCoursesToSkillsSection = () => {
-    if (!data?.report?.skillsAndCourses || data.report.skillsAndCourses.length === 0) {
-      return [];
-    }
-    return data.report.skillsAndCourses.map(item => ({
-      name: item.skill,
-      level: item.level === 'beginner' ? 30 : item.level === 'intermediate' ? 60 : 90, // Convert string level to number
-      category: item.provider || 'Technical', // Use provider as category or default to 'Technical'
-      type: item.level?.toLowerCase() === "beginner" ? "soft" : "hard",
-      course: item.course
-    }));
-  };
-
-  // A load failure must NOT render as "you haven't taken the assessment" —
-  // a user with a saved report would be told to start over.
-  if (isError) {
+  if (!isAuthenticated) {
     return (
       <AppLayout>
-        <div className="container mx-auto py-16 px-4">
-          <Card className="max-w-xl mx-auto">
-            <CardContent className="p-8 text-center" role="alert">
-              <h2 className="text-2xl font-bold mb-2">Failed to load your career pathway</h2>
-              <p className="text-muted-foreground mb-6">
-                {error instanceof Error ? error.message : 'Please try again.'}
-              </p>
-              <Button onClick={() => window.location.reload()}>Retry</Button>
-            </CardContent>
-          </Card>
+        <div className="soft-studio ss-wash min-h-full py-16 px-6" data-testid="career-pathway-signin">
+          <div className="ss-card bg-card max-w-md mx-auto p-8 text-center">
+            <div className="w-16 h-16 mx-auto rounded-full bg-ss-lav-chip grid place-content-center mb-5">
+              <Map className="h-8 w-8 text-ss-lav-deep" />
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight mb-2">Your career pathway</h1>
+            <p className="text-muted-foreground mb-6">
+              A short conversation with your career coach, a personalized pathway, and a week-by-week action plan.
+              Sign in to begin.
+            </p>
+            <Link
+              to="/login?redirect=%2Fcareer-pathway"
+              state={{ from: { pathname: '/career-pathway' } }}
+              className="inline-block rounded-full bg-ss-lav-deep text-white text-sm font-bold px-6 py-3 transition-colors hover:bg-ss-lav-deep/90"
+            >
+              Sign in to continue
+            </Link>
+            <p className="text-sm text-muted-foreground mt-4">
+              Don’t have an account? <Link to="/register" className="text-ss-lav-deep hover:underline">Register</Link>
+            </p>
+          </div>
         </div>
       </AppLayout>
     );
   }
 
-  // No report data found (genuinely not taken yet)
-  if (!data?.report || Object.keys(data.report).length === 0) {
-    return <AppLayout>
-        
-        <motion.div initial={{
-        opacity: 0
-      }} animate={{
-        opacity: 1
-      }} className="container mx-auto py-16 px-4">
-          <Card className="max-w-3xl mx-auto overflow-hidden">
-            <div className="relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 z-0" />
-              <CardContent className="relative z-10 p-8 text-center">
-                <Users className="h-16 w-16 mb-6 mx-auto text-primary" />
-                <h2 className="text-3xl font-bold mb-4">Discover Your Ideal Career Path</h2>
-                <p className="text-muted-foreground text-lg mb-8 max-w-xl mx-auto">
-                  Answer a few questions about your skills, experience, and career goals to receive personalized guidance tailored just for you.
-                </p>
-                <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <Button size="lg" onClick={() => navigate('/career-agent')} className="gap-2">
-                    <Play className="h-4 w-4" />
-                    Start Career Assessment
-                  </Button>
-                  <Button variant="outline" size="lg" onClick={() => navigate('/explore-data-careers')}>
-                    Browse Data Careers
-                  </Button>
-                </div>
-              </CardContent>
-            </div>
-          </Card>
-        </motion.div>
-      </AppLayout>;
-  }
+  const composerDisabled = !awaitingInput || phase !== 'chat';
+  const composerPlaceholder =
+    phase === 'ready' ? 'Your pathway is ready — use “Start over” to retake it'
+      : phase === 'generating' ? 'Maya is working on your report…'
+        : phase === 'resume-choice' || phase === 'resume-upload' ? 'Choose an option above'
+          : coach.composing || !awaitingInput ? 'Maya is typing…'
+            : 'Type your answer…';
 
-  return <AppLayout>
-      
-      <OnboardingGuide tourId="career-pathway" />
-      <div className="container mx-auto py-8 px-4 space-y-8 max-w-6xl">
-        {/* Hero Section */}
-        <motion.div initial="initial" animate="animate" variants={fadeInUp} className="text-center space-y-6 mb-12">
-          <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-violet-600">
-            Hey {userName}, here's your career insights.
-          </h1>
-          <p className="text-gray-600 max-w-3xl mx-auto text-lg">
-            Based on your assessment, we've created personalized recommendations to help you build a fulfilling career path aligned with your strengths and goals.
-          </p>
-        </motion.div>
+  return (
+    <AppLayout>
+      <div className="soft-studio ss-wash min-h-full py-10 px-4 sm:px-6" data-testid="career-pathway-page">
+        <div className="max-w-6xl mx-auto">
+          <header className="mb-8">
+            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight [text-wrap:balance]">
+              Hey {userName}, let’s map your career.
+            </h1>
+            <p className="text-muted-foreground mt-2 max-w-2xl">
+              A conversation on the left, your pathway taking shape on the right — recommended roles,
+              the skills to get there, and the route step by step.
+            </p>
+          </header>
 
-        {/* Navigation Tabs */}
-        <motion.div initial="initial" animate="animate" variants={fadeInUp} className="mb-8">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4 mb-8">
-              <TabsTrigger value="overview" className="data-[state=active]:bg-primary data-[state=active]:text-white">Overview</TabsTrigger>
-              <TabsTrigger value="skills" className="data-[state=active]:bg-primary data-[state=active]:text-white">Skills</TabsTrigger>
-              <TabsTrigger value="roles" className="data-[state=active]:bg-primary data-[state=active]:text-white">Roles</TabsTrigger>
-              <TabsTrigger value="pathway" className="data-[state=active]:bg-primary data-[state=active]:text-white">Pathway</TabsTrigger>
-            </TabsList>
-            
-            {/* Overview Tab */}
-            <TabsContent value="overview">
-              <motion.div initial={{
-              opacity: 0,
-              y: 20
-            }} animate={{
-              opacity: 1,
-              y: 0
-            }} transition={{
-              delay: 0.2
-            }} className="space-y-8">
-                {/* Summary Card */}
-                <Card className="overflow-hidden border-t-4 border-t-primary">
-                  <CardHeader className="bg-primary/5 pb-2">
-                    <CardTitle className="flex items-center gap-2">
-                      <Star className="h-5 w-5 text-primary" />
-                      Your Career Summary
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-6 pt-4">
-                    {isLoading ? <Skeleton className="h-20 w-full" /> : <p className="text-gray-700 leading-relaxed text-lg">
-                        {data?.report?.summary || 'Loading your personalized career insights...'}
-                      </p>}
-                  </CardContent>
-                </Card>
-                
-                {/* Key Stats */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Card>
-                    <CardContent className="p-6 flex items-start gap-4">
-                      <div className="bg-blue-100 p-3 rounded-full">
-                        <Star className="h-6 w-6 text-blue-600" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-lg">Top Career Match</h3>
-                        <p className="text-2xl font-bold">{data?.report?.recommendedRoles?.[0]?.title || 'Data Analyst'}</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  {/* NOTE: the "Growth Potential: High" and "Skill Alignment:
-                      76%" cards were hardcoded constants, not computed from the
-                      user's report — removed rather than shown as fake metrics. */}
-                </div>
-                {/* Potential Roles */}
-                {data?.report?.potentialRoles && data.report.potentialRoles.length > 0 && (
-                  <Card className="overflow-hidden border-t-4 border-t-primary mt-8">
-                    <CardHeader className="bg-primary/5 pb-2">
-                      <CardTitle className="flex items-center gap-2">
-                        <Users className="h-5 w-5 text-primary" />
-                        Roles That You Might Be Right For Today
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-6 pt-4">
-                      <ul className="list-disc ml-6 text-left">
-                        {(data.report.potentialRoles as Array<any>).map((role, idx) => {
-                          if (role && typeof role === 'object' && 'title' in role && 'description' in role) {
-                            return (
-                              <li key={idx} className="mb-2 text-left">
-                                <span className="font-medium">{role.title}</span>: {role.description}
-                              </li>
-                            );
-                          } else if (role !== null && role !== undefined) {
-                            return <li key={idx} className="mb-2 text-left">{String(role)}</li>;
-                          }
-                          return null;
-                        })}
-                      </ul>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Career Path Steps */}
-                {data?.report && ((data.report.futureCareerPath && data.report.futureCareerPath.length > 0) || (data.report.careerPathSteps && data.report.careerPathSteps.length > 0)) && (
-                  <Card className="overflow-hidden border-t-4 border-t-primary mt-8">
-                    <CardHeader className="bg-primary/5 pb-2">
-                      <CardTitle className="flex items-center gap-2">
-                        <TrendingUp className="h-5 w-5 text-primary" />
-                        Path to <span className="text-2xl font-bold">{data?.report?.recommendedRoles?.[0]?.title || "Data Analyst"}</span>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-6 pt-4">
-                      <ol className="list-decimal ml-6 text-left">
-                        {(data.report.futureCareerPath && data.report.futureCareerPath.length > 0
-                          ? data.report.futureCareerPath
-                          : data.report.careerPathSteps || []).map((step: any, idx: number) => (
-                            <li key={idx} className="mb-2 text-left">
-                              <span className="font-medium">{cleanStepTitle(step.step || step.title)}</span>: {step.action || step.description} <span className="text-gray-500">({step.timeline || step.timeframe})</span>
-                            </li>
-                        ))}
-                      </ol>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Key Takeaways */}
-                {data?.report?.keyTakeaways && data.report.keyTakeaways.length > 0 && (
-                  <Card className="overflow-hidden border-t-4 border-t-primary mt-8">
-                    <CardHeader className="bg-primary/5 pb-2">
-                      <CardTitle className="flex items-center gap-2">
-                        <Star className="h-5 w-5 text-primary" />
-                        Key Takeaways
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-6 pt-4">
-                      <ul className="list-disc ml-6 text-left">
-                        {data.report.keyTakeaways.map((takeaway, idx) => (
-                          <li key={idx} className="text-left">{takeaway}</li>
-                        ))}
-                      </ul>
-                    </CardContent>
-                  </Card>
-                )}
-              </motion.div>
-            </TabsContent>
-            
-            {/* Skills Tab */}
-            <TabsContent value="skills">
-              <motion.div initial={{
-              opacity: 0,
-              y: 20
-            }} animate={{
-              opacity: 1,
-              y: 0
-            }} transition={{
-              duration: 0.5
-            }}>
-                <Card>
-                  <CardHeader className="bg-primary/5 pb-2">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <CardTitle className="text-xl flex items-center gap-2">
-                          <BookOpen className="h-5 w-5 text-primary" />
-                          Recommended Skills
-                        </CardTitle>
-                        <CardDescription>
-                          These recommendations are based on current market trends, your existing skill set, and the requirements of your desired roles.
-                        </CardDescription>
-                      </div>
-                      <div className="hidden md:block h-24 w-24 flex-shrink-0">
-                        <div className="w-full h-full bg-gradient-to-br from-green-100 to-blue-100 rounded-full flex items-center justify-center">
-                          <BookOpen className="h-12 w-12 text-green-600" />
-                        </div>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    <div className="bg-white rounded-lg overflow-hidden shadow-sm">
-                      <div className="grid grid-cols-12 gap-4 p-4 bg-gray-50 font-semibold border-b">
-                        <div className="col-span-4">Skill</div>
-                        <div className="col-span-4 md:col-span-5">Recommended Course</div>
-                        <div className="hidden md:block md:col-span-3">Level</div>
-                      </div>
-                      {isLoading ? <SkillsSkeleton /> : data?.report?.skillsAndCourses?.map((item, index) => <div key={index} className="grid grid-cols-12 gap-4 p-4 border-b hover:bg-gray-50 transition-colors">
-                          <div className="col-span-4 flex items-center gap-3">
-                            <BookOpen className="h-5 w-5 text-gray-600" />
-                            <div>
-                              <div className="font-medium">{item.skill}</div>
-                              <div className="md:hidden">
-                                <Badge variant="secondary" className="mt-1">{item.level || 'intermediate'}</Badge>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="col-span-8 md:col-span-5 text-gray-600 flex items-center">{item.course}</div>
-                          <div className="hidden md:flex md:col-span-3 items-center">
-                            <div className="w-full">
-                              <div className="flex justify-between mb-1 text-xs">
-                                <span>{item.level || 'Intermediate'}</span>
-                                <span>{item.level === 'beginner' ? '30%' : item.level === 'intermediate' ? '60%' : '90%'}</span>
-                              </div>
-                              <Progress value={item.level === 'beginner' ? 30 : item.level === 'intermediate' ? 60 : 90} className="h-2" />
-                            </div>
-                          </div>
-                        </div>)}
-                    </div>
-                  </CardContent>
-                  <CardFooter className="bg-primary/5 p-4">
-                    <Button variant="outline" className="w-full sm:w-auto">
-                      Export Skills List
-                    </Button>
-                  </CardFooter>
-                </Card>
-              </motion.div>
-            </TabsContent>
-            
-            {/* Roles Tab */}
-            <TabsContent value="roles">
-              <motion.div initial={{
-              opacity: 0,
-              y: 20
-            }} animate={{
-              opacity: 1,
-              y: 0
-            }} transition={{
-              duration: 0.5
-            }} className="bg-gradient-to-br from-[#EEF2FF] to-[#F5F3FF] p-8 rounded-lg">
-                <div className="flex items-center justify-between mb-8">
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                      <Briefcase className="h-6 w-6 text-primary" />
-                      Roles that match your profile
-                    </h2>
-                    <p className="text-gray-600">
-                      These roles are suggested based on your transferable skills and interests—options that align with your career goals.
-                    </p>
-                  </div>
-                  <div className="hidden md:block h-24 w-24 flex-shrink-0">
-                    <div className="w-full h-full bg-gradient-to-br from-blue-100 to-purple-100 rounded-full flex items-center justify-center">
-                      <TrendingUp className="h-12 w-12 text-blue-500" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  {isLoading ? <AlternativeRolesSkeleton /> : data?.report?.recommendedRoles?.map((role, index) => <Card key={index} className="bg-white border-l-4 border-l-primary overflow-hidden">
-                      <CardContent className="p-0">
-                        <div className="p-6 flex items-start gap-4">
-                          <div className="bg-primary/10 p-3 rounded-full">
-                            <Briefcase className="h-6 w-6 text-primary" />
-                          </div>
-                          <div className="flex-1">
-                            <h3 className="font-semibold text-xl text-gray-900">{role.title}</h3>
-                            <div className="flex items-center gap-3 mt-1 mb-3">
-                              {/* Only render salary/match values that actually
-                                  came from the report — no invented defaults. */}
-                              {role.salaryRange && (
-                                <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100">
-                                  {role.salaryRange}
-                                </Badge>
-                              )}
-                              {typeof (role as any).matchPercentage === 'number' && (
-                                <span className="text-sm text-muted-foreground">Match: {(role as any).matchPercentage}%</span>
-                              )}
-                            </div>
-                            <p className="text-gray-600">{role.description}</p>
-                          </div>
-                          <div>
-                            <Button onClick={() => navigate(`/explore-data-careers?role=${encodeURIComponent(role.title.toLowerCase().replace(/\s+/g, '-'))}`)} variant="outline" size="sm">
-                              Explore
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>)}
-                </div>
-                
-                <div className="mt-8 flex justify-center">
-                  <Button onClick={() => navigate('/explore-data-careers')}>
-                    Explore All Data Careers
-                    <ChevronRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </div>
-              </motion.div>
-            </TabsContent>
-            
-            {/* Career Path Tab */}
-            <TabsContent value="pathway">
-              <motion.div initial={{
-              opacity: 0,
-              y: 20
-            }} animate={{
-              opacity: 1,
-              y: 0
-            }} transition={{
-              duration: 0.5
-            }}>
-                <div className="mb-8">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-2 flex items-center gap-2">
-                    <TrendingUp className="h-6 w-6 text-primary" />
-                    Path to your aspirational role
-                  </h2>
-                  <p className="text-gray-600">
-                    We created a clear path to your dream role—with a simple, step-by-step plan to bring you closer to your ultimate professional future.
-                  </p>
-                </div>
-
-                <div className="relative bg-white rounded-lg shadow-sm p-6">
-                  {/* Starting Point */}
-                  <div className="flex items-start gap-4 mb-8">
-                    <div className="flex flex-col items-center">
-                      <div className="h-12 w-12 bg-primary/10 rounded-full flex items-center justify-center">
-                        <User className="h-6 w-6 text-primary" />
-                      </div>
-                      <div className="w-px bg-gray-300 h-8 mt-2"></div>
-                    </div>
-                    <div className="pt-2">
-                      <h3 className="font-semibold text-gray-900 mb-1">Current Position</h3>
-                      <p className="text-sm text-gray-600">Starting your career journey</p>
-                    </div>
-                  </div>
-
-                  {/* Career Path Timeline */}
-                  <div className="space-y-6 ml-6">
-                    {isLoading ? <CareerPathSkeleton /> : (data?.report?.futureCareerPath && data.report.futureCareerPath.length > 0
-                      ? data.report.futureCareerPath
-                      : data?.report?.careerPathSteps || []).map((step, index) => (
-                      <div key={index} className="flex items-start gap-4 relative">
-                        {/* Timeline line */}
-                        {index < ((data?.report?.futureCareerPath && data.report.futureCareerPath.length > 0
-                          ? data.report.futureCareerPath
-                          : data?.report?.careerPathSteps || []).length - 1) && (
-                          <div className="absolute left-6 top-12 w-px bg-gray-300 h-full"></div>
-                        )}
-                        
-                        {/* Step marker */}
-                        <div className="flex flex-col items-center flex-shrink-0">
-                          <div className="h-12 w-12 bg-primary text-white rounded-full flex items-center justify-center font-semibold text-sm relative z-10">
-                            {index + 1}
-                          </div>
-                        </div>
-
-                        {/* Step content */}
-                        <Card className="flex-grow">
-                          <CardContent className="p-6">
-                            <div className="flex justify-between items-start mb-3">
-                              <h3 className="font-bold text-lg text-gray-900">{cleanStepTitle(step.step || step.title)}</h3>
-                              <span className="text-primary text-sm font-medium bg-primary/10 px-3 py-1 rounded-full">
-                                {step.timeline || step.timeframe}
-                              </span>
-                            </div>
-                            <p className="text-gray-600 mb-4">{step.action || step.description}</p>
-                            {step.focusAreas && (
-                              <div className="pt-3 border-t">
-                                <h4 className="font-medium text-sm mb-2 text-gray-800">Focus areas:</h4>
-                                <div className="flex flex-wrap gap-2">
-                                  {step.focusAreas.split(',').map((area, i) => {
-                                    const cleanedArea = area.trim().replace(/\b(and|or|the|a|an|in|on|at|to|for|of|with|by)\b/gi, '').replace(/\s+/g, ' ').trim();
-                                    const capitalizedArea = cleanedArea.replace(/\b\w/g, l => l.toUpperCase());
-                                    return capitalizedArea ? (
-                                      <Badge key={i} variant="secondary" className="text-xs">{capitalizedArea}</Badge>
-                                    ) : null;
-                                  }).filter(Boolean)}
-                                </div>
-                              </div>
-                            )}
-                          </CardContent>
-                        </Card>
-                      </div>
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.1fr] gap-6 items-start">
+            <div className="flex flex-col gap-4">
+              <StudioChat
+                messages={coach.messages}
+                composing={coach.composing}
+                currentAct={actIndexForQuestion(currentQuestion)}
+                actsDone={phase === 'generating' || phase === 'ready' || phase === 'resume-choice' || phase === 'resume-upload'}
+                inputValue={inputValue}
+                onInputChange={setInputValue}
+                onSubmit={() => void handleAnswer(inputValue)}
+                inputDisabled={composerDisabled}
+                placeholder={composerPlaceholder}
+                headerAction={
+                  <button
+                    type="button"
+                    data-testid="start-over"
+                    onClick={() => void handleStartOver()}
+                    className="text-xs font-bold rounded-full border border-border px-3 py-1.5 text-muted-foreground transition-colors hover:text-ss-bad hover:border-ss-bad"
+                  >
+                    Start over
+                  </button>
+                }
+              >
+                {showQuickReplies && phase === 'chat' && awaitingInput && (
+                  <div className="flex flex-col gap-2 ml-10 mt-1">
+                    {quickReplies.map((reply) => (
+                      <button
+                        key={reply}
+                        type="button"
+                        data-testid="quick-reply"
+                        onClick={() => void handleAnswer(reply)}
+                        className="text-left text-sm text-ss-lav-deep border-[1.5px] border-ss-lav rounded-3xl px-4 py-2.5 bg-white/70 transition-colors hover:bg-ss-lav-chip focus:outline-none focus-visible:ring-2 focus-visible:ring-ss-lav"
+                      >
+                        {reply}
+                      </button>
                     ))}
                   </div>
+                )}
+
+                {phase === 'resume-choice' && (
+                  <div className="flex flex-col gap-2 ml-10 mt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        coach.addUser('Use my resume on file');
+                        void generateReport(resumeTextRef.current);
+                      }}
+                      className="text-left text-sm text-ss-lav-deep border-[1.5px] border-ss-lav rounded-3xl px-4 py-2.5 bg-white/70 transition-colors hover:bg-ss-lav-chip"
+                    >
+                      Use my resume on file
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        coach.addUser('Upload a new resume');
+                        setPhase('resume-upload');
+                      }}
+                      className="text-left text-sm text-ss-lav-deep border-[1.5px] border-ss-lav rounded-3xl px-4 py-2.5 bg-white/70 transition-colors hover:bg-ss-lav-chip"
+                    >
+                      Upload a new resume
+                    </button>
+                  </div>
+                )}
+
+                {phase === 'resume-upload' && (
+                  <div className="ml-10 mt-1 rounded-[18px] border-2 border-dashed border-ss-lav bg-white/60 p-4">
+                    <label htmlFor="resume-upload-input" className="block text-sm font-bold mb-2">
+                      Upload your resume (PDF or DOCX)
+                    </label>
+                    <input
+                      id="resume-upload-input"
+                      type="file"
+                      accept=".pdf,.docx"
+                      disabled={resumeUploading}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const okType = file.type === 'application/pdf' ||
+                          file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+                        if (okType) {
+                          setResumeFile(file);
+                        } else {
+                          toast({
+                            title: 'Invalid file type',
+                            description: 'Only PDF or DOCX files are allowed.',
+                            variant: 'destructive',
+                          });
+                        }
+                      }}
+                      className="block w-full text-sm text-muted-foreground file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-ss-lav-chip file:text-ss-lav-deep hover:file:bg-ss-lav-chip/70"
+                    />
+                    {resumeFile && (
+                      <button
+                        type="button"
+                        onClick={() => void handleResumeUpload()}
+                        disabled={resumeUploading}
+                        className="mt-3 rounded-full bg-ss-lav-deep text-white text-sm font-bold px-5 py-2.5 transition-colors hover:bg-ss-lav-deep/90 disabled:opacity-60"
+                      >
+                        {resumeUploading ? 'Uploading…' : 'Upload and continue'}
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {phase === 'error' && (
+                  <div className="ml-10 mt-1">
+                    <button
+                      type="button"
+                      onClick={() => void generateReport(resumeTextRef.current)}
+                      className="rounded-full bg-ss-lav-deep text-white text-sm font-bold px-5 py-2.5 transition-colors hover:bg-ss-lav-deep/90"
+                    >
+                      Retry generating my report
+                    </button>
+                  </div>
+                )}
+              </StudioChat>
+
+              {phase === 'ready' && report && (
+                <div data-testid="pathway-savebar" className="ss-card ss-card-warm flex items-center gap-3 flex-wrap rounded-full px-6 py-3.5 animate-fade-in">
+                  <span className="font-bold text-sm">Your pathway is ready</span>
+                  {savedOk ? (
+                    <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium bg-ss-good-chip text-ss-good">
+                      Saved to your profile
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium bg-ss-bad-chip text-ss-bad">
+                      Not saved — may not persist
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => planSectionRef.current?.scrollIntoView({ behavior: reducedRef.current ? 'auto' : 'smooth', block: 'start' })}
+                    className="ml-auto rounded-full bg-ss-lav-deep text-white text-sm font-bold px-5 py-2 transition-colors hover:bg-ss-lav-deep/90"
+                  >
+                    Get action plan
+                  </button>
                 </div>
-                
-                {data?.report?.careerPathSteps && data.report.careerPathSteps.length > 0 && <Card className="bg-white mt-8">
-                    <CardHeader className="bg-primary/5 pb-2">
-                      <CardTitle className="flex items-center gap-2">
-                        <FileText className="h-5 w-5 text-primary" />
-                        Action Plan
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-6">
-                      <p className="text-gray-700 text-left">
-                        Your next career steps should build upon your current foundation while steering towards your aspirational role. 
-                        Initially, advancing from your current position to {data.report.careerPathSteps[0].title} can help bridge the gap 
-                        between your current expertise and desired career path.
-                      </p>
-                      <div className="mt-4 space-y-3">
-                        <div className="flex items-start gap-2 text-left">
-                          <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" />
-                          <p className="text-left">Complete the recommended skill courses to strengthen your technical foundation</p>
-                        </div>
-                        <div className="flex items-start gap-2 text-left">
-                          <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" />
-                          <p className="text-left">Build projects showcasing the skills relevant to your target role</p>
-                        </div>
-                        <div className="flex items-start gap-2 text-left">
-                          <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" />
-                          <p className="text-left">Network with professionals in your desired field to gain insights and connections</p>
-                        </div>
-                        <div className="flex items-start gap-2 text-left">
-                          <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" />
-                          <p className="text-left">Update your resume and LinkedIn profile to highlight relevant experience</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                    <CardFooter className="bg-primary/5 border-t p-4">
-                      <Button onClick={generateActionPlan} disabled={isGeneratingPlan}>
-                        {isGeneratingPlan ? <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Generating...
-                          </> : "Generate Detailed Action Plan"}
-                      </Button>
-                    </CardFooter>
-                  </Card>}
+              )}
+            </div>
 
-                {/* Display the Action Plan component */}
-                <CareerActionPlan initialActionPlan={data?.actionPlan} />
-              </motion.div>
-            </TabsContent>
-          </Tabs>
-        </motion.div>
-
-        {/* Feedback / Recommendations Section */}
-        <motion.div initial="initial" animate="animate" variants={fadeInUp} className="mt-8">
-          <CareerAIRecommendations careerPath={data?.report?.recommendedRoles?.[0]?.title} userSkills={userSkills} />
-        </motion.div>
-      </div>
-
-      {/* No assessment results view */}
-      {!isLoading && (!data?.report || Object.keys(data.report).length === 0) && (
-        <div className="text-center py-12 space-y-6">
-          <h2 className="text-3xl font-bold">No Career Assessment Results Yet</h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Take our career assessment quiz to get personalized career pathway recommendations,
-            skill development guidance, and a customized learning path.
-          </p>
-          <Button onClick={handleTakeQuiz} size="lg">
-            Take Career Assessment <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
-        
-          {/* Show AI recommendations even without assessment */}
-          <div className="pt-12">
-            <CareerAIRecommendations />
-        
-            {/* Feedback Buttons */}
-            <motion.div initial="initial" animate="animate" variants={fadeInUp} className="text-center space-y-4 mt-12">
-              <p className="text-gray-600">Was this information useful?</p>
-              <div className="flex justify-center gap-4">
-                <Button variant="outline" className="px-8">Yes</Button>
-                <Button variant="outline" className="px-8">No</Button>
-              </div>
-            </motion.div>
+            <div className="lg:sticky lg:top-6">
+              <ReportCanvas report={report} revealStage={revealStage} />
+            </div>
           </div>
+
+          {phase === 'ready' && (
+            <div ref={planSectionRef} className="mt-10 scroll-mt-6">
+              {/* A plan cached from a previous pathway must not appear against a
+                  freshly generated report — the user regenerates from the new one. */}
+              <ActionPlanSection initialActionPlan={generatedThisSession ? null : savedResults?.actionPlan ?? null} />
+            </div>
+          )}
+
+          {report && (
+            <div className="mt-8 flex justify-center">
+              <button
+                type="button"
+                onClick={() => navigate('/explore-data-careers')}
+                className="rounded-full border border-border text-sm font-bold px-6 py-3 transition-colors hover:border-ss-lav"
+              >
+                Explore all data careers
+              </button>
+            </div>
+          )}
         </div>
-      )}
-    </AppLayout>;
+      </div>
+    </AppLayout>
+  );
 };
 
-// Skeleton components
-const SkillsSkeleton = () => <>
-    {[1, 2, 3].map(i => <div key={i} className="grid grid-cols-12 gap-4 p-4 border-b">
-        <div className="col-span-4">
-          <Skeleton className="h-6 w-32 mb-2" />
-          <Skeleton className="h-4 w-20" />
-        </div>
-        <div className="col-span-8 md:col-span-5">
-          <Skeleton className="h-6 w-full" />
-        </div>
-        <div className="hidden md:block md:col-span-3">
-          <Skeleton className="h-4 w-full" />
-        </div>
-      </div>)}
-  </>;
-const CareerPathSkeleton = () => <>
-    {[1, 2, 3].map(i => <div key={i} className="flex-shrink-0 w-64 px-4">
-        <Skeleton className="h-40 w-full rounded-lg" />
-      </div>)}
-  </>;
-const AlternativeRolesSkeleton = () => <>
-    {[1, 2, 3].map(i => <Card key={i} className="bg-white">
-        <CardContent className="p-6">
-          <Skeleton className="h-6 w-48 mb-2" />
-          <Skeleton className="h-4 w-32 mb-2" />
-          <Skeleton className="h-16 w-full" />
-        </CardContent>
-      </Card>)}
-  </>;
 export default CareerPathway;

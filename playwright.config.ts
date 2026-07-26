@@ -59,6 +59,8 @@ export default defineConfig({
         '**/auth/**',
         '**/landing/**',
         '**/visual/**',
+        // Signed-out spec — handled by chromium-public
+        '**/career/career-pathway-public.spec.ts',
         // Instructor-only specs — handled by chromium-instructor project
         '**/courses/course-builder.spec.ts',
         '**/courses/course-builder-verification.spec.ts',
@@ -108,6 +110,7 @@ export default defineConfig({
         '**/portfolio/public-portfolio.spec.ts',
         '**/survey/**',
         '**/blog/**',
+        '**/career/career-pathway-public.spec.ts',
       ],
     },
     // Cross-browser smoke tests: Firefox + WebKit on critical paths

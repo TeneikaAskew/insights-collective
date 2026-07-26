@@ -76,7 +76,7 @@ const WelcomeModal: React.FC = () => {
               </CardHeader>
               <CardContent className="space-y-3 pb-5">
                 <Button
-                  onClick={() => handleGetStarted('/career-agent')}
+                  onClick={() => handleGetStarted('/career-pathway')}
                   className="w-full h-auto py-2.5"
                   variant="default"
                 >
