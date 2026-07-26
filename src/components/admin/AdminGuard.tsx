@@ -21,6 +21,8 @@ const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
   const { isAuthenticated, user, session, loading } = useAuth();
   const location = useLocation();
   const [hasAdminAccess, setHasAdminAccess] = React.useState<boolean | null>(null);
+  // Presence, not identity — see ProtectedRoute.
+  const hasSession = session !== null;
 
   // Check admin access using new security function
   React.useEffect(() => {
@@ -54,13 +56,13 @@ const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
 
     if (isAuthenticated && user) {
       checkAdminAccess();
-    } else if (!session && !loading) {
+    } else if (!hasSession && !loading) {
       // Same gap as ProtectedRoute: isAuthenticated lags the session while the
       // profile loads, and answering false in that window locks a real admin
       // out before has_admin_access can reply.
       setHasAdminAccess(false);
     }
-  }, [isAuthenticated, user, session, loading, location.pathname]);
+  }, [isAuthenticated, user?.id, hasSession, loading, location.pathname]);
 
   // Enhanced security checks
   if (loading || (session !== null && !isAuthenticated) || hasAdminAccess === null) {

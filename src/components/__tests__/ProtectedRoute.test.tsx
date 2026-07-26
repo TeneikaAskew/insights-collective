@@ -98,6 +98,36 @@ describe('ProtectedRoute requireAdmin', () => {
     expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('has_admin_access', { user_id_param: 'admin-1' });
   });
 
+  it('does not re-check admin access when the session object is replaced by a token refresh', async () => {
+    authState.isAuthenticated = true;
+    authState.user = { id: 'admin-1' };
+    authState.session = SESSION;
+    authState.loading = false;
+    const { rerender } = renderAt();
+
+    await waitFor(() => expect(screen.getByText('ADMIN CONTENT')).toBeInTheDocument());
+    expect(mockSupabaseClient.rpc).toHaveBeenCalledTimes(1);
+
+    // Supabase emits TOKEN_REFRESHED and useAuthProvider stores a brand-new
+    // session object. Nothing about the user or the route changed, so this must
+    // not repeat the RPC or write another security-audit entry.
+    authState.session = { ...SESSION, access_token: 'refreshed' };
+    rerender(
+      <MemoryRouter initialEntries={['/admin/courses']}>
+        <Routes>
+          <Route
+            path="/admin/courses"
+            element={<ProtectedRoute requireAdmin><div>ADMIN CONTENT</div></ProtectedRoute>}
+          />
+          <Route path="/dashboard" element={<div>DASHBOARD</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(screen.getByText('ADMIN CONTENT')).toBeInTheDocument());
+    expect(mockSupabaseClient.rpc).toHaveBeenCalledTimes(1);
+  });
+
   it('still redirects a signed-in non-admin away', async () => {
     mockSupabaseClient.rpc = vi.fn().mockResolvedValue({ data: false, error: null });
     authState.isAuthenticated = true;

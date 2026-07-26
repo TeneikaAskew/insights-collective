@@ -24,6 +24,10 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireAdmin 
   const location = useLocation();
   const { toast } = useToast();
   const [hasAdminAccess, setHasAdminAccess] = React.useState<boolean | null>(null);
+  // Presence, not identity: useAuthProvider calls setSession for every auth
+  // event, so depending on the session object re-ran the admin check and wrote
+  // another protected_route_access audit entry on each token refresh.
+  const hasSession = session !== null;
 
   // Check admin access if required
   React.useEffect(() => {
@@ -57,7 +61,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireAdmin 
 
     if (isAuthenticated && user) {
       checkAdminAccess();
-    } else if (!session && !loading) {
+    } else if (!hasSession && !loading) {
       // Only conclude "not an admin" once auth has settled with no session at
       // all. isAuthenticated is derived from the enriched profile, which loads
       // after the session: in that gap this branch used to write a definitive
@@ -66,7 +70,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireAdmin 
       // access attempt — before has_admin_access could reply.
       setHasAdminAccess(!requireAdmin);
     }
-  }, [isAuthenticated, user, session, loading, requireAdmin, location.pathname]);
+  }, [isAuthenticated, user?.id, hasSession, loading, requireAdmin, location.pathname]);
 
   React.useEffect(() => {
     // Validate and store redirect path securely
