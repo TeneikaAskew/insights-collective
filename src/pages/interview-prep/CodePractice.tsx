@@ -220,9 +220,11 @@ export default function CodePractice() {
     setDbChallenge(null);
     (async () => {
       try {
+        // Explicit projection: test_cases stays server-side (hidden cases
+        // must never reach the browser; column privileges enforce this too).
         const { data, error } = await supabase
           .from('code_challenges')
-          .select('*')
+          .select('id,title,difficulty,prompt,description,detail,example,constraints,hints,language,starter_code,function_name,runtime,compare_mode,topic_tags')
           .contains('topic_tags', [selectedRole])
           .order('difficulty', { ascending: true })
           .limit(1);
@@ -248,7 +250,9 @@ export default function CodePractice() {
   };
 
   const handleReset = () => {
-    setCode(templateForRole(selectedRole));
+    // A database challenge defines its own starter signature — reset to it,
+    // not to the generic role template.
+    setCode(dbChallenge?.starter_code || templateForRole(selectedRole));
   };
 
   const handleSubmit = async () => {
@@ -271,15 +275,11 @@ export default function CodePractice() {
           logger.error('Sandbox execution unavailable, falling back to AI judge:', executionError);
         }
 
+        // Review mode only needs the attemptId — the function derives the
+        // verdict from the execution record stored server-side on the attempt.
         const { data: review, error: reviewError } = await supabase.functions.invoke('review-code', {
-          body: execution
-            ? {
-                challengeId: dbChallenge.id,
-                code,
-                language,
-                executionResults: execution.results,
-                attemptId: execution.attemptId,
-              }
+          body: execution?.attemptId
+            ? { challengeId: dbChallenge.id, code, language, attemptId: execution.attemptId }
             : { challengeId: dbChallenge.id, code, language },
         });
         if (reviewError) throw reviewError;

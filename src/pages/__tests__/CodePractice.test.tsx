@@ -187,13 +187,15 @@ describe('CodePractice page (Problem Book)', () => {
         language: 'javascript',
       },
     });
-    // Review receives ground truth + the attempt to attach the review to
+    // Review receives only the attemptId — the verdict is derived from the
+    // execution record stored server-side, never from client-sent results
     expect(mockSupabaseClient.functions.invoke).toHaveBeenCalledWith('review-code', {
-      body: expect.objectContaining({
+      body: {
         challengeId: DB_CHALLENGE.id,
+        code: 'function solution(nums, target) {\n}',
+        language: 'javascript',
         attemptId: 'attempt-1',
-        executionResults: expect.any(Array),
-      }),
+      },
     });
 
     expect(screen.getByText('Correct')).toBeInTheDocument();
@@ -206,6 +208,20 @@ describe('CodePractice page (Problem Book)', () => {
     // Hidden cases stay out of the per-test list (one visible row)
     expect(screen.getByText('([2,7,11,15], 9)')).toBeInTheDocument();
     expect(screen.queryByText('((hidden))')).not.toBeInTheDocument();
+  });
+
+  it('resets to the database starter code, not the role template', async () => {
+    userState.user = { id: 'user-1' };
+    mockChallengeQuery([DB_CHALLENGE]);
+
+    render(<CodePractice />);
+    await waitFor(() => {
+      expect(screen.getByLabelText('code editor')).toHaveValue('function solution(nums, target) {\n}');
+    });
+
+    // Simulate the user editing, then resetting
+    fireEvent.click(screen.getByRole('button', { name: /reset/i }));
+    expect(screen.getByLabelText('code editor')).toHaveValue('function solution(nums, target) {\n}');
   });
 
   it('falls back to the AI judge when the sandbox is unavailable', async () => {

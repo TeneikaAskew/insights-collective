@@ -30,8 +30,11 @@ interface TestCase {
 }
 
 // One program runs ALL cases: cheaper, and a single sandbox round-trip.
-// Each case prints exactly one JSON line (or __ERROR__: message).
-function buildPythonHarness(challenge: any, code: string, cases: TestCase[]): string {
+// Each case prints exactly one line prefixed with a per-run random marker
+// (or marker + __ERROR__: message). Only marker lines are parsed as
+// results, so user print/console.log output can't shift the case mapping
+// and module-scope prints can't forge passing output.
+function buildPythonHarness(challenge: any, code: string, cases: TestCase[], marker: string): string {
   const needsPandas = challenge.runtime === "python-ml";
   const prelude = needsPandas
     ? "import json, math\nimport pandas as pd\nimport numpy as np\n"
@@ -44,24 +47,24 @@ try:
     if 'DataFrame' in type(__result).__name__:
         __result = __result.to_dict(orient='records')
     ${challenge.compare_mode === "set" ? "__result = sorted(__result) if isinstance(__result, list) else __result" : ""}
-    print(json.dumps(__result))
+    print(${JSON.stringify(marker)} + json.dumps(__result))
 except Exception as __e:
-    print("__ERROR__:" + str(__e))`,
+    print(${JSON.stringify(marker)} + "__ERROR__:" + str(__e))`,
     )
     .join("\n");
   return `${prelude}\n${code}\n${caseLines}\n`;
 }
 
-function buildJavascriptHarness(challenge: any, code: string, cases: TestCase[]): string {
+function buildJavascriptHarness(challenge: any, code: string, cases: TestCase[], marker: string): string {
   const caseLines = cases
     .map(
       (c) => `
 try {
   let __result = ${challenge.function_name}(${c.input});
   ${challenge.compare_mode === "set" ? "if (Array.isArray(__result)) __result = [...__result].sort();" : ""}
-  console.log(JSON.stringify(__result === undefined ? null : __result));
+  console.log(${JSON.stringify(marker)} + JSON.stringify(__result === undefined ? null : __result));
 } catch (__e) {
-  console.log("__ERROR__:" + __e.message);
+  console.log(${JSON.stringify(marker)} + "__ERROR__:" + __e.message);
 }`,
     )
     .join("\n");
@@ -213,15 +216,21 @@ serve(async (req) => {
       });
     }
 
+    // Per-run random marker: only harness-emitted lines carry it, so user
+    // output can neither forge results nor shift the case mapping.
+    const marker = `__RESULT_${crypto.randomUUID().replaceAll("-", "")}__`;
     const source =
       challenge.language === "javascript"
-        ? buildJavascriptHarness(challenge, code, cases)
-        : buildPythonHarness(challenge, code, cases);
+        ? buildJavascriptHarness(challenge, code, cases, marker)
+        : buildPythonHarness(challenge, code, cases, marker);
 
     const startedAt = Date.now();
     const run = await runInSandbox(challenge, source);
 
-    const lines = run.stdout.split("\n").filter((l: string) => l.trim() !== "");
+    const lines = run.stdout
+      .split("\n")
+      .filter((l: string) => l.startsWith(marker))
+      .map((l: string) => l.slice(marker.length));
     const results = cases.map((c, i) => {
       const line = lines[i] ?? (run.stderr ? `__ERROR__:${run.stderr.split("\n")[0]}` : "__ERROR__:no output");
       const { passed, actual } = compareOutputs(line, c.expected, challenge.compare_mode ?? "exact");
@@ -234,7 +243,17 @@ serve(async (req) => {
       };
     });
     const allTestsPassed = results.every((r) => r.passed);
+    const executionRecord = {
+      results,
+      allTestsPassed,
+      testsPassed: results.filter((r) => r.passed).length,
+      testsTotal: results.length,
+      runtimeMs: run.timeMs ?? null,
+      memoryKb: run.memoryKb ?? null,
+    };
 
+    // Store the execution record on the attempt: review-code derives its
+    // verdict from this server-side data, never from client-supplied results.
     const { data: attempt, error: attemptError } = await supabase
       .from("code_attempts")
       .insert({
@@ -243,6 +262,7 @@ serve(async (req) => {
         code,
         language,
         passed_tests: allTestsPassed,
+        ai_review: { execution: executionRecord },
         duration: Date.now() - startedAt,
       })
       .select("id")

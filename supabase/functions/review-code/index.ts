@@ -152,26 +152,12 @@ serve(async (req) => {
     }
     const userId = userData.user.id;
 
-    const { challengeId, code, language, executionResults, attemptId } = await req.json();
+    const { challengeId, code, language, attemptId } = await req.json();
     if (!challengeId || !code || !language) {
       return new Response(JSON.stringify({ error: "challengeId, code, and language are required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
-    }
-
-    // Rate limit
-    const oneMinuteAgo = new Date(Date.now() - 60_000).toISOString();
-    const { count } = await supabase
-      .from("code_attempts")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId)
-      .gte("created_at", oneMinuteAgo);
-    if ((count ?? 0) >= MAX_SUBMISSIONS_PER_MINUTE) {
-      return new Response(
-        JSON.stringify({ error: "Too many submissions — wait a minute and try again" }),
-        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
     }
 
     // Load the challenge and its test cases server-side (hidden cases never
@@ -192,19 +178,58 @@ serve(async (req) => {
     const startedAt = Date.now();
 
     let payload: Record<string, unknown>;
-    if (Array.isArray(executionResults) && executionResults.length > 0) {
-      // Review mode: execution already produced ground truth.
-      const ai = await callGroq(createReviewPrompt(challenge, code, language, executionResults));
-      const passedCount = executionResults.filter((r: ExecutionResult) => r.passed).length;
+    if (attemptId) {
+      // Review mode: the verdict comes from the execution record execute-code
+      // stored on the attempt — never from anything the client sends. The
+      // attempt must belong to the caller and to this challenge.
+      const { data: attempt, error: attemptLookupError } = await supabase
+        .from("code_attempts")
+        .select("id, challenge_id, code, language, passed_tests, ai_review")
+        .eq("id", attemptId)
+        .eq("user_id", userId)
+        .single();
+      const execution = attempt?.ai_review?.execution;
+      if (attemptLookupError || !attempt || attempt.challenge_id !== challengeId || !execution) {
+        return new Response(
+          JSON.stringify({ error: "Attempt not found or has no execution record" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
+      // Idempotent: a review already attached to this attempt is returned as-is.
+      if (attempt.ai_review?.review) {
+        return new Response(JSON.stringify({ ...attempt.ai_review.review, attemptId: attempt.id }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Review the code that was actually executed (stored server-side).
+      const ai = await callGroq(
+        createReviewPrompt(challenge, attempt.code, attempt.language, execution.results as ExecutionResult[]),
+      );
       payload = {
         evaluationMode: "executed",
-        correct: passedCount === executionResults.length,
-        testsPassed: passedCount,
-        testsTotal: executionResults.length,
+        correct: attempt.passed_tests === true,
+        testsPassed: execution.testsPassed,
+        testsTotal: execution.testsTotal,
         review: ai.review,
         suggestions: ai.suggestions ?? [],
       };
     } else {
+      // Judge mode is the submission itself, so it carries the rate limit.
+      // (Review mode piggybacks on an execution that was already limited.)
+      const oneMinuteAgo = new Date(Date.now() - 60_000).toISOString();
+      const { count } = await supabase
+        .from("code_attempts")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .gte("created_at", oneMinuteAgo);
+      if ((count ?? 0) >= MAX_SUBMISSIONS_PER_MINUTE) {
+        return new Response(
+          JSON.stringify({ error: "Too many submissions — wait a minute and try again" }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
       // Judge mode: the model traces the code against the stored cases.
       if (cases.length === 0) {
         return new Response(JSON.stringify({ error: "Challenge has no test cases" }), {
@@ -232,11 +257,18 @@ serve(async (req) => {
     }
 
     // Persist: in review mode execute-code already created the attempt row —
-    // attach the review to it instead of inserting a duplicate.
-    if (attemptId && Array.isArray(executionResults)) {
+    // attach the review to it (next to its execution record) instead of
+    // inserting a duplicate.
+    if (attemptId) {
+      const { data: current } = await supabase
+        .from("code_attempts")
+        .select("ai_review")
+        .eq("id", attemptId)
+        .eq("user_id", userId)
+        .single();
       const { error: updateError } = await supabase
         .from("code_attempts")
-        .update({ ai_review: payload })
+        .update({ ai_review: { ...(current?.ai_review ?? {}), review: payload } })
         .eq("id", attemptId)
         .eq("user_id", userId);
       if (updateError) {
