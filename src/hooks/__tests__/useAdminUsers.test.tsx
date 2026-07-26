@@ -1,6 +1,6 @@
-// ABOUTME: Regression tests for useAdminUsers role loading.
-// ABOUTME: Roles are loaded in one batched user_roles query; a failure must
-// ABOUTME: fail the fetch with an error, not render every user as 'student'.
+// ABOUTME: Tests for useAdminUsers server-side search/pagination.
+// ABOUTME: Roles come from search_admin_users; a failure fails the fetch with
+// ABOUTME: an error rather than rendering everyone as 'student'.
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
@@ -14,7 +14,7 @@ vi.mock('@/hooks/use-toast', () => ({
   useToast: () => ({ toast: mockToast }),
 }));
 
-const profileRow = {
+const userRow = {
   id: 'user-1',
   first_name: 'Ada',
   last_name: 'Lovelace',
@@ -23,46 +23,31 @@ const profileRow = {
   created_at: '2026-01-01T00:00:00Z',
 };
 
-// Chainable builder that resolves (via await / .then) to `result`.
-function makeBuilder(result: any) {
-  const builder: any = {};
-  for (const m of ['select', 'insert', 'update', 'delete', 'eq', 'in', 'order', 'limit']) {
-    builder[m] = vi.fn(() => builder);
-  }
-  builder.single = vi.fn(() => Promise.resolve(result));
-  builder.maybeSingle = vi.fn(() => Promise.resolve(result));
-  builder.then = (onFulfilled: any, onRejected: any) =>
-    Promise.resolve(result).then(onFulfilled, onRejected);
-  return builder;
-}
+const countsRow = { total: 1, students: 1, instructors: 0, admins: 0 };
 
-// Wire `from()` to return a distinct builder per table.
-function wireTables(tables: Record<string, any>) {
-  (mockSupabaseClient.from as any).mockImplementation((table: string) => {
-    if (!(table in tables)) {
-      throw new Error(`Unexpected table in test: ${table}`);
-    }
-    return tables[table];
-  });
+// Route rpc(name) calls to per-function results.
+function wireRpc(results: Record<string, any>) {
+  (mockSupabaseClient.rpc as any).mockImplementation((fn: string) =>
+    Promise.resolve(results[fn] ?? { data: null, error: null })
+  );
 }
 
 describe('useAdminUsers.fetchUsers', () => {
   beforeEach(() => {
     mockToast.mockClear();
-    (mockSupabaseClient.from as any).mockReset();
+    (mockSupabaseClient.rpc as any).mockReset();
     vi.mocked(useAuth).mockReturnValue({
       user: { id: 'admin-1', roles: ['admin'] },
     } as any);
   });
 
-  it('fails the fetch when the roles query errors instead of defaulting everyone to student', async () => {
-    wireTables({
-      profiles: makeBuilder({ data: [profileRow], error: null }),
-      user_roles: makeBuilder(supabaseError('roles query failed')),
+  it('fails the fetch when the search RPC errors instead of defaulting everyone to student', async () => {
+    wireRpc({
+      search_admin_users: supabaseError('search failed'),
+      admin_user_role_counts: { data: [countsRow], error: null },
     });
 
     const { result } = renderHook(() => useAdminUsers());
-
     await act(async () => {
       await result.current.fetchUsers();
     });
@@ -74,17 +59,16 @@ describe('useAdminUsers.fetchUsers', () => {
     );
   });
 
-  it('uses canonical roles from user_roles on success', async () => {
-    wireTables({
-      profiles: makeBuilder({ data: [profileRow], error: null }),
-      user_roles: makeBuilder({
-        data: [{ user_id: 'user-1', role: 'instructor' }],
+  it('maps roles and total from the search RPC on success', async () => {
+    wireRpc({
+      search_admin_users: {
+        data: [{ ...userRow, roles: ['instructor'], total_count: 1 }],
         error: null,
-      }),
+      },
+      admin_user_role_counts: { data: [{ total: 1, students: 1, instructors: 1, admins: 0 }], error: null },
     });
 
     const { result } = renderHook(() => useAdminUsers());
-
     await act(async () => {
       await result.current.fetchUsers();
     });
@@ -92,16 +76,20 @@ describe('useAdminUsers.fetchUsers', () => {
     expect(result.current.error).toBeNull();
     expect(result.current.users).toHaveLength(1);
     expect(result.current.users[0].roles).toEqual(['instructor']);
+    expect(result.current.total).toBe(1);
+    expect(result.current.counts.instructors).toBe(1);
   });
 
-  it('defaults to student only when a user has no user_roles rows', async () => {
-    wireTables({
-      profiles: makeBuilder({ data: [profileRow], error: null }),
-      user_roles: makeBuilder({ data: [], error: null }),
+  it('defaults to student when a returned user has no roles', async () => {
+    wireRpc({
+      search_admin_users: {
+        data: [{ ...userRow, roles: [], total_count: 1 }],
+        error: null,
+      },
+      admin_user_role_counts: { data: [countsRow], error: null },
     });
 
     const { result } = renderHook(() => useAdminUsers());
-
     await act(async () => {
       await result.current.fetchUsers();
     });

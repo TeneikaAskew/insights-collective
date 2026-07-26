@@ -56,15 +56,22 @@ const AdminUsers = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 20;
   const { toast } = useToast();
   const authContext = useAuth();
   const user = authContext?.user;
-  
-  const { 
-    users, 
-    loading, 
+
+  const {
+    users,
+    total,
+    counts,
+    loading,
     error,
-    fetchUsers, 
+    fetchUsers,
+    refresh,
+    fetchAllForExport,
     updateUserRole,
     deleteUsers,
   } = useAdminUsers();
@@ -72,17 +79,34 @@ const AdminUsers = () => {
   const isAdmin = !!user?.roles?.includes('admin');
   const authResolved = !!user;
 
+  // Debounce the search box, resetting to page 1 when the query changes.
   useEffect(() => {
-    // Only fetch users when user is loaded and has admin privileges
+    const t = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
+
+  // Switching role tabs starts a fresh page and clears the current selection.
+  useEffect(() => {
+    setPage(1);
+    setSelectedUsers([]);
+  }, [activeTab]);
+
+  // Server-side fetch whenever the admin, filter, or page changes.
+  useEffect(() => {
     if (user && user.roles && user.roles.includes('admin')) {
-      logger.log('[AdminUsers] User is admin, fetching users...');
-      fetchUsers();
+      fetchUsers({ search: debouncedSearch, role: activeTab, page, pageSize: PAGE_SIZE });
     } else if (user && user.roles && !user.roles.includes('admin')) {
       logger.log('[AdminUsers] User is not admin, showing access denied.');
     } else {
       logger.log('[AdminUsers] User not loaded yet, waiting...');
     }
-  }, [user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, debouncedSearch, activeTab, page]);
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const getHighestRole = (roles: string[] = ['student']): string => {
     if (roles.includes('admin')) return 'admin';
@@ -101,18 +125,9 @@ const AdminUsers = () => {
     }
   };
   
-  // Simplified filtering logic that only searches by name
-  const filteredUsers = users.filter(user => {
-    const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
-    const matchesSearch = fullName.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    if (activeTab === 'all') return matchesSearch;
-    
-    // Check if user has the role for the current tab
-    const userRoles = user.roles || ['student'];
-    const hasRole = userRoles.includes(activeTab);
-    return matchesSearch && hasRole;
-  });
+  // Search, role filter, and pagination are all handled server-side; render
+  // the current page of users directly.
+  const filteredUsers = users;
   
   const handleOpenUserDetails = (user: UserData) => {
     setSelectedUser(user);
@@ -154,9 +169,12 @@ const AdminUsers = () => {
     }
   };
   
-  const handleExportUsers = () => {
+  const handleExportUsers = async () => {
     try {
-      const rows = filteredUsers.map(user => [
+      // Export every user matching the current search/role filter, not just the
+      // page currently shown.
+      const allUsers = await fetchAllForExport();
+      const rows = allUsers.map(user => [
         user.id,
         `${user.first_name || ''} ${user.last_name || ''}`.trim(),
         (user.roles || ['student']).join(';'),
@@ -166,7 +184,7 @@ const AdminUsers = () => {
 
       toast({
         title: 'Export Completed',
-        description: 'User data has been exported to CSV.',
+        description: `Exported ${rows.length} user(s) to CSV.`,
       });
     } catch (error) {
       logger.error('Error exporting users:', error);
@@ -269,7 +287,8 @@ const AdminUsers = () => {
       }
 
       if (successCount > 0) {
-        await fetchUsers();
+        await refresh();
+        setSelectedUsers([]);
       }
 
       if (failCount > 0) {
@@ -291,10 +310,11 @@ const AdminUsers = () => {
   };
 
   // Get counts for each tab
-  const allUsersCount = users.length;
-  const studentsCount = users.filter(u => (u.roles || ['student']).includes('student')).length;
-  const instructorsCount = users.filter(u => (u.roles || []).includes('instructor')).length;
-  const adminsCount = users.filter(u => (u.roles || []).includes('admin')).length;
+  // Global per-role counts come from the server (independent of the page).
+  const allUsersCount = counts.total;
+  const studentsCount = counts.students;
+  const instructorsCount = counts.instructors;
+  const adminsCount = counts.admins;
 
   const deleteTargetNames = deleteTargetIds.map(id => {
     const u = users.find(usr => usr.id === id);
@@ -407,7 +427,9 @@ const AdminUsers = () => {
                       {filteredUsers.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={4} className="h-24 text-center">
-                            {users.length === 0 ? 'No users found.' : 'No users match your search criteria.'}
+                            {debouncedSearch || activeTab !== 'all'
+                              ? 'No users match your search criteria.'
+                              : 'No users found.'}
                           </TableCell>
                         </TableRow>
                       ) : (
@@ -471,6 +493,32 @@ const AdminUsers = () => {
                       )}
                     </TableBody>
                   </Table>
+                )}
+
+                {total > PAGE_SIZE && (
+                  <div className="flex items-center justify-between px-2 py-4">
+                    <p className="text-sm text-muted-foreground">
+                      Page {page} of {totalPages} · {total} user{total === 1 ? '' : 's'}
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={page <= 1 || loading}
+                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      >
+                        Previous
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={page >= totalPages || loading}
+                        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </div>
                 )}
               </CardContent>
             </Card>
