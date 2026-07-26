@@ -207,6 +207,10 @@ export default function CodePractice() {
   // during that window would take the demo path and hand a signed-in user
   // fabricated "3/3 passed" feedback for code that never ran.
   const [challengeLoading, setChallengeLoading] = useState(false);
+  // A failed lookup is not the same as "this role has no challenge". Only the
+  // latter makes the demo honest; the former must not resolve as a pass.
+  const [challengeError, setChallengeError] = useState(false);
+  const [challengeReloads, setChallengeReloads] = useState(0);
   const [activeTab, setActiveTab] = useState('code'); // Set default tab to code editor
 
   useEffect(() => {
@@ -222,6 +226,7 @@ export default function CodePractice() {
     // set stays as fallback so the page never regresses to an empty state.
     let cancelled = false;
     setDbChallenge(null);
+    setChallengeError(false);
     setChallengeLoading(true);
     (async () => {
       try {
@@ -233,26 +238,33 @@ export default function CodePractice() {
           .contains('topic_tags', [selectedRole])
           .order('difficulty', { ascending: true })
           .limit(1);
-        if (cancelled || error || !data || data.length === 0) return;
+        if (cancelled) return;
+        if (error) {
+          logger.error('Challenge lookup failed:', error);
+          setChallengeError(true);
+          return;
+        }
+        // A genuinely empty result means this role has no database challenge,
+        // which is the one case where the demo is truthful.
+        if (!data || data.length === 0) return;
         const row = data[0] as DbChallenge;
         setDbChallenge(row);
         if (row.starter_code) setCode(row.starter_code);
       } catch (error) {
         logger.error('Error loading challenge from database:', error);
+        if (!cancelled) setChallengeError(true);
       } finally {
-        // Settles on success, empty result, and failure alike — a genuine
-        // demo fallback must still be reachable.
         if (!cancelled) setChallengeLoading(false);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [selectedRole]);
+  }, [selectedRole, challengeReloads]);
 
   // The demo path is only honest once we know there is no signed-in user and
   // no database challenge — until then, submitting would invent a result.
-  const submitBlocked = authLoading || (!!user && challengeLoading);
+  const submitBlocked = authLoading || (!!user && (challengeLoading || challengeError));
 
   const handleCodeChange = (value) => {
     setCode(value);
@@ -627,6 +639,23 @@ export default function CodePractice() {
                     }}
                   />
                 </div>
+
+                {user && challengeError && (
+                  <div
+                    data-testid="challenge-load-error"
+                    role="alert"
+                    className="flex items-center gap-3 flex-wrap px-5 py-3 border-t border-[#3A3644] text-sm text-gray-300"
+                  >
+                    <span>Couldn’t load this challenge, so it can’t be evaluated yet.</span>
+                    <Button
+                      variant="outline"
+                      onClick={() => setChallengeReloads((n) => n + 1)}
+                      className="rounded-full font-bold border-[#4A445C] bg-transparent text-gray-300 hover:bg-[#333333] hover:text-white"
+                    >
+                      Try again
+                    </Button>
+                  </div>
+                )}
 
                 <div className="flex justify-end gap-3 px-5 py-4 border-t border-[#3A3644]">
                   <Button

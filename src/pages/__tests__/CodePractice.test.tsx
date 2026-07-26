@@ -105,6 +105,28 @@ describe('CodePractice page (Problem Book)', () => {
       expect(screen.queryByText('Demo')).not.toBeInTheDocument();
     });
 
+    it('blocks a signed-in submit when the challenge lookup fails, and offers a retry', async () => {
+      userState.user = { id: 'user-1' };
+      // A failed lookup is not evidence that no challenge exists.
+      mockSupabaseClient.from.mockImplementation(() => {
+        const chain: any = {
+          select: vi.fn(() => chain),
+          contains: vi.fn(() => chain),
+          order: vi.fn(() => chain),
+          limit: vi.fn(() => Promise.resolve({ data: null, error: { message: 'permission denied' } })),
+        };
+        return chain;
+      });
+      render(<CodePractice />);
+
+      expect(await screen.findByTestId('challenge-load-error')).toBeInTheDocument();
+      expect(submitButton()).toBeDisabled();
+      fireEvent.click(submitButton());
+      expect(mockSupabaseClient.functions.invoke).not.toHaveBeenCalled();
+      expect(screen.queryByText('Demo')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
+    });
+
     it('still allows the honest demo once the query comes back empty', async () => {
       userState.user = null;
       mockChallengeQuery([]);
