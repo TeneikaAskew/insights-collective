@@ -20,9 +20,13 @@ const logger = createLogger('FormSubmissionsList');
 interface FormSubmissionsListProps {
   formId: string;
   formSlug: string;
+  // When provided, the "View" action opens the submission in place (e.g. inside
+  // the form detail drawer) instead of navigating to the drill-down page. The
+  // default navigation behavior is preserved when this is omitted.
+  onSelectSubmission?: (submissionId: string) => void;
 }
 
-export default function FormSubmissionsList({ formId, formSlug }: FormSubmissionsListProps) {
+export default function FormSubmissionsList({ formId, formSlug, onSelectSubmission }: FormSubmissionsListProps) {
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -207,7 +211,11 @@ export default function FormSubmissionsList({ formId, formSlug }: FormSubmission
                         variant="ghost"
                         size="sm"
                         onClick={() => {
-                          navigate(`/admin/unified-form-management/submissions/${formSlug}/submission/${submission.id}`);
+                          if (onSelectSubmission) {
+                            onSelectSubmission(submission.id);
+                          } else {
+                            navigate(`/admin/unified-form-management/submissions/${formSlug}/submission/${submission.id}`);
+                          }
                         }}
                         className="flex items-center gap-1"
                       >
