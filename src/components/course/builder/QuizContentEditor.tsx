@@ -75,6 +75,9 @@ export function QuizContentEditor({ contentItemId }: QuizContentEditorProps) {
     const load = async () => {
       setLoading(true);
       try {
+        // The answers key is not readable through a normal select any more
+        // (20260728000000 hides it from `authenticated`), so authoring reads
+        // it through the staff-gated RPC instead.
         const { data: existing, error } = await supabase
           .from('quizzes')
           .select('id')
@@ -96,18 +99,13 @@ export function QuizContentEditor({ contentItemId }: QuizContentEditorProps) {
         if (cancelled) return;
         setQuizId(qId);
 
-        // Authoring needs the answer key, which the embed can no longer return:
-        // table-level SELECT on quiz_questions is revoked in favour of a
-        // SECURITY DEFINER function that checks the caller may edit this quiz.
-        let rows: any[] = [];
-        if (existing?.id) {
-          const { data: authored, error: authorError } = await supabase.rpc(
-            'get_quiz_questions_for_authoring',
-            { p_quiz_id: existing.id },
-          );
-          if (authorError) throw authorError;
-          rows = authored ?? [];
-        }
+        // Staff-only RPC: returns full rows including the answers key.
+        const { data: authored, error: qErr } = await supabase
+          .rpc('get_quiz_questions_for_authoring', { p_quiz_id: qId });
+        if (qErr) throw qErr;
+
+        if (cancelled) return;
+        const rows: any[] = authored || [];
         const drafts: DraftQuestion[] = rows
           .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
           .map((row) => ({

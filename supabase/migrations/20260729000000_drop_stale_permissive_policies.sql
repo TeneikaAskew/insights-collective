@@ -196,33 +196,44 @@ CREATE POLICY "course_materials_insert" ON storage.objects
   );
 
 -- ---------------------------------------------------------------------------
--- 4. quiz_questions — the answer key was unreadable but still writable
+-- 4. storage — student assignment-attachment uploads
 -- ---------------------------------------------------------------------------
--- The live-only `hide_quiz_answer_key` / `scope_quiz_key_access` migrations
--- revoked table-level SELECT so students can no longer read `correct_answer`.
--- But table-level UPDATE and DELETE were left granted to anon and authenticated,
--- and `Users can access quiz questions` is a FOR ALL policy over
--- `can_access_quiz_question`, which returns true for any enrolled student.
--- A student could therefore overwrite the answer key they could not read, then
--- take the quiz and be graded correct by the server-side scorer.
--- Dropping the FOR ALL policy is what closes it: with it gone, a student matches
--- no UPDATE or DELETE policy and RLS refuses the write. The table-level grant
--- has to stay for `authenticated`, because instructors author through the same
--- role and rely on the `Instructors can update/delete quiz_questions` policies.
--- anon has no policy on this table at all, so its grants are pure surface.
-REVOKE ALL ON public.quiz_questions FROM anon;
+-- The scoped course_*_insert policies above require can_manage_course_materials
+-- (instructors/admins). Students upload assignment attachments to the same
+-- private buckets via FileUploadZone, so they get their own path and policy:
+-- submissions/<courseId>/<userId>/<file>, writable by the enrolled owner, without
+-- restoring general course-material writes.
+-- (quiz_questions answer-key access is owned by the merged #20 answer-key
+-- migrations — this migration deliberately does not touch quiz_questions.)
+CREATE POLICY "course_submission_insert" ON storage.objects
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    bucket_id IN ('course-images', 'course-videos', 'course-documents')
+    AND split_part(name, '/', 1) = 'submissions'
+    AND NULLIF(split_part(name, '/', 3), '')::uuid = auth.uid()
+    AND public.can_access_course_materials(
+          auth.uid(), NULLIF(split_part(name, '/', 2), '')::uuid)
+  );
 
-DROP POLICY IF EXISTS "Users can access quiz questions" ON public.quiz_questions;
-
--- Students reach questions through get_quiz_questions_for_taking(), which is
--- SECURITY DEFINER and withholds the key. This policy only needs to cover the
--- non-key columns still granted at the column level.
-CREATE POLICY "quiz_questions_student_select" ON public.quiz_questions
+CREATE POLICY "course_submission_select" ON storage.objects
   FOR SELECT TO authenticated
-  USING (public.can_access_quiz_question(auth.uid(), id));
+  USING (
+    bucket_id IN ('course-images', 'course-videos', 'course-documents')
+    AND split_part(name, '/', 1) = 'submissions'
+    AND (
+      NULLIF(split_part(name, '/', 3), '')::uuid = auth.uid()
+      OR public.can_manage_course_materials(
+           auth.uid(), NULLIF(split_part(name, '/', 2), '')::uuid)
+    )
+  );
 
--- The `Instructors can select/insert/update/delete quiz_questions` policies
--- already exist and remain the authoring path.
+CREATE POLICY "course_submission_delete" ON storage.objects
+  FOR DELETE TO authenticated
+  USING (
+    bucket_id IN ('course-images', 'course-videos', 'course-documents')
+    AND split_part(name, '/', 1) = 'submissions'
+    AND NULLIF(split_part(name, '/', 3), '')::uuid = auth.uid()
+  );
 
 -- ---------------------------------------------------------------------------
 -- 5. events — any signed-in user could create site-wide events

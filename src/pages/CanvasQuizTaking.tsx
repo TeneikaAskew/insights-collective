@@ -101,9 +101,7 @@ export default function CanvasQuizTaking() {
         return;
       }
       setQuiz(quizData);
-      // Questions come from the student-safe RPC; the quiz row no longer embeds
-      // them, because that embed carried the answer key.
-      setQuestions(await CanvasContentService.getQuizQuestionsForTaking(quizData.id));
+      setQuestions(quizData.questions || []);
 
       // Check for existing submission. This gate enforces the attempt limit,
       // so a failed query must block the quiz — not report "0/N attempts".
@@ -215,24 +213,20 @@ export default function CanvasQuizTaking() {
     try {
       setSubmitting(true);
 
-      // Grading happens server-side. The browser sends only its answers; the
-      // score-quiz function loads the answer key with the service role, grades,
-      // and writes score/kept_score itself. The client cannot see the key any
-      // more (get_quiz_questions_for_taking strips the `correct` flag until the
-      // attempt is finished), and could not be trusted with it anyway.
-      //
-      // Kept-score policy is unchanged from the client implementation:
-      // deliberately "latest attempt", with no cross-attempt comparison.
-      const { data: result, error: scoreError } = await supabase.functions.invoke('score-quiz', {
+      // Grading happens server-side: the browser never sees the answer key and
+      // never decides its own score. score-quiz writes the answers, the
+      // per-question correctness, and the submission's score with the service
+      // role. Kept-score policy is unchanged ("latest attempt") and now lives
+      // in the function.
+      const { data: scored, error: scoreError } = await supabase.functions.invoke('score-quiz', {
         body: {
           submissionId: submission.id,
           answers,
-          timeSpent: quiz.time_limit ? (quiz.time_limit * 60 - (timeRemaining || 0)) : null,
+          timeSpent: quiz.time_limit ? quiz.time_limit * 60 - (timeRemaining || 0) : null,
         },
       });
-
       if (scoreError) throw scoreError;
-      if (result?.error) throw new Error(result.error);
+      if (scored?.error) throw new Error(scored.error);
 
       toast({
         title: autoSubmit ? 'Quiz auto-submitted' : 'Quiz submitted',

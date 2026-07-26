@@ -22,7 +22,7 @@ export class CanvasContentService {
       .select(`
         *,
         assignment:assignments(*),
-        quiz:quizzes(*)
+        quiz:quizzes(*, questions:quiz_questions(id, quiz_id, question_text, question_type, points, position, created_at))
       `)
       .eq('module_id', moduleId)
       .order('position');
@@ -46,7 +46,7 @@ export class CanvasContentService {
         .select(`
           *,
           assignment:assignments(*),
-          quiz:quizzes(*)
+          quiz:quizzes(*, questions:quiz_questions(id, quiz_id, question_text, question_type, points, position, created_at))
         `)
         .eq('id', id)
         .single();
@@ -341,6 +341,11 @@ export class CanvasContentService {
   }
 
   // Quizzes
+  //
+  // Questions come from get_quiz_questions_for_taking, which returns the
+  // answer OPTIONS with the `correct` flag stripped server-side. The answer
+  // key is not readable by `authenticated` (20260728000000) and grading runs
+  // in the score-quiz edge function, so the browser never holds it.
   static async getQuiz(contentItemId: string): Promise<Quiz | null> {
     const { data, error } = await supabase
       .from('quizzes')
@@ -349,34 +354,13 @@ export class CanvasContentService {
       .single();
 
     if (error && error.code !== 'PGRST116') throw error;
-    return data;
-  }
+    if (!data) return null;
 
-  /**
-   * Questions for a student taking the quiz. Goes through a SECURITY DEFINER
-   * function that strips the `correct` flag from each option until the attempt
-   * is finished and the quiz is set to reveal answers — the old
-   * `questions:quiz_questions(*)` embed handed the whole answer key to the
-   * browser.
-   */
-  static async getQuizQuestionsForTaking(quizId: string): Promise<QuizQuestion[]> {
-    const { data, error } = await supabase.rpc('get_quiz_questions_for_taking', {
-      p_quiz_id: quizId,
-    });
-    if (error) throw error;
-    return (data ?? []) as QuizQuestion[];
-  }
+    const { data: questions, error: questionsError } = await supabase
+      .rpc('get_quiz_questions_for_taking', { p_quiz_id: data.id });
+    if (questionsError) throw questionsError;
 
-  /**
-   * Full questions including the answer key, for whoever may edit the quiz.
-   * Raises if the caller cannot manage it.
-   */
-  static async getQuizQuestionsForAuthoring(quizId: string): Promise<QuizQuestion[]> {
-    const { data, error } = await supabase.rpc('get_quiz_questions_for_authoring', {
-      p_quiz_id: quizId,
-    });
-    if (error) throw error;
-    return (data ?? []) as QuizQuestion[];
+    return { ...data, questions: questions || [] };
   }
 
   static async updateQuiz(

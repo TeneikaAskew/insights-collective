@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Loader2, Send } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -28,12 +28,42 @@ interface InlineQuizPlayerProps {
 export function InlineQuizPlayer({ item, quiz, onCompleted }: InlineQuizPlayerProps) {
   const { user } = useAuth();
   const { toast } = useToast();
-  // Questions come from get_quiz_questions_for_taking(), not from the embedded
-  // `quiz.questions`. Table-level SELECT on quiz_questions is revoked, so the
-  // embed returns nothing; more to the point, the embed used to carry the
-  // `correct` flag on every option, which is the answer key.
-  const [questions, setQuestions] = useState<QuizQuestion[]>([]);
-  const [questionsLoading, setQuestionsLoading] = useState(true);
+  // Questions arrive through get_quiz_questions_for_taking, which strips the
+  // `correct` flag from every option server-side. The list query that supplies
+  // `quiz` deliberately carries no answer data at all.
+  const [fetchedQuestions, setFetchedQuestions] = useState<any[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!quiz?.id) return;
+    (async () => {
+      const { data, error } = await supabase
+        .rpc('get_quiz_questions_for_taking', { p_quiz_id: quiz.id });
+      if (cancelled) return;
+      if (error) {
+        logger.error('Failed to load quiz questions', error);
+        setFetchedQuestions([]);
+        return;
+      }
+      setFetchedQuestions(data || []);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [quiz?.id]);
+
+  const questions = useMemo(
+    () =>
+      // Prefer the sanitized RPC result; fall back to whatever the parent
+      // supplied when it returns nothing (e.g. an older cached payload).
+      [...(fetchedQuestions?.length ? fetchedQuestions : (quiz.questions ?? []))]
+        .map((question) => ({
+          ...question,
+          answers: Array.isArray(question.answers) ? question.answers : [],
+        }))
+        .sort((a, b) => (a.position ?? 0) - (b.position ?? 0)),
+    [fetchedQuestions, quiz.questions],
+  );
 
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, any>>({});
@@ -53,39 +83,6 @@ export function InlineQuizPlayer({ item, quiz, onCompleted }: InlineQuizPlayerPr
   const [reloadKey, setReloadKey] = useState(0);
   const debouncedAnswers = useDebounce(answers, 2000);
   const prevDebouncedRef = useRef(debouncedAnswers);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadQuestions = async () => {
-      setQuestionsLoading(true);
-      const { data, error } = await supabase.rpc('get_quiz_questions_for_taking', {
-        p_quiz_id: quiz.id,
-      });
-      if (cancelled) return;
-      if (error) {
-        logger.error('Failed to load quiz questions', error);
-        setLoadError(new Error(error.message));
-        setQuestionsLoading(false);
-        return;
-      }
-      const rows = (data ?? []) as QuizQuestion[];
-      setQuestions(
-        [...rows]
-          .map((question) => ({
-            ...question,
-            answers: Array.isArray(question.answers) ? question.answers : [],
-          }))
-          .sort((a, b) => (a.position ?? 0) - (b.position ?? 0)),
-      );
-      setQuestionsLoading(false);
-    };
-
-    void loadQuestions();
-    return () => {
-      cancelled = true;
-    };
-  }, [quiz.id, reloadKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -260,22 +257,19 @@ export function InlineQuizPlayer({ item, quiz, onCompleted }: InlineQuizPlayerPr
     try {
       setSubmitting(true);
 
-      // Grading happens server-side. The browser sends only its answers; the
-      // score-quiz function loads the answer key with the service role, grades,
-      // and writes score/kept_score itself. The client cannot see the key any
-      // more, and could not be trusted with the arithmetic even if it could.
-      const { data: result, error: scoreError } = await supabase.functions.invoke('score-quiz', {
+      // Grading happens server-side (see supabase/functions/score-quiz): the
+      // browser holds no answer key and cannot set its own score.
+      const { data: scored, error: scoreError } = await supabase.functions.invoke('score-quiz', {
         body: {
           submissionId: activeSubmission.id,
           answers,
           timeSpent: quiz.time_limit ? quiz.time_limit * 60 - (timeRemaining || 0) : null,
         },
       });
-
       if (scoreError) throw scoreError;
-      if (result?.error) throw new Error(result.error);
+      if (scored?.error) throw new Error(scored.error);
 
-      const totalScore = result?.score ?? 0;
+      const totalScore = scored?.score ?? 0;
 
       await onCompleted?.(item.id);
       setQuizStarted(false);
@@ -438,19 +432,6 @@ export function InlineQuizPlayer({ item, quiz, onCompleted }: InlineQuizPlayerPr
         error={loadError}
         onRetry={() => setReloadKey((k) => k + 1)}
       />
-    );
-  }
-
-  // Questions arrive asynchronously now, so an empty list before the RPC
-  // resolves is "loading", not "no questions".
-  if (questionsLoading) {
-    return (
-      <Card>
-        <CardContent className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Loading quiz…
-        </CardContent>
-      </Card>
     );
   }
 

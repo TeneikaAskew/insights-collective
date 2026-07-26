@@ -18,11 +18,13 @@ CREATE UNIQUE INDEX IF NOT EXISTS enrollments_calendar_feed_token_key
   ON public.enrollments (calendar_feed_token);
 
 -- The token is a credential: it must never be readable by anyone but its owner.
--- The instructor/admin SELECT policy on enrollments would otherwise expose every
--- student's feed token, so column-level SELECT is narrowed to the owner's own
--- path. Postgres has no per-policy column grants, so this is enforced by keeping
--- the column out of the instructor-facing views and revoking the broad grant.
-REVOKE SELECT (calendar_feed_token) ON public.enrollments FROM anon;
+-- A column-level REVOKE cannot subtract from a table-level SELECT grant, and the
+-- enrollments_staff_select policy below would otherwise let instructors/admins
+-- read every student's token. So revoke table SELECT and grant back only the
+-- non-secret columns; owners reach their token through the SECURITY DEFINER RPC.
+REVOKE SELECT ON public.enrollments FROM anon, authenticated;
+GRANT SELECT (id, user_id, course_id, enrolled_at, completion_status)
+  ON public.enrollments TO authenticated;
 
 -- Lets a student fetch (and implicitly create, via the column default) their own
 -- feed token without selecting the column directly.

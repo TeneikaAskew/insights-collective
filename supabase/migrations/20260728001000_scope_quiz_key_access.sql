@@ -1,33 +1,18 @@
--- Reconstructed from the live database — see the header of
--- 20260728000000_hide_quiz_answer_key.sql for why these were missing.
---
--- Instructors still need the answer key to author a quiz, and the column-level
--- revoke in the previous migration blocks them too. This gives them a scoped
--- way back in, and pins server-side grading so a student cannot write their own
--- score even though they can still insert an attempt.
+-- Close three gaps in 20260728000000_hide_quiz_answer_key.sql, all raised in
+-- review on PR #20.
 
-CREATE OR REPLACE FUNCTION public.can_manage_quiz(viewer_id uuid, target_quiz_id uuid)
-RETURNS boolean
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path TO 'public'
-AS $function$
-  SELECT EXISTS (
-    SELECT 1 FROM public.quizzes q
-    WHERE q.id = target_quiz_id
-      AND public.can_manage_content_item(viewer_id, q.content_item_id)
-  );
-$function$;
-
--- Full rows, answer key included, for whoever may edit the quiz.
+-- 1. Authoring access was gated on the global instructor/admin role only, and
+--    SECURITY DEFINER bypasses RLS — so any instructor could pass another
+--    instructor's quiz id and read its answer key. Scope it with the existing
+--    can_manage_quiz predicate (which already encodes course ownership);
+--    admins keep repo-wide access through that same predicate.
 CREATE OR REPLACE FUNCTION public.get_quiz_questions_for_authoring(p_quiz_id uuid)
 RETURNS SETOF public.quiz_questions
 LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
-SET search_path TO 'public'
-AS $function$
+SET search_path = public
+AS $$
 BEGIN
   IF NOT public.can_manage_quiz(auth.uid(), p_quiz_id) THEN
     RAISE EXCEPTION 'Not authorized to read this quiz''s answer key';
@@ -38,51 +23,77 @@ BEGIN
     WHERE quiz_id = p_quiz_id
     ORDER BY "position" NULLS LAST, created_at;
 END;
-$function$;
+$$;
 
-REVOKE EXECUTE ON FUNCTION public.get_quiz_questions_for_authoring(uuid) FROM public, anon;
+-- 2. Stripping `correct` unconditionally also stripped it from the
+--    post-submission review, where showing the right answer is the point.
+--    Reveal it only when the student has a finished attempt AND the quiz
+--    allows it (quizzes.show_correct_answers), mirroring the explanation gate.
+CREATE OR REPLACE FUNCTION public.get_quiz_questions_for_taking(p_quiz_id uuid)
+RETURNS TABLE (
+  id uuid,
+  quiz_id uuid,
+  question_text text,
+  question_type text,
+  points integer,
+  "position" integer,
+  answers jsonb,
+  explanation text
+)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_reveal boolean;
+BEGIN
+  -- One lookup, reused per row: has this student finished an attempt, and does
+  -- the quiz permit showing answers afterwards?
+  SELECT
+    EXISTS (
+      SELECT 1 FROM public.quiz_submissions s
+      WHERE s.quiz_id = p_quiz_id
+        AND s.user_id = auth.uid()
+        AND s.workflow_state = 'complete'
+    )
+    AND COALESCE((SELECT q.show_correct_answers FROM public.quizzes q WHERE q.id = p_quiz_id), true)
+  INTO v_reveal;
+
+  RETURN QUERY
+    SELECT
+      q.id,
+      q.quiz_id,
+      q.question_text::text,
+      q.question_type::text,
+      q.points,
+      q."position",
+      COALESCE(
+        (
+          SELECT jsonb_agg(
+                   CASE
+                     WHEN v_reveal THEN jsonb_build_object(
+                       'id', opt->>'id', 'text', opt->>'text',
+                       'correct', COALESCE((opt->>'correct')::boolean, false))
+                     ELSE jsonb_build_object('id', opt->>'id', 'text', opt->>'text')
+                   END
+                   ORDER BY ord)
+          FROM jsonb_array_elements(
+                 CASE WHEN jsonb_typeof(q.answers) = 'array' THEN q.answers ELSE '[]'::jsonb END
+               ) WITH ORDINALITY AS t(opt, ord)
+        ),
+        '[]'::jsonb
+      ) AS answers,
+      CASE WHEN v_reveal THEN q.explanation ELSE NULL END AS explanation
+    FROM public.quiz_questions q
+    WHERE q.quiz_id = p_quiz_id
+      AND public.can_access_quiz_question(auth.uid(), q.id)
+    ORDER BY q."position" NULLS LAST, q.created_at;
+END;
+$$;
+
+COMMENT ON FUNCTION public.get_quiz_questions_for_taking IS
+  'Quiz questions for students. The correct flag and explanation are withheld until the student has a completed attempt and the quiz has show_correct_answers enabled. Grading happens in the score-quiz edge function.';
+
+GRANT EXECUTE ON FUNCTION public.get_quiz_questions_for_taking(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_quiz_questions_for_authoring(uuid) TO authenticated;
-
--- Grading is the server's to decide. These triggers let a student create and
--- update their own attempt rows while pinning every column that represents a
--- grade, so the only writer that matters is the score-quiz edge function
--- (service role, for which auth.uid() is null and is_grading_staff() is true).
-
-CREATE OR REPLACE FUNCTION public.pin_quiz_answer_grading()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO 'public'
-AS $function$
-BEGIN
-  IF public.is_grading_staff() THEN
-    RETURN NEW;
-  END IF;
-
-  IF TG_OP = 'INSERT' THEN
-    NEW.correct := false;
-    NEW.points := 0;
-  ELSE
-    NEW.correct := OLD.correct;
-    NEW.points := OLD.points;
-  END IF;
-
-  RETURN NEW;
-END;
-$function$;
-
-CREATE OR REPLACE FUNCTION public.freeze_quiz_attempt_score()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO 'public'
-AS $function$
-BEGIN
-  IF public.is_grading_staff() THEN
-    RETURN NEW;
-  END IF;
-
-  NEW.score := OLD.score;
-  RETURN NEW;
-END;
-$function$;

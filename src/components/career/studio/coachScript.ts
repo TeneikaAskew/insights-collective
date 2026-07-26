@@ -21,7 +21,7 @@ export const INTRO_MESSAGES = [
 ];
 
 export const WELCOME_BACK_MESSAGE =
-  'Welcome back — your pathway is ready on the right, and your action plan is below. Start over any time if your goals have shifted.';
+  'Welcome back — your pathway is ready, and your action plan is on the next tab. Start over any time if your goals have shifted.';
 
 export const RESUME_FOUND_MESSAGE =
   'One last thing: I found a resume on file. Want me to use it, or would you rather upload a fresh one?';
@@ -33,7 +33,7 @@ export const GENERATING_MESSAGE =
   "That's everything I need. Watch the canvas on the right — I'm sketching your pathway now.";
 
 export const DONE_MESSAGE =
-  "Done — your pathway is on the right, and it's saved to your profile. When you're ready, grab your action plan below.";
+  "Done — your pathway is on the right, and it's saved to your profile. When you're ready, switch to Action plan up top.";
 
 export const DONE_UNSAVED_MESSAGE =
   "Done — your pathway is on the right. Heads up: I couldn't save it to your profile just now, so it may not be here next visit.";

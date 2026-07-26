@@ -122,3 +122,42 @@ Because the `20260729*` set is unmerged, collapse it to a minimal, correct set:
 
 Net effect: each control appears **once**, done correctly, with no follow-up
 patch migrations — which is the state this should have been in.
+
+## 7. Consolidation outcome (done)
+
+Executed against current `main`:
+
+- **Dropped as redundant** (main #20/#21 own them): the three `20260728*` quiz
+  migrations, my `score-quiz`, and the quiz UI/service files — resolved to
+  main's version.
+- **Consolidated** the layered `20260729*` set from five migrations to three:
+  - `000000` — RLS/storage hardening; its `quiz_questions` section removed (main
+    #20 owns it), the student-submission upload policies folded in.
+  - `000100` — calendar-feed tokens, with the table-grant done correctly in one
+    place (the `000300` fix folded in).
+  - `000200` — profiles.roles INSERT guard (unchanged).
+  - `000300` and `000400` deleted.
+- **Kept intact**: the 19 edge-function hardenings (not `score-quiz`), the
+  signed-URL work, blog RPC, ledger repair.
+
+Verified on the merged tree: tsc clean, 887/887 tests, production build passes.
+
+### Deferred to a focused follow-up (against main's #20 quiz code)
+These are genuine and are **already applied on the hosted project**, but they
+modify main's quiz functions, so they belong in their own reviewed change rather
+than re-entangling this PR:
+
+- `score-quiz`: re-check `can_access_quiz()` before grading (answer-oracle for
+  inaccessible quizzes).
+- `get_quiz_questions_for_taking`: withhold answers until attempts are exhausted;
+  legacy `options`-format fallback.
+- Atomic attempt-limit finalization (`finalize_quiz_submission` advisory lock).
+- Reveal-gate per-question results (score-quiz response + `quiz_submission_answers`
+  row visibility).
+
+### Prod ledger note
+Because these were applied to prod during review, the hosted project is *ahead*
+of this consolidated branch on the deferred quiz-grading items (prod is more
+hardened, not less). The kept migrations (`000000`/`000100`/`000200`) are already
+recorded on prod, so merging changes nothing there; a fresh build from the repo
+reproduces the kept controls correctly.

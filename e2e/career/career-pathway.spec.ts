@@ -3,13 +3,30 @@ import { goto, waitForPageLoad } from '../fixtures/page-helpers';
 import { Routes } from '../helpers/route-helpers';
 
 // The career agent and career pathway are one page: the coach conversation on
-// the left, the report canvas on the right, the action plan below.
+// the left, the report canvas on the right, and the action plan on a second
+// view reached from the header switch.
 //
 // Reduced motion is emulated throughout. useCoachChat honors it by skipping the
 // per-character typewriter while keeping the read/think pacing — so the coach
 // still behaves like the real thing, but messages land in hundreds of
 // milliseconds instead of seconds. That makes these tests deterministic AND
 // exercises the accessibility path.
+/**
+ * Whether this account has a completed pathway on screen.
+ *
+ * The savebar only renders after the saved report round-trips from Supabase —
+ * roughly three seconds. An instant `isVisible()` here always answered false,
+ * so every finished-pathway test silently skipped and the assertions below had
+ * never actually run. Wait for it before deciding.
+ */
+async function hasFinishedPathway(page: import('@playwright/test').Page): Promise<boolean> {
+  return page
+    .getByTestId('pathway-savebar')
+    .waitFor({ state: 'visible', timeout: 15_000 })
+    .then(() => true)
+    .catch(() => false);
+}
+
 test.describe('Career Pathway (merged studio page)', () => {
   test.beforeEach(async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -44,15 +61,42 @@ test.describe('Career Pathway (merged studio page)', () => {
     await expect(page.locator('[data-sidebar="sidebar"]')).toBeVisible();
   });
 
-  test('a finished pathway shows its report and the action plan section', async ({ page }) => {
-    const savebar = page.getByTestId('pathway-savebar');
-    const isFinished = await savebar.isVisible().catch(() => false);
-    test.skip(!isFinished, 'This account has no completed pathway yet');
+  test('a finished pathway shows its report, with the plan on the second view', async ({ page }) => {
+    test.skip(!(await hasFinishedPathway(page)), 'This account has no completed pathway yet');
 
-    // A finished pathway means real cards, not ghosts, and the plan below.
+    // A finished pathway means real cards, not ghosts.
     await expect(page.getByTestId('canvas-card').first()).toBeVisible();
+    await expect(page.getByTestId('pathway-savebar')).toContainText('Your pathway is ready');
+
+    // The plan is now a peer view rather than a section below the report, so it
+    // starts hidden behind the switch.
+    await expect(page.getByTestId('pathway-view-switch')).toBeVisible();
+    await expect(page.getByTestId('action-plan-section')).toBeHidden();
+
+    await page.getByTestId('pathway-view-plan').click();
     await expect(page.getByTestId('action-plan-section')).toBeVisible();
-    await expect(savebar).toContainText('Your pathway is ready');
+    await expect(page.getByTestId('report-canvas')).toBeHidden();
+
+    await page.getByTestId('pathway-view-pathway').click();
+    await expect(page.getByTestId('report-canvas')).toBeVisible();
+    await expect(page.getByTestId('action-plan-section')).toBeHidden();
+  });
+
+  test('"Get action plan" opens the plan view', async ({ page }) => {
+    test.skip(!(await hasFinishedPathway(page)), 'This account has no completed pathway yet');
+
+    await page.getByTestId('get-action-plan').click();
+
+    await expect(page.getByTestId('action-plan-section')).toBeVisible();
+    await expect(page.getByTestId('pathway-view-plan')).toHaveAttribute('aria-selected', 'true');
+  });
+
+  test('the switch is absent until a report exists', async ({ page }) => {
+    test.skip(await hasFinishedPathway(page), 'This account already has a completed pathway');
+
+    // Mid-conversation there is nothing to switch to, so the header stays plain.
+    await expect(page.getByTestId('pathway-view-switch')).toHaveCount(0);
+    await expect(page.getByTestId('report-canvas')).toBeVisible();
   });
 });
 
