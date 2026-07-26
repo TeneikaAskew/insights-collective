@@ -67,3 +67,9 @@ verify_jwt = true
 
 [functions.generate-section-summary]
 verify_jwt = true
+
+[functions.evaluateCareerAdvice]
+verify_jwt = true
+
+[functions.generate-career-action-plan]
+verify_jwt = true
