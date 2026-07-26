@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent } from '@/components/ui/card';
@@ -31,6 +32,7 @@ export default function FormSubmissionsList({ formId, formSlug }: FormSubmission
   const [totalSubmissions, setTotalSubmissions] = useState(0);
   const [pageSize] = useState(10);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   // Debounce the search term so we hit the server once the user pauses, not on
   // every keystroke. Reset to page 1 whenever the effective query changes.
@@ -205,7 +207,7 @@ export default function FormSubmissionsList({ formId, formSlug }: FormSubmission
                         variant="ghost"
                         size="sm"
                         onClick={() => {
-                          window.location.href = `/admin/unified-form-management/submissions/${formSlug}/submission/${submission.id}`;
+                          navigate(`/admin/unified-form-management/submissions/${formSlug}/submission/${submission.id}`);
                         }}
                         className="flex items-center gap-1"
                       >

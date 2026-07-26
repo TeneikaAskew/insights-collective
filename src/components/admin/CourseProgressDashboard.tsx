@@ -58,10 +58,9 @@ export function CourseProgressDashboard({ courses }: Props) {
       if (!courses.length) { setRows([]); setLoading(false); return; }
       const ids = courses.map((c) => c.id);
 
-      const [enrollRes, itemsRes, progRes, certRes] = await Promise.all([
+      const [enrollRes, itemsRes, certRes] = await Promise.all([
         supabase.from('enrollments').select('course_id, user_id, progress').in('course_id', ids),
         supabase.from('content_items').select('id, module_id, modules!inner(course_id)').in('modules.course_id', ids),
-        supabase.from('content_item_progressions').select('user_id, content_item_id, completed_at'),
         supabase.from('certificates').select('course_id').in('course_id', ids),
       ]);
 
@@ -69,8 +68,24 @@ export function CourseProgressDashboard({ courses }: Props) {
 
       const enrollments = enrollRes.data ?? [];
       const items = (itemsRes.data ?? []) as any[];
-      const progressions = progRes.data ?? [];
       const certs = certRes.data ?? [];
+
+      // Fetch progressions only for THIS course set's content items. The
+      // previous query selected the entire content_item_progressions table and
+      // filtered client-side, which does not scale. Chunk the id list to keep
+      // each request URL within limits.
+      const itemIds = items.map((it) => it.id);
+      const progressions: any[] = [];
+      const CHUNK = 200;
+      for (let i = 0; i < itemIds.length; i += CHUNK) {
+        const chunk = itemIds.slice(i, i + CHUNK);
+        const { data } = await supabase
+          .from('content_item_progressions')
+          .select('user_id, content_item_id, completed_at')
+          .in('content_item_id', chunk);
+        if (!alive) return;
+        if (data) progressions.push(...data);
+      }
 
       const itemsByCourse: Record<string, Set<string>> = {};
       for (const it of items) {

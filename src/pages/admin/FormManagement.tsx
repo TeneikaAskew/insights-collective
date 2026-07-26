@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Navigate, useLocation, useParams } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import AppLayout from '@/components/layout/AppLayout';
@@ -20,6 +20,7 @@ const logger = createLogger('FormManagement');
 
 export default function FormManagement() {
   const location = useLocation();
+  const navigate = useNavigate();
   const params = useParams();
   const [activeTab, setActiveTab] = useState<string>('submissions');
   const [form, setForm] = useState<FormData | null>(null);
@@ -107,7 +108,7 @@ export default function FormManagement() {
         <div className="container py-8">
           <Alert variant="destructive">
             <AlertDescription>
-              {error} <Button variant="link" onClick={() => window.location.href = "/admin/unified-form-management"}>Return to forms</Button>
+              {error} <Button variant="link" onClick={() => navigate("/admin/unified-form-management")}>Return to forms</Button>
             </AlertDescription>
           </Alert>
         </div>
@@ -126,7 +127,7 @@ export default function FormManagement() {
           <Button 
             variant="ghost" 
             size="sm" 
-            onClick={() => window.location.href = "/admin/unified-form-management"}
+            onClick={() => navigate("/admin/unified-form-management")}
             className="hover:bg-transparent p-0 h-auto"
           >
             <ArrowLeft className="h-5 w-5 mr-1" />
@@ -144,7 +145,7 @@ export default function FormManagement() {
             <div className="flex items-center justify-between">
               <Button 
                 variant="outline" 
-                onClick={() => window.location.href = `/admin/unified-form-management/submissions/${form.slug}`}
+                onClick={() => navigate(`/admin/unified-form-management/submissions/${form.slug}`)}
               >
                 <ArrowLeft className="h-4 w-4 mr-2" /> Back to all responses
               </Button>
@@ -158,10 +159,10 @@ export default function FormManagement() {
         ) : (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
             <TabsList>
-              <TabsTrigger value="submissions" onClick={() => window.history.replaceState(null, '', `/admin/unified-form-management/submissions/${form.slug}?tab=submissions`)}>
+              <TabsTrigger value="submissions" onClick={() => navigate(`/admin/unified-form-management/submissions/${form.slug}?tab=submissions`, { replace: true })}>
                 <FileText className="h-4 w-4 mr-2" /> Submissions
               </TabsTrigger>
-              <TabsTrigger value="analytics" onClick={() => window.history.replaceState(null, '', `/admin/unified-form-management/submissions/${form.slug}?tab=analytics`)}>
+              <TabsTrigger value="analytics" onClick={() => navigate(`/admin/unified-form-management/submissions/${form.slug}?tab=analytics`, { replace: true })}>
                 <BarChart className="h-4 w-4 mr-2" /> Analytics
               </TabsTrigger>
             </TabsList>
