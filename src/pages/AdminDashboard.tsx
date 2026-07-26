@@ -25,32 +25,6 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import ResourceManagement from '@/components/admin/ResourceManagement';
 
-// Mock analytics data
-const userActivityData = [
-  { name: 'Jan', users: 65 },
-  { name: 'Feb', users: 78 },
-  { name: 'Mar', users: 90 },
-  { name: 'Apr', users: 120 },
-  { name: 'May', users: 150 },
-  { name: 'Jun', users: 185 },
-  { name: 'Jul', users: 210 },
-];
-
-const courseCompletionsData = [
-  { name: 'Data Science', completions: 42 },
-  { name: 'Analytics', completions: 28 },
-  { name: 'Data Engineering', completions: 16 },
-  { name: 'Machine Learning', completions: 35 },
-];
-
-const userRoleData = [
-  { name: 'Students', value: 320 },
-  { name: 'Instructors', value: 45 },
-  { name: 'Admins', value: 15 },
-];
-
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28'];
-
 const ActivityItem = ({ user, activity, time }: { user: any, activity: string, time: string }) => {
   if (!user) return null;
   
@@ -764,147 +738,33 @@ const AdminDashboard = () => {
           </Card>
         </div>
         
-        <div className="grid gap-6 lg:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    Platform Analytics
-                    <Badge variant="outline" className="text-[10px] uppercase tracking-wide">Sample data</Badge>
-                  </CardTitle>
-                  <CardDescription>Preview of the analytics we'll wire to live data next.</CardDescription>
-                </div>
-                <Button variant="outline" size="sm" disabled title="Available once live analytics are wired">
-                  <Download className="h-4 w-4 mr-2" />
-                  Export
-                </Button>
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Recent Activity</CardTitle>
+                <CardDescription>Latest platform interactions</CardDescription>
               </div>
-            </CardHeader>
-            <CardContent>
-              <Tabs defaultValue="users">
-                <TabsList className="mb-4">
-                  <TabsTrigger value="users">User Activity</TabsTrigger>
-                  <TabsTrigger value="courses">Course Completions</TabsTrigger>
-                  <TabsTrigger value="demographics">User Demographics</TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="users">
-                  <div className="h-80">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart
-                        data={userActivityData}
-                        margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" />
-                        <YAxis />
-                        <RechartsTooltip />
-                        <Line type="monotone" dataKey="users" stroke="#8884d8" activeDot={{ r: 8 }} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="flex justify-between mt-4 text-sm">
-                    <div className="flex items-center">
-                      <TrendingUp className="h-4 w-4 mr-1 text-emerald-500" />
-                      <span>Active users increased by 24% this month</span>
-                    </div>
-                    <div className="flex items-center">
-                      <UserCheck className="h-4 w-4 mr-1 text-blue-500" />
-                      <span>210 new registrations</span>
-                    </div>
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="courses">
-                  <div className="h-80">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <RechartsBarChart data={courseCompletionsData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" />
-                        <YAxis />
-                        <RechartsTooltip />
-                        <Bar dataKey="completions" fill="#8884d8" />
-                      </RechartsBarChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="flex justify-between mt-4 text-sm">
-                    <div className="flex items-center">
-                      <BarChart className="h-4 w-4 mr-1 text-emerald-500" />
-                      <span>Data Science is the most completed course category</span>
-                    </div>
-                    <div className="flex items-center">
-                      <Award className="h-4 w-4 mr-1 text-amber-500" />
-                      <span>87 certificates issued</span>
-                    </div>
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="demographics">
-                  <div className="h-80">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <RechartsPieChart>
-                        <Pie
-                          data={userRoleData}
-                          cx="50%"
-                          cy="50%"
-                          outerRadius={80}
-                          label
-                          dataKey="value"
-                        >
-                          {userRoleData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Legend />
-                        <RechartsTooltip />
-                      </RechartsPieChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="flex justify-between mt-4 text-sm">
-                    <div className="flex items-center">
-                      <PieChart className="h-4 w-4 mr-1 text-blue-500" />
-                      <span>Students make up 84% of platform users</span>
-                    </div>
-                    <div className="flex items-center">
-                      <Calendar className="h-4 w-4 mr-1 text-purple-500" />
-                      <span>Most active during weekdays</span>
-                    </div>
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Recent Activity</CardTitle>
-                  <CardDescription>Latest platform interactions</CardDescription>
-                </div>
-                <Button variant="outline" size="sm" asChild>
-                  <Link to="/admin/activity">View All</Link>
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
-                Live activity is available on the{' '}
-                <Link to="/admin/activity" className="text-primary underline underline-offset-4">
-                  full activity log
-                </Link>
-                . This card intentionally does not show a fabricated feed.
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-        
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/admin/activity">View All</Link>
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+              Live activity is available on the{' '}
+              <Link to="/admin/activity" className="text-primary underline underline-offset-4">
+                full activity log
+              </Link>
+              . This card intentionally does not show a fabricated feed.
+            </div>
+          </CardContent>
+        </Card>
+
         <Tabs defaultValue={activeTab} value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
             <TabsTrigger value="courses">Manage Courses</TabsTrigger>
             <TabsTrigger value="resources">Manage Resources</TabsTrigger>
-            <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
           
           <TabsContent value="courses" className="space-y-6 mt-6">
@@ -1005,102 +865,6 @@ const AdminDashboard = () => {
           
           <TabsContent value="resources" className="space-y-6 mt-6">
             <ResourceManagement />
-          </TabsContent>
-          
-          
-          <TabsContent value="settings" className="space-y-6 mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Platform Settings</CardTitle>
-                <CardDescription>
-                  Configure global settings for the Insights Collective platform.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-2">
-                  <h3 className="text-lg font-medium">General Settings</h3>
-                  <div className="grid gap-4">
-                    <div className="grid gap-2">
-                      <label htmlFor="platform-name" className="text-sm font-medium">Platform Name</label>
-                      <Input id="platform-name" defaultValue="Insights Collective" />
-                    </div>
-                    <div className="grid gap-2">
-                      <label htmlFor="contact-email" className="text-sm font-medium">Contact Email</label>
-                      <Input id="contact-email" defaultValue="info@ic.tech" />
-                    </div>
-                    <div className="grid gap-2">
-                      <label htmlFor="timezone" className="text-sm font-medium">Default Timezone</label>
-                      <select id="timezone" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-                        <option value="UTC">UTC</option>
-                        <option value="EST" selected>Eastern Time (ET)</option>
-                        <option value="CST">Central Time (CT)</option>
-                        <option value="PST">Pacific Time (PT)</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <h3 className="text-lg font-medium">Course Settings</h3>
-                  <div className="grid gap-4">
-                    <div className="grid gap-2">
-                      <label htmlFor="default-course-status" className="text-sm font-medium">Default Course Status</label>
-                      <select id="default-course-status" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-                        <option value="Open">Open</option>
-                        <option value="Closed">Closed</option>
-                        <option value="In Progress">In Progress</option>
-                      </select>
-                    </div>
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="text-sm font-medium">Enable Certificate Generation</div>
-                      <div className="flex items-center">
-                        <input type="checkbox" id="enable-certificates" className="mr-2" checked />
-                        <label htmlFor="enable-certificates" className="text-sm">Enabled</label>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="text-sm font-medium">Require Admin Approval for New Courses</div>
-                      <div className="flex items-center">
-                        <input type="checkbox" id="require-approval" className="mr-2" checked />
-                        <label htmlFor="require-approval" className="text-sm">Enabled</label>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <h3 className="text-lg font-medium">Email Settings</h3>
-                  <div className="grid gap-4">
-                    <div className="grid gap-2">
-                      <label htmlFor="email-sender" className="text-sm font-medium">Email Sender Name</label>
-                      <Input id="email-sender" defaultValue="Insights Collective" />
-                    </div>
-                    <div className="grid gap-2">
-                      <label htmlFor="email-from" className="text-sm font-medium">From Email Address</label>
-                      <Input id="email-from" defaultValue="noreply@ic.tech" />
-                    </div>
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="text-sm font-medium">Send Welcome Email to New Users</div>
-                      <div className="flex items-center">
-                        <input type="checkbox" id="welcome-email" className="mr-2" checked />
-                        <label htmlFor="welcome-email" className="text-sm">Enabled</label>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="text-sm font-medium">Send Course Completion Emails</div>
-                      <div className="flex items-center">
-                        <input type="checkbox" id="completion-email" className="mr-2" checked />
-                        <label htmlFor="completion-email" className="text-sm">Enabled</label>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-              <CardFooter className="flex justify-end space-x-2">
-                <Button variant="outline">Cancel</Button>
-                <Button onClick={() => handleAction('Save', 'settings')}>Save Changes</Button>
-              </CardFooter>
-            </Card>
           </TabsContent>
         </Tabs>
       </div>
