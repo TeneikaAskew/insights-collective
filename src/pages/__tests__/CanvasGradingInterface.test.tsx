@@ -308,7 +308,13 @@ describe('CanvasGradingInterface', () => {
 
     await waitFor(() => expect(subsBuilder.update).toHaveBeenCalled());
     expect(subsBuilder.update).toHaveBeenCalledWith(
-      expect.objectContaining({ grade: 42, workflow_state: 'graded', grader_id: 'grader-1' }),
+      expect.objectContaining({ grade: 42, workflow_state: 'graded' }),
+    );
+    // REGRESSION: assignment_submissions has no grader_id column. Sending it
+    // made PostgREST reject the entire update, so grading silently failed in
+    // production while this mocked test still passed.
+    expect(subsBuilder.update).not.toHaveBeenCalledWith(
+      expect.objectContaining({ grader_id: expect.anything() }),
     );
     // Update still in flight — success toast must not have fired yet.
     expect(toastMock).not.toHaveBeenCalledWith(

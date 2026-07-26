@@ -48,7 +48,6 @@ type FilterKey = 'needs' | 'graded' | 'all';
 function CanvasGradingInterface() {
   const { courseId, contentItemId } = useParams();
   const { toast } = useToast();
-  const { user } = useAuth();
 
   const [contentItem, setContentItem] = useState<ContentItem | null>(null);
   const [submissions, setSubmissions] = useState<GradingSubmission[]>([]);
@@ -157,10 +156,13 @@ function CanvasGradingInterface() {
         const { error } = await supabase
           .from('assignment_submissions')
           .update({
+            // assignment_submissions has no grader_id column; grader attribution
+            // is modelled on grades.graded_by / grade_history.changed_by. Sending
+            // it here made PostgREST reject the whole update, so saving a grade
+            // failed outright.
             grade: gradeNum,
             grader_comments: feedback,
             graded_at: new Date().toISOString(),
-            grader_id: user?.id,
             workflow_state: 'graded',
           })
           .eq('id', selectedSubmission.id);
@@ -188,7 +190,7 @@ function CanvasGradingInterface() {
         setSaving(false);
       }
     },
-    [grade, feedback, selectedSubmission, contentItem, pointsPossible, user, filtered, toast, goTo],
+    [grade, feedback, selectedSubmission, contentItem, pointsPossible, filtered, toast, goTo],
   );
 
   // Keyboard shortcuts

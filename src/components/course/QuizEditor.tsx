@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { sanitizeHTML } from '@/utils/sanitize';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -361,7 +362,7 @@ export function QuizEditor({ quizId, onClose }: QuizEditorProps) {
                     </div>
                     <div 
                       className="text-sm prose prose-sm max-w-none"
-                      dangerouslySetInnerHTML={{ __html: question.question_text }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeHTML(question.question_text) }}
                     />
                   </div>
                 </div>

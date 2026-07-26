@@ -4,6 +4,7 @@ import { useToast } from './use-toast';
 import type { EnrichedUser } from './useAuth';
 
 import { createLogger } from '@/utils/logger';
+import { safeInternalPath } from '@/utils/safeRedirect';
 
 const logger = createLogger('useAuthRedirect');
 
@@ -14,8 +15,9 @@ export const useAuthRedirect = () => {
 
   const storeRedirectPath = useCallback((path: string) => {
     if (path && !['/login', '/register', '/', '/auth/callback'].includes(path)) {
-      localStorage.setItem('redirectAfterLogin', path);
-      logger.log('[useAuthRedirect] Stored redirect path:', path);
+      const safePath = safeInternalPath(path);
+      localStorage.setItem('redirectAfterLogin', safePath);
+      logger.log('[useAuthRedirect] Stored redirect path:', safePath);
     }
   }, []);
 
@@ -42,7 +44,9 @@ export const useAuthRedirect = () => {
       return;
     }
 
-    let redirectTo = storedPath;
+    // Re-sanitize on read: this value may have been written by an older build
+    // that stored it unvalidated.
+    let redirectTo = safeInternalPath(storedPath);
 
     // Check admin access
     if (!user?.roles?.includes('admin') && redirectTo.startsWith('/admin')) {
