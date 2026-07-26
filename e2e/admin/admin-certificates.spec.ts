@@ -76,42 +76,45 @@ test.describe('Admin — certificates', () => {
       apikey: SUPABASE_KEY,
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
+      Prefer: 'return=representation',
     };
 
     const meRes = await page.request.get(`${SUPABASE_URL}/auth/v1/user`, { headers });
     const adminId = (await meRes.json()).id as string;
-
-    // Certificates are issued server-side (there is deliberately no client
-    // INSERT policy), so revoke one belonging to another test account rather
-    // than minting one. certificate-generation.spec.ts re-issues the member's
-    // certificate for the seeded course, so this row is reproducible.
     const courseId = process.env.E2E_TEST_COURSE_ID || '660e8400-e29b-41d4-a716-446655440001';
-    const listRes = await page.request.get(
-      `${SUPABASE_URL}/rest/v1/certificates?course_id=eq.${courseId}&select=id,user_id`,
-      { headers },
-    );
-    expect(listRes.ok(), `certificates readable (${listRes.status()})`).toBeTruthy();
-    const others = ((await listRes.json()) as Array<{ id: string; user_id: string }>).filter(
-      (c) => c.user_id !== adminId,
-    );
+
+    // Issue a disposable certificate and revoke that one. Revoking a real
+    // member certificate destroyed the row seed.sql issues for the profile
+    // specs — /profile then rendered "You haven't earned any certificates yet"
+    // and the visual baseline failed on the following run.
+    const code = `E2EREVOKE${Date.now().toString(36).toUpperCase()}`;
+    const created = await page.request.post(`${SUPABASE_URL}/rest/v1/certificates`, {
+      headers,
+      data: {
+        user_id: adminId,
+        course_id: courseId,
+        certificate_type: 'completion',
+        verification_code: code,
+      },
+    });
     expect(
-      others.length,
-      'Seed gap: no certificate issued to another user for the seeded course. Run e2e/journeys/certificate-generation.spec.ts first.',
-    ).toBeGreaterThan(0);
-    const target = others[0];
+      created.ok(),
+      `certificate insert (${created.status()}: ${await created.text()}). Staff INSERT policy missing?`,
+    ).toBeTruthy();
+    const certId = (await created.json())[0].id as string;
 
     const del = await page.request.delete(
-      `${SUPABASE_URL}/rest/v1/certificates?id=eq.${target.id}`,
+      `${SUPABASE_URL}/rest/v1/certificates?id=eq.${certId}`,
       { headers },
     );
     expect(del.ok(), `revoke request (${del.status()})`).toBeTruthy();
 
-    // The bug was a 204 that deleted nothing, so the status alone proves
-    // nothing — re-read the row.
+    // A 204 that deleted nothing was the original bug, so the status alone
+    // proves nothing — re-read the row.
     const after = await page.request.get(
-      `${SUPABASE_URL}/rest/v1/certificates?id=eq.${target.id}&select=id`,
+      `${SUPABASE_URL}/rest/v1/certificates?id=eq.${certId}&select=id`,
       { headers },
     );
-    expect(await after.json(), "admin's revoke removed another user's certificate").toEqual([]);
+    expect(await after.json(), 'certificate row is gone after revoke').toEqual([]);
   });
 });

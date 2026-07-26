@@ -50,6 +50,10 @@ const IGNORED_PATTERNS: RegExp[] = [
   /Download the React DevTools/,
   // Lovable component tagger (dev-only, not our code)
   /lovable-tagger/,
+  // Lovable's editor script, loaded from a CDN by index.html:26. Third-party and
+  // unrelated to any app behaviour — it fails CORS wherever that CDN is
+  // unreachable, which is not a regression in this codebase.
+  /cdn\.gpteng\.co/,
   // Supabase realtime warning when no channel is subscribed
   /No session found/,
   // Vite HMR noise in test environments
