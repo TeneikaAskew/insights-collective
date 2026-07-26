@@ -196,13 +196,17 @@ interface DbChallenge {
 export default function CodePractice() {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { user } = useUser();
+  const { user, loading: authLoading } = useUser();
   const [code, setCode] = useState('// Write your solution here');
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState(null);
   const [selectedRole, setSelectedRole] = useState('all');
   const [currentChallenge, setCurrentChallenge] = useState(challengesByRole.all);
   const [dbChallenge, setDbChallenge] = useState<DbChallenge | null>(null);
+  // True while the database challenge for this role is in flight. Submitting
+  // during that window would take the demo path and hand a signed-in user
+  // fabricated "3/3 passed" feedback for code that never ran.
+  const [challengeLoading, setChallengeLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('code'); // Set default tab to code editor
 
   useEffect(() => {
@@ -218,6 +222,7 @@ export default function CodePractice() {
     // set stays as fallback so the page never regresses to an empty state.
     let cancelled = false;
     setDbChallenge(null);
+    setChallengeLoading(true);
     (async () => {
       try {
         // Explicit projection: test_cases stays server-side (hidden cases
@@ -234,12 +239,20 @@ export default function CodePractice() {
         if (row.starter_code) setCode(row.starter_code);
       } catch (error) {
         logger.error('Error loading challenge from database:', error);
+      } finally {
+        // Settles on success, empty result, and failure alike — a genuine
+        // demo fallback must still be reachable.
+        if (!cancelled) setChallengeLoading(false);
       }
     })();
     return () => {
       cancelled = true;
     };
   }, [selectedRole]);
+
+  // The demo path is only honest once we know there is no signed-in user and
+  // no database challenge — until then, submitting would invent a result.
+  const submitBlocked = authLoading || (!!user && challengeLoading);
 
   const handleCodeChange = (value) => {
     setCode(value);
@@ -256,6 +269,10 @@ export default function CodePractice() {
   };
 
   const handleSubmit = async () => {
+    // Never resolve a real submission as a demo just because auth or the
+    // challenge had not arrived yet.
+    if (submitBlocked) return;
+
     // Real evaluation: signed in with a database-backed challenge.
     // Phase 3 flow: execute-code runs the submission in a sandbox for
     // ground-truth results, then review-code writes the qualitative review.
@@ -620,7 +637,11 @@ export default function CodePractice() {
                     <RotateCcw className="h-4 w-4 mr-2" />
                     Reset
                   </Button>
-                  <Button onClick={handleSubmit} disabled={loading} className="rounded-full font-bold">
+                  <Button
+                    onClick={handleSubmit}
+                    disabled={loading || submitBlocked}
+                    className="rounded-full font-bold"
+                  >
                     {loading ? <Spinner size="sm" className="mr-2" /> : null}
                     Submit Solution
                   </Button>
