@@ -129,6 +129,24 @@ serve(async (req) => {
       });
     }
 
+    // Owning the submission row is not enough. The learner INSERT policy lets any
+    // authenticated user create an owned quiz_submissions row for ANY quiz id, and
+    // grading below reads the answer key with the service role (RLS bypassed). So
+    // re-check that the caller can actually access this quiz — otherwise the
+    // per-question results become an answer oracle for unpublished or otherwise
+    // inaccessible quizzes.
+    const { data: canAccess, error: accessError } = await supabase.rpc("can_access_quiz", {
+      viewer_id: userId,
+      quiz_id: submission.quiz_id,
+    });
+    if (accessError) throw accessError;
+    if (!canAccess) {
+      return new Response(JSON.stringify({ error: "You do not have access to this quiz" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Attempt limit is enforced here, not just in the UI. The learner INSERT
     // policy lets a client create any owned quiz_submissions row, so without
     // this check someone could insert attempts 2..N, score each one, and use
