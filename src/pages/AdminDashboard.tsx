@@ -1,874 +1,219 @@
+// ABOUTME: Admin landing page — the "Command Center". Shows real platform KPIs,
+// ABOUTME: a launcher grid deep-linking to each admin area, an honest activity
+// ABOUTME: link-out, and the ResourceManagement panel. No fabricated metrics.
 
 import { useEffect, useState } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import AppLayout from '@/components/layout/AppLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Input } from '@/components/ui/input';
-import { 
-  Search, Plus, Users, BookOpen, Award, BarChart2, CheckCircle, 
-  X, Download, FileEdit, UserPlus, TrendingUp, Clock, UserCheck,
-  Calendar, BarChart, PieChart
+import {
+  Users, BookOpen, Award, CheckCircle, GraduationCap, Calendar,
+  FormInput, Newspaper, Eye, Activity, ArrowRight,
 } from 'lucide-react';
 import { useCoursesManagement } from '@/hooks/useCoursesManagement';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { 
-  Line, LineChart, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, 
-  ResponsiveContainer, BarChart as RechartsBarChart, Bar, 
-  PieChart as RechartsPieChart, Pie, Cell, Legend
-} from 'recharts';
-import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import ResourceManagement from '@/components/admin/ResourceManagement';
-
-const ActivityItem = ({ user, activity, time }: { user: any, activity: string, time: string }) => {
-  if (!user) return null;
-  
-  return (
-    <div className="flex items-start gap-4 p-3 rounded-lg hover:bg-secondary">
-      <Avatar className="h-10 w-10">
-        <AvatarImage src={user?.avatar} />
-        <AvatarFallback>{user?.name?.charAt(0) || 'U'}</AvatarFallback>
-      </Avatar>
-      <div className="flex-1">
-        <p className="text-sm"><span className="font-medium">{user?.name || 'User'}</span> {activity}</p>
-        <p className="text-xs text-muted-foreground">{time}</p>
-      </div>
-    </div>
-  );
-};
-
-const EditCourseDialog = ({ course, onSave }: { course: any, onSave: () => void }) => {
-  const { toast } = useToast();
-  
-  const handleSave = () => {
-    // No backing write exists for this demo dialog — never claim success.
-    toast({
-      title: "Course editing not available",
-      description: "This dialog isn't connected to the database yet — no changes were saved.",
-      variant: "destructive",
-    });
-    onSave();
-  };
-  
-  return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="ghost" size="icon">
-          <FileEdit className="h-4 w-4" />
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[600px]">
-        <DialogHeader>
-          <DialogTitle>Edit Course</DialogTitle>
-          <DialogDescription>
-            Make changes to the course details, content, and settings.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <label htmlFor="title" className="text-sm font-medium">Course Title</label>
-            <Input id="title" defaultValue={course.title} />
-          </div>
-          <div className="grid gap-2">
-            <label htmlFor="description" className="text-sm font-medium">Description</label>
-            <textarea 
-              id="description" 
-              className="min-h-[100px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
-              defaultValue={course.description} 
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <label htmlFor="category" className="text-sm font-medium">Category</label>
-              <Input id="category" defaultValue={course.category} />
-            </div>
-            <div className="grid gap-2">
-              <label htmlFor="level" className="text-sm font-medium">Level</label>
-              <Input id="level" defaultValue={course.level} />
-            </div>
-          </div>
-          <div className="grid gap-2">
-            <label className="text-sm font-medium">Course Status</label>
-            <div className="flex space-x-4">
-              <label className="flex items-center space-x-2">
-                <input type="radio" name="status" defaultChecked={course.enrollmentStatus === 'Open'} />
-                <span>Open</span>
-              </label>
-              <label className="flex items-center space-x-2">
-                <input type="radio" name="status" defaultChecked={course.enrollmentStatus === 'Closed'} />
-                <span>Closed</span>
-              </label>
-              <label className="flex items-center space-x-2">
-                <input type="radio" name="status" defaultChecked={course.enrollmentStatus === 'In Progress'} />
-                <span>In Progress</span>
-              </label>
-            </div>
-          </div>
-        </div>
-        <CardFooter className="flex justify-end space-x-2">
-          <Button variant="ghost" onClick={onSave}>Cancel</Button>
-          <Button onClick={handleSave}>Save Changes</Button>
-        </CardFooter>
-      </DialogContent>
-    </Dialog>
-  );
-};
-
-const AddUserDialog = ({ onSave }: { onSave: () => void }) => {
-  const { toast } = useToast();
-  
-  const handleSave = () => {
-    // No backing write exists for this demo dialog — never claim success.
-    toast({
-      title: "Adding users not available",
-      description: "This dialog isn't connected to the database yet — no user was created.",
-      variant: "destructive",
-    });
-    onSave();
-  };
-  
-  return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Add User
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Add New User</DialogTitle>
-          <DialogDescription>
-            Enter the details for the new user or upload a CSV for batch import.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <label htmlFor="name" className="text-sm font-medium">Full Name</label>
-            <Input id="name" placeholder="John Doe" />
-          </div>
-          <div className="grid gap-2">
-            <label htmlFor="email" className="text-sm font-medium">Email</label>
-            <Input id="email" type="email" placeholder="john.doe@ic.tech" />
-          </div>
-          <div className="grid gap-2">
-            <label htmlFor="role" className="text-sm font-medium">Role</label>
-            <select id="role" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-              <option value="student">Student</option>
-              <option value="instructor">Instructor</option>
-              <option value="admin">Admin</option>
-            </select>
-          </div>
-          <div className="grid gap-2">
-            <label className="text-sm font-medium">Or Import Users</label>
-            <div className="border border-dashed rounded-md p-6 text-center">
-              <Button variant="outline" className="w-full">
-                <Upload className="h-4 w-4 mr-2" />
-                Upload CSV File
-              </Button>
-              <p className="text-xs text-muted-foreground mt-2">
-                CSV format should include: name, email, role
-              </p>
-            </div>
-          </div>
-        </div>
-        <CardFooter className="flex justify-end space-x-2">
-          <Button variant="ghost" onClick={onSave}>Cancel</Button>
-          <Button onClick={handleSave}>Add User</Button>
-        </CardFooter>
-      </DialogContent>
-    </Dialog>
-  );
-};
-
-const ManageCourseUsersDialog = ({ course, onSave }: { course: any, onSave: () => void }) => {
-  const { toast } = useToast();
-  
-  const handleSave = () => {
-    // No backing write exists for this demo dialog — never claim success.
-    toast({
-      title: "Enrollment management not available",
-      description: "This dialog isn't connected to the database yet — no changes were saved.",
-      variant: "destructive",
-    });
-    onSave();
-  };
-  
-  return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="ghost" size="icon">
-          <Users className="h-4 w-4" />
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[600px]">
-        <DialogHeader>
-          <DialogTitle>Manage Course Users</DialogTitle>
-          <DialogDescription>
-            Add or remove users enrolled in <span className="font-medium">{course.title}</span>.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="py-4">
-          <div className="flex justify-between items-center mb-4">
-            <h4 className="text-sm font-semibold">Current Enrolled Users (23)</h4>
-            <Button variant="outline" size="sm">
-              <UserPlus className="h-4 w-4 mr-2" />
-              Add Users
-            </Button>
-          </div>
-          <div className="border rounded-md overflow-hidden">
-            <div className="grid grid-cols-4 bg-muted p-2 text-xs font-medium">
-              <div>User</div>
-              <div>Role</div>
-              <div>Enrolled Date</div>
-              <div className="text-right">Actions</div>
-            </div>
-            <div className="divide-y">
-              <div className="grid grid-cols-4 p-2 text-sm items-center">
-                <div className="flex items-center gap-2">
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback>JD</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <div className="font-medium">John Doe</div>
-                    <div className="text-xs text-muted-foreground">john.doe@ic.tech</div>
-                  </div>
-                </div>
-                <div>Student</div>
-                <div>Apr 1, 2025</div>
-                <div className="text-right">
-                  <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
-                    <X className="h-4 w-4 mr-1" />
-                    Remove
-                  </Button>
-                </div>
-              </div>
-              <div className="grid grid-cols-4 p-2 text-sm items-center">
-                <div className="flex items-center gap-2">
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback>JS</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <div className="font-medium">Jane Smith</div>
-                    <div className="text-xs text-muted-foreground">jane.smith@ic.tech</div>
-                  </div>
-                </div>
-                <div>Student</div>
-                <div>Apr 2, 2025</div>
-                <div className="text-right">
-                  <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
-                    <X className="h-4 w-4 mr-1" />
-                    Remove
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <CardFooter className="flex justify-end space-x-2">
-          <Button variant="ghost" onClick={onSave}>Cancel</Button>
-          <Button onClick={handleSave}>Save Changes</Button>
-        </CardFooter>
-      </DialogContent>
-    </Dialog>
-  );
-};
-
-const IssueCertificateDialog = ({ onIssue }: { onIssue: () => void }) => {
-  const { toast } = useToast();
-  
-  const handleIssue = () => {
-    // No backing write exists for this demo dialog — never claim success.
-    toast({
-      title: "Certificate issuing not available",
-      description: "This dialog isn't connected to the database yet — no certificate was issued.",
-      variant: "destructive",
-    });
-    onIssue();
-  };
-  
-  return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <Award className="h-4 w-4 mr-2" />
-          Issue Certificate
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Issue Certificate</DialogTitle>
-          <DialogDescription>
-            Issue a new certificate to a user who has completed a course.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <label htmlFor="user" className="text-sm font-medium">Select User</label>
-            <select id="user" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-              <option value="">Select a user</option>
-              <option value="user1">John Doe</option>
-              <option value="user2">Jane Smith</option>
-            </select>
-          </div>
-          <div className="grid gap-2">
-            <label htmlFor="course" className="text-sm font-medium">Select Course</label>
-            <select id="course" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-              <option value="">Select a course</option>
-              <option value="course1">Introduction to Data Science</option>
-              <option value="course2">Advanced Analytics</option>
-            </select>
-          </div>
-          <div className="grid gap-2">
-            <label htmlFor="issueDate" className="text-sm font-medium">Issue Date</label>
-            <Input id="issueDate" type="date" defaultValue={new Date().toISOString().split('T')[0]} />
-          </div>
-        </div>
-        <CardFooter className="flex justify-end space-x-2">
-          <Button variant="ghost" onClick={onIssue}>Cancel</Button>
-          <Button onClick={handleIssue}>Issue Certificate</Button>
-        </CardFooter>
-      </DialogContent>
-    </Dialog>
-  );
-};
-
-const CreateCourseDialog = ({ onSave }: { onSave: () => void }) => {
-  const { toast } = useToast();
-  
-  const handleSave = () => {
-    // No backing write exists for this demo dialog — never claim success.
-    toast({
-      title: "Course creation not available",
-      description: "This dialog isn't connected to the database yet — no course was created. Use the Course Builder instead.",
-      variant: "destructive",
-    });
-    onSave();
-  };
-  
-  return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Create Course
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[700px]">
-        <DialogHeader>
-          <DialogTitle>Create New Course</DialogTitle>
-          <DialogDescription>
-            Fill in the details below to create a new course.
-          </DialogDescription>
-        </DialogHeader>
-        <Tabs defaultValue="details">
-          <TabsList className="grid w-full grid-cols-3 mb-4">
-            <TabsTrigger value="details">Course Details</TabsTrigger>
-            <TabsTrigger value="modules">Modules</TabsTrigger>
-            <TabsTrigger value="settings">Settings</TabsTrigger>
-          </TabsList>
-          <TabsContent value="details" className="space-y-4">
-            <div className="grid gap-2">
-              <label htmlFor="title" className="text-sm font-medium">Course Title</label>
-              <Input id="title" placeholder="e.g. Introduction to Data Science" />
-            </div>
-            <div className="grid gap-2">
-              <label htmlFor="description" className="text-sm font-medium">Description</label>
-              <textarea 
-                id="description" 
-                className="min-h-[100px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm" 
-                placeholder="Provide a detailed description of the course..."
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <label htmlFor="category" className="text-sm font-medium">Category</label>
-                <select id="category" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-                  <option value="">Select category</option>
-                  <option value="data-science">Data Science</option>
-                  <option value="analytics">Analytics</option>
-                  <option value="data-engineering">Data Engineering</option>
-                  <option value="machine-learning">Machine Learning & AI</option>
-                </select>
-              </div>
-              <div className="grid gap-2">
-                <label htmlFor="level" className="text-sm font-medium">Level</label>
-                <select id="level" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-                  <option value="Beginner">Beginner</option>
-                  <option value="Intermediate">Intermediate</option>
-                  <option value="Advanced">Advanced</option>
-                </select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <label htmlFor="duration" className="text-sm font-medium">Duration</label>
-                <Input id="duration" placeholder="e.g. 8 weeks" />
-              </div>
-              <div className="grid gap-2">
-                <label htmlFor="instructor" className="text-sm font-medium">Instructor</label>
-                <select id="instructor" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-                  <option value="">Select instructor</option>
-                  <option value="instructor1">John Smith</option>
-                  <option value="instructor2">Jane Doe</option>
-                </select>
-              </div>
-            </div>
-            <div className="grid gap-2">
-              <label htmlFor="thumbnail" className="text-sm font-medium">Course Thumbnail</label>
-              <div className="border border-dashed rounded-md p-6 text-center">
-                <Button variant="outline" className="w-full">
-                  <Upload className="h-4 w-4 mr-2" />
-                  Upload Image
-                </Button>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Recommended size: 1280x720 px (16:9 ratio)
-                </p>
-              </div>
-            </div>
-          </TabsContent>
-          <TabsContent value="modules" className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h4 className="text-sm font-semibold">Course Modules</h4>
-              <Button variant="outline" size="sm">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Module
-              </Button>
-            </div>
-            <div className="border rounded-md p-4">
-              <div className="flex justify-between mb-4">
-                <div>
-                  <h5 className="font-medium">Module 1: Introduction</h5>
-                  <p className="text-sm text-muted-foreground">Week 1</p>
-                </div>
-                <div className="flex space-x-2">
-                  <Button variant="ghost" size="sm">
-                    <FileEdit className="h-4 w-4 mr-1" />
-                    Edit
-                  </Button>
-                  <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
-                    <X className="h-4 w-4 mr-1" />
-                    Delete
-                  </Button>
-                </div>
-              </div>
-              <div className="grid gap-2 mb-4">
-                <label htmlFor="mod-title" className="text-sm font-medium">Module Title</label>
-                <Input id="mod-title" defaultValue="Introduction" />
-              </div>
-              <div className="grid gap-2 mb-4">
-                <label htmlFor="mod-desc" className="text-sm font-medium">Description</label>
-                <textarea 
-                  id="mod-desc" 
-                  className="min-h-[60px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
-                  defaultValue="Foundation concepts and overview of the course."
-                />
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <h6 className="text-sm font-medium">Content Items</h6>
-                  <div className="flex space-x-2">
-                    <Button variant="outline" size="sm">Add Lesson</Button>
-                    <Button variant="outline" size="sm">Add Assignment</Button>
-                    <Button variant="outline" size="sm">Add Quiz</Button>
-                  </div>
-                </div>
-                <div className="pl-4 border-l border-muted pt-2 space-y-2">
-                  <div className="flex justify-between items-center p-2 bg-accent/50 rounded-md">
-                    <div className="flex items-center">
-                      <BookOpen className="h-4 w-4 mr-2 text-muted-foreground" />
-                      <span className="text-sm">Introduction to the Course</span>
-                    </div>
-                    <Badge>Lesson</Badge>
-                  </div>
-                  <div className="flex justify-between items-center p-2 bg-accent/50 rounded-md">
-                    <div className="flex items-center">
-                      <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
-                      <span className="text-sm">Welcome Quiz</span>
-                    </div>
-                    <Badge>Quiz</Badge>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </TabsContent>
-          <TabsContent value="settings" className="space-y-4">
-            <div className="grid gap-2">
-              <label className="text-sm font-medium">Enrollment Status</label>
-              <div className="flex space-x-4">
-                <label className="flex items-center space-x-2">
-                  <input type="radio" name="enrollment-status" defaultChecked />
-                  <span>Open</span>
-                </label>
-                <label className="flex items-center space-x-2">
-                  <input type="radio" name="enrollment-status" />
-                  <span>Closed</span>
-                </label>
-                <label className="flex items-center space-x-2">
-                  <input type="radio" name="enrollment-status" />
-                  <span>In Progress</span>
-                </label>
-              </div>
-            </div>
-            <div className="grid gap-2">
-              <label className="text-sm font-medium">Visibility</label>
-              <div className="flex space-x-4">
-                <label className="flex items-center space-x-2">
-                  <input type="radio" name="visibility" defaultChecked />
-                  <span>Public</span>
-                </label>
-                <label className="flex items-center space-x-2">
-                  <input type="radio" name="visibility" />
-                  <span>Private</span>
-                </label>
-              </div>
-            </div>
-            <div className="grid gap-2">
-              <label className="text-sm font-medium">Completion Requirements</label>
-              <div className="space-y-2">
-                <label className="flex items-center space-x-2">
-                  <input type="checkbox" defaultChecked />
-                  <span>All lessons must be viewed</span>
-                </label>
-                <label className="flex items-center space-x-2">
-                  <input type="checkbox" defaultChecked />
-                  <span>All quizzes must be completed</span>
-                </label>
-                <label className="flex items-center space-x-2">
-                  <input type="checkbox" defaultChecked />
-                  <span>All assignments must be submitted</span>
-                </label>
-                <label className="flex items-center space-x-2">
-                  <input type="checkbox" />
-                  <span>Minimum grade of 70% required</span>
-                </label>
-              </div>
-            </div>
-            <div className="grid gap-2">
-              <label className="text-sm font-medium">Certificate</label>
-              <div className="flex space-x-4">
-                <label className="flex items-center space-x-2">
-                  <input type="radio" name="certificate" defaultChecked />
-                  <span>Issue certificate on completion</span>
-                </label>
-                <label className="flex items-center space-x-2">
-                  <input type="radio" name="certificate" />
-                  <span>No certificate</span>
-                </label>
-              </div>
-            </div>
-          </TabsContent>
-        </Tabs>
-        <CardFooter className="flex justify-end space-x-2 mt-4">
-          <Button variant="ghost" onClick={onSave}>Cancel</Button>
-          <Button onClick={handleSave}>Create Course</Button>
-        </CardFooter>
-      </DialogContent>
-    </Dialog>
-  );
-};
-
-// Helper component for Upload icon 
-const Upload = ({ className }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-    <polyline points="17 8 12 3 7 8"></polyline>
-    <line x1="12" x2="12" y1="3" y2="15"></line>
-  </svg>
-);
+import AdminSoftStudio from '@/components/admin/AdminSoftStudio';
+import { cn } from '@/lib/utils';
 
 const AdminDashboard = () => {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
-  const [activeTab, setActiveTab] = useState('courses');
-  const { toast } = useToast();
-  const [enrollmentCount, setEnrollmentCount] = useState<number | null>(null);
-  const [certificateCount, setCertificateCount] = useState<number | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated) {
       navigate('/login');
       return;
     }
-
     if (user && (!user.roles || !user.roles.includes('admin'))) {
       navigate('/dashboard');
     }
+  }, [isAuthenticated, user, navigate]);
 
-    // Set the active tab based on the URL
-    if (location.pathname.includes('/admin/courses')) {
-      setActiveTab('courses');
-    } else if (location.pathname.includes('/admin/users')) {
-      setActiveTab('users');
-    } else if (location.pathname.includes('/admin/resources')) {
-      setActiveTab('resources');
-    } else if (location.pathname.includes('/admin/settings')) {
-      setActiveTab('settings');
-    } else if (location.pathname.includes('/admin/certificates')) {
-      setActiveTab('certificates');
-    }
-  }, [isAuthenticated, user, navigate, location]);
-
-  // Load real KPI counts so the header stats aren't hardcoded placeholders.
+  // Load real counts so nothing on this page is a hardcoded placeholder. A
+  // failed count renders as "—" and is never presented as an authoritative 0.
   const [userCount, setUserCount] = useState<number | null>(null);
+  const [enrollmentCount, setEnrollmentCount] = useState<number | null>(null);
+  const [certificateCount, setCertificateCount] = useState<number | null>(null);
+  const [eventCount, setEventCount] = useState<number | null>(null);
+  const [formCount, setFormCount] = useState<number | null>(null);
+  const [blogCount, setBlogCount] = useState<number | null>(null);
+  const [pageVisibilityCount, setPageVisibilityCount] = useState<number | null>(null);
   const [statsError, setStatsError] = useState<string | null>(null);
   const [statsReloadKey, setStatsReloadKey] = useState(0);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setStatsError(null);
-      const [enrollRes, certRes, profileRes] = await Promise.all([
-        supabase.from('enrollments').select('id', { count: 'exact', head: true }),
-        supabase.from('certificates').select('id', { count: 'exact', head: true }),
-        supabase.from('profiles').select('id', { count: 'exact', head: true }),
+      const headCount = (table: string) =>
+        supabase.from(table).select('id', { count: 'exact', head: true });
+      const [
+        enrollRes, certRes, profileRes, eventRes, formRes, blogRes, pvRes,
+      ] = await Promise.all([
+        headCount('enrollments'),
+        headCount('certificates'),
+        headCount('profiles'),
+        headCount('events'),
+        headCount('forms'),
+        headCount('blog_posts'),
+        headCount('page_visibility'),
       ]);
       if (cancelled) return;
-      // A failed count must render as "—", never as an authoritative 0.
-      const failure = enrollRes.error || certRes.error || profileRes.error;
-      if (failure) {
-        setStatsError(failure.message);
-        setEnrollmentCount(enrollRes.error ? null : enrollRes.count ?? 0);
-        setCertificateCount(certRes.error ? null : certRes.count ?? 0);
-        setUserCount(profileRes.error ? null : profileRes.count ?? 0);
-        return;
-      }
-      setEnrollmentCount(enrollRes.count ?? 0);
-      setCertificateCount(certRes.count ?? 0);
-      setUserCount(profileRes.count ?? 0);
+      const setFrom = (
+        res: { error: unknown; count: number | null },
+        set: (n: number | null) => void,
+      ) => set(res.error ? null : res.count ?? 0);
+      setFrom(enrollRes, setEnrollmentCount);
+      setFrom(certRes, setCertificateCount);
+      setFrom(profileRes, setUserCount);
+      setFrom(eventRes, setEventCount);
+      setFrom(formRes, setFormCount);
+      setFrom(blogRes, setBlogCount);
+      setFrom(pvRes, setPageVisibilityCount);
+      const failure =
+        enrollRes.error || certRes.error || profileRes.error ||
+        eventRes.error || formRes.error || blogRes.error || pvRes.error;
+      if (failure) setStatsError((failure as { message?: string }).message ?? 'Unknown error');
     })();
     return () => { cancelled = true; };
   }, [statsReloadKey]);
 
-  // Hooks must run unconditionally on every render — the previous early
-  // return above this call crashed React with "Rendered more hooks than
-  // during the previous render" once auth resolved.
+  // Hooks must run unconditionally on every render.
   const { courses } = useCoursesManagement();
-  const allCourses = courses;
+  const courseCount = courses.length;
 
   if (!user || !user.roles || !user.roles.includes('admin')) return null;
 
-  // These demo management panels have no backing writes yet. Never report a
-  // successful mutation that did not happen.
-  const handleAction = (action: string, itemType: string) => {
-    toast({
-      title: `${action} not available`,
-      description: `${itemType} management from this dashboard isn't wired up yet — no changes were saved.`,
-      variant: 'destructive',
-    });
-  };
-  
+  const fmt = (n: number | null) => (n === null ? '—' : n.toLocaleString());
+
+  const kpis = [
+    { label: 'Total Users', value: userCount, icon: Users, to: '/admin/users' },
+    { label: 'Total Courses', value: courseCount, icon: BookOpen, to: '/admin/courses' },
+    { label: 'Active Enrollments', value: enrollmentCount, icon: CheckCircle, to: '/admin/courses' },
+    { label: 'Certificates Issued', value: certificateCount, icon: Award, to: '/admin/courses' },
+  ];
+
+  const launchers = [
+    { title: 'Manage Users', desc: 'Roles, access, and accounts', icon: Users, to: '/admin/users', count: userCount },
+    { title: 'Manage Courses', desc: 'Courses, enrollments, certificates', icon: GraduationCap, to: '/admin/courses', count: courseCount },
+    { title: 'Manage Events', desc: 'Sessions and registrations', icon: Calendar, to: '/admin/events', count: eventCount },
+    { title: 'Manage Forms', desc: 'Forms and submissions', icon: FormInput, to: '/admin/unified-form-management', count: formCount },
+    { title: 'Manage Blog', desc: 'Posts, drafts, and categories', icon: Newspaper, to: '/admin/blog', count: blogCount },
+    { title: 'Page Visibility', desc: 'Control who sees each page', icon: Eye, to: '/admin/page-visibility', count: pageVisibilityCount },
+  ];
+
   return (
-    <AppLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
-          <p className="text-muted-foreground">
-            Manage courses, users, and platform settings.
-          </p>
+    <AdminSoftStudio>
+      {/* Header */}
+      <header className="mb-7">
+        <p className="ss-serif text-ss-lav-deep text-lg mb-1">Insights Collective · Admin</p>
+        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Admin Dashboard</h1>
+        <p className="text-muted-foreground mt-1">Manage courses, users, and platform settings.</p>
+      </header>
+
+      {statsError && (
+        <div
+          className="rounded-2xl border border-ss-bad/40 bg-ss-bad-chip px-4 py-3 text-sm flex items-center justify-between gap-4 mb-4"
+          role="alert"
+        >
+          <span className="text-ss-bad font-medium">
+            Failed to load platform statistics: {statsError}
+          </span>
+          <Button variant="outline" size="sm" className="rounded-xl bg-card" onClick={() => setStatsReloadKey((k) => k + 1)}>
+            Retry
+          </Button>
         </div>
-        
-        {statsError && (
-          <div className="rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm flex items-center justify-between gap-4" role="alert">
-            <span className="text-destructive">
-              Failed to load platform statistics: {statsError}
-            </span>
-            <Button variant="outline" size="sm" onClick={() => setStatsReloadKey((k) => k + 1)}>
-              Retry
+      )}
+
+      {/* KPI tiles — real counts only, no fabricated trend data */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        {kpis.map((kpi) => {
+          const Icon = kpi.icon;
+          return (
+            <Link
+              key={kpi.label}
+              to={kpi.to}
+              className="group rounded-2xl border border-border bg-card px-5 py-5 shadow-[var(--ss-shadow)] transition hover:border-ss-lav"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-ss-lav-chip">
+                  <Icon className="h-5 w-5 text-ss-lav-deep" />
+                </span>
+                <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 -translate-x-1 transition group-hover:opacity-100 group-hover:translate-x-0" />
+              </div>
+              <div className="text-3xl font-bold tracking-tight tabular-nums">{fmt(kpi.value)}</div>
+              <div className="text-sm text-muted-foreground mt-0.5">{kpi.label}</div>
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* Quick-action launcher grid */}
+      <section className="mb-6">
+        <h2 className="text-lg font-bold mb-3">Quick actions</h2>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {launchers.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                className="group flex items-center gap-4 rounded-2xl border border-border bg-card px-5 py-4 shadow-[var(--ss-shadow)] transition hover:border-ss-lav"
+              >
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-ss-lav-chip">
+                  <Icon className="h-5 w-5 text-ss-lav-deep" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold truncate">{item.title}</span>
+                    {item.count !== null && (
+                      <span className="ss-chip !px-2 !py-0.5 !text-xs tabular-nums">{item.count.toLocaleString()}</span>
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground truncate">{item.desc}</p>
+                </div>
+                <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-ss-lav-deep" />
+              </Link>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* Recent activity — honest link-out, no fabricated feed */}
+      <section className="mb-6">
+        <div className="rounded-3xl border border-border bg-card p-5 shadow-[var(--ss-shadow)]">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h2 className="text-lg font-bold">Recent Activity</h2>
+              <p className="text-sm text-muted-foreground">Latest platform interactions</p>
+            </div>
+            <Button variant="outline" size="sm" className="rounded-xl bg-card" asChild>
+              <Link to="/admin/activity">View All</Link>
             </Button>
           </div>
-        )}
-
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-medium">Total Users</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div className="text-2xl font-bold tabular-nums">{userCount ?? '—'}</div>
-                <Users className="h-5 w-5 text-muted-foreground" />
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-medium">Total Courses</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div className="text-2xl font-bold">{allCourses.length}</div>
-                <BookOpen className="h-5 w-5 text-muted-foreground" />
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-medium">Active Enrollments</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div className="text-2xl font-bold tabular-nums">
-                  {enrollmentCount ?? '—'}
-                </div>
-                <CheckCircle className="h-5 w-5 text-muted-foreground" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-medium">Certificates Issued</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div className="text-2xl font-bold tabular-nums">
-                  {certificateCount ?? '—'}
-                </div>
-                <Award className="h-5 w-5 text-muted-foreground" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-        
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Recent Activity</CardTitle>
-                <CardDescription>Latest platform interactions</CardDescription>
-              </div>
-              <Button variant="outline" size="sm" asChild>
-                <Link to="/admin/activity">View All</Link>
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+          <div className="flex items-center gap-3 rounded-2xl border border-dashed border-border px-5 py-6 text-sm text-muted-foreground">
+            <Activity className="h-5 w-5 shrink-0 text-ss-lav-deep" />
+            <span>
               Live activity is available on the{' '}
-              <Link to="/admin/activity" className="text-primary underline underline-offset-4">
+              <Link to="/admin/activity" className="text-ss-lav-deep font-medium underline underline-offset-4">
                 full activity log
               </Link>
               . This card intentionally does not show a fabricated feed.
-            </div>
-          </CardContent>
-        </Card>
+            </span>
+          </div>
+        </div>
+      </section>
 
-        <Tabs defaultValue={activeTab} value={activeTab} onValueChange={setActiveTab}>
-          <TabsList>
-            <TabsTrigger value="courses">Manage Courses</TabsTrigger>
-            <TabsTrigger value="resources">Manage Resources</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="courses" className="space-y-6 mt-6">
-            <div className="flex items-center justify-between">
-              <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input className="pl-10" placeholder="Search courses..." />
-              </div>
-              <CreateCourseDialog onSave={() => handleAction('Create', 'course')} />
-            </div>
-            
-            <Card>
-              <CardContent className="p-0">
-                <div className="overflow-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left p-4 text-sm font-medium">Course</th>
-                        <th className="text-left p-4 text-sm font-medium">Instructor</th>
-                        <th className="text-left p-4 text-sm font-medium">Enrollment</th>
-                        <th className="text-left p-4 text-sm font-medium">Status</th>
-                        <th className="text-right p-4 text-sm font-medium">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {allCourses.map((course) => (
-                        <tr key={course.id} className="border-b hover:bg-secondary/50">
-                          <td className="p-4">
-                            <div className="flex items-center gap-3">
-                               <div className="w-12 h-12 rounded-md overflow-hidden bg-secondary flex items-center justify-center">
-                                 {course.imageUrl ? (
-                                   <img src={course.imageUrl} alt={course.title} className="w-full h-full object-cover" />
-                                 ) : (
-                                   <BookOpen className="h-6 w-6 text-muted-foreground" />
-                                 )}
-                               </div>
-                              <div>
-                                <p className="font-medium">{course.title}</p>
-                                <p className="text-xs text-muted-foreground">{course.category}</p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="p-4">
-                             <div className="flex items-center gap-2">
-                               {course.instructor ? (
-                                 <>
-                                   <Avatar className="h-8 w-8">
-                                     <AvatarImage src={course.instructor.avatar} />
-                                     <AvatarFallback>{course.instructor.name?.charAt(0) || 'I'}</AvatarFallback>
-                                   </Avatar>
-                                   <span>{course.instructor.name}</span>
-                                 </>
-                               ) : (
-                                 <span className="text-muted-foreground">Unassigned</span>
-                               )}
-                             </div>
-                          </td>
-                          <td className="p-4">{course.enrollmentCount} students</td>
-                          <td className="p-4">
-                            <Badge variant={
-                              course.enrollmentStatus === 'open' ? 'default' :
-                              course.enrollmentStatus === 'closed' ? 'secondary' : 'outline'
-                            }>
-                              {course.enrollmentStatus}
-                            </Badge>
-                          </td>
-                          <td className="p-4 text-right">
-                            <div className="flex justify-end gap-2">
-                              <EditCourseDialog 
-                                course={course} 
-                                onSave={() => handleAction('Update', 'course')} 
-                              />
-                              <ManageCourseUsersDialog 
-                                course={course} 
-                                onSave={() => handleAction('Update', 'course users')} 
-                              />
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                onClick={() => handleAction('Delete', 'course')}
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                  <polyline points="3 6 5 6 21 6"></polyline>
-                                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                                </svg>
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-          
-          
-          <TabsContent value="resources" className="space-y-6 mt-6">
-            <ResourceManagement />
-          </TabsContent>
-        </Tabs>
-      </div>
-    </AppLayout>
+      {/* Resources — this is the only home for ResourceManagement */}
+      <section>
+        <div className={cn('rounded-3xl border border-border bg-card p-5 shadow-[var(--ss-shadow)]')}>
+          <h2 className="text-lg font-bold mb-1">Resources</h2>
+          <p className="text-sm text-muted-foreground mb-4">Manage downloadable resources and links.</p>
+          <ResourceManagement />
+        </div>
+      </section>
+    </AdminSoftStudio>
   );
 };
 
