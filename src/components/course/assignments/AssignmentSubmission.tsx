@@ -34,6 +34,7 @@ import { AssignmentSubmission, EnhancedAssignment } from '@/types/course';
 import { formatDistanceToNow, isPast, isAfter } from 'date-fns';
 import { CanvasEditor } from '@/components/ui/canvas-editor';
 import { sanitizeHTML } from '@/utils/sanitize';
+import { CourseHtml } from '@/components/course/CourseHtml';
 
 const submissionSchema = z.object({
   submission_type: z.enum(['file_upload', 'text_entry', 'url', 'media_recording']),
@@ -163,10 +164,7 @@ export const AssignmentSubmissionComponent: React.FC<AssignmentSubmissionProps> 
           {assignment.instructions && (
             <div className="border rounded-lg p-4 bg-muted/50">
               <h4 className="font-semibold mb-2">Instructions</h4>
-              <div 
-                className="prose prose-sm max-w-none"
-                dangerouslySetInnerHTML={{ __html: sanitizeHTML(assignment.instructions) }}
-              />
+              <CourseHtml html={assignment.instructions} className="prose prose-sm max-w-none" />
             </div>
           )}
 

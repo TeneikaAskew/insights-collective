@@ -158,24 +158,25 @@ export default function CourseDetails({ course }: CourseDetailsProps) {
       
       if (imageFile) {
         const fileExt = imageFile.name.split('.').pop();
-        const fileName = `${Date.now()}.${fileExt}`;
-        // Course id first: the course-images policies resolve the owning course
-        // with split_part(name, '/', 1)::uuid.
-        const filePath = `${course.id}/${fileName}`;
-        
+        // The course thumbnail is shown in public course listings, so it belongs
+        // in the public course-materials bucket (course-images is private and a
+        // public URL from it would not load). Insert into course-materials is
+        // gated to instructors/admins by course_materials_insert.
+        const filePath = `course-thumbnails/${course.id}-${Date.now()}.${fileExt}`;
+
         const { error: uploadError } = await supabase.storage
-          .from('course-images')
+          .from('course-materials')
           .upload(filePath, imageFile);
-          
+
         if (uploadError) {
           throw uploadError;
         }
-        
-        // Get public URL for the image
+
+        // Public bucket — getPublicUrl is correct here.
         const { data: urlData } = supabase.storage
-          .from('course-images')
+          .from('course-materials')
           .getPublicUrl(filePath);
-          
+
         newImageUrl = urlData.publicUrl;
       } else if (imagePreview && imagePreview !== course.imageUrl) {
         newImageUrl = imagePreview;

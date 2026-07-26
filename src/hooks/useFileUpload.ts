@@ -59,15 +59,18 @@ export function useFileUpload() {
 
       if (error) throw error;
 
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
+      // These buckets are private, so a public URL would not load. Hand back a
+      // signed URL for immediate preview; the object path is stored alongside it
+      // and render paths re-sign from that at read time (see utils/storageAssets).
+      const { data: signed, error: signError } = await supabase.storage
         .from(bucket)
-        .getPublicUrl(data.path);
+        .createSignedUrl(data.path, 60 * 60);
+      if (signError) throw signError;
 
       setProgress(100);
 
       return {
-        url: publicUrl,
+        url: signed.signedUrl,
         path: data.path,
         size: file.size,
         type: file.type,
