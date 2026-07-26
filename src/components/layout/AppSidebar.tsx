@@ -51,12 +51,6 @@ const AppSidebar = () => {
     active: location.pathname.startsWith('/interview-prep'),
     highlight: true
   }, {
-    title: "Career Agent",
-    url: "/career-agent",
-    icon: Bot,
-    active: location.pathname === '/career-agent',
-    highlight: true
-  }, {
     title: "Career Pathway",
     url: "/career-pathway",
     icon: Briefcase,
@@ -137,10 +131,10 @@ const AppSidebar = () => {
     icon: Calendar,
     active: location.pathname === '/events'
   }, {
-    title: "Career Agent",
-    url: "/career-agent",
+    title: "Career Pathway",
+    url: "/career-pathway",
     icon: Bot,
-    active: location.pathname === '/career-agent',
+    active: location.pathname === '/career-pathway',
     highlight: true
   }, {
     title: "Resume Analyzer",

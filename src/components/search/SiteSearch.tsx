@@ -51,7 +51,7 @@ const SiteSearch = () => {
       { id: 'events', title: 'Events', description: 'Upcoming events and webinars', url: '/events' },
       { id: 'forum', title: 'Forum', description: 'Community discussions', url: '/forum' },
       { id: 'resume', title: 'Resume Builder', description: 'Build and analyze your resume', url: '/resume' },
-      { id: 'career-agent', title: 'Career Agent', description: 'AI-powered career guidance', url: '/career-agent' },
+      { id: 'career-pathway-coach', title: 'Career Pathway', description: 'AI-powered career guidance', url: '/career-pathway' },
       { id: 'career-pathway', title: 'Career Pathway', description: 'Explore data career pathways', url: '/career-pathway' },
       { id: 'explore-data-careers', title: 'Explore Data Careers', description: 'Browse data career roles', url: '/explore-data-careers' },
       { id: 'assistants', title: 'AI Assistants', description: 'AI-powered learning assistants', url: '/assistants' },

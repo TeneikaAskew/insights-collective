@@ -63,7 +63,6 @@ const InterviewMockInterviews = lazy(() => import('@/pages/interview-prep/MockIn
 const StarPractice = lazy(() => import('@/pages/interview-prep/StarPractice'));
 
 // Career & AI Pages
-const CareerAgent = lazy(() => import('@/pages/CareerAgent'));
 const CareerPathway = lazy(() => import('@/pages/CareerPathway'));
 const Assistants = lazy(() => import('@/pages/Assistants'));
 const AssistantInterface = lazy(() => import('@/pages/AssistantInterface'));
@@ -313,7 +312,8 @@ function App() {
                     <Route path="/code-practice" element={<CodePractice />} />
 
                     {/* Career & AI Routes */}
-                    <Route path="/career-agent" element={<CareerAgent />} />
+                    {/* The career conversation and pathway are one page now */}
+                    <Route path="/career-agent" element={<Navigate to="/career-pathway" replace />} />
                     <Route path="/career-pathway" element={<CareerPathway />} />
                     <Route path="/assistants" element={<Assistants />} />
                     <Route path="/assistant/:id" element={<AssistantInterface />} />

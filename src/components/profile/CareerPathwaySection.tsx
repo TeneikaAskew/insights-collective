@@ -25,7 +25,7 @@ const CareerPathwaySection: React.FC<CareerPathwaySectionProps> = ({ pathwayAnsw
   }, []);
 
   const handleTakeAssessment = () => {
-    navigate('/career-agent');
+    navigate('/career-pathway');
   };
 
   if (isLoading) {
