@@ -51,6 +51,14 @@ global.ResizeObserver = ObserverStub as unknown as typeof ResizeObserver;
 // Mock scrollTo
 window.scrollTo = vi.fn();
 
+// jsdom implements neither Element.scrollIntoView nor Element.scrollTo, so any
+// component that scrolls a ref into view throws "scrollIntoView is not a
+// function" mid-render. Optional chaining does not help: the ref is set, it is
+// the method that is absent. The throw escapes React's event handler as an
+// unhandled error, which fails the vitest run even when every assertion passed.
+Element.prototype.scrollIntoView = vi.fn();
+Element.prototype.scrollTo = vi.fn();
+
 // Mock localStorage
 const localStorageMock = {
   getItem: vi.fn(),
