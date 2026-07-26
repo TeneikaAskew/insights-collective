@@ -124,6 +124,34 @@ serve(async (req) => {
       });
     }
 
+    // Attempt limit is enforced here, not just in the UI. The learner INSERT
+    // policy lets a client create any owned quiz_submissions row, so without
+    // this check someone could insert attempts 2..N, score each one, and use
+    // the per-question results as an answer oracle.
+    const { data: quiz } = await supabase
+      .from("quizzes")
+      .select("allowed_attempts")
+      .eq("id", submission.quiz_id)
+      .single();
+
+    const allowed = quiz?.allowed_attempts ?? null;
+    // null / <= 0 means unlimited, matching the schema's default semantics.
+    if (typeof allowed === "number" && allowed > 0) {
+      const { count: completedCount } = await supabase
+        .from("quiz_submissions")
+        .select("id", { count: "exact", head: true })
+        .eq("quiz_id", submission.quiz_id)
+        .eq("user_id", userId)
+        .eq("workflow_state", "complete");
+
+      if ((completedCount ?? 0) >= allowed) {
+        return new Response(
+          JSON.stringify({ error: "You have used all available attempts for this quiz" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+    }
+
     const { data: questions, error: questionsError } = await supabase
       .from("quiz_questions")
       .select("id, question_type, points, answers, correct_answer")

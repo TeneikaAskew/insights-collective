@@ -22,7 +22,7 @@ export class CanvasContentService {
       .select(`
         *,
         assignment:assignments(*),
-        quiz:quizzes(*, questions:quiz_questions(id, quiz_id, question_text, question_type, points, position, created_at, updated_at))
+        quiz:quizzes(*, questions:quiz_questions(id, quiz_id, question_text, question_type, points, position, created_at))
       `)
       .eq('module_id', moduleId)
       .order('position');
@@ -46,7 +46,7 @@ export class CanvasContentService {
         .select(`
           *,
           assignment:assignments(*),
-          quiz:quizzes(*, questions:quiz_questions(id, quiz_id, question_text, question_type, points, position, created_at, updated_at))
+          quiz:quizzes(*, questions:quiz_questions(id, quiz_id, question_text, question_type, points, position, created_at))
         `)
         .eq('id', id)
         .single();
