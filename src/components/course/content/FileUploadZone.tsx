@@ -9,6 +9,8 @@ import { cn } from '@/lib/utils';
 
 interface FileUploadZoneProps {
   onFileUploaded: (file: UploadedFile) => void;
+  /** Course the upload belongs to — becomes the first path segment the bucket policies key off. */
+  courseId: string;
   acceptedTypes?: 'images' | 'videos' | 'documents' | 'all';
   maxSize?: number;
   className?: string;
@@ -16,6 +18,7 @@ interface FileUploadZoneProps {
 
 const FileUploadZone: React.FC<FileUploadZoneProps> = ({
   onFileUploaded,
+  courseId,
   acceptedTypes = 'all',
   maxSize = 50 * 1024 * 1024, // 50MB default
   className
@@ -59,12 +62,12 @@ const FileUploadZone: React.FC<FileUploadZoneProps> = ({
     if (!file) return;
 
     const bucket = getBucket(file.type);
-    const uploadedFile = await uploadFile(file, bucket);
-    
+    const uploadedFile = await uploadFile(file, bucket, courseId);
+
     if (uploadedFile) {
       onFileUploaded(uploadedFile);
     }
-  }, [uploadFile, onFileUploaded]);
+  }, [uploadFile, onFileUploaded, courseId]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,

@@ -537,6 +537,7 @@ export function CanvasModuleContent({
                 <UnifiedCanvasEditor
                   content={content}
                   onChange={setContent}
+                  courseId={courseId}
                   placeholder={`Write your ${newItemType} content here...`}
                   minHeight="400px"
                 />

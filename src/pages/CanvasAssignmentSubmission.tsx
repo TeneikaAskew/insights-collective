@@ -447,6 +447,7 @@ export default function CanvasAssignmentSubmission() {
                     <Label>Upload Files</Label>
                     <FileUploadZone
                       onFileUploaded={handleFileUploaded}
+                      courseId={courseId}
                       acceptedTypes="all"
                     />
                   </div>

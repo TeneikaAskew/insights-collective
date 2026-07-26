@@ -178,13 +178,14 @@ export default function MockInterviews() {
       // Get the weekday (0-6, where 0 is Sunday)
       const weekday = selectedDate.getDay();
 
-      // Get users who are available for this specific time slot and weekday
-      const { data: availableSlots, error } = await supabase
-        .from('availability_slots')
-        .select('user_id')
-        .eq('weekday', weekday)
-        .eq('time_slot', selectedTimeSlot)
-        .eq('is_available', true);
+      // Get users who are available for this specific time slot and weekday.
+      // Goes through an RPC rather than selecting availability_slots directly:
+      // the table is readable only by its owner, and this function returns just
+      // the user ids that match — not everyone's full schedule.
+      const { data: availableSlots, error } = await supabase.rpc('find_available_peers', {
+        p_weekday: weekday,
+        p_time_slot: selectedTimeSlot,
+      });
 
       if (error) throw error;
 

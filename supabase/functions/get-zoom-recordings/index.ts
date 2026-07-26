@@ -1,10 +1,17 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { corsHeaders } from '../_shared/utils.ts';
+import { requireAdmin } from '../_shared/auth.ts';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+
+  // Deployed with verify_jwt=false and no auth code, so this was reachable by
+  // anyone on the internet with no key at all. It returns cloud-recording
+  // download_urls for the entire Zoom account, so it is admin-only.
+  const auth = await requireAdmin(req);
+  if (auth.response) return auth.response;
 
   try {
     const { meeting_id, from, to } = await req.json();

@@ -21,10 +21,21 @@ export function useFileUpload() {
   const { toast } = useToast();
 
   const uploadFile = async (
-    file: File, 
-    bucket: 'course-images' | 'course-videos' | 'course-documents'
+    file: File,
+    bucket: 'course-images' | 'course-videos' | 'course-documents',
+    courseId: string
   ): Promise<UploadedFile | null> => {
     if (!file) return null;
+
+    if (!courseId) {
+      logger.error('uploadFile called without a courseId', { bucket });
+      toast({
+        title: 'Upload Failed',
+        description: 'Could not determine which course this file belongs to.',
+        variant: 'destructive',
+      });
+      return null;
+    }
 
     try {
       setUploading(true);
@@ -33,7 +44,10 @@ export function useFileUpload() {
       // Generate unique filename
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-      const filePath = `${bucket}/${fileName}`;
+      // The course id has to be the first path segment: the bucket policies
+      // resolve it with split_part(name, '/', 1)::uuid to decide who may read
+      // or write the object.
+      const filePath = `${courseId}/${fileName}`;
 
       // Upload file
       const { data, error } = await supabase.storage

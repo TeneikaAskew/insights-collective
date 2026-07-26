@@ -159,7 +159,9 @@ export default function CourseDetails({ course }: CourseDetailsProps) {
       if (imageFile) {
         const fileExt = imageFile.name.split('.').pop();
         const fileName = `${Date.now()}.${fileExt}`;
-        const filePath = `courses/${course.id}/${fileName}`;
+        // Course id first: the course-images policies resolve the owning course
+        // with split_part(name, '/', 1)::uuid.
+        const filePath = `${course.id}/${fileName}`;
         
         const { error: uploadError } = await supabase.storage
           .from('course-images')

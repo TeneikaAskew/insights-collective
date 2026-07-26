@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Loader2, Send } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -28,16 +28,12 @@ interface InlineQuizPlayerProps {
 export function InlineQuizPlayer({ item, quiz, onCompleted }: InlineQuizPlayerProps) {
   const { user } = useAuth();
   const { toast } = useToast();
-  const questions = useMemo(
-    () =>
-      [...(quiz.questions || [])]
-        .map((question) => ({
-          ...question,
-          answers: Array.isArray(question.answers) ? question.answers : [],
-        }))
-        .sort((a, b) => a.position - b.position),
-    [quiz.questions],
-  );
+  // Questions come from get_quiz_questions_for_taking(), not from the embedded
+  // `quiz.questions`. Table-level SELECT on quiz_questions is revoked, so the
+  // embed returns nothing; more to the point, the embed used to carry the
+  // `correct` flag on every option, which is the answer key.
+  const [questions, setQuestions] = useState<QuizQuestion[]>([]);
+  const [questionsLoading, setQuestionsLoading] = useState(true);
 
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, any>>({});
@@ -57,6 +53,39 @@ export function InlineQuizPlayer({ item, quiz, onCompleted }: InlineQuizPlayerPr
   const [reloadKey, setReloadKey] = useState(0);
   const debouncedAnswers = useDebounce(answers, 2000);
   const prevDebouncedRef = useRef(debouncedAnswers);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadQuestions = async () => {
+      setQuestionsLoading(true);
+      const { data, error } = await supabase.rpc('get_quiz_questions_for_taking', {
+        p_quiz_id: quiz.id,
+      });
+      if (cancelled) return;
+      if (error) {
+        logger.error('Failed to load quiz questions', error);
+        setLoadError(new Error(error.message));
+        setQuestionsLoading(false);
+        return;
+      }
+      const rows = (data ?? []) as QuizQuestion[];
+      setQuestions(
+        [...rows]
+          .map((question) => ({
+            ...question,
+            answers: Array.isArray(question.answers) ? question.answers : [],
+          }))
+          .sort((a, b) => (a.position ?? 0) - (b.position ?? 0)),
+      );
+      setQuestionsLoading(false);
+    };
+
+    void loadQuestions();
+    return () => {
+      cancelled = true;
+    };
+  }, [quiz.id, reloadKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -231,71 +260,22 @@ export function InlineQuizPlayer({ item, quiz, onCompleted }: InlineQuizPlayerPr
     try {
       setSubmitting(true);
 
-      let totalScore = 0;
-      const answerRecords = questions.map((question) => {
-        const userAnswer = answers[question.id];
-        let correct = false;
-        let points = 0;
-
-        switch (question.question_type) {
-          case 'multiple_choice':
-          case 'true_false': {
-            const correctAnswer = question.answers.find((answer) => answer.correct);
-            correct = userAnswer === correctAnswer?.id;
-            points = correct ? question.points : 0;
-            break;
-          }
-          case 'multiple_answers': {
-            const correctAnswers = question.answers
-              .filter((answer) => answer.correct)
-              .map((answer) => answer.id);
-            const userAnswers = (userAnswer as string[]) || [];
-            correct =
-              correctAnswers.length === userAnswers.length &&
-              correctAnswers.every((id) => userAnswers.includes(id));
-            points = correct ? question.points : 0;
-            break;
-          }
-          case 'short_answer':
-          case 'essay':
-          case 'matching':
-            points = 0;
-            break;
-        }
-
-        totalScore += points;
-
-        return {
-          quiz_submission_id: activeSubmission.id,
-          quiz_question_id: question.id,
-          answer_data: { answer: userAnswer },
-          correct,
-          points,
-        };
+      // Grading happens server-side. The browser sends only its answers; the
+      // score-quiz function loads the answer key with the service role, grades,
+      // and writes score/kept_score itself. The client cannot see the key any
+      // more, and could not be trusted with the arithmetic even if it could.
+      const { data: result, error: scoreError } = await supabase.functions.invoke('score-quiz', {
+        body: {
+          submissionId: activeSubmission.id,
+          answers,
+          timeSpent: quiz.time_limit ? quiz.time_limit * 60 - (timeRemaining || 0) : null,
+        },
       });
 
-      if (answerRecords.length > 0) {
-        const { error: answersError } = await supabase
-          .from('quiz_submission_answers')
-          .upsert(answerRecords, {
-            onConflict: 'quiz_submission_id,quiz_question_id',
-          });
+      if (scoreError) throw scoreError;
+      if (result?.error) throw new Error(result.error);
 
-        if (answersError) throw answersError;
-      }
-
-      const { error: submissionError } = await supabase
-        .from('quiz_submissions')
-        .update({
-          finished_at: new Date().toISOString(),
-          time_spent: quiz.time_limit ? quiz.time_limit * 60 - (timeRemaining || 0) : null,
-          score: totalScore,
-          kept_score: totalScore,
-          workflow_state: 'complete',
-        })
-        .eq('id', activeSubmission.id);
-
-      if (submissionError) throw submissionError;
+      const totalScore = result?.score ?? 0;
 
       await onCompleted?.(item.id);
       setQuizStarted(false);
@@ -458,6 +438,19 @@ export function InlineQuizPlayer({ item, quiz, onCompleted }: InlineQuizPlayerPr
         error={loadError}
         onRetry={() => setReloadKey((k) => k + 1)}
       />
+    );
+  }
+
+  // Questions arrive asynchronously now, so an empty list before the RPC
+  // resolves is "loading", not "no questions".
+  if (questionsLoading) {
+    return (
+      <Card>
+        <CardContent className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading quiz…
+        </CardContent>
+      </Card>
     );
   }
 

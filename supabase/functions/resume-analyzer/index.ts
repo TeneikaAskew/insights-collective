@@ -6,6 +6,7 @@ import { detectSentences } from "./sentenceDetector.ts";
 import { getLetterGrade } from "./gradeHelper.ts";
 import { enhanceWithGroq } from "./aiEnhancer.ts";
 import { supabase, callLLMWithRetry, corsHeaders } from './utils.ts';
+import { requireUser } from '../_shared/auth.ts';
 // To:
 import { config as bulletImproverConfig, processBulletsInParallel   } from "./bulletImprover.ts";
 const roastCache = new Map();
@@ -20,17 +21,24 @@ serve(async (req) => {
     return new Response(null, { status: 200, headers: corsHeaders });
   }
 
+  // Identity comes from the JWT, never from the request body. This function
+  // reads and overwrites resume analyses with a service-role client, so a
+  // caller-supplied userId let anyone read or destroy anyone else's analysis.
+  const auth = await requireUser(req);
+  if (auth.response) return auth.response;
+  const userId = auth.user.id;
+
   // Parse request body with error handling
   let body;
-  try { 
+  try {
     body = await req.json();
   } catch {
-    return new Response(JSON.stringify({ error: 'Invalid JSON' }), 
+    return new Response(JSON.stringify({ error: 'Invalid JSON' }),
                       { status: 400, headers: corsHeaders });
   }
 
   // Destructure and normalize inputs
-  const { action, resumeText = '', text = '', userId = '', sentences = [] } = body;
+  const { action, resumeText = '', text = '', sentences = [] } = body;
   const resolvedText = resumeText || text;
 
   try {

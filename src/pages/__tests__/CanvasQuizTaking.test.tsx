@@ -66,6 +66,7 @@ vi.mock('@/services/canvasContentService', () => ({
   default: {
     getContentItem: vi.fn(),
     getQuiz: vi.fn(),
+    getQuizQuestionsForTaking: vi.fn(),
   },
 }));
 
@@ -125,7 +126,6 @@ const quiz = {
   allowed_attempts: 3,
   points_possible: 10,
   quiz_type: 'assignment',
-  questions: [question],
 };
 
 async function startQuizAndAnswer() {
@@ -142,6 +142,13 @@ describe('CanvasQuizTaking', () => {
     navigateMock.mockReset();
     vi.mocked(CanvasContentService.getContentItem).mockReset();
     vi.mocked(CanvasContentService.getQuiz).mockReset();
+    // Questions arrive through the student-safe RPC now, not embedded on the
+    // quiz row.
+    vi.mocked(CanvasContentService.getQuizQuestionsForTaking).mockReset();
+    (mockSupabaseClient.functions.invoke as any).mockReset();
+    vi.mocked(CanvasContentService.getQuizQuestionsForTaking).mockResolvedValue([
+      question,
+    ] as any);
   });
 
   it('shows a loading spinner while the quiz loads', () => {
@@ -236,12 +243,15 @@ describe('CanvasQuizTaking', () => {
     const quizSubsBuilder = makeTableBuilder(
       { data: [], error: null }, // existing-submission check on load
       { data: { id: 'qsub-1', attempt: 1 }, error: null }, // insert on Start Quiz
-      { data: null, error: null }, // final update on submit
     );
     useTables({
       quiz_submissions: quizSubsBuilder,
       quiz_submission_answers: answersBuilder,
     });
+    (mockSupabaseClient.functions.invoke as any).mockResolvedValue({
+      data: { score: 10, pointsPossible: 10, results: [] },
+      error: null,
+    } as any);
 
     await startQuizAndAnswer();
 
@@ -258,23 +268,19 @@ describe('CanvasQuizTaking', () => {
     expect(quizSubsBuilder.insert).toHaveBeenCalledWith(
       expect.objectContaining({ quiz_id: 'quiz-1', user_id: 'user-1', attempt: 1 }),
     );
-    // The answers were actually written, graded against the correct choice.
-    expect(answersBuilder.upsert).toHaveBeenCalledWith(
-      [
-        expect.objectContaining({
-          quiz_submission_id: 'qsub-1',
-          quiz_question_id: 'q1',
-          answer_data: { answer: 'a1' },
-          correct: true,
-          points: 10,
+    // Grading is the server's job now: the client sends its answers to
+    // score-quiz and writes neither `correct`/`points` nor the score itself.
+    expect(mockSupabaseClient.functions.invoke).toHaveBeenCalledWith(
+      'score-quiz',
+      expect.objectContaining({
+        body: expect.objectContaining({
+          submissionId: 'qsub-1',
+          answers: { q1: 'a1' },
         }),
-      ],
-      expect.anything(),
+      }),
     );
-    // And the submission was marked complete with the scored total.
-    expect(quizSubsBuilder.update).toHaveBeenCalledWith(
-      expect.objectContaining({ score: 10, kept_score: 10, workflow_state: 'complete' }),
-    );
+    expect(answersBuilder.upsert).not.toHaveBeenCalled();
+    expect(quizSubsBuilder.update).not.toHaveBeenCalled();
     expect(navigateMock).toHaveBeenCalledWith(
       '/courses/course-1/modules/module-1/quizzes/item-1/results/qsub-1',
     );
@@ -289,8 +295,13 @@ describe('CanvasQuizTaking', () => {
         { data: [], error: null },
         { data: { id: 'qsub-1', attempt: 1 }, error: null },
       ),
-      quiz_submission_answers: makeTableBuilder(new Error('Insert failed')),
+      quiz_submission_answers: makeTableBuilder({ data: null, error: null }),
     });
+    // A scoring failure must surface, not be swallowed into a fake success.
+    (mockSupabaseClient.functions.invoke as any).mockResolvedValue({
+      data: null,
+      error: new Error('Insert failed'),
+    } as any);
 
     await startQuizAndAnswer();
 

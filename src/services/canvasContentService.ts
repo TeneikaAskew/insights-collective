@@ -22,7 +22,7 @@ export class CanvasContentService {
       .select(`
         *,
         assignment:assignments(*),
-        quiz:quizzes(*, questions:quiz_questions(*))
+        quiz:quizzes(*)
       `)
       .eq('module_id', moduleId)
       .order('position');
@@ -46,7 +46,7 @@ export class CanvasContentService {
         .select(`
           *,
           assignment:assignments(*),
-          quiz:quizzes(*, questions:quiz_questions(*))
+          quiz:quizzes(*)
         `)
         .eq('id', id)
         .single();
@@ -344,15 +344,39 @@ export class CanvasContentService {
   static async getQuiz(contentItemId: string): Promise<Quiz | null> {
     const { data, error } = await supabase
       .from('quizzes')
-      .select(`
-        *,
-        questions:quiz_questions(*)
-      `)
+      .select('*')
       .eq('content_item_id', contentItemId)
       .single();
 
     if (error && error.code !== 'PGRST116') throw error;
     return data;
+  }
+
+  /**
+   * Questions for a student taking the quiz. Goes through a SECURITY DEFINER
+   * function that strips the `correct` flag from each option until the attempt
+   * is finished and the quiz is set to reveal answers — the old
+   * `questions:quiz_questions(*)` embed handed the whole answer key to the
+   * browser.
+   */
+  static async getQuizQuestionsForTaking(quizId: string): Promise<QuizQuestion[]> {
+    const { data, error } = await supabase.rpc('get_quiz_questions_for_taking', {
+      p_quiz_id: quizId,
+    });
+    if (error) throw error;
+    return (data ?? []) as QuizQuestion[];
+  }
+
+  /**
+   * Full questions including the answer key, for whoever may edit the quiz.
+   * Raises if the caller cannot manage it.
+   */
+  static async getQuizQuestionsForAuthoring(quizId: string): Promise<QuizQuestion[]> {
+    const { data, error } = await supabase.rpc('get_quiz_questions_for_authoring', {
+      p_quiz_id: quizId,
+    });
+    if (error) throw error;
+    return (data ?? []) as QuizQuestion[];
   }
 
   static async updateQuiz(

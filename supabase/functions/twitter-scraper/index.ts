@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { createHmac } from "node:crypto";
+import { requireAdminOrService } from '../_shared/auth.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -293,6 +294,11 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+
+  // Deployed with verify_jwt=false and holding a service-role client, so this
+  // was an unauthenticated write path into the database.
+  const auth = await requireAdminOrService(req);
+  if (auth.response) return auth.response;
 
   try {
     console.log('Twitter scraper function called');

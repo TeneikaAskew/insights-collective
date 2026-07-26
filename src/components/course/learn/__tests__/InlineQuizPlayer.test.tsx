@@ -82,24 +82,39 @@ const quiz = {
   id: 'quiz-1',
   allowed_attempts: 2,
   time_limit: null,
-  questions: [
-    {
-      id: 'q1',
-      question_type: 'multiple_choice',
-      question_text: 'What is 2+2?',
-      points: 10,
-      position: 1,
-      answers: [
-        { id: 'a1', text: 'Four', correct: true },
-        { id: 'a2', text: 'Three', correct: false },
-      ],
-    },
-  ],
 } as any;
+
+// Questions no longer ride along on the quiz row — the player fetches them
+// through get_quiz_questions_for_taking(), which withholds the `correct` flag
+// until the attempt is finished.
+const takingQuestions = [
+  {
+    id: 'q1',
+    quiz_id: 'quiz-1',
+    question_type: 'multiple_choice',
+    question_text: 'What is 2+2?',
+    points: 10,
+    position: 1,
+    answers: [
+      { id: 'a1', text: 'Four' },
+      { id: 'a2', text: 'Three' },
+    ],
+    explanation: null,
+  },
+];
+
+function mockQuestionRpc(result: { data: unknown; error: unknown } = { data: takingQuestions, error: null }) {
+  (mockSupabaseClient.rpc as any).mockImplementation((fn: string) => {
+    if (fn === 'get_quiz_questions_for_taking') return Promise.resolve(result);
+    return Promise.resolve({ data: null, error: null });
+  });
+}
 
 describe('InlineQuizPlayer', () => {
   beforeEach(() => {
     toastMock.mockReset();
+    (mockSupabaseClient.rpc as any).mockReset();
+    mockQuestionRpc();
   });
 
   it('renders the first question when there is no prior submission', async () => {

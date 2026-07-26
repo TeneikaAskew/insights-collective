@@ -2,6 +2,7 @@
 // ABOUTME: Routes requests to Gemini 2.5 Flash via the Lovable AI Gateway
 
 import { corsHeaders } from '../_shared/utils.ts';
+import { requireUser } from '../_shared/auth.ts';
 const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
 
 // Handle CORS preflight requests
@@ -14,6 +15,11 @@ const handleCors = (req) => {
 Deno.serve(async (req) => {
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
+
+  // verify_jwt=true only proves the caller holds the public anon key, which
+  // ships in the frontend bundle. Require a real session.
+  const auth = await requireUser(req);
+  if (auth.response) return auth.response;
 
   try {
     const requestBody = await req.json();

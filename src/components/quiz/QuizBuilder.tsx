@@ -74,11 +74,11 @@ const QuizBuilder: React.FC<QuizBuilderProps> = ({
     if (!existingQuiz?.id) return;
     
     try {
-      const { data, error } = await supabase
-        .from('quiz_questions')
-        .select('*')
-        .eq('quiz_id', existingQuiz.id)
-        .order('position');
+      // Reads the answer key, so it goes through the authoring RPC: table-level
+      // SELECT on quiz_questions is revoked and `select('*')` now fails.
+      const { data, error } = await supabase.rpc('get_quiz_questions_for_authoring', {
+        p_quiz_id: existingQuiz.id,
+      });
       
       if (error) throw error;
       setQuestions(data || []);

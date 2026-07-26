@@ -58,11 +58,11 @@ export function QuizEditor({ quizId, onClose }: QuizEditorProps) {
   const fetchQuestions = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('quiz_questions')
-        .select('*')
-        .eq('quiz_id', quizId)
-        .order('position', { ascending: true });
+      // Reads the answer key, so it goes through the authoring RPC: table-level
+      // SELECT on quiz_questions is revoked and `select('*')` now fails.
+      const { data, error } = await supabase.rpc('get_quiz_questions_for_authoring', {
+        p_quiz_id: quizId,
+      });
 
       if (error) throw error;
       setQuestions(data || []);

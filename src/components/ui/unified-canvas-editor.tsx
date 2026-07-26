@@ -95,6 +95,12 @@ export interface UnifiedCanvasEditorProps {
   maxHeight?: string;
   showAdvancedFeatures?: boolean;
   onFileUpload?: (file: File) => Promise<string>;
+  /**
+   * Course the editor is writing content for. Inline image uploads land in
+   * `course-images/<courseId>/…`, which is what the bucket policies authorize
+   * against; without it the upload tab falls back to pasting a URL.
+   */
+  courseId?: string;
   readOnly?: boolean;
 }
 
@@ -125,6 +131,7 @@ export function UnifiedCanvasEditor({
   maxHeight = '800px',
   showAdvancedFeatures = true,
   onFileUpload,
+  courseId,
   readOnly = false
 }: UnifiedCanvasEditorProps) {
   const [linkUrl, setLinkUrl] = useState('');
@@ -255,8 +262,14 @@ export function UnifiedCanvasEditor({
       return;
     }
 
+    if (!courseId) {
+      logger.warn('Inline image upload skipped: editor has no courseId');
+      setImageUploadTab('url');
+      return;
+    }
+
     try {
-      const uploadedFile = await uploadFile(file, 'course-images');
+      const uploadedFile = await uploadFile(file, 'course-images', courseId);
       if (uploadedFile) {
         editor.chain().focus().setImage({ 
           src: uploadedFile.url, 

@@ -101,7 +101,9 @@ export default function CanvasQuizTaking() {
         return;
       }
       setQuiz(quizData);
-      setQuestions(quizData.questions || []);
+      // Questions come from the student-safe RPC; the quiz row no longer embeds
+      // them, because that embed carried the answer key.
+      setQuestions(await CanvasContentService.getQuizQuestionsForTaking(quizData.id));
 
       // Check for existing submission. This gate enforces the attempt limit,
       // so a failed query must block the quiz — not report "0/N attempts".
@@ -213,77 +215,24 @@ export default function CanvasQuizTaking() {
     try {
       setSubmitting(true);
 
-      // Calculate score
-      let totalScore = 0;
-      const answerRecords = [];
+      // Grading happens server-side. The browser sends only its answers; the
+      // score-quiz function loads the answer key with the service role, grades,
+      // and writes score/kept_score itself. The client cannot see the key any
+      // more (get_quiz_questions_for_taking strips the `correct` flag until the
+      // attempt is finished), and could not be trusted with it anyway.
+      //
+      // Kept-score policy is unchanged from the client implementation:
+      // deliberately "latest attempt", with no cross-attempt comparison.
+      const { data: result, error: scoreError } = await supabase.functions.invoke('score-quiz', {
+        body: {
+          submissionId: submission.id,
+          answers,
+          timeSpent: quiz.time_limit ? (quiz.time_limit * 60 - (timeRemaining || 0)) : null,
+        },
+      });
 
-      for (const question of questions) {
-        const userAnswer = answers[question.id];
-        let correct = false;
-        let points = 0;
-
-        // Grade based on question type
-        switch (question.question_type) {
-          case 'multiple_choice':
-            const correctAnswer = question.answers.find(a => a.correct);
-            correct = userAnswer === correctAnswer?.id;
-            points = correct ? question.points : 0;
-            break;
-          
-          case 'true_false':
-            correct = userAnswer === question.answers.find(a => a.correct)?.id;
-            points = correct ? question.points : 0;
-            break;
-          
-          case 'multiple_answers':
-            const correctAnswers = question.answers.filter(a => a.correct).map(a => a.id);
-            const userAnswers = userAnswer as string[] || [];
-            correct = correctAnswers.length === userAnswers.length && 
-                     correctAnswers.every(id => userAnswers.includes(id));
-            points = correct ? question.points : 0;
-            break;
-          
-          // Essay and short answer need manual grading
-          case 'essay':
-          case 'short_answer':
-            points = 0; // Will be graded manually
-            break;
-        }
-
-        totalScore += points;
-
-        answerRecords.push({
-          quiz_submission_id: submission.id,
-          quiz_question_id: question.id,
-          answer_data: { answer: userAnswer },
-          correct,
-          points
-        });
-      }
-
-      // Save all answers
-      await supabase
-        .from('quiz_submission_answers')
-        .upsert(answerRecords, {
-          onConflict: 'quiz_submission_id,quiz_question_id'
-        });
-
-      // Update submission
-      await supabase
-        .from('quiz_submissions')
-        .update({
-          finished_at: new Date().toISOString(),
-          time_spent: quiz.time_limit ? (quiz.time_limit * 60 - (timeRemaining || 0)) : null,
-          score: totalScore,
-          // Kept-score policy: deliberately "latest attempt". Each submission
-          // row's kept_score is the score of that attempt, and downstream
-          // consumers read the most recent attempt's row. There is no
-          // keep-highest (or keep-average) specification for quizzes, so no
-          // cross-attempt comparison is performed here on purpose.
-          kept_score: totalScore,
-          workflow_state: 'complete'
-        })
-        .eq('id', submission.id);
+      if (scoreError) throw scoreError;
+      if (result?.error) throw new Error(result.error);
 
       toast({
         title: autoSubmit ? 'Quiz auto-submitted' : 'Quiz submitted',

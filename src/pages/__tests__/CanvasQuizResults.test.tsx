@@ -57,6 +57,7 @@ vi.mock('@/contexts/AuthContext', () => ({
 vi.mock('@/services/canvasContentService', () => ({
   default: {
     getQuiz: vi.fn(),
+    getQuizQuestionsForTaking: vi.fn(),
   },
 }));
 
@@ -108,7 +109,6 @@ const quiz = {
   points_possible: 10,
   allowed_attempts: 3,
   show_correct_answers: true,
-  questions: [question],
 };
 
 function submissionRow(overrides: Record<string, unknown> = {}) {
@@ -135,6 +135,12 @@ describe('CanvasQuizResults', () => {
     toastMock.mockReset();
     navigateMock.mockReset();
     vi.mocked(CanvasContentService.getQuiz).mockReset();
+    // Questions arrive through the student-safe RPC now, not embedded on the
+    // quiz row.
+    vi.mocked(CanvasContentService.getQuizQuestionsForTaking).mockReset();
+    vi.mocked(CanvasContentService.getQuizQuestionsForTaking).mockResolvedValue([
+      question,
+    ] as any);
   });
 
   it('shows a loading spinner while results load', () => {
@@ -214,10 +220,8 @@ describe('CanvasQuizResults', () => {
   });
 
   it('renders zeroed results when the submission has no answers', async () => {
-    vi.mocked(CanvasContentService.getQuiz).mockResolvedValue({
-      ...quiz,
-      questions: [],
-    } as any);
+    vi.mocked(CanvasContentService.getQuiz).mockResolvedValue(quiz as any);
+    vi.mocked(CanvasContentService.getQuizQuestionsForTaking).mockResolvedValue([]);
     useTables({
       quiz_submissions: makeTableBuilder({
         data: submissionRow({
