@@ -152,7 +152,7 @@ serve(async (req) => {
     }
     const userId = userData.user.id;
 
-    const { challengeId, code, language, executionResults } = await req.json();
+    const { challengeId, code, language, executionResults, attemptId } = await req.json();
     if (!challengeId || !code || !language) {
       return new Response(JSON.stringify({ error: "challengeId, code, and language are required" }), {
         status: 400,
@@ -231,25 +231,39 @@ serve(async (req) => {
       };
     }
 
-    // Persist the attempt
-    const { data: attempt, error: attemptError } = await supabase
-      .from("code_attempts")
-      .insert({
-        user_id: userId,
-        challenge_id: challengeId,
-        code,
-        language,
-        passed_tests: payload.correct as boolean,
-        ai_review: payload,
-        duration: Date.now() - startedAt,
-      })
-      .select("id")
-      .single();
-    if (attemptError) {
-      // The evaluation still succeeded — log, don't fail the request.
-      console.error(`[review-code] Failed to persist attempt:`, attemptError);
+    // Persist: in review mode execute-code already created the attempt row —
+    // attach the review to it instead of inserting a duplicate.
+    if (attemptId && Array.isArray(executionResults)) {
+      const { error: updateError } = await supabase
+        .from("code_attempts")
+        .update({ ai_review: payload })
+        .eq("id", attemptId)
+        .eq("user_id", userId);
+      if (updateError) {
+        console.error(`[review-code] Failed to attach review to attempt:`, updateError);
+      } else {
+        payload.attemptId = attemptId;
+      }
     } else {
-      payload.attemptId = attempt.id;
+      const { data: attempt, error: attemptError } = await supabase
+        .from("code_attempts")
+        .insert({
+          user_id: userId,
+          challenge_id: challengeId,
+          code,
+          language,
+          passed_tests: payload.correct as boolean,
+          ai_review: payload,
+          duration: Date.now() - startedAt,
+        })
+        .select("id")
+        .single();
+      if (attemptError) {
+        // The evaluation still succeeded — log, don't fail the request.
+        console.error(`[review-code] Failed to persist attempt:`, attemptError);
+      } else {
+        payload.attemptId = attempt.id;
+      }
     }
 
     return new Response(JSON.stringify(payload), {

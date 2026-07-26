@@ -252,27 +252,62 @@ export default function CodePractice() {
   };
 
   const handleSubmit = async () => {
-    // Real evaluation: signed in with a database-backed challenge —
-    // the review-code function judges the code against stored test cases.
+    // Real evaluation: signed in with a database-backed challenge.
+    // Phase 3 flow: execute-code runs the submission in a sandbox for
+    // ground-truth results, then review-code writes the qualitative review.
+    // If the sandbox is unavailable, fall back to the AI judge alone.
     if (user && dbChallenge) {
       setLoading(true);
       try {
-        const { data, error } = await supabase.functions.invoke('review-code', {
-          body: { challengeId: dbChallenge.id, code, language },
-        });
-        if (error) throw error;
-        if (data?.error) throw new Error(data.error);
+        let execution: any = null;
+        try {
+          const { data, error } = await supabase.functions.invoke('execute-code', {
+            body: { challengeId: dbChallenge.id, code, language },
+          });
+          if (error) throw error;
+          if (data?.error) throw new Error(data.error);
+          execution = data;
+        } catch (executionError) {
+          logger.error('Sandbox execution unavailable, falling back to AI judge:', executionError);
+        }
 
-        setFeedback({
-          correct: data.correct,
-          mode: data.evaluationMode || 'ai-judged',
-          testsPassed: `${data.testsPassed}/${data.testsTotal}`,
-          runtime: data.runtimeMs ? `${data.runtimeMs}ms` : null,
-          memory: data.memoryKb ? `${(data.memoryKb / 1024).toFixed(1)}MB` : null,
-          feedback: data.review,
-          suggestions: data.suggestions || [],
-          testResults: data.testResults || [],
+        const { data: review, error: reviewError } = await supabase.functions.invoke('review-code', {
+          body: execution
+            ? {
+                challengeId: dbChallenge.id,
+                code,
+                language,
+                executionResults: execution.results,
+                attemptId: execution.attemptId,
+              }
+            : { challengeId: dbChallenge.id, code, language },
         });
+        if (reviewError) throw reviewError;
+        if (review?.error) throw new Error(review.error);
+
+        if (execution) {
+          setFeedback({
+            correct: execution.allTestsPassed,
+            mode: 'executed',
+            testsPassed: `${execution.testsPassed}/${execution.testsTotal}`,
+            runtime: execution.runtimeMs ? `${execution.runtimeMs}ms` : null,
+            memory: execution.memoryKb ? `${(execution.memoryKb / 1024).toFixed(1)}MB` : null,
+            feedback: review.review,
+            suggestions: review.suggestions || [],
+            testResults: (execution.results || []).filter((r) => !r.hidden),
+          });
+        } else {
+          setFeedback({
+            correct: review.correct,
+            mode: review.evaluationMode || 'ai-judged',
+            testsPassed: `${review.testsPassed}/${review.testsTotal}`,
+            runtime: null,
+            memory: null,
+            feedback: review.review,
+            suggestions: review.suggestions || [],
+            testResults: review.testResults || [],
+          });
+        }
         setActiveTab('feedback');
       } catch (error: any) {
         logger.error('Error submitting code:', error);

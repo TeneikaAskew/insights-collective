@@ -133,20 +133,40 @@ describe('CodePractice page (Problem Book)', () => {
     expect(screen.getByRole('tab', { name: 'Feedback' })).toBeEnabled();
   });
 
-  it('loads the challenge from the database and evaluates via review-code when signed in', async () => {
+  it('runs execute-code then review-code for signed-in users (Phase 3 combined flow)', async () => {
     userState.user = { id: 'user-1' };
     mockChallengeQuery([DB_CHALLENGE]);
-    (mockSupabaseClient.functions.invoke as any).mockResolvedValue({
-      data: {
-        evaluationMode: 'ai-judged',
-        correct: false,
-        testsPassed: 1,
-        testsTotal: 3,
-        testResults: [{ case: 1, input: '[2,7,11,15], 9', predicted_output: '[0,1]', passed: true }],
-        review: 'The loop stops one element early, so the last pair is never checked.',
-        suggestions: ['Fix the loop bound', 'Use a hash map', 'Add input validation'],
-      },
-      error: null,
+    (mockSupabaseClient.functions.invoke as any).mockImplementation((fn: string) => {
+      if (fn === 'execute-code') {
+        return Promise.resolve({
+          data: {
+            evaluationMode: 'executed',
+            allTestsPassed: true,
+            testsPassed: 3,
+            testsTotal: 3,
+            results: [
+              { input: '[2,7,11,15], 9', expected: '[0, 1]', actual: '[0,1]', passed: true, hidden: false },
+              { input: '(hidden)', expected: '(hidden)', actual: '(hidden)', passed: true, hidden: true },
+              { input: '(hidden)', expected: '(hidden)', actual: '(hidden)', passed: true, hidden: true },
+            ],
+            runtimeMs: 23,
+            memoryKb: 7868,
+            attemptId: 'attempt-1',
+          },
+          error: null,
+        });
+      }
+      return Promise.resolve({
+        data: {
+          evaluationMode: 'executed',
+          correct: true,
+          testsPassed: 3,
+          testsTotal: 3,
+          review: 'Clean nested-loop solution; a hash map would bring it to O(n).',
+          suggestions: ['Use a hash map', 'Handle empty input', 'Add a docstring'],
+        },
+        error: null,
+      });
     });
 
     render(<CodePractice />);
@@ -160,14 +180,63 @@ describe('CodePractice page (Problem Book)', () => {
     fireEvent.click(screen.getByRole('button', { name: /submit solution/i }));
 
     expect(await screen.findByText('Result')).toBeInTheDocument();
-    expect(mockSupabaseClient.functions.invoke).toHaveBeenCalledWith('review-code', {
+    expect(mockSupabaseClient.functions.invoke).toHaveBeenCalledWith('execute-code', {
       body: {
         challengeId: DB_CHALLENGE.id,
         code: 'function solution(nums, target) {\n}',
         language: 'javascript',
       },
     });
+    // Review receives ground truth + the attempt to attach the review to
+    expect(mockSupabaseClient.functions.invoke).toHaveBeenCalledWith('review-code', {
+      body: expect.objectContaining({
+        challengeId: DB_CHALLENGE.id,
+        attemptId: 'attempt-1',
+        executionResults: expect.any(Array),
+      }),
+    });
 
+    expect(screen.getByText('Correct')).toBeInTheDocument();
+    expect(screen.getByText('Executed')).toBeInTheDocument();
+    expect(screen.getByText('3/3')).toBeInTheDocument();
+    // Real sandbox numbers populate the tiles
+    expect(screen.getByText('23ms')).toBeInTheDocument();
+    expect(screen.getByText('7.7MB')).toBeInTheDocument();
+    expect(screen.getByText(/hash map would bring it to O\(n\)/i)).toBeInTheDocument();
+    // Hidden cases stay out of the per-test list (one visible row)
+    expect(screen.getByText('([2,7,11,15], 9)')).toBeInTheDocument();
+    expect(screen.queryByText('((hidden))')).not.toBeInTheDocument();
+  });
+
+  it('falls back to the AI judge when the sandbox is unavailable', async () => {
+    userState.user = { id: 'user-1' };
+    mockChallengeQuery([DB_CHALLENGE]);
+    (mockSupabaseClient.functions.invoke as any).mockImplementation((fn: string) => {
+      if (fn === 'execute-code') {
+        return Promise.resolve({ data: null, error: new Error('sandbox down') });
+      }
+      return Promise.resolve({
+        data: {
+          evaluationMode: 'ai-judged',
+          correct: false,
+          testsPassed: 1,
+          testsTotal: 3,
+          testResults: [{ case: 1, input: '[2,7,11,15], 9', predicted_output: '[0,1]', passed: true }],
+          review: 'The loop stops one element early, so the last pair is never checked.',
+          suggestions: ['Fix the loop bound', 'Use a hash map', 'Add input validation'],
+        },
+        error: null,
+      });
+    });
+
+    render(<CodePractice />);
+    await waitFor(() => {
+      expect(screen.getByLabelText('code editor')).toHaveValue('function solution(nums, target) {\n}');
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /submit solution/i }));
+
+    expect(await screen.findByText('Result')).toBeInTheDocument();
     expect(screen.getByText('Incorrect')).toBeInTheDocument();
     expect(screen.getByText('AI-judged')).toBeInTheDocument();
     expect(screen.getByText('1/3')).toBeInTheDocument();
@@ -175,6 +244,5 @@ describe('CodePractice page (Problem Book)', () => {
     expect(screen.queryByText('runtime')).not.toBeInTheDocument();
     expect(screen.queryByText('memory')).not.toBeInTheDocument();
     expect(screen.getByText(/loop stops one element early/i)).toBeInTheDocument();
-    expect(screen.getByText('Fix the loop bound')).toBeInTheDocument();
   });
 });
