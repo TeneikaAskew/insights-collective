@@ -114,6 +114,15 @@ test.describe('Job description page (Soft Studio, Split Desk)', () => {
 });
 
 test.describe('Code practice page (Soft Studio, Problem Book)', () => {
+  // These assert the logged-out simulation — canned "Correct / 3/3", labelled
+  // Demo. The file previously ran under chromium-member, where a signed-in
+  // visitor happened to get the demo too, because Submit resolved before the
+  // database challenge loaded. That bug is fixed, so signed-in visitors now
+  // get a real evaluation and these assertions would be testing the wrong
+  // mode. Force a signed-out context so they test what they claim to.
+  // The signed-in path has its own spec: interview-prep-design/code-evaluation.
+  test.use({ storageState: { cookies: [], origins: [] } });
+
   test.beforeEach(async ({ page }) => {
     await page.goto('/interview-prep/code-practice', { waitUntil: 'domcontentloaded' });
     await page.getByText('Code Challenge Practice').waitFor({ timeout: 15_000 });
