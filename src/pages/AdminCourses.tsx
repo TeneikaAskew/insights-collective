@@ -1,6 +1,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { downloadCsv } from '@/utils/csv';
 import { useNavigate } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -390,10 +391,6 @@ function EnrollmentsTab({ courses }: { courses: Course[] }) {
   });
 
   const handleDownloadReport = () => {
-    const escape = (val: unknown) => {
-      const s = String(val ?? '');
-      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-    };
     const header = ['Student Name', 'Enrolled Date', 'Completion %', 'Status'];
     const rows = filteredEnrollments.map((e) => {
       const name = e.user ? `${e.user.first_name ?? ''} ${e.user.last_name ?? ''}`.trim() : 'Unknown User';
@@ -401,17 +398,8 @@ function EnrollmentsTab({ courses }: { courses: Course[] }) {
       const status = pct >= 100 ? 'Completed' : pct > 0 ? 'In Progress' : 'Not Started';
       return [name, new Date(e.enrolled_at).toISOString().slice(0, 10), pct, status];
     });
-    const csv = [header, ...rows].map((r) => r.map(escape).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
     const safeTitle = (selectedCourse?.title || 'course').replace(/[^a-z0-9]+/gi, '-').toLowerCase();
-    a.href = url;
-    a.download = `${safeTitle}-completion-report.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    downloadCsv(`${safeTitle}-completion-report.csv`, header, rows);
   };
 
 

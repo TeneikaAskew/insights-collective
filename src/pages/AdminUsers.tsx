@@ -25,6 +25,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAdminUsers } from '@/hooks/useAdminUsers';
 import { useAuth } from '@/contexts/AuthContext';
+import { downloadCsv } from '@/utils/csv';
 
 import { createLogger } from '@/utils/logger';
 
@@ -155,26 +156,14 @@ const AdminUsers = () => {
   
   const handleExportUsers = () => {
     try {
-      // Create CSV string
-      const headers = "ID,Name,Roles,Created At\n";
-      const csvData = filteredUsers.map(user => {
-        const name = `${user.first_name || ''} ${user.last_name || ''}`.trim();
-        const roles = (user.roles || ['student']).join(';');
-        const createdAt = user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A';
-        return `"${user.id}","${name}","${roles}","${createdAt}"`;
-      }).join('\n');
-      
-      const csvContent = `data:text/csv;charset=utf-8,${headers}${csvData}`;
-      const encodedUri = encodeURI(csvContent);
-      
-      // Create a link and trigger download
-      const link = document.createElement("a");
-      link.setAttribute("href", encodedUri);
-      link.setAttribute("download", "users.csv");
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
+      const rows = filteredUsers.map(user => [
+        user.id,
+        `${user.first_name || ''} ${user.last_name || ''}`.trim(),
+        (user.roles || ['student']).join(';'),
+        user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A',
+      ]);
+      downloadCsv('users.csv', ['ID', 'Name', 'Roles', 'Created At'], rows);
+
       toast({
         title: 'Export Completed',
         description: 'User data has been exported to CSV.',

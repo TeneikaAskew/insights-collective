@@ -21,6 +21,7 @@ import {
   Users,
 } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
+import { downloadCsv } from '@/utils/csv';
 import type { Course } from '@/types/course';
 
 type Row = {
@@ -198,19 +199,11 @@ export function CourseProgressDashboard({ courses }: Props) {
 
   const exportCsv = () => {
     const header = ['Course', 'Category', 'Status', 'Enrolled', 'Completed', 'Avg progress %', 'Certificates issued'];
-    const lines = [header.join(',')];
-    for (const r of filtered) {
-      const cells = [r.title, r.category ?? '', r.published ? 'Published' : 'Draft', r.enrolled, r.completed, r.avgProgress, r.certificates]
-        .map((v) => `"${String(v).replace(/"/g, '""')}"`);
-      lines.push(cells.join(','));
-    }
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `course-progress-${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(a); a.click(); a.remove();
-    URL.revokeObjectURL(url);
+    const rows = filtered.map((r) => [
+      r.title, r.category ?? '', r.published ? 'Published' : 'Draft',
+      r.enrolled, r.completed, r.avgProgress, r.certificates,
+    ]);
+    downloadCsv(`course-progress-${new Date().toISOString().slice(0, 10)}.csv`, header, rows);
   };
 
   if (loading) {
