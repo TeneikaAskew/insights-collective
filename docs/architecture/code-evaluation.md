@@ -1,6 +1,6 @@
 # Real Code Evaluation for Code Practice — Architecture
 
-Status: proposed (approved direction: make the Code Practice evaluation real)
+Status: Phases 0–1 implemented; Phase 2 scaffolded (see "Implementation status" below)
 Owner: Interview Prep / Code Practice
 Related page: `src/pages/interview-prep/CodePractice.tsx` (Soft Studio, Problem Book)
 
@@ -186,11 +186,56 @@ executes all cases (cheaper than one run per case).
 Each phase is independently shippable and none blocks the visual redesign
 work already merged.
 
-## 7. Decisions needed
+## 7. Implementation status
 
-1. Green-light Phase 0 + 1 now? (No new secrets, no new infra.)
-2. For Phase 2: acceptable to add a `RAPIDAPI_KEY` (Judge0) secret, or
-   prefer free-only (Piston public, pandas challenges stay AI-judged)?
-3. Should the legacy `src/pages/CodePractice.tsx` be deleted once its
-   remaining good ideas (DB loading, per-test results UI) are ported? It is
-   currently dead code with a dead lazy-import in `App.tsx`.
+All three decisions were approved (Phase 0+1 now; RapidAPI key accepted for
+Phase 2; legacy page cleanup pending a final port check).
+
+**Implemented:**
+
+- **Phase 0** — `supabase/migrations/20260727000000_code_challenges_evaluation.sql`:
+  structured columns (`description`, `detail`, `example`, `constraints`,
+  `hints`, `language`, `starter_code`, `function_name`, `runtime`,
+  `compare_mode`), an authenticated-read RLS policy, and 7 seeded challenges
+  with authored, machine-checkable test cases (visible + hidden).
+  `CodePractice.tsx` loads the challenge for the selected role from the
+  database and keeps the hardcoded set as a demo fallback (logged-out /
+  empty table). The Result card labels every evaluation honestly:
+  Demo / AI-judged / Executed.
+- **Phase 1** — `supabase/functions/review-code/`: AI judge + review
+  (Groq `llama-3.3-70b-versatile`, temperature 0.1). Loads test cases
+  server-side (hidden cases never reach the client), returns per-case
+  verdicts + review + 3 suggestions, persists every attempt to
+  `code_attempts`, rate-limits to 10 submissions/user/minute. The page
+  calls it whenever the user is signed in and a DB challenge is loaded.
+- **Phase 2 (scaffolded)** — `supabase/functions/execute-code/`: builds a
+  per-language harness (one sandbox run for all cases, JSON-per-line
+  output, `compare_mode` aware), executes on Piston (javascript /
+  python-stdlib; free, no key) or Judge0 Extra CE "Python for ML"
+  (pandas; needs `RAPIDAPI_KEY`), deep-JSON-compares outputs, persists
+  attempts. Passing its `results` into `review-code` as
+  `executionResults` flips that function to review-only mode — the
+  combined Phase 3 flow. Not yet wired into the page; do that after the
+  function is deployed and smoke-tested against real sandboxes.
+
+**Deployment** (functions can't be integration-tested in this sandbox —
+verify after deploying):
+
+```bash
+supabase db push                        # applies the Phase 0 migration
+supabase functions deploy review-code
+supabase functions deploy execute-code
+# GROQ is already set if STAR evaluation works. For pandas execution:
+supabase secrets set RAPIDAPI_KEY=<your RapidAPI key for judge0-extra-ce>
+```
+
+**Remaining:**
+
+1. Deploy + smoke-test both functions; then wire the page's submit to
+   `execute-code` → `review-code` (Phase 3) for `runtime`/`memory` tiles
+   with real numbers.
+2. Delete the legacy `src/pages/CodePractice.tsx` and its unused
+   lazy-import in `App.tsx` (its DB-loading and per-test-results ideas are
+   now ported).
+3. Grow the challenge bank: the admin-insert RLS policy is in place, so an
+   admin authoring UI or further seed migrations both work.

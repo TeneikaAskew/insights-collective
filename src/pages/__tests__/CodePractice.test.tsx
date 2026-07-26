@@ -1,6 +1,7 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@/test/utils/test-utils';
+import { mockSupabaseClient } from '@/test/mocks/supabase';
 import CodePractice from '@/pages/interview-prep/CodePractice';
 
 const navigate = vi.hoisted(() => vi.fn());
@@ -11,6 +12,11 @@ vi.mock('react-router-dom', async (importOriginal) => {
     useNavigate: () => navigate,
   };
 });
+
+const userState = vi.hoisted(() => ({ user: null as null | { id: string } }));
+vi.mock('@/hooks/use-user', () => ({
+  useUser: () => ({ user: userState.user }),
+}));
 
 vi.mock('@/components/layout/AppLayout', () => ({
   default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -25,8 +31,39 @@ vi.mock('@monaco-editor/react', () => ({
   },
 }));
 
+const DB_CHALLENGE = {
+  id: 'c0de0007-0000-4000-8000-000000000007',
+  title: 'Two Sum',
+  difficulty: 'easy',
+  prompt: 'Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.',
+  description: 'Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.',
+  detail: 'Return the indices in ascending order.',
+  example: 'Input: nums = [2,7,11,15], target = 9\nOutput: [0,1]',
+  constraints: ['Only one valid answer exists.'],
+  hints: ['Consider using a hash map.'],
+  language: 'javascript',
+  starter_code: 'function solution(nums, target) {\n}',
+  function_name: 'solution',
+};
+
+// Mock the code_challenges lookup; the page falls back to the hardcoded
+// demo challenges when the query returns no rows.
+function mockChallengeQuery(rows: unknown[]) {
+  mockSupabaseClient.from.mockImplementation(() => {
+    const chain: any = {
+      select: vi.fn(() => chain),
+      contains: vi.fn(() => chain),
+      order: vi.fn(() => chain),
+      limit: vi.fn(() => Promise.resolve({ data: rows, error: null })),
+    };
+    return chain;
+  });
+}
+
 beforeEach(() => {
   navigate.mockClear();
+  userState.user = null;
+  mockChallengeQuery([]);
   vi.useRealTimers();
 });
 
@@ -73,6 +110,8 @@ describe('CodePractice page (Problem Book)', () => {
     // Simulated evaluation resolves after 1.5s
     expect(await screen.findByText('Result', {}, { timeout: 4000 })).toBeInTheDocument();
     expect(screen.getByText('Correct')).toBeInTheDocument();
+    // Logged out with no DB rows, the simulation is clearly labeled as a demo
+    expect(screen.getByText('Demo')).toBeInTheDocument();
     expect(screen.getByText('42ms')).toBeInTheDocument();
     expect(screen.getByText('8.2MB')).toBeInTheDocument();
     expect(screen.getByText('3/3')).toBeInTheDocument();
@@ -92,5 +131,50 @@ describe('CodePractice page (Problem Book)', () => {
     });
     // Feedback stays reachable from the editor chrome
     expect(screen.getByRole('tab', { name: 'Feedback' })).toBeEnabled();
+  });
+
+  it('loads the challenge from the database and evaluates via review-code when signed in', async () => {
+    userState.user = { id: 'user-1' };
+    mockChallengeQuery([DB_CHALLENGE]);
+    (mockSupabaseClient.functions.invoke as any).mockResolvedValue({
+      data: {
+        evaluationMode: 'ai-judged',
+        correct: false,
+        testsPassed: 1,
+        testsTotal: 3,
+        testResults: [{ case: 1, input: '[2,7,11,15], 9', predicted_output: '[0,1]', passed: true }],
+        review: 'The loop stops one element early, so the last pair is never checked.',
+        suggestions: ['Fix the loop bound', 'Use a hash map', 'Add input validation'],
+      },
+      error: null,
+    });
+
+    render(<CodePractice />);
+
+    // DB starter code replaces the role template once the challenge loads
+    await waitFor(() => {
+      expect(screen.getByLabelText('code editor')).toHaveValue('function solution(nums, target) {\n}');
+    });
+    expect(screen.getByText('Return the indices in ascending order.')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /submit solution/i }));
+
+    expect(await screen.findByText('Result')).toBeInTheDocument();
+    expect(mockSupabaseClient.functions.invoke).toHaveBeenCalledWith('review-code', {
+      body: {
+        challengeId: DB_CHALLENGE.id,
+        code: 'function solution(nums, target) {\n}',
+        language: 'javascript',
+      },
+    });
+
+    expect(screen.getByText('Incorrect')).toBeInTheDocument();
+    expect(screen.getByText('AI-judged')).toBeInTheDocument();
+    expect(screen.getByText('1/3')).toBeInTheDocument();
+    // AI judging cannot measure runtime/memory — those tiles are hidden
+    expect(screen.queryByText('runtime')).not.toBeInTheDocument();
+    expect(screen.queryByText('memory')).not.toBeInTheDocument();
+    expect(screen.getByText(/loop stops one element early/i)).toBeInTheDocument();
+    expect(screen.getByText('Fix the loop bound')).toBeInTheDocument();
   });
 });

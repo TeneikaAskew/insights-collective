@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { useUser } from '@/hooks/use-user';
+import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Spinner } from '@/components/ui/spinner';
 import Editor from '@monaco-editor/react';
@@ -167,14 +169,40 @@ const difficultyChip: Record<string, string> = {
   Hard: 'bg-ss-bad-chip text-ss-bad',
 };
 
+const modeChip: Record<string, { label: string; className: string }> = {
+  demo: { label: 'Demo', className: 'bg-ss-track text-muted-foreground' },
+  'ai-judged': { label: 'AI-judged', className: 'bg-ss-lav-chip text-ss-lav-deep' },
+  executed: { label: 'Executed', className: 'bg-ss-teal-chip text-ss-teal' },
+};
+
+// Challenges live in the code_challenges table (seeded by the
+// 20260727000000 migration); the hardcoded set above stays as a demo
+// fallback for logged-out visitors and empty databases.
+interface DbChallenge {
+  id: string;
+  title: string;
+  difficulty: string;
+  prompt: string;
+  description: string | null;
+  detail: string | null;
+  example: string | null;
+  constraints: string[] | null;
+  hints: string[] | null;
+  language: string;
+  starter_code: string | null;
+  function_name: string;
+}
+
 export default function CodePractice() {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { user } = useUser();
   const [code, setCode] = useState('// Write your solution here');
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState(null);
   const [selectedRole, setSelectedRole] = useState('all');
   const [currentChallenge, setCurrentChallenge] = useState(challengesByRole.all);
+  const [dbChallenge, setDbChallenge] = useState<DbChallenge | null>(null);
   const [activeTab, setActiveTab] = useState('code'); // Set default tab to code editor
 
   useEffect(() => {
@@ -185,6 +213,30 @@ export default function CodePractice() {
     setCode(templateForRole(selectedRole));
     setFeedback(null);
     setActiveTab('code');
+
+    // Try the database for a real challenge for this role; the hardcoded
+    // set stays as fallback so the page never regresses to an empty state.
+    let cancelled = false;
+    setDbChallenge(null);
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('code_challenges')
+          .select('*')
+          .contains('topic_tags', [selectedRole])
+          .order('difficulty', { ascending: true })
+          .limit(1);
+        if (cancelled || error || !data || data.length === 0) return;
+        const row = data[0] as DbChallenge;
+        setDbChallenge(row);
+        if (row.starter_code) setCode(row.starter_code);
+      } catch (error) {
+        logger.error('Error loading challenge from database:', error);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [selectedRole]);
 
   const handleCodeChange = (value) => {
@@ -200,12 +252,50 @@ export default function CodePractice() {
   };
 
   const handleSubmit = async () => {
+    // Real evaluation: signed in with a database-backed challenge —
+    // the review-code function judges the code against stored test cases.
+    if (user && dbChallenge) {
+      setLoading(true);
+      try {
+        const { data, error } = await supabase.functions.invoke('review-code', {
+          body: { challengeId: dbChallenge.id, code, language },
+        });
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+
+        setFeedback({
+          correct: data.correct,
+          mode: data.evaluationMode || 'ai-judged',
+          testsPassed: `${data.testsPassed}/${data.testsTotal}`,
+          runtime: data.runtimeMs ? `${data.runtimeMs}ms` : null,
+          memory: data.memoryKb ? `${(data.memoryKb / 1024).toFixed(1)}MB` : null,
+          feedback: data.review,
+          suggestions: data.suggestions || [],
+          testResults: data.testResults || [],
+        });
+        setActiveTab('feedback');
+      } catch (error: any) {
+        logger.error('Error submitting code:', error);
+        toast({
+          title: 'Error',
+          description: error?.message || 'Failed to submit code. Please try again.',
+          variant: 'destructive',
+        });
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    // Demo fallback (logged out, or no challenge rows in the database):
+    // simulated feedback, clearly labeled as a demo in the result card.
     setLoading(true);
     try {
       // Simulate API call with timeout
       setTimeout(() => {
         setFeedback({
           correct: true,
+          mode: 'demo',
           runtime: '42ms',
           memory: '8.2MB',
           testsPassed: '3/3',
@@ -232,8 +322,24 @@ export default function CodePractice() {
   };
 
   const language =
-    selectedRole === 'data_analyst' || selectedRole === 'data_scientist' ? 'python' : 'javascript';
+    dbChallenge?.language ??
+    (selectedRole === 'data_analyst' || selectedRole === 'data_scientist' ? 'python' : 'javascript');
   const showFeedback = activeTab === 'feedback' && feedback;
+
+  // What the problem page renders: the database row when one exists,
+  // otherwise the hardcoded demo challenge for the role.
+  const challenge = dbChallenge
+    ? {
+        title: dbChallenge.title,
+        difficulty:
+          dbChallenge.difficulty.charAt(0).toUpperCase() + dbChallenge.difficulty.slice(1),
+        description: dbChallenge.description || dbChallenge.prompt,
+        detail: dbChallenge.detail || '',
+        example: dbChallenge.example || '',
+        constraints: Array.isArray(dbChallenge.constraints) ? dbChallenge.constraints : [],
+        hints: Array.isArray(dbChallenge.hints) ? dbChallenge.hints : [],
+      }
+    : currentChallenge;
 
   return (
     <AppLayout fullWidth>
@@ -298,23 +404,50 @@ export default function CodePractice() {
                           Incorrect
                         </span>
                       )}
+                      {feedback.mode && modeChip[feedback.mode] && (
+                        <span className={`rounded-full px-3 py-1 text-xs font-bold ${modeChip[feedback.mode].className}`}>
+                          {modeChip[feedback.mode].label}
+                        </span>
+                      )}
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-5">
-                    <div className="grid grid-cols-3 gap-3">
-                      <div className="rounded-2xl border bg-card px-4 py-3 text-center">
-                        <p className="text-xl font-bold">{feedback.runtime}</p>
-                        <p className="text-xs text-muted-foreground">runtime</p>
-                      </div>
-                      <div className="rounded-2xl border bg-card px-4 py-3 text-center">
-                        <p className="text-xl font-bold">{feedback.memory}</p>
-                        <p className="text-xs text-muted-foreground">memory</p>
-                      </div>
-                      <div className="rounded-2xl border bg-card px-4 py-3 text-center">
+                    <div className="flex gap-3">
+                      {feedback.runtime && (
+                        <div className="flex-1 rounded-2xl border bg-card px-4 py-3 text-center">
+                          <p className="text-xl font-bold">{feedback.runtime}</p>
+                          <p className="text-xs text-muted-foreground">runtime</p>
+                        </div>
+                      )}
+                      {feedback.memory && (
+                        <div className="flex-1 rounded-2xl border bg-card px-4 py-3 text-center">
+                          <p className="text-xl font-bold">{feedback.memory}</p>
+                          <p className="text-xs text-muted-foreground">memory</p>
+                        </div>
+                      )}
+                      <div className="flex-1 rounded-2xl border bg-card px-4 py-3 text-center">
                         <p className="text-xl font-bold">{feedback.testsPassed}</p>
                         <p className="text-xs text-muted-foreground">test cases passed</p>
                       </div>
                     </div>
+
+                    {feedback.testResults?.length > 0 && (
+                      <div className="space-y-2">
+                        {feedback.testResults.map((result, index) => (
+                          <div
+                            key={index}
+                            className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-mono ${
+                              result.passed ? 'bg-ss-good-chip' : 'bg-ss-bad-chip'
+                            }`}
+                          >
+                            <span className={`font-bold ${result.passed ? 'text-ss-good' : 'text-ss-bad'}`}>
+                              {result.passed ? '✓' : '✕'}
+                            </span>
+                            <span className="truncate">({result.input})</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
                     <div className="rounded-2xl bg-ss-card-warm border border-ss-peach/30 p-4">
                       <h3 className="text-sm font-bold text-ss-peach-deep mb-2">Code Review</h3>
@@ -347,21 +480,21 @@ export default function CodePractice() {
                 <Card className="ss-card">
                   <CardHeader>
                     <div className="flex items-center gap-3 flex-wrap">
-                      <CardTitle>{currentChallenge.title}</CardTitle>
+                      <CardTitle>{challenge.title}</CardTitle>
                       <span
                         className={`rounded-full px-3 py-1 text-xs font-bold ${
-                          difficultyChip[currentChallenge.difficulty] ?? 'bg-ss-track text-muted-foreground'
+                          difficultyChip[challenge.difficulty] ?? 'bg-ss-track text-muted-foreground'
                         }`}
                       >
-                        {currentChallenge.difficulty}
+                        {challenge.difficulty}
                       </span>
                     </div>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-5">
                       <div>
-                        <p className="text-sm font-medium mb-2">{currentChallenge.description}</p>
-                        <p className="text-sm text-muted-foreground mb-2">{currentChallenge.detail}</p>
+                        <p className="text-sm font-medium mb-2">{challenge.description}</p>
+                        <p className="text-sm text-muted-foreground mb-2">{challenge.detail}</p>
                         <p className="text-sm text-muted-foreground">
                           This is a common problem type for {jobRoles.find(role => role.value === selectedRole).label} interviews.
                         </p>
@@ -370,14 +503,14 @@ export default function CodePractice() {
                       <div>
                         <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Example</h3>
                         <pre className="bg-muted p-3 rounded-xl text-xs overflow-auto max-h-[150px] whitespace-pre-wrap">
-                          {currentChallenge.example}
+                          {challenge.example}
                         </pre>
                       </div>
 
                       <div>
                         <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Constraints</h3>
                         <ul className="list-disc list-inside space-y-1">
-                          {currentChallenge.constraints.map((constraint, index) => (
+                          {challenge.constraints.map((constraint, index) => (
                             <li key={index} className="text-sm">{constraint}</li>
                           ))}
                         </ul>
@@ -386,7 +519,7 @@ export default function CodePractice() {
                       <div>
                         <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Hints</h3>
                         <div className="space-y-2">
-                          {currentChallenge.hints.map((hint, index) => (
+                          {challenge.hints.map((hint, index) => (
                             <div key={index} className="rounded-xl bg-ss-lav-chip px-4 py-3 text-sm">
                               <span className="font-bold text-ss-lav-deep">Hint {index + 1}.</span> {hint}
                             </div>
