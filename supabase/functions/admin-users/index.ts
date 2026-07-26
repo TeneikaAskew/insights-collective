@@ -24,43 +24,13 @@ serve(async (req) => {
   }
 
   try {
-    // --- E2E admin bootstrap (no auth required) ---
-    // One-shot path that resets ONLY e2e-admin@insightscollective.org when a
-    // matching bootstrap token is presented. Enables initial credential setup
-    // before any admin session exists. Gated by the E2E_ADMIN_BOOTSTRAP_TOKEN
-    // secret; unset the secret to disable.
-    const bootstrapToken = req.headers.get('x-e2e-bootstrap-token');
-    const expectedBootstrap = Deno.env.get('E2E_ADMIN_BOOTSTRAP_TOKEN') || '';
-    if (bootstrapToken && expectedBootstrap && bootstrapToken === expectedBootstrap) {
-      const supabaseUrlB = Deno.env.get('SUPABASE_URL') || '';
-      const supabaseServiceKeyB = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-      const admin = createClient(supabaseUrlB, supabaseServiceKeyB);
-      let body: any = {};
-      try { body = await req.json(); } catch { /* ignore */ }
-      const email = (body?.email || '').toLowerCase();
-      const password = body?.password || Deno.env.get('E2E_ADMIN_PASSWORD') || '';
-      if (email !== 'e2e-admin@insightscollective.org' || !password) {
-        return new Response(JSON.stringify({ error: 'Bootstrap only supports e2e-admin with a password' }), {
-          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      const { data: list } = await admin.auth.admin.listUsers();
-      const target = list?.users?.find((u: any) => (u.email || '').toLowerCase() === email);
-      if (!target) {
-        return new Response(JSON.stringify({ error: 'e2e-admin user not found' }), {
-          status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      const { error: updErr } = await admin.auth.admin.updateUserById(target.id, { password, email_confirm: true });
-      if (updErr) {
-        return new Response(JSON.stringify({ error: updErr.message }), {
-          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      return new Response(JSON.stringify({ success: true, id: target.id }), {
-        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    // NOTE: An unauthenticated "E2E admin bootstrap" branch used to run here,
+    // before any auth check. Presenting a header that matched
+    // E2E_ADMIN_BOOTSTRAP_TOKEN reset the e2e-admin account's password with the
+    // service-role key — no rate limiting, no constant-time compare, and no
+    // environment gate, so it was live in production whenever the secret was
+    // set. Removed. Seed E2E credentials with an out-of-band script that talks
+    // to a non-production project instead.
 
     // Create a Supabase client with the Auth context of the logged-in user
     const authHeader = req.headers.get('Authorization')
@@ -129,64 +99,25 @@ serve(async (req) => {
 
     console.log('[admin-users] User authenticated:', user.id);
 
-    // Check if user is an admin
-    console.log('[admin-users] Checking user profile for admin role...');
-    const { data: profileData, error: profileError } = await supabaseClient
-      .from('profiles')
-      .select('roles')
-      .eq('id', user.id)
-      .maybeSingle()
+    // Check if user is an admin.
+    // Authorize against user_roles via the has_admin_access RPC — NOT the
+    // profiles.roles column. profiles.roles is writable by its own owner, so
+    // gating on it let any user self-promote by updating their own row.
+    console.log('[admin-users] Verifying admin access...');
+    const { data: hasAdminAccess, error: adminCheckError } = await supabaseAdmin
+      .rpc('has_admin_access', { user_id_param: user.id })
 
-    console.log('[admin-users] Profile data:', profileData);
-    console.log('[admin-users] Profile error:', profileError);
-
-    if (profileError) {
-      console.error('[admin-users] Profile query error:', profileError);
-      return new Response(JSON.stringify({ error: 'Failed to verify user permissions', details: profileError.message }), {
+    if (adminCheckError) {
+      console.error('[admin-users] Admin check failed:', adminCheckError.message);
+      return new Response(JSON.stringify({ error: 'Failed to verify user permissions' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    if (!profileData) {
-      console.error('[admin-users] No profile found for user:', user.id);
-      return new Response(JSON.stringify({ error: 'User profile not found' }), {
-        status: 404,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    // Check roles array for admin access
-    let userRoles = profileData?.roles || ['student'];
-    if (typeof userRoles === 'string') {
-      // Handle PostgreSQL array format like "{admin,student}"
-      if (userRoles.startsWith('{') && userRoles.endsWith('}')) {
-        userRoles = userRoles.slice(1, -1).split(',').map(role => role.trim());
-      } else {
-        userRoles = [userRoles];
-      }
-    }
-    
-    const isAdmin = userRoles.includes('admin');
-    
-    console.log('[admin-users] User ID from token:', user.id);
-    console.log('[admin-users] User roles array raw:', profileData?.roles);
-    console.log('[admin-users] User roles array processed:', userRoles);
-    console.log('[admin-users] User roles array type:', typeof userRoles);
-    console.log('[admin-users] Is admin result:', isAdmin);
-    console.log('[admin-users] Admin check: roles includes admin?', userRoles.includes('admin'));
-    
-    if (!isAdmin) {
-      console.error('[admin-users] User lacks admin privileges. Roles:', userRoles);
-      return new Response(JSON.stringify({ 
-        error: 'Admin privileges required', 
-        userRoles: userRoles,
-        userId: user.id,
-        debugInfo: {
-          originalRoles: profileData?.roles,
-          processedRoles: userRoles
-        }
-      }), {
+    if (!hasAdminAccess) {
+      console.error('[admin-users] User lacks admin privileges:', user.id);
+      return new Response(JSON.stringify({ error: 'Admin privileges required' }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -310,18 +241,33 @@ serve(async (req) => {
           updatedRoles.push('student');
         }
 
-        // Update the user's profile with only roles array
+        // Write the canonical source first: user_roles, via the RPC. Called
+        // with the caller-scoped client on purpose — the function re-checks
+        // auth.uid() against user_roles, so it would reject a service-role
+        // call (auth.uid() is null there). That double-check is deliberate.
+        const { error: rolesError } = await supabaseClient
+          .rpc('update_user_roles', { target_user_id: userId, new_roles: updatedRoles })
+
+        if (rolesError) {
+          console.error('[admin-users] Error updating user_roles:', rolesError.message)
+          throw rolesError
+        }
+
+        // Mirror onto the legacy profiles.roles column, which a number of older
+        // RLS policies (blog, rubrics, question banks, announcements) still read.
+        // Users can no longer write this column themselves, so it is now a
+        // service-role-maintained denormalization rather than an authority.
         const { data, error } = await supabaseAdmin
           .from('profiles')
-          .update({ 
-            roles: updatedRoles 
+          .update({
+            roles: updatedRoles
           })
           .eq('id', userId)
           .select()
           .single()
 
         if (error) {
-          console.error('[admin-users] Error updating user role:', error)
+          console.error('[admin-users] Error mirroring roles to profiles:', error)
           throw error
         }
 

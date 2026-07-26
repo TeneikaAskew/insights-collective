@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 import { createLogger } from '@/utils/logger';
+import { safeInternalPath } from '@/utils/safeRedirect';
 
 const logger = createLogger('Register');
 
@@ -234,8 +235,8 @@ const Register = () => {
       const from = location.state?.from?.pathname;
       const query = new URLSearchParams(location.search);
       const redirectParam = query.get('redirect');
-      const redirectPath = redirectParam || from || '/resources';
-      
+      const redirectPath = safeInternalPath(redirectParam || from, '/resources');
+
       localStorage.setItem('redirectAfterLogin', redirectPath);
       logger.log('[Register] Stored redirect path before social sign-in:', redirectPath);
       

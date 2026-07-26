@@ -33,6 +33,7 @@ import { useDropzone } from 'react-dropzone';
 import { AssignmentSubmission, EnhancedAssignment } from '@/types/course';
 import { formatDistanceToNow, isPast, isAfter } from 'date-fns';
 import { CanvasEditor } from '@/components/ui/canvas-editor';
+import { sanitizeHTML } from '@/utils/sanitize';
 
 const submissionSchema = z.object({
   submission_type: z.enum(['file_upload', 'text_entry', 'url', 'media_recording']),
@@ -164,7 +165,7 @@ export const AssignmentSubmissionComponent: React.FC<AssignmentSubmissionProps> 
               <h4 className="font-semibold mb-2">Instructions</h4>
               <div 
                 className="prose prose-sm max-w-none"
-                dangerouslySetInnerHTML={{ __html: assignment.instructions }}
+                dangerouslySetInnerHTML={{ __html: sanitizeHTML(assignment.instructions) }}
               />
             </div>
           )}

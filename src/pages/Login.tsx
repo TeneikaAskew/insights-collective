@@ -14,6 +14,7 @@ import { FaGoogle, FaGithub, FaTwitter } from 'react-icons/fa';
 import { useToast } from '@/hooks/use-toast';
 
 import { createLogger } from '@/utils/logger';
+import { safeInternalPath } from '@/utils/safeRedirect';
 
 const logger = createLogger('Login');
 
@@ -44,23 +45,27 @@ const Login = () => {
       ? fromState
       : fromState?.pathname;
 
-  // Store redirect from query/state if present (do not overwrite an existing stored redirect)
+  // Store redirect from query/state if present (do not overwrite an existing stored redirect).
+  // Sanitized on the way in so a hostile value can never reach localStorage.
   useEffect(() => {
     const existing = localStorage.getItem('redirectAfterLogin');
     const candidate = redirectParam || fromPath;
 
     if (candidate && !existing) {
-      localStorage.setItem('redirectAfterLogin', candidate);
-      logger.log('[Login] Stored redirect path from navigation:', candidate);
+      const safeCandidate = safeInternalPath(candidate);
+      localStorage.setItem('redirectAfterLogin', safeCandidate);
+      logger.log('[Login] Stored redirect path from navigation:', safeCandidate);
     }
   }, [redirectParam, fromPath]);
 
-  // Redirect authenticated users back to where they came from
+  // Redirect authenticated users back to where they came from.
+  // Sanitized again on the way out: localStorage may already hold a value
+  // written by an older build, before the guard above existed.
   useEffect(() => {
     if (!isAuthenticated) return;
 
     const storedPath = localStorage.getItem('redirectAfterLogin');
-    const redirectTo = redirectParam || storedPath || fromPath || '/dashboard';
+    const redirectTo = safeInternalPath(redirectParam || storedPath || fromPath);
 
     logger.log('[Login] User authenticated, redirecting to:', redirectTo);
 
