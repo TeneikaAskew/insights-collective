@@ -145,37 +145,51 @@ export function BlogManagementV2() {
         .from('profiles')
         .select('id, first_name, last_name');
 
+      // Index authors and categories once instead of scanning per post.
+      const authorsById = new Map((authorsData || []).map((a) => [a.id, a]));
+      const categoriesById = new Map((categoriesData || []).map((c) => [c.id, c]));
+
       // Combine the data
-      const enrichedPosts = (postsData || []).map(post => ({
-        id: post.id,
-        title: post.title,
-        slug: post.slug,
-        content: post.content,
-        excerpt: post.excerpt,
-        status: post.status,
-        author_id: post.author_id,
-        category_id: post.category_id,
-        views_count: post.view_count || 0,
-        likes_count: 0, // This field doesn't exist yet
-        reading_time: post.read_time,
-        is_featured: post.featured,
-        published_at: post.published_at,
-        scheduled_at: null, // This field doesn't exist yet
-        created_at: post.created_at,
-        updated_at: post.updated_at,
-        author: {
-          full_name: authorsData?.find(a => a.id === post.author_id)
-            ? `${authorsData.find(a => a.id === post.author_id)?.first_name || ''} ${authorsData.find(a => a.id === post.author_id)?.last_name || ''}`.trim()
-            : ''
-        },
-        category: categoriesData?.find(c => c.id === post.category_id) 
-          ? { name: categoriesData.find(c => c.id === post.category_id)?.name || '' }
-          : undefined
-      }));
+      const enrichedPosts = (postsData || []).map(post => {
+        const author = authorsById.get(post.author_id);
+        const category = categoriesById.get(post.category_id);
+        return {
+          id: post.id,
+          title: post.title,
+          slug: post.slug,
+          content: post.content,
+          excerpt: post.excerpt,
+          status: post.status,
+          author_id: post.author_id,
+          category_id: post.category_id,
+          views_count: post.view_count || 0,
+          likes_count: post.likes_count || 0,
+          reading_time: post.read_time,
+          is_featured: post.featured,
+          published_at: post.published_at,
+          scheduled_at: post.scheduled_at ?? null,
+          created_at: post.created_at,
+          updated_at: post.updated_at,
+          author: {
+            full_name: author
+              ? `${author.first_name || ''} ${author.last_name || ''}`.trim()
+              : '',
+          },
+          category: category ? { name: category.name || '' } : undefined,
+        };
+      });
 
       // Apply filters
+      // A post is "scheduled" when it has a future scheduled_at (there is no
+      // 'scheduled' value in the status CHECK constraint).
+      const nowIso = new Date().toISOString();
+      const isScheduled = (p: { scheduled_at?: string | null }) =>
+        !!p.scheduled_at && p.scheduled_at > nowIso;
+
       let filteredPosts = enrichedPosts;
-      if (statusFilter !== 'all') {
+      if (statusFilter === 'scheduled') {
+        filteredPosts = filteredPosts.filter(isScheduled);
+      } else if (statusFilter !== 'all') {
         filteredPosts = filteredPosts.filter(p => p.status === statusFilter);
       }
       if (categoryFilter !== 'all') {
@@ -188,7 +202,7 @@ export function BlogManagementV2() {
       const totalPosts = enrichedPosts.length;
       const publishedPosts = enrichedPosts.filter(p => p.status === 'published').length;
       const draftPosts = enrichedPosts.filter(p => p.status === 'draft').length;
-      const scheduledPosts = enrichedPosts.filter(p => p.status === 'scheduled').length;
+      const scheduledPosts = enrichedPosts.filter(isScheduled).length;
       const totalViews = enrichedPosts.reduce((sum, p) => sum + (p.views_count || 0), 0);
       const totalLikes = enrichedPosts.reduce((sum, p) => sum + (p.likes_count || 0), 0);
 
