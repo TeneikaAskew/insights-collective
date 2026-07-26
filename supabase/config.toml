@@ -46,10 +46,15 @@ verify_jwt = false
 verify_jwt = true
 
 [functions.analyze-job-match]
-verify_jwt = false
+# Was deployed with verify_jwt = false — an unauthenticated LLM endpoint.
+# requireUser() inside the function is the real gate; this stops unauthenticated
+# requests from even reaching it.
+verify_jwt = true
 
 [functions.scrape-job-description]
-verify_jwt = false
+# Server-side fetcher that returns the response body. Gated by requireUser()
+# plus scheme/private-range validation inside the function.
+verify_jwt = true
 
 [functions.generate-study-guide]
 verify_jwt = true
@@ -58,6 +63,9 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.course-calendar-feed]
+# Stays false on purpose: a calendar client subscribing to an ICS URL cannot
+# send an Authorization header. The gate is the per-enrollment feed token in
+# the query string, resolved via resolve_calendar_feed_token().
 verify_jwt = false
 
 [functions.verify-certificate]
@@ -78,4 +86,51 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.generate-career-action-plan]
+verify_jwt = true
+
+[functions.messages-helper]
+# Was deployed with verify_jwt = false. The function authenticates the caller
+# itself and now derives the acting user from the JWT rather than the body.
+verify_jwt = true
+
+[functions.generate-message]
+verify_jwt = true
+
+[functions.create-zoom-meeting]
+# Was deployed with verify_jwt = false: anyone could create meetings on the
+# org's Zoom account. requireStaff() inside.
+verify_jwt = true
+
+[functions.get-zoom-recordings]
+# Was deployed with verify_jwt = false and returns account-wide recording
+# download_urls. requireAdmin() inside.
+verify_jwt = true
+
+[functions.twitter-scraper]
+verify_jwt = true
+
+[functions.scrape-teneika-tweets]
+verify_jwt = true
+
+[functions.scrape-linkedin-posts]
+verify_jwt = true
+
+[functions.notify-course-announcement]
+verify_jwt = true
+
+[functions.portfolio-ideas]
+verify_jwt = true
+
+[functions.execute-code]
+verify_jwt = true
+
+[functions.review-code]
+verify_jwt = true
+
+[functions.get-debug-token]
+verify_jwt = true
+
+[functions.score-quiz]
+# Grades a submission server-side. Authenticates the caller itself and refuses
+# submissions that are not theirs.
 verify_jwt = true

@@ -2,6 +2,7 @@
 // ABOUTME: the Lovable AI Gateway (Gemini 2.5 Flash). Returns { html: string }.
 
 import { corsHeaders } from "../_shared/utils.ts";
+import { requireStaff } from "../_shared/auth.ts";
 
 const BASE_RULES = `You are an expert curriculum writer. Given a lesson title and its surrounding course context, write a complete, ready-to-publish lesson body as clean semantic HTML.
 
@@ -23,6 +24,9 @@ const VARIANTS: Record<string, string> = {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const auth = await requireStaff(req);
+  if (auth.response) return auth.response;
 
   try {
     const body = await req.json();

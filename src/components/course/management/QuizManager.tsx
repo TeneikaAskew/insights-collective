@@ -107,9 +107,12 @@ export function QuizManager({ courseId, modules = [] }: QuizManagerProps) {
       // For each quiz, get question count
       const quizzesWithCounts = await Promise.all(
         (quizzesData || []).map(async (quiz) => {
+          // Counts a granted column rather than '*': table-level SELECT on
+          // quiz_questions is revoked, so '*' would expand into the answer-key
+          // columns and fail.
           const { count } = await supabase
             .from('quiz_questions')
-            .select('*', { count: 'exact', head: true })
+            .select('id', { count: 'exact', head: true })
             .eq('quiz_id', quiz.id);
 
           // Merge quiz data with content_item data
@@ -249,10 +252,10 @@ export function QuizManager({ courseId, modules = [] }: QuizManagerProps) {
       if (quizError) throw quizError;
 
       // Duplicate quiz questions
+      // Duplicating carries the answer key across, so it reads through the
+      // authoring RPC.
       const { data: questions, error: questionsError } = await supabase
-        .from('quiz_questions')
-        .select('*')
-        .eq('quiz_id', quiz.id);
+        .rpc('get_quiz_questions_for_authoring', { p_quiz_id: quiz.id });
 
       if (questionsError) throw questionsError;
 

@@ -2,6 +2,7 @@
 // ABOUTME: title and its lesson titles via the Lovable AI Gateway.
 
 import { corsHeaders } from "../_shared/utils.ts";
+import { requireStaff } from "../_shared/auth.ts";
 
 const SYSTEM_PROMPT = `You write concise course section summaries for a learner-facing course page.
 
@@ -14,6 +15,9 @@ No preamble, no quotes.`;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const auth = await requireStaff(req);
+  if (auth.response) return auth.response;
 
   try {
     const { sectionTitle, lessonTitles, courseTitle } = await req.json();

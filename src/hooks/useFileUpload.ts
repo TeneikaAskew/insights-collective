@@ -21,10 +21,22 @@ export function useFileUpload() {
   const { toast } = useToast();
 
   const uploadFile = async (
-    file: File, 
-    bucket: 'course-images' | 'course-videos' | 'course-documents'
+    file: File,
+    bucket: 'course-images' | 'course-videos' | 'course-documents',
+    courseId: string,
+    opts?: { submissionUserId?: string }
   ): Promise<UploadedFile | null> => {
     if (!file) return null;
+
+    if (!courseId) {
+      logger.error('uploadFile called without a courseId', { bucket });
+      toast({
+        title: 'Upload Failed',
+        description: 'Could not determine which course this file belongs to.',
+        variant: 'destructive',
+      });
+      return null;
+    }
 
     try {
       setUploading(true);
@@ -33,7 +45,15 @@ export function useFileUpload() {
       // Generate unique filename
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-      const filePath = `${bucket}/${fileName}`;
+      // Path layout is load-bearing — the storage policies parse it with
+      // split_part(name, '/', n). Course materials live at <courseId>/<file>
+      // (writable only by course staff); student assignment attachments live at
+      // submissions/<courseId>/<userId>/<file>, which the course_submission_*
+      // policies authorize for the enrolled owner without granting general
+      // course-material writes.
+      const filePath = opts?.submissionUserId
+        ? `submissions/${courseId}/${opts.submissionUserId}/${fileName}`
+        : `${courseId}/${fileName}`;
 
       // Upload file
       const { data, error } = await supabase.storage
@@ -45,15 +65,18 @@ export function useFileUpload() {
 
       if (error) throw error;
 
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
+      // These buckets are private, so a public URL would not load. Hand back a
+      // signed URL for immediate preview; the object path is stored alongside it
+      // and render paths re-sign from that at read time (see utils/storageAssets).
+      const { data: signed, error: signError } = await supabase.storage
         .from(bucket)
-        .getPublicUrl(data.path);
+        .createSignedUrl(data.path, 60 * 60);
+      if (signError) throw signError;
 
       setProgress(100);
 
       return {
-        url: publicUrl,
+        url: signed.signedUrl,
         path: data.path,
         size: file.size,
         type: file.type,

@@ -3,6 +3,7 @@ import React from 'react';
 import { Settings } from 'lucide-react';
 import { Message } from './types';
 import { formatMessage } from './utils/messageFormatting';
+import { sanitizeHTML } from '@/utils/sanitize';
 
 interface MessageDisplayProps {
   message: Message;
@@ -36,7 +37,7 @@ const MessageDisplay: React.FC<MessageDisplayProps> = ({ message }) => {
           <div 
             className="prose prose-slate max-w-none"
             dangerouslySetInnerHTML={{ 
-              __html: message.content ? formatMessage(message.content) : 'Thinking...' 
+              __html: message.content ? sanitizeHTML(formatMessage(message.content)) : 'Thinking...' 
             }}
           />
         ) : (
@@ -46,8 +47,8 @@ const MessageDisplay: React.FC<MessageDisplayProps> = ({ message }) => {
               : ""}
             dangerouslySetInnerHTML={{ 
               __html: message.role === 'system' && message.content
-                ? formatMessage(message.content) 
-                : message.content || ''
+                ? sanitizeHTML(formatMessage(message.content))
+                : sanitizeHTML(message.content || '')
             }}
           />
         )}

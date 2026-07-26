@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { corsHeaders } from '../_shared/utils.ts';
+import { requireStaff } from '../_shared/auth.ts';
 
 interface RecurrenceInput {
   type: 'daily' | 'weekly' | 'biweekly' | 'monthly';
@@ -23,6 +24,11 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+
+  // Deployed with verify_jwt=false and no auth code: anyone could create
+  // cloud-recording meetings on the org's Zoom account.
+  const auth = await requireStaff(req);
+  if (auth.response) return auth.response;
 
   try {
     const {

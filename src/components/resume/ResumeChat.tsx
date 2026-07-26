@@ -3,6 +3,7 @@ import { Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
+import { sanitizeHTML } from '@/utils/sanitize';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatMessage } from '@/components/assistants/utils/messageFormatting';
 import { useToast } from '@/hooks/use-toast';
@@ -119,7 +120,7 @@ const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
       const { data, error } = await supabase.from('assistant_conversations').insert({
         user_id: user.id,
         is_active: true,
-        session_id: `resume-chat-${Date.now()}`
+        session_id: `resume-chat-${crypto.randomUUID()}`
       }).select('id').single();
       
       if (error) throw error;
@@ -691,11 +692,11 @@ Let's start by discussing your experience: **What specific challenges did you ta
                     <div 
                       className="prose prose-slate max-w-none whitespace-pre-wrap"
                       dangerouslySetInnerHTML={{ 
-                        __html: formatMessage(
+                        __html: sanitizeHTML(formatMessage(
                           // For assistant messages, use displayContent if using typing animation,
                           // otherwise just use the full content
                           message.useTypingAnimation ? (message.displayContent || '') : message.content
-                        )
+                        ))
                       }}
                     />
                   ) : (

@@ -1,6 +1,7 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.31.0'
+import { requireUser } from '../_shared/auth.ts'
 
 // Define CORS headers
 const corsHeaders = {
@@ -270,6 +271,10 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
   
+  // verify_jwt=true is satisfied by the public anon key, so require a session.
+  const auth = await requireUser(req);
+  if (auth.response) return auth.response;
+
   try {
     // Get API key from environment variable
     const apiKey = Deno.env.get('GROQ');
@@ -330,7 +335,10 @@ serve(async (req) => {
       console.warn("Supabase credentials not found, conversation tracking disabled");
       if (conversationId) historyPersisted = false;
     } else {
-      const supabase = createClient(supabaseUrl, supabaseKey);
+      // Carries the caller's JWT so RLS evaluates as that user. The bare anon
+      // client this replaced made auth.uid() null for every request, which meant
+      // conversations were read and written purely on a client-supplied id.
+      const supabase = auth.asUser;
 
       // Fetch quiz data if available
       if (quizAttemptId) {

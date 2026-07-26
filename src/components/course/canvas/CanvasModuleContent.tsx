@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { sanitizeHTML } from '@/utils/sanitize';
+import { CourseHtml } from '@/components/course/CourseHtml';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
   Dialog, 
@@ -537,6 +538,7 @@ export function CanvasModuleContent({
                 <UnifiedCanvasEditor
                   content={content}
                   onChange={setContent}
+                  courseId={courseId}
                   placeholder={`Write your ${newItemType} content here...`}
                   minHeight="400px"
                 />
@@ -563,10 +565,7 @@ export function CanvasModuleContent({
                     
                     <div className="prose prose-sm max-w-none">
                       {content ? (
-                        <div 
-                          dangerouslySetInnerHTML={{ __html: sanitizeHTML(content) }}
-                          className="leading-relaxed"
-                        />
+                        <CourseHtml html={content} className="leading-relaxed" />
                       ) : (
                         <p className="text-muted-foreground italic">
                           No content to preview. Start writing in the editor tab.

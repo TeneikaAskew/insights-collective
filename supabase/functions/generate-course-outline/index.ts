@@ -2,6 +2,7 @@
 // ABOUTME: freeform description using the Lovable AI Gateway (Gemini 2.5 Flash).
 
 import { corsHeaders } from "../_shared/utils.ts";
+import { requireStaff } from "../_shared/auth.ts";
 
 interface OutlineLesson {
   title: string;
@@ -33,6 +34,11 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+
+  // Course authoring is staff-only; verify_jwt alone just proves the caller
+  // has the public anon key.
+  const auth = await requireStaff(req);
+  if (auth.response) return auth.response;
 
   try {
     const { title, description } = await req.json();
