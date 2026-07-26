@@ -5,6 +5,7 @@ import { buildGoogleCalendarSubscribeUrl, buildWebcalUrl } from '@/utils/calenda
 import { Button } from '@/components/ui/button';
 import { Calendar, Download, Copy, Check, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { securityConfig } from '@/config/security';
 
 interface CourseCalendarSyncProps {
   courseId: string;
@@ -42,8 +43,11 @@ export function CourseCalendarSync({ courseId, courseTitle }: CourseCalendarSync
   }, [courseId]);
 
   const feedUrl = useMemo(() => {
-    const base = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, '');
-    if (!base || !feedToken) return '';
+    // main's token requirement, on this branch's base-URL source: reading the
+    // raw env var produced an empty feed URL wherever VITE_SUPABASE_URL is
+    // unset, while securityConfig carries the fallback the client already uses.
+    const base = securityConfig.supabase.url.replace(/\/$/, '');
+    if (!feedToken) return '';
     return `${base}/functions/v1/course-calendar-feed?course_id=${encodeURIComponent(courseId)}` +
       `&token=${encodeURIComponent(feedToken)}`;
   }, [courseId, feedToken]);

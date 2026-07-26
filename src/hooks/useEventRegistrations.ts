@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { isValidUUID } from '@/utils/idUtils';
 
 import { createLogger } from '@/utils/logger';
 
@@ -185,7 +186,10 @@ export const useIsRegisteredForEvent = (eventId: string) => {
   
   return useQuery({
     queryKey: ['is-registered', eventId, user?.id],
-    enabled: !!user && !!eventId,
+    // A route param that is not a UUID (a typo, a stale link) would otherwise
+    // reach Postgres and come back as 22P02, logged as an error. Match the
+    // guard useModuleProgress already applies.
+    enabled: !!user && isValidUUID(eventId),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('event_registrations')

@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Award, CheckCircle2, XCircle, ArrowLeft, ShieldAlert, Clock } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
+import { securityConfig } from '@/config/security';
 
 type VerifiedCert = {
   verification_code: string;
@@ -29,7 +30,13 @@ type State =
   | { kind: 'rate_limited'; retryIn: number }
   | { kind: 'error'; message: string };
 
-const PROJECT_ID = import.meta.env.VITE_SUPABASE_PROJECT_ID as string | undefined;
+// Resolve the functions host the same way the rest of the app resolves
+// Supabase. This used to read VITE_SUPABASE_PROJECT_ID — a variable used
+// nowhere else — and fall back to a relative path, which resolves to the SPA
+// itself. Any deployment setting VITE_SUPABASE_URL but not the project id got
+// index.html back for every lookup and showed "Verification unavailable",
+// including for valid certificates.
+const FUNCTIONS_BASE = `${securityConfig.supabase.url.replace(/\/$/, '')}/functions/v1`;
 
 export default function VerifyCertificate() {
   const { code } = useParams<{ code: string }>();
@@ -40,10 +47,7 @@ export default function VerifyCertificate() {
     (async () => {
       if (!code) { setState({ kind: 'invalid_format' }); return; }
       try {
-        const base = PROJECT_ID
-          ? `https://${PROJECT_ID}.supabase.co/functions/v1/verify-certificate`
-          : '/functions/v1/verify-certificate';
-        const res = await fetch(`${base}?code=${encodeURIComponent(code)}`, {
+        const res = await fetch(`${FUNCTIONS_BASE}/verify-certificate?code=${encodeURIComponent(code)}`, {
           headers: { 'Content-Type': 'application/json' },
         });
         const body = await res.json().catch(() => ({}));
