@@ -121,6 +121,12 @@ const IGNORED_URL_PATTERNS: RegExp[] = [
   // Vite dev server — HMR module reload returns 500 when files change mid-run
   /localhost:\d+\/src\//,
   /localhost:\d+\/node_modules\/.vite/,
+  // i.pravatar.cc — free third-party avatar host used for the landing page's
+  // testimonial portraits (CommunityShowcase). It rate-limits and 503s under a
+  // long suite, which failed landing and survey specs for a reason that has
+  // nothing to do with this app. The Avatar falls back to initials, so a failed
+  // image is a cosmetic third-party outage, not a regression.
+  /i\.pravatar\.cc/,
 ];
 
 function shouldIgnore(msg: ConsoleMessage): boolean {

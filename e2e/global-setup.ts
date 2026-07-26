@@ -150,18 +150,41 @@ async function sweepLeakedSmokeCourses(): Promise<void> {
     const res = await fetch(url, { headers });
     if (!res.ok) return;
     const rows = (await res.json()) as Array<{ id: string }>;
+    // Every delete is checked. This sweep spent months printing "Swept N" while
+    // removing nothing: RLS hid the course's certificates, so DELETE answered
+    // 204 with zero rows affected, and the final course delete then failed
+    // 23503 against the FK — an error the old `.catch(() => undefined)` threw
+    // away. Leaked courses piled up in the live catalog and on the member's
+    // dashboard, and the log said the opposite.
+    const failures: string[] = [];
+    let swept = 0;
     for (const row of rows) {
-      const del = (p: string) =>
-        fetch(`${SUPABASE_URL}/rest/v1/${p}`, { method: 'DELETE', headers }).catch(() => undefined);
+      const del = async (p: string) => {
+        try {
+          const r = await fetch(`${SUPABASE_URL}/rest/v1/${p}`, { method: 'DELETE', headers });
+          if (!r.ok) failures.push(`${p} → ${r.status} ${(await r.text()).slice(0, 160)}`);
+          return r.ok;
+        } catch (e) {
+          failures.push(`${p} → ${(e as Error).message}`);
+          return false;
+        }
+      };
       await del(`certificates?course_id=eq.${row.id}`);
       await del(`enrollments?course_id=eq.${row.id}`);
       await del(`assignments?course_id=eq.${row.id}`);
       await del(`content_items?course_id=eq.${row.id}`);
       await del(`modules?course_id=eq.${row.id}`);
-      await del(`courses?id=eq.${row.id}`);
+      if (await del(`courses?id=eq.${row.id}`)) swept++;
     }
     if (rows.length) {
-      console.log(`[global-setup] Swept ${rows.length} leaked "Smoke Course" row(s) from prior runs.`);
+      console.log(
+        `[global-setup] Swept ${swept}/${rows.length} leaked "Smoke Course" row(s) from prior runs.`,
+      );
+    }
+    if (failures.length) {
+      console.warn(
+        `[global-setup] Leaked-course sweep could not finish:\n  ${failures.join('\n  ')}`,
+      );
     }
   } catch (err) {
     console.warn(`[global-setup] Leaked-course sweep skipped: ${(err as Error).message}`);

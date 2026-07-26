@@ -1,7 +1,11 @@
 // ABOUTME: E2E — student submits an assignment inline, instructor grades it via REST, and rubric feedback + completion propagate.
 // ABOUTME: Uses real Supabase data for the seeded Introduction to Data Science course.
 import { test, expect } from '../fixtures/page-helpers';
-import { signInMember, getSupabaseAccessToken } from './_helpers/signIn';
+import {
+  signInMember,
+  getSupabaseAccessToken,
+  getInstructorAccessToken,
+} from './_helpers/signIn';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://siuqvhscuiycvdrtiqsh.supabase.co';
 const SUPABASE_KEY =
@@ -80,11 +84,16 @@ test.describe('Assignment submission → feedback → completion', () => {
     expect(submission.workflow_state).toBe('submitted');
 
 
-    // 5. Grade the submission as the instructor (test user has admin + instructor roles).
+    // 5. Grade the submission as grading staff. The member account is a plain
+    //    student: pin_assignment_grade_columns strips score/grader_comments for
+    //    anyone who isn't is_grading_staff(), and PostgREST still answers 200,
+    //    so grading with the member's own token silently wrote nothing.
+    const instructorToken = await getInstructorAccessToken(page.request);
+    const graderHeaders = { ...headers, Authorization: `Bearer ${instructorToken}` };
     const grader = await page.request.patch(
       `${SUPABASE_URL}/rest/v1/assignment_submissions?id=eq.${submission.id}`,
       {
-        headers,
+        headers: graderHeaders,
         data: {
           workflow_state: 'graded',
           score: 90,
@@ -94,6 +103,11 @@ test.describe('Assignment submission → feedback → completion', () => {
       },
     );
     expect(grader.ok(), `grade update ok (${grader.status()})`).toBeTruthy();
+    // Prefer: return=representation — assert the row really carries the grade
+    // rather than trusting a 200 that updated zero columns.
+    const graded = await grader.json();
+    expect(graded, 'PATCH matched a row').toHaveLength(1);
+    expect(Number(graded[0].score), 'score persisted past the grade-pinning trigger').toBe(90);
 
     // 6. Mark the content item complete so completion status advances (upsert)
     const prog = await page.request.post(

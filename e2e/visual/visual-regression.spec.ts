@@ -18,7 +18,22 @@ type RouteSpec = {
   role: RouteRole;
   waitFor?: string;
   fullPage?: boolean;
+  /**
+   * Selectors painted over before comparing. Use for regions whose contents are
+   * live database rows — certificates, notifications, course cards, admin
+   * tables — which the rest of this suite creates and deletes as it runs.
+   */
+  mask?: string[];
 };
+
+/**
+ * Routes whose body is a list of database rows can't be captured full-page:
+ * the row COUNT changes between runs (a certificate is issued, a notification
+ * deleted, a smoke course created), which changes the page height, and a height
+ * mismatch fails outright no matter what is masked. Capture the viewport
+ * instead, so these snapshots assert the page chrome and above-the-fold layout,
+ * and mask the rows themselves so their text doesn't churn the diff.
+ */
 
 const ROUTES: RouteSpec[] = [
   // Public
@@ -28,12 +43,24 @@ const ROUTES: RouteSpec[] = [
   { name: 'courses-catalog', path: '/courses',       role: 'public' },
 
   // Member
-  { name: 'dashboard',            path: '/dashboard',                     role: 'member' },
-  { name: 'enrolled-courses',     path: '/enrolled-courses',              role: 'member' },
-  { name: 'notifications',        path: '/notifications',                 role: 'member' },
-  { name: 'profile',              path: '/profile',                       role: 'member' },
-  { name: 'calendar',             path: '/calendar',                      role: 'member' },
-  { name: 'resume-analyzer',      path: '/resume-analyzer',               role: 'member' },
+  {
+    name: 'dashboard', path: '/dashboard', role: 'member',
+    fullPage: false, mask: ['a[href^="/courses/"]', '[data-testid="metric-in-progress"]'],
+  },
+  {
+    name: 'enrolled-courses', path: '/enrolled-courses', role: 'member',
+    fullPage: false, mask: ['a[href^="/courses/"]'],
+  },
+  {
+    name: 'notifications', path: '/notifications', role: 'member',
+    fullPage: false, mask: ['[data-notification-id]'],
+  },
+  {
+    name: 'profile', path: '/profile', role: 'member',
+    fullPage: false, mask: ['[data-testid="certificates-list"]'],
+  },
+  { name: 'calendar',        path: '/calendar',        role: 'member' },
+  { name: 'resume-analyzer', path: '/resume-analyzer', role: 'member' },
   // career-pathway is temporarily excluded: the page was redesigned (Soft
   // Studio merge of career-agent + career-pathway) so the old baseline is
   // stale, and a fresh member-authenticated baseline can't be generated in
@@ -42,11 +69,23 @@ const ROUTES: RouteSpec[] = [
   // { name: 'career-pathway',    path: '/career-pathway',                role: 'member' },
 
   // Admin
-  { name: 'admin-dashboard',       path: '/admin',                        role: 'admin' },
-  { name: 'admin-users',           path: '/admin/users',                  role: 'admin' },
-  { name: 'admin-courses',         path: '/admin/courses',                role: 'admin' },
-  { name: 'admin-activity',        path: '/admin/activity',               role: 'admin' },
-  { name: 'admin-page-visibility', path: '/admin/page-visibility',        role: 'admin' },
+  {
+    name: 'admin-dashboard', path: '/admin', role: 'admin',
+    fullPage: false, mask: ['table tbody'],
+  },
+  {
+    name: 'admin-users', path: '/admin/users', role: 'admin',
+    fullPage: false, mask: ['table tbody'],
+  },
+  {
+    name: 'admin-courses', path: '/admin/courses', role: 'admin',
+    fullPage: false, mask: ['table tbody', 'a[href^="/courses/"]'],
+  },
+  { name: 'admin-activity', path: '/admin/activity', role: 'admin', fullPage: false },
+  {
+    name: 'admin-page-visibility', path: '/admin/page-visibility', role: 'admin',
+    fullPage: false, mask: ['table tbody'],
+  },
 ];
 
 function storageStateFor(role: RouteRole): string | undefined {
@@ -101,6 +140,7 @@ test.describe('visual regression', () => {
           animations: 'disabled',
           caret: 'hide',
           maxDiffPixelRatio,
+          mask: (route.mask ?? []).map((selector) => page.locator(selector)),
         });
       } finally {
         await context.close();

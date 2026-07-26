@@ -15,6 +15,11 @@ async function signIn(page: import('@playwright/test').Page) {
   await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 20_000 });
 }
 
+// Every test here mutates the same member's notification list (mark-all-read,
+// delete). Run them one at a time so they don't invalidate each other's
+// preconditions when the suite is parallel.
+test.describe.configure({ mode: 'serial' });
+
 test.describe('Notifications center — real flow', () => {
   test.beforeEach(async ({ page }) => { await signIn(page); });
 
@@ -71,40 +76,42 @@ test.describe('Notifications center — real flow', () => {
       'Seed gap: E2E member has no notifications. Reseed at least one notification row (e.g. announcement fan-out) for the member.',
     ).toBeGreaterThan(0);
 
-    // Capture a stable fingerprint (title + message) for the specific card we
-    // delete, so we can verify that exact notification doesn't come back even
-    // if new notifications arrive from parallel fan-out flows.
+    // Identify the card by its row id, not by title+message. Assignment
+    // grading fans out one notification per grade, so the member accumulates
+    // many rows with byte-identical text ("Assignment graded: …" / "Score:
+    // 92.00"); a text fingerprint matches all of them and can never go absent.
     const firstCard = page.locator(cardSel).first();
-    const title = (await firstCard.locator('h4').first().textContent())?.trim() ?? '';
-    const message = (await firstCard.locator('p').last().textContent())?.trim() ?? '';
-    const fingerprint = `${title}::${message}`;
+    const id = await firstCard.getAttribute('data-notification-id');
+    expect(id, 'Notification cards must expose data-notification-id').toBeTruthy();
+    const deleted = page.locator(`[data-notification-id="${id}"]`);
 
+    // The card disappears optimistically, so "gone from the DOM" says nothing
+    // about persistence — reloading on the optimistic state alone cancels the
+    // in-flight DELETE and the row comes back. Wait for the request to land.
+    const deleteRequest = page.waitForResponse(
+      (r) =>
+        r.request().method() === 'DELETE' &&
+        r.url().includes('/rest/v1/notifications') &&
+        r.url().includes(id!),
+      { timeout: 15_000 },
+    );
     await firstCard.getByRole('button', { name: /delete notification/i }).click();
 
-    // Optimistic removal: the specific card is gone.
-    await expect
-      .poll(async () => {
-        const cards = page.locator(cardSel);
-        const n = await cards.count();
-        for (let i = 0; i < n; i++) {
-          const t = (await cards.nth(i).locator('h4').first().textContent())?.trim() ?? '';
-          const m = (await cards.nth(i).locator('p').last().textContent())?.trim() ?? '';
-          if (`${t}::${m}` === fingerprint) return true;
-        }
-        return false;
-      }, { timeout: 3_000 })
-      .toBe(false);
+    // Optimistic removal: that exact notification is gone.
+    await expect(deleted).toHaveCount(0, { timeout: 5_000 });
 
-    // Reload → persisted delete: that specific notification stays gone.
+    const deleteRes = await deleteRequest;
+    expect(deleteRes.status(), 'DELETE accepted by PostgREST').toBeLessThan(300);
+
+    // Reload → persisted delete: it stays gone.
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle');
-    const cards = page.locator(cardSel);
-    const n = await cards.count();
-    for (let i = 0; i < n; i++) {
-      const t = (await cards.nth(i).locator('h4').first().textContent())?.trim() ?? '';
-      const m = (await cards.nth(i).locator('p').last().textContent())?.trim() ?? '';
-      expect(`${t}::${m}`).not.toBe(fingerprint);
-    }
+    // Wait for the list to actually finish rendering — either remaining cards
+    // or the empty state — so "count 0" means deleted, not still loading.
+    await expect(
+      page.locator(cardSel).first().or(page.getByText(/nothing here/i)),
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(deleted).toHaveCount(0);
   });
 });
 

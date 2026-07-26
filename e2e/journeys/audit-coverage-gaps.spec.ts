@@ -70,11 +70,21 @@ test.describe('Audit — authenticated surfaces reachable from the main nav', ()
 
   test('non-admin cannot open /admin — either redirect or clear denial', async ({ page }) => {
     await page.goto(`${E2E_BASE_URL}/admin`, { waitUntil: 'domcontentloaded' });
-    // Wait for redirect or gate. Fail loudly if an admin table renders for a member.
-    await page.waitForLoadState('networkidle');
-    const gated = await page.getByText(/not authorized|access denied|admin access/i).isVisible().catch(() => false);
-    const redirected = !page.url().includes('/admin');
-    expect(gated || redirected).toBe(true);
+    // The gate is asynchronous: ProtectedRoute holds the route on a spinner
+    // until has_admin_access replies, so the redirect lands after the network
+    // has gone idle. Sampling once at networkidle caught the spinner instead of
+    // the verdict whenever the suite ran under load.
+    await expect
+      .poll(async () => {
+        const gated = await page
+          .getByText(/not authorized|access denied|admin access/i)
+          .isVisible()
+          .catch(() => false);
+        return gated || !page.url().includes('/admin');
+      }, { timeout: 20_000 })
+      .toBe(true);
+    // Fail loudly if an admin table renders for a member.
+    await expect(page.getByRole('table')).toHaveCount(0);
   });
 
   test('notifications icon in header opens the notifications page', async ({ page }) => {

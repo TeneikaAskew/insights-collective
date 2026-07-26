@@ -307,6 +307,7 @@ const Notifications = () => {
                 {filtered.map((n) => (
                   <Card
                     key={n.id}
+                    data-notification-id={n.id}
                     className={cn(
                       'transition-colors hover:bg-accent/40 cursor-pointer',
                       !n.is_read && 'border-l-4 border-l-primary bg-primary/5',
