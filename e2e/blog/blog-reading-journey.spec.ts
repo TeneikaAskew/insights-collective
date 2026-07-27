@@ -69,13 +69,15 @@ test.describe('Public blog reading journey', () => {
     await expect(page.getByRole('heading').first()).toBeVisible();
     await expect(page.locator('body')).not.toContainText('404');
 
-    // And the way back works — the link that used to 404.
+    // And the way back works — the link that used to 404. BlogPost.tsx renders
+    // it unconditionally in the article footer, so the assertions above having
+    // passed means we are in the success state and it must be there. Guarding
+    // this on a count would let the link disappear entirely without failing.
     const back = page.locator('a[href="/blog"]').first();
-    if (await back.count() > 0) {
-      await back.click();
-      await page.waitForURL('**/blog', { timeout: 15_000 });
-      await expect(page.locator('body')).not.toContainText('404');
-    }
+    await expect(back).toBeVisible();
+    await back.click();
+    await page.waitForURL('**/blog', { timeout: 15_000 });
+    await expect(page.locator('body')).not.toContainText('404');
   });
 
   test('drafts are never listed publicly', async ({ page }) => {

@@ -63,9 +63,10 @@ export function UnifiedExportReport({ courses }: Props) {
     const ids = courses.map((c) => c.id);
 
     const [enrollRes, itemsRes, progRes, certRes, usersRes] = await Promise.all([
-      // completion_status, not progress — enrollments has no `progress` column,
-      // so this select returned 42703 and every exported row read 0%.
-      supabase.from('enrollments').select('course_id, user_id, completion_status, created_at').in('course_id', ids),
+      // completion_status, not progress, and enrolled_at, not created_at —
+      // enrollments has neither `progress` nor `created_at`, so this select
+      // returned 42703 and the whole export aborted before writing a row.
+      supabase.from('enrollments').select('course_id, user_id, completion_status, enrolled_at').in('course_id', ids),
       supabase.from('content_items').select('id, module_id, modules!inner(course_id)').in('modules.course_id', ids),
       // workflow_state, not completed_at — same 42703. 'read' and 'completed'
       // both count as done.
@@ -137,7 +138,7 @@ export function UnifiedExportReport({ courses }: Props) {
         userId: e.user_id,
         learnerName: learner.name,
         learnerEmail: learner.email,
-        enrolledAt: e.created_at ?? '',
+        enrolledAt: e.enrolled_at ?? '',
         itemsCompleted: done,
         totalItems: total,
         progressPct: pct,
