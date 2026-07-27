@@ -26,6 +26,18 @@ what earns its place; the supporting files hold the evidence.
   convenient one.
 - **Before running a diagnostic, ask what each outcome would prove.** If failure
   would be uninformative, say so instead of running it.
+- **Suspect your own tooling first when it reports something surprising.** A
+  diagnostic that produces false defects is worse than none, because it spends
+  attention on nothing. *(Unbounded lookahead, whitespace handling, commented-out
+  code and no-arg RPC probes each produced confident wrong answers here.)*
+- **Do not add to a thing you just measured.** An untested "safety" clause
+  appended to a verified `--host-resolver-rules` string made Chromium discard the
+  whole rule, silently undoing the fix.
+- **Read the environment's own documentation before the third attempt.** An hour
+  went into proxy configurations that `/root/.ccr/README.md` already described.
+- **Green is not evidence.** After any infrastructure change, assert that data
+  *arrived* — a request count, a quoted seeded string — rather than the absence
+  of failure. Three suites went green against an app with no data at all.
 
 ## Don't make things worse to make them green
 
@@ -53,6 +65,48 @@ what earns its place; the supporting files hold the evidence.
   truncated at the PostgREST row cap and produce wrong numbers that look real.
 - **`SECURITY DEFINER` needs a pinned `search_path` and its own authorization
   check.** Prefer `INVOKER` when RLS already expresses the rule.
+- **A 2xx write is not a write.** PostgREST answers 200/204 when RLS filtered
+  every row, so `if (error)` passes and the UI reports success for something
+  that never happened. Send `Prefer: count=exact` and check the count — measured
+  at +0.3ms on a 68ms round trip, because it comes from the same statement.
+- **Know which PostgREST codes are defects by definition.** `42703`, `42P01`,
+  `22P02`, `PGRST200`, `PGRST204`, `PGRST202` mean the code asked for something
+  that does not exist and can never be "expected in this environment".
+  `PGRST116` and 401/403 are data and permission conditions — treating them the
+  same is how a check earns its way into the ignore list.
+- **Only the database can validate a query.** `types.ts` drifts;
+  `npm run audit` replays every shape against the live project and is the
+  authority.
+
+## Design and refactor
+
+- **Find the existing pattern before inventing one.** Two ways to persist the
+  same settings in one feature is a defect waiting to happen. *(The new course
+  Settings view merges into the `courses.settings` jsonb exactly as the
+  certificates and design views already did.)*
+- **Ship less, honestly, rather than more, falsely.** A control that cannot yet
+  do what it says is worse than a missing one, because it reads as a promise.
+  Ship only what has a real consumer, or label it as not-yet-wired.
+- **Default a new flag to the existing behaviour.** `enabled !== false`, not
+  `enabled === true` — the difference is whether every existing row silently
+  loses a feature on deploy.
+- **Derive a rule from its policy instead of enumerating cases.** An allow-list
+  that is the exact complement of what you blocked cannot drift; a list of hosts
+  to suppress goes stale the moment someone adds a font.
+- **Put a pass/fail rule where a unit test can reach it.** A predicate living
+  inside a Playwright fixture cannot be tested, and its negative cases are the
+  ones that matter — a rule nothing can test is how the last set of suppressions
+  drifted into hiding real defects.
+- **Narrow a security rule; do not remove it.** Allow plain HTTP for loopback
+  only; add only the configured origin to `connect-src`. Then test the
+  rejections (`http://127.0.0.1.evil.com` must still fail), not just the
+  acceptances.
+- **Fix order dependencies, not just items.** If you are about to remove a
+  workaround, find what it was working around first — otherwise you recreate the
+  symptom.
+- **Let the tooling own process lifecycle.** Playwright's `webServer` with
+  `reuseExistingServer` replaced several rounds of hand-rolled start/kill, one
+  of which killed its own shell.
 
 ## Secrets
 
@@ -74,6 +128,20 @@ what earns its place; the supporting files hold the evidence.
 - **Review generated artifacts by eye.** A green guard and plausible byte counts
   are not review — reading a regenerated screenshot is the only reason a real
   user-facing defect was found here.
+- **Never put an assertion inside a condition the failure switches off.**
+  `if (await x.count() > 0) { expect(…) }` passes whether the feature works or
+  is absent. Assert the expected state, or seed the data and assert
+  unconditionally. Banned by `no-restricted-syntax` in `eslint.config.js`.
+- **A mock must reject what the real thing rejects.** `rpc: vi.fn()` accepting
+  any string is how 893 tests stayed green against a function that never
+  existed.
+- **No third party may decide whether the suite passes.** `page.goto` waits for
+  `load`, so one slow CDN gates every navigation. Keep the browser hermetic —
+  but not in CI, where blocking fonts and images changes what every page renders
+  and invalidates every visual baseline.
+- **Landing a rule against an existing backlog:** ship the rule, mark the
+  existing violations with a one-time disable and a greppable TODO. Failing lint
+  everywhere gets the rule reverted; excluding the directory hides the debt.
 
 ## Reporting
 
@@ -101,6 +169,14 @@ what earns its place; the supporting files hold the evidence.
   radius. Specifics let the user decide in seconds; "this is risky" does not.
 - **Finding a real problem does not mean fixing it now.** State it, size it, and
   make scope a deliberate choice.
+- **Prefer the read-only proof.** To show a monitor can fire, run its predicate
+  against a masked copy rather than deleting a row inside a transaction you
+  intend to roll back. If the only proof you can think of is destructive, think
+  again.
+- **Ask for the least authority that works.** "I can't get at X" usually
+  decomposes into *can't reach* and *can't read*; reaching for the more powerful
+  credential is the expensive way to avoid asking which one you have. *(The
+  audit needed no management token — `authenticated` already reads `pg_proc`.)*
 
 ## Deletion
 
@@ -111,3 +187,8 @@ what earns its place; the supporting files hold the evidence.
   nothing renders the component in question. Resolve conflicts by reading both
   sides' intent, then verify with a targeted search
   (`rg -n "AdminGuard" src` → must return nothing).
+- **Unreferenced is not the same as removed.** A reachability check says what
+  *runs*, not whether a *capability* survived. Enumerate the actions a file
+  offers and confirm each one landed somewhere. *(A dead settings form held the
+  only working delete-course in the app; its save was a `setTimeout` and a fake
+  toast, and the delete was real.)*

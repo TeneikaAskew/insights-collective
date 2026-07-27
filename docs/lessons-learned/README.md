@@ -1,10 +1,15 @@
-# Lessons learned — admin remediation + blog consolidation
+# Lessons learned
 
-Written from a single long working session (PR #28) that spanned an eight-phase
+Files 00–07 come from one long working session (PR #28) spanning an eight-phase
 blog consolidation, an admin redesign, eight production migrations, and roughly
-a dozen CI round-trips. It is deliberately unflattering where that is accurate:
-the most useful entries are the mistakes, because each one has a cheap
-preventive check that was skipped.
+a dozen CI round-trips. Files 08–11 come from a second session — the
+query-validity audit — and are kept separate because their failures have a
+distinct shape: not mistakes made while building, but defects that had been live
+for months without anything noticing.
+
+Both sets are deliberately unflattering where that is accurate: the most useful
+entries are the mistakes, because each one has a cheap preventive check that was
+skipped.
 
 ## How to use this
 
@@ -23,6 +28,10 @@ faith.
 | `05-authorization-and-consent.md` | What to do without asking, what never to |
 | `06-honest-reporting.md` | Claiming only what was proven |
 | `07-proposed-claude-md-additions.md` | **The distilled rules** |
+| `08-silent-failures-and-the-query-audit.md` | Successes that did nothing, and the gate that catches them |
+| `09-corrections-and-process.md` | Where pushback changed the outcome, and the order that mattered |
+| `10-design-refactor-deletion.md` | Choosing what to build, narrow, and remove |
+| `11-repo-and-stack-specifics.md` | Verified stack facts worth not rediscovering |
 
 ## The one-paragraph version
 
