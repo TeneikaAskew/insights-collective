@@ -180,15 +180,25 @@ BEGIN
        AND verification_code = 'E2EMEMBERCERT'
        AND course_id <> v_course_id;
 
+    -- issued_at is pinned, not now(): the My Certificates card renders it as
+    -- "Issued {toLocaleDateString()}", and that text is inside the /profile
+    -- visual snapshot. With now() the baseline would match on the day it was
+    -- captured and drift the next day -- and only on a database where this row
+    -- happened to be recreated, which is the kind of failure that looks random.
+    -- Midday UTC so the rendered date is the same calendar day across any
+    -- plausible runner timezone (CI runs UTC and sets no timezoneId).
+    -- Assigned on update too, so an existing row created by an older revision
+    -- of this seed is corrected rather than keeping its original timestamp.
     INSERT INTO public.certificates (user_id, course_id, certificate_type, certificate_data, verification_code, issued_at)
     VALUES (
       v_member_id, v_course_id, 'completion',
       jsonb_build_object('completion_percentage', 100, 'total_items', 11, 'auto_issued', false, 'seeded_for', 'e2e'),
-      'E2EMEMBERCERT', now()
+      'E2EMEMBERCERT', timestamptz '2026-07-27 12:00:00+00'
     )
     ON CONFLICT (user_id, course_id) DO UPDATE
     SET verification_code = EXCLUDED.verification_code,
-        certificate_data = EXCLUDED.certificate_data;
+        certificate_data = EXCLUDED.certificate_data,
+        issued_at = EXCLUDED.issued_at;
   END IF;
 END $$;
 
