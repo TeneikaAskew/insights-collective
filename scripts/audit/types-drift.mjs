@@ -28,7 +28,21 @@
 
 import fs from 'node:fs';
 
-const TYPES_FILE = 'src/integrations/supabase/types.ts';
+/**
+ * Every file declaring a `Database` shape TypeScript checks queries against.
+ *
+ * There used to be two. `src/integrations/supabase/client.ts` passed a
+ * hand-written 214-line subset from `@/types/supabase` to `createClient`, so
+ * *that* typed every `.from()` call while this gate validated the generated
+ * file — the gate was holding the wrong declaration to the database and could
+ * pass while the one the compiler applied was stale.
+ *
+ * The client now uses the generated file and the hand-written `Database` is
+ * gone, so this list has one entry. It stays a list because the failure mode
+ * was a second declaration appearing unnoticed; add any new one here.
+ * (Caught in review on PR #30.)
+ */
+const TYPES_FILES = ['src/integrations/supabase/types.ts'];
 
 const URL_BASE = process.env.VITE_SUPABASE_URL ?? 'https://siuqvhscuiycvdrtiqsh.supabase.co';
 const ANON =
@@ -139,11 +153,26 @@ if (live.size === 0) {
   process.exit(2);
 }
 
-const declared = parseTypes(fs.readFileSync(TYPES_FILE, 'utf8'));
-if (declared.size === 0) {
-  console.error(`could not parse any tables out of ${TYPES_FILE} — has the generated shape changed?`);
-  process.exit(2);
+/** relation -> Set(column), plus which file declared each relation, for reporting. */
+const declared = new Map();
+const declaredIn = new Map();
+for (const file of TYPES_FILES) {
+  const parsed = parseTypes(fs.readFileSync(file, 'utf8'));
+  if (parsed.size === 0) {
+    console.error(`could not parse any tables out of ${file} — has its shape changed?`);
+    process.exit(2);
+  }
+  console.log(`  ${file}: ${parsed.size} relation(s)`);
+  for (const [relation, cols] of parsed) {
+    if (!declared.has(relation)) declared.set(relation, new Set());
+    for (const c of cols) declared.get(relation).add(c);
+    if (!declaredIn.has(relation)) declaredIn.set(relation, new Set());
+    declaredIn.get(relation).add(file);
+  }
 }
+
+/** Which file(s) to name in a message about `relation`. */
+const where = (relation) => [...(declaredIn.get(relation) ?? [])].join(' + ');
 
 // Types claiming something the database does not have is the dangerous
 // direction: the compiler blesses a query PostgREST will reject at runtime,
@@ -168,26 +197,28 @@ for (const [table, cols] of declared) {
   if (added.length) missingColumns.push({ table, added });
 }
 
-for (const t of staleTables) console.error(`  STALE  types declare table "${t}" — it does not exist in the database`);
+for (const t of staleTables) {
+  console.error(`  STALE  ${where(t)} declares table "${t}" — it does not exist in the database`);
+}
 for (const { table, gone } of staleColumns) {
-  console.error(`  STALE  ${table}: types declare column(s) the database does not have — ${gone.join(', ')}`);
+  console.error(`  STALE  ${table} (${where(table)}): declares column(s) the database does not have — ${gone.join(', ')}`);
 }
 
 const behind = missingTables.length + missingColumns.length;
 if (behind) {
-  console.log(`\n${TYPES_FILE} is behind the database (not a failure, but regenerate it):`);
+  console.log(`\n${TYPES_FILES[0]} is behind the database (not a failure, but regenerate it):`);
   for (const t of missingTables) console.log(`  +  table ${t}`);
   for (const { table, added } of missingColumns) console.log(`  +  ${table}.${added.join(', ')}`);
   console.log('\n  npx supabase gen types typescript --project-id "$VITE_SUPABASE_PROJECT_ID" \\');
-  console.log(`    > ${TYPES_FILE}`);
+  console.log(`    > ${TYPES_FILES[0]}`);
 }
 
 if (staleTables.length || staleColumns.length) {
   console.error(
-    `\nFAIL — ${TYPES_FILE} describes ${staleTables.length + staleColumns.length} thing(s) the database does not have.`,
+    `\nFAIL — the committed types describe ${staleTables.length + staleColumns.length} thing(s) the database does not have.`,
   );
   console.error('TypeScript will accept queries against them; PostgREST will reject them at runtime.');
   process.exit(1);
 }
 
-console.log(`\nOK — every table and column ${TYPES_FILE} declares exists in the database.`);
+console.log(`\nOK — every table and column ${TYPES_FILES.join(' and ')} declare exists in the database.`);

@@ -70,6 +70,28 @@ function hermeticArgs(): string[] {
   return [`--host-resolver-rules=${rules.join(',')}`];
 }
 
+/**
+ * The Firefox equivalent of hermeticArgs(), and gated identically.
+ *
+ * Outside relay mode Firefox gets no proxy at all, so it reaches Supabase, the
+ * fonts and the images exactly as Chromium does. Inside relay mode everything
+ * but loopback goes to a closed port, and the relay — which is what Supabase
+ * traffic actually goes to there — is exempted by `no_proxies_on`.
+ */
+function firefoxHermeticOptions(): { firefoxUserPrefs?: Record<string, unknown> } {
+  if (process.env.E2E_USE_RELAY !== '1') return {};
+  return {
+    firefoxUserPrefs: {
+      'network.proxy.type': 1,
+      'network.proxy.http': '127.0.0.1',
+      'network.proxy.http_port': 1,
+      'network.proxy.ssl': '127.0.0.1',
+      'network.proxy.ssl_port': 1,
+      'network.proxy.no_proxies_on': 'localhost, 127.0.0.1',
+    },
+  };
+}
+
 const HERMETIC_ARGS = hermeticArgs();
 
 export default defineConfig({
@@ -218,18 +240,18 @@ export default defineConfig({
         storageState: path.join(SESSIONS_DIR, 'member.json'),
         navigationTimeout: 45_000,
         actionTimeout: 20_000,
-        // Firefox ignores --host-resolver-rules, so get the same hermetic
-        // behaviour by pointing all non-local traffic at a closed port.
-        launchOptions: {
-          firefoxUserPrefs: {
-            'network.proxy.type': 1,
-            'network.proxy.http': '127.0.0.1',
-            'network.proxy.http_port': 1,
-            'network.proxy.ssl': '127.0.0.1',
-            'network.proxy.ssl_port': 1,
-            'network.proxy.no_proxies_on': 'localhost, 127.0.0.1',
-          },
-        },
+        // Firefox ignores --host-resolver-rules, so the equivalent hermetic
+        // block is a proxy pointed at a closed port.
+        //
+        // Gated on relay mode for the same reason hermeticArgs() is, and the
+        // omission here was a real defect: unconditionally, this sent *every*
+        // HTTPS host to the closed port — including the Supabase project. Global
+        // setup authenticates in Node and hands Firefox a stored token, so the
+        // pages still rendered while every data request died, and the dashboard
+        // and course-list specs asserted against empty state and passed. A suite
+        // that goes green against an app with no data is worse than one that
+        // fails. (Caught in review on PR #30.)
+        launchOptions: firefoxHermeticOptions(),
       },
       timeout: 90_000,
       testMatch: [
