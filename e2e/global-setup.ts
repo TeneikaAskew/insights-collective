@@ -67,6 +67,22 @@ async function signInViaApi(email: string, password: string) {
   return res.json();
 }
 
+// Cheap probe: can this account already sign in with the shared password? The
+// probe session is revoked immediately (scope=local) so it does not accumulate
+// a row per CI run.
+async function passwordWorks(email: string, password: string): Promise<boolean> {
+  try {
+    const session = await signInViaApi(email, password);
+    await fetch(`${SUPABASE_URL}/auth/v1/logout?scope=local`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${session.access_token}` },
+    }).catch(() => {});
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // Uses the admin-users edge function's setE2EPassword action, which is narrowly
 // scoped to the three dedicated e2e-* accounts. Requires an admin JWT.
 async function bootstrapPassword(adminToken: string, email: string, password: string) {
@@ -225,6 +241,18 @@ async function globalSetup(config: FullConfig): Promise<void> {
         const target = TEST_USERS[role];
         if (!target.email) continue;
         if (target.password === SHARED_PASSWORD) {
+          // Only set the password if it is not already correct. Setting it
+          // revokes every existing session for that account, and this suite
+          // runs against a shared Supabase project — so an unconditional
+          // bootstrap deletes the sessions of any run already in flight for
+          // another branch. Those runs then fail scattered specs with
+          // `session_not_found` on /auth/v1/user, or silently drop to the
+          // anon role and hit `42501 permission denied`. Both look like
+          // product bugs and are not.
+          if (await passwordWorks(target.email, SHARED_PASSWORD)) {
+            console.log(`[global-setup] Password already valid for ${role} (${target.email})`);
+            continue;
+          }
           const ok = await bootstrapPassword(adminSession.access_token, target.email, SHARED_PASSWORD);
           if (ok) console.log(`[global-setup] Bootstrapped password for ${role} (${target.email})`);
         }

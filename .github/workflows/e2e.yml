@@ -7,6 +7,15 @@ on:
     branches: [main, develop]
   workflow_dispatch:
 
+# Every run of this suite drives the same live Supabase project through the same
+# three e2e-* accounts, so two runs cannot share the wall clock: they seed over
+# each other's fixtures and revoke each other's sessions. The group is
+# deliberately a constant rather than per-ref — the point is one E2E run at a
+# time across the whole repository, not one per branch.
+concurrency:
+  group: e2e-shared-supabase
+  cancel-in-progress: false
+
 jobs:
   e2e:
     name: Playwright E2E
