@@ -69,7 +69,70 @@ jobs:
       uses: github/codeql-action/autobuild@v3
     
     - name: Perform CodeQL Analysis
+      id: codeql
       uses: github/codeql-action/analyze@v3
+      with:
+        output: sarif-results
+
+    # CodeQL reports its findings as check-run *annotations*, which are not in
+    # the check output, the job log, or as review comments — so a red CodeQL
+    # check is undiagnosable from anything the API returns, and the only way to
+    # see what it found is the Security tab in a browser. That cost several
+    # cycles on PR #30 of knowing only a count.
+    #
+    # Same reasoning as the E2E job teeing its failure list to stdout: whatever
+    # explains a red check has to land somewhere the log API returns.
+    - name: Summarise CodeQL findings
+      if: always()
+      run: |
+        shopt -s nullglob
+        files=(sarif-results/*.sarif)
+        if [ ${#files[@]} -eq 0 ]; then
+          echo "no SARIF produced — analysis did not complete"
+          exit 0
+        fi
+        for f in "${files[@]}"; do
+          echo "## $(basename "$f")" >> $GITHUB_STEP_SUMMARY
+          node -e "
+            const sarif = JSON.parse(require('fs').readFileSync('$f','utf8'));
+            for (const run of sarif.runs || []) {
+              const rules = new Map(
+                (run.tool?.driver?.rules || []).map(r => [r.id, r])
+              );
+              const rows = (run.results || []).map(res => {
+                const rule = rules.get(res.ruleId) || {};
+                const sev = rule.properties?.['security-severity'];
+                const loc = res.locations?.[0]?.physicalLocation || {};
+                return {
+                  sev: sev ? Number(sev) : null,
+                  level: rule.defaultConfiguration?.level || res.level || 'note',
+                  id: res.ruleId,
+                  file: loc.artifactLocation?.uri || '?',
+                  line: loc.region?.startLine ?? '?',
+                  msg: (res.message?.text || '').split('\n')[0].slice(0, 160),
+                };
+              });
+              // Highest security-severity first; unscored quality rules last.
+              rows.sort((a, b) => (b.sev ?? -1) - (a.sev ?? -1));
+              console.log(rows.length + ' result(s)');
+              for (const r of rows) {
+                const band = r.sev === null ? r.level
+                  : r.sev >= 9 ? 'critical' : r.sev >= 7 ? 'high'
+                  : r.sev >= 4 ? 'medium' : 'low';
+                console.log(\`  \${band.padEnd(8)} \${r.id}\n      \${r.file}:\${r.line}\n      \${r.msg}\`);
+              }
+            }
+          " 2>&1 | tee -a $GITHUB_STEP_SUMMARY
+        done
+
+    - name: Upload CodeQL SARIF
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: codeql-sarif
+        path: sarif-results/*.sarif
+        if-no-files-found: ignore
+        retention-days: 14
 
   license-check:
     name: License Compliance Check
