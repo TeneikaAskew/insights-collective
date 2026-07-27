@@ -1,5 +1,6 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
+import { requireAdminOrService } from '../_shared/auth.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -323,9 +324,15 @@ Deno.serve(async (req) => {
   // req.json() inside the catch block, but the body stream was already consumed
   // — so failed automated runs always parsed as {} and were never logged as
   // automated failures. Parse once, up front.
+  // Deployed with verify_jwt=false and holding a service-role client.
+  const auth = await requireAdminOrService(req)
+  if (auth.response) return auth.response
+
   const body = await req.json().catch(() => ({}))
-  const isAutomated = body.automated || false
-  const source = body.source || 'manual'
+  // `automated` and `source` land in the cron audit log, so they are only
+  // trusted from a service-role caller — a human admin's run is always 'manual'.
+  const isAutomated = auth.isService ? (body.automated || false) : false
+  const source = auth.isService ? (body.source || 'manual') : 'manual'
 
   try {
     console.log('Tweet scraping function called')

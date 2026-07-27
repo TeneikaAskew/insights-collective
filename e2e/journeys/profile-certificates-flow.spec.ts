@@ -3,7 +3,7 @@
 // ABOUTME: a working verification link renders — never a silent pass.
 import { test, expect } from '@playwright/test';
 
-const BASE = process.env.E2E_BASE_URL ?? 'http://localhost:8080';
+const BASE = process.env.E2E_BASE_URL || 'http://localhost:8080';
 
 async function gotoProfile(page: import('@playwright/test').Page) {
   await page.goto(`${BASE}/profile`, { waitUntil: 'domcontentloaded' });

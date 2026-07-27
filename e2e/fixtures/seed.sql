@@ -67,6 +67,17 @@ SELECT '660e8400-e29b-41d4-a716-446655440001', 'Welcome.pdf',
 FROM public.courses c WHERE c.id = '660e8400-e29b-41d4-a716-446655440001'
 ON CONFLICT DO NOTHING;
 
+-- Seed the event the specs deep-link to. Without this the default id in
+-- e2e/helpers/route-helpers.ts resolves to Event Not Found on a fresh
+-- database, and event-detail.spec.ts still passes on generic headings —
+-- false-green coverage rather than a tested page.
+INSERT INTO public.events (id, title, description, type, format, date, location, capacity)
+VALUES ('dd0e8400-e29b-41d4-a716-446655440001',
+        'Data Science Career Panel',
+        'A panel of working data scientists on breaking into the field.',
+        'panel', 'virtual', CURRENT_DATE + 30, 'Zoom', 100)
+ON CONFLICT (id) DO NOTHING;
+
 -- Assert deterministic invariants so a failed seed surfaces before tests run.
 DO $$
 DECLARE
@@ -76,6 +87,13 @@ BEGIN
    WHERE id::text LIKE '660e8400%';
   IF NOT v_ok THEN
     RAISE EXCEPTION 'E2E SEED FAILED: expected at least 5 fixture courses (660e8400-...)';
+  END IF;
+
+  SELECT EXISTS (
+    SELECT 1 FROM public.events WHERE id = 'dd0e8400-e29b-41d4-a716-446655440001'
+  ) INTO v_ok;
+  IF NOT v_ok THEN
+    RAISE EXCEPTION 'E2E SEED FAILED: fixture event dd0e8400-...0001 missing; event specs would pass against a Not Found page';
   END IF;
 END $$;
 

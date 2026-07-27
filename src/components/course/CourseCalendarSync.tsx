@@ -1,9 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useCourseCalendar } from '@/hooks/useCourseCalendar';
+import { supabase } from '@/integrations/supabase/client';
 import { buildGoogleCalendarSubscribeUrl, buildWebcalUrl } from '@/utils/calendarIcs';
 import { Button } from '@/components/ui/button';
 import { Calendar, Download, Copy, Check, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { securityConfig } from '@/config/security';
 
 interface CourseCalendarSyncProps {
   courseId: string;
@@ -16,11 +18,39 @@ export function CourseCalendarSync({ courseId, courseTitle }: CourseCalendarSync
   const [copied, setCopied] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
-  const feedUrl = useMemo(() => {
-    const base = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, '');
-    if (!base) return '';
-    return `${base}/functions/v1/course-calendar-feed?course_id=${encodeURIComponent(courseId)}`;
+  // The feed URL carries a per-enrollment token: a calendar client subscribing
+  // to an ICS URL cannot send an Authorization header, so the token is what
+  // identifies the subscriber to the edge function.
+  const [feedToken, setFeedToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadToken = async () => {
+      const { data, error } = await supabase.rpc('get_my_calendar_feed_token', {
+        p_course_id: courseId,
+      });
+      if (cancelled) return;
+      if (error) {
+        setFeedToken(null);
+        return;
+      }
+      setFeedToken(typeof data === 'string' ? data : null);
+    };
+    loadToken();
+    return () => {
+      cancelled = true;
+    };
   }, [courseId]);
+
+  const feedUrl = useMemo(() => {
+    // main's token requirement, on this branch's base-URL source: reading the
+    // raw env var produced an empty feed URL wherever VITE_SUPABASE_URL is
+    // unset, while securityConfig carries the fallback the client already uses.
+    const base = securityConfig.supabase.url.replace(/\/$/, '');
+    if (!feedToken) return '';
+    return `${base}/functions/v1/course-calendar-feed?course_id=${encodeURIComponent(courseId)}` +
+      `&token=${encodeURIComponent(feedToken)}`;
+  }, [courseId, feedToken]);
 
   const handleDownloadICS = async () => {
     if (!feedUrl) return;
@@ -75,7 +105,7 @@ export function CourseCalendarSync({ courseId, courseTitle }: CourseCalendarSync
           size="sm"
           className="w-full justify-start gap-2 text-sm font-normal"
           onClick={handleDownloadICS}
-          disabled={isLoading || downloading}
+          disabled={isLoading || downloading || !feedUrl}
         >
           <Download className="h-4 w-4 text-neutral-500" />
           Download .ics file
@@ -122,6 +152,11 @@ export function CourseCalendarSync({ courseId, courseTitle }: CourseCalendarSync
           </Button>
         )}
       </div>
+      {!feedUrl && !isLoading && (
+        <p className="text-xs text-neutral-500 mt-2">
+          Calendar sync is available once you are enrolled in this course.
+        </p>
+      )}
       {events.length === 0 && !isLoading && (
         <p className="text-xs text-neutral-500 mt-2">
           No events yet. Add assignments, quizzes, or events to populate the calendar.

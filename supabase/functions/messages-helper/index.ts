@@ -52,49 +52,54 @@ serve(async (req) => {
       });
     }
 
-    // The parameter that identifies the acting user differs per action.
-    const actingUserId = requestBody.userId ?? requestBody.currentUserId ?? requestBody.senderId;
-    if (actingUserId && actingUserId !== caller.id) {
-      console.error(`[messages-helper] Caller ${caller.id} attempted to act as ${actingUserId} (action: ${action})`);
+    // The parameter that identifies the acting user differs per action. The
+    // guard used to be `if (actingUserId && ...)`, which meant a request that
+    // simply omitted the field skipped the check entirely and fell through to a
+    // service-role query with `undefined` as the user id. The acting user is now
+    // always the caller — the body cannot influence it at all.
+    const claimedUserId = requestBody.userId ?? requestBody.currentUserId ?? requestBody.senderId;
+    if (claimedUserId && claimedUserId !== caller.id) {
+      console.error(`[messages-helper] Caller ${caller.id} attempted to act as ${claimedUserId} (action: ${action})`);
       return new Response(JSON.stringify({ error: 'Forbidden: cannot act on behalf of another user' }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+    const actingUserId = caller.id;
 
     console.log(`[messages-helper] Processing action: ${action}`);
 
     let result;
     switch (action) {
       case 'getConversations':
-        result = await getConversations(supabaseAdmin, requestBody.userId);
+        result = await getConversations(supabaseAdmin, actingUserId);
         break;
       case 'getArchivedConversations':
-        result = await getArchivedConversations(supabaseAdmin, requestBody.userId);
+        result = await getArchivedConversations(supabaseAdmin, actingUserId);
         break;
       case 'getDeletedConversations':
-        result = await getDeletedConversations(supabaseAdmin, requestBody.userId);
+        result = await getDeletedConversations(supabaseAdmin, actingUserId);
         break;
       case 'createConversation':
-        result = await createConversation(supabaseAdmin, requestBody.subject, requestBody.recipientIds, requestBody.currentUserId);
+        result = await createConversation(supabaseAdmin, requestBody.subject, requestBody.recipientIds, actingUserId);
         break;
       case 'checkOneOnOneConversation':
-        result = await checkOneOnOneConversation(supabaseAdmin, requestBody.currentUserId, requestBody.otherUserId);
+        result = await checkOneOnOneConversation(supabaseAdmin, actingUserId, requestBody.otherUserId);
         break;
       case 'sendMessage':
-        result = await sendMessage(supabaseAdmin, requestBody.senderId, requestBody.conversationId, requestBody.content, requestBody.attachmentUrl);
+        result = await sendMessage(supabaseAdmin, actingUserId, requestBody.conversationId, requestBody.content, requestBody.attachmentUrl);
         break;
       case 'archiveConversation':
-        result = await archiveConversation(supabaseAdmin, requestBody.conversationId, requestBody.userId);
+        result = await archiveConversation(supabaseAdmin, requestBody.conversationId, actingUserId);
         break;
       case 'unarchiveConversation':
-        result = await unarchiveConversation(supabaseAdmin, requestBody.conversationId, requestBody.userId);
+        result = await unarchiveConversation(supabaseAdmin, requestBody.conversationId, actingUserId);
         break;
       case 'deleteConversation':
-        result = await deleteConversation(supabaseAdmin, requestBody.conversationId, requestBody.userId);
+        result = await deleteConversation(supabaseAdmin, requestBody.conversationId, actingUserId);
         break;
       case 'restoreConversation':
-        result = await restoreConversation(supabaseAdmin, requestBody.conversationId, requestBody.userId);
+        result = await restoreConversation(supabaseAdmin, requestBody.conversationId, actingUserId);
         break;
       default:
         throw new Error(`Unknown action: ${action}`);
@@ -510,7 +515,28 @@ async function checkOneOnOneConversation(supabaseAdmin: any, currentUserId: stri
 
 async function sendMessage(supabaseAdmin: any, senderId: string, conversationId: string, content: string, attachmentUrl?: string) {
   console.log(`[messages-helper/sendMessage] Sending message in conversation: ${conversationId}`);
-  
+
+  // Every query here runs with the service role, which bypasses RLS, so the
+  // participant check the database would normally enforce has to happen here.
+  // Without it a signed-in user could post into any conversation just by
+  // guessing its id — the same hole the self-referential WITH CHECK left open
+  // on the direct table path.
+  const { data: participant, error: participantError } = await supabaseAdmin
+    .from('conversation_participants')
+    .select('user_id')
+    .eq('conversation_id', conversationId)
+    .eq('user_id', senderId)
+    .maybeSingle();
+
+  if (participantError) {
+    throw new Error(`Failed to verify conversation membership: ${participantError.message}`);
+  }
+
+  if (!participant) {
+    console.error(`[messages-helper/sendMessage] ${senderId} is not a participant in ${conversationId}`);
+    throw new Error('Not a participant in this conversation');
+  }
+
   // Insert the message
   const { error: messageError } = await supabaseAdmin
     .from('messages')

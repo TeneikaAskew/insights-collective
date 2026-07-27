@@ -13,7 +13,14 @@
 
 const SUPABASE_URL =
   process.env.VITE_SUPABASE_URL || 'https://siuqvhscuiycvdrtiqsh.supabase.co';
-const ANON_KEY = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
+// Falls back to the project's anon key, exactly as e2e/global-setup.ts and
+// src/config/security.ts already do. Without a fallback this preflight sent
+// PostgREST an empty apikey, so every check 401'd and the whole suite failed
+// here before a single test ran whenever the CI secret was unset. The anon key
+// is public by design — it ships in the frontend bundle.
+const ANON_KEY =
+  process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNpdXF2aHNjdWl5Y3ZkcnRpcXNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQyMDU0MTUsImV4cCI6MjA1OTc4MTQxNX0.CbAWzKbUfbqYKAZr93jAQm8z8chbNoTe0EnK-E_4u9w';
 const COURSE_ID =
   process.env.E2E_TEST_COURSE_ID || '660e8400-e29b-41d4-a716-446655440001';
 const INSTRUCTOR_COURSE_ID =

@@ -189,11 +189,19 @@ const ReportCanvas: React.FC<ReportCanvasProps> = ({ report, revealStage }) => {
       {live('takeaways') && report?.keyTakeaways?.length ? (
         <CanvasCard>
           <CardLabel>Key takeaways</CardLabel>
-          <div className="flex flex-wrap gap-2">
+          {/* Full sentences of advice, so they are set as a read rather than
+              crammed into chips — chips are for short labels like a salary
+              range or a timeline. */}
+          <ul className="m-0 p-0 list-none">
             {report.keyTakeaways.map((takeaway, idx) => (
-              <span key={idx} className="ss-chip !whitespace-normal">{takeaway}</span>
+              <li
+                key={idx}
+                className="text-[0.95rem] leading-relaxed max-w-[62ch] py-3 border-b border-ss-track first:pt-0 last:pb-0 last:border-b-0"
+              >
+                {takeaway}
+              </li>
             ))}
-          </div>
+          </ul>
         </CanvasCard>
       ) : (
         <Ghost>Key takeaways — appears when your report is generated</Ghost>

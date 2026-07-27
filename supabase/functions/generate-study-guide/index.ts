@@ -3,6 +3,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
 import { corsHeaders, handleError, safeParseJSON } from "../_shared/utils.ts";
+import { requireUser } from "../_shared/auth.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const GROQ_API_KEY = Deno.env.get("GROQ");
@@ -160,7 +161,7 @@ Return ONLY the JSON object with no additional text.`;
   return parsedResult.data.selected_areas;
 }
 
-async function generateStudyGuide(jobDescriptionId: string) {
+async function generateStudyGuide(jobDescriptionId: string, callerId: string) {
   console.log(`[generateStudyGuide] Starting enhanced study guide generation for job description ID: ${jobDescriptionId}`);
   
   try {
@@ -180,6 +181,14 @@ async function generateStudyGuide(jobDescriptionId: string) {
     if (jobDescriptionError) {
       console.error(`[generateStudyGuide] Error fetching job description:`, jobDescriptionError);
       throw handleError(jobDescriptionError);
+    }
+
+    // Service-role client bypasses RLS, so ownership is re-checked here. A bare
+    // job-description id previously let anyone read someone else's job posting
+    // and insert a study_guides row owned by that victim.
+    if (jobDescription && jobDescription.user_id !== callerId) {
+      console.warn(`[generateStudyGuide] Caller ${callerId} does not own job description ${jobDescriptionId}`);
+      throw new Error("Job description not found");
     }
 
     if (!jobDescription) {
@@ -366,6 +375,9 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  const auth = await requireUser(req);
+  if (auth.response) return auth.response;
+
   try {
     const requestData = await req.json();
     console.log(`[generate-study-guide] Request received with data:`, {
@@ -386,7 +398,7 @@ serve(async (req) => {
     }
 
     console.log(`[generate-study-guide] Processing request for job description ID: ${jobDescriptionId}`);
-    const studyGuideData = await generateStudyGuide(jobDescriptionId);
+    const studyGuideData = await generateStudyGuide(jobDescriptionId, auth.user.id);
     console.log(`[generate-study-guide] Enhanced study guide generated successfully, returning response`);
 
     return new Response(JSON.stringify(studyGuideData), {

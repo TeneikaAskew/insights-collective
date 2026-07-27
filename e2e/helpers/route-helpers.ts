@@ -16,7 +16,11 @@ export const TestIds = {
   submissionId: process.env.E2E_TEST_SUBMISSION_ID || 'test-submission-id',
   forumId: process.env.E2E_TEST_FORUM_ID || '1',
   threadId: process.env.E2E_TEST_THREAD_ID || 'test-thread-id',
-  eventId: process.env.E2E_TEST_EVENT_ID || 'test-event-id',
+  // Seeded event (supabase/migrations/20260718121602_*.sql). The old
+  // 'test-event-id' placeholder is not a UUID, so the app issued a query
+  // Postgres rejected with 22P02 and the console-error fixture failed the
+  // spec — testing the placeholder rather than the page.
+  eventId: process.env.E2E_TEST_EVENT_ID || 'dd0e8400-e29b-41d4-a716-446655440001',
   blogSlug: process.env.E2E_TEST_BLOG_SLUG || 'test-blog-post',
   surveySlug: process.env.E2E_TEST_SURVEY_SLUG || 'test-survey',
   surveyFormId: process.env.E2E_TEST_SURVEY_FORM_ID || 'test-form-id',

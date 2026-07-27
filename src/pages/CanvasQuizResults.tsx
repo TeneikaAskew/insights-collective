@@ -109,7 +109,9 @@ export default function CanvasQuizResults() {
       const quizData = await CanvasContentService.getQuiz(submissionData.quiz_id);
       if (!quizData) throw new Error('Quiz not found');
       setQuiz(quizData);
-      setQuestions(quizData.questions || []);
+      // Post-submission the same RPC reveals the key, subject to the quiz's
+      // show_correct_answers setting.
+      setQuestions(await CanvasContentService.getQuizQuestionsForTaking(quizData.id));
 
       // Load content item (used for the page title)
       const { data: contentData, error: contentError } = await supabase

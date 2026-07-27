@@ -92,8 +92,8 @@ test.describe('Course creation — full workflow with coverage for every content
   };
 
   test.beforeAll(async () => {
-    const email = process.env.E2E_INSTRUCTOR_EMAIL ?? 'e2e-instructor@insightscollective.org';
-    const password = process.env.E2E_INSTRUCTOR_PASSWORD ?? process.env.E2E_TEST_PASSWORD;
+    const email = process.env.E2E_INSTRUCTOR_EMAIL || 'e2e-instructor@insightscollective.org';
+    const password = process.env.E2E_INSTRUCTOR_PASSWORD || process.env.E2E_TEST_PASSWORD;
     if (!password) {
       throw new Error(
         'Seed gap: E2E_INSTRUCTOR_PASSWORD (or E2E_TEST_PASSWORD) must be set to run course creation coverage.',

@@ -5,6 +5,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import CourseErrorState from '@/components/course/CourseErrorState';
 import { sanitizeHTML } from '@/utils/sanitize';
+import { CourseHtml } from '@/components/course/CourseHtml';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -60,9 +61,9 @@ const RichTextRenderer: React.FC<{ content: string }> = ({ content }) => {
   };
 
   return (
-    <div 
+    <CourseHtml
+      html={processContent(content)}
       className="prose prose-sm max-w-none text-muted-foreground"
-      dangerouslySetInnerHTML={{ __html: sanitizeHTML(processContent(content)) }}
     />
   );
 };

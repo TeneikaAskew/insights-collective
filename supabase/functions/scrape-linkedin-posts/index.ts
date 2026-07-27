@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
+import { requireAdminOrService } from '../_shared/auth.ts'
 //test
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -468,6 +469,10 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
+
+  // Deployed with verify_jwt=false and holding a service-role client.
+  const auth = await requireAdminOrService(req);
+  if (auth.response) return auth.response;
 
   try {
     console.log('LinkedIn post scraping function called')

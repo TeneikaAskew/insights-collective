@@ -1,0 +1,785 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Career Pathway — Long-Page Alternatives</title>
+<style>
+@font-face { font-family:'Outfit'; font-weight:400; font-style:normal; font-display:swap;
+  src:url(data:font/woff2;base64,__OUTFIT_REG__) format('woff2'); }
+@font-face { font-family:'Outfit'; font-weight:700; font-style:normal; font-display:swap;
+  src:url(data:font/woff2;base64,__OUTFIT_BOLD__) format('woff2'); }
+@font-face { font-family:'Lora'; font-weight:500; font-style:italic; font-display:swap;
+  src:url(data:font/woff2;base64,__LORA_IT__) format('woff2'); }
+
+:root { color-scheme: light only;
+  --ground:#FAF8F5; --card:#FFF; --warm:#FFF9F3; --ink:#2C2A33; --muted:#837E8C;
+  --lav:#A794EB; --lav-deep:#624EBE; --lav-chip:#F3EFFC; --peach:#F0BE96; --peach-deep:#B97143;
+  --track:#EDE9F3; --good:#4E9B70; --good-chip:#E7F3EC; --warn:#C97F3D; --warn-chip:#FBEEDF;
+  --line:rgba(90,80,120,.1);
+  --shadow:0 14px 34px -18px rgba(90,80,120,.35); }
+:root[data-theme="dark"], :root[data-theme="light"] { --ground:#FAF8F5; --card:#FFF; --ink:#2C2A33; }
+
+* { box-sizing:border-box; margin:0; }
+body { background:
+  radial-gradient(60rem 30rem at 85% -5%, rgba(167,148,235,.16), transparent 60%),
+  radial-gradient(50rem 26rem at -10% 105%, rgba(240,190,150,.18), transparent 60%) fixed, var(--ground);
+  color:var(--ink); font:400 16px/1.55 'Outfit',system-ui,sans-serif; padding-bottom:5rem;
+  -webkit-font-smoothing:antialiased; }
+.wrap { max-width:74rem; margin:0 auto; padding:0 1.5rem; }
+
+/* ---------- alternatives switcher ---------- */
+.switchbar { position:sticky; top:0; z-index:50; backdrop-filter:blur(10px);
+  background:rgba(250,248,245,.92); border-bottom:1px solid var(--line); margin-bottom:2rem; }
+.switchbar .row { max-width:74rem; margin:0 auto; padding:.8rem 1.5rem; display:flex; gap:.5rem;
+  align-items:center; flex-wrap:wrap; }
+.swlabel { font-size:.72rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.09em; }
+.vbtn { font:700 .85rem 'Outfit'; border:1px solid rgba(90,80,120,.18); background:var(--card); color:var(--ink);
+  border-radius:999px; padding:.5rem 1.05rem; cursor:pointer; transition:.15s; }
+.vbtn:hover { border-color:var(--lav); }
+.vbtn[aria-pressed="true"] { background:var(--ink); color:var(--ground); border-color:var(--ink); }
+.hint { margin-left:auto; font-size:.78rem; color:var(--muted); }
+
+h1 { font-size:2.15rem; line-height:1.15; letter-spacing:-.015em; text-wrap:balance; }
+h2.sec { font-size:1.25rem; letter-spacing:-.01em; }
+.sub { color:var(--muted); font-size:1.02rem; max-width:46rem; margin-top:.45rem; }
+
+.card { background:var(--card); border:1px solid var(--line); border-radius:24px; box-shadow:var(--shadow); padding:1.4rem; }
+.card.warm { background:var(--warm); border-color:rgba(240,190,150,.35); }
+.card.flat { box-shadow:none; }
+.label { font-size:.68rem; font-weight:700; letter-spacing:.11em; text-transform:uppercase; color:var(--muted); margin-bottom:.7rem; }
+.eyebrow { font-size:.68rem; font-weight:700; letter-spacing:.11em; text-transform:uppercase; color:var(--muted); padding-left:.25rem; }
+.chip { display:inline-flex; align-items:center; gap:.3rem; border-radius:999px; padding:.22rem .7rem;
+  font-size:.75rem; font-weight:700; background:var(--lav-chip); color:var(--lav-deep); }
+.chip.good { background:var(--good-chip); color:var(--good); }
+.chip.warn { background:var(--warn-chip); color:var(--peach-deep); }
+/* Takeaways are full sentences, not tags — set them as a read, separated by
+   hairlines rather than crammed into pills. */
+.takelist p { font-size:.95rem; line-height:1.62; max-width:62ch;
+  padding:.8rem 0; border-bottom:1px solid var(--track); }
+.takelist p:first-child { padding-top:0; }
+.takelist p:last-child { border-bottom:none; padding-bottom:0; }
+.serif { font-family:'Lora',Georgia,serif; font-style:italic; font-size:1.02rem; line-height:1.6; }
+.btn { font:700 .85rem 'Outfit'; border:none; border-radius:999px; padding:.6rem 1.2rem;
+  background:var(--lav-deep); color:#fff; cursor:pointer; transition:.15s; }
+.btn:hover { filter:brightness(1.08); }
+.btn.ghost { background:transparent; color:var(--ink); border:1px solid rgba(90,80,120,.2); }
+.btn.ghost:hover { border-color:var(--lav); }
+.btn.sm { font-size:.75rem; padding:.35rem .85rem; }
+.stack { display:grid; gap:1.1rem; }
+.grid2 { display:grid; grid-template-columns:1fr 1.1fr; gap:1.5rem; align-items:start; }
+.grid2 > .sticky-col { position:sticky; top:4.6rem; }
+.grid-half { display:grid; grid-template-columns:1fr 1fr; gap:1.1rem; }
+section.view { display:none; } section.view.on { display:block; }
+
+/* ---------- meters ---------- */
+.meter { margin-bottom:.9rem; } .meter:last-child { margin-bottom:0; }
+.meter .top { display:flex; justify-content:space-between; align-items:baseline; gap:1rem; font-size:.88rem; }
+.meter .top b { font-weight:700; }
+.meter .sub2 { font-size:.76rem; color:var(--muted); }
+.meter .bar { height:8px; border-radius:999px; background:var(--track); overflow:hidden; margin-top:.35rem; }
+.meter .bar i { display:block; height:100%; border-radius:999px; background:var(--lav); transition:width .8s cubic-bezier(.2,.7,.3,1); }
+.meter.warm .bar i { background:var(--peach); }
+
+/* ---------- path steps ---------- */
+ol.path { list-style:none; padding:0; margin:0; }
+ol.path li { position:relative; display:flex; gap:.9rem; padding-bottom:1.1rem; }
+ol.path li:last-child { padding-bottom:0; }
+ol.path li .line { position:absolute; left:13px; top:2rem; bottom:0; width:2px; background:var(--track); }
+.stepnum { flex:none; width:28px; height:28px; border-radius:50%; background:var(--lav-chip); color:var(--lav-deep);
+  font-size:.78rem; font-weight:700; display:grid; place-content:center; position:relative; z-index:1; }
+.stepbody { font-size:.9rem; line-height:1.55; min-width:0; }
+.stepbody .t { font-weight:700; }
+.stepbody .d { color:var(--muted); }
+.tl { font-size:.7rem; font-weight:700; color:var(--peach-deep); background:var(--warn-chip);
+  border-radius:999px; padding:.1rem .5rem; margin-left:.45rem; white-space:nowrap; }
+.focus { display:flex; flex-wrap:wrap; gap:.35rem; margin-top:.45rem; }
+.focus .chip { font-size:.7rem; padding:.15rem .55rem; }
+
+/* ---------- chat ---------- */
+.avatar { width:34px; height:34px; border-radius:50%; flex:none;
+  background:linear-gradient(135deg,var(--lav),var(--peach)); display:grid; place-content:center; color:#fff; font-weight:700; }
+.msgs { display:flex; flex-direction:column; gap:.5rem; max-height:min(27rem,55vh); overflow-y:auto; padding-right:.3rem; }
+.msg { background:var(--lav-chip); border-radius:18px 18px 18px 6px; padding:.65rem .9rem; font-size:.9rem;
+  line-height:1.5; max-width:86%; align-self:flex-start; }
+.msg.me { background:var(--lav-deep); color:#fff; border-radius:18px 18px 6px 18px; align-self:flex-end; }
+.qr { display:flex; flex-direction:column; gap:.45rem; margin-top:.6rem; }
+.qr button { text-align:left; font:400 .85rem 'Outfit'; color:var(--lav-deep); background:rgba(255,255,255,.7);
+  border:1.5px solid var(--lav); border-radius:22px; padding:.55rem 1rem; cursor:pointer; transition:.15s; }
+.qr button:hover { background:var(--lav-chip); }
+.composer { display:flex; gap:.5rem; margin-top:.9rem; }
+.composer input { flex:1; font:400 .9rem 'Outfit'; border:1px solid rgba(90,80,120,.2); border-radius:999px;
+  padding:.6rem 1rem; background:var(--ground); color:var(--ink); }
+.composer input:focus { outline:2px solid var(--lav); outline-offset:1px; }
+.send { width:40px; height:40px; flex:none; border-radius:50%; border:none; background:var(--lav-deep);
+  color:#fff; font-size:1rem; cursor:pointer; }
+
+/* ---------- save bar ---------- */
+.savebar { display:flex; align-items:center; gap:.8rem; flex-wrap:wrap; background:var(--warm);
+  border:1px solid rgba(240,190,150,.4); border-radius:999px; padding:.75rem 1.3rem; box-shadow:var(--shadow); }
+
+/* ---------- plan ---------- */
+.tfrow { display:flex; gap:.5rem; flex-wrap:wrap; margin-bottom:1.2rem; }
+.tf { font:700 .85rem 'Outfit'; border-radius:999px; padding:.5rem 1.05rem; cursor:pointer;
+  border:1px solid rgba(90,80,120,.18); background:rgba(255,255,255,.7); color:var(--muted); transition:.15s; }
+.tf:hover { color:var(--ink); }
+.tf[aria-selected="true"] { background:var(--ink); color:var(--ground); border-color:var(--ink); }
+.skillgroup { margin-bottom:1rem; } .skillgroup:last-child { margin-bottom:0; }
+.skillgroup .n { font-weight:700; font-size:.88rem; margin-bottom:.2rem; }
+.courserow { display:flex; align-items:baseline; gap:.5rem; font-size:.87rem; padding:.12rem 0; }
+.courserow .dot { flex:none; width:6px; height:6px; border-radius:50%; background:var(--lav); align-self:center; }
+.courserow .prov { font-size:.74rem; color:var(--muted); white-space:nowrap; }
+.itemrow { display:flex; align-items:flex-start; gap:.9rem; padding:.7rem 0; border-bottom:1px solid var(--track); }
+.itemrow:last-child { border-bottom:none; padding-bottom:0; } .itemrow:first-child { padding-top:0; }
+.itemrow .t { font-weight:700; font-size:.88rem; }
+.itemrow .d { font-size:.87rem; color:var(--muted); line-height:1.5; }
+ul.topics { list-style:none; margin:.3rem 0 0; padding:0; }
+ul.topics li { position:relative; padding-left:1rem; font-size:.87rem; line-height:1.55; }
+ul.topics li::before { content:''; position:absolute; left:0; top:.62rem; width:6px; height:6px;
+  border-radius:50%; background:var(--peach); }
+.add { font:700 .72rem 'Outfit'; border-radius:999px; padding:.3rem .7rem; cursor:pointer; white-space:nowrap;
+  border:1px solid rgba(90,80,120,.2); background:transparent; color:var(--muted); transition:.15s; }
+.add:hover { border-color:var(--lav); color:var(--lav-deep); }
+.add[data-added="1"] { background:var(--good-chip); color:var(--good); border-color:transparent; }
+.ms { display:flex; align-items:flex-start; gap:.7rem; padding:.35rem 0; }
+.ms label { display:flex; align-items:flex-start; gap:.7rem; flex:1; cursor:pointer; }
+.ms input { position:absolute; opacity:0; width:0; height:0; }
+.tick { flex:none; width:20px; height:20px; margin-top:.15rem; border-radius:50%; border:2px solid var(--lav);
+  display:grid; place-content:center; font-size:.62rem; font-weight:700; color:transparent; transition:.15s; }
+.ms input:checked + .tick { background:var(--good); border-color:var(--good); color:#fff; }
+.ms .mtext { font-size:.88rem; line-height:1.55; }
+.ms input:checked ~ .mtext { color:var(--muted); text-decoration:line-through; text-decoration-color:rgba(131,126,140,.5); }
+.progline { display:flex; align-items:center; gap:.7rem; font-size:.8rem; color:var(--muted); margin-top:.9rem; }
+.progline .bar { flex:1; height:6px; border-radius:999px; background:var(--track); overflow:hidden; }
+.progline .bar i { display:block; height:100%; background:var(--good); transition:width .4s; }
+
+/* ---------- nav devices ---------- */
+.seg { display:inline-flex; background:var(--track); border-radius:999px; padding:.25rem; gap:.2rem; }
+.seg button { font:700 .85rem 'Outfit'; border:none; background:transparent; color:var(--muted);
+  border-radius:999px; padding:.5rem 1.05rem; cursor:pointer; transition:.15s; display:inline-flex; align-items:center; gap:.45rem; }
+.seg button:hover { color:var(--ink); }
+.seg button[aria-selected="true"] { background:var(--ink); color:var(--ground); }
+.seg .badge { font-size:.68rem; border-radius:999px; padding:.05rem .4rem; background:rgba(255,255,255,.22); }
+.seg button[aria-selected="false"] .badge { background:rgba(90,80,120,.12); }
+
+.g-rail { display:grid; grid-template-columns:13.5rem 1fr; gap:1.8rem; align-items:start; }
+.railnav { position:sticky; top:4.6rem; display:flex; flex-direction:column; gap:.1rem; }
+.railnav a { text-decoration:none; color:var(--muted); font-size:.86rem; font-weight:700;
+  padding:.5rem .85rem; border-left:3px solid transparent; border-radius:0 10px 10px 0; transition:.15s; }
+.railnav a:hover { color:var(--ink); }
+.railnav a.active { color:var(--lav-deep); border-left-color:var(--lav-deep); background:var(--lav-chip); }
+.railnav .count { float:right; font-weight:400; font-size:.75rem; opacity:.75; }
+section.anchor { scroll-margin-top:5rem; }
+
+details.sect { border:1px solid var(--line); border-radius:20px; background:var(--card);
+  margin-bottom:.85rem; box-shadow:var(--shadow); overflow:hidden; }
+details.sect > summary { cursor:pointer; list-style:none; padding:1.05rem 1.4rem; font-weight:700;
+  display:flex; align-items:center; gap:.7rem; flex-wrap:wrap; }
+details.sect > summary::-webkit-details-marker { display:none; }
+details.sect > summary::after { content:'▾'; margin-left:auto; color:var(--muted); font-size:.9rem; }
+details.sect[open] > summary::after { content:'▴'; }
+details.sect > summary:hover { background:rgba(243,239,252,.5); }
+details.sect .body { padding:0 1.4rem 1.4rem; }
+
+.note { background:var(--warm); border:1px solid rgba(240,190,150,.4); border-radius:16px;
+  padding:.9rem 1.15rem; font-size:.88rem; margin:1.3rem 0; line-height:1.55; }
+footer.sig { display:flex; justify-content:space-between; gap:1rem; flex-wrap:wrap;
+  max-width:74rem; margin:3rem auto 0; padding:1.2rem 0 0;
+  border-top:1px solid rgba(90,80,120,.12); color:var(--muted); font-size:.85rem; }
+footer.sig .mark { letter-spacing:.18em; font-size:.72rem; font-weight:700; text-transform:uppercase; }
+.center { display:flex; justify-content:center; margin-top:2rem; }
+
+@media (max-width:900px){
+  .grid2,.grid-half,.g-rail { grid-template-columns:1fr !important; }
+  /* Single column: a sticky chat would pin itself over the cards below it. */
+  .grid2 > .sticky-col { position:static; }
+  .railnav { position:static; flex-direction:row; overflow-x:auto; gap:.3rem; padding-bottom:.5rem; }
+  .railnav a { border-left:none; border-bottom:3px solid transparent; border-radius:10px 10px 0 0; white-space:nowrap; }
+  .railnav a.active { border-left-color:transparent; border-bottom-color:var(--lav-deep); }
+  .railnav .count { display:none; }
+  h1 { font-size:1.75rem; }
+}
+</style>
+
+<div class="switchbar"><div class="row">
+  <span class="swlabel">Alternatives</span>
+  <button class="vbtn" data-v="a" aria-pressed="true">A · Segmented switch</button>
+  <button class="vbtn" data-v="b" aria-pressed="false">B · Section rail</button>
+  <button class="vbtn" data-v="c" aria-pressed="false">C · Collapsible stack</button>
+  <span class="hint">All live — switch timeframes, tick milestones, add to portfolio, talk to Maya.</span>
+</div></div>
+
+<!-- ================= A · SEGMENTED SWITCH ================= -->
+<section class="view on" id="a"><div class="wrap">
+  <header style="display:flex;justify-content:space-between;align-items:flex-start;gap:1.5rem;flex-wrap:wrap">
+    <div>
+      <h1>Hey Nikki, here's your career insights.</h1>
+      <p class="sub">Based on your assessment, we've created personalized recommendations to help you build a
+        fulfilling career path aligned with your strengths and goals.</p>
+    </div>
+    <div class="seg" data-mount="segA" style="margin-top:.4rem"></div>
+  </header>
+
+  <div class="note">The header's empty right side becomes the switch. One view at a time, so the page never runs
+    past a screen or two — and the control stays in reach because it lives in the header, not buried below the fold.</div>
+
+  <div id="a-panel-pathway">
+    <div class="grid2">
+      <div class="stack sticky-col">
+        <div data-mount="chat"></div>
+        <div data-mount="savebar"></div>
+      </div>
+      <div class="stack">
+        <p class="eyebrow">Your pathway</p>
+        <div data-mount="pathwayStack" class="stack"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="a-panel-plan" style="display:none">
+    <div class="card stack">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap">
+        <div>
+          <h2 class="sec">Your action plan</h2>
+          <p style="color:var(--muted);font-size:.9rem;margin-top:.2rem">Week by week, built from your pathway.</p>
+        </div>
+        <button class="btn ghost sm" data-toast="Concept preview — regenerates the plan from your latest report">Regenerate</button>
+      </div>
+      <div data-mount="planFull"></div>
+    </div>
+  </div>
+
+  <div class="center"><button class="btn ghost" data-toast="Concept preview — opens Explore all data careers">Explore all data careers</button></div>
+  <footer class="sig"><span>Insights Collective · 2026</span><span class="mark">Concept A — Segmented switch</span></footer>
+</div></section>
+
+<!-- ================= B · SECTION RAIL ================= -->
+<section class="view" id="b"><div class="wrap">
+  <header>
+    <h1>Hey Nikki, here's your career insights.</h1>
+    <p class="sub">Based on your assessment, we've created personalized recommendations to help you build a
+      fulfilling career path aligned with your strengths and goals.</p>
+  </header>
+
+  <div class="note">Everything stays on one page — but a sticky rail tracks where you are and jumps you anywhere
+    instantly. Nothing is hidden, and you always know how far down the page you've gone.</div>
+
+  <div class="g-rail" style="margin-top:1.4rem">
+    <nav class="railnav" id="rail">
+      <a href="#b-coach" class="active">Coach</a>
+      <a href="#b-pathway">Your pathway</a>
+      <a href="#b-roles">Roles that fit</a>
+      <a href="#b-takeaways">Key takeaways</a>
+      <a href="#b-plan">Action plan</a>
+      <a href="#b-milestones">Milestones <span class="count" data-mount="msCount"></span></a>
+    </nav>
+
+    <div class="stack" style="gap:1.4rem">
+      <section class="anchor" id="b-coach"><div data-mount="chat"></div></section>
+      <section class="anchor stack" id="b-pathway">
+        <p class="eyebrow">Your pathway</p>
+        <div data-mount="summary"></div>
+        <div data-mount="topMatch"></div>
+        <div data-mount="skills"></div>
+        <div data-mount="path"></div>
+      </section>
+      <section class="anchor" id="b-roles"><div data-mount="roles"></div></section>
+      <section class="anchor" id="b-takeaways"><div data-mount="takeaways"></div></section>
+      <section class="anchor" id="b-plan">
+        <div class="card stack">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap">
+            <h2 class="sec">Your action plan</h2>
+            <button class="btn ghost sm" data-toast="Concept preview — regenerates the plan from your latest report">Regenerate</button>
+          </div>
+          <div data-mount="planNoMilestones"></div>
+        </div>
+      </section>
+      <section class="anchor" id="b-milestones"><div data-mount="milestones"></div></section>
+    </div>
+  </div>
+
+  <div class="center"><button class="btn ghost" data-toast="Concept preview — opens Explore all data careers">Explore all data careers</button></div>
+  <footer class="sig"><span>Insights Collective · 2026</span><span class="mark">Concept B — Section rail</span></footer>
+</div></section>
+
+<!-- ================= C · COLLAPSIBLE STACK ================= -->
+<section class="view" id="c"><div class="wrap">
+  <header style="display:flex;justify-content:space-between;align-items:flex-start;gap:1.5rem;flex-wrap:wrap">
+    <div>
+      <h1>Hey Nikki, here's your career insights.</h1>
+      <p class="sub">Based on your assessment, we've created personalized recommendations to help you build a
+        fulfilling career path aligned with your strengths and goals.</p>
+    </div>
+    <button class="btn ghost sm" id="toggleAll" style="margin-top:.5rem">Expand all</button>
+  </header>
+
+  <div class="note">Each area is a section you open and close. The coach and your pathway start open; the rest sit
+    collapsed with a live summary in the header — so the page is short by default and everything is one click away.</div>
+
+  <div style="margin-top:1.4rem" id="cstack">
+    <details class="sect" open>
+      <summary><span class="avatar" style="width:26px;height:26px;font-size:.72rem">M</span> Coach
+        <span class="chip">Pathway ready</span></summary>
+      <div class="body"><div data-mount="chatBare"></div></div>
+    </details>
+
+    <details class="sect" open>
+      <summary>Your pathway <span class="chip good">Data Science Leader · 92% match</span></summary>
+      <div class="body stack">
+        <div data-mount="summary"></div>
+        <div data-mount="topMatch"></div>
+        <div data-mount="skills"></div>
+        <div data-mount="path"></div>
+      </div>
+    </details>
+
+    <details class="sect">
+      <summary>Roles that fit you today <span class="chip">4 roles</span></summary>
+      <div class="body stack">
+        <div data-mount="roles"></div>
+        <div data-mount="takeaways"></div>
+      </div>
+    </details>
+
+    <details class="sect">
+      <summary>Your action plan <span class="chip warn" data-mount="msSummary"></span></summary>
+      <div class="body"><div data-mount="planFull"></div></div>
+    </details>
+  </div>
+
+  <div class="center"><button class="btn ghost" data-toast="Concept preview — opens Explore all data careers">Explore all data careers</button></div>
+  <footer class="sig"><span>Insights Collective · 2026</span><span class="mark">Concept C — Collapsible stack</span></footer>
+</div></section>
+
+<div id="toast" role="status" style="position:fixed;left:50%;bottom:1.6rem;transform:translateX(-50%) translateY(160%);
+  background:var(--ink);color:var(--ground);font:700 .85rem 'Outfit';padding:.7rem 1.3rem;border-radius:999px;
+  transition:transform .28s;z-index:60;max-width:min(92vw,30rem);text-align:center"></div>
+
+<script>
+(function(){
+'use strict';
+
+/* ============================ data ============================ */
+var DATA = {
+  summary: "As a seasoned executive with a strong background in marketing, strategy, and data analysis, you are well-positioned to transition into a data science leadership role. Your commercial instincts are the differentiator — most candidates bring the modelling and not the business framing.",
+  topMatch: {
+    title: 'Data Science Leader', salary: '$165k – $210k', match: 92,
+    description: 'Lead data science teams that turn analysis into revenue decisions. Sits between engineering and the executive table — exactly where your marketing and strategy history pays off.'
+  },
+  skills: [
+    { skill:'Python programming', course:'Python for Data Science', provider:'Coursera', pct:45 },
+    { skill:'Machine learning foundations', course:'ML Specialization', provider:'DeepLearning.AI', pct:35 },
+    { skill:'SQL & data modelling', course:'Advanced SQL for Analytics', provider:'Mode', pct:70 },
+    { skill:'Data visualization', course:'Tableau Fundamentals', provider:'Tableau', pct:60 },
+    { skill:'Stakeholder storytelling', course:'Already strong', provider:'No course needed', pct:88 }
+  ],
+  path: [
+    { step:'Senior Analytics Manager', timeline:'0–12 months', action:'Own a measurable P&L metric end to end and ship two models into production with your team.', focus:['SQL','Experimentation','Team leadership'] },
+    { step:'Data Science Leader', timeline:'1–2 years', action:'Lead data science teams driving business growth; set the roadmap and hire against it.', focus:['ML strategy','Hiring','Roadmapping'] },
+    { step:'VP of Analytics', timeline:'2–3 years', action:'Oversee analytics strategy and decision-making across the company.', focus:['Org design','Exec comms','Budgeting'] },
+    { step:'Chief Data Officer', timeline:'4–6 years', action:'Own data as a company-wide asset — governance, platform, and commercial strategy.', focus:['Governance','Platform','Strategy'] }
+  ],
+  roles: [
+    { title:'Director of Data Science', description:'Lead data science teams driving business growth.' },
+    { title:'Senior Data Scientist', description:'Build ML and AI solutions against commercial problems.' },
+    { title:'Analytics Manager', description:'Run the analytics function and translate results for executives.' },
+    { title:'Product Data Lead', description:'Pair with product on metrics, experimentation, and roadmap calls.' }
+  ],
+  takeaways: [
+    'Develop technical skills in machine learning, data visualization, and SQL',
+    'Your marketing background is an advantage, not a gap — lead with it',
+    'Network with data science professionals and explore aligned opportunities',
+    'Target roles where commercial framing matters more than research depth'
+  ],
+  chat: [
+    { who:'maya', text:'Welcome back — your pathway is ready, and your action plan is one tap away.' },
+    { who:'me', text:'What should I focus on first?' },
+    { who:'maya', text:'Start with the technical skills in your 6-week plan. Python and SQL are what unlock the Data Science Leader step — everything else you already have.' }
+  ],
+  quickReplies: ['How long will this realistically take?', 'What should I put on my resume first?', 'Which of these roles pays best?'],
+  plan: {
+    '6 Weeks': {
+      narrative: 'Six weeks is about proof, not mastery. Get hands on Python and SQL daily, and finish with one artifact you can show a hiring manager.',
+      skills: [
+        { name:'Python programming', courses:[{t:'Python for Data Science',p:'Coursera'},{t:'Automate the Boring Stuff',p:'Free'}] },
+        { name:'Data visualization', courses:[{t:'Tableau Fundamentals',p:'Tableau'}] }
+      ],
+      projects: [
+        { title:'Marketing funnel analysis', description:'Rebuild a funnel report you already know in Python — same numbers, new toolchain.' },
+        { title:'Churn dashboard', description:'A single Tableau dashboard answering one executive question.' }
+      ],
+      content: [ { platform:'LinkedIn', topics:['Why I moved from marketing into data','Week 1 of learning Python in public'] } ],
+      milestones: ['Update resume with new skills','Complete Python for Data Science modules 1–4','Publish one dashboard publicly']
+    },
+    '9 Weeks': {
+      narrative: 'Now add statistics under the tooling. The goal is being able to defend a result, not just produce one.',
+      skills: [
+        { name:'Statistics for decisions', courses:[{t:'Statistical Inference',p:'Johns Hopkins'}] },
+        { name:'SQL & data modelling', courses:[{t:'Advanced SQL for Analytics',p:'Mode'}] }
+      ],
+      projects: [
+        { title:'A/B test readout', description:'Design, run, and write up an experiment end to end — including what you would not ship.' }
+      ],
+      content: [ { platform:'Medium', topics:['What marketers get wrong about statistical significance'] } ],
+      milestones: ['Finish the statistics course','Write one experiment readout','Apply to 5 data science roles']
+    },
+    '12 Weeks': {
+      narrative: 'Twelve weeks in, you should be building models rather than following notebooks — and interviewing while you do it.',
+      skills: [
+        { name:'Machine learning foundations', courses:[{t:'ML Specialization',p:'DeepLearning.AI'},{t:'Hands-On ML',p:'O’Reilly'}] },
+        { name:'Model deployment', courses:[{t:'MLOps Essentials',p:'Google Cloud'}] }
+      ],
+      projects: [
+        { title:'Customer lifetime value model', description:'A production-shaped model with a written business case attached.' },
+        { title:'Portfolio site', description:'Three projects, each framed as a decision it changed.' }
+      ],
+      content: [ { platform:'LinkedIn', topics:['My CLV model and what it cost to be wrong','Three months in: what I would do differently'] } ],
+      milestones: ['Ship the CLV model','Publish the portfolio site','Complete 3 technical interviews']
+    },
+    '6 Months': {
+      narrative: 'By month six the work is positioning, not learning. You are choosing between offers and negotiating the level you actually want.',
+      skills: [
+        { name:'Team leadership in data', courses:[{t:'Leading Data Teams',p:'Reforge'}] },
+        { name:'Executive communication', courses:[{t:'Data Storytelling for Execs',p:'Insights Collective'}] }
+      ],
+      projects: [
+        { title:'Case study deck', description:'One deck that walks an interview panel through a decision you owned.' }
+      ],
+      content: [ { platform:'Speaking', topics:['Local meetup talk: analytics that survives contact with a CFO'] } ],
+      milestones: ['Negotiate an offer at Lead or above','Mentor one person making the same switch','Set a 12-month plan with your new manager']
+    }
+  }
+};
+var TIMEFRAMES = ['6 Weeks','9 Weeks','12 Weeks','6 Months'];
+
+/* ============================ state ============================ */
+var state = {
+  timeframe: '6 Weeks',
+  done: {},
+  added: {},
+  panel: 'pathway',
+  chat: DATA.chat.slice(),
+  repliesUsed: []
+};
+
+function esc(s){ return String(s).replace(/[&<>"]/g, function(c){
+  return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]; }); }
+
+function msDone(tf){ var n = 0, list = DATA.plan[tf].milestones;
+  for (var i = 0; i < list.length; i++) if (state.done[tf + ':' + i]) n++; return n; }
+function msTotalAll(){ var t = 0; TIMEFRAMES.forEach(function(tf){ t += DATA.plan[tf].milestones.length; }); return t; }
+function msDoneAll(){ var t = 0; TIMEFRAMES.forEach(function(tf){ t += msDone(tf); }); return t; }
+
+/* ============================ renderers ============================ */
+var R = {};
+
+R.summary = function(){
+  return '<div class="card warm"><div class="label">Summary</div>' +
+    '<p class="serif">' + esc(DATA.summary) + '</p></div>';
+};
+
+R.topMatch = function(){
+  var m = DATA.topMatch;
+  return '<div class="card"><div class="label">Top match</div>' +
+    '<div style="display:flex;align-items:baseline;gap:.6rem;flex-wrap:wrap">' +
+      '<span style="font-size:1.15rem;font-weight:700;letter-spacing:-.01em">' + esc(m.title) + '</span>' +
+      '<span class="chip">' + esc(m.salary) + '</span></div>' +
+    '<div class="meter" style="margin-top:.9rem"><div class="top"><b>Match with your answers</b><span>' + m.match + '%</span></div>' +
+      '<div class="bar"><i style="width:' + m.match + '%"></i></div></div>' +
+    '<p style="font-size:.88rem;color:var(--muted);margin-top:.7rem;line-height:1.55">' + esc(m.description) + '</p></div>';
+};
+
+R.skills = function(){
+  var rows = DATA.skills.map(function(s, i){
+    return '<div class="meter' + (i % 2 ? ' warm' : '') + '">' +
+      '<div class="top"><b>' + esc(s.skill) + '</b><span class="sub2">' + s.pct + '%</span></div>' +
+      '<div class="sub2">' + esc(s.course) + ' · ' + esc(s.provider) + '</div>' +
+      '<div class="bar"><i style="width:' + s.pct + '%"></i></div></div>';
+  }).join('');
+  return '<div class="card"><div class="label">Skills &amp; courses</div>' + rows + '</div>';
+};
+
+R.path = function(){
+  var items = DATA.path.map(function(st, i){
+    var last = i === DATA.path.length - 1;
+    return '<li>' + (last ? '' : '<span class="line"></span>') +
+      '<span class="stepnum">' + (i + 1) + '</span><div class="stepbody">' +
+      '<p class="t">' + esc(st.step) + '<span class="tl">' + esc(st.timeline) + '</span></p>' +
+      '<p class="d">' + esc(st.action) + '</p>' +
+      '<div class="focus">' + st.focus.map(function(f){ return '<span class="chip">' + esc(f) + '</span>'; }).join('') + '</div>' +
+      '</div></li>';
+  }).join('');
+  return '<div class="card"><div class="label">Path to ' + esc(DATA.topMatch.title) + '</div>' +
+    '<ol class="path">' + items + '</ol></div>';
+};
+
+R.roles = function(){
+  var rows = DATA.roles.map(function(r){
+    return '<li style="font-size:.9rem;line-height:1.6"><b>' + esc(r.title) + '</b>' +
+      '<span style="color:var(--muted)"> — ' + esc(r.description) + '</span></li>';
+  }).join('');
+  return '<div class="card"><div class="label">Roles that fit you today</div>' +
+    '<ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.55rem">' + rows + '</ul></div>';
+};
+
+R.takeaways = function(){
+  var rows = DATA.takeaways.map(function(t){ return '<p>' + esc(t) + '</p>'; }).join('');
+  return '<div class="card"><div class="label">Key takeaways</div>' +
+    '<div class="takelist">' + rows + '</div></div>';
+};
+
+R.pathwayStack = function(){ return R.summary() + R.topMatch() + R.skills() + R.path() + R.roles() + R.takeaways(); };
+
+function chatInner(){
+  var msgs = state.chat.map(function(m){
+    return '<div class="msg' + (m.who === 'me' ? ' me' : '') + '">' + esc(m.text) + '</div>'; }).join('');
+  var replies = DATA.quickReplies.filter(function(q){ return state.repliesUsed.indexOf(q) < 0; })
+    .slice(0, 2).map(function(q){
+      return '<button type="button" data-reply="' + esc(q) + '">' + esc(q) + '</button>'; }).join('');
+  return '<div class="msgs">' + msgs + '</div>' +
+    (replies ? '<div class="qr">' + replies + '</div>' : '') +
+    '<form class="composer" data-chatform><input type="text" placeholder="Type your answer…" aria-label="Message Maya">' +
+    '<button class="send" type="submit" aria-label="Send">↑</button></form>';
+}
+
+R.chat = function(){
+  return '<div class="card">' +
+    '<div style="display:flex;align-items:center;gap:.7rem;margin-bottom:1rem">' +
+      '<span class="avatar">M</span>' +
+      '<div><div style="font-weight:700">Maya</div>' +
+      '<div style="font-size:.78rem;color:var(--muted)">your career coach</div></div>' +
+      '<button class="btn ghost sm" style="margin-left:auto" data-toast="Concept preview — clears your answers and retakes the assessment">Start over</button>' +
+    '</div>' + chatInner() + '</div>';
+};
+
+R.chatBare = function(){ return chatInner(); };
+
+R.savebar = function(){
+  return '<div class="savebar"><span style="font-weight:700;font-size:.9rem">Your pathway is ready</span>' +
+    '<span class="chip good">Saved to your profile</span>' +
+    '<button class="btn sm" style="margin-left:auto" data-goplan>Get action plan</button></div>';
+};
+
+function tfTabs(){
+  return '<div class="tfrow" role="tablist" aria-label="Plan timeframe">' + TIMEFRAMES.map(function(tf){
+    var sel = tf === state.timeframe;
+    var n = msDone(tf), total = DATA.plan[tf].milestones.length;
+    return '<button type="button" class="tf" role="tab" data-tf="' + esc(tf) + '" aria-selected="' + sel + '">' +
+      esc(tf) + (n ? ' · ' + n + '/' + total : '') + '</button>';
+  }).join('') + '</div>';
+}
+
+function narrativeCard(){
+  var d = DATA.plan[state.timeframe];
+  return '<div class="card warm flat" style="grid-column:1/-1">' +
+    '<div class="label">' + esc(state.timeframe) + ' overview</div>' +
+    '<p class="serif">' + esc(d.narrative) + '</p></div>';
+}
+
+function skillsPlanCard(){
+  var d = DATA.plan[state.timeframe];
+  var groups = d.skills.map(function(s){
+    return '<div class="skillgroup"><div class="n">' + esc(s.name) + '</div>' +
+      s.courses.map(function(c){
+        return '<div class="courserow"><span class="dot"></span><span>' + esc(c.t) + '</span>' +
+          '<span class="prov">' + esc(c.p) + '</span></div>'; }).join('') + '</div>';
+  }).join('');
+  return '<div class="card flat"><div class="label">Skills to acquire</div>' + groups + '</div>';
+}
+
+function addBtn(kind, idx){
+  var key = kind + ':' + state.timeframe + ':' + idx;
+  var on = !!state.added[key];
+  return '<button type="button" class="add" data-add="' + esc(key) + '" data-added="' + (on ? '1' : '0') + '">' +
+    (on ? '✓ Added' : '+ Portfolio') + '</button>';
+}
+
+function projectsCard(){
+  var d = DATA.plan[state.timeframe];
+  var rows = d.projects.map(function(p, i){
+    return '<div class="itemrow"><div style="flex:1;min-width:0">' +
+      '<p class="t">' + esc(p.title) + '</p><p class="d">' + esc(p.description) + '</p></div>' +
+      addBtn('project', i) + '</div>'; }).join('');
+  return '<div class="card flat"><div class="label">Projects to build</div>' + rows + '</div>';
+}
+
+function contentCard(){
+  var d = DATA.plan[state.timeframe];
+  var rows = d.content.map(function(c, i){
+    return '<div class="itemrow"><div style="flex:1;min-width:0">' +
+      '<p class="t">' + esc(c.platform) + '</p><ul class="topics">' +
+      c.topics.map(function(t){ return '<li>' + esc(t) + '</li>'; }).join('') + '</ul></div>' +
+      addBtn('content', i) + '</div>'; }).join('');
+  return '<div class="card flat"><div class="label">Content to share</div>' + rows + '</div>';
+}
+
+R.milestones = function(){
+  var tf = state.timeframe, d = DATA.plan[tf];
+  var rows = d.milestones.map(function(m, i){
+    var key = tf + ':' + i, on = !!state.done[key];
+    return '<div class="ms"><label><input type="checkbox" data-ms="' + esc(key) + '"' + (on ? ' checked' : '') + '>' +
+      '<span class="tick" aria-hidden="true">✓</span><span class="mtext">' + esc(m) + '</span></label>' +
+      addBtn('milestone', i) + '</div>';
+  }).join('');
+  var n = msDone(tf), total = d.milestones.length;
+  var pct = total ? Math.round(n / total * 100) : 0;
+  return '<div class="card flat"><div class="label">Milestones to achieve</div>' + rows +
+    '<div class="progline"><span>' + n + ' of ' + total + ' done</span>' +
+    '<span class="bar"><i style="width:' + pct + '%"></i></span></div></div>';
+};
+
+R.planFull = function(){
+  return tfTabs() + '<div class="grid-half">' + narrativeCard() + skillsPlanCard() +
+    projectsCard() + contentCard() + R.milestones() + '</div>';
+};
+
+R.planNoMilestones = function(){
+  return tfTabs() + '<div class="grid-half">' + narrativeCard() + skillsPlanCard() +
+    projectsCard() + contentCard() + '</div>';
+};
+
+R.segA = function(){
+  var n = msDoneAll(), total = msTotalAll();
+  return '<button type="button" data-panel="pathway" aria-selected="' + (state.panel === 'pathway') + '">Coach &amp; pathway</button>' +
+    '<button type="button" data-panel="plan" aria-selected="' + (state.panel === 'plan') + '">Action plan' +
+    '<span class="badge">' + n + '/' + total + '</span></button>';
+};
+
+R.msCount = function(){ return msDone(state.timeframe) + '/' + DATA.plan[state.timeframe].milestones.length; };
+R.msSummary = function(){ return msDoneAll() + ' of ' + msTotalAll() + ' milestones · ' + state.timeframe; };
+
+/* ============================ mount ============================ */
+function render(){
+  Array.prototype.forEach.call(document.querySelectorAll('[data-mount]'), function(el){
+    var fn = R[el.getAttribute('data-mount')];
+    if (fn) el.innerHTML = fn();
+  });
+  document.getElementById('a-panel-pathway').style.display = state.panel === 'pathway' ? '' : 'none';
+  document.getElementById('a-panel-plan').style.display = state.panel === 'plan' ? '' : 'none';
+  // After layout, so a bubble that just wrapped to two lines still ends up in view.
+  requestAnimationFrame(function(){
+    Array.prototype.forEach.call(document.querySelectorAll('.msgs'), function(m){ m.scrollTop = m.scrollHeight; });
+  });
+}
+
+/* ============================ toast ============================ */
+var toast = document.getElementById('toast'), tTimer;
+function say(msg){
+  toast.textContent = msg;
+  toast.style.transform = 'translateX(-50%) translateY(0)';
+  clearTimeout(tTimer);
+  tTimer = setTimeout(function(){ toast.style.transform = 'translateX(-50%) translateY(160%)'; }, 2600);
+}
+
+/* ============================ interactions ============================ */
+Array.prototype.forEach.call(document.querySelectorAll('.vbtn'), function(b){
+  b.addEventListener('click', function(){
+    Array.prototype.forEach.call(document.querySelectorAll('.vbtn'), function(x){
+      x.setAttribute('aria-pressed', String(x === b)); });
+    Array.prototype.forEach.call(document.querySelectorAll('section.view'), function(s){
+      s.classList.toggle('on', s.id === b.getAttribute('data-v')); });
+    window.scrollTo(0, 0);
+    render();
+  });
+});
+
+document.body.addEventListener('click', function(e){
+  var t = e.target;
+  if (!t || !t.closest) return;
+
+  var tf = t.closest('[data-tf]');
+  if (tf) { state.timeframe = tf.getAttribute('data-tf'); render(); return; }
+
+  var panel = t.closest('[data-panel]');
+  if (panel) { state.panel = panel.getAttribute('data-panel'); render(); return; }
+
+  if (t.closest('[data-goplan]')) {
+    state.panel = 'plan';
+    render();
+    document.getElementById('a-panel-plan').scrollIntoView({ behavior:'smooth', block:'start' });
+    return;
+  }
+
+  var add = t.closest('[data-add]');
+  if (add) {
+    var key = add.getAttribute('data-add');
+    state.added[key] = !state.added[key];
+    say(state.added[key] ? 'Added to your portfolio' : 'Removed from your portfolio');
+    render();
+    return;
+  }
+
+  var reply = t.closest('[data-reply]');
+  if (reply) {
+    var q = reply.getAttribute('data-reply');
+    state.repliesUsed.push(q);
+    state.chat.push({ who:'me', text:q });
+    render();
+    setTimeout(function(){ state.chat.push({ who:'maya', text:mayaReply(q) }); render(); }, 550);
+    return;
+  }
+
+  var toastEl = t.closest('[data-toast]');
+  if (toastEl) { e.preventDefault(); say(toastEl.getAttribute('data-toast')); return; }
+});
+
+document.body.addEventListener('change', function(e){
+  var ms = e.target.closest && e.target.closest('[data-ms]');
+  if (!ms) return;
+  state.done[ms.getAttribute('data-ms')] = ms.checked;
+  render();
+});
+
+document.body.addEventListener('submit', function(e){
+  var form = e.target.closest && e.target.closest('[data-chatform]');
+  if (!form) return;
+  e.preventDefault();
+  var input = form.querySelector('input');
+  var v = input.value.trim();
+  if (!v) return;
+  state.chat.push({ who:'me', text:v });
+  render();
+  setTimeout(function(){ state.chat.push({ who:'maya', text:mayaReply(v) }); render(); }, 550);
+});
+
+function mayaReply(q){
+  var s = q.toLowerCase();
+  if (s.indexOf('long') >= 0 || s.indexOf('time') >= 0)
+    return 'Realistically six months to your first offer at Lead level if you keep the weekly cadence. The 12-week mark is where interviews usually start landing.';
+  if (s.indexOf('resume') >= 0)
+    return 'Lead with the funnel analysis project and the SQL work — a hiring manager reads those as proof. Keep the marketing history, just reframe each bullet around the decision it changed.';
+  if (s.indexOf('pay') >= 0 || s.indexOf('salary') >= 0 || s.indexOf('best') >= 0)
+    return 'Director of Data Science tops the list at $165k–$210k, but Product Data Lead usually closes faster for someone coming from your background.';
+  return 'Good question — the short version is that your 6-week plan already covers it. Tick the milestones as you go and I’ll adjust the later timeframes around what you finish.';
+}
+
+/* ---- C: expand / collapse all ---- */
+var toggleAll = document.getElementById('toggleAll');
+toggleAll.addEventListener('click', function(){
+  var all = Array.prototype.slice.call(document.querySelectorAll('#cstack details'));
+  var anyClosed = all.some(function(d){ return !d.open; });
+  all.forEach(function(d){ d.open = anyClosed; });
+  toggleAll.textContent = anyClosed ? 'Collapse all' : 'Expand all';
+});
+
+/* ---- B: real anchor scroll + scroll-spy ---- */
+var railLinks = Array.prototype.slice.call(document.querySelectorAll('#rail a'));
+railLinks.forEach(function(a){
+  a.addEventListener('click', function(e){
+    e.preventDefault();
+    var target = document.querySelector(a.getAttribute('href'));
+    if (target) target.scrollIntoView({ behavior:'smooth', block:'start' });
+  });
+});
+if (window.IntersectionObserver) {
+  var spy = new IntersectionObserver(function(entries){
+    entries.forEach(function(en){
+      if (!en.isIntersecting) return;
+      railLinks.forEach(function(a){
+        a.classList.toggle('active', a.getAttribute('href') === '#' + en.target.id);
+      });
+    });
+  }, { rootMargin:'-15% 0px -70% 0px' });
+  Array.prototype.forEach.call(document.querySelectorAll('#b section.anchor'), function(s){ spy.observe(s); });
+}
+
+render();
+})();
+</script>
