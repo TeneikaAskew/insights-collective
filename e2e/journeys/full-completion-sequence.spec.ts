@@ -64,9 +64,13 @@ test.describe('Full course completion sequence', () => {
     const itemIds = items.map((i) => i.id);
 
     // Reset prior submission, progressions, and certificate so this run truly exercises the flow.
-    // Keep the certificate DELETE scoped to COURSE_ID — profile-certificates-flow.spec.ts
-    // runs in parallel against the same member and owns a fixture certificate on
-    // course ...0002. See the same note in certificate-generation.spec.ts.
+    // This spec runs in the chromium-member-journeys project, so every reset
+    // below lands on the dedicated journeys account rather than the shared
+    // member. That is also what keeps the grade assertion here from racing
+    // assignment-submission-feedback.spec.ts, which grades this same fixture
+    // assignment as the shared member: submissions are keyed per
+    // (assignment, user), so the two specs now own separate rows.
+    // See the same note in certificate-generation.spec.ts.
     await page.request.delete(
       `${SUPABASE_URL}/rest/v1/certificates?user_id=eq.${userId}&course_id=eq.${COURSE_ID}`,
       { headers },

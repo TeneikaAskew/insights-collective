@@ -31,6 +31,12 @@ const DEFAULT_EMAILS = {
   admin: 'e2e-admin@insightscollective.org',
   instructor: 'e2e-instructor@insightscollective.org',
   member: 'e2e-member@insightscollective.org',
+  // Second member account, used only by the chromium-member-journeys project.
+  // The destructive completion journeys reset certificates and progressions
+  // for the acting user, so they must not act as the shared member whose
+  // state other specs (and the /profile visual baseline) read. Provisioned by
+  // e2e/fixtures/seed.sql, not by the bootstrap below.
+  journeys: 'e2e-journeys@insightscollective.org',
 } as const;
 
 type Role = keyof typeof DEFAULT_EMAILS;
@@ -54,6 +60,10 @@ const TEST_USERS: Record<Role, TestUser> = {
   member: {
     email: process.env.E2E_MEMBER_EMAIL || DEFAULT_EMAILS.member,
     password: process.env.E2E_MEMBER_PASSWORD || SHARED_PASSWORD,
+  },
+  journeys: {
+    email: process.env.E2E_JOURNEYS_EMAIL || DEFAULT_EMAILS.journeys,
+    password: process.env.E2E_JOURNEYS_PASSWORD || SHARED_PASSWORD,
   },
 };
 
@@ -237,6 +247,11 @@ async function globalSetup(config: FullConfig): Promise<void> {
   if (SHARED_PASSWORD && admin.email && admin.password) {
     try {
       const adminSession = await signInViaApi(admin.email, admin.password);
+      // 'journeys' is deliberately absent: bootstrapPassword goes through the
+      // admin-users setE2EPassword action, whose allowlist covers only the
+      // three original e2e-* accounts. The seed sets that account's password
+      // from the same E2E_TEST_PASSWORD secret instead, so there is nothing to
+      // bootstrap here and adding it would only log a 400 every run.
       for (const role of ['instructor', 'member'] as const) {
         const target = TEST_USERS[role];
         if (!target.email) continue;
@@ -262,11 +277,21 @@ async function globalSetup(config: FullConfig): Promise<void> {
     }
   }
 
-  for (const role of ['admin', 'instructor', 'member'] as const) {
+  for (const role of ['admin', 'instructor', 'member', 'journeys'] as const) {
     try {
       await saveSessionForRole(role, TEST_USERS[role], baseURL);
     } catch (err) {
       console.warn(`[global-setup] Session for ${role} failed: ${(err as Error).message}`);
+      if (role === 'journeys') {
+        // This account is created and password-set by the seed, not by the
+        // admin bootstrap above, so it has a failure mode the others do not:
+        // a skipped seed leaves it absent or on a stale password, and the two
+        // specs in chromium-member-journeys then fail at the first locator.
+        console.warn(
+          '[global-setup] The journeys account is provisioned by e2e/fixtures/seed.sql. ' +
+            'Apply it with: psql "$SUPABASE_DB_URL" -v e2e_password="$E2E_TEST_PASSWORD" -f e2e/fixtures/seed.sql',
+        );
+      }
       fs.writeFileSync(path.join(SESSIONS_DIR, `${role}.json`), JSON.stringify({ cookies: [], origins: [] }));
     }
   }

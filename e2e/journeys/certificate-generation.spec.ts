@@ -48,12 +48,13 @@ test.describe('Certificate generation — end to end', () => {
     expect(items.length, 'seeded course has published content items').toBeGreaterThan(0);
 
     // 4) Reset any existing certificate + progressions so this run truly proves auto-issuance.
-    //    Keep this DELETE scoped to COURSE_ID. The suite is fullyParallel and
-    //    profile-certificates-flow.spec.ts reads the member's certificates at
-    //    the same time; its fixture row is seeded on course ...0002 precisely
-    //    so this reset cannot take it out from under that spec. Widening this
-    //    to all of the member's certificates would make that spec fail
-    //    intermittently with a "Seed gap" that no reseed can fix.
+    //    This spec runs in the chromium-member-journeys project, so `userId`
+    //    here is the dedicated journeys account, not the shared member. That
+    //    is what makes this reset safe: RLS scopes certificate deletes to the
+    //    acting user, so nothing here can touch the shared member's fixture
+    //    certificate, which profile-certificates-flow.spec.ts asserts on and
+    //    the /profile visual snapshot renders. Keep it that way -- running
+    //    this as the shared member reintroduces both failures at once.
     await page.request.delete(
       `${SUPABASE_URL}/rest/v1/certificates?user_id=eq.${userId}&course_id=eq.${COURSE_ID}`,
       { headers: authHeaders },

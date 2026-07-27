@@ -139,7 +139,10 @@ jobs:
           # invariant RAISE EXCEPTIONs) aborts psql. Without it psql prints the
           # error and still exits 0, and a half-applied seed looks fine while
           # the specs fail later for reasons that make no sense.
-          if ! psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f e2e/fixtures/seed.sql; then
+          # -v e2e_password: the seed provisions the dedicated journeys account
+          # and needs the shared password to set. It is read from the secret
+          # here and never stored in the SQL file.
+          if ! psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -v e2e_password="$E2E_TEST_PASSWORD" -f e2e/fixtures/seed.sql; then
             echo "::error title=E2E seeding failed::psql could not apply e2e/fixtures/seed.sql. Continuing so the suite still runs; fixture-dependent specs will report their own 'Seed gap' errors."
           fi
 

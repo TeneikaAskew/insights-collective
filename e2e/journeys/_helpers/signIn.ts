@@ -6,11 +6,15 @@ import type { Page } from '@playwright/test';
 const BASE = process.env.E2E_BASE_URL || 'http://localhost:8080';
 
 /**
- * Ensures the member session is live in the page.
+ * Ensures the calling project's session is live in the page.
  *
- * Every caller runs under the chromium-member project, whose `storageState` is
- * the session global-setup already established — so there is nothing to log in
- * to. This used to drive the real /login form on every test, which was pure
+ * Despite the name this does not pick an account: it hydrates whatever
+ * `storageState` the running project supplies, which global-setup established.
+ * Callers in chromium-member act as the shared member; callers in
+ * chromium-member-journeys act as the dedicated journeys account. Specs that
+ * need the acting user's id must read it from /auth/v1/user rather than assume.
+ *
+ * This used to drive the real /login form on every test, which was pure
  * redundant work and could only add failure surface: a slow or failed login
  * left the page on /login and every later locator timed out. Loading the app
  * is enough to hydrate the stored session.
