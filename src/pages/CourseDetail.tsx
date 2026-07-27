@@ -438,14 +438,25 @@ const CourseDetail = () => {
         });
 
         // Real enrollment count for this course (was previously hardcoded to 0).
-        // A failed count is a real fetch failure — surface it through the
-        // page-level error UI instead of silently rendering "0 enrolled".
+        //
+        // This must NOT be fatal. Course pages are public, and `anon` has no
+        // SELECT on `enrollments` by design (see
+        // 20260731000800_restore_missing_select_grants.sql), so throwing here
+        // replaced the entire course page with an error state for every
+        // signed-out visitor. The count is one decorative line; the course
+        // itself is the page.
+        //
+        // The original concern — never render a misleading "0 enrolled" — is
+        // kept by leaving the count undefined when it could not be read, so
+        // the line is omitted rather than showing a number that isn't true.
         const { count: realEnrollCount, error: enrollCountError } = await supabase
           .from('enrollments')
           .select('id', { count: 'exact', head: true })
           .eq('course_id', courseData.id);
 
-        if (enrollCountError) throw enrollCountError;
+        if (enrollCountError) {
+          logger.warn('Enrollment count unavailable for this viewer:', enrollCountError);
+        }
 
         const formattedCourse = {
           ...courseData,
@@ -456,7 +467,9 @@ const CourseDetail = () => {
             role: 'instructor',
             avatar: courseData.instructor?.avatar_url || '',
           },
-          enrollmentCount: realEnrollCount ?? 0,
+          // Undefined, not 0, when the count could not be read — the three
+          // "N enrolled" lines below omit themselves rather than claim zero.
+          enrollmentCount: enrollCountError ? undefined : realEnrollCount ?? 0,
           modules: processedModules,
           createdAt: courseData.created_at,
           updatedAt: courseData.updated_at,
@@ -1301,9 +1314,11 @@ const CourseDetail = () => {
                   <span className="inline-flex items-center gap-2">
                     <BookOpen className="h-4 w-4" /> {modules.length} modules
                   </span>
-                  <span className="inline-flex items-center gap-2">
-                    <Users className="h-4 w-4" /> {course.enrollmentCount ?? 0} enrolled
-                  </span>
+                  {course.enrollmentCount !== undefined && (
+                    <span className="inline-flex items-center gap-2">
+                      <Users className="h-4 w-4" /> {course.enrollmentCount} enrolled
+                    </span>
+                  )}
                 </div>
 
                 <div>
@@ -1385,10 +1400,12 @@ const CourseDetail = () => {
                         <span>{course.duration}</span>
                       </div>
                     )}
-                    <div className="flex items-center gap-3">
-                      <Users className="h-4 w-4 text-neutral-500" />
-                      <span>{course.enrollmentCount || 0} enrolled</span>
-                    </div>
+                    {course.enrollmentCount !== undefined && (
+                      <div className="flex items-center gap-3">
+                        <Users className="h-4 w-4 text-neutral-500" />
+                        <span>{course.enrollmentCount} enrolled</span>
+                      </div>
+                    )}
                   </div>
 
                   <CourseCalendarSync courseId={courseId!} courseTitle={course.title} />
@@ -1440,8 +1457,12 @@ const CourseDetail = () => {
                 <span>{course.category}</span>
                 <span>•</span>
                 <span>{course.level}</span>
-                <span>•</span>
-                <span>{course.enrollmentCount || 0} students enrolled</span>
+                {course.enrollmentCount !== undefined && (
+                  <>
+                    <span>•</span>
+                    <span>{course.enrollmentCount} students enrolled</span>
+                  </>
+                )}
               </div>
             </div>
             

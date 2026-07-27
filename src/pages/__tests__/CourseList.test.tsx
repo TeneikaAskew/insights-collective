@@ -147,18 +147,32 @@ describe('CourseList', () => {
     expect(screen.queryByText('database exploded')).not.toBeInTheDocument();
   });
 
-  it('surfaces an enrollment-count query failure instead of rendering misleading cards', async () => {
+  it('never queries enrollments — this page is public and anon has no access', async () => {
+    // Replaces a test that pinned the opposite behaviour: the catalog used to
+    // scan `enrollments` for a count no card renders, and treat the failure as
+    // fatal. `anon` has no SELECT on that table by design, so every signed-out
+    // visitor got an error page instead of the catalog.
+    render(<CourseList />);
+
+    expect(await screen.findByText('Intro to Data Analytics')).toBeInTheDocument();
+
+    const queried = (mockSupabaseClient.from as ReturnType<typeof vi.fn>).mock.calls.map(
+      (c: unknown[]) => c[0]
+    );
+    expect(queried).not.toContain('enrollments');
+  });
+
+  it('still renders the catalog when the viewer cannot read enrollments', async () => {
     mockTables({
       ...successTables(),
-      enrollments: { select: () => ({ data: null, error: { message: 'count query failed' } }) },
+      enrollments: { select: () => ({ data: null, error: { code: '42501', message: 'permission denied for table enrollments' } }) },
     });
 
     render(<CourseList />);
 
-    expect(await screen.findByText('count query failed')).toBeInTheDocument();
-    // No course cards masquerading as "0 enrolled" successes.
-    expect(screen.queryByText('Intro to Data Analytics')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
+    expect(await screen.findByText('Intro to Data Analytics')).toBeInTheDocument();
+    expect(screen.queryByText(/permission denied/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /try again/i })).not.toBeInTheDocument();
   });
 
   it('never renders the hardcoded unsplash thumbnail URL', async () => {

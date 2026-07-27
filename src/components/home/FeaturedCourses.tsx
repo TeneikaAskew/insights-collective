@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, Clock, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { getCategoryDisplayName } from '@/constants/courseCategories';
 import { motion } from 'framer-motion';
 
 /**
@@ -32,43 +33,21 @@ type FeaturedCoursesProps = {
 };
 
 const FeaturedCourses = ({ courses }: FeaturedCoursesProps) => {
-  // Helper function to ensure the category matches one of the standardized labels
-  const getCategoryLabel = (category: string): string => {
-    // Map old category names to standardized ones
-    switch (category) {
-      case 'Machine Learning & Artificial Intelligence':
-        return 'AI/ML';
-      case 'Analytics & Business Intelligence':
-        return 'Analytics';
-      case 'Data Engineering':
-        return 'Data Engineering';
-      case 'Business Intelligence':
-        return 'Business Intelligence';
-      case 'Data Science':
-        return 'Data Engineering';
-      case 'Web Development':
-        return 'Data Engineering';
-      default:
-        // Show the category the course actually has. This used to fall back to
-        // 'Data Engineering' for anything unrecognised, and the live catalog
-        // uses 'Analytics & BI', 'ML/AI' and 'Data Science' — none of which are
-        // in the map above — so real Analytics courses were labelled
-        // "Data Engineering" on the landing page. A stale mapping should lose
-        // its shortening, not relabel the course.
-        return category;
-    }
-  };
-  
-  // Get badge color based on category
+  // Category labels come from the shared map in @/constants/courseCategories.
+  // The local switch this replaces had gone stale against the live catalog: it
+  // mapped 'Data Science' AND 'Web Development' to "Data Engineering", and fell
+  // back to "Data Engineering" for anything it didn't recognise — which is
+  // every category the catalog actually uses ('Analytics & BI', 'ML/AI'). Real
+  // Analytics and Data Science courses were relabelled on the landing page.
   const getCategoryColor = (category: string): string => {
-    switch (getCategoryLabel(category)) {
-      case 'AI/ML':
+    switch (getCategoryDisplayName(category)) {
+      case 'ML/AI':
         return 'bg-blue-100 text-blue-600';
-      case 'Analytics':
+      case 'Analytics & BI':
         return 'bg-green-100 text-green-600';
       case 'Data Engineering':
         return 'bg-purple-100 text-purple-600';
-      case 'Business Intelligence':
+      case 'Data Science':
         return 'bg-amber-100 text-amber-600';
       default:
         return 'bg-gray-100 text-gray-600';
@@ -148,7 +127,7 @@ const FeaturedCourses = ({ courses }: FeaturedCoursesProps) => {
                   <div className="p-6 flex-grow flex flex-col">
                     <div className="flex items-center justify-between mb-3">
                       <Badge className={`font-medium px-2.5 py-1 ${getCategoryColor(course.category)}`}>
-                        {getCategoryLabel(course.category)}
+                        {getCategoryDisplayName(course.category)}
                       </Badge>
                     </div>
                     

@@ -60,14 +60,17 @@ describe('FeaturedCourses', () => {
     expect(screen.getByText('Beginner')).toBeInTheDocument();
   });
 
-  it('shows the real category rather than relabelling it', () => {
-    // The label map predates the live catalog's category names; an unmapped
-    // category used to fall through to a hardcoded 'Data Engineering', which
-    // relabelled Analytics courses on the landing page.
-    renderCards([{ ...course, category: 'Analytics & BI' }]);
-    expect(screen.getByText('Analytics & BI')).toBeInTheDocument();
-    expect(screen.queryByText('Data Engineering')).not.toBeInTheDocument();
-  });
+  // The local label map had gone stale against the live catalog: it mapped
+  // 'Data Science' to "Data Engineering" outright, and defaulted everything it
+  // didn't recognise — which is every category the catalog actually uses — to
+  // "Data Engineering" too. Both cases relabelled real courses.
+  it.each(['Analytics & BI', 'Data Science', 'ML/AI', 'Data Engineering'])(
+    'shows %s as itself rather than relabelling it',
+    category => {
+      renderCards([{ ...course, category }]);
+      expect(screen.getByText(category)).toBeInTheDocument();
+    }
+  );
 
   it('renders the estimated hours badge only when the value is set', () => {
     const { rerender } = renderCards([course]);
