@@ -221,7 +221,7 @@ const CreateFormDialog: React.FC<CreateFormDialogProps> = ({ open, onOpenChange 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="soft-studio sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Create New Form</DialogTitle>
           <DialogDescription>

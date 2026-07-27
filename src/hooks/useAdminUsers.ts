@@ -1,7 +1,7 @@
 // ABOUTME: Hook for admin user management - fetches users, updates roles, and deletes users
-// ABOUTME: Reads roles from user_roles table via get_user_roles RPC for consistency
+// ABOUTME: Server-side search/filter/pagination via the search_admin_users RPC (user_roles canonical)
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -21,98 +21,140 @@ interface AdminUserResponse {
   created_at: string;
 }
 
+export interface FetchUsersOptions {
+  search?: string;
+  role?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+interface RoleCounts {
+  total: number;
+  students: number;
+  instructors: number;
+  admins: number;
+}
+
+const DEFAULT_PAGE_SIZE = 20;
+
+const mapRow = (r: any): AdminUserResponse => ({
+  id: r.id,
+  first_name: r.first_name || '',
+  last_name: r.last_name || '',
+  avatar_url: r.avatar_url,
+  bio: r.bio || '',
+  roles: Array.isArray(r.roles) && r.roles.length > 0 ? r.roles : ['student'],
+  created_at: r.created_at,
+});
+
 export function useAdminUsers() {
   const [users, setUsers] = useState<AdminUserResponse[]>([]);
+  const [total, setTotal] = useState(0);
+  const [counts, setCounts] = useState<RoleCounts>({ total: 0, students: 0, instructors: 0, admins: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
 
-  const fetchUsers = useCallback(async () => {
-    logger.log('[useAdminUsers] Starting fetchUsers...');
+  // Remember the last query so mutations can refresh the current page/filter.
+  const lastOptsRef = useRef<FetchUsersOptions>({ search: '', role: 'all', page: 1, pageSize: DEFAULT_PAGE_SIZE });
+
+  const fetchUsers = useCallback(async (opts: FetchUsersOptions = {}) => {
+    const search = opts.search ?? '';
+    const role = opts.role ?? 'all';
+    const page = opts.page ?? 1;
+    const pageSize = opts.pageSize ?? DEFAULT_PAGE_SIZE;
+    lastOptsRef.current = { search, role, page, pageSize };
+
+    logger.log('[useAdminUsers] Fetching users (server-side)...', { search, role, page });
     setLoading(true);
     setError(null);
-    
+
     try {
-      // Check admin privileges
       if (!isAdmin(user?.roles)) {
-        throw new Error("Admin privileges required");
+        throw new Error('Admin privileges required');
       }
 
-      logger.log('[useAdminUsers] Fetching users from profiles table...');
-      
-      // Query profiles table
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('id, first_name, last_name, avatar_url, bio, created_at')
-        .order('created_at', { ascending: false });
+      const [listRes, countsRes] = await Promise.all([
+        supabase.rpc('search_admin_users', {
+          p_search: search,
+          p_role: role,
+          p_limit: pageSize,
+          p_offset: (page - 1) * pageSize,
+        }),
+        supabase.rpc('admin_user_role_counts'),
+      ]);
 
-      if (profilesError) {
-        logger.error('[useAdminUsers] Query error:', profilesError);
-        throw new Error(profilesError.message || 'Failed to fetch users');
+      if (listRes.error) {
+        logger.error('[useAdminUsers] search_admin_users error:', listRes.error);
+        throw new Error(listRes.error.message || 'Failed to fetch users');
       }
 
-      logger.log('[useAdminUsers] Raw profiles from query:', profiles?.length || 0);
+      const rows = (listRes.data || []) as any[];
+      setUsers(rows.map(mapRow));
+      // total_count rides on the returned rows, so an empty page carries no
+      // total. Past page 1 that means this page is off the end (a deletion or a
+      // role change shrank the set) — not that no users match. Zeroing the total
+      // there hid the pager and stranded the admin on an empty page with no way
+      // back, so keep the previous total and leave the controls usable.
+      if (rows.length > 0) {
+        setTotal(Number(rows[0].total_count));
+      } else if (page <= 1) {
+        setTotal(0);
+      }
 
-      // Fetch roles from user_roles table for each user
-      const transformedUsers: AdminUserResponse[] = [];
-      
-      for (const profile of (profiles || [])) {
-        // Use the get_user_roles RPC to fetch canonical roles
-        const { data: rolesData, error: rolesError } = await supabase
-          .rpc('get_user_roles', { _user_id: profile.id });
-
-        // A roles lookup failure must not silently render every user as
-        // 'student' in the admin UI — fail the fetch and surface the error.
-        if (rolesError) {
-          logger.error('[useAdminUsers] Error fetching roles for user:', profile.id, rolesError);
-          throw new Error(rolesError.message || 'Failed to fetch user roles');
-        }
-
-        let roles: string[] = Array.isArray(rolesData) ? rolesData : [];
-        if (roles.length === 0) roles = ['student'];
-
-        transformedUsers.push({
-          id: profile.id,
-          first_name: profile.first_name || '',
-          last_name: profile.last_name || '',
-          avatar_url: profile.avatar_url,
-          bio: profile.bio || '',
-          roles,
-          created_at: profile.created_at
+      const c = !countsRes.error ? (countsRes.data || [])[0] : null;
+      if (c) {
+        setCounts({
+          total: Number(c.total),
+          students: Number(c.students),
+          instructors: Number(c.instructors),
+          admins: Number(c.admins),
         });
       }
-
-      logger.log('[useAdminUsers] Transformed users:', transformedUsers.length);
-      setUsers(transformedUsers);
-      
     } catch (err: any) {
       logger.error('[useAdminUsers] Error fetching users:', err);
-      
+
       let errorMessage = 'Failed to load users';
       let toastDescription = 'Could not load user list. Please try again.';
-      
+
       if (err.message?.includes('Admin privileges required')) {
         errorMessage = 'Admin access required';
         toastDescription = 'You need admin privileges to access user management.';
       }
-      
+
       setError(errorMessage);
-      
-      toast({
-        title: 'Error',
-        description: toastDescription,
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: toastDescription, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
   }, [user, toast]);
 
-  const updateUserRole = async (userId: string, roles: string[]) => {
+  // Refresh using the last query (after a mutation).
+  const refresh = useCallback(() => fetchUsers(lastOptsRef.current), [fetchUsers]);
+
+  // Fetch every user matching the current search/role filter (for CSV export),
+  // not just the visible page.
+  const fetchAllForExport = useCallback(async (): Promise<AdminUserResponse[]> => {
+    const { search = '', role = 'all' } = lastOptsRef.current;
+    const { data, error: exportError } = await supabase.rpc('search_admin_users', {
+      p_search: search,
+      p_role: role,
+      p_limit: 100000,
+      p_offset: 0,
+    });
+    if (exportError) throw new Error(exportError.message || 'Failed to export users');
+    return (data || []).map(mapRow);
+  }, []);
+
+  const updateUserRole = async (
+    userId: string,
+    roles: string[],
+    options: { skipRefresh?: boolean; silent?: boolean } = {}
+  ) => {
     try {
       logger.log('[useAdminUsers] Updating user roles:', userId, roles);
-      
+
       if (!userId || !Array.isArray(roles)) {
         throw new Error('Invalid parameters provided');
       }
@@ -124,23 +166,30 @@ export function useAdminUsers() {
       });
 
       if (error) throw new Error(error.message || 'Failed to update user roles');
-      
-      // Refresh the users list to get updated data
-      await fetchUsers();
-      
-      toast({
-        title: 'Success',
-        description: 'User roles updated successfully.',
-      });
-      
+
+      // Refresh the users list to get updated data. Bulk callers pass
+      // skipRefresh and refetch once at the end instead of once per user.
+      if (!options.skipRefresh) {
+        await refresh();
+      }
+
+      if (!options.silent) {
+        toast({
+          title: 'Success',
+          description: 'User roles updated successfully.',
+        });
+      }
+
       return { success: true };
     } catch (err: any) {
       logger.error('[useAdminUsers] Error updating user roles:', err);
-      toast({
-        title: 'Error',
-        description: err.message || 'Failed to update user roles. Please try again.',
-        variant: 'destructive',
-      });
+      if (!options.silent) {
+        toast({
+          title: 'Error',
+          description: err.message || 'Failed to update user roles. Please try again.',
+          variant: 'destructive',
+        });
+      }
       return { success: false, error: err.message };
     }
   };
@@ -175,7 +224,7 @@ export function useAdminUsers() {
     const failCount = results.filter(r => !r.success).length;
 
     if (successCount > 0) {
-      await fetchUsers();
+      await refresh();
     }
 
     if (failCount > 0) {
@@ -194,11 +243,15 @@ export function useAdminUsers() {
     return results;
   };
 
-  return { 
-    users, 
-    loading, 
-    error, 
-    fetchUsers, 
+  return {
+    users,
+    total,
+    counts,
+    loading,
+    error,
+    fetchUsers,
+    refresh,
+    fetchAllForExport,
     updateUserRole,
     deleteUsers,
   };

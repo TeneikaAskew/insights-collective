@@ -14,12 +14,26 @@ const logger = createLogger('if');
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requireAdmin?: boolean;
+  /**
+   * When set alongside `requireAdmin`, users holding the instructor role also
+   * satisfy the guard. Used where the database already grants instructors the
+   * capability (e.g. blog authoring, where RLS lets an instructor CRUD their
+   * own posts) but the route was previously admin-only.
+   *
+   * This is a routing gate, not the security boundary — RLS remains the
+   * authority on what any given role can actually read or write.
+   */
+  allowInstructor?: boolean;
 }
 
 /**
  * Enhanced ProtectedRoute with improved security validation using new database functions
  */
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireAdmin = false }) => {
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
+  children,
+  requireAdmin = false,
+  allowInstructor = false,
+}) => {
   const { isAuthenticated, user, session, storeRedirectPath, loading } = useAuth();
   const location = useLocation();
   const { toast } = useToast();
@@ -29,11 +43,23 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireAdmin 
   // another protected_route_access audit entry on each token refresh.
   const hasSession = session !== null;
 
+  // Roles are resolved server-side via the get_user_roles RPC (see
+  // useUserProfile), so this is not a client-asserted claim.
+  const isInstructor = !!user?.roles?.includes('instructor');
+
   // Check admin access if required
   React.useEffect(() => {
     const checkAdminAccess = async () => {
       if (!requireAdmin || !user?.id) {
         setHasAdminAccess(true);
+        return;
+      }
+
+      // An instructor satisfies routes that opt into instructor access without
+      // needing the admin RPC. Admins still fall through to has_admin_access.
+      if (allowInstructor && isInstructor) {
+        setHasAdminAccess(true);
+        await logSecurityEvent(user.id, 'protected_route_access', 'info', 'Protected route access: granted (instructor)', { path: location.pathname, requireAdmin, allowInstructor });
         return;
       }
 
@@ -70,7 +96,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireAdmin 
       // access attempt — before has_admin_access could reply.
       setHasAdminAccess(!requireAdmin);
     }
-  }, [isAuthenticated, user?.id, hasSession, loading, requireAdmin, location.pathname]);
+  }, [isAuthenticated, user?.id, hasSession, loading, requireAdmin, allowInstructor, isInstructor, location.pathname]);
 
   React.useEffect(() => {
     // Validate and store redirect path securely

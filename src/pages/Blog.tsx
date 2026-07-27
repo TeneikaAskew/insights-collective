@@ -45,7 +45,8 @@ export default function Blog() {
       setLoading(true);
       setLoadError(null);
       const [postsData, categoriesData] = await Promise.all([
-        getAllBlogPosts(),
+        // Public listing: ask the server for published posts only.
+        getAllBlogPosts({ publishedOnly: true }),
         getBlogCategories()
       ]);
       setPosts(postsData);

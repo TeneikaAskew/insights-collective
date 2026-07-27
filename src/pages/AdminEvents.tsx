@@ -10,28 +10,9 @@ import { EventsTable } from '@/components/events/admin/EventsTable';
 import { EventsFilterBar } from '@/components/events/admin/EventsFilterBar';
 import { EventsRegistrationsTable } from '@/components/events/admin/EventsRegistrationsTable';
 import { Plus, Loader2 } from 'lucide-react';
-import { useEvents, useCreateEvent, useUpdateEvent, useDeleteEvent } from '@/hooks/useEvents';
+import { useEvents, useCreateEvent, useUpdateEvent, useDeleteEvent, type Event } from '@/hooks/useEvents';
 import { useEventRegistrations } from '@/hooks/useEventRegistrations';
 import { Skeleton } from '@/components/ui/skeleton';
-
-// Define Event type
-interface Event {
-  id: string;
-  title: string;
-  description: string;
-  type: string;
-  format: string;
-  location?: string | null;
-  link?: string | null;
-  date: string;
-  start_time?: string | null;
-  end_time?: string | null;
-  image?: string | null;
-  capacity?: number | null;
-  calendly_link?: string | null;
-  created_at?: string;
-  updated_at?: string;
-}
 
 export default function AdminEvents() {
   const [searchQuery, setSearchQuery] = useState('');

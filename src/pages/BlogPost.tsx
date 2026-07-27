@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Calendar, Clock, User, ArrowLeft, Share2, Bookmark, Edit } from 'lucide-react';
-import { getBlogPostBySlug } from '@/services/blogService';
+import { getBlogPostBySlug, recordBlogPostView } from '@/services/blogService';
 import { sanitizeHTML } from '@/utils/sanitize';
 import { BlogPost } from '@/types/blog';
 import AppLayout from '@/components/layout/AppLayout';
@@ -47,6 +47,12 @@ export default function BlogPostPage() {
         return;
       }
       setPost(postData);
+
+      // Count the read. Deliberately not awaited and never surfaced: view
+      // tracking is telemetry and must not delay or break rendering the post.
+      if (postData.id) {
+        void recordBlogPostView(postData.id, postSlug);
+      }
     } catch (error: any) {
       // A fetch failure must not masquerade as "Blog post not found".
       logger.error('Error loading blog post:', error);
