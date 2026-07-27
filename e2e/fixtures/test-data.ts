@@ -5,7 +5,7 @@
 
 export const TEST_USERS = {
   member: {
-    email: process.env.E2E_TEST_EMAIL || 'test@insightscollective.org',
+    email: process.env.E2E_TEST_EMAIL || 'e2e-member@insightscollective.org',
     password: process.env.E2E_TEST_PASSWORD || 'TestPass123!',
   },
   instructor: {

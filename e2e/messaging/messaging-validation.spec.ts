@@ -3,7 +3,7 @@
 import { test, expect } from "@playwright/test";
 
 const BASE = process.env.E2E_BASE_URL || "http://localhost:8080";
-const EMAIL = process.env.E2E_TEST_EMAIL || "test@insightscollective.org";
+const EMAIL = process.env.E2E_TEST_EMAIL || "e2e-member@insightscollective.org";
 const PASSWORD = process.env.E2E_TEST_PASSWORD || "TestPass123!";
 
 test.describe("Messaging", () => {
