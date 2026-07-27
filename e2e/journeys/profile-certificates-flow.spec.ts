@@ -39,17 +39,26 @@ test.describe('Profile — My Certificates', () => {
     // this wait, count() races the fetch and returns 0 before data lands.
     await expect(page.getByTestId('certificates-loading')).toHaveCount(0, { timeout: 15_000 });
 
-    const rows = page.getByTestId('certificate-row');
-    const count = await rows.count();
-    expect(
-      count,
-      'Seed gap: signed-in E2E member has zero certificates. Reseed a completed course + certificate row for the member in e2e/fixtures/seed.sql.',
-    ).toBeGreaterThan(0);
+    // Match the seeded row by its verification code rather than taking
+    // rows.first(). The member accumulates other certificates during a run --
+    // certificate-generation and full-completion-sequence each auto-issue one
+    // for course ...0001 -- so "the first row" is whichever spec happened to
+    // finish first, and asserting against it makes this spec's result depend
+    // on unrelated specs' timing. SEEDED_CODE is seeded in e2e/fixtures/seed.sql
+    // on course ...0002, which no other spec writes to.
+    const SEEDED_CODE = 'E2EMEMBERCERT';
 
     // Radix Slot forwards data-testid onto the underlying <a>, so the testid
     // IS the anchor rather than a wrapper around one.
-    const link = rows.first().getByTestId('certificate-verify-link');
-    const href = await link.getAttribute('href');
-    expect(href).toMatch(/\/verify-certificate\/.+/);
+    const link = page.locator(
+      `[data-testid="certificate-verify-link"][href="/verify-certificate/${SEEDED_CODE}"]`,
+    );
+    await expect(
+      link,
+      `Seed gap: the E2E member has no certificate with verification code ${SEEDED_CODE}. ` +
+        'Re-apply e2e/fixtures/seed.sql (section 3) -- and if it was moved back onto the ' +
+        'primary fixture course, move it off again: the certificate-reset specs delete the ' +
+        "member's certificate for that course while this spec is running.",
+    ).toHaveCount(1);
   });
 });

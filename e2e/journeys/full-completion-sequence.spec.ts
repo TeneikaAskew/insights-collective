@@ -63,7 +63,10 @@ test.describe('Full course completion sequence', () => {
     expect(items.length, 'seeded course must publish content items').toBeGreaterThan(0);
     const itemIds = items.map((i) => i.id);
 
-    // Reset prior submission, progressions, and certificate so this run truly exercises the flow
+    // Reset prior submission, progressions, and certificate so this run truly exercises the flow.
+    // Keep the certificate DELETE scoped to COURSE_ID — profile-certificates-flow.spec.ts
+    // runs in parallel against the same member and owns a fixture certificate on
+    // course ...0002. See the same note in certificate-generation.spec.ts.
     await page.request.delete(
       `${SUPABASE_URL}/rest/v1/certificates?user_id=eq.${userId}&course_id=eq.${COURSE_ID}`,
       { headers },

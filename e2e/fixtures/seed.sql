@@ -39,14 +39,36 @@ END $$;
 
 -- 3. Seed a completion certificate for the member so the profile "My Certificates"
 --    verify-link test can exercise a real row instead of skipping.
+--
+--    Deliberately NOT on the primary fixture course (E2E_TEST_COURSE_ID,
+--    660e8400-...0001). certificate-generation.spec.ts and
+--    full-completion-sequence.spec.ts both prove auto-issuance from a clean
+--    slate, so they open by deleting the member's certificate for that course
+--    -- which RLS lets them do ("Users can delete their own certificates").
+--    The suite is fullyParallel with 4 CI workers and all three specs are in
+--    the chromium-member project, so seeding this row on ...0001 put it in a
+--    race it loses roughly half the time: the profile spec would read zero
+--    rows and fail with a "Seed gap" message blaming a seed that had in fact
+--    applied cleanly. Course ...0002 is read-only for every other spec, so
+--    this row is nobody else's to delete.
 DO $$
 DECLARE
-  v_course_id uuid := '660e8400-e29b-41d4-a716-446655440001';
+  v_course_id uuid := '660e8400-e29b-41d4-a716-446655440002';
   v_member_id uuid;
 BEGIN
   SELECT id INTO v_member_id FROM auth.users
    WHERE email = 'e2e-member@insightscollective.org';
   IF v_member_id IS NOT NULL THEN
+    -- verification_code is globally UNIQUE, so a row left on the old course by
+    -- an earlier revision of this seed would collide -- and ON CONFLICT
+    -- (user_id, course_id) below does not catch a verification_code conflict,
+    -- so psql would abort the whole seed under ON_ERROR_STOP. Clear it first,
+    -- scoped to this member's own row carrying exactly this fixture code.
+    DELETE FROM public.certificates
+     WHERE user_id = v_member_id
+       AND verification_code = 'E2EMEMBERCERT'
+       AND course_id <> v_course_id;
+
     INSERT INTO public.certificates (user_id, course_id, certificate_type, certificate_data, verification_code, issued_at)
     VALUES (
       v_member_id, v_course_id, 'completion',
@@ -193,6 +215,22 @@ BEGIN
   ) INTO v_ok;
   IF NOT v_ok THEN
     RAISE EXCEPTION 'E2E SEED FAILED: fixture assignment aa0e8400-...0001 must be published, linked to a published content item, and carry a submitted/ungraded submission; without all four the grading dashboard renders no Grade submissions link';
+  END IF;
+
+  -- The profile certificate, asserted by verification_code on the course it is
+  -- pinned to. Both halves matter: the code is what the profile spec matches
+  -- on, and the course is what keeps it out of the certificate-reset specs'
+  -- blast radius. If a future edit moves this back onto ...0001, this fails
+  -- here rather than as an intermittent "Seed gap" three specs away.
+  SELECT EXISTS (
+    SELECT 1 FROM public.certificates c
+    JOIN auth.users u ON u.id = c.user_id
+    WHERE u.email = 'e2e-member@insightscollective.org'
+      AND c.verification_code = 'E2EMEMBERCERT'
+      AND c.course_id = '660e8400-e29b-41d4-a716-446655440002'
+  ) INTO v_ok;
+  IF NOT v_ok THEN
+    RAISE EXCEPTION 'E2E SEED FAILED: member certificate E2EMEMBERCERT must exist on course 660e8400-...0002; the profile My Certificates spec matches that exact code, and ...0002 is the only fixture course no other spec deletes certificates from';
   END IF;
 END $$;
 

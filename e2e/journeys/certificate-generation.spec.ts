@@ -48,6 +48,12 @@ test.describe('Certificate generation — end to end', () => {
     expect(items.length, 'seeded course has published content items').toBeGreaterThan(0);
 
     // 4) Reset any existing certificate + progressions so this run truly proves auto-issuance.
+    //    Keep this DELETE scoped to COURSE_ID. The suite is fullyParallel and
+    //    profile-certificates-flow.spec.ts reads the member's certificates at
+    //    the same time; its fixture row is seeded on course ...0002 precisely
+    //    so this reset cannot take it out from under that spec. Widening this
+    //    to all of the member's certificates would make that spec fail
+    //    intermittently with a "Seed gap" that no reseed can fix.
     await page.request.delete(
       `${SUPABASE_URL}/rest/v1/certificates?user_id=eq.${userId}&course_id=eq.${COURSE_ID}`,
       { headers: authHeaders },
