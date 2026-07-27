@@ -112,14 +112,24 @@ jobs:
                   msg: (res.message?.text || '').split('\n')[0].slice(0, 160),
                 };
               });
-              // Highest security-severity first; unscored quality rules last.
-              rows.sort((a, b) => (b.sev ?? -1) - (a.sev ?? -1));
-              console.log(rows.length + ' result(s)');
+              // Ascending, so the highest-severity findings are the LAST thing
+              // printed. The log API only ever returns a window from the end of
+              // the job log, so anything worth reading has to finish there —
+              // sorting highs first buries them exactly where the window cannot
+              // reach, which is how the first version of this step still left
+              // the 2 high alerts unreadable.
+              rows.sort((a, b) => (a.sev ?? -1) - (b.sev ?? -1));
+              console.log(rows.length + ' result(s), least severe first');
               for (const r of rows) {
                 const band = r.sev === null ? r.level
                   : r.sev >= 9 ? 'critical' : r.sev >= 7 ? 'high'
                   : r.sev >= 4 ? 'medium' : 'low';
                 console.log(\`  \${band.padEnd(8)} \${r.id}\n      \${r.file}:\${r.line}\n      \${r.msg}\`);
+              }
+              const scored = rows.filter(r => r.sev !== null && r.sev >= 4);
+              console.log('\n=== security findings (' + scored.length + ') ===');
+              for (const r of scored) {
+                console.log(\`  \${(r.sev >= 9 ? 'critical' : r.sev >= 7 ? 'high' : 'medium').padEnd(8)} \${r.id}  \${r.file}:\${r.line}\`);
               }
             }
           " 2>&1 | tee -a $GITHUB_STEP_SUMMARY
