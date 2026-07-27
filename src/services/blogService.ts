@@ -528,28 +528,6 @@ export const getBlogPostAnalytics = async (
   }
 };
 
-// Helper functions
-export const getBlogPostsByCategory = async (category: string): Promise<BlogPost[]> => {
-  const posts = await getAllBlogPosts();
-  return posts.filter(post => 
-    post.category?.toLowerCase() === category.toLowerCase()
-  );
-};
-
-export const getBlogPostsByTag = async (tag: string): Promise<BlogPost[]> => {
-  const posts = await getAllBlogPosts();
-  return posts.filter(post => 
-    post.tags && post.tags.some(t => t.toLowerCase() === tag.toLowerCase())
-  );
-};
-
-export const getFeaturedBlogPosts = async (): Promise<BlogPost[]> => {
-  const posts = await getAllBlogPosts();
-  return posts
-    .filter(post => post.featured && post.status === 'published')
-    .slice(0, 5);
-};
-
 // Helper function to calculate read time
 const calculateReadTime = (content: string): number => {
   const wordsPerMinute = 200;

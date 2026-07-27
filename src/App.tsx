@@ -86,8 +86,6 @@ const PublicPortfolioView = lazy(() => import('@/components/portfolio/PublicPort
 // Blog & Content Pages
 const Blog = lazy(() => import('@/pages/Blog'));
 const BlogPost = lazy(() => import('@/pages/BlogPost'));
-const CreateBlogPost = lazy(() => import('@/pages/CreateBlogPost'));
-const EditBlogPost = lazy(() => import('@/pages/EditBlogPost'));
 
 // Resources & Tools Pages
 const Resources = lazy(() => import('@/pages/Resources'));
@@ -104,7 +102,6 @@ const SurveyPage = lazy(() => import('@/pages/survey/SurveyPage'));
 // Admin Pages
 const AdminDashboard = lazy(() => import('@/pages/AdminDashboard'));
 const AdminActivity = lazy(() => import('@/pages/AdminActivity'));
-const AdminBlogPosts = lazy(() => import('@/pages/AdminBlogPosts'));
 const AdminCourses = lazy(() => import('@/pages/AdminCourses'));
 const AdminEvents = lazy(() => import('@/pages/AdminEvents'));
 const AdminUsers = lazy(() => import('@/pages/AdminUsers'));
@@ -364,8 +361,6 @@ function App() {
                         while this page sat unrouted. */}
                     <Route path="/blog" element={<Blog />} />
                     <Route path="/blog/:slug" element={<BlogPost />} />
-                    <Route path="/create-blog-post" element={<ProtectedRoute requireAdmin><CreateBlogPost /></ProtectedRoute>} />
-                    <Route path="/edit-blog-post/:slug" element={<ProtectedRoute requireAdmin><EditBlogPost /></ProtectedRoute>} />
 
                     {/* Resources & Tools Routes */}
                     <Route path="/resources" element={<Resources />} />
@@ -399,7 +394,6 @@ function App() {
                         grants them CRUD on posts they own, and admin-only tabs
                         are hidden inside the page. */}
                     <Route path="/admin/blog/*" element={<ProtectedRoute requireAdmin allowInstructor><BlogAdmin /></ProtectedRoute>} />
-                    <Route path="/admin/blog-posts" element={<ProtectedRoute requireAdmin><AdminBlogPosts /></ProtectedRoute>} />
                     <Route path="/admin/courses" element={<ProtectedRoute requireAdmin><AdminCourses /></ProtectedRoute>} />
                     <Route path="/admin/course-edit/:id" element={<ProtectedRoute requireAdmin><AdminCourseEditRedirect /></ProtectedRoute>} />
                     <Route path="/admin/events" element={<ProtectedRoute requireAdmin><AdminEvents /></ProtectedRoute>} />

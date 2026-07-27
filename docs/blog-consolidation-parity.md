@@ -66,6 +66,22 @@ are imported by **both** generations. They stay.
 - `blogService` exports with zero callers: `getBlogPostsByCategory`,
   `getBlogPostsByTag`, `getFeaturedBlogPosts`
 
-## Sign-off
+## Sign-off — COMPLETE
 
-Deletion proceeds only when every row is ✅ or ⛔ and the test suite is green.
+All rows are ✅ or ⛔. Verified before deletion:
+
+- Rows 1-3 (sorting): `toggleSort` present in the posts list.
+- Row 4 (Featured filter): `value="featured"` option present.
+- Row 5 (tags on rows): `post.tags.slice(0, 2)` rendering present.
+- Row 6 (preview): `value="preview"` tab present in the editor.
+- `BlogPostEditor` / `BlogPostMetrics`: re-confirmed **0 importers**.
+- `StatusDropdown` / `TagInput`: confirmed still imported by the surviving
+  editor, therefore retained.
+- No test or e2e spec referenced any file in the removal set.
+
+Name collision worth recording: there were **two** `EditBlogPost` components —
+`src/pages/EditBlogPost.tsx` (V1, removed) and
+`src/pages/admin/blog/EditBlogPost.tsx` (the surviving route wrapper, kept).
+
+Removal executed with `npm run lint` (0 errors), the full Vitest suite (877
+passing) and `npm run build` all green afterwards.

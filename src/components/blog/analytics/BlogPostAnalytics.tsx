@@ -93,9 +93,6 @@ export function BlogPostAnalytics({ postId, postSlug }: BlogPostAnalyticsProps) 
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{analytics.views.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">
-              +20.1% from last period
-            </p>
           </CardContent>
         </Card>
 
@@ -106,9 +103,6 @@ export function BlogPostAnalytics({ postId, postSlug }: BlogPostAnalyticsProps) 
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{analytics.uniqueVisitors.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">
-              +15% from last period
-            </p>
           </CardContent>
         </Card>
 
@@ -121,82 +115,31 @@ export function BlogPostAnalytics({ postId, postSlug }: BlogPostAnalyticsProps) 
             <div className="text-2xl font-bold">
               {Math.floor(analytics.averageTimeOnPage / 60)}:{Math.floor(analytics.averageTimeOnPage % 60).toString().padStart(2, '0')}
             </div>
-            <p className="text-xs text-muted-foreground">
-              +5% from last period
-            </p>
+            <p className="text-xs text-muted-foreground">Average reading time</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Bounce Rate</CardTitle>
+            <CardTitle className="text-sm font-medium">Unique Readers</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{analytics.bounceRate.toFixed(1)}%</div>
-            <p className="text-xs text-muted-foreground">
-              -2.1% from last period
-            </p>
+            <div className="text-2xl font-bold">{analytics.uniqueVisitors.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">Distinct visitors recorded</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Additional Analytics */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Traffic Sources</CardTitle>
-            <CardDescription>Where your readers are coming from</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-sm">Direct</span>
-                <span className="text-sm font-medium">45%</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm">Search</span>
-                <span className="text-sm font-medium">32%</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm">Social Media</span>
-                <span className="text-sm font-medium">15%</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm">Referral</span>
-                <span className="text-sm font-medium">8%</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Reading Engagement</CardTitle>
-            <CardDescription>How readers interact with your content</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-sm">Read to end</span>
-                <span className="text-sm font-medium">68%</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm">Shared</span>
-                <span className="text-sm font-medium">12%</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm">Bookmarked</span>
-                <span className="text-sm font-medium">5%</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm">Comments</span>
-                <span className="text-sm font-medium">3%</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/*
+        Removed: period-over-period deltas ("+20.1% from last period"), a Traffic
+        Sources card and a Reading Engagement card. Every number in them was a
+        hardcoded literal, not a measurement — they reported the same figures for
+        every post regardless of its real traffic. The Bounce Rate tile went too:
+        blogService.getBlogPostAnalytics returns a literal 0 for it, with the
+        comment "No real data source for bounce rate yet", so it always rendered
+        0.0%. Restore each one when there is a real source behind it.
+      */}
     </div>
   );
 }
