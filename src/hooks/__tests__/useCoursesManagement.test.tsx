@@ -123,6 +123,34 @@ describe('useCoursesManagement', () => {
     );
   });
 
+  it('does not touch enrollments at all when withEnrollmentCounts is false', async () => {
+    const courseA = makeCourse({ id: 'course-a', instructor: instructorRow });
+
+    // enrollments is wired to fail the way the live table does for a request
+    // that arrives without a valid session. With counts opted out the hook must
+    // never reach the table, so that failure cannot take the course fetch down
+    // with it — this is the navbar SiteSearch case, which renders no counts but
+    // is mounted on every page in the app.
+    setupTables({
+      courses: makeTableBuilder({ data: [courseA], error: null }),
+      enrollments: makeTableBuilder(
+        supabaseError('permission denied for table enrollments')
+      ),
+      user_roles: makeTableBuilder({ data: [{ role: 'admin' }], error: null }),
+    });
+
+    const { result } = renderHook(() =>
+      useCoursesManagement({ withEnrollmentCounts: false })
+    );
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(mockSupabaseClient.from).not.toHaveBeenCalledWith('enrollments');
+    expect(result.current.error).toBeNull();
+    expect(result.current.courses).toHaveLength(1);
+    expect(result.current.courses[0].enrollmentCount).toBe(0);
+  });
+
   it('REGRESSION: role-query failure sets hook error and does NOT silently filter the course list', async () => {
     const courseA = makeCourse({ id: 'course-a', instructor: instructorRow });
 

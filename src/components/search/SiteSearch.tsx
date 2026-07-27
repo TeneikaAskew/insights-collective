@@ -19,7 +19,10 @@ const SiteSearch = () => {
   const [results, setResults] = useState<SearchResult[]>([]);
   const searchRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-  const { courses } = useCoursesManagement();
+  // Search matches on title and description only, so it has no use for the
+  // per-course enrollment counts. Opting out keeps the navbar — which is
+  // mounted on every page — from scanning enrollments on every navigation.
+  const { courses } = useCoursesManagement({ withEnrollmentCounts: false });
 
   // Search across multiple data sources - memoized for performance
   const getSearchResults = (query: string): SearchResult[] => {
