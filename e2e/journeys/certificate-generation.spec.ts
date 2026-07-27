@@ -28,7 +28,13 @@ test.describe('Certificate generation — end to end', () => {
 
     // 2) Resolve the member's user id.
     const meRes = await page.request.get(`${SUPABASE_URL}/auth/v1/user`, { headers: authHeaders });
-    expect(meRes.ok(), `auth/v1/user ok (${meRes.status()})`).toBeTruthy();
+    // Include the response body: a bare status tells us the token was rejected
+    // but not why, and "why" is the whole question when this fails in CI.
+    // Supabase names the cause here (expired, bad_jwt, session_not_found, ...).
+    expect(
+      meRes.ok(),
+      `auth/v1/user ${meRes.status()} — ${(await meRes.text()).slice(0, 300)}`,
+    ).toBeTruthy();
     const userId = (await meRes.json()).id as string;
     expect(userId).toBeTruthy();
 

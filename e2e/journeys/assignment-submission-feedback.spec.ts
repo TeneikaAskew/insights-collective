@@ -38,7 +38,12 @@ test.describe('Assignment submission → feedback → completion', () => {
 
     // 2. Reset any prior submission for this user so we exercise the full flow
     const meRes = await page.request.get(`${SUPABASE_URL}/auth/v1/user`, { headers });
-    expect(meRes.ok()).toBeTruthy();
+    // Status + body: this assertion previously failed in CI as a bare
+    // "Received: false", which says nothing about why the token was rejected.
+    expect(
+      meRes.ok(),
+      `auth/v1/user ${meRes.status()} — ${(await meRes.text()).slice(0, 300)}`,
+    ).toBeTruthy();
     const me = await meRes.json();
     const userId: string = me.id;
 

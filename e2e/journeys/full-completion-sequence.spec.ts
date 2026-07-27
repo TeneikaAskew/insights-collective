@@ -29,7 +29,12 @@ test.describe('Full course completion sequence', () => {
 
     // Resolve user id
     const meRes = await page.request.get(`${SUPABASE_URL}/auth/v1/user`, { headers });
-    expect(meRes.ok(), `auth/v1/user (${meRes.status()})`).toBeTruthy();
+    // Body included deliberately: the status alone says the token was rejected
+    // but not why, which is the only useful thing when this fails in CI.
+    expect(
+      meRes.ok(),
+      `auth/v1/user ${meRes.status()} — ${(await meRes.text()).slice(0, 300)}`,
+    ).toBeTruthy();
     const userId = (await meRes.json()).id as string;
     expect(userId).toBeTruthy();
 
