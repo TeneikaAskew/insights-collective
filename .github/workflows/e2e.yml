@@ -114,9 +114,15 @@ jobs:
       # on the runner: the files are *-visual-linux.png, and the member/admin
       # routes only render their real content with a real session — a baseline
       # captured anywhere else just relocates the failure.
+      # --update-snapshots takes an OPTIONAL argument (choices: all|changed|
+      # missing|none), so writing it as `--update-snapshots e2e/visual` makes
+      # commander swallow the path as the mode, fail the choices check, and exit
+      # in about a second having run nothing. Bind the value with `=` and keep
+      # the path as a positional. "changed" rewrites only baselines that differ,
+      # so the commit stays a minimal, reviewable diff.
       - name: Regenerate visual baselines
         if: inputs.update_snapshots == true
-        run: npx playwright test --project=visual --update-snapshots e2e/visual --reporter=list
+        run: npx playwright test --project=visual e2e/visual --update-snapshots=changed --reporter=list
 
       # global-setup writes {"cookies":[],"origins":[]} when a role fails to
       # authenticate, and the suite then renders those routes logged-out. Baking
