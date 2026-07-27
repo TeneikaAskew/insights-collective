@@ -106,8 +106,19 @@ function currentRoute(): string {
  * the same occasional 300ms outlier, which is shared-tenancy network variance
  * rather than anything this adds.
  */
-function withCountPreference(init: RequestInit | undefined, method: string): RequestInit | undefined {
+function withCountPreference(
+  init: RequestInit | undefined,
+  method: string,
+  isPostgrest: boolean,
+): RequestInit | undefined {
   if (!WRITE_METHODS.has(method)) return init;
+  // PostgREST only. `Prefer` means nothing to Edge Functions or Storage, and
+  // adding it there is actively harmful: it is not a CORS-safelisted header, so
+  // the browser preflights it, and a function whose Access-Control-Allow-Headers
+  // does not list `prefer` has the request blocked outright. That broke every
+  // messages-helper call — the whole messaging feature — until the e2e suite
+  // caught it.
+  if (!isPostgrest) return init;
   const headers = new Headers(init?.headers);
   const existing = headers.get('Prefer');
   if (existing?.includes('count=')) return init;      // caller asked for a specific count mode
@@ -154,6 +165,8 @@ export function createInstrumentedFetch(baseFetch: typeof fetch = fetch): typeof
 
     const isData = /\/(rest|functions|storage)\/v1\//.test(url.pathname);
     if (!isData) return baseFetch(input, init);
+    // Only PostgREST understands `Prefer: count=exact` — see withCountPreference.
+    const isPostgrest = url.pathname.includes('/rest/v1/');
 
     const target = parseTarget(url);
     const route = currentRoute();
@@ -169,7 +182,7 @@ export function createInstrumentedFetch(baseFetch: typeof fetch = fetch): typeof
       logger.error('query built from an undefined value', issue);
     }
 
-    const res = await baseFetch(input, withCountPreference(init, method));
+    const res = await baseFetch(input, withCountPreference(init, method, isPostgrest));
 
     if (!res.ok) {
       // Read the error off a clone so the caller still gets an unconsumed body.

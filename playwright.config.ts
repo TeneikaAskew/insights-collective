@@ -12,6 +12,52 @@ const __dirname = path.dirname(__filename);
 const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:8080';
 const SESSIONS_DIR = path.join(__dirname, '.playwright-sessions');
 
+/**
+ * Make the browser hermetic: every host except this machine resolves to a closed
+ * port, so a third party can never decide whether the suite passes.
+ *
+ * This is not a preference. `page.goto` waits for `load`, which does not fire
+ * until every subresource settles, and the app pulls in two third-party
+ * resources on every single page:
+ *
+ *   index.html:26   https://cdn.gpteng.co/gptengineer.js   (Lovable's editor)
+ *   src/index.css:1 https://fonts.googleapis.com/css2...   (@import, render-blocking)
+ *
+ * Measured against the same server: unblocked, /login times out at 25s.
+ * Blocked, it loads in 630ms. When those hosts are merely slow rather than
+ * unreachable the suite does not fail outright — it just gets slower and
+ * flakier, which is worse because nobody investigates it.
+ *
+ * i.pravatar.cc (landing-page avatars) is covered by the same rule; it had
+ * already been rate-limiting long enough to earn its own suppression entry.
+ *
+ * Supabase is the one external host the app legitimately needs, so it is
+ * excluded — unless E2E_USE_RELAY=1, in which case it is reached over loopback
+ * and needs no exception. Blocking it unconditionally would have made the suite
+ * pass here and fail everywhere else.
+ *
+ * `localhost` is excluded by name. 127.0.0.1 needs no exclusion because an IP
+ * literal never goes through the resolver — and do not add one anyway: an
+ * EXCLUDE Chromium cannot parse makes it discard the entire rule string, and
+ * then nothing is blocked at all and the timeouts come back.
+ */
+function hermeticArgs(): string[] {
+  const rules = ['MAP * 127.0.0.1:1', 'EXCLUDE localhost'];
+  // The app's own CSP script-src names these, and the Monaco editor does not
+  // start without them — blocking them would not remove noise, it would break
+  // the feature the code-practice specs exist to test.
+  for (const host of ['cdn.jsdelivr.net', 'esm.sh']) rules.push(`EXCLUDE ${host}`);
+  if (process.env.E2E_USE_RELAY !== '1') {
+    const supabaseHost = new URL(
+      process.env.VITE_SUPABASE_URL || 'https://siuqvhscuiycvdrtiqsh.supabase.co',
+    ).hostname;
+    rules.push(`EXCLUDE ${supabaseHost}`);
+  }
+  return [`--host-resolver-rules=${rules.join(',')}`];
+}
+
+const HERMETIC_ARGS = hermeticArgs();
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
@@ -40,9 +86,34 @@ export default defineConfig({
     video: process.env.CI ? 'retain-on-failure' : 'on-first-retry',
     actionTimeout: 10_000,
     navigationTimeout: 15_000,
-    launchOptions: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
-      ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH }
-      : {},
+    launchOptions: {
+      args: HERMETIC_ARGS,
+      ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+        ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH }
+        : {}),
+    },
+  },
+  /**
+   * Start the app if it is not already up.
+   *
+   * There was no webServer block, so the suite tested whatever happened to be
+   * listening on 8080 — and when that was nothing, every spec failed with a
+   * navigation timeout that looked like an application fault.
+   *
+   * reuseExistingServer is true unconditionally, including CI: the workflow
+   * starts its own preview server against the production build, and this must
+   * defer to it rather than fight for the port.
+   */
+  webServer: {
+    command:
+      process.env.E2E_USE_RELAY === '1'
+        ? 'node scripts/e2e/serve.mjs'
+        : 'npx vite --host 127.0.0.1 --port 8080',
+    url: BASE_URL,
+    reuseExistingServer: true,
+    timeout: 120_000,
+    stdout: 'ignore',
+    stderr: 'pipe',
   },
   globalSetup: './e2e/global-setup.ts',
   globalTeardown: './e2e/global-teardown.ts',
@@ -130,6 +201,18 @@ export default defineConfig({
         storageState: path.join(SESSIONS_DIR, 'member.json'),
         navigationTimeout: 45_000,
         actionTimeout: 20_000,
+        // Firefox ignores --host-resolver-rules, so get the same hermetic
+        // behaviour by pointing all non-local traffic at a closed port.
+        launchOptions: {
+          firefoxUserPrefs: {
+            'network.proxy.type': 1,
+            'network.proxy.http': '127.0.0.1',
+            'network.proxy.http_port': 1,
+            'network.proxy.ssl': '127.0.0.1',
+            'network.proxy.ssl_port': 1,
+            'network.proxy.no_proxies_on': 'localhost, 127.0.0.1',
+          },
+        },
       },
       timeout: 90_000,
       testMatch: [

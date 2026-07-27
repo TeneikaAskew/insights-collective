@@ -1,7 +1,7 @@
 // ABOUTME: End-to-end smoke test — instructor creates a fresh course with a weekly module,
 // ABOUTME: page + assignment content, then a student enrolls, advances through the module,
 // ABOUTME: submits the assignment, and progress updates are verified in the database.
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures/page-helpers';
 import { randomUUID } from 'node:crypto';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://siuqvhscuiycvdrtiqsh.supabase.co';

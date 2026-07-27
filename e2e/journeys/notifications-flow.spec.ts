@@ -1,7 +1,7 @@
 // ABOUTME: Genuine end-to-end test for the notification center. Signs in as the
 // ABOUTME: seeded test member, loads /notifications, and exercises mark-as-read,
 // ABOUTME: delete, and tab filtering against real DB state.
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures/page-helpers';
 import { TEST_USERS } from '../fixtures/test-data';
 
 const BASE = process.env.E2E_BASE_URL ?? 'http://localhost:8080';

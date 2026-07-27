@@ -1,7 +1,7 @@
 // ABOUTME: End-to-end test for the profile "My Certificates" section. Uses the pre-loaded
 // ABOUTME: member storageState and asserts either the empty state or a certificate row with
 // ABOUTME: a working verification link renders — never a silent pass.
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures/page-helpers';
 
 const BASE = process.env.E2E_BASE_URL ?? 'http://localhost:8080';
 

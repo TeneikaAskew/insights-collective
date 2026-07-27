@@ -9,7 +9,7 @@
 //
 // Backend-side invariants (column privileges, forgery rejection, verdicts
 // derived from stored execution) are covered by scripts/verify-code-evaluation.mjs.
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures/page-helpers';
 
 const SUPABASE_URL =
   process.env.VITE_SUPABASE_URL || 'https://siuqvhscuiycvdrtiqsh.supabase.co';

@@ -20,6 +20,7 @@ import { format } from 'date-fns';
 import type { ContentItem } from '@/types/canvas';
 import { InlineQuizPlayer } from '@/components/course/learn/InlineQuizPlayer';
 import { InlineAssignmentSubmit } from '@/components/course/learn/InlineAssignmentSubmit';
+import { InlineDiscussionWidget } from '@/components/course/discussions/InlineDiscussionWidget';
 
 export interface LessonViewerProps {
   item: ContentItem | null;
@@ -37,6 +38,12 @@ export interface LessonViewerProps {
   actionBasePath: string;
   /** When true, hide the internal Prev/Mark done/Next footer (parent renders its own). */
   hideFooter?: boolean;
+  /**
+   * Whether this course allows discussion threads under lessons — the Settings
+   * tab in the course builder (courses.settings.discussions.enabled).
+   * Defaults to true so a course created before the setting existed keeps them.
+   */
+  discussionsEnabled?: boolean;
 }
 
 export function LessonViewer({
@@ -48,6 +55,7 @@ export function LessonViewer({
   onMarkDone,
   actionBasePath,
   hideFooter = false,
+  discussionsEnabled = true,
 }: LessonViewerProps) {
   const navigate = useNavigate();
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -176,6 +184,19 @@ export function LessonViewer({
 
         {/* Scroll sentinel for auto-completion */}
         {item.type !== 'quiz' && <div ref={sentinelRef} className="h-1" aria-hidden />}
+
+        {/*
+          Discussion thread for this lesson.
+          The widget and its service were fully built but never mounted anywhere,
+          so the feature existed only in the codebase. Not shown on quizzes: the
+          player is a timed, single-focus surface and a comment thread under a
+          question invites exactly the wrong thing.
+        */}
+        {discussionsEnabled && item.type !== 'quiz' && (
+          <div className="pt-6 border-t">
+            <InlineDiscussionWidget contentItemId={item.id} />
+          </div>
+        )}
 
         {/* Lesson-level Prev / Mark done / Next footer */}
         {!hideFooter && (

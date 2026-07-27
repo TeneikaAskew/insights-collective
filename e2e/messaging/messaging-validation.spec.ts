@@ -1,6 +1,6 @@
 // ABOUTME: End-to-end validation of the site messaging feature.
 // ABOUTME: Signs in as the seeded test account and exercises inbox load, tabs, and the New Conversation dialog.
-import { test, expect } from "@playwright/test";
+import { test, expect } from '../fixtures/page-helpers';
 import { TEST_USERS } from "../fixtures/test-data";
 
 const BASE = process.env.E2E_BASE_URL ?? "http://localhost:8080";

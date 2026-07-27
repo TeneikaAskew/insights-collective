@@ -2,7 +2,7 @@
 // ABOUTME: Each route opens a per-role authenticated context (public routes stay
 // ABOUTME: unauthenticated) so every route actually runs — no role-gated skips.
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures/page-helpers';
 import path from 'path';
 import { fileURLToPath } from 'url';
 

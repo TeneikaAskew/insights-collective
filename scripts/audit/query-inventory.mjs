@@ -135,13 +135,88 @@ function topLevelKeys(args) {
   return keys;
 }
 
+/**
+ * Produce two length-preserving views of a source file, so every recorded offset
+ * and line number still points at the right place in the original.
+ *
+ *   code — comments blanked. Table and function names are read from here,
+ *          because those names *are* string literals.
+ *   scan — comments AND string interiors blanked. `.from(` / `.rpc(` are matched
+ *          here, so text that merely mentions a call is not mistaken for one.
+ *
+ * Both blind spots were real. `CourseSettings.tsx` carried a commented-out
+ * `.from('course_settings')` — a table that never existed — and the gate reported
+ * it as a broken shape in live code for as long as that file survived. Separately,
+ * an error message reading `supabase.rpc('${name}')` was inventoried as a call to
+ * a function literally named `${name}`.
+ *
+ * An audit that flags dead text teaches people to skim its output, which costs
+ * more than the findings are worth.
+ */
+function views(src) {
+  let code = '';
+  let scan = '';
+  let i = 0;
+  const n = src.length;
+  const push = (ch, inString) => {
+    code += ch;
+    scan += inString && ch !== '\n' ? ' ' : ch;
+  };
+
+  while (i < n) {
+    const c = src[i];
+    const next = src[i + 1];
+
+    if (c === '/' && next === '/') {
+      while (i < n && src[i] !== '\n') { code += ' '; scan += ' '; i++; }
+      continue;
+    }
+    if (c === '/' && next === '*') {
+      code += '  '; scan += '  ';
+      i += 2;
+      while (i < n && !(src[i] === '*' && src[i + 1] === '/')) {
+        const ch = src[i] === '\n' ? '\n' : ' ';
+        code += ch; scan += ch;
+        i++;
+      }
+      if (i < n) { code += '  '; scan += '  '; i += 2; }
+      continue;
+    }
+    // Strings are tracked, not skipped: an apostrophe or a URL containing `//`
+    // would otherwise start a comment that swallows the real code after it.
+    if (c === '"' || c === "'" || c === '`') {
+      const quote = c;
+      push(c, false);            // keep the quote itself in both views
+      i++;
+      while (i < n) {
+        if (src[i] === '\\') {
+          push(src[i], true);
+          if (i + 1 < n) push(src[i + 1], true);
+          i += 2;
+          continue;
+        }
+        const closing = src[i] === quote;
+        push(src[i], !closing);
+        i++;
+        if (closing) break;
+      }
+      continue;
+    }
+    push(c, false);
+    i++;
+  }
+  return { code, scan };
+}
+
 const records = [];
 
 for (const file of sourceFiles(SRC)) {
-  const text = fs.readFileSync(file, 'utf8');
+  // `scan` is searched for call sites; `text` is read for the literals inside
+  // them. See views() for why those must be two different strings.
+  const { code: text, scan } = views(fs.readFileSync(file, 'utf8'));
   const rel = path.relative(process.cwd(), file);
 
-  for (const m of text.matchAll(/\.\s*from\s*\(/g)) {
+  for (const m of scan.matchAll(/\.\s*from\s*\(/g)) {
     const open = m.index + m[0].length - 1;
     const { args, end } = readArgs(text, open);
     const table = firstLiteral(args);
@@ -165,7 +240,7 @@ for (const file of sourceFiles(SRC)) {
     });
   }
 
-  for (const m of text.matchAll(/\.\s*rpc\s*\(/g)) {
+  for (const m of scan.matchAll(/\.\s*rpc\s*\(/g)) {
     const open = m.index + m[0].length - 1;
     const { args } = readArgs(text, open);
     const name = firstLiteral(args);
@@ -173,7 +248,7 @@ for (const file of sourceFiles(SRC)) {
     records.push({ kind: 'rpc', name, args: topLevelKeys(args), file: rel, line: lineOf(text, m.index) });
   }
 
-  for (const m of text.matchAll(/functions\s*\.\s*invoke\s*\(/g)) {
+  for (const m of scan.matchAll(/functions\s*\.\s*invoke\s*\(/g)) {
     const open = m.index + m[0].length - 1;
     const { args } = readArgs(text, open);
     const name = firstLiteral(args);

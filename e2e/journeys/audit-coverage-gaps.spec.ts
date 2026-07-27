@@ -1,7 +1,7 @@
 // ABOUTME: Gap-fill audit specs — genuine end-to-end coverage for platform surfaces
 // ABOUTME: previously lacking regression tests: portfolio public view, blog reader,
 // ABOUTME: interview prep entry, admin dashboard access control, and 404 handling.
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures/page-helpers';
 import { E2E_BASE_URL, TEST_USERS } from '../fixtures/test-data';
 
 async function signIn(page: import('@playwright/test').Page, email: string, password: string) {

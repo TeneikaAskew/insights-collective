@@ -96,6 +96,40 @@ describe('instrumented fetch', () => {
     expect(sent.get('Prefer')).toContain('count=exact');
   });
 
+  /**
+   * `Prefer` is not a CORS-safelisted request header, so adding it makes the
+   * browser preflight the call. Edge Functions and Storage do not list `prefer`
+   * in Access-Control-Allow-Headers, so the browser blocks the request outright:
+   *
+   *   Access to fetch at '…/functions/v1/messages-helper' has been blocked by
+   *   CORS policy: Request header field prefer is not allowed…
+   *
+   * That took out the entire messaging feature. Only PostgREST understands the
+   * header, so only PostgREST gets it.
+   */
+  it.each([
+    ['edge function', 'https://project.supabase.co/functions/v1/messages-helper'],
+    ['storage', 'https://project.supabase.co/storage/v1/object/course-materials/x.pdf'],
+  ])('does not add Prefer to a %s write', async (_label, url) => {
+    const base = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
+    const f = createInstrumentedFetch(base as unknown as typeof fetch);
+
+    await f(url, { method: 'POST' });
+
+    const init = base.mock.calls[0][1] as RequestInit | undefined;
+    expect(new Headers(init?.headers).get('Prefer')).toBeNull();
+  });
+
+  it('still adds Prefer to a PostgREST write', async () => {
+    const base = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    const f = createInstrumentedFetch(base as unknown as typeof fetch);
+
+    await f(`${REST}/certificates`, { method: 'POST' });
+
+    const init = base.mock.calls[0][1] as RequestInit | undefined;
+    expect(new Headers(init?.headers).get('Prefer')).toContain('count=exact');
+  });
+
   it('does not touch reads', async () => {
     const base = vi.fn().mockResolvedValue(jsonResponse([]));
     const f = createInstrumentedFetch(base as unknown as typeof fetch);

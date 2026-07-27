@@ -1,9 +1,11 @@
 // ABOUTME: E2E coverage of the Soft Studio interview-prep hub (Concept D:
 // ABOUTME: stepper-as-navigation). The hub is public, so no auth is required.
 //
-// Plain @playwright/test (not the console-error fixture): logged-out Supabase
-// noise must not fail design tests.
-import { test, expect } from '@playwright/test';
+// Uses the shared console-error fixture. It previously opted out on the grounds
+// that logged-out Supabase noise must not fail design tests — but that noise is
+// already covered by named suppressions (/auth\/v1\//, AuthApiError, "No session
+// found"), and opting out meant these specs saw no console errors at all.
+import { test, expect } from '../fixtures/page-helpers';
 
 test.describe('Interview prep hub (Soft Studio, Concept D)', () => {
   test.beforeEach(async ({ page }) => {

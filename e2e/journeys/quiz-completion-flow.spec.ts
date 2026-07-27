@@ -1,6 +1,6 @@
 // ABOUTME: Genuine end-to-end test for the per-week quiz results view and the inline quiz player.
 // ABOUTME: Signs in as the seeded test member and verifies the correct role-scoped rendering.
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures/page-helpers';
 import { TEST_USERS } from '../fixtures/test-data';
 
 const BASE = process.env.E2E_BASE_URL ?? 'http://localhost:8080';

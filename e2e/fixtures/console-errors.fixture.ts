@@ -186,17 +186,44 @@ const IGNORED_URL_PATTERNS: RegExp[] = [
   // nothing to do with this app. The Avatar falls back to initials, so a failed
   // image is a cosmetic third-party outage, not a regression.
   /i\.pravatar\.cc/,
-  // cdn.gpteng.co — Lovable's editor script, loaded by index.html:26.
-  //
-  // This host is also listed in IGNORED_PATTERNS above, but that list is matched
-  // against msg.text(), and the message this actually produces is the browser's
-  // generic "Failed to load resource: net::ERR_CONNECTION_RESET" — the host
-  // appears only in msg.location().url. So the existing rule never fired for the
-  // common case, and 36 specs failed on a third-party script that the fixture
-  // already intended to ignore. Suppression rules have to live in the list that
-  // matches the shape of the message they are meant to catch.
-  /cdn\.gpteng\.co/,
 ];
+
+/**
+ * Hosts the browser is allowed to reach. Everything else is blocked on purpose
+ * by `--host-resolver-rules` in playwright.config.ts, so its resource errors are
+ * our own doing and must not fail a test.
+ *
+ * Derived from the same inputs as the block rather than written out as a list of
+ * regexes. An enumerated list goes stale the moment someone adds a font, an
+ * avatar host or an image CDN — and the failure mode is a red suite with a
+ * cause nobody can find. This is the exact complement of what we permit, so it
+ * cannot drift.
+ *
+ * Note this is *not* the blanket `/\/rest\/v1\//` rule that used to live here.
+ * Supabase is an allowed host, so its errors still fail tests — which is the
+ * whole point.
+ */
+function allowedHosts(): Set<string> {
+  const hosts = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
+  // Monaco (cdn.jsdelivr.net) and esm.sh are in the app's own CSP script-src;
+  // the code editor does not work without them, so they stay reachable.
+  for (const h of ['cdn.jsdelivr.net', 'esm.sh']) hosts.add(h);
+  try {
+    hosts.add(new URL(process.env.VITE_SUPABASE_URL ?? 'https://siuqvhscuiycvdrtiqsh.supabase.co').hostname);
+  } catch {
+    // Malformed env: fall through with the loopback defaults.
+  }
+  return hosts;
+}
+const ALLOWED_HOSTS = allowedHosts();
+
+function isDeliberatelyBlocked(url: string): boolean {
+  try {
+    return !ALLOWED_HOSTS.has(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+}
 
 function shouldIgnore(msg: ConsoleMessage): boolean {
   const text = msg.text();
@@ -209,6 +236,8 @@ function shouldIgnore(msg: ConsoleMessage): boolean {
   if (text.startsWith('Failed to load resource:')) {
     const url = msg.location()?.url ?? '';
     if (IGNORED_URL_PATTERNS.some((pattern) => pattern.test(url))) return true;
+    // A host we blocked ourselves. See allowedHosts() above.
+    if (isDeliberatelyBlocked(url)) return true;
   }
 
   return false;
