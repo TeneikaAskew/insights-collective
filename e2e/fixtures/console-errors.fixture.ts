@@ -53,24 +53,46 @@ function auditRecord(entry: Record<string, unknown>): void {
 }
 
 /**
- * Matches `host` only where it is a complete hostname, optionally with
- * subdomains — not merely a substring of a longer one.
- *
- * The vendor entries below used to be bare `/google-analytics\.com/`, under a
- * comment claiming they were "anchored to real vendors". They were not: an
- * unanchored domain also matches `evil-google-analytics.com` and
- * `google-analytics.com.attacker.net`, so an error mentioning either would be
- * silently suppressed. That is the exact failure this suppression list exists
- * to avoid — a rule that hides more than it claims stops being a rule anyone
- * can trust. (CodeQL js/regex/missing-regexp-anchor flagged it.)
- *
- * The lookbehind rejects a preceding hostname character so `evil-vendor.com`
- * does not match, and the lookahead rejects a trailing one so
- * `vendor.com.attacker.net` does not either, while `www.vendor.com` still does.
+ * Third-party hosts whose console noise is never our bug.
  */
-function hostPattern(host: string): RegExp {
-  const escaped = host.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return new RegExp(`(?<![\\w-])(?:[\\w-]+\\.)*${escaped}(?![\\w.-])`);
+const IGNORED_HOSTS = [
+  // Lovable's editor script, loaded from a CDN by index.html:26. It fails CORS
+  // wherever that CDN is unreachable, which is not a regression here.
+  'cdn.gpteng.co',
+  // Analytics / tracking vendors. Named explicitly because a bare /analytics/i
+  // also swallowed the app's own [CourseAnalytics] and [StudentInsights] errors.
+  'google-analytics.com',
+  'googletagmanager.com',
+  'segment.io',
+  'segment.com',
+];
+
+/**
+ * True when the message names one of IGNORED_HOSTS as an actual host.
+ *
+ * Deliberately not a regex, after two attempts that were both wrong.
+ *
+ * A bare /google-analytics\.com/ also matches `evil-google-analytics.com` and
+ * `google-analytics.com.attacker.net`, so an error mentioning either was
+ * silently suppressed — the same over-matching that made a bare /analytics/i
+ * swallow the app's own errors. Rewriting it with lookarounds fixed the
+ * semantics but CodeQL only recognises `^`-style anchors, so the alert count
+ * went up rather than down, and anchoring to `^` is simply wrong here: these
+ * match anywhere inside a console message, not a whole URL.
+ *
+ * Host comparison is not a regex problem. Split the message on characters that
+ * cannot appear in a hostname, then compare the candidates as hosts — exact
+ * match or a proper subdomain. No anchors to get wrong, and the suffix check
+ * makes `evil-google-analytics.com` and `google-analytics.com.attacker.net`
+ * fail by construction.
+ */
+function mentionsIgnoredHost(text: string): boolean {
+  return text
+    .toLowerCase()
+    .split(/[^a-z0-9.-]+/)
+    .some((token) =>
+      IGNORED_HOSTS.some((host) => token === host || token.endsWith(`.${host}`)),
+    );
 }
 
 /**
@@ -78,7 +100,9 @@ function hostPattern(host: string): RegExp {
  * These come from third-party scripts, browser extensions, or React
  * internals that fire in every environment and are not our bugs.
  */
-const IGNORED_PATTERNS: RegExp[] = [
+type IgnoreRule = RegExp | ((text: string) => boolean);
+
+const IGNORED_PATTERNS: IgnoreRule[] = [
   // Browser / OS noise
   /ResizeObserver loop limit exceeded/,
   /ResizeObserver loop completed with undelivered notifications/,
@@ -90,7 +114,6 @@ const IGNORED_PATTERNS: RegExp[] = [
   // Lovable's editor script, loaded from a CDN by index.html:26. Third-party and
   // unrelated to any app behaviour — it fails CORS wherever that CDN is
   // unreachable, which is not a regression in this codebase.
-  hostPattern('cdn.gpteng.co'),
   // Supabase realtime warning when no channel is subscribed
   /No session found/,
   // Vite HMR noise in test environments
@@ -110,10 +133,8 @@ const IGNORED_PATTERNS: RegExp[] = [
   // [StudentInsights] and analytics-query errors — and matched as whole
   // hostnames, so a lookalike domain cannot inherit the suppression.
   /gtag/,
-  hostPattern('google-analytics.com'),
-  hostPattern('googletagmanager.com'),
-  hostPattern('segment.io'),
-  hostPattern('segment.com'),
+  // Vendor hosts are matched by mentionsIgnoredHost, not by pattern.
+  mentionsIgnoredHost,
   // Expected auth errors in login tests (bad credentials, intercepted auth)
   /AuthApiError/,
   /Invalid login credentials/,
@@ -262,7 +283,9 @@ function shouldIgnore(msg: ConsoleMessage): boolean {
   const text = msg.text();
 
   // Check text-based patterns first (covers app console.error calls)
-  if (IGNORED_PATTERNS.some((pattern) => pattern.test(text))) return true;
+  if (IGNORED_PATTERNS.some((rule) => (typeof rule === 'function' ? rule(text) : rule.test(text)))) {
+    return true;
+  }
 
   // For browser-native "Failed to load resource" errors the URL is in
   // msg.location(), not msg.text() — check URL patterns separately.
