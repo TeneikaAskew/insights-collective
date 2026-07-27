@@ -314,6 +314,18 @@ const AppSidebar = () => {
                     </SidebarMenuButton>
                   </SidebarMenuItem>}
 
+                {/* Instructors author blog posts too — RLS grants them CRUD on
+                    their own posts, so surface the entry rather than leaving the
+                    capability unreachable. Admins already get it above. */}
+                {isInstructor && !isAdmin && <SidebarMenuItem className={open ? '' : 'flex justify-center'}>
+                    <SidebarMenuButton asChild isActive={location.pathname.startsWith('/admin/blog')} className="text-gray-700 dark:text-gray-400 hover:text-sidebar-accent hover:bg-sidebar-accent/10">
+                      <Link to="/admin/blog" className={`flex items-center rounded-md py-1.5 ${open ? 'space-x-2 px-2' : 'justify-center w-8 h-8 px-0 mx-auto'}`}>
+                        <Newspaper className="h-3.5 w-3.5 flex-shrink-0 text-gray-500" />
+                        {open && <span className="text-xs truncate">Manage Blog</span>}
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>}
+
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>}

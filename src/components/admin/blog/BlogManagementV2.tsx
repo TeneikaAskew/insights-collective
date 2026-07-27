@@ -36,6 +36,7 @@ import {
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import { BlogCategoriesManager } from '@/components/blog/categories/BlogCategoriesManager';
 import { BlogAnalyticsDashboard } from '@/components/blog/analytics/BlogAnalyticsDashboard';
 import { BlogSettings } from './BlogSettings';
@@ -95,6 +96,10 @@ type SortDirection = 'asc' | 'desc';
 export function BlogManagementV2() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
+  // Admins manage the whole blog; instructors manage only what they authored.
+  // This mirrors the RLS policies rather than adding a second access model.
+  const isAdmin = !!user?.roles?.includes('admin');
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('posts');
@@ -117,7 +122,8 @@ export function BlogManagementV2() {
   useEffect(() => {
     loadPosts();
     loadCategories();
-  }, [statusFilter, categoryFilter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, categoryFilter, isAdmin, user?.id]);
 
   const loadCategories = async () => {
     try {
@@ -136,11 +142,20 @@ export function BlogManagementV2() {
   const loadPosts = async () => {
     setLoading(true);
     try {
-      // Get blog posts with separate queries to avoid relationship issues
-      const { data: postsData, error: postsError } = await supabase
+      // Get blog posts with separate queries to avoid relationship issues.
+      // Instructors see only their own posts: RLS lets them READ every post
+      // (so they can review), but they can only edit what they authored —
+      // listing other people's posts would offer actions that always fail.
+      let postsQuery = supabase
         .from('blog_posts')
         .select('*')
         .order('created_at', { ascending: false });
+
+      if (!isAdmin && user?.id) {
+        postsQuery = postsQuery.eq('author_id', user.id);
+      }
+
+      const { data: postsData, error: postsError } = await postsQuery;
 
       if (postsError) throw postsError;
 
@@ -458,18 +473,25 @@ export function BlogManagementV2() {
             <FileText className="h-4 w-4 mr-2" />
             Posts
           </TabsTrigger>
-          <TabsTrigger value="categories">
-            <FolderTree className="h-4 w-4 mr-2" />
-            Categories
-          </TabsTrigger>
+          {/* Categories and Settings write to blog_categories / blog_settings,
+              which RLS restricts to admins. Rendering them for an instructor
+              would show controls whose every save fails, so hide them. */}
+          {isAdmin && (
+            <TabsTrigger value="categories">
+              <FolderTree className="h-4 w-4 mr-2" />
+              Categories
+            </TabsTrigger>
+          )}
           <TabsTrigger value="analytics">
             <BarChart3 className="h-4 w-4 mr-2" />
             Analytics
           </TabsTrigger>
-          <TabsTrigger value="settings">
-            <Settings className="h-4 w-4 mr-2" />
-            Settings
-          </TabsTrigger>
+          {isAdmin && (
+            <TabsTrigger value="settings">
+              <Settings className="h-4 w-4 mr-2" />
+              Settings
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="posts" className="space-y-4">
@@ -676,17 +698,21 @@ export function BlogManagementV2() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="categories">
-          <BlogCategoriesManager />
-        </TabsContent>
+        {isAdmin && (
+          <TabsContent value="categories">
+            <BlogCategoriesManager />
+          </TabsContent>
+        )}
 
         <TabsContent value="analytics">
           <BlogAnalyticsDashboard />
         </TabsContent>
 
-        <TabsContent value="settings">
-          <BlogSettings />
-        </TabsContent>
+        {isAdmin && (
+          <TabsContent value="settings">
+            <BlogSettings />
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* Delete Confirmation */}

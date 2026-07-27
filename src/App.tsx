@@ -395,7 +395,10 @@ function App() {
                         leaving the rest reachable by any visitor (RLS aside). */}
                     <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminDashboard /></ProtectedRoute>} />
                     <Route path="/admin/activity" element={<ProtectedRoute requireAdmin><AdminActivity /></ProtectedRoute>} />
-                    <Route path="/admin/blog/*" element={<ProtectedRoute requireAdmin><BlogAdmin /></ProtectedRoute>} />
+                    {/* Instructors author their own posts here — RLS already
+                        grants them CRUD on posts they own, and admin-only tabs
+                        are hidden inside the page. */}
+                    <Route path="/admin/blog/*" element={<ProtectedRoute requireAdmin allowInstructor><BlogAdmin /></ProtectedRoute>} />
                     <Route path="/admin/blog-posts" element={<ProtectedRoute requireAdmin><AdminBlogPosts /></ProtectedRoute>} />
                     <Route path="/admin/courses" element={<ProtectedRoute requireAdmin><AdminCourses /></ProtectedRoute>} />
                     <Route path="/admin/course-edit/:id" element={<ProtectedRoute requireAdmin><AdminCourseEditRedirect /></ProtectedRoute>} />
