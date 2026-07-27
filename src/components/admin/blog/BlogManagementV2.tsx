@@ -285,20 +285,39 @@ export function BlogManagementV2() {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) throw new Error('User not authenticated');
 
-      const { error } = await supabase
+      // A duplicate needs its own slug — slug is UNIQUE, and the original's
+      // would collide. Suffix with a short timestamp for a stable unique value.
+      const copySlug = `${post.slug}-copy-${Date.now().toString(36)}`;
+
+      const { data: newPost, error } = await supabase
         .from('blog_posts')
         .insert({
           title: `${post.title} (Copy)`,
+          slug: copySlug,
           content: post.content || '',
           excerpt: post.excerpt,
           status: 'draft',
-          author_id: userData.user.id,
+          // Authorship follows the original author, not whoever clicked
+          // Duplicate. RLS still permits the insert: admins may write any
+          // author_id, and an instructor duplicating their own post is
+          // unaffected.
+          author_id: post.author_id || userData.user.id,
           category_id: post.category_id,
           read_time: post.reading_time,
           featured: false,
-        });
+        })
+        .select('id')
+        .single();
 
       if (error) throw error;
+
+      // Carry the tags over — a copy without them silently loses metadata.
+      if (newPost && post.tags.length > 0) {
+        const { error: tagError } = await supabase
+          .from('blog_post_tags')
+          .insert(post.tags.map(tag_name => ({ blog_post_id: newPost.id, tag_name })));
+        if (tagError) throw tagError;
+      }
 
       toast({
         title: 'Success',

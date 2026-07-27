@@ -437,25 +437,17 @@ export const recordBlogPostView = async (postId: string, slug: string) => {
       logger.warn('Failed to record blog post view (non-critical):', error);
     }
 
-    // Update view count on the post. The previous implementation called a
-    // non-existent 'increment' RPC, so view_count was never written. A
-    // read-then-write is not atomic but it is real; failures stay fail-quiet
-    // because view counts are telemetry.
-    const { data: current, error: readError } = await supabase
-      .from('blog_posts')
-      .select('view_count')
-      .eq('id', postId)
-      .maybeSingle();
-    if (readError || !current) {
-      logger.warn('Failed to read blog post view count (non-critical):', readError);
-      return;
-    }
-    const { error: writeError } = await supabase
-      .from('blog_posts')
-      .update({ view_count: (current.view_count ?? 0) + 1 })
-      .eq('id', postId);
-    if (writeError) {
-      logger.warn('Failed to increment blog post view count (non-critical):', writeError);
+    // Increment via a SECURITY DEFINER RPC. blog_posts has no UPDATE policy for
+    // anon, so a direct client-side update matched zero rows for the anonymous
+    // visitors who make up most blog traffic — counts never moved. The RPC also
+    // makes the increment atomic, where the previous read-then-write lost
+    // counts under concurrency. Failures stay fail-quiet: this is telemetry and
+    // must never break the read path.
+    const { error: rpcError } = await supabase.rpc('increment_blog_post_view', {
+      p_post_id: postId,
+    });
+    if (rpcError) {
+      logger.warn('Failed to increment blog post view count (non-critical):', rpcError);
     }
   } catch (error) {
     logger.warn('Error recording blog post view (non-critical):', error);

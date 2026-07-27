@@ -80,6 +80,7 @@ export function BlogPostFormV2({ postId }: BlogPostFormV2Props) {
   const [wordCount, setWordCount] = useState(0);
   const [readingTime, setReadingTime] = useState(0);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [existingPublishedAt, setExistingPublishedAt] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('content');
   const [blogSettings, setBlogSettings] = useState<any>(null);
 
@@ -176,14 +177,20 @@ export function BlogPostFormV2({ postId }: BlogPostFormV2Props) {
         tags: tags?.map(t => t.tag_name) || [],
         meta_title: post.seo_title || '',
         meta_description: post.seo_description || '',
-        meta_keywords: '',
+        // These three used to be discarded on load (keywords blanked, schedule
+        // read from published_at, comments hardcoded) and never written back,
+        // so anything typed into them silently vanished on save.
+        meta_keywords: post.meta_keywords || '',
         og_image: post.image_url || '',
         custom_slug: post.slug || '',
-        scheduled_at: post.published_at ? new Date(post.published_at) : undefined,
+        scheduled_at: post.scheduled_at ? new Date(post.scheduled_at) : undefined,
         is_featured: post.featured || false,
-        allow_comments: true,
+        allow_comments: post.allow_comments ?? true,
       });
 
+      // Preserve the original publish timestamp so re-saving a published post
+      // doesn't reset its publication date to "now".
+      setExistingPublishedAt(post.published_at ?? null);
       setLastSaved(new Date(post.updated_at));
     } catch (error: any) {
       logger.error('Error loading post:', error);
@@ -229,10 +236,21 @@ export function BlogPostFormV2({ postId }: BlogPostFormV2Props) {
         read_time,
         seo_title: data.meta_title || null,
         seo_description: data.meta_description || null,
+        meta_keywords: data.meta_keywords || null,
         image_url: data.og_image || null,
         slug: slug,
         featured: data.is_featured,
-        published_at: data.status === 'published' ? new Date().toISOString() : null,
+        allow_comments: data.allow_comments,
+        // Only meaningful while the post is scheduled; clearing it on any other
+        // status stops a stale future date from re-hiding a published post.
+        scheduled_at:
+          data.status === 'scheduled' && data.scheduled_at
+            ? data.scheduled_at.toISOString()
+            : null,
+        published_at:
+          data.status === 'published'
+            ? existingPublishedAt ?? new Date().toISOString()
+            : null,
       };
 
       let resultPostId = postId;
