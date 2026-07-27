@@ -2,13 +2,13 @@
 // ABOUTME: access, folder/file listing for an enrolled student, and download signed-URL generation.
 import { test, expect } from '@playwright/test';
 
-const BASE = process.env.E2E_BASE_URL ?? 'http://localhost:8080';
-const EMAIL = process.env.E2E_TEST_EMAIL ?? 'test@insightscollective.org';
-const PASSWORD = process.env.E2E_TEST_PASSWORD ?? 'TestPass123!';
+const BASE = process.env.E2E_BASE_URL || 'http://localhost:8080';
+const EMAIL = process.env.E2E_TEST_EMAIL || 'test@insightscollective.org';
+const PASSWORD = process.env.E2E_TEST_PASSWORD || 'TestPass123!';
 // Seeded course the test member is enrolled in (Introduction to Data Science).
-const ENROLLED_COURSE = process.env.E2E_ENROLLED_COURSE_ID ?? '660e8400-e29b-41d4-a716-446655440001';
+const ENROLLED_COURSE = process.env.E2E_ENROLLED_COURSE_ID || '660e8400-e29b-41d4-a716-446655440001';
 // A different published course the test member is NOT enrolled in.
-const OTHER_COURSE = process.env.E2E_UNENROLLED_COURSE_ID ?? '660e8400-e29b-41d4-a716-446655440002';
+const OTHER_COURSE = process.env.E2E_UNENROLLED_COURSE_ID || '660e8400-e29b-41d4-a716-446655440002';
 
 async function signIn(page: import('@playwright/test').Page) {
   await page.goto(`${BASE}/login`, { waitUntil: 'domcontentloaded' });

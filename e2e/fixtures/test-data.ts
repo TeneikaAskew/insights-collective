@@ -5,11 +5,11 @@
 
 export const TEST_USERS = {
   member: {
-    email: process.env.E2E_TEST_EMAIL ?? 'test@insightscollective.org',
-    password: process.env.E2E_TEST_PASSWORD ?? 'TestPass123!',
+    email: process.env.E2E_TEST_EMAIL || 'test@insightscollective.org',
+    password: process.env.E2E_TEST_PASSWORD || 'TestPass123!',
   },
   instructor: {
-    email: process.env.E2E_INSTRUCTOR_EMAIL ?? 'e2e-instructor@insightscollective.org',
+    email: process.env.E2E_INSTRUCTOR_EMAIL || 'e2e-instructor@insightscollective.org',
     password: process.env.E2E_INSTRUCTOR_PASSWORD,
   },
   admin: {
@@ -25,11 +25,11 @@ export const TEST_USERS = {
  */
 export const FIXTURE_COURSES = {
   enrolled: {
-    id: process.env.E2E_ENROLLED_COURSE_ID ?? '660e8400-e29b-41d4-a716-446655440001',
+    id: process.env.E2E_ENROLLED_COURSE_ID || '660e8400-e29b-41d4-a716-446655440001',
     title: 'Introduction to Data Science',
   },
   unenrolled: {
-    id: process.env.E2E_UNENROLLED_COURSE_ID ?? '660e8400-e29b-41d4-a716-446655440002',
+    id: process.env.E2E_UNENROLLED_COURSE_ID || '660e8400-e29b-41d4-a716-446655440002',
     title: 'Advanced Machine Learning',
   },
 } as const;
@@ -38,7 +38,7 @@ export const FIXTURE_COURSES = {
  * Helper: base URL for the target under test. Every spec should read this
  * instead of using a raw string.
  */
-export const E2E_BASE_URL = process.env.E2E_BASE_URL ?? 'http://localhost:8080';
+export const E2E_BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:8080';
 
 /**
  * Skip a test with a loud, actionable reason. Prevents "silent pass" specs

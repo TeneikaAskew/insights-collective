@@ -2,9 +2,9 @@
 // ABOUTME: Signs in as the seeded test account and exercises inbox load, tabs, and the New Conversation dialog.
 import { test, expect } from "@playwright/test";
 
-const BASE = process.env.E2E_BASE_URL ?? "http://localhost:8080";
-const EMAIL = process.env.E2E_TEST_EMAIL ?? "test@insightscollective.org";
-const PASSWORD = process.env.E2E_TEST_PASSWORD ?? "TestPass123!";
+const BASE = process.env.E2E_BASE_URL || "http://localhost:8080";
+const EMAIL = process.env.E2E_TEST_EMAIL || "test@insightscollective.org";
+const PASSWORD = process.env.E2E_TEST_PASSWORD || "TestPass123!";
 
 test.describe("Messaging", () => {
   test.beforeEach(async ({ page }) => {

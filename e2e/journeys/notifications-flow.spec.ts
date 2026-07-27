@@ -3,9 +3,9 @@
 // ABOUTME: delete, and tab filtering against real DB state.
 import { test, expect } from '@playwright/test';
 
-const BASE = process.env.E2E_BASE_URL ?? 'http://localhost:8080';
-const EMAIL = process.env.E2E_TEST_EMAIL ?? 'test@insightscollective.org';
-const PASSWORD = process.env.E2E_TEST_PASSWORD ?? 'TestPass123!';
+const BASE = process.env.E2E_BASE_URL || 'http://localhost:8080';
+const EMAIL = process.env.E2E_TEST_EMAIL || 'test@insightscollective.org';
+const PASSWORD = process.env.E2E_TEST_PASSWORD || 'TestPass123!';
 
 async function signIn(page: import('@playwright/test').Page) {
   await page.goto(`${BASE}/login`, { waitUntil: 'domcontentloaded' });
