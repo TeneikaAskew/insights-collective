@@ -2,14 +2,14 @@
 // ABOUTME: previously lacking regression tests: portfolio public view, blog reader,
 // ABOUTME: interview prep entry, admin dashboard access control, and 404 handling.
 import { test, expect } from '@playwright/test';
-import { E2E_BASE_URL, TEST_USERS } from '../fixtures/test-data';
+import { E2E_BASE_URL } from '../fixtures/test-data';
 
-async function signIn(page: import('@playwright/test').Page, email: string, password: string) {
-  await page.goto(`${E2E_BASE_URL}/login`, { waitUntil: 'domcontentloaded' });
-  await page.fill('input[type="email"]', email);
-  await page.fill('input[type="password"]', password);
-  await page.locator('form button[type="submit"]').first().click();
-  await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 20_000 });
+// The authenticated describe below runs under the chromium-member project,
+// whose storageState is the session global-setup already established. Driving
+// the real /login form here was redundant work that could only add failure
+// surface. Loading the app hydrates the stored session.
+async function loadAuthenticatedApp(page: import('@playwright/test').Page) {
+  await page.goto(`${E2E_BASE_URL}/`, { waitUntil: 'domcontentloaded' });
 }
 
 test.describe('Audit — public surfaces render without auth', () => {
@@ -53,7 +53,7 @@ test.describe('Audit — public surfaces render without auth', () => {
 
 test.describe('Audit — authenticated surfaces reachable from the main nav', () => {
   test.beforeEach(async ({ page }) => {
-    await signIn(page, TEST_USERS.member.email, TEST_USERS.member.password);
+    await loadAuthenticatedApp(page);
   });
 
   test('dashboard renders the sidebar and greeting for a signed-in member', async ({ page }) => {
