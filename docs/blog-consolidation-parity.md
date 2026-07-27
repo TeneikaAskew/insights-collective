@@ -85,3 +85,43 @@ Name collision worth recording: there were **two** `EditBlogPost` components —
 
 Removal executed with `npm run lint` (0 errors), the full Vitest suite (877
 passing) and `npm run build` all green afterwards.
+
+---
+
+## Known defect found after shipping: bylines read "Unknown Author"
+
+Surfaced by reviewing the regenerated `blog-index` visual baseline rather than
+by a failing test — no assertion covers the byline, so nothing went red.
+
+`blogService` resolves author names by looking the `author_id` up in
+`profiles` and falls back to the literal `'Unknown Author'` when the lookup
+returns nothing (`src/services/blogService.ts:66`, and three more sites at
+:121, :256, :375). RLS on `profiles` does not grant `anon` any read, so for a
+signed-out visitor — the overwhelming majority of blog traffic — every lookup
+returns nothing and every post is attributed to "Unknown Author".
+
+Measured against the live project:
+
+```sql
+BEGIN; SET LOCAL ROLE anon;
+SELECT (SELECT count(DISTINCT author_id) FROM blog_posts WHERE status='published'),
+       (SELECT count(*) FROM profiles
+          WHERE id IN (SELECT author_id FROM blog_posts WHERE status='published'));
+ROLLBACK;
+-- distinct_authors_needed: 2   profiles_anon_can_read: 0
+```
+
+Not a regression from `20260731000000` — that migration touches `blog_posts`,
+`blog_categories`, `blog_post_tags` and `blog_post_views`, never `profiles`.
+The defect is pre-existing and became *visible* only when `/blog` was routed;
+before that the page was an unreachable orphan.
+
+**Deliberately not fixed here.** The obvious fix — granting `anon` read on
+`profiles` — would publish every user's profile row to the internet to put a
+name on a blog post. The proportionate fix is a narrow accessor that exposes
+display names *only* for users who have authored a published post (a
+`SECURITY DEFINER` function or a view over that set), which is a schema
+decision with its own review, not something to slip into a consolidation PR.
+
+Whoever picks this up: add a test asserting a real byline, so the next
+regression fails a check instead of waiting to be noticed in a screenshot.
