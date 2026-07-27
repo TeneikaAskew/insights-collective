@@ -96,12 +96,21 @@ jobs:
           node -e "
             const sarif = JSON.parse(require('fs').readFileSync('$f','utf8'));
             for (const run of sarif.runs || []) {
-              const rules = new Map(
-                (run.tool?.driver?.rules || []).map(r => [r.id, r])
-              );
+              // CodeQL puts query metadata in tool.extensions[].rules (the
+              // codeql/javascript-queries pack), NOT tool.driver.rules, which
+              // is usually empty. Reading only the driver found no rules at
+              // all, so every finding fell through to the 'note' default and
+              // the security recap printed 0 — while the check itself was
+              // reporting 2 high and 17 medium.
+              const rules = new Map();
+              for (const comp of [run.tool?.driver, ...(run.tool?.extensions || [])]) {
+                for (const r of comp?.rules || []) rules.set(r.id, r);
+              }
               const rows = (run.results || []).map(res => {
                 const rule = rules.get(res.ruleId) || {};
-                const sev = rule.properties?.['security-severity'];
+                // Some results carry the score on the result rather than the rule.
+                const sev = rule.properties?.['security-severity']
+                  ?? res.properties?.['security-severity'];
                 const loc = res.locations?.[0]?.physicalLocation || {};
                 return {
                   sev: sev ? Number(sev) : null,
@@ -128,6 +137,15 @@ jobs:
               }
               const scored = rows.filter(r => r.sev !== null && r.sev >= 4);
               console.log('\n=== security findings (' + scored.length + ') ===');
+              if (rules.size === 0) {
+                // A zero here would otherwise read as a clean scan when it
+                // actually means no rule metadata could be resolved — the
+                // difference between passing and a broken reader. Double
+                // quotes are deliberately absent: this whole script is a
+                // double-quoted bash string, and one would end it.
+                console.log('  WARNING: no rule metadata resolved from this SARIF;');
+                console.log('  severities above are defaults, not real values.');
+              }
               for (const r of scored) {
                 console.log(\`  \${(r.sev >= 9 ? 'critical' : r.sev >= 7 ? 'high' : 'medium').padEnd(8)} \${r.id}  \${r.file}:\${r.line}\`);
               }
