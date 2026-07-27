@@ -1,5 +1,5 @@
 import { useParams } from 'react-router-dom';
-import { BlogPostFormV2 } from '@/components/blog/BlogPostFormV2';
+import { BlogPostForm } from '@/components/blog/BlogPostForm';
 
 export default function EditBlogPost() {
   const { id } = useParams<{ id: string }>();
@@ -10,7 +10,7 @@ export default function EditBlogPost() {
 
   return (
     <div className="container max-w-7xl mx-auto p-6">
-      <BlogPostFormV2 postId={id} />
+      <BlogPostForm postId={id} />
     </div>
   );
 }

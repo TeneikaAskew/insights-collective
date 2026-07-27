@@ -6,6 +6,13 @@ on:
   pull_request:
     branches: [main, develop]
   workflow_dispatch:
+    inputs:
+      update_snapshots:
+        description: >-
+          Regenerate the visual regression baselines on this runner and commit
+          them back to the dispatched branch (instead of running the suite).
+        type: boolean
+        default: false
 
 # Every run of this suite drives the same live Supabase project through the same
 # three e2e-* accounts, so two runs cannot share the wall clock: they seed over
@@ -21,6 +28,10 @@ jobs:
     name: Playwright E2E
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # contents: write is only exercised by the opt-in baseline regeneration
+    # below, which commits the new PNGs back to the dispatched branch.
+    permissions:
+      contents: write
     env:
       E2E_BASE_URL: http://localhost:8080
       # Single-credential mode: providing E2E_ADMIN_* + E2E_TEST_PASSWORD is enough.
@@ -70,51 +81,128 @@ jobs:
             echo "Waiting for preview ($i)..."; sleep 2;
           done
 
+      # Seeding is opt-in — it only runs when the secret is present. But a
+      # MALFORMED secret must not be worse than an absent one, and it was: psql
+      # treats a value that is neither a URI nor a keyword string as a bare
+      # database NAME and dials the local unix socket, so a mistyped secret
+      # failed with "connection to server on socket /var/run/postgresql ...",
+      # which names neither the secret nor the real cause, and killed the job
+      # before a single test ran.
+      #
+      # So: check the shape first, and never let a seeding problem take the
+      # whole suite down with it. Both paths raise a workflow annotation, and
+      # the specs that actually need fixtures already fail with their own
+      # explicit "Seed gap: ..." messages naming what to reseed.
       - name: Seed E2E fixtures
         if: env.SUPABASE_DB_URL != ''
         run: |
-          # psql treats an argument that is not a connection URI as a DATABASE
-          # NAME and silently falls back to the local unix socket -- which
-          # surfaces as "connection to server on socket /var/run/postgresql/
-          # .s.PGSQL.5432 failed", easily misread as a network problem when it
-          # actually means the secret is not a URI. Say so plainly instead.
           case "$SUPABASE_DB_URL" in
             postgres://*|postgresql://*) ;;
             *)
-              echo "::error::SUPABASE_DB_URL must be a full connection URI beginning with postgresql:// — Supabase dashboard → Project Settings → Database → Connection string → URI. The current value would be treated by psql as a local database name."
-              exit 1
+              echo "::error title=SUPABASE_DB_URL is not a connection URI::The secret is set but its scheme is missing, so psql read it as a database name and tried the local socket. It must be a full libpq connection URI - scheme, then credentials, host, port and database name. Skipping seed."
+              exit 0
               ;;
           esac
           # A scheme alone is not enough: a database password containing URI
           # reserved characters silently corrupts the authority section. A raw
-          # "?" starts the query component and a raw "%" opens a percent-escape,
-          # so a password such as pa?ss makes the parser stop reading the host at
-          # "pa" and treat everything after it as junk -- psql then fails
-          # somewhere well downstream of the real mistake. Catch it here.
-          # Deliberately no worked example here: an inline connection-string
-          # literal, even a fabricated one, trips TruffleHog's Postgres detector
-          # and fails the Secret Detection job.
-          python3 - <<'PY' || exit 1
-          import os, sys
+          # "?" or "#" ends the authority early, so the host is read as the few
+          # characters before it and the port cast then fails -- which is what
+          # makes those two detectable here rather than fifteen minutes later.
+          # A malformed percent-escape is NOT caught that way (urlsplit does not
+          # decode escapes, and unquote leaves an invalid one literal), so it
+          # gets its own check. Skip rather than fail, for the same reason the
+          # scheme check does. Deliberately no worked example: an inline
+          # connection-string literal, even a fabricated one, trips TruffleHog's
+          # Postgres detector and fails the Secret Detection job.
+          if ! python3 - <<'PY'
+          import os, re, sys
           from urllib.parse import urlsplit
+          raw = os.environ["SUPABASE_DB_URL"]
+          advice = "Percent-encode the password if it contains reserved characters: % becomes %25, ? becomes %3F, # becomes %23, / becomes %2F, @ becomes %40, : becomes %3A. Skipping seed."
+          if re.search(r"%(?![0-9A-Fa-f]{2})", raw):
+              print("::error title=SUPABASE_DB_URL contains a malformed percent-escape::A '%' must be followed by two hex digits. " + advice)
+              sys.exit(1)
           try:
-              parts = urlsplit(os.environ["SUPABASE_DB_URL"])
+              parts = urlsplit(raw)
               port = parts.port
           except ValueError:
-              print("::error::SUPABASE_DB_URL does not parse as a URI. If the database password contains reserved characters, percent-encode it: % becomes %25, ? becomes %3F, # becomes %23, / becomes %2F, @ becomes %40, : becomes %3A.")
+              print("::error title=SUPABASE_DB_URL does not parse as a URI::A raw '?' or '#' in the password ends the authority early, so the host and port are read from the wrong place. " + advice)
               sys.exit(1)
           if not parts.hostname or not port:
-              print("::error::SUPABASE_DB_URL is missing a host or port. Expected the postgresql:// URI form ending in :5432/postgres, and percent-encode the password if it contains reserved characters.")
+              print("::error title=SUPABASE_DB_URL is missing a host or port::Expected the postgresql:// URI form ending in :5432/postgres. " + advice)
               sys.exit(1)
           PY
+          then
+            exit 0
+          fi
           # ON_ERROR_STOP so a failed statement (including the seed's own
-          # invariant RAISE EXCEPTIONs) fails the step. Without it psql prints
-          # the error and still exits 0, and a half-applied seed looks fine
-          # while the specs fail later for reasons that make no sense.
-          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f e2e/fixtures/seed.sql
+          # invariant RAISE EXCEPTIONs) aborts psql. Without it psql prints the
+          # error and still exits 0, and a half-applied seed looks fine while
+          # the specs fail later for reasons that make no sense.
+          if ! psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f e2e/fixtures/seed.sql; then
+            echo "::error title=E2E seeding failed::psql could not apply e2e/fixtures/seed.sql. Continuing so the suite still runs; fixture-dependent specs will report their own 'Seed gap' errors."
+          fi
 
+      # No --reporter override: a CLI --reporter replaces the config's reporter
+      # array wholesale, and the json reporter with no configured outputFile
+      # writes to STDOUT. That is why the job log was ~500KB of raw JSON, why
+      # test-results.json and junit.xml were never produced, and why the
+      # coverage-gap step below has silently been a no-op — its `[ -f
+      # test-results.json ]` guard was never true. playwright.config.ts already
+      # selects html+json+junit+github+list under CI, each with a real output
+      # path, so just let it.
       - name: Run Playwright suite
-        run: npx playwright test --reporter=list,html,json
+        if: inputs.update_snapshots != true
+        run: npx playwright test
+
+      # Baseline regeneration is opt-in via workflow_dispatch. It has to happen
+      # on the runner: the files are *-visual-linux.png, and the member/admin
+      # routes only render their real content with a real session — a baseline
+      # captured anywhere else just relocates the failure.
+      # --update-snapshots takes an OPTIONAL argument (choices: all|changed|
+      # missing|none), so writing it as `--update-snapshots e2e/visual` makes
+      # commander swallow the path as the mode, fail the choices check, and exit
+      # in about a second having run nothing. Bind the value with `=` and keep
+      # the path as a positional. "changed" rewrites only baselines that differ,
+      # so the commit stays a minimal, reviewable diff.
+      - name: Regenerate visual baselines
+        if: inputs.update_snapshots == true
+        # globalTeardown deletes .playwright-sessions/ at the end of the run, so
+        # the session check below (a separate step) would otherwise find nothing
+        # and report "no admin session" for sessions that authenticated fine.
+        env:
+          E2E_KEEP_SESSIONS: 'true'
+        run: npx playwright test --project=visual e2e/visual --update-snapshots=changed --reporter=list
+
+      # global-setup writes {"cookies":[],"origins":[]} when a role fails to
+      # authenticate, and the suite then renders those routes logged-out. Baking
+      # a signed-out page into a baseline is worse than leaving the check red, so
+      # refuse to commit unless every role actually has a session.
+      - name: Verify baselines came from authenticated sessions
+        if: inputs.update_snapshots == true
+        run: |
+          for role in admin instructor member; do
+            f=".playwright-sessions/$role.json"
+            if [ ! -s "$f" ] || ! grep -q 'supabase.auth.token' "$f"; then
+              echo "::error::No $role session — regenerated baselines would capture logged-out pages. Refusing to commit."
+              exit 1
+            fi
+            echo "$role session OK"
+          done
+
+      - name: Commit regenerated baselines
+        if: inputs.update_snapshots == true
+        run: |
+          if git diff --quiet -- e2e/visual; then
+            echo "Baselines already match this runner — nothing to commit."
+            exit 0
+          fi
+          git diff --stat -- e2e/visual
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add e2e/visual
+          git commit -m "Regenerate visual regression baselines on the CI runner"
+          git push origin HEAD:${{ github.ref_name }}
 
       - name: Coverage gap report
         if: always()
@@ -131,17 +219,41 @@ jobs:
           if [ -f test-results.json ] || [ -f playwright-report/results.json ]; then
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "### Test outcome summary" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            # Piped through tee, not redirected: this step runs last, so writing
+            # the failure list to stdout too is what puts it inside the window
+            # the GitHub log API returns. Without it the only record of WHICH
+            # tests failed is the JSON reporter dump, which the API truncates
+            # away — leaving a red check with no diagnosable cause.
             node -e "
               const fs = require('fs');
               const p = fs.existsSync('test-results.json') ? 'test-results.json' : 'playwright-report/results.json';
               const r = JSON.parse(fs.readFileSync(p,'utf8'));
               const s = r.stats || {};
               console.log('Passed:', s.expected||0, 'Failed:', s.unexpected||0, 'Skipped:', s.skipped||0, 'Flaky:', s.flaky||0);
-              const skipped = [];
-              function walk(node){ (node.suites||[]).forEach(walk); (node.specs||[]).forEach(sp=>sp.tests.forEach(t=>t.results.forEach(res=>{ if(res.status==='skipped') skipped.push(sp.title+' — '+(res.error?.message||'no reason')); }))); }
+              const failed = [], flaky = [], skipped = [];
+              const firstError = t => {
+                for (const res of t.results||[]) {
+                  const m = (res.error && res.error.message) || ((res.errors||[])[0]||{}).message;
+                  if (m) return m.replace(/\x1b\[[0-9;]*m/g,'').split('\n').map(x=>x.trim()).filter(Boolean).slice(0,2).join(' | ');
+                }
+                return 'no error message';
+              };
+              function walk(node){
+                (node.suites||[]).forEach(walk);
+                (node.specs||[]).forEach(sp=>sp.tests.forEach(t=>{
+                  const where = (sp.file||'?')+' ['+(t.projectName||'?')+'] '+sp.title;
+                  if (t.status === 'unexpected') failed.push(where+' — '+firstError(t));
+                  else if (t.status === 'flaky') flaky.push(where);
+                  t.results.forEach(res=>{ if(res.status==='skipped') skipped.push(sp.title+' — '+(res.error?.message||'no reason')); });
+                }));
+              }
               (r.suites||[]).forEach(walk);
+              if (failed.length) { console.log('\nFailed tests ('+failed.length+'):'); failed.forEach(f=>console.log(' -', f)); }
+              if (flaky.length) { console.log('\nFlaky tests ('+flaky.length+'):'); flaky.forEach(f=>console.log(' -', f)); }
               if (skipped.length) { console.log('\nSkipped (potential coverage gaps):'); skipped.forEach(s=>console.log(' -', s)); }
-            " >> $GITHUB_STEP_SUMMARY || true
+            " 2>&1 | tee -a $GITHUB_STEP_SUMMARY || true
+            echo '```' >> $GITHUB_STEP_SUMMARY
           fi
 
       - name: Upload Playwright HTML report

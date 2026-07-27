@@ -2,6 +2,7 @@
 // ABOUTME: Aggregates courses, enrollments, completions, and certificates into a single CSV.
 import { useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { toCsv } from '@/utils/csv';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -37,10 +38,6 @@ type Summary = {
   completions: number;
   certificates: number;
 };
-
-function csvEscape(v: unknown): string {
-  return `"${String(v ?? '').replace(/"/g, '""')}"`;
-}
 
 function download(filename: string, contents: string, mime = 'text/csv;charset=utf-8') {
   const blob = new Blob([contents], { type: mime });
@@ -181,16 +178,13 @@ export function UnifiedExportReport({ courses }: Props) {
       'Items Completed', 'Total Items', 'Progress %', 'Fully Completed',
       'Certificate Issued', 'Certificate Code', 'Certificate Issued At',
     ];
-    const lines = [header.map(csvEscape).join(',')];
-    for (const r of preview) {
-      lines.push([
-        r.courseId, r.courseTitle, r.category, r.published ? 'Yes' : 'No',
-        r.userId, r.learnerName, r.learnerEmail, r.enrolledAt,
-        r.itemsCompleted, r.totalItems, r.progressPct, r.fullyCompleted ? 'Yes' : 'No',
-        r.certificateIssued ? 'Yes' : 'No', r.certificateCode, r.certificateIssuedAt,
-      ].map(csvEscape).join(','));
-    }
-    download(`cross-course-report-${new Date().toISOString().slice(0, 10)}.csv`, lines.join('\n'));
+    const rows = preview.map((r) => [
+      r.courseId, r.courseTitle, r.category, r.published ? 'Yes' : 'No',
+      r.userId, r.learnerName, r.learnerEmail, r.enrolledAt,
+      r.itemsCompleted, r.totalItems, r.progressPct, r.fullyCompleted ? 'Yes' : 'No',
+      r.certificateIssued ? 'Yes' : 'No', r.certificateCode, r.certificateIssuedAt,
+    ]);
+    download(`cross-course-report-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(header, rows));
   };
 
   const exportJson = () => {

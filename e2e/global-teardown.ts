@@ -30,8 +30,23 @@ const TEARDOWN_ENABLED = process.env.E2E_ENABLE_DB_TEARDOWN === 'true';
 const PROJECT_REF = process.env.VITE_SUPABASE_PROJECT_ID;
 const ALLOW_TARGET = process.env.E2E_ALLOW_TEARDOWN_TARGET;
 
+// Opt-out for workflow steps that must inspect the sessions AFTER the run.
+// The visual-baseline regeneration job checks that every role actually
+// authenticated before it commits the new PNGs — a baseline captured from a
+// logged-out page would turn the check green on a lie. That check is a separate
+// workflow step, so it runs after this teardown and used to find the directory
+// already gone, reporting "no admin session" for sessions that had been fine.
+// Keep this opt-in and CI-scoped: the directory holds live JWTs. It is
+// gitignored and the runner is ephemeral, so retaining it for the rest of the
+// job does not persist or publish anything.
+const KEEP_SESSIONS = process.env.E2E_KEEP_SESSIONS === 'true';
+
 async function cleanupSessions(): Promise<void> {
   const sessionsDir = path.join(process.cwd(), '.playwright-sessions');
+  if (KEEP_SESSIONS) {
+    console.log('[global-teardown] Keeping .playwright-sessions/ (E2E_KEEP_SESSIONS=true)');
+    return;
+  }
   if (process.env.CI && fs.existsSync(sessionsDir)) {
     fs.rmSync(sessionsDir, { recursive: true, force: true });
     console.log('[global-teardown] Cleaned up .playwright-sessions/');

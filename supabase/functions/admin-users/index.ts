@@ -334,6 +334,18 @@ serve(async (req) => {
       case 'setE2EPassword': {
         // Narrowly-scoped: admin-only, and only for the three dedicated e2e-* accounts.
         // Lets CI mint deterministic per-role sessions without emailing reset links.
+        //
+        // Environment gate: this is a password-set primitive and must never run
+        // in production, even for an admin. It is enabled only when the
+        // E2E_PASSWORD_RESET_ENABLED secret is explicitly set to 'true' (CI /
+        // non-prod projects). Default is deny.
+        if (Deno.env.get('E2E_PASSWORD_RESET_ENABLED') !== 'true') {
+          console.error('[admin-users] setE2EPassword blocked: not enabled in this environment');
+          return new Response(JSON.stringify({ error: 'Action not available in this environment' }), {
+            status: 403,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          })
+        }
         const allowed = /^e2e-(admin|instructor|member)@insightscollective\.org$/i;
         const { email, password } = actionData || {};
         if (!email || !password || !allowed.test(email)) {

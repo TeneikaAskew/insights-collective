@@ -334,7 +334,7 @@ export function FormTemplates() {
       </div>
       
       <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
-        <DialogContent>
+        <DialogContent className="soft-studio">
           <DialogHeader>
             <DialogTitle>Save as Custom Template</DialogTitle>
             <DialogDescription>

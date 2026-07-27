@@ -7,7 +7,7 @@ import { mockSupabaseClient } from '@/test/mocks/supabase';
 
 const authState = vi.hoisted(() => ({
   isAuthenticated: false,
-  user: null as null | { id: string },
+  user: null as null | { id: string; roles?: string[] },
   session: null as null | Record<string, unknown>,   // must satisfy validateSessionIntegrity
   loading: true,
   storeRedirectPath: vi.fn(),
@@ -149,5 +149,92 @@ describe('ProtectedRoute requireAdmin', () => {
     renderAt();
 
     await waitFor(() => expect(screen.getByText('DASHBOARD')).toBeInTheDocument());
+  });
+});
+
+/**
+ * `allowInstructor` is additive: it must widen ONLY the routes that opt in.
+ * The database already grants instructors CRUD over their own blog posts, so
+ * the routing gate was the thing keeping them out — but a plain `requireAdmin`
+ * route must be entirely unaffected.
+ */
+describe('ProtectedRoute allowInstructor', () => {
+  const renderWithInstructorAllowed = () =>
+    render(
+      <MemoryRouter initialEntries={['/admin/blog']}>
+        <Routes>
+          <Route
+            path="/admin/blog"
+            element={
+              <ProtectedRoute requireAdmin allowInstructor>
+                <div>BLOG ADMIN CONTENT</div>
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/dashboard" element={<div>DASHBOARD</div>} />
+          <Route path="/login" element={<div>LOGIN</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+  function signedInAs(roles: string[]) {
+    authState.isAuthenticated = true;
+    authState.user = { id: 'user-1', roles };
+    authState.session = SESSION;
+    authState.loading = false;
+  }
+
+  it('admits an instructor on a route that opts in', async () => {
+    // has_admin_access says no; the instructor branch is what lets them in.
+    mockSupabaseClient.rpc = vi.fn().mockResolvedValue({ data: false, error: null });
+    signedInAs(['instructor']);
+
+    renderWithInstructorAllowed();
+
+    await waitFor(() => expect(screen.getByText('BLOG ADMIN CONTENT')).toBeInTheDocument());
+  });
+
+  it('does not consult has_admin_access for an instructor on an opted-in route', async () => {
+    mockSupabaseClient.rpc = vi.fn().mockResolvedValue({ data: false, error: null });
+    signedInAs(['instructor']);
+
+    renderWithInstructorAllowed();
+
+    await waitFor(() => expect(screen.getByText('BLOG ADMIN CONTENT')).toBeInTheDocument());
+    expect(mockSupabaseClient.rpc).not.toHaveBeenCalledWith(
+      'has_admin_access',
+      expect.anything(),
+    );
+  });
+
+  it('still rejects an instructor on a plain requireAdmin route', async () => {
+    // REGRESSION: the prop must not widen routes that did not ask for it.
+    mockSupabaseClient.rpc = vi.fn().mockResolvedValue({ data: false, error: null });
+    signedInAs(['instructor']);
+
+    renderAt(); // /admin/courses — requireAdmin only
+
+    await waitFor(() => expect(screen.getByText('DASHBOARD')).toBeInTheDocument());
+    expect(screen.queryByText('ADMIN CONTENT')).not.toBeInTheDocument();
+  });
+
+  it('rejects a student even where instructors are allowed', async () => {
+    mockSupabaseClient.rpc = vi.fn().mockResolvedValue({ data: false, error: null });
+    signedInAs(['student']);
+
+    renderWithInstructorAllowed();
+
+    await waitFor(() => expect(screen.getByText('DASHBOARD')).toBeInTheDocument());
+    expect(screen.queryByText('BLOG ADMIN CONTENT')).not.toBeInTheDocument();
+  });
+
+  it('still admits an admin on an opted-in route via has_admin_access', async () => {
+    mockSupabaseClient.rpc = vi.fn().mockResolvedValue({ data: true, error: null });
+    signedInAs(['admin']);
+
+    renderWithInstructorAllowed();
+
+    await waitFor(() => expect(screen.getByText('BLOG ADMIN CONTENT')).toBeInTheDocument());
+    expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('has_admin_access', { user_id_param: 'user-1' });
   });
 });

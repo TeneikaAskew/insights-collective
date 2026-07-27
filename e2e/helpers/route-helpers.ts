@@ -134,7 +134,9 @@ export const Routes = {
   publicPortfolio: (url = TestIds.publicPortfolioUrl) => `/portfolio/${url}`,
 
   // Blog
+  blog: '/blog',
   blogPost: (slug = TestIds.blogSlug) => `/blog/${slug}`,
+  adminBlogNew: '/admin/blog/new',
 
   // Survey
   survey: '/survey',

@@ -30,8 +30,29 @@ type StarResponseDrafts = Record<string, StarResponseDraft>;
 type SavedStarResponses = Record<string, SavedStarResponse>;
 
 export class LocalStorageUtils {
+  // Keys whose values may contain secrets (Supabase auth token, JWTs, etc.).
+  // The inspection/export helpers below mask these so the Debug Tools page can
+  // never write a live session token to a file, the console, or the clipboard.
+  private static readonly SENSITIVE_KEY_PATTERN =
+    /(sb-.*-auth-token|access[-_]?token|refresh[-_]?token|token|auth|session|secret|password|jwt|api[-_]?key)/i;
+
+  static REDACTED = '«redacted»';
+
+  /** True when a localStorage key's value should be masked in inspection views. */
+  static isSensitiveKey(key: string): boolean {
+    return this.SENSITIVE_KEY_PATTERN.test(key);
+  }
+
+  /** Mask sensitive values; pass non-sensitive values through unchanged. */
+  private static redact(key: string, value: string | null): string | null {
+    if (value == null) return value;
+    return this.isSensitiveKey(key) ? this.REDACTED : value;
+  }
+
   /**
-   * Get all items from localStorage as an object
+   * Get all items from localStorage as an object.
+   * Sensitive values (auth tokens, JWTs) are redacted — this feeds export,
+   * console dump, and the on-screen inspector.
    */
   static getAllItems(): LocalStorageMap {
     const items: LocalStorageMap = {};
@@ -41,14 +62,14 @@ export class LocalStorageUtils {
         for (let i = 0; i < window.localStorage.length; i++) {
           const key = window.localStorage.key(i);
           if (key) {
-            items[key] = window.localStorage.getItem(key);
+            items[key] = this.redact(key, window.localStorage.getItem(key));
           }
         }
-        
+
         // Double-check using Object.keys as a fallback
         Object.keys(window.localStorage).forEach(key => {
-          if (!items[key]) {
-            items[key] = window.localStorage.getItem(key);
+          if (!(key in items)) {
+            items[key] = this.redact(key, window.localStorage.getItem(key));
           }
         });
       } catch (error) {
@@ -72,21 +93,21 @@ export class LocalStorageUtils {
           if (key) {
             items.push({
               key,
-              value: window.localStorage.getItem(key)
+              value: this.redact(key, window.localStorage.getItem(key))
             });
           }
         }
-        
+
         // Verify if we found all items by comparing with Object.keys
         const objKeys = Object.keys(window.localStorage);
         logger.log(`Items found via iteration: ${items.length}, via Object.keys: ${objKeys.length}`);
-        
+
         // Add any keys we might have missed from Object.keys
         objKeys.forEach(key => {
           if (!items.some(item => item.key === key)) {
             items.push({
               key,
-              value: window.localStorage.getItem(key)
+              value: this.redact(key, window.localStorage.getItem(key))
             });
           }
         });
@@ -107,7 +128,7 @@ export class LocalStorageUtils {
         for (let i = 0; i < window.localStorage.length; i++) {
           const key = window.localStorage.key(i);
           if (key && key.toLowerCase().includes(pattern.toLowerCase())) {
-            matchingItems[key] = window.localStorage.getItem(key);
+            matchingItems[key] = this.redact(key, window.localStorage.getItem(key));
           }
         }
       } catch (error) {
@@ -420,7 +441,7 @@ export class LocalStorageUtils {
         for (let i = 0; i < window.localStorage.length; i++) {
           const key = window.localStorage.key(i);
           if (key) {
-            const value = window.localStorage.getItem(key);
+            const value = this.redact(key, window.localStorage.getItem(key));
             logger.log(`${key}: ${value}`);
           }
         }
@@ -465,7 +486,8 @@ export class LocalStorageUtils {
    */
   static dumpToConsole(): void {
     logger.log('=== LocalStorage Dump Start ===');
-    logger.log('Full localStorage object:', window.localStorage);
+    // Do NOT log the raw window.localStorage object — it would expose the
+    // unredacted Supabase auth token. Log the redacted snapshot instead.
     logger.log('Total items:', window.localStorage.length);
     
     // Group items by prefix/category for easier reading

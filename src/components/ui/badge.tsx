@@ -22,6 +22,14 @@ const badgeVariants = cva(
           "border-transparent bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
         info:
           "border-transparent bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
+        // Role chips for the Soft Studio admin surfaces. Use ss-* tokens so they
+        // read correctly inside the scoped theme; harmless elsewhere.
+        admin:
+          "border-transparent bg-ss-lav-chip text-ss-lav-deep",
+        instructor:
+          "border-transparent bg-ss-teal-chip text-ss-teal",
+        student:
+          "border-transparent bg-ss-track text-muted-foreground",
       },
     },
     defaultVariants: {

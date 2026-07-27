@@ -84,9 +84,8 @@ const EnhancedPortfolioEditor = lazy(() => import('@/components/portfolio/Enhanc
 const PublicPortfolioView = lazy(() => import('@/components/portfolio/PublicPortfolioView').then(m => ({ default: m.PublicPortfolioView })));
 
 // Blog & Content Pages
+const Blog = lazy(() => import('@/pages/Blog'));
 const BlogPost = lazy(() => import('@/pages/BlogPost'));
-const CreateBlogPost = lazy(() => import('@/pages/CreateBlogPost'));
-const EditBlogPost = lazy(() => import('@/pages/EditBlogPost'));
 
 // Resources & Tools Pages
 const Resources = lazy(() => import('@/pages/Resources'));
@@ -103,7 +102,6 @@ const SurveyPage = lazy(() => import('@/pages/survey/SurveyPage'));
 // Admin Pages
 const AdminDashboard = lazy(() => import('@/pages/AdminDashboard'));
 const AdminActivity = lazy(() => import('@/pages/AdminActivity'));
-const AdminBlogPosts = lazy(() => import('@/pages/AdminBlogPosts'));
 const AdminCourses = lazy(() => import('@/pages/AdminCourses'));
 const AdminEvents = lazy(() => import('@/pages/AdminEvents'));
 const AdminUsers = lazy(() => import('@/pages/AdminUsers'));
@@ -358,9 +356,11 @@ function App() {
                     <Route path="/portfolio/:customUrl" element={<PublicPortfolioWrapper />} />
 
                     {/* Blog & Content Routes */}
+                    {/* The index route must come with the detail route: BlogPost
+                        links back to /blog in four places, all of which 404'd
+                        while this page sat unrouted. */}
+                    <Route path="/blog" element={<Blog />} />
                     <Route path="/blog/:slug" element={<BlogPost />} />
-                    <Route path="/create-blog-post" element={<ProtectedRoute requireAdmin><CreateBlogPost /></ProtectedRoute>} />
-                    <Route path="/edit-blog-post/:slug" element={<ProtectedRoute requireAdmin><EditBlogPost /></ProtectedRoute>} />
 
                     {/* Resources & Tools Routes */}
                     <Route path="/resources" element={<Resources />} />
@@ -390,8 +390,10 @@ function App() {
                         leaving the rest reachable by any visitor (RLS aside). */}
                     <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminDashboard /></ProtectedRoute>} />
                     <Route path="/admin/activity" element={<ProtectedRoute requireAdmin><AdminActivity /></ProtectedRoute>} />
-                    <Route path="/admin/blog/*" element={<BlogAdmin />} />
-                    <Route path="/admin/blog-posts" element={<ProtectedRoute requireAdmin><AdminBlogPosts /></ProtectedRoute>} />
+                    {/* Instructors author their own posts here — RLS already
+                        grants them CRUD on posts they own, and admin-only tabs
+                        are hidden inside the page. */}
+                    <Route path="/admin/blog/*" element={<ProtectedRoute requireAdmin allowInstructor><BlogAdmin /></ProtectedRoute>} />
                     <Route path="/admin/courses" element={<ProtectedRoute requireAdmin><AdminCourses /></ProtectedRoute>} />
                     <Route path="/admin/course-edit/:id" element={<ProtectedRoute requireAdmin><AdminCourseEditRedirect /></ProtectedRoute>} />
                     <Route path="/admin/events" element={<ProtectedRoute requireAdmin><AdminEvents /></ProtectedRoute>} />
@@ -401,7 +403,12 @@ function App() {
                     <Route path="/admin/unified-form-management" element={<ProtectedRoute requireAdmin><UnifiedFormManagement /></ProtectedRoute>} />
                     <Route path="/admin/unified-form-management/submissions/:slug" element={<ProtectedRoute requireAdmin><FormManagement /></ProtectedRoute>} />
                     <Route path="/admin/unified-form-management/submissions/:slug/submission/:submissionId" element={<ProtectedRoute requireAdmin><FormManagement /></ProtectedRoute>} />
-                    <Route path="/admin/local-storage-debug" element={<ProtectedRoute requireAdmin><LocalStorageDebug /></ProtectedRoute>} />
+                    {/* Debug Tools is a dev-only surface: it inspects raw
+                        localStorage (secrets are redacted, but it should not
+                        ship to production at all). Gate the route to DEV. */}
+                    {import.meta.env.DEV && (
+                      <Route path="/admin/local-storage-debug" element={<ProtectedRoute requireAdmin><LocalStorageDebug /></ProtectedRoute>} />
+                    )}
 
                     {/* Legal & Info Routes */}
                     <Route path="/privacy-policy" element={<PrivacyPolicy />} />

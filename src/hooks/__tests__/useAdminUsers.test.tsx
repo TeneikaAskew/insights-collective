@@ -1,14 +1,11 @@
-// ABOUTME: Regression tests for useAdminUsers silent-failure fix.
-// ABOUTME: A roles RPC failure must fail the fetch with an error, not render every user as 'student'.
+// ABOUTME: Tests for useAdminUsers server-side search/pagination.
+// ABOUTME: Roles come from search_admin_users; a failure fails the fetch with
+// ABOUTME: an error rather than rendering everyone as 'student'.
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { renderHook, act, waitFor } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { useAdminUsers } from '../useAdminUsers';
-import {
-  mockSupabaseClient,
-  supabaseError,
-  getQueryBuilder,
-} from '@/test/mocks/supabase';
+import { mockSupabaseClient, supabaseError } from '@/test/mocks/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 
 const { mockToast } = vi.hoisted(() => ({ mockToast: vi.fn() }));
@@ -17,7 +14,7 @@ vi.mock('@/hooks/use-toast', () => ({
   useToast: () => ({ toast: mockToast }),
 }));
 
-const profileRow = {
+const userRow = {
   id: 'user-1',
   first_name: 'Ada',
   last_name: 'Lovelace',
@@ -25,6 +22,15 @@ const profileRow = {
   bio: '',
   created_at: '2026-01-01T00:00:00Z',
 };
+
+const countsRow = { total: 1, students: 1, instructors: 0, admins: 0 };
+
+// Route rpc(name) calls to per-function results.
+function wireRpc(results: Record<string, any>) {
+  (mockSupabaseClient.rpc as any).mockImplementation((fn: string) =>
+    Promise.resolve(results[fn] ?? { data: null, error: null })
+  );
+}
 
 describe('useAdminUsers.fetchUsers', () => {
   beforeEach(() => {
@@ -35,15 +41,13 @@ describe('useAdminUsers.fetchUsers', () => {
     } as any);
   });
 
-  it('fails the fetch when the roles RPC errors instead of defaulting everyone to student', async () => {
-    const builder = getQueryBuilder();
-    builder.then.mockImplementation((resolve: (value: unknown) => void) =>
-      resolve({ data: [profileRow], error: null })
-    );
-    (mockSupabaseClient.rpc as any).mockResolvedValue(supabaseError('roles rpc failed'));
+  it('fails the fetch when the search RPC errors instead of defaulting everyone to student', async () => {
+    wireRpc({
+      search_admin_users: supabaseError('search failed'),
+      admin_user_role_counts: { data: [countsRow], error: null },
+    });
 
     const { result } = renderHook(() => useAdminUsers());
-
     await act(async () => {
       await result.current.fetchUsers();
     });
@@ -55,18 +59,16 @@ describe('useAdminUsers.fetchUsers', () => {
     );
   });
 
-  it('uses canonical roles from the RPC on success', async () => {
-    const builder = getQueryBuilder();
-    builder.then.mockImplementation((resolve: (value: unknown) => void) =>
-      resolve({ data: [profileRow], error: null })
-    );
-    (mockSupabaseClient.rpc as any).mockResolvedValue({
-      data: ['instructor'],
-      error: null,
+  it('maps roles and total from the search RPC on success', async () => {
+    wireRpc({
+      search_admin_users: {
+        data: [{ ...userRow, roles: ['instructor'], total_count: 1 }],
+        error: null,
+      },
+      admin_user_role_counts: { data: [{ total: 1, students: 1, instructors: 1, admins: 0 }], error: null },
     });
 
     const { result } = renderHook(() => useAdminUsers());
-
     await act(async () => {
       await result.current.fetchUsers();
     });
@@ -74,17 +76,20 @@ describe('useAdminUsers.fetchUsers', () => {
     expect(result.current.error).toBeNull();
     expect(result.current.users).toHaveLength(1);
     expect(result.current.users[0].roles).toEqual(['instructor']);
+    expect(result.current.total).toBe(1);
+    expect(result.current.counts.instructors).toBe(1);
   });
 
-  it('defaults to student only when the RPC succeeds with no roles', async () => {
-    const builder = getQueryBuilder();
-    builder.then.mockImplementation((resolve: (value: unknown) => void) =>
-      resolve({ data: [profileRow], error: null })
-    );
-    (mockSupabaseClient.rpc as any).mockResolvedValue({ data: [], error: null });
+  it('defaults to student when a returned user has no roles', async () => {
+    wireRpc({
+      search_admin_users: {
+        data: [{ ...userRow, roles: [], total_count: 1 }],
+        error: null,
+      },
+      admin_user_role_counts: { data: [countsRow], error: null },
+    });
 
     const { result } = renderHook(() => useAdminUsers());
-
     await act(async () => {
       await result.current.fetchUsers();
     });

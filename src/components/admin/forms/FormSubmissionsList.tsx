@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent } from '@/components/ui/card';
@@ -19,67 +20,89 @@ const logger = createLogger('FormSubmissionsList');
 interface FormSubmissionsListProps {
   formId: string;
   formSlug: string;
+  // When provided, the "View" action opens the submission in place (e.g. inside
+  // the form detail drawer) instead of navigating to the drill-down page. The
+  // default navigation behavior is preserved when this is omitted.
+  onSelectSubmission?: (submissionId: string) => void;
 }
 
-export default function FormSubmissionsList({ formId, formSlug }: FormSubmissionsListProps) {
+export default function FormSubmissionsList({ formId, formSlug, onSelectSubmission }: FormSubmissionsListProps) {
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalSubmissions, setTotalSubmissions] = useState(0);
   const [pageSize] = useState(10);
   const { toast } = useToast();
+  const navigate = useNavigate();
+
+  // Debounce the search term so we hit the server once the user pauses, not on
+  // every keystroke. Reset to page 1 whenever the effective query changes.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+      setCurrentPage(1);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
+
+  // Switching forms must return to page 1. The detail drawer reuses this
+  // component across forms, so a page number carried over from a form with many
+  // submissions can land past the end of a smaller one — the RPC then returns no
+  // rows, the total is read as zero and the pager disappears, stranding the view
+  // on an empty page that claims the form has no responses.
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [formId]);
 
   useEffect(() => {
     fetchSubmissions();
-  }, [formId, currentPage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formId, currentPage, debouncedSearch]);
 
   const fetchSubmissions = async () => {
     setLoading(true);
     try {
-      // Get count first
-      const { count, error: countError } = await supabase
-        .from('form_submissions')
-        .select('*', { count: 'exact', head: true })
-        .eq('form_id', formId);
-      
-      if (countError) throw countError;
-      
-      const totalCount = count || 0;
-      setTotalSubmissions(totalCount);
-      setTotalPages(Math.ceil(totalCount / pageSize));
-
-      // Fetch submissions with pagination. NOTE: form_submissions has no FK
-      // to profiles (and profiles has no email column), so the previous
-      // embedded select failed with PGRST200 on every load and the page
-      // always claimed "No one has submitted this form yet". Profiles are
-      // resolved with a separate query instead.
-      const { data, error } = await supabase
-        .from('form_submissions')
-        .select('*')
-        .eq('form_id', formId)
-        .order('created_at', { ascending: false })
-        .range((currentPage - 1) * pageSize, currentPage * pageSize - 1);
+      // Server-side search + pagination via RPC. Searching in the DB (over the
+      // whole submission JSON and submitter name) means results are no longer
+      // limited to the current page, unlike the previous client-side filter.
+      const { data, error } = await supabase.rpc('search_form_submissions', {
+        p_form_id: formId,
+        p_search: debouncedSearch,
+        p_limit: pageSize,
+        p_offset: (currentPage - 1) * pageSize,
+      });
 
       if (error) throw error;
 
-      const rows = data || [];
-      const userIds = Array.from(new Set(rows.map((r: any) => r.user_id).filter(Boolean)));
-      const profilesById = new Map<string, any>();
-      if (userIds.length > 0) {
-        const { data: profileRows, error: profilesError } = await supabase
-          .from('profiles')
-          .select('id, first_name, last_name')
-          .in('id', userIds);
-        if (profilesError) throw profilesError;
-        (profileRows || []).forEach((p: any) => profilesById.set(p.id, p));
+      const rows = (data || []) as any[];
+
+      // total_count rides on the rows, so an empty page carries no total. Past
+      // page 1 that means we are off the end (a deletion shrank the set), not
+      // that the form has no submissions — step back rather than reporting zero
+      // and hiding the pager.
+      if (rows.length === 0 && currentPage > 1) {
+        setCurrentPage(p => p - 1);
+        return;
       }
+
+      const totalCount = rows.length > 0 ? Number(rows[0].total_count) : 0;
+      setTotalSubmissions(totalCount);
+      setTotalPages(Math.max(1, Math.ceil(totalCount / pageSize)));
 
       setSubmissions(
         rows.map((r: any) => ({
-          ...r,
-          profiles: r.user_id ? profilesById.get(r.user_id) ?? null : null,
+          id: r.id,
+          form_id: r.form_id,
+          user_id: r.user_id,
+          submission_data: r.submission_data,
+          created_at: r.created_at,
+          profiles:
+            r.first_name || r.last_name
+              ? { first_name: r.first_name, last_name: r.last_name }
+              : null,
         }))
       );
     } catch (error) {
@@ -96,31 +119,18 @@ export default function FormSubmissionsList({ formId, formSlug }: FormSubmission
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
-    setCurrentPage(1);
   };
 
   // Extract user name or ID from submission
   const getUserInfo = (submission: any) => {
-    if (submission.profiles) {
-      if (submission.profiles.first_name || submission.profiles.last_name) {
-        return `${submission.profiles.first_name || ''} ${submission.profiles.last_name || ''}`.trim();
-      }
-      if (submission.profiles.email && submission.profiles.email.email) {
-        return submission.profiles.email.email;
-      }
+    if (submission.profiles && (submission.profiles.first_name || submission.profiles.last_name)) {
+      return `${submission.profiles.first_name || ''} ${submission.profiles.last_name || ''}`.trim();
     }
     return submission.user_id ? submission.user_id.substring(0, 8) + '...' : 'Anonymous';
   };
 
-  // Filter submissions based on search term
-  const filteredSubmissions = searchTerm 
-    ? submissions.filter(sub => {
-        const userInfo = getUserInfo(sub).toLowerCase();
-        const submissionData = JSON.stringify(sub.submission_data).toLowerCase();
-        return userInfo.includes(searchTerm.toLowerCase()) || 
-               submissionData.includes(searchTerm.toLowerCase());
-      })
-    : submissions;
+  // Search + pagination are handled server-side; render the page rows directly.
+  const filteredSubmissions = submissions;
 
   if (loading) {
     return (
@@ -185,9 +195,9 @@ export default function FormSubmissionsList({ formId, formSlug }: FormSubmission
               <FileText className="h-12 w-12 text-muted-foreground mb-4" />
               <h3 className="text-lg font-medium">No submissions found</h3>
               <p className="text-muted-foreground mt-2">
-                {totalSubmissions === 0
-                  ? "No one has submitted this form yet."
-                  : "No submissions match your search criteria."}
+                {debouncedSearch
+                  ? "No submissions match your search criteria."
+                  : "No one has submitted this form yet."}
               </p>
             </div>
           ) : (
@@ -220,7 +230,11 @@ export default function FormSubmissionsList({ formId, formSlug }: FormSubmission
                         variant="ghost"
                         size="sm"
                         onClick={() => {
-                          window.location.href = `/admin/unified-form-management/submissions/${formSlug}/submission/${submission.id}`;
+                          if (onSelectSubmission) {
+                            onSelectSubmission(submission.id);
+                          } else {
+                            navigate(`/admin/unified-form-management/submissions/${formSlug}/submission/${submission.id}`);
+                          }
                         }}
                         className="flex items-center gap-1"
                       >
