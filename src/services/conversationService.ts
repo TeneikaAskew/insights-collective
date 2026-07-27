@@ -5,6 +5,30 @@ import { createLogger } from '@/utils/logger';
 const logger = createLogger('conversationService');
 
 /**
+ * Wait for supabase-js to have attached a session before invoking the function.
+ *
+ * `functions.invoke` sends whatever bearer the client currently holds. On a cold
+ * load the hooks fire from a mount effect that can beat session restoration, so
+ * the call goes out with the anon key and messages-helper answers
+ * `401 Not authorized` — surfacing as "Edge Function returned a non-2xx status
+ * code" on the inbox for a fraction of loads. Verified directly against the
+ * live function: a member token returns 200 (with or without `userId`), the
+ * anon key returns 401.
+ *
+ * `getSession()` resolves once restoration has completed, so awaiting it is both
+ * the wait and the check. This is the same race that made `enrollments` answer
+ * 42501 on every public page.
+ */
+async function requireSession(where: string): Promise<boolean> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) {
+    logger.log(`[${where}] no session yet — skipping the call rather than sending the anon key`);
+    return false;
+  }
+  return true;
+}
+
+/**
  * Fetch conversations for a specific user (non-archived, non-deleted)
  */
 export const fetchUserConversations = async (userId: string): Promise<Conversation[]> => { // Add return type
@@ -16,6 +40,8 @@ export const fetchUserConversations = async (userId: string): Promise<Conversati
   try {
     logger.log('[fetchUserConversations] Invoking messages-helper with action: getConversations');
     // Destructure only data and error, as status is not directly available here
+    if (!(await requireSession('fetchUserConversations'))) return [];
+
     const { data, error } = await supabase.functions.invoke('messages-helper', {
       body: { action: 'getConversations', userId },
     });
@@ -54,6 +80,8 @@ export const fetchArchivedUserConversations = async (userId: string): Promise<Co
   try {
      logger.log('[fetchArchivedUserConversations] Invoking messages-helper with action: getArchivedConversations');
      // Destructure only data and error
+    if (!(await requireSession('fetchArchivedUserConversations'))) return [];
+
     const { data, error } = await supabase.functions.invoke('messages-helper', {
       body: { action: 'getArchivedConversations', userId },
     });
@@ -90,6 +118,8 @@ export const fetchDeletedUserConversations = async (userId: string): Promise<Con
    }
   try {
     logger.log('[fetchDeletedUserConversations] Invoking messages-helper with action: getDeletedConversations');
+    if (!(await requireSession('fetchDeletedUserConversations'))) return [];
+
     const { data, error } = await supabase.functions.invoke('messages-helper', {
       body: { action: 'getDeletedConversations', userId },
     });
