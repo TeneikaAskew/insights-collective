@@ -200,6 +200,11 @@ export function getQueryBuilder() {
 // Called from src/test/setup.ts in a beforeEach.
 export function resetSupabaseMock() {
   const fresh = buildQueryBuilder();
+  // Clear the call history as well as the builder. Swapping the return value
+  // left `from.mock.calls` accumulating across every test in a file, so
+  // `expect(from).not.toHaveBeenCalledWith('some_table')` reported a call an
+  // earlier test had made — an assertion that silently cannot pass.
+  (mockSupabaseClient.from as ReturnType<typeof vi.fn>).mockClear();
   (mockSupabaseClient.from as ReturnType<typeof vi.fn>).mockReturnValue(fresh);
   // rpc too: a test that stubs it with mockResolvedValue replaces the name
   // validation, and without this the next test would silently inherit both the

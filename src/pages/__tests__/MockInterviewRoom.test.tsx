@@ -5,12 +5,15 @@ import { mockSupabaseClient } from '@/test/mocks/supabase';
 import MockInterviewRoom from '@/pages/interview-prep/MockInterviewRoom';
 
 const navigate = vi.hoisted(() => vi.fn());
+// Mutable so a test can exercise /interview-prep/mock-interview-room with no
+// :sessionId — App.tsx routes both that and the :sessionId form to this page.
+const params = vi.hoisted(() => ({ current: { sessionId: 'session-1' } as { sessionId?: string } }));
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>();
   return {
     ...actual,
     useNavigate: () => navigate,
-    useParams: () => ({ sessionId: 'session-1' }),
+    useParams: () => params.current,
   };
 });
 
@@ -52,6 +55,7 @@ const BASE_SESSION = {
 
 beforeEach(() => {
   navigate.mockClear();
+  params.current = { sessionId: 'session-1' };
   userState.user = { id: 'user-1' };
   // jsdom has no mediaDevices; the page must handle the failure gracefully
   Object.defineProperty(navigator, 'mediaDevices', {
@@ -134,5 +138,22 @@ describe('MockInterviewRoom page (Side Desk)', () => {
 
     expect(await screen.findByText('Session not found')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /return to mock interviews/i })).toBeInTheDocument();
+  });
+
+  /**
+   * App.tsx routes /interview-prep/mock-interview-room here as well as the
+   * :sessionId form. Without a guard the missing param went into the filter as
+   * the literal string "undefined", Postgres rejected it with 22P02, and the
+   * page showed "Failed to load interview session" — a database error standing
+   * in for "no session was chosen".
+   */
+  it('redirects instead of querying when no session id is in the route', async () => {
+    params.current = {};
+    mockSession(BASE_SESSION);
+
+    render(<MockInterviewRoom />);
+
+    await vi.waitFor(() => expect(navigate).toHaveBeenCalledWith('/interview-prep/mock-interviews'));
+    expect(mockSupabaseClient.from).not.toHaveBeenCalledWith('mock_sessions');
   });
 });

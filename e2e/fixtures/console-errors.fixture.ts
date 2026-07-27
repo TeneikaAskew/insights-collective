@@ -2,23 +2,39 @@ import { test as base, expect } from '@playwright/test';
 import type { ConsoleMessage, Response } from '@playwright/test';
 import fs from 'fs';
 import path from 'path';
+import type { SupabaseIssue } from '../../src/integrations/supabase/instrumentation';
+import { structuralIssues, describeIssue } from '../../src/integrations/supabase/issue-triage';
 
 /**
+ * Two mechanisms live here, and the second is the one that matters.
+ *
+ * 1. Console errors, filtered through the ignore lists below. Those lists have
+ *    grown two rules that between them hide most of what this fixture was
+ *    supposed to catch: `/\/rest\/v1\//` suppresses every PostgREST failure, and
+ *    `/^\[[A-Z][A-Za-z0-9]+\] \[\d{2}:\d{2}:\d{2}/` suppresses 110 of the app's
+ *    187 logger prefixes. Two real page-breaking 42703 errors
+ *    (/courses/:id/quiz-results and /courses/:id/progress) were invisible to the
+ *    whole suite because of the first.
+ *
+ * 2. Structural Supabase failures, read from the app's own instrumentation
+ *    (src/integrations/supabase/instrumentation.ts) rather than from console
+ *    text. See structuralIssues() below.
+ *
+ * The obvious fix for (1) was to delete the two blanket rules. That trades one
+ * blindness for another: they suppress a real volume of expected noise, and
+ * without them the genuine defects drown. Matching on prose was the mistake —
+ * a suppression pattern has to guess how a message was worded, and an error's
+ * severity has nothing to do with which component logged it.
+ *
+ * (2) sidesteps that. A 42703 is a 42703 whoever logged it, and it can never be
+ * confused with an empty table, so it needs no suppression list at all. The
+ * console rules stay as a backstop for everything that is not a Supabase
+ * request; they are no longer the only thing standing between a broken query
+ * and a green suite.
+ *
  * Audit mode (`E2E_AUDIT_CONSOLE=1`) records EVERY console error and EVERY
- * failed network response — including the ones the ignore lists below suppress —
- * to test-results/console-audit.jsonl.
- *
- * The ignore lists have grown two rules that between them hide most of what this
- * fixture exists to catch: `/\/rest\/v1\//` suppresses every PostgREST failure,
- * and `/^\[[A-Z][A-Za-z0-9]+\] \[\d{2}:\d{2}:\d{2}/` suppresses 110 of the app's
- * 187 logger prefixes. Two real page-breaking 42703 errors
- * (/courses/:id/quiz-results and /courses/:id/progress) were invisible to the
- * whole suite because of the first one.
- *
- * Deleting those rules outright would bury the real defects under noise from the
- * nine placeholder fixture IDs in helpers/route-helpers.ts, which is what the
- * rules were compensating for. So: record first, tighten once the fixtures are
- * real. Audit mode never changes pass/fail.
+ * failed network response — including suppressed ones — to
+ * .e2e-audit/console-audit.jsonl. It never changes pass/fail.
  */
 const AUDIT = process.env.E2E_AUDIT_CONSOLE === '1';
 // Deliberately NOT under test-results/ — Playwright wipes that directory at the
@@ -207,6 +223,11 @@ interface ConsoleFixtures {
   consoleErrors: ConsoleMessage[];
 }
 
+// Which recorded issues count as defects lives in src/, next to the
+// instrumentation it describes, so it can be unit-tested. A pass/fail predicate
+// that nothing can test is how the suppression lists above drifted into hiding
+// real defects in the first place.
+
 /**
  * Base test extended with automatic console-error detection.
  *
@@ -274,6 +295,29 @@ export const test = base.extend<ConsoleFixtures>({
       page.off('console', onConsole);
       page.off('pageerror', onPageError);
       if (AUDIT) page.off('response', onResponse);
+
+      // Structured check first: it is the more specific failure, and reporting
+      // "column profiles.full_name does not exist on /courses/:id/quiz-results"
+      // is far more useful than whichever console line happened to be emitted.
+      const issues: SupabaseIssue[] = await page
+        .evaluate(() => (window as unknown as { __supabaseIssues?: SupabaseIssue[] }).__supabaseIssues ?? [])
+        .catch(() => []);          // page already closed, or navigated away
+      const structural = structuralIssues(issues);
+
+      for (const issue of structural) {
+        auditRecord({ ...where, kind: 'supabase-issue', ignored: false, ...issue });
+      }
+
+      if (structural.length > 0) {
+        expect(
+          structural,
+          `Test "${testInfo.title}" hit ${structural.length} Supabase request(s) that cannot succeed:\n` +
+            `${structural.map(describeIssue).join('\n')}\n\n` +
+            `These are structural — a missing column, table, relationship or function, a filter built\n` +
+            `from undefined, or a write that changed nothing. None of them is an empty-data condition,\n` +
+            `so none can be "expected in the test environment". Fix the query or the guard.`,
+        ).toHaveLength(0);
+      }
 
       // Assert after the test body runs
       if (errors.length > 0) {
