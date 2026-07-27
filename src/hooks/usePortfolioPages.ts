@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { PortfolioPage, PortfolioPageProject } from '@/types/portfolio';
 import { useToast } from '@/hooks/use-toast';
+import { isValidUUID } from '@/utils/idUtils';
 
 import { createLogger } from '@/utils/logger';
 
@@ -56,7 +57,15 @@ export const usePortfolioPages = () => {
       queryKey: ['portfolio-page', pageId],
       queryFn: async () => {
         if (!pageId) return null;
-        
+        // `id` is a uuid column, so a route param that is not a uuid can never
+        // match — Postgres rejects it with 22P02 and the editor surfaced a
+        // database error where it should have shown its not-found state.
+        // Same guard the lesson and module hooks already use.
+        if (!isValidUUID(pageId)) {
+          logger.warn('Portfolio page id is not a UUID; skipping fetch', { pageId });
+          return null;
+        }
+
         const { data, error } = await supabase
           .from('portfolio_pages')
           .select(`
@@ -107,8 +116,7 @@ export const usePortfolioPages = () => {
     // actually a UUID. portfolio_pages.id is a uuid column, so querying it
     // with an arbitrary slug raised Postgres 22P02 and every mistyped public
     // URL surfaced as an error instead of a clean not-found.
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
-    if (!data && !error && isUuid) {
+    if (!data && !error && isValidUUID(identifier)) {
       logger.log('Trying to fetch by ID:', identifier);
       ({ data, error } = await supabase
         .from('portfolio_pages')
