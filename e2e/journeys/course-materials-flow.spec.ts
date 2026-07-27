@@ -2,25 +2,21 @@
 // ABOUTME: access, folder/file listing for an enrolled student, and download signed-URL generation.
 import { test, expect } from '@playwright/test';
 
+// This spec runs under the chromium-member project, whose storageState is the
+// session global-setup already established. Signing in again through the UI in
+// beforeEach was redundant, and with 4 parallel workers x 2 retries the extra
+// /auth/v1/token calls hit Supabase's auth rate limit (429), which made logins
+// fail and cascaded 10s locator timeouts into unrelated specs. Rely on the
+// project session instead.
+
 const BASE = process.env.E2E_BASE_URL || 'http://localhost:8080';
-const EMAIL = process.env.E2E_TEST_EMAIL || 'e2e-member@insightscollective.org';
-const PASSWORD = process.env.E2E_TEST_PASSWORD || 'TestPass123!';
 // Seeded course the test member is enrolled in (Introduction to Data Science).
 const ENROLLED_COURSE = process.env.E2E_ENROLLED_COURSE_ID || '660e8400-e29b-41d4-a716-446655440001';
 // A different published course the test member is NOT enrolled in.
 const OTHER_COURSE = process.env.E2E_UNENROLLED_COURSE_ID || '660e8400-e29b-41d4-a716-446655440002';
 
-async function signIn(page: import('@playwright/test').Page) {
-  await page.goto(`${BASE}/login`, { waitUntil: 'domcontentloaded' });
-  await page.fill('input[type="email"]', EMAIL);
-  await page.fill('input[type="password"]', PASSWORD);
-  await page.locator('form button[type="submit"]').first().click();
-  await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 20_000 });
-}
 
 test.describe('Course materials — enrollment-gated access', () => {
-  test.beforeEach(async ({ page }) => { await signIn(page); });
-
   test('enrolled student can open the materials page and see the tree UI', async ({ page }) => {
     await page.goto(`${BASE}/courses/${ENROLLED_COURSE}/materials`, {
       waitUntil: 'domcontentloaded',

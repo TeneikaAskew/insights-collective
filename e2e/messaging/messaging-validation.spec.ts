@@ -2,19 +2,15 @@
 // ABOUTME: Signs in as the seeded test account and exercises inbox load, tabs, and the New Conversation dialog.
 import { test, expect } from "@playwright/test";
 
+// This spec runs under the chromium-member project, whose storageState is the
+// session global-setup already established. Signing in again through the UI in
+// beforeEach was redundant, and with 4 parallel workers x 2 retries the extra
+// /auth/v1/token calls hit Supabase's auth rate limit (429), which made logins
+// fail and cascaded 10s locator timeouts into unrelated specs. Rely on the
+// project session instead.
 const BASE = process.env.E2E_BASE_URL || "http://localhost:8080";
-const EMAIL = process.env.E2E_TEST_EMAIL || "e2e-member@insightscollective.org";
-const PASSWORD = process.env.E2E_TEST_PASSWORD || "TestPass123!";
 
 test.describe("Messaging", () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto(`${BASE}/login`, { waitUntil: "domcontentloaded" });
-    await page.fill('input[type="email"]', EMAIL);
-    await page.fill('input[type="password"]', PASSWORD);
-    await page.locator('form button[type="submit"]').first().click();
-    await page.waitForURL((url) => !url.pathname.includes("/login"), { timeout: 15000 });
-  });
-
   test("inbox loads and shows empty state or conversations", async ({ page }) => {
     await page.goto(`${BASE}/messages`, { waitUntil: "domcontentloaded" });
 

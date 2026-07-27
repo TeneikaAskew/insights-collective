@@ -3,21 +3,17 @@
 // ABOUTME: delete, and tab filtering against real DB state.
 import { test, expect } from '@playwright/test';
 
-const BASE = process.env.E2E_BASE_URL || 'http://localhost:8080';
-const EMAIL = process.env.E2E_TEST_EMAIL || 'e2e-member@insightscollective.org';
-const PASSWORD = process.env.E2E_TEST_PASSWORD || 'TestPass123!';
+// This spec runs under the chromium-member project, whose storageState is the
+// session global-setup already established. Signing in again through the UI in
+// beforeEach was redundant, and with 4 parallel workers x 2 retries the extra
+// /auth/v1/token calls hit Supabase's auth rate limit (429), which made logins
+// fail and cascaded 10s locator timeouts into unrelated specs. Rely on the
+// project session instead.
 
-async function signIn(page: import('@playwright/test').Page) {
-  await page.goto(`${BASE}/login`, { waitUntil: 'domcontentloaded' });
-  await page.fill('input[type="email"]', EMAIL);
-  await page.fill('input[type="password"]', PASSWORD);
-  await page.locator('form button[type="submit"]').first().click();
-  await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 20_000 });
-}
+const BASE = process.env.E2E_BASE_URL || 'http://localhost:8080';
+
 
 test.describe('Notifications center — real flow', () => {
-  test.beforeEach(async ({ page }) => { await signIn(page); });
-
   test('renders header, tabs, and either items or empty state', async ({ page }) => {
     await page.goto(`${BASE}/notifications`, { waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('heading', { name: 'Notifications', level: 1 })).toBeVisible();

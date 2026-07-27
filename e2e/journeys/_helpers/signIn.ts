@@ -3,27 +3,21 @@
 // ABOUTME: `sb-<ref>-auth-token` key the Supabase JS v2 client actually writes.
 import type { Page } from '@playwright/test';
 
-// NOTE: these env reads use `||`, not `??`, on purpose. A GitHub Actions
-// `${{ secrets.X }}` for a secret that does not exist expands to the EMPTY
-// STRING, not to undefined — and `'' ?? fallback` is `''`. With `??` the
-// helper silently signed in with an empty password, so login never left
-// /login and every later page.fill timed out. Keep `||` here.
 const BASE = process.env.E2E_BASE_URL || 'http://localhost:8080';
-const EMAIL =
-  process.env.E2E_MEMBER_EMAIL ||
-  process.env.E2E_TEST_EMAIL ||
-  'e2e-member@insightscollective.org';
-const PASSWORD =
-  process.env.E2E_MEMBER_PASSWORD ||
-  process.env.E2E_TEST_PASSWORD ||
-  'TestPass123!';
 
+/**
+ * Ensures the member session is live in the page.
+ *
+ * Every caller runs under the chromium-member project, whose `storageState` is
+ * the session global-setup already established — so there is nothing to log in
+ * to. This used to drive the real /login form, which meant each spec spent an
+ * extra /auth/v1/token call per test. With 4 parallel workers and 2 retries
+ * that tipped Supabase into auth rate limiting (429): the logins then failed,
+ * pages sat on /login, and 10s locator timeouts cascaded into specs that never
+ * touched auth. Loading the app is enough to hydrate the stored session.
+ */
 export async function signInMember(page: Page): Promise<void> {
-  await page.goto(`${BASE}/login`, { waitUntil: 'domcontentloaded' });
-  await page.fill('input[type="email"]', EMAIL);
-  await page.fill('input[type="password"]', PASSWORD);
-  await page.locator('form button[type="submit"]').first().click();
-  await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 20_000 });
+  await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
   await page.waitForLoadState('networkidle').catch(() => {});
 }
 
