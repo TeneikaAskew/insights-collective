@@ -6,14 +6,23 @@ import { sanitizeHTML } from '@/utils/sanitize';
 
 const logger = createLogger('blogService');
 
-// Get all blog posts with real data from Supabase
-export const getAllBlogPosts = async (): Promise<BlogPost[]> => {
+/**
+ * Get blog posts from Supabase.
+ *
+ * @param options.publishedOnly Restrict to `status = 'published'` in the query.
+ *   The public blog passes this so its correctness does not depend on RLS alone
+ *   (defense in depth), and so drafts are never shipped to the browser of an
+ *   author or admin who happens to be browsing the public listing.
+ */
+export const getAllBlogPosts = async (
+  options: { publishedOnly?: boolean } = {},
+): Promise<BlogPost[]> => {
   try {
     // NOTE: the only FK on blog_posts is fk_blog_posts_category; there is no
     // FK to profiles, so the author names are resolved with a second query.
     // The previous hints (blog_posts_category_id_fkey / blog_posts_author_id_fkey)
     // did not exist and made every fetch fail with PGRST200.
-    const { data, error } = await supabase
+    let query = supabase
       .from('blog_posts')
       .select(`
         *,
@@ -21,6 +30,12 @@ export const getAllBlogPosts = async (): Promise<BlogPost[]> => {
         blog_post_tags(tag_name)
       `)
       .order('created_at', { ascending: false });
+
+    if (options.publishedOnly) {
+      query = query.eq('status', 'published');
+    }
+
+    const { data, error } = await query;
 
     if (error) throw error;
 

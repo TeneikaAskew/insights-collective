@@ -84,6 +84,7 @@ const EnhancedPortfolioEditor = lazy(() => import('@/components/portfolio/Enhanc
 const PublicPortfolioView = lazy(() => import('@/components/portfolio/PublicPortfolioView').then(m => ({ default: m.PublicPortfolioView })));
 
 // Blog & Content Pages
+const Blog = lazy(() => import('@/pages/Blog'));
 const BlogPost = lazy(() => import('@/pages/BlogPost'));
 const CreateBlogPost = lazy(() => import('@/pages/CreateBlogPost'));
 const EditBlogPost = lazy(() => import('@/pages/EditBlogPost'));
@@ -358,6 +359,10 @@ function App() {
                     <Route path="/portfolio/:customUrl" element={<PublicPortfolioWrapper />} />
 
                     {/* Blog & Content Routes */}
+                    {/* The index route must come with the detail route: BlogPost
+                        links back to /blog in four places, all of which 404'd
+                        while this page sat unrouted. */}
+                    <Route path="/blog" element={<Blog />} />
                     <Route path="/blog/:slug" element={<BlogPost />} />
                     <Route path="/create-blog-post" element={<ProtectedRoute requireAdmin><CreateBlogPost /></ProtectedRoute>} />
                     <Route path="/edit-blog-post/:slug" element={<ProtectedRoute requireAdmin><EditBlogPost /></ProtectedRoute>} />
