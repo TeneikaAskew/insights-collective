@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { sanitizeHTML } from '@/utils/sanitize';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -302,11 +303,10 @@ export function BlogPostFormV2({ postId }: BlogPostFormV2Props) {
     }
   };
 
-  const handlePreview = () => {
-    const slug = form.getValues('custom_slug') || 
-      form.getValues('title').toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    window.open(`/blog/preview/${slug}`, '_blank');
-  };
+  // Preview renders in-form. The previous implementation opened
+  // `/blog/preview/:slug`, which is not a registered route — it always 404'd,
+  // and an unsaved draft has nothing to serve there anyway.
+  const handlePreview = () => setActiveTab('preview');
 
   if (loading) {
     return (
@@ -397,10 +397,14 @@ export function BlogPostFormV2({ postId }: BlogPostFormV2Props) {
 
         {/* Main Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="content">
               <FileText className="h-4 w-4 mr-2" />
               Content
+            </TabsTrigger>
+            <TabsTrigger value="preview">
+              <Eye className="h-4 w-4 mr-2" />
+              Preview
             </TabsTrigger>
             <TabsTrigger value="seo">
               <Search className="h-4 w-4 mr-2" />
@@ -415,6 +419,41 @@ export function BlogPostFormV2({ postId }: BlogPostFormV2Props) {
               Analytics
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="preview">
+            <Card>
+              <CardHeader>
+                <CardTitle>{form.watch('title') || 'Untitled Post'}</CardTitle>
+                {form.watch('excerpt') && (
+                  <CardDescription>{form.watch('excerpt')}</CardDescription>
+                )}
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-4 text-sm text-muted-foreground mb-6">
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-4 w-4" />
+                    {readingTime} min read
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <FileText className="h-4 w-4" />
+                    {wordCount} words
+                  </span>
+                </div>
+                {form.watch('content') ? (
+                  <div
+                    className="prose prose-sm dark:prose-invert max-w-none"
+                    // Editor output is sanitized on every change (BlogEditor) and
+                    // again here, so the preview can never execute injected markup.
+                    dangerouslySetInnerHTML={{ __html: sanitizeHTML(form.watch('content')) }}
+                  />
+                ) : (
+                  <p className="text-muted-foreground">
+                    Nothing to preview yet — add some content first.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           <TabsContent value="content" className="space-y-6">
             <FormField

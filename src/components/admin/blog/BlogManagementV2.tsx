@@ -28,7 +28,10 @@ import {
   TrendingUp,
   Users,
   Clock,
-  Star
+  Star,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -77,6 +80,7 @@ interface BlogPost {
   scheduled_at?: string;
   created_at: string;
   updated_at: string;
+  tags: string[];
   author: {
     full_name?: string;
   };
@@ -84,6 +88,9 @@ interface BlogPost {
     name: string;
   };
 }
+
+type SortField = 'title' | 'views' | 'date';
+type SortDirection = 'asc' | 'desc';
 
 export function BlogManagementV2() {
   const navigate = useNavigate();
@@ -96,6 +103,8 @@ export function BlogManagementV2() {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [deleteConfirm, setDeleteConfirm] = useState<BlogPost | null>(null);
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
+  const [sortField, setSortField] = useState<SortField>('date');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [stats, setStats] = useState({
     totalPosts: 0,
     publishedPosts: 0,
@@ -145,9 +154,22 @@ export function BlogManagementV2() {
         .from('profiles')
         .select('id, first_name, last_name');
 
+      // Tags for every post in one query, grouped client-side — never per-post
+      // (an N+1 here would fire one request per row in the list).
+      const { data: tagsData } = await supabase
+        .from('blog_post_tags')
+        .select('blog_post_id, tag_name');
+
       // Index authors and categories once instead of scanning per post.
       const authorsById = new Map((authorsData || []).map((a) => [a.id, a]));
       const categoriesById = new Map((categoriesData || []).map((c) => [c.id, c]));
+      const tagsByPost = new Map<string, string[]>();
+      for (const row of (tagsData || []) as Array<{ blog_post_id: string; tag_name: string }>) {
+        if (!row.blog_post_id || !row.tag_name) continue;
+        const existing = tagsByPost.get(row.blog_post_id);
+        if (existing) existing.push(row.tag_name);
+        else tagsByPost.set(row.blog_post_id, [row.tag_name]);
+      }
 
       // Combine the data
       const enrichedPosts = (postsData || []).map(post => {
@@ -170,6 +192,7 @@ export function BlogManagementV2() {
           scheduled_at: post.scheduled_at ?? null,
           created_at: post.created_at,
           updated_at: post.updated_at,
+          tags: tagsByPost.get(post.id) || [],
           author: {
             full_name: author
               ? `${author.first_name || ''} ${author.last_name || ''}`.trim()
@@ -189,6 +212,9 @@ export function BlogManagementV2() {
       let filteredPosts = enrichedPosts;
       if (statusFilter === 'scheduled') {
         filteredPosts = filteredPosts.filter(isScheduled);
+      } else if (statusFilter === 'featured') {
+        // "Featured" is a flag, not a status value — filter on the flag.
+        filteredPosts = filteredPosts.filter(p => p.is_featured);
       } else if (statusFilter !== 'all') {
         filteredPosts = filteredPosts.filter(p => p.status === statusFilter);
       }
@@ -303,14 +329,34 @@ export function BlogManagementV2() {
     }
   };
 
-  const filteredPosts = posts.filter(post => {
-    const searchLower = searchQuery.toLowerCase();
-    return (
-      post.title.toLowerCase().includes(searchLower) ||
-      post.excerpt?.toLowerCase().includes(searchLower) ||
-      post.author.full_name?.toLowerCase().includes(searchLower)
-    );
-  });
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(d => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      // Titles read best A→Z; numbers and dates read best largest/newest first.
+      setSortDirection(field === 'title' ? 'asc' : 'desc');
+    }
+  };
+
+  const postDate = (post: BlogPost) =>
+    new Date(post.published_at || post.created_at).getTime();
+
+  const filteredPosts = posts
+    .filter(post => {
+      const searchLower = searchQuery.toLowerCase();
+      return (
+        post.title.toLowerCase().includes(searchLower) ||
+        post.excerpt?.toLowerCase().includes(searchLower) ||
+        post.author.full_name?.toLowerCase().includes(searchLower)
+      );
+    })
+    .sort((a, b) => {
+      const dir = sortDirection === 'asc' ? 1 : -1;
+      if (sortField === 'title') return a.title.localeCompare(b.title) * dir;
+      if (sortField === 'views') return ((a.views_count || 0) - (b.views_count || 0)) * dir;
+      return (postDate(a) - postDate(b)) * dir;
+    });
 
   return (
     <div className="space-y-6">
@@ -430,6 +476,7 @@ export function BlogManagementV2() {
                     <SelectItem value="published">Published</SelectItem>
                     <SelectItem value="draft">Draft</SelectItem>
                     <SelectItem value="scheduled">Scheduled</SelectItem>
+                    <SelectItem value="featured">Featured</SelectItem>
                   </SelectContent>
                 </Select>
                 <Select value={categoryFilter} onValueChange={setCategoryFilter}>
@@ -445,6 +492,33 @@ export function BlogManagementV2() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="flex items-center gap-2 mt-4">
+                <span className="text-sm text-muted-foreground">Sort by</span>
+                {([
+                  { field: 'title' as SortField, label: 'Title' },
+                  { field: 'views' as SortField, label: 'Views' },
+                  { field: 'date' as SortField, label: 'Date' },
+                ]).map(({ field, label }) => (
+                  <Button
+                    key={field}
+                    variant={sortField === field ? 'secondary' : 'ghost'}
+                    size="sm"
+                    onClick={() => toggleSort(field)}
+                    aria-pressed={sortField === field}
+                  >
+                    {label}
+                    {sortField === field ? (
+                      sortDirection === 'asc' ? (
+                        <ArrowUp className="h-3.5 w-3.5 ml-1.5" />
+                      ) : (
+                        <ArrowDown className="h-3.5 w-3.5 ml-1.5" />
+                      )
+                    ) : (
+                      <ArrowUpDown className="h-3.5 w-3.5 ml-1.5 opacity-40" />
+                    )}
+                  </Button>
+                ))}
               </div>
             </CardContent>
           </Card>
@@ -494,6 +568,20 @@ export function BlogManagementV2() {
                               <p className="text-sm text-muted-foreground line-clamp-2">
                                 {post.excerpt}
                               </p>
+                            )}
+                            {post.tags.length > 0 && (
+                              <div className="flex flex-wrap items-center gap-1">
+                                {post.tags.slice(0, 2).map(tag => (
+                                  <Badge key={tag} variant="outline" className="text-xs">
+                                    {tag}
+                                  </Badge>
+                                ))}
+                                {post.tags.length > 2 && (
+                                  <Badge variant="outline" className="text-xs">
+                                    +{post.tags.length - 2}
+                                  </Badge>
+                                )}
+                              </div>
                             )}
                             <div className="flex items-center gap-4 text-sm text-muted-foreground">
                               <span>{post.author.full_name}</span>
