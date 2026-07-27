@@ -3,6 +3,7 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/supabase';
 import { securityConfig } from '@/config/security';
+import { createInstrumentedFetch } from './instrumentation';
 
 const SUPABASE_URL = securityConfig.supabase.url;
 const SUPABASE_PUBLISHABLE_KEY = securityConfig.supabase.key;
@@ -16,7 +17,16 @@ const supabaseClient = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE
     storageKey: 'supabase.auth.token',
     detectSessionInUrl: true,
     flowType: 'implicit'
-  }
+  },
+  // Every request goes through instrumentation.ts so a failed query, or a write
+  // that silently affected zero rows, cannot pass unnoticed. See that file for
+  // why this is here rather than at the 641 call sites.
+  //
+  // NOTE: this file is marked auto-generated. If it is ever regenerated, this
+  // block disappears and the app goes quiet again — which is the exact failure
+  // mode it exists to prevent. __tests__/client.instrumentation.test.ts asserts
+  // the wiring behaviourally and will fail if it is lost.
+  global: { fetch: createInstrumentedFetch() }
 });
 
 // Export a singleton instance to prevent multiple client creations

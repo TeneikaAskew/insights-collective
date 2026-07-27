@@ -71,6 +71,14 @@ const SoftStudioPreview = import.meta.env.DEV
   ? lazy(() => import('@/pages/dev/SoftStudioPreview'))
   : null;
 
+// Dev-only badge surfacing failed Supabase queries. A failed query otherwise
+// renders as an empty list, which is indistinguishable from "no results" —
+// the reason three broken pages shipped unnoticed. Same DEV guard as above, so
+// it is tree-shaken from production builds.
+const SupabaseIssueBadge = import.meta.env.DEV
+  ? lazy(() => import('@/components/dev/SupabaseIssueBadge'))
+  : null;
+
 // Events & Social Pages
 const Events = lazy(() => import('@/pages/Events'));
 const EventDetail = lazy(() => import('@/pages/EventDetail'));
@@ -414,6 +422,11 @@ function App() {
                 <CourseFeedbackButton />
                 <GoogleAnalytics />
                 <SEOMetaTags />
+                {SupabaseIssueBadge && (
+                  <Suspense fallback={null}>
+                    <SupabaseIssueBadge />
+                  </Suspense>
+                )}
               </div>
               </DialogsProvider>
               </TooltipProvider>
