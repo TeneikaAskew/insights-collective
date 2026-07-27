@@ -170,6 +170,16 @@ const IGNORED_URL_PATTERNS: RegExp[] = [
   // nothing to do with this app. The Avatar falls back to initials, so a failed
   // image is a cosmetic third-party outage, not a regression.
   /i\.pravatar\.cc/,
+  // cdn.gpteng.co — Lovable's editor script, loaded by index.html:26.
+  //
+  // This host is also listed in IGNORED_PATTERNS above, but that list is matched
+  // against msg.text(), and the message this actually produces is the browser's
+  // generic "Failed to load resource: net::ERR_CONNECTION_RESET" — the host
+  // appears only in msg.location().url. So the existing rule never fired for the
+  // common case, and 36 specs failed on a third-party script that the fixture
+  // already intended to ignore. Suppression rules have to live in the list that
+  // matches the shape of the message they are meant to catch.
+  /cdn\.gpteng\.co/,
 ];
 
 function shouldIgnore(msg: ConsoleMessage): boolean {

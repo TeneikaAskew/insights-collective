@@ -19,6 +19,8 @@ test.describe('Survey Page', () => {
   test('survey form fields render', async ({ page }) => {
     await goto(page, surveyUrl);
     const fields = page.locator('input, textarea, select, [role="radio"], [role="checkbox"]').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await fields.count() > 0) {
       await expect(fields).toBeVisible();
     }
@@ -27,6 +29,8 @@ test.describe('Survey Page', () => {
   test('submit button is present', async ({ page }) => {
     await goto(page, surveyUrl);
     const submitBtn = page.locator('button[type="submit"], button:has-text("Submit"), button:has-text("Send")').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await submitBtn.count() > 0) {
       await expect(submitBtn).toBeVisible();
     }
@@ -35,6 +39,8 @@ test.describe('Survey Page', () => {
   test('required field validation triggers on empty submit', async ({ page }) => {
     await goto(page, surveyUrl);
     const submitBtn = page.locator('button[type="submit"], button:has-text("Submit")').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await submitBtn.count() > 0) {
       await submitBtn.click();
       await expect(page).toHaveURL(new RegExp(surveyUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));

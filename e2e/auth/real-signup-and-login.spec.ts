@@ -13,10 +13,14 @@ test.describe('Real signup + login flow', () => {
     await expect(page.locator('#email')).toBeVisible();
     // Fill whatever fields the form exposes
     const nameField = page.locator('#name');
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await nameField.count()) await nameField.fill('E2E Tester');
     await page.locator('#email').fill(uniqueEmail);
     await page.locator('#password').fill('TestPass123!');
     const confirmField = page.locator('#confirmPassword');
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await confirmField.count()) await confirmField.fill('TestPass123!');
 
     // Intercept the signup call so we don't pollute prod with random users

@@ -1,35 +1,57 @@
 /**
  * Centralized route builders for E2E tests.
- * Dynamic IDs are read from environment variables; fall back to placeholder strings
- * that will show a clear error if a test is run without proper test data seeding.
+ *
+ * Every default below is a row e2e/fixtures/seed.sql creates or asserts. They
+ * used to be readable placeholders — 'test-module-id', 'test-quiz-id' — which
+ * read like a clear signal of missing setup but behaved as the opposite:
+ * Postgres rejects a non-UUID with 22P02, so the page never fetched anything and
+ * the spec asserted against an error state. Eight route builders were affected,
+ * and every one of them passed.
+ *
+ * That failure mode is also what forced the two blanket suppressions in
+ * console-errors.fixture.ts, which between them hid every /rest/v1/ error and
+ * 110 of the app's 187 logger prefixes — including two real 42703 page breaks.
+ *
+ * So: if a default here is not a real row, the fix is to seed the row, not to
+ * suppress the error it produces.
  */
 
 export const TestIds = {
-  // Defaults point at the canonical seeded "Introduction to Data Science" course
-  // and one of its seeded assignment content_items so specs work in local sandbox
-  // runs without needing the CI env vars set.
+  // The canonical seeded "Introduction to Data Science" course and its first
+  // module, both from the production seed and asserted by seed.sql.
   courseId: process.env.E2E_TEST_COURSE_ID || '660e8400-e29b-41d4-a716-446655440001',
-  moduleId: process.env.E2E_TEST_MODULE_ID || 'test-module-id',
-  lessonId: process.env.E2E_TEST_LESSON_ID || 'test-lesson-id',
+  moduleId: process.env.E2E_TEST_MODULE_ID || '770e8400-e29b-41d4-a716-446655440001',
+  // "What is Data Science?" — the first page-type content item in that module.
+  lessonId: process.env.E2E_TEST_LESSON_ID || 'b25050bd-9e06-4e89-b994-8eb176546ad7',
   assignmentContentItemId: process.env.E2E_TEST_ASSIGNMENT_ID || '19d80f57-3623-47a7-9e12-05a86f671f21',
-  quizContentItemId: process.env.E2E_TEST_QUIZ_ID || 'test-quiz-id',
-  submissionId: process.env.E2E_TEST_SUBMISSION_ID || 'test-submission-id',
-  forumId: process.env.E2E_TEST_FORUM_ID || '1',
-  threadId: process.env.E2E_TEST_THREAD_ID || 'test-thread-id',
+  // "Foundations Check-in" quiz, with two questions that have real options and a
+  // correct answer. A quiz whose questions have an empty options array renders
+  // "No options configured for this question", which is the same dead end as a
+  // placeholder ID.
+  quizContentItemId: process.env.E2E_TEST_QUIZ_ID || 'aaaa1111-1111-1111-1111-111111111111',
+  // A graded attempt on that quiz by the member.
+  submissionId: process.env.E2E_TEST_SUBMISSION_ID || 'dddd4444-4444-4444-4444-444444444444',
   // Seeded event (supabase/migrations/20260718121602_*.sql). The old
   // 'test-event-id' placeholder is not a UUID, so the app issued a query
   // Postgres rejected with 22P02 and the console-error fixture failed the
   // spec — testing the placeholder rather than the page.
   eventId: process.env.E2E_TEST_EVENT_ID || 'dd0e8400-e29b-41d4-a716-446655440001',
   blogSlug: process.env.E2E_TEST_BLOG_SLUG || 'test-blog-post',
-  surveySlug: process.env.E2E_TEST_SURVEY_SLUG || 'test-survey',
-  surveyFormId: process.env.E2E_TEST_SURVEY_FORM_ID || 'test-form-id',
-  formSlug: process.env.E2E_TEST_FORM_SLUG || process.env.E2E_TEST_SURVEY_SLUG || 'test-survey',
-  portfolioPageId: process.env.E2E_TEST_PORTFOLIO_ID || 'test-portfolio-page-id',
-  publicPortfolioUrl: process.env.E2E_TEST_PORTFOLIO_URL || 'testuser',
+  surveySlug: process.env.E2E_TEST_SURVEY_SLUG || 'e2e-fixture-survey',
+  surveyFormId: process.env.E2E_TEST_SURVEY_FORM_ID || 'aaab7777-7777-7777-7777-777777777777',
+  formSlug: process.env.E2E_TEST_FORM_SLUG || process.env.E2E_TEST_SURVEY_SLUG || 'e2e-fixture-survey',
+  // Owned by the member: the editor checks ownership, and pointing this at a
+  // real user's page would put a test one keystroke from editing live content.
+  portfolioPageId: process.env.E2E_TEST_PORTFOLIO_ID || 'ffff6666-6666-6666-6666-666666666666',
+  publicPortfolioUrl: process.env.E2E_TEST_PORTFOLIO_URL || 'e2e-member',
   assistantId: process.env.E2E_TEST_ASSISTANT_ID || 'career-explorer',
-  rubricId: process.env.E2E_TEST_RUBRIC_ID || 'test-rubric-id',
-  adminCourseId: process.env.E2E_TEST_ADMIN_COURSE_ID || process.env.E2E_TEST_COURSE_ID || 'test-course-id',
+  // Must belong to courseId — rubricEdit() defaults both segments, and a rubric
+  // on another course renders Not Found.
+  rubricId: process.env.E2E_TEST_RUBRIC_ID || 'eeee5555-5555-5555-5555-555555555555',
+  adminCourseId:
+    process.env.E2E_TEST_ADMIN_COURSE_ID ||
+    process.env.E2E_TEST_COURSE_ID ||
+    '660e8400-e29b-41d4-a716-446655440001',
 };
 
 export const Routes = {
@@ -125,8 +147,12 @@ export const Routes = {
   messages: '/messages',
   forum: '/forum',
   forums: '/forums',
-  forumDetail: (id = TestIds.forumId) => `/forum/${id}`,
-  threadDetail: (id = TestIds.threadId) => `/thread/${id}`,
+  // The forum feature is gone; App.tsx redirects every /forum and /thread route
+  // to /dashboard, so these ids are never used in a query. Kept as literals
+  // rather than TestIds entries — a seeded fixture would imply a page that reads
+  // it, and route-parity.spec.ts asserts the redirect.
+  forumDetail: (id = '1') => `/forum/${id}`,
+  threadDetail: (id = '1') => `/thread/${id}`,
 
   // Portfolio
   portfolioExplorer: '/portfolio-explorer',

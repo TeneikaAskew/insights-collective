@@ -24,7 +24,8 @@
     "audit:queries": "node scripts/audit/query-inventory.mjs && node scripts/audit/route-reachability.mjs && node scripts/audit/replay-queries.mjs && node scripts/audit/gate.mjs",
     "audit:types": "node scripts/audit/types-drift.mjs",
     "audit:invariants": "node scripts/audit/schema-invariants.mjs",
-    "audit": "npm run audit:queries && npm run audit:types && npm run audit:invariants"
+    "audit:fixtures": "node scripts/audit/verify-fixtures.mjs",
+    "audit": "npm run audit:queries && npm run audit:types && npm run audit:invariants && npm run audit:fixtures"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

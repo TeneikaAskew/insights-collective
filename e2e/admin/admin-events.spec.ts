@@ -17,6 +17,8 @@ test.describe('Admin Events Management', () => {
   test('events table or list renders', async ({ page }) => {
     await goto(page, Routes.adminEvents);
     const table = page.locator('table, [role="table"], [class*="event"], [class*="Card"]').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await table.count() > 0) {
       await expect(table).toBeVisible();
     }
@@ -25,6 +27,8 @@ test.describe('Admin Events Management', () => {
   test('create event button is present', async ({ page }) => {
     await goto(page, Routes.adminEvents);
     const createBtn = page.locator('button:has-text("Create"), button:has-text("New Event"), a:has-text("Create")').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await createBtn.count() > 0) {
       await expect(createBtn).toBeVisible();
     }

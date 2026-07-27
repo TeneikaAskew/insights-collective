@@ -38,6 +38,8 @@ test.describe('Messages', () => {
   test('new message or new conversation button is present', async ({ page }) => {
     await goto(page, Routes.messages);
     const newBtn = page.locator('button:has-text("New"), button:has-text("Compose"), button:has-text("Message")').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await newBtn.count() > 0) {
       await expect(newBtn).toBeVisible();
     }
@@ -46,6 +48,8 @@ test.describe('Messages', () => {
   test('inbox/archived tabs are present', async ({ page }) => {
     await goto(page, Routes.messages);
     const tabs = page.locator('[role="tab"]');
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await tabs.count() > 0) {
       await expect(tabs.first()).toBeVisible();
     }

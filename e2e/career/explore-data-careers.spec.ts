@@ -24,6 +24,8 @@ test.describe('Explore Data Careers', () => {
 
   test('career role cards are visible', async ({ page }) => {
     const cards = page.locator('[class*="Card"], article, [class*="role"]').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await cards.count() > 0) {
       await expect(cards).toBeVisible();
     }
@@ -31,6 +33,8 @@ test.describe('Explore Data Careers', () => {
 
   test('search input filters roles', async ({ page }) => {
     const searchInput = page.locator(Sel.searchInput).first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await searchInput.count() > 0) {
       await searchInput.fill('analyst');
       await page.waitForTimeout(400);
@@ -39,6 +43,8 @@ test.describe('Explore Data Careers', () => {
 
   test('category tabs filter careers', async ({ page }) => {
     const tabs = page.locator('[role="tab"]');
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await tabs.count() > 0) {
       await tabs.first().click();
       await page.waitForTimeout(300);

@@ -64,6 +64,8 @@ test.describe('Assignment submission → feedback → completion', () => {
     await expect(submitBtn).toBeVisible({ timeout: 15_000 });
     const textArea = page.getByPlaceholder(/Write your response here/i);
     const submissionBody = `E2E submission at ${new Date().toISOString()}`;
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await textArea.count()) {
       await textArea.fill(submissionBody);
     }

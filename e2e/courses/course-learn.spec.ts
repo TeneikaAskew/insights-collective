@@ -20,6 +20,8 @@ test.describe('Course Learn Interface', () => {
   test('curriculum tree or sidebar is visible', async ({ page }) => {
     await goto(page, learnUrl);
     const tree = page.locator('[class*="curriculum"], [class*="sidebar"], [class*="CurriculumTree"], aside, nav');
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await tree.count() > 0) {
       await expect(tree.first()).toBeVisible();
     }
@@ -28,6 +30,8 @@ test.describe('Course Learn Interface', () => {
   test('content viewer pane is visible', async ({ page }) => {
     await goto(page, learnUrl);
     const viewer = page.locator('[class*="content"], [class*="viewer"], main, [role="main"], section, article').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await viewer.count() > 0) {
       await expect(viewer).toBeVisible();
     }
@@ -36,6 +40,8 @@ test.describe('Course Learn Interface', () => {
   test('progress bar or completion indicator is present', async ({ page }) => {
     await goto(page, learnUrl);
     const progress = page.locator('[role="progressbar"], [class*="progress"]').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await progress.count() > 0) {
       await expect(progress).toBeVisible();
     }

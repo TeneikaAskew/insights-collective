@@ -19,6 +19,8 @@ test.describe('STAR Practice', () => {
 
   test('STAR framework sections or labels are visible', async ({ page }) => {
     const starLabels = page.locator(':has-text("Situation"), :has-text("Task"), :has-text("Action"), :has-text("Result")');
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await starLabels.count() > 0) {
       await expect(starLabels.first()).toBeVisible();
     }
@@ -26,6 +28,8 @@ test.describe('STAR Practice', () => {
 
   test('practice input areas are visible', async ({ page }) => {
     const inputs = page.locator('textarea, [contenteditable]').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await inputs.count() > 0) {
       await expect(inputs).toBeVisible();
     }
@@ -33,6 +37,8 @@ test.describe('STAR Practice', () => {
 
   test('submit or generate button is present', async ({ page }) => {
     const btn = page.locator('button:has-text("Submit"), button:has-text("Generate"), button:has-text("Practice"), button:has-text("Analyze")').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await btn.count() > 0) {
       await expect(btn).toBeVisible();
     }

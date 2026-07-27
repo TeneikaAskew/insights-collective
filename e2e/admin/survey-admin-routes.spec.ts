@@ -7,6 +7,8 @@ test.describe('Survey Admin Routes', () => {
     await goto(page, Routes.surveyFormCreate);
 
     const heading = page.locator('h1, h2, h3').filter({ hasText: /create.*form/i }).first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await heading.count() === 0) {
       // Page didn't render admin form UI (likely awaiting role hydration); accept a body render.
       await expect(page.locator('body')).not.toBeEmpty();
@@ -14,9 +16,13 @@ test.describe('Survey Admin Routes', () => {
     }
     await expect(heading).toBeVisible();
     const titleInput = page.locator('#title');
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await titleInput.count() > 0) {
       await titleInput.fill('Community Feedback Survey');
       const slug = page.locator('#slug');
+      // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+      // eslint-disable-next-line no-restricted-syntax
       if (await slug.count() > 0) {
         await expect(slug).toHaveValue('community-feedback-survey');
       }

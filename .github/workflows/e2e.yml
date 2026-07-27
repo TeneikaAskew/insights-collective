@@ -137,6 +137,15 @@ jobs:
         if: env.SUPABASE_DB_URL != ''
         run: psql "$SUPABASE_DB_URL" -f e2e/fixtures/seed.sql
 
+      # Every TestIds default must resolve to a row the role that loads the page
+      # can actually read. The seed asserts the rows exist; this asserts RLS lets
+      # the right role see them, which is a different question — a row hidden by
+      # a policy produces exactly the same empty page as no row at all. Runs
+      # before the suite so a seeding problem is not diagnosed as 60 test
+      # failures.
+      - name: Verify e2e fixtures resolve
+        run: node scripts/audit/verify-fixtures.mjs
+
       - name: Run Playwright suite
         run: npx playwright test --reporter=list,html,json
 
