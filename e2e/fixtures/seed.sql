@@ -68,14 +68,39 @@ DO $$
 DECLARE
   v_course_id uuid := '660e8400-e29b-41d4-a716-446655440001';
   v_assignment_id uuid := 'aa0e8400-e29b-41d4-a716-446655440001';
+  v_item_id uuid := 'cc0e8400-e29b-41d4-a716-446655440001';
+  v_module_id uuid;
   v_member_id uuid;
+  v_position integer;
 BEGIN
   SELECT id INTO v_member_id FROM auth.users
    WHERE email = 'e2e-member@insightscollective.org';
+  SELECT id INTO v_module_id FROM public.modules
+   WHERE course_id = v_course_id ORDER BY created_at LIMIT 1;
 
-  INSERT INTO public.assignments (id, course_id, title, description, instructions, points, due_date, is_published, submission_types)
+  -- content_items has a unique (module_id, position); take the next free slot
+  -- rather than a fixed number, which collides with whatever the course already
+  -- has. On conflict the existing position is deliberately left alone.
+  SELECT COALESCE(max(ci.position), 0) + 1 INTO v_position
+    FROM public.content_items ci
+   WHERE ci.module_id = v_module_id;
+
+  -- The assignment MUST hang off a content item. InstructorAssignments renders
+  -- the "Grade submissions" link only when content_item_id is set (otherwise a
+  -- disabled "No submissions target" button), and CanvasGradingInterface
+  -- resolves the :contentItemId route param — so a null here leaves the
+  -- SpeedGrader unreachable and grading-workflow-flow still failing.
+  INSERT INTO public.content_items (id, course_id, module_id, type, title, position, published)
+  VALUES (v_item_id, v_course_id, v_module_id, 'assignment', 'E2E Fixture Assignment', v_position, true)
+  ON CONFLICT (id) DO UPDATE
+  SET published = true,
+      course_id = EXCLUDED.course_id,
+      module_id = EXCLUDED.module_id,
+      type = EXCLUDED.type;
+
+  INSERT INTO public.assignments (id, course_id, content_item_id, title, description, instructions, points, due_date, is_published, submission_types)
   VALUES (
-    v_assignment_id, v_course_id,
+    v_assignment_id, v_course_id, v_item_id,
     'E2E Fixture Assignment',
     'Seeded assignment backing the grading and submission journeys.',
     'Submit a short written response. Seeded for E2E; safe to leave in place.',
@@ -84,10 +109,14 @@ BEGIN
   ON CONFLICT (id) DO UPDATE
   SET is_published = true,
       course_id = EXCLUDED.course_id,
+      content_item_id = EXCLUDED.content_item_id,
       points = EXCLUDED.points;
 
-  -- workflow_state 'submitted' (not 'graded') so the dashboard shows a gradable
-  -- item and the SpeedGrader has something to open.
+  -- Must end up submitted-but-ungraded every time the seed runs. A previous run
+  -- (or a manual click through the SpeedGrader) will have graded this row, and
+  -- the unique key is (assignment_id, user_id, attempt) — so DO NOTHING would
+  -- silently leave it graded and the fixture would stop supplying the pending
+  -- item it promises. Reset the grading fields explicitly on conflict.
   IF v_member_id IS NOT NULL THEN
     INSERT INTO public.assignment_submissions
       (assignment_id, user_id, submitted_at, submission_type, body, workflow_state, attempt)
@@ -95,7 +124,18 @@ BEGIN
       v_assignment_id, v_member_id, now(), 'online_text_entry',
       'Seeded E2E submission body.', 'submitted', 1
     )
-    ON CONFLICT DO NOTHING;
+    ON CONFLICT (assignment_id, user_id, attempt) DO UPDATE
+    SET workflow_state = 'submitted',
+        submitted_at = now(),
+        submission_type = 'online_text_entry',
+        body = EXCLUDED.body,
+        grade = NULL,
+        score = NULL,
+        graded_at = NULL,
+        grader_comments = NULL,
+        rubric_scores = NULL,
+        excused = false,
+        missing = false;
   END IF;
 END $$;
 
@@ -136,15 +176,23 @@ BEGIN
     RAISE EXCEPTION 'E2E SEED FAILED: fixture event dd0e8400-...0001 missing; event specs would pass against a Not Found page';
   END IF;
 
+  -- Assert the exact state the grading specs need, not merely that some row
+  -- exists: published assignment, linked to a published content item (else the
+  -- dashboard shows "No submissions target" instead of a Grade submissions
+  -- link), with a submitted-and-ungraded submission to open in the SpeedGrader.
   SELECT EXISTS (
     SELECT 1
     FROM public.assignment_submissions s
     JOIN public.assignments a ON a.id = s.assignment_id
+    JOIN public.content_items ci ON ci.id = a.content_item_id
     WHERE a.id = 'aa0e8400-e29b-41d4-a716-446655440001'
       AND a.is_published
+      AND ci.published
+      AND s.workflow_state = 'submitted'
+      AND s.grade IS NULL
   ) INTO v_ok;
   IF NOT v_ok THEN
-    RAISE EXCEPTION 'E2E SEED FAILED: fixture assignment aa0e8400-...0001 has no submission; the grading dashboard would render its empty state and grading specs would fail on a seed gap';
+    RAISE EXCEPTION 'E2E SEED FAILED: fixture assignment aa0e8400-...0001 must be published, linked to a published content item, and carry a submitted/ungraded submission; without all four the grading dashboard renders no Grade submissions link';
   END IF;
 END $$;
 
