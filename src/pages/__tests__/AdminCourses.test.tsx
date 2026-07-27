@@ -121,6 +121,14 @@ async function openCertificatesTab(user: ReturnType<typeof userEvent.setup>) {
 describe('AdminCourses', () => {
   beforeEach(() => {
     toastSpy.mockClear();
+    // useCoursesManagement gates its enrollment-count query on a real Supabase
+    // session, not on AuthContext alone — the context restores from localStorage
+    // before the client attaches a token, and requests sent in that window are
+    // refused with 42501.
+    mockSupabaseClient.auth.getSession.mockResolvedValue({
+      data: { session: { access_token: 'token', user: { id: 'admin-1' } } },
+      error: null,
+    } as any);
     vi.mocked(useAuth).mockReturnValue({
       user: { id: 'admin-1' },
       session: null,

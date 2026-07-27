@@ -42,17 +42,31 @@ const SESSIONS_DIR = path.join(__dirname, '.playwright-sessions');
  * then nothing is blocked at all and the timeouts come back.
  */
 function hermeticArgs(): string[] {
-  const rules = ['MAP * 127.0.0.1:1', 'EXCLUDE localhost'];
-  // The app's own CSP script-src names these, and the Monaco editor does not
-  // start without them — blocking them would not remove noise, it would break
-  // the feature the code-practice specs exist to test.
-  for (const host of ['cdn.jsdelivr.net', 'esm.sh']) rules.push(`EXCLUDE ${host}`);
-  if (process.env.E2E_USE_RELAY !== '1') {
-    const supabaseHost = new URL(
-      process.env.VITE_SUPABASE_URL || 'https://siuqvhscuiycvdrtiqsh.supabase.co',
-    ).hostname;
-    rules.push(`EXCLUDE ${supabaseHost}`);
+  // cdn.gpteng.co is blocked everywhere. It is Lovable's editor script, it
+  // contributes nothing to what the app renders, and it gates `load` on every
+  // navigation. Blocking it is pure upside.
+  const rules = ['MAP cdn.gpteng.co 127.0.0.1:1'];
+
+  // Everything else is blocked only in relay mode — that is, only where the
+  // browser has no egress anyway and a request to a third party can do nothing
+  // but hang.
+  //
+  // Blocking them in CI would be actively wrong. Google Fonts changes the
+  // typography of every page and images.unsplash.com fills the course cards,
+  // so a suite that blocks them is screenshotting a different application than
+  // the one users see, and every visual baseline captured that way is a lie.
+  // The corollary is that visual regression cannot be validated under
+  // E2E_USE_RELAY=1 — do not refresh baselines from a run that blocked fonts.
+  if (process.env.E2E_USE_RELAY === '1') {
+    return [
+      // Monaco (cdn.jsdelivr.net) and esm.sh are named in the app's own CSP
+      // script-src; the code editor does not start without them. Excluding them
+      // does not make them reachable here, but it keeps the reason for a
+      // code-practice failure honest — the CDN is unreachable, not blocked.
+      '--host-resolver-rules=MAP * 127.0.0.1:1,EXCLUDE localhost,EXCLUDE cdn.jsdelivr.net,EXCLUDE esm.sh',
+    ];
   }
+
   return [`--host-resolver-rules=${rules.join(',')}`];
 }
 

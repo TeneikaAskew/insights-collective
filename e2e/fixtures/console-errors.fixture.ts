@@ -203,6 +203,8 @@ const IGNORED_URL_PATTERNS: RegExp[] = [
  * Supabase is an allowed host, so its errors still fail tests — which is the
  * whole point.
  */
+const RELAY_MODE = process.env.E2E_USE_RELAY === '1';
+
 function allowedHosts(): Set<string> {
   const hosts = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
   // Monaco (cdn.jsdelivr.net) and esm.sh are in the app's own CSP script-src;
@@ -218,11 +220,19 @@ function allowedHosts(): Set<string> {
 const ALLOWED_HOSTS = allowedHosts();
 
 function isDeliberatelyBlocked(url: string): boolean {
+  let hostname: string;
   try {
-    return !ALLOWED_HOSTS.has(new URL(url).hostname);
+    hostname = new URL(url).hostname;
   } catch {
     return false;
   }
+  // Blocked in every mode — see hermeticArgs() in playwright.config.ts.
+  if (hostname === 'cdn.gpteng.co') return true;
+  // Everything else is only blocked under E2E_USE_RELAY. Outside relay mode the
+  // suite reaches the real internet, so a failure from a third party is a real
+  // third-party failure and belongs in the named suppressions above (or nowhere)
+  // rather than being waved through by this rule.
+  return RELAY_MODE && !ALLOWED_HOSTS.has(hostname);
 }
 
 function shouldIgnore(msg: ConsoleMessage): boolean {
