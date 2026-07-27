@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      action_plan_progress: {
+        Row: {
+          completed: boolean
+          id: string
+          milestone_index: number
+          milestone_text: string
+          timeframe: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed?: boolean
+          id?: string
+          milestone_index: number
+          milestone_text?: string
+          timeframe: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed?: boolean
+          id?: string
+          milestone_index?: number
+          milestone_text?: string
+          timeframe?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       admin_actions: {
         Row: {
           action: string
@@ -322,6 +352,13 @@ export type Database = {
             columns: ["assignment_id"]
             isOneToOne: false
             referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assignment_submissions_user_id_profiles_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -975,6 +1012,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "blog_posts_author_id_profiles_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "fk_blog_posts_category"
             columns: ["category_id"]
             isOneToOne: false
@@ -1305,6 +1349,13 @@ export type Database = {
             referencedRelation: "courses"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "certificates_user_id_profiles_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       code_attempts: {
@@ -1353,28 +1404,58 @@ export type Database = {
       }
       code_challenges: {
         Row: {
+          compare_mode: string
+          constraints: Json
           created_at: string
+          description: string | null
+          detail: string | null
           difficulty: string
+          example: string | null
+          function_name: string
+          hints: Json
           id: string
+          language: string
           prompt: string
+          runtime: string
+          starter_code: string | null
           test_cases: Json
           title: string
           topic_tags: string[] | null
         }
         Insert: {
+          compare_mode?: string
+          constraints?: Json
           created_at?: string
+          description?: string | null
+          detail?: string | null
           difficulty: string
+          example?: string | null
+          function_name?: string
+          hints?: Json
           id?: string
+          language?: string
           prompt: string
+          runtime?: string
+          starter_code?: string | null
           test_cases?: Json
           title: string
           topic_tags?: string[] | null
         }
         Update: {
+          compare_mode?: string
+          constraints?: Json
           created_at?: string
+          description?: string | null
+          detail?: string | null
           difficulty?: string
+          example?: string | null
+          function_name?: string
+          hints?: Json
           id?: string
+          language?: string
           prompt?: string
+          runtime?: string
+          starter_code?: string | null
           test_cases?: Json
           title?: string
           topic_tags?: string[] | null
@@ -1487,6 +1568,13 @@ export type Database = {
             columns: ["parent_comment_id"]
             isOneToOne: false
             referencedRelation: "content_discussions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_discussions_user_id_profiles_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1840,6 +1928,13 @@ export type Database = {
             referencedRelation: "courses"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "course_assignments_user_id_profiles_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       course_feedback: {
@@ -1934,6 +2029,13 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_instructors_user_id_profiles_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -2223,6 +2325,7 @@ export type Database = {
       }
       enrollments: {
         Row: {
+          calendar_feed_token: string
           completion_status: number | null
           course_id: string | null
           enrolled_at: string | null
@@ -2230,6 +2333,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          calendar_feed_token?: string
           completion_status?: number | null
           course_id?: string | null
           enrolled_at?: string | null
@@ -2237,6 +2341,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          calendar_feed_token?: string
           completion_status?: number | null
           course_id?: string | null
           enrolled_at?: string | null
@@ -3208,39 +3313,54 @@ export type Database = {
       mock_sessions: {
         Row: {
           created_at: string
+          end_time: string | null
           id: string
+          meeting_id: string | null
+          meeting_url: string | null
           role1: string
           role2: string
           session_time: string
+          start_url: string | null
           status: string
           study_guide_id: string | null
           type: string
           user1_id: string
           user2_id: string
+          video_platform: string | null
         }
         Insert: {
           created_at?: string
+          end_time?: string | null
           id?: string
+          meeting_id?: string | null
+          meeting_url?: string | null
           role1: string
           role2: string
           session_time: string
+          start_url?: string | null
           status: string
           study_guide_id?: string | null
           type: string
           user1_id: string
           user2_id: string
+          video_platform?: string | null
         }
         Update: {
           created_at?: string
+          end_time?: string | null
           id?: string
+          meeting_id?: string | null
+          meeting_url?: string | null
           role1?: string
           role2?: string
           session_time?: string
+          start_url?: string | null
           status?: string
           study_guide_id?: string | null
           type?: string
           user1_id?: string
           user2_id?: string
+          video_platform?: string | null
         }
         Relationships: [
           {
@@ -3248,6 +3368,20 @@ export type Database = {
             columns: ["study_guide_id"]
             isOneToOne: false
             referencedRelation: "study_guides"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mock_sessions_user1_id_profiles_fkey"
+            columns: ["user1_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mock_sessions_user2_id_profiles_fkey"
+            columns: ["user2_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -4476,7 +4610,15 @@ export type Database = {
           user_id?: string
           workflow_state?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "quiz_submissions_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       quizzes: {
         Row: {
@@ -5401,10 +5543,31 @@ export type Database = {
             referencedRelation: "content_items"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "video_analytics_user_id_profiles_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
     }
     Views: {
+      audit_db_columns: {
+        Row: {
+          column_name: string | null
+          table_name: string | null
+        }
+        Relationships: []
+      }
+      audit_db_functions: {
+        Row: {
+          args: string | null
+          name: string | null
+        }
+        Relationships: []
+      }
       course_statistics: {
         Row: {
           assignment_count: number | null
@@ -5451,6 +5614,14 @@ export type Database = {
       }
     }
     Functions: {
+      audit_invariants: {
+        Args: never
+        Returns: {
+          check_name: string
+          violations: number
+          why: string
+        }[]
+      }
       calculate_course_difficulty: {
         Args: { course_id_param: string }
         Returns: Database["public"]["Enums"]["course_difficulty"]
@@ -5529,6 +5700,16 @@ export type Database = {
         Args: { problem_id_param: string; user_id_param: string }
         Returns: undefined
       }
+      finalize_quiz_submission: {
+        Args: { p_score: number; p_submission_id: string; p_time_spent: number }
+        Returns: Json
+      }
+      find_available_peers: {
+        Args: { p_time_slot: string; p_weekday: number }
+        Returns: {
+          user_id: string
+        }[]
+      }
       find_one_on_one_conversation: {
         Args: { user1_id: string; user2_id: string }
         Returns: {
@@ -5590,6 +5771,69 @@ export type Database = {
           unresolved_count: number
         }[]
       }
+      get_my_calendar_feed_token: {
+        Args: { p_course_id: string }
+        Returns: string
+      }
+      get_popular_posts: {
+        Args: { days_back?: number; limit_count?: number }
+        Returns: {
+          id: string
+          likes_count: number
+          published_at: string
+          slug: string
+          title: string
+          views_count: number
+        }[]
+      }
+      get_quiz_questions_for_authoring: {
+        Args: { p_quiz_id: string }
+        Returns: {
+          answers: Json | null
+          correct_answer: Json | null
+          created_at: string | null
+          explanation: string | null
+          feedback: string | null
+          id: string
+          options: Json | null
+          points: number | null
+          position: number
+          question_text: string
+          question_type: string
+          quiz_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "quiz_questions"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      get_quiz_questions_for_taking: {
+        Args: { p_quiz_id: string }
+        Returns: {
+          answers: Json
+          explanation: string
+          id: string
+          points: number
+          position: number
+          question_text: string
+          question_type: string
+          quiz_id: string
+        }[]
+      }
+      get_related_posts: {
+        Args: { limit_count?: number; post_id: string }
+        Returns: {
+          excerpt: string
+          featured_image: string
+          id: string
+          published_at: string
+          similarity_score: number
+          slug: string
+          title: string
+        }[]
+      }
       get_student_video_progress: {
         Args: { course_id_param: string; student_id: string }
         Returns: {
@@ -5639,6 +5883,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      increment_blog_views: { Args: { post_id: string }; Returns: undefined }
       is_conversation_participant: {
         Args: { conversation_id_param: string; user_id_param: string }
         Returns: boolean
@@ -5688,7 +5933,19 @@ export type Database = {
         Args: { p_course_id: string; p_module_ids: string[] }
         Returns: undefined
       }
+      resolve_calendar_feed_token: {
+        Args: { p_course_id: string; p_token: string }
+        Returns: string
+      }
+      rotate_my_calendar_feed_token: {
+        Args: { p_course_id: string }
+        Returns: string
+      }
       snapshot_enrollment_progress: { Args: never; Returns: undefined }
+      track_blog_view: {
+        Args: { post_id: string; referrer_url?: string; view_date: string }
+        Returns: undefined
+      }
       update_user_roles: {
         Args: { new_roles: string[]; target_user_id: string }
         Returns: undefined

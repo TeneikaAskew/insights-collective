@@ -99,23 +99,27 @@ async function probeSelect(table, select, token) {
  * produced 22 false MISSING verdicts on functions that demonstrably exist.
  * pg_proc is the authority, and it also gives us the real parameter names so a
  * mis-spelled argument (which fails the same way at runtime) is visible.
+ *
+ * Read over PostgREST through public.audit_db_functions (see migration
+ * 20260801000000). This used to need a Supabase *management* token, which can
+ * run arbitrary SQL project-wide — far more authority than a script that only
+ * wants a list of names, and one more long-lived credential in CI. The admin
+ * login e2e.yml already holds is enough.
  */
-async function catalogFunctions() {
-  const token = process.env.SUPABASE_ACCESS_TOKEN;
-  const ref = process.env.VITE_SUPABASE_PROJECT_ID ?? 'siuqvhscuiycvdrtiqsh';
-  if (!token) return null;
-  const res = await fetch(`https://api.supabase.com/v1/projects/${ref}/database/query`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      query: `select p.proname as name,
-                     coalesce(array_to_string(p.proargnames, ','), '') as args
-              from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-              where n.nspname = 'public'`,
-    }),
+async function catalogFunctions(adminToken) {
+  if (!adminToken) return null;
+  const res = await fetch(`${URL_BASE}/rest/v1/audit_db_functions?select=name,args`, {
+    headers: headersFor(adminToken),
   });
-  if (!res.ok) return null;
+  if (!res.ok) {
+    console.error(`  audit_db_functions unreadable (${res.status}) — has the migration been applied?`);
+    return null;
+  }
   const rows = await res.json();
+  // The view is admin-gated, so a non-admin gets an empty list rather than an
+  // error. Treating that as "no functions exist" would mark all 44 RPC call
+  // sites MISSING, which is worse than declining to judge.
+  if (!Array.isArray(rows) || rows.length === 0) return null;
   const map = new Map();
   for (const r of rows) {
     if (!map.has(r.name)) map.set(r.name, new Set());
@@ -175,9 +179,10 @@ for (const entry of selects.values()) {
   if (++n % 25 === 0) console.error(`  …${n}/${selects.size} select shapes`);
 }
 
-const catalog = await catalogFunctions();
+const catalog = await catalogFunctions(tokens.admin);
 if (!catalog) {
-  console.error('WARNING: SUPABASE_ACCESS_TOKEN not set — RPC verdicts skipped rather than guessed.');
+  console.error('WARNING: no admin session — RPC verdicts skipped rather than guessed.');
+  console.error('         set E2E_ADMIN_EMAIL / E2E_ADMIN_PASSWORD to enable them.');
 }
 for (const entry of rpcs.values()) {
   if (!catalog) {

@@ -8,6 +8,78 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Replays every query the code issues against the live database and fails if
+  # any of them is invalid on a page a user can actually load.
+  #
+  # Five column mismatches and six broken embeds reached production and survived
+  # 893 unit tests and 99 e2e specs, because a rejected query renders as an empty
+  # list rather than an error: unit tests mock Supabase away, and the e2e console
+  # fixture suppressed all of /rest/v1/. Only the database can answer whether a
+  # query shape is valid.
+  #
+  # Separate job from the Playwright suite: it needs no browser and no preview
+  # server, finishes in a couple of minutes, and a PR that breaks a query should
+  # say so quickly rather than after a 30-minute e2e run.
+  query-validity:
+    name: Query validity
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL || 'e2e-admin@insightscollective.org' }}
+      E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+      E2E_INSTRUCTOR_EMAIL: ${{ secrets.E2E_INSTRUCTOR_EMAIL || 'e2e-instructor@insightscollective.org' }}
+      E2E_INSTRUCTOR_PASSWORD: ${{ secrets.E2E_INSTRUCTOR_PASSWORD }}
+      E2E_MEMBER_EMAIL: ${{ secrets.E2E_MEMBER_EMAIL || 'e2e-member@insightscollective.org' }}
+      E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
+      E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://siuqvhscuiycvdrtiqsh.supabase.co' }}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+      VITE_SUPABASE_PROJECT_ID: ${{ secrets.VITE_SUPABASE_PROJECT_ID || 'siuqvhscuiycvdrtiqsh' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      # No Supabase management token anywhere in this job. The catalogue reads go
+      # through public.audit_db_functions / audit_db_columns and the invariants
+      # through public.audit_invariants(), all admin-gated over PostgREST — see
+      # supabase/migrations/20260801000000_audit_surfaces.sql for why that is
+      # sufficient. A management token can run arbitrary SQL project-wide, which
+      # is far more authority than reading a list of column names deserves.
+      - name: Inventory every query the code issues
+        run: node scripts/audit/query-inventory.mjs
+
+      - name: Map queries to the routes that can reach them
+        run: node scripts/audit/route-reachability.mjs
+
+      - name: Replay every query shape against the database
+        run: node scripts/audit/replay-queries.mjs
+
+      - name: Fail on any invalid query reachable from a route
+        run: node scripts/audit/gate.mjs
+
+      - name: Check the committed Supabase types still match the database
+        run: node scripts/audit/types-drift.mjs
+
+      - name: Check database invariants
+        run: node scripts/audit/schema-invariants.mjs
+
+      - name: Upload audit output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: query-audit
+          path: .e2e-audit/
+          if-no-files-found: ignore
+          retention-days: 14
+
   e2e:
     name: Playwright E2E
     runs-on: ubuntu-latest
