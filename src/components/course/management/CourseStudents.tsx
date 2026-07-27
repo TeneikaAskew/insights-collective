@@ -242,13 +242,26 @@ export default function CourseStudents({ courseId }: CourseStudentsProps) {
     }
     
     try {
-      const { error } = await supabase
+      const { data: deleted, error } = await supabase
         .from('enrollments')
         .delete()
-        .eq('id', enrollmentId);
-      
+        .eq('id', enrollmentId)
+        .select('id');
+
       if (error) throw error;
-      
+
+      // A delete that RLS refuses is not an error: PostgREST removes no rows
+      // and still answers 204, so `error` is null and this read as success.
+      // public.enrollments carries no DELETE policy at all, which under RLS
+      // denies every caller — so the row survived while the list below dropped
+      // the student and the toast claimed they were unenrolled. They came back
+      // on the next refresh. Confirm a row actually went.
+      if (!deleted || deleted.length === 0) {
+        throw new Error(
+          'The database refused the unenrolment and removed no row. The student is still enrolled.',
+        );
+      }
+
       // Update the students list
       setStudents(students.filter(student => student.enrollment_id !== enrollmentId));
       
