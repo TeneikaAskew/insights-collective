@@ -118,5 +118,10 @@ jobs:
         # describes instead: the pushed range on push, the PR range on
         # pull_request. On the weekly schedule there is no range, so both stay
         # empty and TruffleHog scans the full history (fetch-depth: 0 above).
-        base: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event_name == 'push' && github.event.before || '' }}
+        #
+        # The first push to a new branch (develop is a push target) reports
+        # `before` as the all-zero SHA. That is nonempty, so the action would
+        # hand it to --since-commit and git would fail to resolve it; treat it
+        # as "no range" and fall through to a full scan.
+        base: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || (github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000') && github.event.before || '' }}
         head: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.event_name == 'push' && github.sha || '' }}
