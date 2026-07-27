@@ -72,9 +72,31 @@ jobs:
             echo "Waiting for preview ($i)..."; sleep 2;
           done
 
+      # Seeding is opt-in — it only runs when the secret is present. But a
+      # MALFORMED secret must not be worse than an absent one, and it was: psql
+      # treats a value that is neither a URI nor a keyword string as a bare
+      # database NAME and dials the local unix socket, so a mistyped secret
+      # failed with "connection to server on socket /var/run/postgresql ...",
+      # which names neither the secret nor the real cause, and killed the job
+      # before a single test ran.
+      #
+      # So: check the shape first, and never let a seeding problem take the
+      # whole suite down with it. Both paths raise a workflow annotation, and
+      # the specs that actually need fixtures already fail with their own
+      # explicit "Seed gap: ..." messages naming what to reseed.
       - name: Seed E2E fixtures
         if: env.SUPABASE_DB_URL != ''
-        run: psql "$SUPABASE_DB_URL" -f e2e/fixtures/seed.sql
+        run: |
+          case "$SUPABASE_DB_URL" in
+            postgres://*|postgresql://*) ;;
+            *)
+              echo "::error title=SUPABASE_DB_URL is not a connection URI::The secret is set but its scheme is missing, so psql read it as a database name and tried the local socket. It must be a full libpq connection URI - scheme, then credentials, host, port and database name. Skipping seed."
+              exit 0
+              ;;
+          esac
+          if ! psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f e2e/fixtures/seed.sql; then
+            echo "::error title=E2E seeding failed::psql could not apply e2e/fixtures/seed.sql. Continuing so the suite still runs; fixture-dependent specs will report their own 'Seed gap' errors."
+          fi
 
       # No --reporter override: a CLI --reporter replaces the config's reporter
       # array wholesale, and the json reporter with no configured outputFile
