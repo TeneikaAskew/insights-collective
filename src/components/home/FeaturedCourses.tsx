@@ -1,19 +1,34 @@
 
 import { Link } from 'react-router-dom';
-import { ArrowRight, Star, Clock, BookOpen, Sparkles, Target, TrendingUp, Award } from 'lucide-react';
+import { ArrowRight, Clock, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Course } from '@/types';
-import { CourseDifficulty } from '@/types/course';
 import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
 
-// Extended Course type with optional progress property
-type ExtendedCourse = Course & {
+/**
+ * Only the fields this card actually renders.
+ *
+ * It used to take the full `Course`, which forced every caller through an
+ * `as any` because no public-facing query returns all of it. Narrowing the
+ * prop lets a caller pass exactly what it has, and makes "this card cannot
+ * show a lesson count unless modules were loaded" a type-level fact rather
+ * than a runtime `|| 0`.
+ */
+export type FeaturedCourse = {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  level?: string | null;
+  thumbnail?: string | null;
+  estimated_hours?: number | null;
+  /** Present only when the caller genuinely loaded the course's modules. */
+  modules?: unknown[];
   progress?: number;
 };
 
 type FeaturedCoursesProps = {
-  courses: ExtendedCourse[];
+  courses: FeaturedCourse[];
 };
 
 const FeaturedCourses = ({ courses }: FeaturedCoursesProps) => {
@@ -34,12 +49,13 @@ const FeaturedCourses = ({ courses }: FeaturedCoursesProps) => {
       case 'Web Development':
         return 'Data Engineering';
       default:
-        // If it's already one of our standard categories, return it as is
-        if (['AI/ML', 'Analytics', 'Data Engineering', 'Business Intelligence'].includes(category)) {
-          return category;
-        }
-        // Default fallback
-        return 'Data Engineering';
+        // Show the category the course actually has. This used to fall back to
+        // 'Data Engineering' for anything unrecognised, and the live catalog
+        // uses 'Analytics & BI', 'ML/AI' and 'Data Science' — none of which are
+        // in the map above — so real Analytics courses were labelled
+        // "Data Engineering" on the landing page. A stale mapping should lose
+        // its shortening, not relabel the course.
+        return category;
     }
   };
   
@@ -70,32 +86,6 @@ const FeaturedCourses = ({ courses }: FeaturedCoursesProps) => {
         return 'bg-purple-100 text-purple-600 border-purple-200';
       default:
         return 'bg-gray-100 text-gray-600 border-gray-200';
-    }
-  };
-
-  // Get difficulty badge configuration
-  const getDifficultyConfig = (difficulty?: CourseDifficulty | string) => {
-    switch (difficulty?.toLowerCase()) {
-      case 'beginner':
-        return {
-          icon: Target,
-          color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 border-green-200',
-          label: 'Beginner'
-        };
-      case 'intermediate':
-        return {
-          icon: TrendingUp,
-          color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 border-yellow-200',
-          label: 'Intermediate'
-        };
-      case 'advanced':
-        return {
-          icon: Award,
-          color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 border-red-200',
-          label: 'Advanced'
-        };
-      default:
-        return null;
     }
   };
 
@@ -165,24 +155,15 @@ const FeaturedCourses = ({ courses }: FeaturedCoursesProps) => {
                     <h3 className="text-xl font-semibold mb-3 line-clamp-1 group-hover:text-primary transition-colors duration-300">{course.title}</h3>
                     <p className="text-muted-foreground mb-4 line-clamp-2">{course.description}</p>
 
-                    {/* Difficulty and Estimated Hours Badges */}
+                    {/* NOTE: no difficulty badge. `difficulty_level` and `level`
+                        are separate columns that disagree — every course in the
+                        catalog carries difficulty_level 'intermediate' while
+                        its level ranges Beginner..Advanced — so rendering both
+                        put "Beginner" and "Intermediate" on the same card. The
+                        catalog shows `level`, so this card does too. */}
                     <div className="flex flex-wrap gap-2 mb-3">
                       {(() => {
-                        const difficulty = (course as any).difficulty_level || (course as any).difficultyLevel;
-                        const config = getDifficultyConfig(difficulty);
-                        if (!config) return null;
-                        const DifficultyIcon = config.icon;
-
-                        return (
-                          <Badge variant="outline" className={`${config.color} flex items-center gap-1 font-medium`}>
-                            <DifficultyIcon className="h-3 w-3" />
-                            {config.label}
-                          </Badge>
-                        );
-                      })()}
-
-                      {(() => {
-                        const estimatedHours = (course as any).estimated_hours || (course as any).estimatedHours;
+                        const estimatedHours = course.estimated_hours;
                         if (!estimatedHours) return null;
 
                         return (
@@ -194,24 +175,43 @@ const FeaturedCourses = ({ courses }: FeaturedCoursesProps) => {
                       })()}
                     </div>
 
+                    {/* Level and duration are both nullable in the database, and
+                        an empty badge or a lone clock icon reads as broken —
+                        omit each one when the course does not carry it. */}
                     <div className="mt-auto flex justify-between items-center text-sm">
-                      <Badge variant="outline" className={`${getLevelStyle(course.level)} font-medium`}>
-                        {course.level}
-                      </Badge>
-                      <div className="flex items-center text-muted-foreground">
-                        <Clock className="h-4 w-4 mr-1" />
-                        <span>{course.duration}</span>
-                      </div>
+                      {course.level ? (
+                        <Badge variant="outline" className={`${getLevelStyle(course.level)} font-medium`}>
+                          {course.level}
+                        </Badge>
+                      ) : (
+                        <span />
+                      )}
+                      {/* NOTE: `duration` is a bare smallint with no unit
+                          anywhere in the schema or the UI, so it rendered as a
+                          clock icon next to a naked "12" — beside an
+                          "4.3 hours" badge reading off a different column.
+                          Estimated hours is the one with a known unit; show
+                          that alone rather than guessing this one means weeks. */}
                     </div>
                   </div>
                   
                   <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center text-muted-foreground text-sm">
-                        <BookOpen className="h-4 w-4 mr-1" />
-                        <span>{course.modules?.length || 0} lessons</span>
-                      </div>
-                      <Button 
+                      {/* NOTE: no lesson count unless modules were actually
+                          loaded. This read `modules?.length || 0`, and no
+                          caller has ever passed modules — so every card on the
+                          landing page claimed "0 lessons" for courses that
+                          have lessons. Same rule as the absent rating badge:
+                          omit rather than state a number that isn't true. */}
+                      {course.modules ? (
+                        <div className="flex items-center text-muted-foreground text-sm">
+                          <BookOpen className="h-4 w-4 mr-1" />
+                          <span>{course.modules.length} lessons</span>
+                        </div>
+                      ) : (
+                        <span />
+                      )}
+                      <Button
                         size="sm" 
                         variant="ghost" 
                         className="text-primary hover:text-primary hover:bg-primary/10 -mr-2 px-2 py-1 h-7"
