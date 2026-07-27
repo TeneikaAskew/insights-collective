@@ -38,6 +38,16 @@ what earns its place; the supporting files hold the evidence.
 - **Green is not evidence.** After any infrastructure change, assert that data
   *arrived* — a request count, a quoted seeded string — rather than the absence
   of failure. Three suites went green against an app with no data at all.
+- **Confirm the check's scope covers what you changed.** `tsc --noEmit` passed
+  on a file it does not compile (`e2e/**` is outside the tsconfig) while that
+  file had a syntax error. A green check says nothing about code it never read.
+- **Verify the tree you are measuring.** When a metric moves with no cause,
+  suspect the inputs before the subject. A worker restart silently rolled the
+  clone back hours; the only symptom was a test count that did not match memory.
+- **Scripted edits need more review than hand edits, not less.** A hand edit is
+  reviewed as it is typed. A codemod is not reviewed at all until something
+  reads the result — lint and parse the files the *script* touched, not the ones
+  you touched.
 
 ## Don't make things worse to make them green
 
@@ -51,6 +61,43 @@ what earns its place; the supporting files hold the evidence.
   proof that every role authenticated.
 - **For every optional input, handle "present but wrong".** A malformed secret
   must never be worse than an absent one; that path is usually untested.
+
+## Gates, checks and instruments
+
+- **Every count a tool reports needs a way to say "I could not tell."** A gate
+  returning zero because it failed to parse its input looks exactly like a clean
+  result. *(A CodeQL summariser printed `security findings (0)` while the check
+  reported 2 high — it had read the wrong SARIF field and resolved no rules at
+  all.)*
+- **Being able to produce output is not being able to read it.** Put the
+  conclusion where the reader's window lands — for a log API that returns the
+  tail of a job, that means last. Sorting most-severe-first buried the only
+  lines that mattered.
+- **A rule that fires on ordinary data is a rule someone switches off.** The
+  worth of a structural check is that everything it reports is a defect *by
+  definition*. One false positive per run gets it disabled, taking its real
+  coverage with it. *(A read-only RPC returning no rows was flagged as a write
+  that changed nothing.)*
+- **When a rule over-matches a legitimate pattern, exempt the instance with its
+  reason** — not the blanket marker used for genuine debt. A reader has to be
+  able to tell which exemptions are backlog and which are by design.
+- **Gate the siblings, not just the one in front of you.** When you make one
+  thing conditional, find everything implementing the same policy by another
+  mechanism and make it conditional too. *(Chromium's hermetic block was gated
+  on relay mode; the Firefox equivalent was not, and 17 CI specs ran against an
+  app whose every request died.)*
+- **Point the gate at what the code actually uses.** A types-drift check
+  validated a generated file while the client typed every query from a
+  different, hand-written one. Two declarations of one schema is the defect —
+  delete one rather than teaching the gate to read both.
+- **When two fixes make the signal worse, the framing is wrong.** Stop refining
+  and re-examine the category. *(Host matching was attacked twice as a regex
+  problem, doubling the alert count, before being solved as host comparison.)*
+- **A check that cannot fail for the right reason is not a check.** Six visual
+  baselines over live shared data failed at 11–51% of pixels across six runs
+  even with masks and widened tolerance. Regenerating would bake in one
+  arbitrary moment; permanent red trains everyone to ignore the job. Narrow the
+  check to what it can actually measure.
 
 ## Database and migrations
 
@@ -156,6 +203,17 @@ what earns its place; the supporting files hold the evidence.
   system before acting.
 - **Correct errors plainly and continue** — the correction and its evidence, no
   apology, no post-mortem.
+- **Say when you were guessing, and correct it unprompted when the answer
+  arrives.** "Probably SSRF in the relay" turned out to name a rule that appeared
+  nowhere in the results. One paragraph to retract; otherwise someone hunts a
+  vulnerability that was never reported.
+- **Trace statically when you cannot reproduce — and say that is what you did.**
+  Name the evidence the trace rests on and what the next step is if it is wrong,
+  so a reader can tell a trace from a guess.
+- **Your own iteration is part of the environment.** Eight CI runs in a few
+  hours, each signing in three roles across four workers, produced auth-shaped
+  failures in specs that had passed on the previous commit. Rapid re-pushing can
+  degrade the very signal you are reading.
 
 ## Consent
 
@@ -169,6 +227,14 @@ what earns its place; the supporting files hold the evidence.
   radius. Specifics let the user decide in seconds; "this is risky" does not.
 - **Finding a real problem does not mean fixing it now.** State it, size it, and
   make scope a deliberate choice.
+- **Resolve merge conflicts toward the better version, not your own.** When two
+  branches fix one defect independently, read both sides' intent and keep the
+  better one — or the union where they are independent. Authorship is not a
+  tiebreaker. *(Theirs threw on a missing password where mine fell back to a
+  hardcoded one.)*
+- **Act on the current revision, not the one a stale reminder names.** Scheduled
+  check-ins and webhook events arrive late and reference superseded commits;
+  re-check what HEAD is before re-doing finished work.
 - **Prefer the read-only proof.** To show a monitor can fire, run its predicate
   against a masked copy rather than deleting a row inside a transaction you
   intend to roll back. If the only proof you can think of is destructive, think

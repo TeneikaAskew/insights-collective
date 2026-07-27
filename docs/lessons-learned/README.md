@@ -2,10 +2,14 @@
 
 Files 00–07 come from one long working session (PR #28) spanning an eight-phase
 blog consolidation, an admin redesign, eight production migrations, and roughly
-a dozen CI round-trips. Files 08–11 come from a second session — the
+a dozen CI round-trips. Files 08–12 come from a second session — the
 query-validity audit — and are kept separate because their failures have a
 distinct shape: not mistakes made while building, but defects that had been live
 for months without anything noticing.
+
+File 12 is a category of its own and worth reading first if you only read one:
+defects in the *instruments* rather than the product. Every entry in it is a
+gate, reader or harness failing in exactly the way it was built to prevent.
 
 Both sets are deliberately unflattering where that is accurate: the most useful
 entries are the mistakes, because each one has a cheap preventive check that was
@@ -32,6 +36,7 @@ faith.
 | `09-corrections-and-process.md` | Where pushback changed the outcome, and the order that mattered |
 | `10-design-refactor-deletion.md` | Choosing what to build, narrow, and remove |
 | `11-repo-and-stack-specifics.md` | Verified stack facts worth not rediscovering |
+| `12-when-the-tooling-lies.md` | Gates and readers failing the way they were built to prevent |
 
 ## The one-paragraph version
 

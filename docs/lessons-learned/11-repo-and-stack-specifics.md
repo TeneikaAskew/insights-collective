@@ -141,3 +141,38 @@ npm run audit          # queries + types drift + invariants + fixtures + functio
 npm run e2e            # suite against a directly-reachable Supabase
 npm run e2e:relay      # suite via the loopback relay (restricted egress)
 ```
+
+## CodeQL and GitHub Actions
+
+- **CodeQL reports findings as check-run annotations**, which appear in none of
+  the places the API exposes: not `output.text`, not the job log, not as review
+  comments on the API's review endpoint. A red CodeQL check is undiagnosable
+  from anything a CLI can fetch unless the workflow prints the SARIF itself.
+- **Query metadata lives in `runs[].tool.extensions[].rules`**, not
+  `tool.driver.rules`, which is typically empty. Read both, or every finding
+  resolves to a default severity.
+- **`security-severity` bands**: ≥9 critical, ≥7 high, ≥4 medium. Quality rules
+  from the `security-and-quality` suite carry no score at all — fall back to
+  `defaultConfiguration.level` and sort them separately.
+- **`github/codeql-action/analyze` takes an `output` path**, so the SARIF can be
+  summarised and uploaded as an artifact in later steps.
+- **The job-log API returns a window from the end of the log.** Anything that
+  must be readable has to finish there. This is why the E2E job tees its failure
+  list to stdout as its last step.
+- **`node -e "…"` inside a YAML `run:` block is a double-quoted bash string.** A
+  double quote anywhere in it — including inside a JavaScript comment — ends the
+  string and the script fails to parse.
+
+## Supabase auth under CI load
+
+- Signing in three roles across four parallel workers, repeated across many runs
+  in an hour, trips auth rate limiting. It surfaces as `403` on `auth/v1/user`
+  and `401` from Edge Functions — auth-shaped failures scattered across specs
+  that passed on the previous commit. It clears on its own; the tell is that a
+  manual sign-in immediately afterwards succeeds.
+
+## tsconfig scope
+
+- `e2e/**` is outside the tsconfig, so `npx tsc --noEmit` does **not** type-check
+  or even parse the Playwright specs and helpers. Use `npx eslint` on those
+  paths; a clean tsc says nothing about them.
