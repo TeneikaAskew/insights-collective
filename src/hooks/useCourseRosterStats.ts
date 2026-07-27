@@ -32,7 +32,7 @@ export function useCourseRosterStats() {
         return;
       }
       const next: Record<string, CourseRosterStat> = {};
-      for (const row of (data || []) as Array<{
+      for (const row of data as Array<{
         course_id: string;
         enrolled: number;
         avg_progress: number;
