@@ -73,6 +73,12 @@ test.describe('Code Practice real evaluation (signed in)', () => {
 
     // Sandbox-executed results carry real runtime/memory; AI-judged ones must
     // not fabricate them.
+    //
+    // Exempt from the count-guard rule on purpose: this asserts in BOTH
+    // branches, so one of them must hold whichever way the verdict went. The
+    // banned shape is an `if` with no `else`, where a missing element skips the
+    // only assertion. Here a missing element still fails the else.
+    // eslint-disable-next-line no-restricted-syntax
     if ((await executed.count()) > 0) {
       await expect(page.getByText('runtime')).toBeVisible();
       await expect(page.getByText('memory')).toBeVisible();
