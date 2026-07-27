@@ -66,40 +66,42 @@ test.describe('Notifications center — real flow', () => {
       'Seed gap: E2E member has no notifications. Reseed at least one notification row (e.g. announcement fan-out) for the member.',
     ).toBeGreaterThan(0);
 
-    // Capture a stable fingerprint (title + message) for the specific card we
-    // delete, so we can verify that exact notification doesn't come back even
-    // if new notifications arrive from parallel fan-out flows.
+    // A card is identified by title + message, but that pair is NOT unique: the
+    // grading fan-out produces many notifications with identical text (the E2E
+    // member currently has 34 rows reading "Assignment graded: Python Data
+    // Analysis" / "Your submission was graded."). Asserting that *no* card
+    // matches the fingerprint after deleting one therefore can never pass while
+    // duplicates exist — it fails even though the delete worked. Count the
+    // matching cards instead and assert the count drops by exactly one.
     const firstCard = page.locator(cardSel).first();
     const title = (await firstCard.locator('h4').first().textContent())?.trim() ?? '';
     const message = (await firstCard.locator('p').last().textContent())?.trim() ?? '';
     const fingerprint = `${title}::${message}`;
 
+    const countMatching = async () => {
+      const cards = page.locator(cardSel);
+      const n = await cards.count();
+      let hits = 0;
+      for (let i = 0; i < n; i++) {
+        const t = (await cards.nth(i).locator('h4').first().textContent())?.trim() ?? '';
+        const m = (await cards.nth(i).locator('p').last().textContent())?.trim() ?? '';
+        if (`${t}::${m}` === fingerprint) hits++;
+      }
+      return hits;
+    };
+
+    const before = await countMatching();
+    expect(before).toBeGreaterThan(0);
+
     await firstCard.getByRole('button', { name: /delete notification/i }).click();
 
-    // Optimistic removal: the specific card is gone.
-    await expect
-      .poll(async () => {
-        const cards = page.locator(cardSel);
-        const n = await cards.count();
-        for (let i = 0; i < n; i++) {
-          const t = (await cards.nth(i).locator('h4').first().textContent())?.trim() ?? '';
-          const m = (await cards.nth(i).locator('p').last().textContent())?.trim() ?? '';
-          if (`${t}::${m}` === fingerprint) return true;
-        }
-        return false;
-      }, { timeout: 3_000 })
-      .toBe(false);
+    // Optimistic removal: one fewer card carries this fingerprint.
+    await expect.poll(countMatching, { timeout: 3_000 }).toBe(before - 1);
 
-    // Reload → persisted delete: that specific notification stays gone.
+    // Reload → the delete persisted rather than being a UI-only removal.
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle');
-    const cards = page.locator(cardSel);
-    const n = await cards.count();
-    for (let i = 0; i < n; i++) {
-      const t = (await cards.nth(i).locator('h4').first().textContent())?.trim() ?? '';
-      const m = (await cards.nth(i).locator('p').last().textContent())?.trim() ?? '';
-      expect(`${t}::${m}`).not.toBe(fingerprint);
-    }
+    expect(await countMatching()).toBe(before - 1);
   });
 });
 

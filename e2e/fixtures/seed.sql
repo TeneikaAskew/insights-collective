@@ -59,6 +59,46 @@ BEGIN
   END IF;
 END $$;
 
+-- 4. Seed a published assignment with a submitted (ungraded) submission from the
+--    member. Without this the instructor's /manage/assignments dashboard renders
+--    its empty state, so grading-workflow-flow finds no "Grade submissions" link
+--    and assignment-submission-feedback / full-completion-sequence find no
+--    assignment UI to act on. Fixed id so specs can deep-link if they need to.
+DO $$
+DECLARE
+  v_course_id uuid := '660e8400-e29b-41d4-a716-446655440001';
+  v_assignment_id uuid := 'aa0e8400-e29b-41d4-a716-446655440001';
+  v_member_id uuid;
+BEGIN
+  SELECT id INTO v_member_id FROM auth.users
+   WHERE email = 'e2e-member@insightscollective.org';
+
+  INSERT INTO public.assignments (id, course_id, title, description, instructions, points, due_date, is_published, submission_types)
+  VALUES (
+    v_assignment_id, v_course_id,
+    'E2E Fixture Assignment',
+    'Seeded assignment backing the grading and submission journeys.',
+    'Submit a short written response. Seeded for E2E; safe to leave in place.',
+    100, now() + interval '30 days', true, ARRAY['online_text_entry']
+  )
+  ON CONFLICT (id) DO UPDATE
+  SET is_published = true,
+      course_id = EXCLUDED.course_id,
+      points = EXCLUDED.points;
+
+  -- workflow_state 'submitted' (not 'graded') so the dashboard shows a gradable
+  -- item and the SpeedGrader has something to open.
+  IF v_member_id IS NOT NULL THEN
+    INSERT INTO public.assignment_submissions
+      (assignment_id, user_id, submitted_at, submission_type, body, workflow_state, attempt)
+    VALUES (
+      v_assignment_id, v_member_id, now(), 'online_text_entry',
+      'Seeded E2E submission body.', 'submitted', 1
+    )
+    ON CONFLICT DO NOTHING;
+  END IF;
+END $$;
+
 -- Seed one course material file so the enrolled-student signed-URL journey has a row to click.
 INSERT INTO public.course_material_files (course_id, name, storage_path, bucket, mime_type, size_bytes, uploaded_by)
 SELECT '660e8400-e29b-41d4-a716-446655440001', 'Welcome.pdf',
@@ -94,6 +134,17 @@ BEGIN
   ) INTO v_ok;
   IF NOT v_ok THEN
     RAISE EXCEPTION 'E2E SEED FAILED: fixture event dd0e8400-...0001 missing; event specs would pass against a Not Found page';
+  END IF;
+
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.assignment_submissions s
+    JOIN public.assignments a ON a.id = s.assignment_id
+    WHERE a.id = 'aa0e8400-e29b-41d4-a716-446655440001'
+      AND a.is_published
+  ) INTO v_ok;
+  IF NOT v_ok THEN
+    RAISE EXCEPTION 'E2E SEED FAILED: fixture assignment aa0e8400-...0001 has no submission; the grading dashboard would render its empty state and grading specs would fail on a seed gap';
   END IF;
 END $$;
 
