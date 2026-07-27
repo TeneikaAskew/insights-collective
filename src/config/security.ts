@@ -2,14 +2,50 @@
 // Security configuration and environment validation
 import { sanitizeInput } from '@/utils/securityUtils';
 
+/**
+ * A Supabase URL is acceptable if it is HTTPS, or if it is plain HTTP pointed at
+ * this machine.
+ *
+ * The point of the check is that credentials and user data must never cross a
+ * network in the clear. A loopback address never leaves the machine, so the
+ * threat the rule exists to stop cannot occur there.
+ *
+ * The previous `startsWith('https://')` test rejected loopback too, which broke
+ * two legitimate setups:
+ *
+ *   - `supabase start`, which CLAUDE.md documents, serves the local stack on
+ *     http://127.0.0.1:54321. The guard made the documented local workflow
+ *     impossible.
+ *   - scripts/e2e/supabase-relay.mjs, which lets the browser reach the project
+ *     from an environment whose egress proxy it cannot use.
+ *
+ * Anything else non-HTTPS is still rejected, including hostnames that merely
+ * look local — `localhost.example.com` is a remote host.
+ */
+export function isAllowedSupabaseUrl(raw: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol === 'https:') return true;
+  if (parsed.protocol !== 'http:') return false;
+  // URL.hostname keeps the brackets on an IPv6 literal, so match both forms.
+  return ['localhost', '127.0.0.1', '[::1]', '::1'].includes(parsed.hostname);
+}
+
 // Validate and sanitize environment configuration
 export const securityConfig = {
   // Supabase configuration with validation
   supabase: {
     url: (() => {
       const url = import.meta.env.VITE_SUPABASE_URL || "https://siuqvhscuiycvdrtiqsh.supabase.co";
-      if (!url.startsWith('https://')) {
-        throw new Error('Supabase URL must use HTTPS');
+      if (!isAllowedSupabaseUrl(url)) {
+        throw new Error(
+          `Supabase URL must use HTTPS (got ${url}). Plain HTTP is allowed only for ` +
+            `localhost, 127.0.0.1 or [::1] — a local stack or relay.`,
+        );
       }
       return url;
     })(),
@@ -29,6 +65,9 @@ export const securityConfig = {
     styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
     fontSrc: ["'self'", "https://fonts.gstatic.com"],
     imgSrc: ["'self'", "data:", "https:", "blob:"],
+    // SecurityHeaders.tsx appends the configured Supabase origin here when it is
+    // a loopback http URL, so `supabase start` and the e2e relay can be reached.
+    // A deployed build points at https and nothing is added.
     connectSrc: ["'self'", "wss:", "https:"],
     frameSrc: ["'self'", "https://www.youtube.com", "https://www.youtube-nocookie.com", "https://youtube.com", "https://player.vimeo.com"],
     objectSrc: ["'none'"],

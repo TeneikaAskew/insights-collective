@@ -1,6 +1,6 @@
 // ABOUTME: Genuine end-to-end test for Drive-style course materials. Verifies enrollment-gated
 // ABOUTME: access, folder/file listing for an enrolled student, and download signed-URL generation.
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures/page-helpers';
 
 // This spec runs under the chromium-member project, whose storageState is the
 // session global-setup already established, so it starts authenticated. Driving

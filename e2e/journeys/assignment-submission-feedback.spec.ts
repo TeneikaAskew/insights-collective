@@ -60,6 +60,12 @@ test.describe('Assignment submission → feedback → completion', () => {
     await expect(submitBtn).toBeVisible({ timeout: 15_000 });
     const textArea = page.getByPlaceholder(/Write your response here/i);
     const submissionBody = `E2E submission at ${new Date().toISOString()}`;
+    // Exempt from the count-guard rule on purpose: this is conditional setup,
+    // not a conditional assertion. The assignment has no submission_types, so
+    // no text field renders and the button submits an empty body — filling it
+    // when it happens to exist is optional work, and the assertion that matters
+    // is the unconditional one below.
+    // eslint-disable-next-line no-restricted-syntax
     if (await textArea.count()) {
       await textArea.fill(submissionBody);
     }

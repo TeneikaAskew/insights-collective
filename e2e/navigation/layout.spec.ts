@@ -16,6 +16,8 @@ test.describe('App Layout', () => {
   test('page footer is visible', async ({ page }) => {
     await goto(page, Routes.dashboard);
     const footer = page.locator('footer, [class*="footer"]');
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await footer.count() > 0) {
       // Scroll to footer
       await footer.first().scrollIntoViewIfNeeded();
@@ -26,6 +28,8 @@ test.describe('App Layout', () => {
   test('navbar / topbar renders', async ({ page }) => {
     await goto(page, Routes.dashboard);
     const navbar = page.locator('[data-component-name="Navbar"], header, [class*="navbar"], [class*="topbar"]').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await navbar.count() > 0) {
       await expect(navbar).toBeVisible();
     }
@@ -42,6 +46,8 @@ test.describe('App Layout', () => {
   test('user role badge is visible in sidebar', async ({ page }) => {
     await goto(page, Routes.dashboard);
     const roleBadge = page.locator(':has-text("Administrator"), :has-text("Instructor"), :has-text("Member")').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await roleBadge.count() > 0) {
       await expect(roleBadge).toBeVisible();
     }

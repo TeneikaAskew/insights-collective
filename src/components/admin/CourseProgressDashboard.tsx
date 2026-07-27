@@ -60,7 +60,10 @@ export function CourseProgressDashboard({ courses }: Props) {
       const ids = courses.map((c) => c.id);
 
       const [enrollRes, itemsRes, certRes] = await Promise.all([
-        supabase.from('enrollments').select('course_id, user_id, progress').in('course_id', ids),
+        // completion_status, not progress: enrollments has no `progress` column,
+        // so this select returned 42703 and the dashboard showed zeros for every
+        // course. Confirmed against the live schema by the query gate.
+        supabase.from('enrollments').select('course_id, user_id, completion_status').in('course_id', ids),
         supabase.from('content_items').select('id, module_id, modules!inner(course_id)').in('modules.course_id', ids),
         supabase.from('certificates').select('course_id').in('course_id', ids),
       ]);
@@ -82,7 +85,10 @@ export function CourseProgressDashboard({ courses }: Props) {
         const chunk = itemIds.slice(i, i + CHUNK);
         const { data } = await supabase
           .from('content_item_progressions')
-          .select('user_id, content_item_id, completed_at')
+          // workflow_state, not completed_at — same 42703 as above. 'read' and
+          // 'completed' both count as done, matching the predicate
+          // CourseProgressOverview and StudentProgressAnalytics already use.
+          .select('user_id, content_item_id, workflow_state')
           .in('content_item_id', chunk);
         if (!alive) return;
         if (data) progressions.push(...data);
@@ -101,7 +107,7 @@ export function CourseProgressDashboard({ courses }: Props) {
 
       const completedPerUserCourse: Record<string, Set<string>> = {};
       for (const p of progressions) {
-        if (!p.completed_at) continue;
+        if (p.workflow_state !== 'read' && p.workflow_state !== 'completed') continue;
         const cid = itemToCourse[p.content_item_id];
         if (!cid) continue;
         const k = `${p.user_id}::${cid}`;
@@ -118,7 +124,7 @@ export function CourseProgressDashboard({ courses }: Props) {
         let sumPct = 0;
         for (const e of enrolled) {
           const done = completedPerUserCourse[`${e.user_id}::${c.id}`]?.size ?? 0;
-          const pct = total > 0 ? Math.round((done / total) * 100) : (e.progress ?? 0);
+          const pct = total > 0 ? Math.round((done / total) * 100) : (e.completion_status === 'completed' ? 100 : 0);
           sumPct += pct;
           if (total > 0 && done >= total) completedUsers += 1;
         }

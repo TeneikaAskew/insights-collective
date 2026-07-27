@@ -80,6 +80,17 @@ export default function MockInterviewRoom() {
   }, [remainingTime]);
 
   const loadSession = async () => {
+    // App.tsx routes both /mock-interview-room and /mock-interview-room/:sessionId
+    // here, so sessionId is genuinely absent on the first. Without this guard the
+    // id went into the filter as the literal string "undefined", Postgres
+    // rejected it with 22P02, and the page showed "Failed to load interview
+    // session" — a database error standing in for "no session was chosen".
+    if (!sessionId) {
+      navigate('/interview-prep/mock-interviews');
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from('mock_sessions')

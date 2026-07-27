@@ -19,6 +19,8 @@ test.describe('Course Rubrics (Instructor)', () => {
   test('create rubric button or link is visible', async ({ page }) => {
     await goto(page, rubricsUrl);
     const createBtn = page.locator('button:has-text("Create"), button:has-text("New Rubric"), button:has-text("Add Rubric"), a:has-text("Create")').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await createBtn.count() > 0) {
       await expect(createBtn).toBeVisible();
     }

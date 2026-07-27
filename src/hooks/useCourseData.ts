@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Course } from '@/types';
 import { createLogger } from '@/utils/logger';
+import { isValidUUID } from '@/utils/idUtils';
 
 const logger = createLogger('useCourseData');
 
@@ -16,6 +17,23 @@ export function useCourseData(courseId?: string) {
   useEffect(() => {
     // If no courseId or it's 'new', we're creating a new course
     if (!courseId || courseId === 'new') {
+      setIsLoading(false);
+      return;
+    }
+
+    // `id` is a uuid column, so a route param that is not one is rejected by
+    // Postgres with 22P02 before RLS or the row is ever considered — never a
+    // real query, and it renders as an error the user cannot act on. Every
+    // caller here takes `courseId` straight from `useParams`, so a mistyped or
+    // stale URL reaches this directly: CourseSidebar (via CourseLayout),
+    // CourseRubrics, CourseQuestionBanks and ProfileMenu.
+    //
+    // CourseDetail already guards its own fetch this way; this hook did not,
+    // which left /courses/<not-a-uuid> issuing a 22P02 anyway from the sidebar.
+    if (!isValidUUID(courseId)) {
+      logger.error(`Invalid course UUID format: ${courseId}`);
+      setError('Invalid course ID format');
+      setCourse(null);
       setIsLoading(false);
       return;
     }

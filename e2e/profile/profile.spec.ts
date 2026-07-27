@@ -20,6 +20,8 @@ test.describe('Profile Page', () => {
     await waitForPageLoad(page);
     const heading = page.locator('h1, h2').filter({ hasText: /profile/i }).first();
     // Conditional: only assert if auth loaded and rendered the heading
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await heading.count() > 0) {
       await expect(heading).toBeVisible();
     }
@@ -35,6 +37,8 @@ test.describe('Profile Page', () => {
     await goto(page, Routes.profile);
     // Name / display name input
     const nameInput = page.locator('input[name*="name"], input[id*="name"], input[placeholder*="name"]').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await nameInput.count() > 0) {
       await expect(nameInput).toBeVisible();
     }
@@ -57,6 +61,8 @@ test.describe('Profile Page', () => {
   test('sidebar is visible', async ({ page }) => {
     await goto(page, Routes.profile);
     const sidebar = page.locator('[data-sidebar="sidebar"], aside, nav').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await sidebar.count() > 0) {
       await expect(sidebar).toBeVisible();
     }

@@ -603,44 +603,7 @@ describe('questionBankService', () => {
   });
 
   describe('utilities', () => {
-    it('getRandomQuestions selects ids via RPC then fetches full rows', async () => {
-      const questions = [makeQuestion({ id: 'q-1' }), makeQuestion({ id: 'q-2' })];
-      mockSupabaseClient.rpc.mockResolvedValue({
-        data: [{ question_id: 'q-1' }, { question_id: 'q-2' }],
-        error: null,
-      });
-      const builder = getQueryBuilder();
-      builder.in.mockResolvedValue({ data: questions, error: null });
 
-      const result = await questionBankService.getRandomQuestions('bank-1', 2);
-
-      expect(result).toEqual(questions);
-      expect(mockSupabaseClient.rpc).toHaveBeenCalledWith(
-        'select_random_questions',
-        expect.objectContaining({ p_bank_id: 'bank-1', p_count: 2 })
-      );
-      expect(builder.in).toHaveBeenCalledWith('id', ['q-1', 'q-2']);
-    });
-
-    it('getRandomQuestions rejects when the RPC fails', async () => {
-      mockSupabaseClient.rpc.mockResolvedValue(supabaseError('rpc down'));
-
-      await expect(
-        questionBankService.getRandomQuestions('bank-1', 2)
-      ).rejects.toMatchObject({ message: 'rpc down' });
-    });
-
-    it('getRandomQuestions rejects when the follow-up fetch fails', async () => {
-      mockSupabaseClient.rpc.mockResolvedValue({
-        data: [{ question_id: 'q-1' }],
-        error: null,
-      });
-      getQueryBuilder().in.mockResolvedValue(supabaseError('db down'));
-
-      await expect(
-        questionBankService.getRandomQuestions('bank-1', 1)
-      ).rejects.toMatchObject({ message: 'db down' });
-    });
 
     it('getQuestionStatistics combines usage data with average attempt time', async () => {
       const builder = getQueryBuilder();

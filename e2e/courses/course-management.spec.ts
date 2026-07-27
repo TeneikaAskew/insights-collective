@@ -20,6 +20,8 @@ test.describe('Course Management (Instructor)', () => {
   test('management tabs are visible', async ({ page }) => {
     await goto(page, mgmtUrl);
     const tabs = page.locator('[role="tab"]');
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await tabs.count() > 0) {
       await expect(tabs.first()).toBeVisible();
     }
@@ -28,6 +30,8 @@ test.describe('Course Management (Instructor)', () => {
   test('students/enrollments section exists', async ({ page }) => {
     await goto(page, mgmtUrl);
     const studentsTab = page.locator('[role="tab"]:has-text("Student"), [role="tab"]:has-text("People"), [role="tab"]:has-text("Enroll")');
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await studentsTab.count() > 0) {
       await studentsTab.first().click();
       await page.waitForTimeout(300);
@@ -37,6 +41,8 @@ test.describe('Course Management (Instructor)', () => {
   test('assignments section is accessible', async ({ page }) => {
     await goto(page, mgmtUrl);
     const assignTab = page.locator('[role="tab"]:has-text("Assignment")');
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await assignTab.count() > 0) {
       await assignTab.first().click();
       await page.waitForTimeout(300);

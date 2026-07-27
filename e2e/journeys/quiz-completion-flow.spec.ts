@@ -1,6 +1,6 @@
 // ABOUTME: Genuine end-to-end test for the per-week quiz results view and the inline quiz player.
 // ABOUTME: Signs in as the seeded test member and verifies the correct role-scoped rendering.
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures/page-helpers';
 
 // This spec runs under the chromium-member project, whose storageState is the
 // session global-setup already established, so it starts authenticated. Driving

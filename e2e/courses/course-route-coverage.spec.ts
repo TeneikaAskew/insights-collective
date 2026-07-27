@@ -9,9 +9,13 @@ test.describe('Additional Course Route Coverage', () => {
   test('course management dashboard renders searchable course operations table', async ({ page }) => {
     await goto(page, Routes.courseManagementDashboard);
     const heading = page.locator('h1, h2').filter({ hasText: /course management/i }).first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await heading.count() > 0) {
       await expect(heading).toBeVisible();
       const search = page.locator('input[placeholder*="Search"]').first();
+      // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+      // eslint-disable-next-line no-restricted-syntax
       if (await search.count() > 0) await expect(search).toBeVisible();
     } else {
       // Non-instructor sessions may not see this page — verify body rendered.

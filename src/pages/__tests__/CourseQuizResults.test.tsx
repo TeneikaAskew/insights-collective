@@ -110,8 +110,12 @@ describe('CourseQuizResults', () => {
         ],
         error: null,
       }),
+      // first_name/last_name are the columns profiles actually has. This mock
+      // used to return full_name and email — neither exists — so the test
+      // passed against a schema the database has never had while the real page
+      // returned 42703 for every instructor and admin who opened it.
       profiles: tableResult({
-        data: [{ id: 'student-1', full_name: 'Ada Lovelace', email: 'ada@example.com' }],
+        data: [{ id: 'student-1', first_name: 'Ada', last_name: 'Lovelace' }],
         error: null,
       }),
     });

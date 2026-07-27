@@ -28,6 +28,8 @@ test.describe('Calendar Page', () => {
   test('calendar grid or list is visible', async ({ page }) => {
     await goto(page, Routes.calendar);
     const calendar = page.locator('[role="grid"], .fc, .calendar, table, [data-component-name*="Calendar"]').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await calendar.count() > 0) {
       await expect(calendar).toBeVisible();
     }
@@ -37,9 +39,13 @@ test.describe('Calendar Page', () => {
     await goto(page, Routes.calendar);
     const prevBtn = page.locator('button[aria-label*="previous"], button:has-text("Prev"), button[aria-label*="prev"]').first();
     const nextBtn = page.locator('button[aria-label*="next"], button:has-text("Next")').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await prevBtn.count() > 0) {
       await expect(prevBtn).toBeVisible();
     }
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await nextBtn.count() > 0) {
       await expect(nextBtn).toBeVisible();
     }

@@ -19,6 +19,7 @@ import {
   X,
   PanelLeftClose,
   PanelLeftOpen,
+  Settings,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Hint } from '@/components/ui/hint';
@@ -31,6 +32,7 @@ export type BuilderNavKey =
   | 'design'
   | 'certificates'
   | 'information'
+  | 'settings'
   | 'pricing'
   | 'sales'
   | 'students'
@@ -58,6 +60,7 @@ const NAV_ITEMS: {
   { key: 'design', label: 'Design templates', icon: Palette, group: 'primary' },
   { key: 'certificates', label: 'Certificates', icon: Award, group: 'primary' },
   { key: 'information', label: 'Information', icon: Info, group: 'primary' },
+  { key: 'settings', label: 'Settings', icon: Settings, group: 'primary' },
   // These sections are placeholders — the nav must say so up front instead of
   // presenting them as working features.
   { key: 'pricing', label: 'Pricing', icon: DollarSign, group: 'secondary', comingSoon: true },

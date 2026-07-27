@@ -17,6 +17,8 @@ test.describe('Admin Blog Management', () => {
   test('blog post list renders', async ({ page }) => {
     await goto(page, Routes.adminBlog);
     const list = page.locator('table, [role="table"], [class*="post"], [class*="blog"]').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await list.count() > 0) {
       await expect(list).toBeVisible();
     }
@@ -25,6 +27,8 @@ test.describe('Admin Blog Management', () => {
   test('create new blog post button is visible', async ({ page }) => {
     await goto(page, Routes.adminBlog);
     const createBtn = page.locator('button:has-text("Create"), button:has-text("New Post"), a:has-text("Create"), a:has-text("New")').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await createBtn.count() > 0) {
       await expect(createBtn).toBeVisible();
     }
@@ -33,6 +37,8 @@ test.describe('Admin Blog Management', () => {
   test('edit blog post button is present', async ({ page }) => {
     await goto(page, Routes.adminBlog);
     const editBtn = page.locator('button:has-text("Edit"), a:has-text("Edit"), a[href*="edit"]').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await editBtn.count() > 0) {
       await expect(editBtn).toBeVisible();
     }

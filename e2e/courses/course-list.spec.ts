@@ -47,6 +47,8 @@ test.describe('Course List', () => {
 
   test('category filter dropdown is present', async ({ page }) => {
     const filter = page.locator('[role="combobox"]:has-text("Category"), button:has-text("Category")').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await filter.count() > 0) {
       await expect(filter).toBeVisible();
     }
@@ -54,6 +56,8 @@ test.describe('Course List', () => {
 
   test('sort dropdown is present', async ({ page }) => {
     const sort = page.locator('[role="combobox"]:has-text("Sort"), button:has-text("Sort")').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await sort.count() > 0) {
       await expect(sort).toBeVisible();
     }
@@ -70,6 +74,8 @@ test.describe('Course List', () => {
 
   test('course cards are visible', async ({ page }) => {
     const cards = page.locator('a[href*="/courses/"], [class*="CourseCard"]');
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await cards.count() > 0) {
       await expect(cards.first()).toBeVisible();
     }
@@ -77,6 +83,8 @@ test.describe('Course List', () => {
 
   test('clicking a course card navigates to detail page', async ({ page }) => {
     const courseLink = page.locator('a[href^="/courses/"]').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await courseLink.count() > 0) {
       const href = await courseLink.getAttribute('href');
       expect(href).toMatch(/\/courses\/.+/);

@@ -28,6 +28,8 @@ test.describe('Landing Page', () => {
 
   test('navigating to /login from CTA works', async ({ page }) => {
     const loginLink = page.locator('a[href*="/login"]').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await loginLink.count() > 0) {
       await loginLink.click();
       await expect(page).toHaveURL(/\/login/);

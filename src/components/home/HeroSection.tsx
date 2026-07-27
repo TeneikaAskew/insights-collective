@@ -14,6 +14,13 @@ const RotatingWords = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   
   useEffect(() => {
+    // A headline word that swaps itself every 2.5s is exactly the kind of
+    // unrequested motion "prefers-reduced-motion: reduce" exists to stop, so
+    // settle on the first word instead of cycling. It also makes the landing
+    // page deterministic for the visual-regression snapshots, which set the
+    // same preference.
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+
     const interval = setInterval(() => {
       setCurrentIndex(prevIndex => (prevIndex + 1) % words.length);
     }, 2500);

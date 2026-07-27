@@ -13,6 +13,10 @@ export interface CourseSettings {
     title?: string;
     body?: string;
   };
+  discussions?: {
+    /** Undefined means on — a course created before this setting existed still has discussions. */
+    enabled?: boolean;
+  };
 }
 
 export interface BuilderCourse {

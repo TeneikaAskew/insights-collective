@@ -22,6 +22,8 @@ test.describe('Admin Page Visibility', () => {
   test('visibility toggles are present per page entry', async ({ page }) => {
     await goto(page, Routes.adminPageVisibility);
     const toggles = page.locator('[role="switch"], input[type="checkbox"], [class*="toggle"]');
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await toggles.count() > 0) {
       await expect(toggles.first()).toBeVisible();
     }
@@ -30,6 +32,8 @@ test.describe('Admin Page Visibility', () => {
   test('page names/list is displayed', async ({ page }) => {
     await goto(page, Routes.adminPageVisibility);
     const pageList = page.locator('table, [role="list"], [class*="page"], ul').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await pageList.count() > 0) {
       await expect(pageList).toBeVisible();
     }
@@ -38,6 +42,8 @@ test.describe('Admin Page Visibility', () => {
   test('toggling visibility updates state', async ({ page }) => {
     await goto(page, Routes.adminPageVisibility);
     const toggle = page.locator('[role="switch"]').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await toggle.count() > 0) {
       const initialState = await toggle.getAttribute('data-state') || await toggle.getAttribute('aria-checked');
       await toggle.click();

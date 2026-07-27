@@ -10,7 +10,7 @@ UI probe that trivially passes when the feature is broken).
 ### Roles / accounts
 | Role       | Env var                                    | Seeded default                          |
 | ---------- | ------------------------------------------ | --------------------------------------- |
-| Member     | `E2E_TEST_EMAIL` / `E2E_TEST_PASSWORD`     | `test@insightscollective.org` / `TestPass123!` |
+| Member     | `E2E_MEMBER_EMAIL` / `E2E_MEMBER_PASSWORD` | `e2e-member@insightscollective.org` / `TestPass123!` |
 | Instructor | `E2E_INSTRUCTOR_EMAIL` / `..._PASSWORD`    | `e2e-instructor@insightscollective.org` (password required in env) |
 | Admin      | `E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD`   | (env only)                              |
 
