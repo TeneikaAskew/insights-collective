@@ -164,19 +164,35 @@ was meaningless.
 **A number is only as good as the revision it was measured on.** When a metric
 moves without a cause, verify the inputs before diagnosing the subject.
 
-## Your own iteration is part of the environment
+## A hypothesis that explains the data is not a diagnosis
 
-Eight CI runs in a few hours, each signing in three roles across four parallel
-workers, and E2E started failing with `403` on `auth/v1/user` and 401s from an
-Edge Function — auth-shaped failures across specs that had passed on the
-previous commit.
+E2E started failing with `403` on `auth/v1/user` and 401s from an Edge
+Function — auth-shaped failures across specs that had passed on the previous
+commit. Eight CI runs in a few hours, each signing in three roles across four
+parallel workers. Signing in by hand immediately afterwards worked, so it was
+not a standing block.
 
-Signing in by hand immediately afterwards worked, so it was not a standing
-block: it was rate limiting, and the load was mine. Rapid iteration degraded
-the signal I was iterating against.
+I called it rate limiting caused by my own iteration, and said so twice. It
+fit every observation I had.
 
-Fixing a red check by pushing again has a cost that is invisible until it
-overtakes the thing you are measuring. Let the queue drain.
+**Two controls demolished it.** Main's CI ran in the same window against the
+same project and came back 570 passed / 1 failed — so nothing global was
+throttled. And a docs-only commit on my branch, byte-identical in product code
+to the run before it, went from 6 failures to 2 — so it was not deterministic
+either, and therefore not a branch defect.
+
+Both controls were cheap and available before I made the claim. Neither
+required new tooling: one was another branch's most recent run, the other was a
+re-run I got for free by pushing documentation.
+
+The honest statement was available all along and is shorter than the wrong one:
+*intermittent, auth-shaped, cause not isolated.* A hypothesis consistent with
+the evidence is worth stating as a hypothesis; calling it the cause needs a
+control that would have distinguished it from the alternatives.
+
+The narrower point still stands and is worth keeping: fixing a red check by
+pushing again has a cost, and a re-run of unchanged code is the cheapest way to
+tell flake from defect. Reach for it *before* theorising, not after.
 
 ## Trace statically when you cannot reproduce — and say that is what you did
 

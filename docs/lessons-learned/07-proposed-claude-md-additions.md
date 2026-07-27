@@ -210,10 +210,15 @@ what earns its place; the supporting files hold the evidence.
 - **Trace statically when you cannot reproduce — and say that is what you did.**
   Name the evidence the trace rests on and what the next step is if it is wrong,
   so a reader can tell a trace from a guess.
-- **Your own iteration is part of the environment.** Eight CI runs in a few
-  hours, each signing in three roles across four workers, produced auth-shaped
-  failures in specs that had passed on the previous commit. Rapid re-pushing can
-  degrade the very signal you are reading.
+- **A hypothesis that explains the data is not a diagnosis.** Before naming a
+  cause, find the control that would distinguish it from the alternatives —
+  another branch's run in the same window, or a re-run of unchanged code. Both
+  are usually free. *(I attributed intermittent auth failures to rate limiting
+  from my own CI load; main passed in the same window and a docs-only commit
+  went from 6 failures to 2, disproving it twice over.)*
+- **Re-run unchanged code to tell flake from defect** — before theorising, not
+  after. It is the cheapest experiment available and it settles the question
+  that all the theorising is about.
 
 ## Consent
 
