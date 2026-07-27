@@ -106,6 +106,7 @@ test.describe('visual regression', () => {
         const DRIFTY_ROUTES = new Set([
           'admin-activity',    // live event rows: count and spacing drift
           'enrolled-courses',  // progress mutated by the completion journeys
+          'profile',           // My Certificates + progress, same journeys
         ]);
         const maxDiffPixelRatio = DRIFTY_ROUTES.has(route.name) ? 0.05 : 0.01;
         await expect(page).toHaveScreenshot(`${route.name}.png`, {
