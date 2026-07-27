@@ -122,6 +122,11 @@ jobs:
       # so the commit stays a minimal, reviewable diff.
       - name: Regenerate visual baselines
         if: inputs.update_snapshots == true
+        # globalTeardown deletes .playwright-sessions/ at the end of the run, so
+        # the session check below (a separate step) would otherwise find nothing
+        # and report "no admin session" for sessions that authenticated fine.
+        env:
+          E2E_KEEP_SESSIONS: 'true'
         run: npx playwright test --project=visual e2e/visual --update-snapshots=changed --reporter=list
 
       # global-setup writes {"cookies":[],"origins":[]} when a role fails to
