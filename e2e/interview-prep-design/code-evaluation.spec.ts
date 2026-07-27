@@ -41,6 +41,17 @@ test.describe('Code Practice real evaluation (signed in)', () => {
   });
 
   test('evaluates a correct solution for real, not as a demo', async ({ page }) => {
+    // The wait below budgets 90s because a real submission runs the sandbox and
+    // then an LLM review, but the suite's default test timeout is 30s — so that
+    // budget could never actually be spent, and the test died at 30s whenever
+    // the round trip ran long. It failed in CI for exactly that reason and was
+    // flaky in the run before.
+    //
+    // Raising the test's own budget past the wait it already asks for is not a
+    // loosened assertion: every expectation below is unchanged, and a genuine
+    // hang still fails, just at the limit the spec always intended.
+    test.setTimeout(150_000);
+
     await page.getByRole('button', { name: /submit solution/i }).click();
     await expect(page.getByText('Result', { exact: true })).toBeVisible({ timeout: 90_000 });
 
