@@ -16,13 +16,11 @@
 //
 // Usage: node scripts/audit/verify-fixtures.mjs   (needs .env with role credentials)
 
-import fs from 'node:fs';
 
 const URL_BASE = process.env.VITE_SUPABASE_URL ?? 'https://siuqvhscuiycvdrtiqsh.supabase.co';
 const ANON =
   process.env.VITE_SUPABASE_ANON_KEY ||
-  process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
-  (fs.readFileSync('src/config/security.ts', 'utf8').match(/VITE_SUPABASE_ANON_KEY \|\| "([^"]+)"/) ?? [])[1];
+  process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 async function tokenFor(role) {
   const email = process.env[`E2E_${role.toUpperCase()}_EMAIL`];

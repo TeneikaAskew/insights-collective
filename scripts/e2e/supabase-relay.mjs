@@ -167,13 +167,13 @@ const server = http.createServer(async (req, res) => {
       out['access-control-allow-origin'] = '*';
     }
 
-    if (VERBOSE) console.error(`  ${upstream.status} ${req.method} ${safe(req.url)}`);
+    if (VERBOSE) console.error(`  ${upstream.status} ${safe(req.method, 10)} ${safe(req.url)}`);
     res.writeHead(upstream.status, out);
     res.end(body);
   } catch (err) {
     // 502 rather than a hang: a relay that stalls turns one broken request into a
     // navigation timeout, and the test then fails for the wrong reason.
-    console.error(`  relay error ${req.method} ${safe(req.url)}: ${err.message}`);
+    console.error(`  relay error ${safe(req.method, 10)} ${safe(req.url)}: ${err.message}`);
     res.writeHead(502, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
     res.end(JSON.stringify({ code: 'RELAY_ERROR', message: err.message }));
   }

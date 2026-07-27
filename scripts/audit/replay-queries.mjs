@@ -17,11 +17,10 @@ import fs from 'node:fs';
 const URL_BASE = process.env.VITE_SUPABASE_URL ?? 'https://siuqvhscuiycvdrtiqsh.supabase.co';
 const ANON =
   process.env.VITE_SUPABASE_ANON_KEY ||
-  process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
-  (fs.readFileSync('src/config/security.ts', 'utf8').match(/VITE_SUPABASE_ANON_KEY \|\| "([^"]+)"/) ?? [])[1];
+  process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 if (!ANON) {
-  console.error('No anon key: set VITE_SUPABASE_ANON_KEY or keep the fallback in src/config/security.ts');
+  console.error('No anon key: set VITE_SUPABASE_ANON_KEY or VITE_SUPABASE_PUBLISHABLE_KEY (see .env.example).');
   process.exit(1);
 }
 

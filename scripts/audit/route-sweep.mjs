@@ -61,8 +61,7 @@ const targets = routes.filter((r) => !r.redirect).map((r) => ({ route: r.path, u
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL ?? 'https://siuqvhscuiycvdrtiqsh.supabase.co';
 const ANON =
   process.env.VITE_SUPABASE_ANON_KEY ||
-  process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
-  (fs.readFileSync('src/config/security.ts', 'utf8').match(/VITE_SUPABASE_ANON_KEY \|\| "([^"]+)"/) ?? [])[1];
+  process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 /**
  * Sign in fresh rather than reusing .playwright-sessions/*.json.

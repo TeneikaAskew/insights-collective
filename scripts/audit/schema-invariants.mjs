@@ -17,13 +17,11 @@
 //
 // Usage: node scripts/audit/schema-invariants.mjs   (needs .env with E2E_ADMIN_*)
 
-import fs from 'node:fs';
 
 const URL_BASE = process.env.VITE_SUPABASE_URL ?? 'https://siuqvhscuiycvdrtiqsh.supabase.co';
 const ANON =
   process.env.VITE_SUPABASE_ANON_KEY ||
-  process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
-  (fs.readFileSync('src/config/security.ts', 'utf8').match(/VITE_SUPABASE_ANON_KEY \|\| "([^"]+)"/) ?? [])[1];
+  process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 const EMAIL = process.env.E2E_ADMIN_EMAIL;
 const PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? process.env.E2E_TEST_PASSWORD;
