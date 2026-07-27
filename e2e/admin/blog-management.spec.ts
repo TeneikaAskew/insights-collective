@@ -59,7 +59,12 @@ test.describe('Manage Blog (admin)', () => {
     const previewTab = page.getByRole('tab', { name: /Preview/ });
     await expect(previewTab).toBeVisible();
     await previewTab.click();
-    await expect(page.getByText(/Nothing to preview yet|Untitled Post/)).toBeVisible();
+    // A brand-new post renders BOTH the placeholder heading and the empty-content
+    // notice, so one regex matching either of them resolves to two nodes and
+    // trips strict mode. Assert them separately — that also proves the header
+    // and the empty state each render, instead of just one of the two.
+    await expect(page.getByText('Untitled Post')).toBeVisible();
+    await expect(page.getByText(/Nothing to preview yet/)).toBeVisible();
   });
 });
 
