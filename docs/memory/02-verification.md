@@ -92,6 +92,33 @@ the page calls answered the real one.
 
 Ask the same question the user's code asks, through the same interface.
 
+## The payoff arrives immediately, and it is usually your own bug
+
+The first genuinely working run of the e2e suite caught a production defect
+**introduced by the instrumentation added to prevent defects**: the interceptor
+appended `Prefer: count=exact` to every write, including Edge Function calls.
+`Prefer` is not CORS-safelisted, so the browser preflighted it, and the function's
+`Access-Control-Allow-Headers` does not list it — every `messages-helper` call was
+blocked outright. The entire messaging feature.
+
+Nothing else would have found it. The unit tests mock fetch. The query gate
+replays PostgREST shapes and never touches `/functions/v1/`. Only a real browser
+making a real cross-origin request surfaces a CORS preflight failure.
+
+Two things follow:
+
+- A global interceptor is powerful precisely because nothing can opt out, which
+  means a mistake in it reaches everything. Scope changes to the narrowest layer
+  that needs them — here, `/rest/v1/` only.
+- When you build a safety net, the first thing it catches may be the net. That is
+  not embarrassing, it is the net working; treat it as evidence the investment was
+  right, and add the regression test in both directions.
+
+The same run also surfaced a pre-existing one: `useCoursesManagement` querying
+`enrollments` before supabase-js had attached a token, producing
+`42501 permission denied` four times on every public page. It had presumably been
+doing that for months.
+
 ## Distinguish environment from defect, with evidence
 
 36 spec failures were, correctly, the sandbox — but "it's the environment" is the
