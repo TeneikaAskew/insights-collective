@@ -2,13 +2,12 @@
 // ABOUTME: previously lacking regression tests: portfolio public view, blog reader,
 // ABOUTME: interview prep entry, admin dashboard access control, and 404 handling.
 import { test, expect } from '@playwright/test';
-import { E2E_BASE_URL, TEST_USERS } from '../fixtures/test-data';
+import { E2E_BASE_URL } from '../fixtures/test-data';
 
 // The authenticated describe below runs under the chromium-member project,
 // whose storageState is the session global-setup already established. Driving
-// the real /login form here was redundant and, across parallel workers and
-// retries, contributed to Supabase auth rate limiting (429) that cascaded
-// timeouts into unrelated specs. Loading the app hydrates the stored session.
+// the real /login form here was redundant work that could only add failure
+// surface. Loading the app hydrates the stored session.
 async function loadAuthenticatedApp(page: import('@playwright/test').Page) {
   await page.goto(`${E2E_BASE_URL}/`, { waitUntil: 'domcontentloaded' });
 }

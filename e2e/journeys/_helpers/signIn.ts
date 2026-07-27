@@ -10,11 +10,10 @@ const BASE = process.env.E2E_BASE_URL || 'http://localhost:8080';
  *
  * Every caller runs under the chromium-member project, whose `storageState` is
  * the session global-setup already established — so there is nothing to log in
- * to. This used to drive the real /login form, which meant each spec spent an
- * extra /auth/v1/token call per test. With 4 parallel workers and 2 retries
- * that tipped Supabase into auth rate limiting (429): the logins then failed,
- * pages sat on /login, and 10s locator timeouts cascaded into specs that never
- * touched auth. Loading the app is enough to hydrate the stored session.
+ * to. This used to drive the real /login form on every test, which was pure
+ * redundant work and could only add failure surface: a slow or failed login
+ * left the page on /login and every later locator timed out. Loading the app
+ * is enough to hydrate the stored session.
  */
 export async function signInMember(page: Page): Promise<void> {
   await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });

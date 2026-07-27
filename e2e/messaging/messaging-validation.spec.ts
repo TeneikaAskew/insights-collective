@@ -3,11 +3,10 @@
 import { test, expect } from "@playwright/test";
 
 // This spec runs under the chromium-member project, whose storageState is the
-// session global-setup already established. Signing in again through the UI in
-// beforeEach was redundant, and with 4 parallel workers x 2 retries the extra
-// /auth/v1/token calls hit Supabase's auth rate limit (429), which made logins
-// fail and cascaded 10s locator timeouts into unrelated specs. Rely on the
-// project session instead.
+// session global-setup already established, so it starts authenticated. Driving
+// the real /login form in beforeEach was redundant work that could only add
+// failure surface: when that login was slow or failed, the page sat on /login
+// and every later locator timed out. Rely on the project session instead.
 const BASE = process.env.E2E_BASE_URL || "http://localhost:8080";
 
 test.describe("Messaging", () => {
