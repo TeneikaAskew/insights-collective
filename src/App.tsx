@@ -54,8 +54,6 @@ const CourseQuizResults = lazy(() => import('@/pages/CourseQuizResults'));
 
 // Interview Preparation Pages
 const InterviewPrep = lazy(() => import('@/pages/InterviewPrep'));
-const MockInterviews = lazy(() => import('@/pages/MockInterviews'));
-const CodePractice = lazy(() => import('@/pages/CodePractice'));
 const InterviewCodePractice = lazy(() => import('@/pages/interview-prep/CodePractice'));
 const JobDescription = lazy(() => import('@/pages/interview-prep/JobDescription'));
 const MockInterviewRoom = lazy(() => import('@/pages/interview-prep/MockInterviewRoom'));

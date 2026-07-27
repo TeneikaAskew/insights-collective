@@ -92,8 +92,9 @@ const IGNORED_PATTERNS: RegExp[] = [
   /Error loading assignment/,
   /Error fetching content item/,
   /getContentItem/,
-  // Forum thread errors (threads table is empty / schema difference)
-  /\[ThreadDetail\]/,
+  // (ThreadDetail / useForums patterns removed with the forum feature — the
+  // routes redirect to /dashboard and the modules are deleted, so those
+  // suppressions could only have hidden errors from live code.)
   // Mock interview room error (no session ID provided in URL)
   /\[MockInterviewRoom\]/,
   // Course permission and data errors for invalid-UUID tests
@@ -102,7 +103,6 @@ const IGNORED_PATTERNS: RegExp[] = [
   /\[useCourseData\]/,
   /\[useCoursePermissions\]/,
   /\[useCourseProgress\]/,
-  /\[useForums\]/,
   // Quiz / grading errors (schema relationships missing in test DB)
   /\[CanvasQuizResults\]/,
   /\[gradingSubmissions\]/,
