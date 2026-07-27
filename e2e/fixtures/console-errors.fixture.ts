@@ -53,6 +53,27 @@ function auditRecord(entry: Record<string, unknown>): void {
 }
 
 /**
+ * Matches `host` only where it is a complete hostname, optionally with
+ * subdomains — not merely a substring of a longer one.
+ *
+ * The vendor entries below used to be bare `/google-analytics\.com/`, under a
+ * comment claiming they were "anchored to real vendors". They were not: an
+ * unanchored domain also matches `evil-google-analytics.com` and
+ * `google-analytics.com.attacker.net`, so an error mentioning either would be
+ * silently suppressed. That is the exact failure this suppression list exists
+ * to avoid — a rule that hides more than it claims stops being a rule anyone
+ * can trust. (CodeQL js/regex/missing-regexp-anchor flagged it.)
+ *
+ * The lookbehind rejects a preceding hostname character so `evil-vendor.com`
+ * does not match, and the lookahead rejects a trailing one so
+ * `vendor.com.attacker.net` does not either, while `www.vendor.com` still does.
+ */
+function hostPattern(host: string): RegExp {
+  const escaped = host.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(?<![\\w-])(?:[\\w-]+\\.)*${escaped}(?![\\w.-])`);
+}
+
+/**
  * Known-noisy messages that are safe to ignore.
  * These come from third-party scripts, browser extensions, or React
  * internals that fire in every environment and are not our bugs.
@@ -69,7 +90,7 @@ const IGNORED_PATTERNS: RegExp[] = [
   // Lovable's editor script, loaded from a CDN by index.html:26. Third-party and
   // unrelated to any app behaviour — it fails CORS wherever that CDN is
   // unreachable, which is not a regression in this codebase.
-  /cdn\.gpteng\.co/,
+  hostPattern('cdn.gpteng.co'),
   // Supabase realtime warning when no channel is subscribed
   /No session found/,
   // Vite HMR noise in test environments
@@ -84,13 +105,15 @@ const IGNORED_PATTERNS: RegExp[] = [
   /Warning: An update to .* inside a test was not wrapped in act/,
   // Monaco editor workers (loaded via CDN, may fail in offline environments)
   /monaco.*worker/i,
-  // Third-party analytics / tracking (not our code). Anchored to real vendors —
+  // Third-party analytics / tracking (not our code). Named vendors only —
   // a bare /analytics/i also swallowed the app's own [CourseAnalytics],
-  // [StudentInsights] and analytics-query errors.
+  // [StudentInsights] and analytics-query errors — and matched as whole
+  // hostnames, so a lookalike domain cannot inherit the suppression.
   /gtag/,
-  /google-analytics\.com/,
-  /googletagmanager\.com/,
-  /segment\.(io|com)/,
+  hostPattern('google-analytics.com'),
+  hostPattern('googletagmanager.com'),
+  hostPattern('segment.io'),
+  hostPattern('segment.com'),
   // Expected auth errors in login tests (bad credentials, intercepted auth)
   /AuthApiError/,
   /Invalid login credentials/,

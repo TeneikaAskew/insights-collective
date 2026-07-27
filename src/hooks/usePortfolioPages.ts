@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { PortfolioPage, PortfolioPageProject } from '@/types/portfolio';
+import { PortfolioPage } from '@/types/portfolio';
 import { useToast } from '@/hooks/use-toast';
 import { isValidUUID } from '@/utils/idUtils';
 

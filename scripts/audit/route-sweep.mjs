@@ -16,7 +16,6 @@
 // Usage: node scripts/audit/route-sweep.mjs   (dev server must be up)
 
 import fs from 'node:fs';
-import path from 'node:path';
 import { chromium } from 'playwright';
 
 const BASE = process.env.E2E_BASE_URL ?? 'http://localhost:8080';
