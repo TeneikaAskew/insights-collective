@@ -1,7 +1,7 @@
-// ABOUTME: Per-form submission counts for the Manage Forms roster — a single
-// ABOUTME: lightweight query over form_submissions (form_id only), tallied
-// ABOUTME: client-side into a Map. A form absent from the map (or a failed
-// ABOUTME: query) renders "—" in the UI, never a fabricated 0.
+// ABOUTME: Per-form submission counts for the Manage Forms roster. Aggregated
+// ABOUTME: server-side via the form_submission_counts RPC — a client-side tally
+// ABOUTME: of an unbounded select is silently truncated at the PostgREST row
+// ABOUTME: cap. A failed query renders "—" in the UI, never a fabricated 0.
 
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -17,7 +17,10 @@ export function useFormSubmissionCounts() {
   const fetchCounts = useCallback(async () => {
     setLoading(true);
     setError(false);
-    const { data, error: err } = await supabase.from('form_submissions').select('form_id');
+    // One row per form, computed in the database. Selecting every submission
+    // and counting them here would report 0 for any form whose rows fall past
+    // the response cap once submissions grow.
+    const { data, error: err } = await supabase.rpc('form_submission_counts');
     if (err) {
       logger.error('Error loading submission counts:', err);
       setCountsByForm({});
@@ -26,9 +29,9 @@ export function useFormSubmissionCounts() {
       return;
     }
     const acc: Record<string, number> = {};
-    for (const row of (data || []) as Array<{ form_id: string }>) {
+    for (const row of (data || []) as Array<{ form_id: string; submission_count: number }>) {
       if (!row.form_id) continue;
-      acc[row.form_id] = (acc[row.form_id] || 0) + 1;
+      acc[row.form_id] = Number(row.submission_count) || 0;
     }
     setCountsByForm(acc);
     setLoading(false);

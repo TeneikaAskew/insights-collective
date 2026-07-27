@@ -12,23 +12,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { sanitizeHTML } from '@/utils/sanitize';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { 
-  Save, 
-  Send, 
-  Eye, 
-  Clock, 
+import {
+  Save,
+  Eye,
+  Clock,
   Calendar as CalendarIcon,
   AlertCircle,
-  CheckCircle2,
   Loader2,
   ArrowLeft,
   Settings,
   FileText,
   Search,
-  Share2,
   BarChart3
 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -172,7 +168,13 @@ export function BlogPostForm({ postId }: BlogPostFormProps) {
         title: post.title,
         excerpt: post.excerpt || '',
         content: post.content,
-        status: post.status,
+        // A scheduled post is persisted as a draft with a future scheduled_at
+        // (the status column has no 'scheduled' value). Reconstruct the UI
+        // state so the dropdown shows Scheduled rather than Draft.
+        status:
+          post.scheduled_at && new Date(post.scheduled_at) > new Date()
+            ? 'scheduled'
+            : post.status,
         category_id: post.category_id || undefined,
         tags: tags?.map(t => t.tag_name) || [],
         meta_title: post.seo_title || '',
@@ -226,12 +228,21 @@ export function BlogPostForm({ postId }: BlogPostFormProps) {
         finalExcerpt = generateExcerpt(data.content, 160, true);
       }
 
+      const isScheduling = data.status === 'scheduled' && !!data.scheduled_at;
+
+      // `blog_posts.status` is constrained to draft | published | archived —
+      // there is no 'scheduled' value, so writing one fails the CHECK and the
+      // whole save is rejected. A scheduled post is therefore stored as a draft
+      // carrying a future scheduled_at, which is exactly how the posts list
+      // already identifies one (see the isScheduled helper in BlogManagement).
+      const persistedStatus = isScheduling ? 'draft' : data.status;
+
       // Prepare post data with correct field names
       const postData = {
         title: data.title,
         excerpt: finalExcerpt || null,
         content: data.content,
-        status: data.status,
+        status: persistedStatus,
         category_id: data.category_id || null,
         read_time,
         seo_title: data.meta_title || null,
@@ -243,12 +254,9 @@ export function BlogPostForm({ postId }: BlogPostFormProps) {
         allow_comments: data.allow_comments,
         // Only meaningful while the post is scheduled; clearing it on any other
         // status stops a stale future date from re-hiding a published post.
-        scheduled_at:
-          data.status === 'scheduled' && data.scheduled_at
-            ? data.scheduled_at.toISOString()
-            : null,
+        scheduled_at: isScheduling ? data.scheduled_at!.toISOString() : null,
         published_at:
-          data.status === 'published'
+          persistedStatus === 'published'
             ? existingPublishedAt ?? new Date().toISOString()
             : null,
       };

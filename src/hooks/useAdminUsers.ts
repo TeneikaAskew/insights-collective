@@ -92,7 +92,16 @@ export function useAdminUsers() {
 
       const rows = (listRes.data || []) as any[];
       setUsers(rows.map(mapRow));
-      setTotal(rows.length > 0 ? Number(rows[0].total_count) : 0);
+      // total_count rides on the returned rows, so an empty page carries no
+      // total. Past page 1 that means this page is off the end (a deletion or a
+      // role change shrank the set) — not that no users match. Zeroing the total
+      // there hid the pager and stranded the admin on an empty page with no way
+      // back, so keep the previous total and leave the controls usable.
+      if (rows.length > 0) {
+        setTotal(Number(rows[0].total_count));
+      } else if (page <= 1) {
+        setTotal(0);
+      }
 
       const c = !countsRes.error ? (countsRes.data || [])[0] : null;
       if (c) {

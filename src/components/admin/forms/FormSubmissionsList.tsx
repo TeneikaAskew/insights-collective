@@ -48,6 +48,15 @@ export default function FormSubmissionsList({ formId, formSlug, onSelectSubmissi
     return () => clearTimeout(t);
   }, [searchTerm]);
 
+  // Switching forms must return to page 1. The detail drawer reuses this
+  // component across forms, so a page number carried over from a form with many
+  // submissions can land past the end of a smaller one — the RPC then returns no
+  // rows, the total is read as zero and the pager disappears, stranding the view
+  // on an empty page that claims the form has no responses.
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [formId]);
+
   useEffect(() => {
     fetchSubmissions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -69,6 +78,16 @@ export default function FormSubmissionsList({ formId, formSlug, onSelectSubmissi
       if (error) throw error;
 
       const rows = (data || []) as any[];
+
+      // total_count rides on the rows, so an empty page carries no total. Past
+      // page 1 that means we are off the end (a deletion shrank the set), not
+      // that the form has no submissions — step back rather than reporting zero
+      // and hiding the pager.
+      if (rows.length === 0 && currentPage > 1) {
+        setCurrentPage(p => p - 1);
+        return;
+      }
+
       const totalCount = rows.length > 0 ? Number(rows[0].total_count) : 0;
       setTotalSubmissions(totalCount);
       setTotalPages(Math.max(1, Math.ceil(totalCount / pageSize)));

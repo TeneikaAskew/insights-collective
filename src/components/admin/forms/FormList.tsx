@@ -218,7 +218,9 @@ export function FormList({ searchTerm }: FormListProps) {
     );
   }
 
-  if (filteredForms.length === 0 && !loading) {
+  // `loading` is already handled by the early return above, so it is
+  // necessarily false here.
+  if (filteredForms.length === 0) {
     return (
       <Card className="border-dashed rounded-3xl">
         <CardContent className="py-12">
