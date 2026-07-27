@@ -7,6 +7,31 @@ import { sanitizeHTML } from '@/utils/sanitize';
 const logger = createLogger('blogService');
 
 /**
+ * Display names for everyone who has authored a published post, keyed by user id.
+ *
+ * Bylines used to be resolved with a direct `profiles` select, which returns
+ * nothing for `anon` — RLS grants signed-out visitors no read on that table —
+ * so every post on the public blog rendered "Unknown Author". Granting `anon`
+ * read on `profiles` would have fixed it by publishing every user's profile row
+ * to render a byline; `blog_post_authors()` exposes two columns, and only for
+ * users whose work is already public.
+ *
+ * Throws on failure rather than returning an empty map. Falling back silently
+ * would render "Unknown Author" — indistinguishable from the bug this replaced,
+ * and the whole reason it went unnoticed for so long. The callers surface the
+ * error (Blog.tsx keeps a failed fetch visibly distinct from "no articles yet").
+ */
+const fetchPublishedAuthorNames = async (): Promise<Map<string, string>> => {
+  const names = new Map<string, string>();
+  const { data, error } = await supabase.rpc('blog_post_authors');
+  if (error) throw error;
+  for (const row of (data ?? []) as Array<{ id: string; display_name: string | null }>) {
+    if (row.id && row.display_name) names.set(row.id, row.display_name);
+  }
+  return names;
+};
+
+/**
  * Get blog posts from Supabase.
  *
  * @param options.publishedOnly Restrict to `status = 'published'` in the query.
@@ -39,20 +64,7 @@ export const getAllBlogPosts = async (
 
     if (error) throw error;
 
-    const authorIds = Array.from(
-      new Set((data || []).map((post) => post.author_id).filter(Boolean))
-    ) as string[];
-    const authorNames = new Map<string, string>();
-    if (authorIds.length > 0) {
-      const { data: authors, error: authorsError } = await supabase
-        .from('profiles')
-        .select('id, first_name, last_name')
-        .in('id', authorIds);
-      if (authorsError) throw authorsError;
-      (authors || []).forEach((a: any) => {
-        authorNames.set(a.id, `${a.first_name || ''} ${a.last_name || ''}`.trim());
-      });
-    }
+    const authorNames = await fetchPublishedAuthorNames();
 
     return (data || []).map(post => ({
       id: post.id,
@@ -117,18 +129,13 @@ export const getBlogPostBySlug = async (slug: string): Promise<BlogPost | null> 
       categoryName = categoryData?.name || 'Uncategorized';
     }
 
-    // Get author name
+    // Get author name. Resolved through blog_post_authors() rather than a
+    // direct profiles select, which anon cannot read — see
+    // fetchPublishedAuthorNames.
     let authorName = 'Unknown Author';
     if (postData.author_id) {
-      const { data: authorData, error: authorError } = await supabase
-        .from('profiles')
-        .select('first_name, last_name')
-        .eq('id', postData.author_id)
-        .maybeSingle();
-      if (authorError) throw authorError;
-      if (authorData) {
-        authorName = `${authorData.first_name} ${authorData.last_name}`.trim();
-      }
+      const authorNames = await fetchPublishedAuthorNames();
+      authorName = authorNames.get(postData.author_id) || authorName;
     }
 
     // Get tags
