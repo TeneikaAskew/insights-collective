@@ -59,9 +59,15 @@ export function CourseProgressDashboard({ courses }: Props) {
       const ids = courses.map((c) => c.id);
 
       const [enrollRes, itemsRes, progRes, certRes] = await Promise.all([
-        supabase.from('enrollments').select('course_id, user_id, progress').in('course_id', ids),
+        supabase.from('enrollments').select('course_id, user_id, completion_status').in('course_id', ids),
         supabase.from('content_items').select('id, module_id, modules!inner(course_id)').in('modules.course_id', ids),
-        supabase.from('content_item_progressions').select('user_id, content_item_id, completed_at'),
+        // content_item_progressions has workflow_state, not completed_at, and
+        // enrollments has completion_status, not progress. Both selects returned
+        // 42703, so this dashboard has been showing zeros for every course.
+        // 'read' and 'completed' both count as done — the same predicate
+        // CourseProgressOverview, ModuleProgressCard and StudentProgressAnalytics
+        // already use.
+        supabase.from('content_item_progressions').select('user_id, content_item_id, workflow_state'),
         supabase.from('certificates').select('course_id').in('course_id', ids),
       ]);
 
@@ -85,7 +91,7 @@ export function CourseProgressDashboard({ courses }: Props) {
 
       const completedPerUserCourse: Record<string, Set<string>> = {};
       for (const p of progressions) {
-        if (!p.completed_at) continue;
+        if (p.workflow_state !== 'read' && p.workflow_state !== 'completed') continue;
         const cid = itemToCourse[p.content_item_id];
         if (!cid) continue;
         const k = `${p.user_id}::${cid}`;
@@ -102,7 +108,7 @@ export function CourseProgressDashboard({ courses }: Props) {
         let sumPct = 0;
         for (const e of enrolled) {
           const done = completedPerUserCourse[`${e.user_id}::${c.id}`]?.size ?? 0;
-          const pct = total > 0 ? Math.round((done / total) * 100) : (e.progress ?? 0);
+          const pct = total > 0 ? Math.round((done / total) * 100) : (e.completion_status ?? 0);
           sumPct += pct;
           if (total > 0 && done >= total) completedUsers += 1;
         }

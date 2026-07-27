@@ -35,7 +35,8 @@ interface SubRow {
 }
 interface Profile {
   id: string;
-  full_name: string | null;
+  first_name: string | null;
+  last_name: string | null;
   email: string | null;
 }
 
@@ -97,9 +98,14 @@ const CourseQuizResults = () => {
         if (canSeeAll) {
           const userIds = Array.from(new Set((subRes.data ?? []).map((s: any) => s.user_id)));
           if (userIds.length) {
+            // profiles has first_name/last_name and no email at all — email
+            // lives on auth.users, which the browser cannot read. Asking for
+            // `full_name, email` returned 42703 for every instructor and admin;
+            // students never hit it because this branch is staff-only, which is
+            // why nothing noticed.
             const profRes = await supabase
               .from('profiles')
-              .select('id, full_name, email')
+              .select('id, first_name, last_name')
               .in('id', userIds);
             if (profRes.error) throw profRes.error;
             const map: Record<string, Profile> = {};
@@ -234,7 +240,7 @@ const CourseQuizResults = () => {
                                     className="flex justify-between text-neutral-700"
                                   >
                                     <span className="truncate">
-                                      {p?.full_name || p?.email || s.user_id.slice(0, 8)}
+                                      {[p?.first_name, p?.last_name].filter(Boolean).join(' ') || s.user_id.slice(0, 8)}
                                     </span>
                                     <span className="font-medium">
                                       {score.toFixed(1)} / {total} ({pct}%)
