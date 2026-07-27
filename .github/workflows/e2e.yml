@@ -63,7 +63,46 @@ jobs:
 
       - name: Seed E2E fixtures
         if: env.SUPABASE_DB_URL != ''
-        run: psql "$SUPABASE_DB_URL" -f e2e/fixtures/seed.sql
+        run: |
+          # psql treats an argument that is not a connection URI as a DATABASE
+          # NAME and silently falls back to the local unix socket -- which
+          # surfaces as "connection to server on socket /var/run/postgresql/
+          # .s.PGSQL.5432 failed", easily misread as a network problem when it
+          # actually means the secret is not a URI. Say so plainly instead.
+          case "$SUPABASE_DB_URL" in
+            postgres://*|postgresql://*) ;;
+            *)
+              echo "::error::SUPABASE_DB_URL must be a full connection URI beginning with postgresql:// — Supabase dashboard → Project Settings → Database → Connection string → URI. The current value would be treated by psql as a local database name."
+              exit 1
+              ;;
+          esac
+          # A scheme alone is not enough: a database password containing URI
+          # reserved characters silently corrupts the authority section. A raw
+          # "?" starts the query component and a raw "%" opens a percent-escape,
+          # so a password such as pa?ss makes the parser stop reading the host at
+          # "pa" and treat everything after it as junk -- psql then fails
+          # somewhere well downstream of the real mistake. Catch it here.
+          # Deliberately no worked example here: an inline connection-string
+          # literal, even a fabricated one, trips TruffleHog's Postgres detector
+          # and fails the Secret Detection job.
+          python3 - <<'PY' || exit 1
+          import os, sys
+          from urllib.parse import urlsplit
+          try:
+              parts = urlsplit(os.environ["SUPABASE_DB_URL"])
+              port = parts.port
+          except ValueError:
+              print("::error::SUPABASE_DB_URL does not parse as a URI. If the database password contains reserved characters, percent-encode it: % becomes %25, ? becomes %3F, # becomes %23, / becomes %2F, @ becomes %40, : becomes %3A.")
+              sys.exit(1)
+          if not parts.hostname or not port:
+              print("::error::SUPABASE_DB_URL is missing a host or port. Expected the postgresql:// URI form ending in :5432/postgres, and percent-encode the password if it contains reserved characters.")
+              sys.exit(1)
+          PY
+          # ON_ERROR_STOP so a failed statement (including the seed's own
+          # invariant RAISE EXCEPTIONs) fails the step. Without it psql prints
+          # the error and still exits 0, and a half-applied seed looks fine
+          # while the specs fail later for reasons that make no sense.
+          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f e2e/fixtures/seed.sql
 
       - name: Run Playwright suite
         run: npx playwright test --reporter=list,html,json
