@@ -76,9 +76,17 @@ jobs:
         if: env.SUPABASE_DB_URL != ''
         run: psql "$SUPABASE_DB_URL" -f e2e/fixtures/seed.sql
 
+      # No --reporter override: a CLI --reporter replaces the config's reporter
+      # array wholesale, and the json reporter with no configured outputFile
+      # writes to STDOUT. That is why the job log was ~500KB of raw JSON, why
+      # test-results.json and junit.xml were never produced, and why the
+      # coverage-gap step below has silently been a no-op — its `[ -f
+      # test-results.json ]` guard was never true. playwright.config.ts already
+      # selects html+json+junit+github+list under CI, each with a real output
+      # path, so just let it.
       - name: Run Playwright suite
         if: inputs.update_snapshots != true
-        run: npx playwright test --reporter=list,html,json
+        run: npx playwright test
 
       # Baseline regeneration is opt-in via workflow_dispatch. It has to happen
       # on the runner: the files are *-visual-linux.png, and the member/admin
