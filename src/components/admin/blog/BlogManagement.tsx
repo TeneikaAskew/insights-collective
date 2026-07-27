@@ -62,7 +62,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 
 import { createLogger } from '@/utils/logger';
 
-const logger = createLogger('BlogManagementV2');
+const logger = createLogger('BlogManagement');
 
 interface BlogPost {
   id: string;
@@ -93,7 +93,7 @@ interface BlogPost {
 type SortField = 'title' | 'views' | 'date';
 type SortDirection = 'asc' | 'desc';
 
-export function BlogManagementV2() {
+export function BlogManagement() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();

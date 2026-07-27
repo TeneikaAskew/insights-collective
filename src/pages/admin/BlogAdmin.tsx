@@ -2,7 +2,7 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
-import { BlogManagementV2 } from '@/components/admin/blog/BlogManagementV2';
+import { BlogManagement } from '@/components/admin/blog/BlogManagement';
 import NewBlogPost from '@/pages/admin/blog/NewBlogPost';
 import EditBlogPost from '@/pages/admin/blog/EditBlogPost';
 
@@ -12,7 +12,7 @@ export default function BlogAdmin() {
   return (
     <AppLayout>
       <Routes>
-        <Route index element={<BlogManagementV2 />} />
+        <Route index element={<BlogManagement />} />
         <Route path="new" element={<NewBlogPost />} />
         <Route path="edit/:id" element={<EditBlogPost />} />
       </Routes>

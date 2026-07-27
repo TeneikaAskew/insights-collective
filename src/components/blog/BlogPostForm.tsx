@@ -45,7 +45,7 @@ import { generateExcerpt } from '@/utils/excerptGenerator';
 
 import { createLogger } from '@/utils/logger';
 
-const logger = createLogger('BlogPostFormV2');
+const logger = createLogger('BlogPostForm');
 
 const blogPostSchema = z.object({
   title: z.string().min(1, 'Title is required').max(255),
@@ -66,11 +66,11 @@ const blogPostSchema = z.object({
 
 type BlogPostFormData = z.infer<typeof blogPostSchema>;
 
-interface BlogPostFormV2Props {
+interface BlogPostFormProps {
   postId?: string;
 }
 
-export function BlogPostFormV2({ postId }: BlogPostFormV2Props) {
+export function BlogPostForm({ postId }: BlogPostFormProps) {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
