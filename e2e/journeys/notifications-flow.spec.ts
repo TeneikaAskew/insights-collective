@@ -59,47 +59,35 @@ test.describe('Notifications center — real flow', () => {
     await page.goto(`${BASE}/notifications`, { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle');
 
-    const cardSel = '.cursor-pointer:has(button[aria-label="Delete notification"])';
+    const cardSel = '[data-testid="notification-card"]';
     const initial = await page.locator(cardSel).count();
     expect(
       initial,
       'Seed gap: E2E member has no notifications. Reseed at least one notification row (e.g. announcement fan-out) for the member.',
     ).toBeGreaterThan(0);
 
-    // Capture a stable fingerprint (title + message) for the specific card we
-    // delete, so we can verify that exact notification doesn't come back even
-    // if new notifications arrive from parallel fan-out flows.
+    // Identify the row by its notification id, not by title+message.
+    // Fan-out notifications repeat verbatim — this account currently holds 36
+    // rows reading "Assignment graded: Python Data Analysis / Your submission
+    // was graded." — so a title+message fingerprint matched the deleted row's
+    // twins and the "it disappeared" poll could never go false. The id is
+    // unique by construction.
     const firstCard = page.locator(cardSel).first();
-    const title = (await firstCard.locator('h4').first().textContent())?.trim() ?? '';
-    const message = (await firstCard.locator('p').last().textContent())?.trim() ?? '';
-    const fingerprint = `${title}::${message}`;
+    const targetId = await firstCard.getAttribute('data-notification-id');
+    expect(targetId, 'notification card exposes its id').toBeTruthy();
+    const target = page.locator(`[data-notification-id="${targetId}"]`);
 
     await firstCard.getByRole('button', { name: /delete notification/i }).click();
 
-    // Optimistic removal: the specific card is gone.
-    await expect
-      .poll(async () => {
-        const cards = page.locator(cardSel);
-        const n = await cards.count();
-        for (let i = 0; i < n; i++) {
-          const t = (await cards.nth(i).locator('h4').first().textContent())?.trim() ?? '';
-          const m = (await cards.nth(i).locator('p').last().textContent())?.trim() ?? '';
-          if (`${t}::${m}` === fingerprint) return true;
-        }
-        return false;
-      }, { timeout: 3_000 })
-      .toBe(false);
+    // Optimistic removal: that exact row is gone.
+    await expect(target).toHaveCount(0, { timeout: 5_000 });
 
     // Reload → persisted delete: that specific notification stays gone.
+    // Checked by id, so a concurrently-arriving notification with the same
+    // wording cannot make this pass or fail by accident.
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle');
-    const cards = page.locator(cardSel);
-    const n = await cards.count();
-    for (let i = 0; i < n; i++) {
-      const t = (await cards.nth(i).locator('h4').first().textContent())?.trim() ?? '';
-      const m = (await cards.nth(i).locator('p').last().textContent())?.trim() ?? '';
-      expect(`${t}::${m}`).not.toBe(fingerprint);
-    }
+    await expect(page.locator(`[data-notification-id="${targetId}"]`)).toHaveCount(0);
   });
 });
 
