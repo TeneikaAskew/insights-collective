@@ -24,14 +24,25 @@ test.describe('Course List', () => {
   });
 
   test('search filters course results', async ({ page }) => {
-    const search = page.locator(Sel.searchInput).first();
-    await search.fill('python');
-    await page.waitForTimeout(500); // debounce
-    // After typing, the UI should react (different results or no-results message)
-    const cards = page.locator('[class*="card"], article, [data-component-name*="Card"]');
-    const empty = page.locator(':has-text("No courses"), :has-text("no results")');
-    const hasResult = (await cards.count()) > 0 || (await empty.count()) > 0;
-    expect(hasResult).toBe(true);
+    // The catalog's own filter input. Sel.searchInput.first() resolves to the
+    // Navbar site search, which sits earlier in the DOM and does not drive this
+    // grid — filling that only ever exercised the Navbar's dropdown.
+    const search = page.getByPlaceholder('Search courses');
+    const grid = page.locator('[data-onboarding="course-grid"]');
+    // Cards are buttons carrying the course title; loading renders skeleton
+    // divs instead, so wait for a real one before measuring the catalog.
+    const cards = grid.locator('button:has(h3)');
+    await expect(cards.first()).toBeVisible();
+    const total = await cards.count();
+
+    // A query nothing can match collapses the grid to the empty state.
+    await search.fill('zzzz-no-such-course');
+    await expect(grid.getByRole('heading', { name: 'No courses found' })).toBeVisible();
+    await expect(cards).toHaveCount(0);
+
+    // Clearing it restores the full catalog.
+    await search.fill('');
+    await expect(cards).toHaveCount(total);
   });
 
   test('category filter dropdown is present', async ({ page }) => {
