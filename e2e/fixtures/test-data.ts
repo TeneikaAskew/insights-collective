@@ -5,8 +5,21 @@
 
 export const TEST_USERS = {
   member: {
-    email: process.env.E2E_TEST_EMAIL ?? 'test@insightscollective.org',
-    password: process.env.E2E_TEST_PASSWORD ?? 'TestPass123!',
+    // E2E_MEMBER_EMAIL first. Five specs used to read E2E_TEST_EMAIL directly
+    // and default to test@insightscollective.org — a different account from the
+    // one global-setup signs in and seed.sql enrols. Nothing sets
+    // E2E_TEST_EMAIL, so the default always won and those specs ran as a user
+    // with no enrolment, no certificate and no progress, then asserted on
+    // whatever an empty dashboard renders. Kept as a fallback so an environment
+    // that does set it still works.
+    email:
+      process.env.E2E_MEMBER_EMAIL ??
+      process.env.E2E_TEST_EMAIL ??
+      'e2e-member@insightscollective.org',
+    password:
+      process.env.E2E_MEMBER_PASSWORD ??
+      process.env.E2E_TEST_PASSWORD ??
+      'TestPass123!',
   },
   instructor: {
     email: process.env.E2E_INSTRUCTOR_EMAIL ?? 'e2e-instructor@insightscollective.org',

@@ -25,7 +25,8 @@
     "audit:types": "node scripts/audit/types-drift.mjs",
     "audit:invariants": "node scripts/audit/schema-invariants.mjs",
     "audit:fixtures": "node scripts/audit/verify-fixtures.mjs",
-    "audit": "npm run audit:queries && npm run audit:types && npm run audit:invariants && npm run audit:fixtures"
+    "audit:functions": "node scripts/audit/refresh-db-functions.mjs --check",
+    "audit": "npm run audit:queries && npm run audit:types && npm run audit:invariants && npm run audit:fixtures && npm run audit:functions"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

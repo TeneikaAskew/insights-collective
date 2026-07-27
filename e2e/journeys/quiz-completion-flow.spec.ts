@@ -1,10 +1,14 @@
 // ABOUTME: Genuine end-to-end test for the per-week quiz results view and the inline quiz player.
 // ABOUTME: Signs in as the seeded test member and verifies the correct role-scoped rendering.
 import { test, expect } from '@playwright/test';
+import { TEST_USERS } from '../fixtures/test-data';
 
 const BASE = process.env.E2E_BASE_URL ?? 'http://localhost:8080';
-const EMAIL = process.env.E2E_TEST_EMAIL ?? 'test@insightscollective.org';
-const PASSWORD = process.env.E2E_TEST_PASSWORD ?? 'TestPass123!';
+// Resolved in one place (fixtures/test-data.ts). Reading E2E_TEST_EMAIL here
+// with its own default is how this spec ended up signing in as a different
+// account than global-setup and seed.sql use.
+const EMAIL = TEST_USERS.member.email;
+const PASSWORD = TEST_USERS.member.password;
 const ENROLLED_COURSE = process.env.E2E_ENROLLED_COURSE_ID ?? '660e8400-e29b-41d4-a716-446655440001';
 
 async function signIn(page: import('@playwright/test').Page) {

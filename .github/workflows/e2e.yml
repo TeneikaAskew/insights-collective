@@ -68,6 +68,14 @@ jobs:
       - name: Check the committed Supabase types still match the database
         run: node scripts/audit/types-drift.mjs
 
+      # The unit-test Supabase mock validates .rpc() names against this list.
+      # Unit tests must run offline, so the list is checked in — which only helps
+      # if something notices when it goes stale. A name left in the file after
+      # the function is dropped lets a unit test keep passing against a call the
+      # app will fail to make.
+      - name: Check the committed database-function list is current
+        run: node scripts/audit/refresh-db-functions.mjs --check
+
       - name: Check database invariants
         run: node scripts/audit/schema-invariants.mjs
 

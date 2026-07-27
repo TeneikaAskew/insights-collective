@@ -1,10 +1,14 @@
 // ABOUTME: End-to-end validation of the site messaging feature.
 // ABOUTME: Signs in as the seeded test account and exercises inbox load, tabs, and the New Conversation dialog.
 import { test, expect } from "@playwright/test";
+import { TEST_USERS } from "../fixtures/test-data";
 
 const BASE = process.env.E2E_BASE_URL ?? "http://localhost:8080";
-const EMAIL = process.env.E2E_TEST_EMAIL ?? "test@insightscollective.org";
-const PASSWORD = process.env.E2E_TEST_PASSWORD ?? "TestPass123!";
+// Resolved in one place (fixtures/test-data.ts). Reading E2E_TEST_EMAIL here
+// with its own default is how this spec ended up signing in as a different
+// account than global-setup and seed.sql use.
+const EMAIL = TEST_USERS.member.email;
+const PASSWORD = TEST_USERS.member.password;
 
 test.describe("Messaging", () => {
   test.beforeEach(async ({ page }) => {
