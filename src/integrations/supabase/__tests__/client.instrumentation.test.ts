@@ -71,6 +71,59 @@ describe('instrumented fetch', () => {
     expect(supabaseIssues[0]).toMatchObject({ kind: 'empty-write', method: 'DELETE', target: 'certificates' });
   });
 
+  /**
+   * `supabase.rpc()` POSTs to `/rest/v1/rpc/<name>`, but a function call is not
+   * a write. PostgREST reports the number of rows a set-returning function
+   * *returned*, so a read-only counting RPC with nothing to count answers a
+   * content-range total of zero. Treating that as an empty write reported a
+   * defect on every load of
+   * /admin/unified-form-management and failed the spec — the same mistake as
+   * flagging PGRST116, and the kind that gets a rule switched off.
+   */
+  it('does not treat a zero-row rpc response as an empty write', async () => {
+    const base = vi.fn().mockResolvedValue(
+      new Response('[]', {
+        status: 200,
+        headers: { 'content-type': 'application/json', 'content-range': '*/0' },
+      }),
+    );
+    const f = createInstrumentedFetch(base as unknown as typeof fetch);
+
+    await f(`${REST}/rpc/form_submission_counts`, { method: 'POST' });
+
+    expect(supabaseIssues).toHaveLength(0);
+  });
+
+  /**
+   * And the count header is not sent either: computing it for a set-returning
+   * function costs a pass over the result for information we cannot interpret.
+   */
+  it('does not add Prefer to an rpc call', async () => {
+    const base = vi.fn().mockResolvedValue(new Response('[]', { status: 200 }));
+    const f = createInstrumentedFetch(base as unknown as typeof fetch);
+
+    await f(`${REST}/rpc/course_roster_stats`, { method: 'POST' });
+
+    const init = base.mock.calls[0][1] as RequestInit | undefined;
+    expect(new Headers(init?.headers).get('Prefer')).toBeNull();
+  });
+
+  /**
+   * The exclusion is on the rpc path only — a table whose name merely starts
+   * with "rpc" is still a table and still gets the check.
+   */
+  it('still flags an empty write on a table, not being fooled by the rpc prefix', async () => {
+    const base = vi.fn().mockResolvedValue(
+      new Response(null, { status: 204, headers: { 'content-range': '*/0' } }),
+    );
+    const f = createInstrumentedFetch(base as unknown as typeof fetch);
+
+    await f(`${REST}/rpc_audit_log?id=eq.abc`, { method: 'DELETE' });
+
+    expect(supabaseIssues).toHaveLength(1);
+    expect(supabaseIssues[0]).toMatchObject({ kind: 'empty-write', target: 'rpc_audit_log' });
+  });
+
   it('stays quiet when a write actually affected rows', async () => {
     const base = vi.fn().mockResolvedValue(
       new Response(null, { status: 204, headers: { 'content-range': '0-0/1' } }),

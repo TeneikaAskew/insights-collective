@@ -109,16 +109,18 @@ function currentRoute(): string {
 function withCountPreference(
   init: RequestInit | undefined,
   method: string,
-  isPostgrest: boolean,
+  isTableWrite: boolean,
 ): RequestInit | undefined {
   if (!WRITE_METHODS.has(method)) return init;
-  // PostgREST only. `Prefer` means nothing to Edge Functions or Storage, and
-  // adding it there is actively harmful: it is not a CORS-safelisted header, so
-  // the browser preflights it, and a function whose Access-Control-Allow-Headers
-  // does not list `prefer` has the request blocked outright. That broke every
-  // messages-helper call — the whole messaging feature — until the e2e suite
-  // caught it.
-  if (!isPostgrest) return init;
+  // PostgREST tables only. `Prefer` means nothing to Edge Functions or Storage,
+  // and adding it there is actively harmful: it is not a CORS-safelisted header,
+  // so the browser preflights it, and a function whose
+  // Access-Control-Allow-Headers does not list `prefer` has the request blocked
+  // outright. That broke every messages-helper call — the whole messaging
+  // feature — until the e2e suite caught it.
+  //
+  // `/rest/v1/rpc/*` is excluded for a different reason: see isTableWrite.
+  if (!isTableWrite) return init;
   const headers = new Headers(init?.headers);
   const existing = headers.get('Prefer');
   if (existing?.includes('count=')) return init;      // caller asked for a specific count mode
@@ -165,8 +167,26 @@ export function createInstrumentedFetch(baseFetch: typeof fetch = fetch): typeof
 
     const isData = /\/(rest|functions|storage)\/v1\//.test(url.pathname);
     if (!isData) return baseFetch(input, init);
-    // Only PostgREST understands `Prefer: count=exact` — see withCountPreference.
-    const isPostgrest = url.pathname.includes('/rest/v1/');
+
+    /**
+     * A write against a PostgREST *table* — the only case where the affected-row
+     * count is meaningful.
+     *
+     * `supabase.rpc()` also POSTs, and it also lands under `/rest/v1/`, but a
+     * function call is not a write. For a set-returning function PostgREST
+     * reports the number of rows *returned*, so a read-only counting RPC with
+     * nothing to count answers a content-range total of zero — a perfectly
+     * ordinary data condition that the empty-write rule would report as a defect
+     * on every load. The admin forms page did exactly that with
+     * `rpc/form_submission_counts`, and the structural check failed the spec.
+     *
+     * That is the same mistake as flagging PGRST116: a rule that fires on
+     * ordinary data gets switched off within a week. RPCs are excluded from both
+     * the header and the verdict — the header because computing a count for a
+     * set-returning function costs a pass for information we cannot interpret.
+     */
+    const isTableWrite =
+      url.pathname.includes('/rest/v1/') && !url.pathname.includes('/rest/v1/rpc/');
 
     const target = parseTarget(url);
     const route = currentRoute();
@@ -182,7 +202,7 @@ export function createInstrumentedFetch(baseFetch: typeof fetch = fetch): typeof
       logger.error('query built from an undefined value', issue);
     }
 
-    const res = await baseFetch(input, withCountPreference(init, method, isPostgrest));
+    const res = await baseFetch(input, withCountPreference(init, method, isTableWrite));
 
     if (!res.ok) {
       // Read the error off a clone so the caller still gets an unconsumed body.
@@ -204,7 +224,7 @@ export function createInstrumentedFetch(baseFetch: typeof fetch = fetch): typeof
       return res;
     }
 
-    if (WRITE_METHODS.has(method)) {
+    if (isTableWrite && WRITE_METHODS.has(method)) {
       const affected = affectedRows(res);
       if (affected === 0) {
         // The bug this whole layer exists for: PostgREST answers 2xx when RLS
