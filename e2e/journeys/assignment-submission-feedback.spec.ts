@@ -1,7 +1,7 @@
 // ABOUTME: E2E — student submits an assignment inline, instructor grades it via REST, and rubric feedback + completion propagate.
 // ABOUTME: Uses real Supabase data for the seeded Introduction to Data Science course.
 import { test, expect } from '../fixtures/page-helpers';
-import { signInMember, getSupabaseAccessToken } from './_helpers/signIn';
+import { signInMember, getSupabaseAccessToken, getGradingStaffToken } from './_helpers/signIn';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://siuqvhscuiycvdrtiqsh.supabase.co';
 const SUPABASE_KEY =
@@ -80,11 +80,21 @@ test.describe('Assignment submission → feedback → completion', () => {
     expect(submission.workflow_state).toBe('submitted');
 
 
-    // 5. Grade the submission as the instructor (test user has admin + instructor roles).
+    // 5. Grade the submission as grading staff.
+    //
+    // This used to reuse `headers` (the signed-in member's token) on the claim
+    // that the test user "has admin + instructor roles". It does not —
+    // e2e-member holds `student` only — and assignment_submissions has a BEFORE
+    // UPDATE trigger, pin_assignment_grade_columns, that silently reverts every
+    // grade column unless is_grading_staff() passes. PostgREST still answered
+    // 200, so `grader.ok()` was true while score stayed null and the assertion
+    // on the rendered score failed several steps later for no visible reason.
+    const staffToken = await getGradingStaffToken(page);
+    const staffHeaders = { ...headers, Authorization: `Bearer ${staffToken}` };
     const grader = await page.request.patch(
       `${SUPABASE_URL}/rest/v1/assignment_submissions?id=eq.${submission.id}`,
       {
-        headers,
+        headers: staffHeaders,
         data: {
           workflow_state: 'graded',
           score: 90,
@@ -94,6 +104,20 @@ test.describe('Assignment submission → feedback → completion', () => {
       },
     );
     expect(grader.ok(), `grade update ok (${grader.status()})`).toBeTruthy();
+
+    // ok() is not enough: the trigger reverts silently and still returns 200.
+    // Read the row back and assert the grade actually persisted, so a future
+    // permission regression fails HERE with a clear cause rather than as a
+    // missing string in the UI.
+    const verify = await page.request.get(
+      `${SUPABASE_URL}/rest/v1/assignment_submissions?id=eq.${submission.id}&select=score,workflow_state`,
+      { headers },
+    );
+    const [graded] = await verify.json();
+    expect(
+      graded?.score,
+      'grade did not persist — pin_assignment_grade_columns reverts grade columns unless is_grading_staff()',
+    ).toBe(90);
 
     // 6. Mark the content item complete so completion status advances (upsert)
     const prog = await page.request.post(
