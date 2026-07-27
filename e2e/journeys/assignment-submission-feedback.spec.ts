@@ -1,11 +1,7 @@
 // ABOUTME: E2E — student submits an assignment inline, instructor grades it via REST, and rubric feedback + completion propagate.
 // ABOUTME: Uses real Supabase data for the seeded Introduction to Data Science course.
 import { test, expect } from '../fixtures/page-helpers';
-import {
-  signInMember,
-  getSupabaseAccessToken,
-  getInstructorAccessToken,
-} from './_helpers/signIn';
+import { signInMember, getSupabaseAccessToken, getGradingStaffToken } from './_helpers/signIn';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://siuqvhscuiycvdrtiqsh.supabase.co';
 const SUPABASE_KEY =
@@ -64,8 +60,6 @@ test.describe('Assignment submission → feedback → completion', () => {
     await expect(submitBtn).toBeVisible({ timeout: 15_000 });
     const textArea = page.getByPlaceholder(/Write your response here/i);
     const submissionBody = `E2E submission at ${new Date().toISOString()}`;
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
     if (await textArea.count()) {
       await textArea.fill(submissionBody);
     }
@@ -86,16 +80,21 @@ test.describe('Assignment submission → feedback → completion', () => {
     expect(submission.workflow_state).toBe('submitted');
 
 
-    // 5. Grade the submission as grading staff. The member account is a plain
-    //    student: pin_assignment_grade_columns strips score/grader_comments for
-    //    anyone who isn't is_grading_staff(), and PostgREST still answers 200,
-    //    so grading with the member's own token silently wrote nothing.
-    const instructorToken = await getInstructorAccessToken(page.request);
-    const graderHeaders = { ...headers, Authorization: `Bearer ${instructorToken}` };
+    // 5. Grade the submission as grading staff.
+    //
+    // This used to reuse `headers` (the signed-in member's token) on the claim
+    // that the test user "has admin + instructor roles". It does not —
+    // e2e-member holds `student` only — and assignment_submissions has a BEFORE
+    // UPDATE trigger, pin_assignment_grade_columns, that silently reverts every
+    // grade column unless is_grading_staff() passes. PostgREST still answered
+    // 200, so `grader.ok()` was true while score stayed null and the assertion
+    // on the rendered score failed several steps later for no visible reason.
+    const staffToken = await getGradingStaffToken(page);
+    const staffHeaders = { ...headers, Authorization: `Bearer ${staffToken}` };
     const grader = await page.request.patch(
       `${SUPABASE_URL}/rest/v1/assignment_submissions?id=eq.${submission.id}`,
       {
-        headers: graderHeaders,
+        headers: staffHeaders,
         data: {
           workflow_state: 'graded',
           score: 90,
@@ -105,11 +104,20 @@ test.describe('Assignment submission → feedback → completion', () => {
       },
     );
     expect(grader.ok(), `grade update ok (${grader.status()})`).toBeTruthy();
-    // Prefer: return=representation — assert the row really carries the grade
-    // rather than trusting a 200 that updated zero columns.
-    const graded = await grader.json();
-    expect(graded, 'PATCH matched a row').toHaveLength(1);
-    expect(Number(graded[0].score), 'score persisted past the grade-pinning trigger').toBe(90);
+
+    // ok() is not enough: the trigger reverts silently and still returns 200.
+    // Read the row back and assert the grade actually persisted, so a future
+    // permission regression fails HERE with a clear cause rather than as a
+    // missing string in the UI.
+    const verify = await page.request.get(
+      `${SUPABASE_URL}/rest/v1/assignment_submissions?id=eq.${submission.id}&select=score,workflow_state`,
+      { headers },
+    );
+    const [graded] = await verify.json();
+    expect(
+      graded?.score,
+      'grade did not persist — pin_assignment_grade_columns reverts grade columns unless is_grading_staff()',
+    ).toBe(90);
 
     // 6. Mark the content item complete so completion status advances (upsert)
     const prog = await page.request.post(

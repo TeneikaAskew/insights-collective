@@ -45,17 +45,41 @@ DECLARE
   v_member_id uuid;
 BEGIN
   SELECT id INTO v_member_id FROM auth.users
-   WHERE email = 'e2e-member@insightscollective.org';
-  IF v_member_id IS NOT NULL THEN
+   WHERE email = COALESCE(current_setting('e2e.member_email', true), 'e2e-member@insightscollective.org');
+  IF v_member_id IS NULL THEN
+    RETURN;
+  END IF;
+
+  -- Update-then-insert rather than ON CONFLICT. certificates has NO unique
+  -- constraint on (user_id, course_id), so `ON CONFLICT (user_id, course_id)`
+  -- raised "there is no unique or exclusion constraint matching the ON CONFLICT
+  -- specification" — and because this script runs inside BEGIN..COMMIT, that
+  -- error aborted the ENTIRE transaction. Every section rolled back, so the
+  -- seed had never actually applied: no member certificate, no fixture event,
+  -- no invariant checks. The only visible symptom was one spec reporting a
+  -- "seed gap".
+  --
+  -- Adding the constraint would fix the syntax, but certificate_type exists
+  -- precisely so a user can hold more than one kind of certificate for a
+  -- course; a (user_id, course_id) unique constraint would forbid that
+  -- forever to satisfy a test fixture. Scope the idempotency to the row this
+  -- fixture owns instead, and leave the schema alone.
+  UPDATE public.certificates
+     SET verification_code = 'E2EMEMBERCERT',
+         certificate_data  = jsonb_build_object(
+           'completion_percentage', 100, 'total_items', 11,
+           'auto_issued', false, 'seeded_for', 'e2e')
+   WHERE user_id = v_member_id
+     AND course_id = v_course_id
+     AND certificate_type = 'completion';
+
+  IF NOT FOUND THEN
     INSERT INTO public.certificates (user_id, course_id, certificate_type, certificate_data, verification_code, issued_at)
     VALUES (
       v_member_id, v_course_id, 'completion',
       jsonb_build_object('completion_percentage', 100, 'total_items', 11, 'auto_issued', false, 'seeded_for', 'e2e'),
       'E2EMEMBERCERT', now()
-    )
-    ON CONFLICT (user_id, course_id) DO UPDATE
-    SET verification_code = EXCLUDED.verification_code,
-        certificate_data = EXCLUDED.certificate_data;
+    );
   END IF;
 END $$;
 
@@ -295,7 +319,7 @@ BEGIN
     SELECT 1 FROM public.certificates c
     JOIN auth.users u ON u.id = c.user_id
     WHERE c.course_id = '660e8400-e29b-41d4-a716-446655440001'
-      AND u.email = 'e2e-member@insightscollective.org'
+      AND u.email = COALESCE(current_setting('e2e.member_email', true), 'e2e-member@insightscollective.org')
   ) INTO v_ok;
   IF NOT v_ok THEN
     RAISE EXCEPTION 'E2E SEED FAILED: member certificate missing; profile-certificates-flow and the /profile visual baseline both depend on it';

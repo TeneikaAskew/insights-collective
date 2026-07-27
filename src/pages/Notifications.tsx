@@ -307,6 +307,11 @@ const Notifications = () => {
                 {filtered.map((n) => (
                   <Card
                     key={n.id}
+                    data-testid="notification-card"
+                    // The row's identity. Notification titles and messages
+                    // repeat heavily (an assignment-graded fan-out produces
+                    // dozens of identical rows), so any test that needs to
+                    // follow ONE row has to key on the id, not the text.
                     data-notification-id={n.id}
                     className={cn(
                       'transition-colors hover:bg-accent/40 cursor-pointer',

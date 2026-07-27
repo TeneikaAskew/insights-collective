@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { useCoursesManagement } from '@/hooks/useCoursesManagement';
+import { usePublishedCourses } from '@/hooks/usePublishedCourses';
 import { allAssistants } from '@/data/assistantData';
 
 type SearchResult = {
@@ -19,7 +19,11 @@ const SiteSearch = () => {
   const [results, setResults] = useState<SearchResult[]>([]);
   const searchRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-  const { courses } = useCoursesManagement();
+  // Published courses only. This used to be `useCoursesManagement`, the admin
+  // hook — which the Navbar therefore ran on every page, and which filters its
+  // result to the viewer's own instructed courses, so a member's search never
+  // matched a course at all. See usePublishedCourses for the full note.
+  const { courses } = usePublishedCourses();
 
   // Search across multiple data sources - memoized for performance
   const getSearchResults = (query: string): SearchResult[] => {

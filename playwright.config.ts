@@ -166,8 +166,8 @@ export default defineConfig({
         '**/auth/**',
         '**/landing/**',
         '**/visual/**',
-        // Signed-out specs — handled by chromium-public. These four were absent
-        // from this list while chromium-public claimed them, so ~44 test
+        // Signed-out specs — handled by chromium-public. The first four were
+        // absent from this list while chromium-public claimed them, so ~44 test
         // executions ran twice: once authenticated, once not, with identical
         // assertions either way.
         '**/legal/**',
@@ -175,6 +175,14 @@ export default defineConfig({
         '**/blog/**',
         '**/portfolio/public-portfolio.spec.ts',
         '**/career/career-pathway-public.spec.ts',
+        // Asserts the LOGGED-OUT code-practice experience ("the hub is public,
+        // so no auth is required", and it expects the Demo-mode result badge).
+        // Claimed by this project it ran with a member session, where the page
+        // performs a real evaluation instead — so it asserted the opposite of
+        // what happens and could never pass. Its sibling
+        // interview-prep-design/code-evaluation.spec.ts is signed-in BY DESIGN
+        // and deliberately stays here.
+        '**/interview-prep-design/soft-studio-hub.spec.ts',
         // Instructor-only specs — handled by chromium-instructor project
         '**/courses/course-builder.spec.ts',
         '**/courses/course-builder-verification.spec.ts',
@@ -228,6 +236,7 @@ export default defineConfig({
         '**/survey/**',
         '**/blog/**',
         '**/career/career-pathway-public.spec.ts',
+        '**/interview-prep-design/soft-studio-hub.spec.ts',
       ],
     },
     // Cross-browser smoke tests: Firefox + WebKit on critical paths

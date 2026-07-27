@@ -4,6 +4,47 @@
 import type { Page } from '@playwright/test';
 
 const BASE = process.env.E2E_BASE_URL || 'http://localhost:8080';
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://siuqvhscuiycvdrtiqsh.supabase.co';
+const SUPABASE_KEY =
+  process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNpdXF2aHNjdWl5Y3ZkcnRpcXNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQyMDU0MTUsImV4cCI6MjA1OTc4MTQxNX0.CbAWzKbUfbqYKAZr93jAQm8z8chbNoTe0EnK-E_4u9w';
+
+/**
+ * An access token for an account that satisfies `is_grading_staff()`.
+ *
+ * Grading columns on assignment_submissions are protected by a BEFORE UPDATE
+ * trigger (`pin_assignment_grade_columns`) that silently reverts score,
+ * graded_at, grader_comments, rubric_scores, excused, late and missing to their
+ * previous values unless the caller has the instructor or admin role. It does
+ * NOT raise — PostgREST still answers 200, so a spec that only checks
+ * `response.ok()` sees success while the grade never lands.
+ *
+ * The journey specs used to grade with the signed-in member's own token,
+ * relying on a comment claiming that account "has admin + instructor roles".
+ * It does not: e2e-member holds `student` only. So the trigger did its job, the
+ * score stayed null, and the assertion on the rendered score failed several
+ * steps later with no hint as to why.
+ */
+export async function getGradingStaffToken(page: Page): Promise<string> {
+  const email = process.env.E2E_INSTRUCTOR_EMAIL || 'e2e-instructor@insightscollective.org';
+  const password = process.env.E2E_INSTRUCTOR_PASSWORD || process.env.E2E_TEST_PASSWORD || '';
+  if (!password) {
+    throw new Error(
+      'No instructor password: set E2E_INSTRUCTOR_PASSWORD or E2E_TEST_PASSWORD. ' +
+        'Grading as the member cannot work — pin_assignment_grade_columns reverts the grade.',
+    );
+  }
+  const res = await page.request.post(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+    headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
+    data: { email, password },
+  });
+  if (!res.ok()) {
+    throw new Error(`Grading-staff sign-in failed for ${email}: ${res.status()} ${await res.text()}`);
+  }
+  const body = await res.json();
+  if (!body?.access_token) throw new Error(`Grading-staff sign-in returned no access_token for ${email}`);
+  return body.access_token as string;
+}
 
 /**
  * Ensures the member session is live in the page.
@@ -52,18 +93,6 @@ const SUPABASE_KEY =
   process.env.VITE_SUPABASE_ANON_KEY ??
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNpdXF2aHNjdWl5Y3ZkcnRpcXNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQyMDU0MTUsImV4cCI6MjA1OTc4MTQxNX0.CbAWzKbUfbqYKAZr93jAQm8z8chbNoTe0EnK-E_4u9w';
 
-/**
- * Access token for the instructor account, obtained out-of-band so a spec can
- * act as grading staff without disturbing the member session in the page.
- *
- * Grading columns (score, grade, grader_comments, rubric_scores, graded_at) are
- * pinned by the pin_assignment_grade_columns trigger for anyone who is not
- * is_grading_staff(). A student's own token silently loses those values while
- * PostgREST still answers 200, so grading with the member token looks like it
- * worked and writes nothing.
- */
-export async function getInstructorAccessToken(
-  request: import('@playwright/test').APIRequestContext,
 ): Promise<string> {
   const res = await request.post(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
     headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },

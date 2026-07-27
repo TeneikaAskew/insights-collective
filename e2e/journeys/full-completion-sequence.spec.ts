@@ -2,11 +2,7 @@
 // ABOUTME: student submits an assignment, instructor leaves rubric feedback, then every content item
 // ABOUTME: is completed and the certificate trigger auto-issues a verifiable certificate.
 import { test, expect } from '../fixtures/page-helpers';
-import {
-  signInMember,
-  getSupabaseAccessToken,
-  getInstructorAccessToken,
-} from './_helpers/signIn';
+import { signInMember, getSupabaseAccessToken, getGradingStaffToken } from './_helpers/signIn';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://siuqvhscuiycvdrtiqsh.supabase.co';
 const SUPABASE_KEY =
@@ -96,18 +92,15 @@ test.describe('Full course completion sequence', () => {
     expect(submissionId).toBeTruthy();
 
     // ---- Phase 2: instructor grades the submission with rubric feedback ----
-    // Must be a real instructor token: pin_assignment_grade_columns blanks
-    // score/grader_comments for anyone who isn't is_grading_staff(), and
-    // PostgREST still returns 200, so the student's own token grades nothing.
-    const instructorToken = await getInstructorAccessToken(page.request);
+    // Must be a real instructor token: pin_assignment_grade_columns silently
+    // reverts every grade column unless is_grading_staff() passes, and returns
+    // 200 while doing it. Grading with the member's own token left score null
+    // and surfaced only as a missing "Score 92" in the UI much later.
+    const staffToken = await getGradingStaffToken(page);
     const gradeRes = await page.request.patch(
       `${SUPABASE_URL}/rest/v1/assignment_submissions?id=eq.${submissionId}`,
       {
-        headers: {
-          ...headers,
-          Authorization: `Bearer ${instructorToken}`,
-          Prefer: 'return=representation',
-        },
+        headers: { ...headers, Authorization: `Bearer ${staffToken}` },
         data: JSON.stringify({
           workflow_state: 'graded',
           score: 92,
@@ -117,9 +110,16 @@ test.describe('Full course completion sequence', () => {
       },
     );
     expect(gradeRes.ok(), `grade update (${gradeRes.status()})`).toBeTruthy();
-    const gradedRows = await gradeRes.json();
-    expect(gradedRows, 'grade PATCH matched a row').toHaveLength(1);
-    expect(Number(gradedRows[0].score), 'score survived the grade-pinning trigger').toBe(92);
+
+    // ok() alone cannot distinguish "graded" from "silently reverted".
+    const gradeCheck = await page.request.get(
+      `${SUPABASE_URL}/rest/v1/assignment_submissions?id=eq.${submissionId}&select=score`,
+      { headers },
+    );
+    expect(
+      (await gradeCheck.json())[0]?.score,
+      'grade did not persist — pin_assignment_grade_columns reverts grade columns unless is_grading_staff()',
+    ).toBe(92);
 
     // Verify the student sees the graded feedback in the lesson viewer
     await page.goto(`/courses/${COURSE_ID}/learn`);

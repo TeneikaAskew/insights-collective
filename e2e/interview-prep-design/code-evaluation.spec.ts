@@ -9,7 +9,7 @@
 //
 // Backend-side invariants (column privileges, forgery rejection, verdicts
 // derived from stored execution) are covered by scripts/verify-code-evaluation.mjs.
-import { test, expect } from '../fixtures/page-helpers';
+import { test, expect } from '@playwright/test';
 
 const SUPABASE_URL =
   process.env.VITE_SUPABASE_URL || 'https://siuqvhscuiycvdrtiqsh.supabase.co';
@@ -41,18 +41,19 @@ test.describe('Code Practice real evaluation (signed in)', () => {
   });
 
   test('evaluates a correct solution for real, not as a demo', async ({ page }) => {
-    // The wait below budgets 90s because a real submission runs the sandbox and
-    // then an LLM review, but the suite's default test timeout is 30s — so that
-    // budget could never actually be spent, and the test died at 30s whenever
-    // the round trip ran long. It failed in CI for exactly that reason and was
-    // flaky in the run before.
-    //
-    // Raising the test's own budget past the wait it already asks for is not a
-    // loosened assertion: every expectation below is unchanged, and a genuine
-    // hang still fails, just at the limit the spec always intended.
+    // execute-code then review-code is a two-hop round trip through the sandbox
+    // and the AI judge, which outruns the 30s default. Without this the 90s
+    // budget below can never actually elapse — the test dies at 30s first.
     test.setTimeout(150_000);
 
-    await page.getByRole('button', { name: /submit solution/i }).click();
+    // Submitting before the seeded challenge lands resolves as a demo: the page
+    // has no dbChallenge yet, so handleSubmit takes the demo branch. Constraints
+    // only render from the database row, so they mark the real challenge as in.
+    await expect(page.getByText('Constraints')).toBeVisible();
+    const submit = page.getByRole('button', { name: /submit solution/i });
+    await expect(submit).toBeEnabled();
+
+    await submit.click();
     await expect(page.getByText('Result', { exact: true })).toBeVisible({ timeout: 90_000 });
 
     // Real evaluation must never be labeled Demo
@@ -72,8 +73,6 @@ test.describe('Code Practice real evaluation (signed in)', () => {
 
     // Sandbox-executed results carry real runtime/memory; AI-judged ones must
     // not fabricate them.
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
     if ((await executed.count()) > 0) {
       await expect(page.getByText('runtime')).toBeVisible();
       await expect(page.getByText('memory')).toBeVisible();

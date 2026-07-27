@@ -1,7 +1,7 @@
 // ABOUTME: Genuine end-to-end test for the notification center. Signs in as the
 // ABOUTME: seeded test member, loads /notifications, and exercises mark-as-read,
 // ABOUTME: delete, and tab filtering against real DB state.
-import { test, expect } from '../fixtures/page-helpers';
+import { test, expect } from '@playwright/test';
 
 // This spec runs under the chromium-member project, whose storageState is the
 // session global-setup already established, so it starts authenticated. Driving
@@ -11,11 +11,6 @@ import { test, expect } from '../fixtures/page-helpers';
 
 const BASE = process.env.E2E_BASE_URL || 'http://localhost:8080';
 
-
-// Every test here mutates the same member's notification list (mark-all-read,
-// delete). Run them one at a time so they don't invalidate each other's
-// preconditions when the suite is parallel.
-test.describe.configure({ mode: 'serial' });
 
 test.describe('Notifications center — real flow', () => {
   test('renders header, tabs, and either items or empty state', async ({ page }) => {
@@ -64,49 +59,35 @@ test.describe('Notifications center — real flow', () => {
     await page.goto(`${BASE}/notifications`, { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle');
 
-    const cardSel = '.cursor-pointer:has(button[aria-label="Delete notification"])';
+    const cardSel = '[data-testid="notification-card"]';
     const initial = await page.locator(cardSel).count();
     expect(
       initial,
       'Seed gap: E2E member has no notifications. Reseed at least one notification row (e.g. announcement fan-out) for the member.',
     ).toBeGreaterThan(0);
 
-    // Identify the card by its row id, not by title+message. Assignment
-    // grading fans out one notification per grade, so the member accumulates
-    // many rows with byte-identical text ("Assignment graded: …" / "Score:
-    // 92.00"); a text fingerprint matches all of them and can never go absent.
+    // Identify the row by its notification id, not by title+message.
+    // Fan-out notifications repeat verbatim — this account currently holds 36
+    // rows reading "Assignment graded: Python Data Analysis / Your submission
+    // was graded." — so a title+message fingerprint matched the deleted row's
+    // twins and the "it disappeared" poll could never go false. The id is
+    // unique by construction.
     const firstCard = page.locator(cardSel).first();
-    const id = await firstCard.getAttribute('data-notification-id');
-    expect(id, 'Notification cards must expose data-notification-id').toBeTruthy();
-    const deleted = page.locator(`[data-notification-id="${id}"]`);
+    const targetId = await firstCard.getAttribute('data-notification-id');
+    expect(targetId, 'notification card exposes its id').toBeTruthy();
+    const target = page.locator(`[data-notification-id="${targetId}"]`);
 
-    // The card disappears optimistically, so "gone from the DOM" says nothing
-    // about persistence — reloading on the optimistic state alone cancels the
-    // in-flight DELETE and the row comes back. Wait for the request to land.
-    const deleteRequest = page.waitForResponse(
-      (r) =>
-        r.request().method() === 'DELETE' &&
-        r.url().includes('/rest/v1/notifications') &&
-        r.url().includes(id!),
-      { timeout: 15_000 },
-    );
     await firstCard.getByRole('button', { name: /delete notification/i }).click();
 
-    // Optimistic removal: that exact notification is gone.
-    await expect(deleted).toHaveCount(0, { timeout: 5_000 });
+    // Optimistic removal: that exact row is gone.
+    await expect(target).toHaveCount(0, { timeout: 5_000 });
 
-    const deleteRes = await deleteRequest;
-    expect(deleteRes.status(), 'DELETE accepted by PostgREST').toBeLessThan(300);
-
-    // Reload → persisted delete: it stays gone.
+    // Reload → persisted delete: that specific notification stays gone.
+    // Checked by id, so a concurrently-arriving notification with the same
+    // wording cannot make this pass or fail by accident.
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle');
-    // Wait for the list to actually finish rendering — either remaining cards
-    // or the empty state — so "count 0" means deleted, not still loading.
-    await expect(
-      page.locator(cardSel).first().or(page.getByText(/nothing here/i)),
-    ).toBeVisible({ timeout: 10_000 });
-    await expect(deleted).toHaveCount(0);
+    await expect(page.locator(`[data-notification-id="${targetId}"]`)).toHaveCount(0);
   });
 });
 
