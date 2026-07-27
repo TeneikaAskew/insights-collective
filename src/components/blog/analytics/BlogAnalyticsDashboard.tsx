@@ -188,11 +188,15 @@ export function BlogAnalyticsDashboard({ postId }: BlogAnalyticsDashboardProps) 
 
       // Load top posts if not viewing specific post
       if (!postId) {
+        // blog_posts carries two generations of view columns. Everything that
+        // WRITES uses view_count; views_count is never populated. Reading the
+        // dead column made this dashboard disagree with the posts list, so read
+        // the live one and alias it to the shape the UI expects.
         const { data: posts, error: postsError } = await supabase
           .from('blog_posts')
-          .select('id, title, views_count, likes_count')
+          .select('id, title, view_count, likes_count')
           .eq('status', 'published')
-          .order('views_count', { ascending: false })
+          .order('view_count', { ascending: false })
           .limit(5);
 
         if (postsError) throw postsError;
@@ -215,7 +219,10 @@ export function BlogAnalyticsDashboard({ postId }: BlogAnalyticsDashboardProps) 
             : 0;
 
           topPostsData.push({
-            ...post,
+            id: post.id,
+            title: post.title,
+            views_count: post.view_count || 0,
+            likes_count: post.likes_count || 0,
             comments_count: commentCount || 0,
             avg_time_on_page: avgTime,
           });

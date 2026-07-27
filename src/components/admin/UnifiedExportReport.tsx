@@ -2,6 +2,7 @@
 // ABOUTME: Aggregates courses, enrollments, completions, and certificates into a single CSV.
 import { useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { toCsv } from '@/utils/csv';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -38,10 +39,6 @@ type Summary = {
   certificates: number;
 };
 
-function csvEscape(v: unknown): string {
-  return `"${String(v ?? '').replace(/"/g, '""')}"`;
-}
-
 function download(filename: string, contents: string, mime = 'text/csv;charset=utf-8') {
   const blob = new Blob([contents], { type: mime });
   const url = URL.createObjectURL(blob);
@@ -66,14 +63,12 @@ export function UnifiedExportReport({ courses }: Props) {
     const ids = courses.map((c) => c.id);
 
     const [enrollRes, itemsRes, progRes, certRes, usersRes] = await Promise.all([
-      supabase.from('enrollments').select('course_id, user_id, completion_status, enrolled_at').in('course_id', ids),
+      // completion_status, not progress — enrollments has no `progress` column,
+      // so this select returned 42703 and every exported row read 0%.
+      supabase.from('enrollments').select('course_id, user_id, completion_status, created_at').in('course_id', ids),
       supabase.from('content_items').select('id, module_id, modules!inner(course_id)').in('modules.course_id', ids),
-      // content_item_progressions has workflow_state, not completed_at, and
-      // enrollments has completion_status, not progress. Both selects returned
-      // 42703, so this dashboard has been showing zeros for every course.
-      // 'read' and 'completed' both count as done — the same predicate
-      // CourseProgressOverview, ModuleProgressCard and StudentProgressAnalytics
-      // already use.
+      // workflow_state, not completed_at — same 42703. 'read' and 'completed'
+      // both count as done.
       supabase.from('content_item_progressions').select('user_id, content_item_id, workflow_state'),
       supabase.from('certificates').select('user_id, course_id, verification_code, issued_at').in('course_id', ids),
       supabase.functions.invoke('admin-users', { body: { action: 'listUsers' } }),
@@ -131,7 +126,7 @@ export function UnifiedExportReport({ courses }: Props) {
       const course = courseMap[e.course_id];
       const total = itemsByCourse[e.course_id]?.size ?? 0;
       const done = completedByUserCourse[`${e.user_id}::${e.course_id}`] ?? 0;
-      const pct = total > 0 ? Math.round((done / total) * 100) : (e.completion_status ?? 0);
+      const pct = total > 0 ? Math.round((done / total) * 100) : (e.completion_status === 'completed' ? 100 : 0);
       const cert = certByUserCourse[`${e.user_id}::${e.course_id}`];
       const learner = userMap[e.user_id] ?? { name: e.user_id, email: '' };
       return {
@@ -187,16 +182,13 @@ export function UnifiedExportReport({ courses }: Props) {
       'Items Completed', 'Total Items', 'Progress %', 'Fully Completed',
       'Certificate Issued', 'Certificate Code', 'Certificate Issued At',
     ];
-    const lines = [header.map(csvEscape).join(',')];
-    for (const r of preview) {
-      lines.push([
-        r.courseId, r.courseTitle, r.category, r.published ? 'Yes' : 'No',
-        r.userId, r.learnerName, r.learnerEmail, r.enrolledAt,
-        r.itemsCompleted, r.totalItems, r.completion_statusPct, r.fullyCompleted ? 'Yes' : 'No',
-        r.certificateIssued ? 'Yes' : 'No', r.certificateCode, r.certificateIssuedAt,
-      ].map(csvEscape).join(','));
-    }
-    download(`cross-course-report-${new Date().toISOString().slice(0, 10)}.csv`, lines.join('\n'));
+    const rows = preview.map((r) => [
+      r.courseId, r.courseTitle, r.category, r.published ? 'Yes' : 'No',
+      r.userId, r.learnerName, r.learnerEmail, r.enrolledAt,
+      r.itemsCompleted, r.totalItems, r.progressPct, r.fullyCompleted ? 'Yes' : 'No',
+      r.certificateIssued ? 'Yes' : 'No', r.certificateCode, r.certificateIssuedAt,
+    ]);
+    download(`cross-course-report-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(header, rows));
   };
 
   const exportJson = () => {
@@ -281,7 +273,7 @@ export function UnifiedExportReport({ courses }: Props) {
                         <div className="text-xs text-muted-foreground">{r.learnerEmail}</div>
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums">
-                        {r.completion_statusPct}% <span className="text-xs text-muted-foreground">({r.itemsCompleted}/{r.totalItems})</span>
+                        {r.progressPct}% <span className="text-xs text-muted-foreground">({r.itemsCompleted}/{r.totalItems})</span>
                       </td>
                       <td className="px-3 py-2 text-center">
                         {r.fullyCompleted ? <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200" variant="outline">Yes</Badge> : <span className="text-muted-foreground">—</span>}

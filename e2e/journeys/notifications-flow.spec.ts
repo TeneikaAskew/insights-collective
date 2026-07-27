@@ -2,22 +2,15 @@
 // ABOUTME: seeded test member, loads /notifications, and exercises mark-as-read,
 // ABOUTME: delete, and tab filtering against real DB state.
 import { test, expect } from '../fixtures/page-helpers';
-import { TEST_USERS } from '../fixtures/test-data';
 
-const BASE = process.env.E2E_BASE_URL ?? 'http://localhost:8080';
-// Resolved in one place (fixtures/test-data.ts). Reading E2E_TEST_EMAIL here
-// with its own default is how this spec ended up signing in as a different
-// account than global-setup and seed.sql use.
-const EMAIL = TEST_USERS.member.email;
-const PASSWORD = TEST_USERS.member.password;
+// This spec runs under the chromium-member project, whose storageState is the
+// session global-setup already established, so it starts authenticated. Driving
+// the real /login form in beforeEach was redundant work that could only add
+// failure surface: when that login was slow or failed, the page sat on /login
+// and every later locator timed out. Rely on the project session instead.
 
-async function signIn(page: import('@playwright/test').Page) {
-  await page.goto(`${BASE}/login`, { waitUntil: 'domcontentloaded' });
-  await page.fill('input[type="email"]', EMAIL);
-  await page.fill('input[type="password"]', PASSWORD);
-  await page.locator('form button[type="submit"]').first().click();
-  await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 20_000 });
-}
+const BASE = process.env.E2E_BASE_URL || 'http://localhost:8080';
+
 
 // Every test here mutates the same member's notification list (mark-all-read,
 // delete). Run them one at a time so they don't invalidate each other's
@@ -25,8 +18,6 @@ async function signIn(page: import('@playwright/test').Page) {
 test.describe.configure({ mode: 'serial' });
 
 test.describe('Notifications center — real flow', () => {
-  test.beforeEach(async ({ page }) => { await signIn(page); });
-
   test('renders header, tabs, and either items or empty state', async ({ page }) => {
     await page.goto(`${BASE}/notifications`, { waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('heading', { name: 'Notifications', level: 1 })).toBeVisible();

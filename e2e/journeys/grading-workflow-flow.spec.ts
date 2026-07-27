@@ -3,9 +3,9 @@
 // ABOUTME: cleanly (with a loud message, not a silent pass) when instructor creds are absent.
 import { test, expect } from '../fixtures/page-helpers';
 
-const BASE = process.env.E2E_BASE_URL ?? 'http://localhost:8080';
+const BASE = process.env.E2E_BASE_URL || 'http://localhost:8080';
 const INSTRUCTOR_COURSE =
-  process.env.E2E_INSTRUCTOR_COURSE_ID ?? '660e8400-e29b-41d4-a716-446655440001';
+  process.env.E2E_INSTRUCTOR_COURSE_ID || '660e8400-e29b-41d4-a716-446655440001';
 
 test.describe('Instructor grading workflow', () => {
   // Runs under the chromium-instructor project — session is provided by storageState.

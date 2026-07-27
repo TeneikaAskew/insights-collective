@@ -6,6 +6,13 @@ on:
   pull_request:
     branches: [main, develop]
   workflow_dispatch:
+    inputs:
+      update_snapshots:
+        description: >-
+          Regenerate the visual regression baselines on this runner and commit
+          them back to the dispatched branch (instead of running the suite).
+        type: boolean
+        default: false
 
 jobs:
   # Replays every query the code issues against the live database and fails if
@@ -92,6 +99,10 @@ jobs:
     name: Playwright E2E
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # contents: write is only exercised by the opt-in baseline regeneration
+    # below, which commits the new PNGs back to the dispatched branch.
+    permissions:
+      contents: write
     env:
       E2E_BASE_URL: http://localhost:8080
       # Single-credential mode: providing E2E_ADMIN_* + E2E_TEST_PASSWORD is enough.
@@ -141,9 +152,31 @@ jobs:
             echo "Waiting for preview ($i)..."; sleep 2;
           done
 
+      # Seeding is opt-in — it only runs when the secret is present. But a
+      # MALFORMED secret must not be worse than an absent one, and it was: psql
+      # treats a value that is neither a URI nor a keyword string as a bare
+      # database NAME and dials the local unix socket, so a mistyped secret
+      # failed with "connection to server on socket /var/run/postgresql ...",
+      # which names neither the secret nor the real cause, and killed the job
+      # before a single test ran.
+      #
+      # So: check the shape first, and never let a seeding problem take the
+      # whole suite down with it. Both paths raise a workflow annotation, and
+      # the specs that actually need fixtures already fail with their own
+      # explicit "Seed gap: ..." messages naming what to reseed.
       - name: Seed E2E fixtures
         if: env.SUPABASE_DB_URL != ''
-        run: psql "$SUPABASE_DB_URL" -f e2e/fixtures/seed.sql
+        run: |
+          case "$SUPABASE_DB_URL" in
+            postgres://*|postgresql://*) ;;
+            *)
+              echo "::error title=SUPABASE_DB_URL is not a connection URI::The secret is set but its scheme is missing, so psql read it as a database name and tried the local socket. It must be a full libpq connection URI - scheme, then credentials, host, port and database name. Skipping seed."
+              exit 0
+              ;;
+          esac
+          if ! psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f e2e/fixtures/seed.sql; then
+            echo "::error title=E2E seeding failed::psql could not apply e2e/fixtures/seed.sql. Continuing so the suite still runs; fixture-dependent specs will report their own 'Seed gap' errors."
+          fi
 
       # Every TestIds default must resolve to a row the role that loads the page
       # can actually read. The seed asserts the rows exist; this asserts RLS lets
@@ -154,8 +187,66 @@ jobs:
       - name: Verify e2e fixtures resolve
         run: node scripts/audit/verify-fixtures.mjs
 
+      # No --reporter override: a CLI --reporter replaces the config's reporter
+      # array wholesale, and the json reporter with no configured outputFile
+      # writes to STDOUT. That is why the job log was ~500KB of raw JSON, why
+      # test-results.json and junit.xml were never produced, and why the
+      # coverage-gap step below has silently been a no-op — its `[ -f
+      # test-results.json ]` guard was never true. playwright.config.ts already
+      # selects html+json+junit+github+list under CI, each with a real output
+      # path, so just let it.
       - name: Run Playwright suite
-        run: npx playwright test --reporter=list,html,json
+        if: inputs.update_snapshots != true
+        run: npx playwright test
+
+      # Baseline regeneration is opt-in via workflow_dispatch. It has to happen
+      # on the runner: the files are *-visual-linux.png, and the member/admin
+      # routes only render their real content with a real session — a baseline
+      # captured anywhere else just relocates the failure.
+      # --update-snapshots takes an OPTIONAL argument (choices: all|changed|
+      # missing|none), so writing it as `--update-snapshots e2e/visual` makes
+      # commander swallow the path as the mode, fail the choices check, and exit
+      # in about a second having run nothing. Bind the value with `=` and keep
+      # the path as a positional. "changed" rewrites only baselines that differ,
+      # so the commit stays a minimal, reviewable diff.
+      - name: Regenerate visual baselines
+        if: inputs.update_snapshots == true
+        # globalTeardown deletes .playwright-sessions/ at the end of the run, so
+        # the session check below (a separate step) would otherwise find nothing
+        # and report "no admin session" for sessions that authenticated fine.
+        env:
+          E2E_KEEP_SESSIONS: 'true'
+        run: npx playwright test --project=visual e2e/visual --update-snapshots=changed --reporter=list
+
+      # global-setup writes {"cookies":[],"origins":[]} when a role fails to
+      # authenticate, and the suite then renders those routes logged-out. Baking
+      # a signed-out page into a baseline is worse than leaving the check red, so
+      # refuse to commit unless every role actually has a session.
+      - name: Verify baselines came from authenticated sessions
+        if: inputs.update_snapshots == true
+        run: |
+          for role in admin instructor member; do
+            f=".playwright-sessions/$role.json"
+            if [ ! -s "$f" ] || ! grep -q 'supabase.auth.token' "$f"; then
+              echo "::error::No $role session — regenerated baselines would capture logged-out pages. Refusing to commit."
+              exit 1
+            fi
+            echo "$role session OK"
+          done
+
+      - name: Commit regenerated baselines
+        if: inputs.update_snapshots == true
+        run: |
+          if git diff --quiet -- e2e/visual; then
+            echo "Baselines already match this runner — nothing to commit."
+            exit 0
+          fi
+          git diff --stat -- e2e/visual
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add e2e/visual
+          git commit -m "Regenerate visual regression baselines on the CI runner"
+          git push origin HEAD:${{ github.ref_name }}
 
       - name: Coverage gap report
         if: always()
@@ -172,17 +263,41 @@ jobs:
           if [ -f test-results.json ] || [ -f playwright-report/results.json ]; then
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "### Test outcome summary" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            # Piped through tee, not redirected: this step runs last, so writing
+            # the failure list to stdout too is what puts it inside the window
+            # the GitHub log API returns. Without it the only record of WHICH
+            # tests failed is the JSON reporter dump, which the API truncates
+            # away — leaving a red check with no diagnosable cause.
             node -e "
               const fs = require('fs');
               const p = fs.existsSync('test-results.json') ? 'test-results.json' : 'playwright-report/results.json';
               const r = JSON.parse(fs.readFileSync(p,'utf8'));
               const s = r.stats || {};
               console.log('Passed:', s.expected||0, 'Failed:', s.unexpected||0, 'Skipped:', s.skipped||0, 'Flaky:', s.flaky||0);
-              const skipped = [];
-              function walk(node){ (node.suites||[]).forEach(walk); (node.specs||[]).forEach(sp=>sp.tests.forEach(t=>t.results.forEach(res=>{ if(res.status==='skipped') skipped.push(sp.title+' — '+(res.error?.message||'no reason')); }))); }
+              const failed = [], flaky = [], skipped = [];
+              const firstError = t => {
+                for (const res of t.results||[]) {
+                  const m = (res.error && res.error.message) || ((res.errors||[])[0]||{}).message;
+                  if (m) return m.replace(/\x1b\[[0-9;]*m/g,'').split('\n').map(x=>x.trim()).filter(Boolean).slice(0,2).join(' | ');
+                }
+                return 'no error message';
+              };
+              function walk(node){
+                (node.suites||[]).forEach(walk);
+                (node.specs||[]).forEach(sp=>sp.tests.forEach(t=>{
+                  const where = (sp.file||'?')+' ['+(t.projectName||'?')+'] '+sp.title;
+                  if (t.status === 'unexpected') failed.push(where+' — '+firstError(t));
+                  else if (t.status === 'flaky') flaky.push(where);
+                  t.results.forEach(res=>{ if(res.status==='skipped') skipped.push(sp.title+' — '+(res.error?.message||'no reason')); });
+                }));
+              }
               (r.suites||[]).forEach(walk);
+              if (failed.length) { console.log('\nFailed tests ('+failed.length+'):'); failed.forEach(f=>console.log(' -', f)); }
+              if (flaky.length) { console.log('\nFlaky tests ('+flaky.length+'):'); flaky.forEach(f=>console.log(' -', f)); }
               if (skipped.length) { console.log('\nSkipped (potential coverage gaps):'); skipped.forEach(s=>console.log(' -', s)); }
-            " >> $GITHUB_STEP_SUMMARY || true
+            " 2>&1 | tee -a $GITHUB_STEP_SUMMARY || true
+            echo '```' >> $GITHUB_STEP_SUMMARY
           fi
 
       - name: Upload Playwright HTML report

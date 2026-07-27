@@ -3,22 +3,20 @@
 // ABOUTME: `sb-<ref>-auth-token` key the Supabase JS v2 client actually writes.
 import type { Page } from '@playwright/test';
 
-const BASE = process.env.E2E_BASE_URL ?? 'http://localhost:8080';
-const EMAIL =
-  process.env.E2E_MEMBER_EMAIL ??
-  process.env.E2E_TEST_EMAIL ??
-  'e2e-member@insightscollective.org';
-const PASSWORD =
-  process.env.E2E_MEMBER_PASSWORD ??
-  process.env.E2E_TEST_PASSWORD ??
-  'TestPass123!';
+const BASE = process.env.E2E_BASE_URL || 'http://localhost:8080';
 
+/**
+ * Ensures the member session is live in the page.
+ *
+ * Every caller runs under the chromium-member project, whose `storageState` is
+ * the session global-setup already established — so there is nothing to log in
+ * to. This used to drive the real /login form on every test, which was pure
+ * redundant work and could only add failure surface: a slow or failed login
+ * left the page on /login and every later locator timed out. Loading the app
+ * is enough to hydrate the stored session.
+ */
 export async function signInMember(page: Page): Promise<void> {
-  await page.goto(`${BASE}/login`, { waitUntil: 'domcontentloaded' });
-  await page.fill('input[type="email"]', EMAIL);
-  await page.fill('input[type="password"]', PASSWORD);
-  await page.locator('form button[type="submit"]').first().click();
-  await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 20_000 });
+  await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
   await page.waitForLoadState('networkidle').catch(() => {});
 }
 

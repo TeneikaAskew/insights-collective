@@ -2,17 +2,27 @@
 import { BlogPost, BlogFormData, BlogCategory, BlogAnalytics } from '@/types/blog';
 import { supabase } from '@/integrations/supabase/client';
 import { createLogger } from '@/utils/logger';
+import { sanitizeHTML } from '@/utils/sanitize';
 
 const logger = createLogger('blogService');
 
-// Get all blog posts with real data from Supabase
-export const getAllBlogPosts = async (): Promise<BlogPost[]> => {
+/**
+ * Get blog posts from Supabase.
+ *
+ * @param options.publishedOnly Restrict to `status = 'published'` in the query.
+ *   The public blog passes this so its correctness does not depend on RLS alone
+ *   (defense in depth), and so drafts are never shipped to the browser of an
+ *   author or admin who happens to be browsing the public listing.
+ */
+export const getAllBlogPosts = async (
+  options: { publishedOnly?: boolean } = {},
+): Promise<BlogPost[]> => {
   try {
     // NOTE: the only FK on blog_posts is fk_blog_posts_category; there is no
     // FK to profiles, so the author names are resolved with a second query.
     // The previous hints (blog_posts_category_id_fkey / blog_posts_author_id_fkey)
     // did not exist and made every fetch fail with PGRST200.
-    const { data, error } = await supabase
+    let query = supabase
       .from('blog_posts')
       .select(`
         *,
@@ -20,6 +30,12 @@ export const getAllBlogPosts = async (): Promise<BlogPost[]> => {
         blog_post_tags(tag_name)
       `)
       .order('created_at', { ascending: false });
+
+    if (options.publishedOnly) {
+      query = query.eq('status', 'published');
+    }
+
+    const { data, error } = await query;
 
     if (error) throw error;
 
@@ -174,8 +190,12 @@ export const createBlogPost = async (blogPost: BlogFormData): Promise<BlogPost |
       categoryId = categoryData?.id ?? null;
     }
 
+    // Sanitize HTML on write so stored content is clean regardless of how it is
+    // later rendered (defense in depth beyond render-time sanitization).
+    const sanitizedContent = sanitizeHTML(blogPost.content || '');
+
     // Calculate read time
-    const readTime = calculateReadTime(blogPost.content);
+    const readTime = calculateReadTime(sanitizedContent);
 
     // Set published_at if status is published
     const publishedAt = blogPost.status === 'published' ? new Date().toISOString() : null;
@@ -185,7 +205,7 @@ export const createBlogPost = async (blogPost: BlogFormData): Promise<BlogPost |
       .from('blog_posts')
       .insert({
         title: blogPost.title,
-        content: blogPost.content,
+        content: sanitizedContent,
         excerpt: blogPost.excerpt,
         slug: blogPost.slug,
         author_id: user.id,
@@ -275,8 +295,11 @@ export const updateBlogPost = async (slug: string, blogPost: BlogFormData): Prom
       categoryId = categoryData?.id ?? null;
     }
 
+    // Sanitize HTML on write (see createBlogPost).
+    const sanitizedContent = sanitizeHTML(blogPost.content || '');
+
     // Calculate read time
-    const readTime = calculateReadTime(blogPost.content);
+    const readTime = calculateReadTime(sanitizedContent);
 
     // Set published_at if status changed to published
     let publishedAt = undefined;
@@ -287,7 +310,7 @@ export const updateBlogPost = async (slug: string, blogPost: BlogFormData): Prom
     // Update blog post
     const updateData: any = {
       title: blogPost.title,
-      content: blogPost.content,
+      content: sanitizedContent,
       excerpt: blogPost.excerpt,
       slug: blogPost.slug,
       image_url: blogPost.imageUrl,
@@ -429,25 +452,17 @@ export const recordBlogPostView = async (postId: string, slug: string) => {
       logger.warn('Failed to record blog post view (non-critical):', error);
     }
 
-    // Update view count on the post. The previous implementation called a
-    // non-existent 'increment' RPC, so view_count was never written. A
-    // read-then-write is not atomic but it is real; failures stay fail-quiet
-    // because view counts are telemetry.
-    const { data: current, error: readError } = await supabase
-      .from('blog_posts')
-      .select('view_count')
-      .eq('id', postId)
-      .maybeSingle();
-    if (readError || !current) {
-      logger.warn('Failed to read blog post view count (non-critical):', readError);
-      return;
-    }
-    const { error: writeError } = await supabase
-      .from('blog_posts')
-      .update({ view_count: (current.view_count ?? 0) + 1 })
-      .eq('id', postId);
-    if (writeError) {
-      logger.warn('Failed to increment blog post view count (non-critical):', writeError);
+    // Increment via a SECURITY DEFINER RPC. blog_posts has no UPDATE policy for
+    // anon, so a direct client-side update matched zero rows for the anonymous
+    // visitors who make up most blog traffic — counts never moved. The RPC also
+    // makes the increment atomic, where the previous read-then-write lost
+    // counts under concurrency. Failures stay fail-quiet: this is telemetry and
+    // must never break the read path.
+    const { error: rpcError } = await supabase.rpc('increment_blog_post_view', {
+      p_post_id: postId,
+    });
+    if (rpcError) {
+      logger.warn('Failed to increment blog post view count (non-critical):', rpcError);
     }
   } catch (error) {
     logger.warn('Error recording blog post view (non-critical):', error);
@@ -511,28 +526,6 @@ export const getBlogPostAnalytics = async (
     logger.error('Error fetching blog post analytics:', error);
     throw error;
   }
-};
-
-// Helper functions
-export const getBlogPostsByCategory = async (category: string): Promise<BlogPost[]> => {
-  const posts = await getAllBlogPosts();
-  return posts.filter(post => 
-    post.category?.toLowerCase() === category.toLowerCase()
-  );
-};
-
-export const getBlogPostsByTag = async (tag: string): Promise<BlogPost[]> => {
-  const posts = await getAllBlogPosts();
-  return posts.filter(post => 
-    post.tags && post.tags.some(t => t.toLowerCase() === tag.toLowerCase())
-  );
-};
-
-export const getFeaturedBlogPosts = async (): Promise<BlogPost[]> => {
-  const posts = await getAllBlogPosts();
-  return posts
-    .filter(post => post.featured && post.status === 'published')
-    .slice(0, 5);
 };
 
 // Helper function to calculate read time

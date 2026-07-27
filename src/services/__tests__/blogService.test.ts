@@ -245,5 +245,42 @@ describe('blogService error propagation', () => {
 
       await expect(recordBlogPostView('post-1', 'hello')).resolves.toBeUndefined();
     });
+
+    it('increments the counter through the SECURITY DEFINER RPC, not a direct update', async () => {
+      // blog_posts has no UPDATE policy for anon, so a client-side update
+      // matches zero rows for most readers. The RPC is what actually counts.
+      const views = createBuilder({ data: null, error: null });
+      mockTables({ blog_post_views: views });
+      (mockSupabaseClient.rpc as any).mockResolvedValue({ data: null, error: null });
+
+      await recordBlogPostView('post-1', 'hello');
+
+      expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('increment_blog_post_view', {
+        p_post_id: 'post-1',
+      });
+      // REGRESSION: must not fall back to reading/writing blog_posts directly.
+      expect((mockSupabaseClient.from as any).mock.calls.map((c: any[]) => c[0]))
+        .not.toContain('blog_posts');
+    });
+  });
+
+  describe('getAllBlogPosts publishedOnly', () => {
+    it('filters to published in the query when the public listing asks for it', async () => {
+      const posts = createBuilder({ data: [], error: null });
+      mockTables({ blog_posts: posts });
+
+      await getAllBlogPosts({ publishedOnly: true });
+
+      expect(posts.eq).toHaveBeenCalledWith('status', 'published');
+    });
+
+    it('does not filter by status by default, so admin surfaces still see drafts', async () => {
+      const posts = createBuilder({ data: [], error: null });
+      mockTables({ blog_posts: posts });
+
+      await getAllBlogPosts();
+
+      expect(posts.eq).not.toHaveBeenCalledWith('status', 'published');
+    });
   });
 });

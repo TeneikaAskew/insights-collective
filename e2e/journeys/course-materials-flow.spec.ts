@@ -1,30 +1,21 @@
 // ABOUTME: Genuine end-to-end test for Drive-style course materials. Verifies enrollment-gated
 // ABOUTME: access, folder/file listing for an enrolled student, and download signed-URL generation.
 import { test, expect } from '../fixtures/page-helpers';
-import { TEST_USERS } from '../fixtures/test-data';
 
-const BASE = process.env.E2E_BASE_URL ?? 'http://localhost:8080';
-// Resolved in one place (fixtures/test-data.ts). Reading E2E_TEST_EMAIL here
-// with its own default is how this spec ended up signing in as a different
-// account than global-setup and seed.sql use.
-const EMAIL = TEST_USERS.member.email;
-const PASSWORD = TEST_USERS.member.password;
+// This spec runs under the chromium-member project, whose storageState is the
+// session global-setup already established, so it starts authenticated. Driving
+// the real /login form in beforeEach was redundant work that could only add
+// failure surface: when that login was slow or failed, the page sat on /login
+// and every later locator timed out. Rely on the project session instead.
+
+const BASE = process.env.E2E_BASE_URL || 'http://localhost:8080';
 // Seeded course the test member is enrolled in (Introduction to Data Science).
-const ENROLLED_COURSE = process.env.E2E_ENROLLED_COURSE_ID ?? '660e8400-e29b-41d4-a716-446655440001';
+const ENROLLED_COURSE = process.env.E2E_ENROLLED_COURSE_ID || '660e8400-e29b-41d4-a716-446655440001';
 // A different published course the test member is NOT enrolled in.
-const OTHER_COURSE = process.env.E2E_UNENROLLED_COURSE_ID ?? '660e8400-e29b-41d4-a716-446655440002';
+const OTHER_COURSE = process.env.E2E_UNENROLLED_COURSE_ID || '660e8400-e29b-41d4-a716-446655440002';
 
-async function signIn(page: import('@playwright/test').Page) {
-  await page.goto(`${BASE}/login`, { waitUntil: 'domcontentloaded' });
-  await page.fill('input[type="email"]', EMAIL);
-  await page.fill('input[type="password"]', PASSWORD);
-  await page.locator('form button[type="submit"]').first().click();
-  await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 20_000 });
-}
 
 test.describe('Course materials — enrollment-gated access', () => {
-  test.beforeEach(async ({ page }) => { await signIn(page); });
-
   test('enrolled student can open the materials page and see the tree UI', async ({ page }) => {
     await page.goto(`${BASE}/courses/${ENROLLED_COURSE}/materials`, {
       waitUntil: 'domcontentloaded',

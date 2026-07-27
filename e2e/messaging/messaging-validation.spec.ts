@@ -3,22 +3,14 @@
 import { test, expect } from '../fixtures/page-helpers';
 import { TEST_USERS } from "../fixtures/test-data";
 
-const BASE = process.env.E2E_BASE_URL ?? "http://localhost:8080";
-// Resolved in one place (fixtures/test-data.ts). Reading E2E_TEST_EMAIL here
-// with its own default is how this spec ended up signing in as a different
-// account than global-setup and seed.sql use.
-const EMAIL = TEST_USERS.member.email;
-const PASSWORD = TEST_USERS.member.password;
+// This spec runs under the chromium-member project, whose storageState is the
+// session global-setup already established, so it starts authenticated. Driving
+// the real /login form in beforeEach was redundant work that could only add
+// failure surface: when that login was slow or failed, the page sat on /login
+// and every later locator timed out. Rely on the project session instead.
+const BASE = process.env.E2E_BASE_URL || "http://localhost:8080";
 
 test.describe("Messaging", () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto(`${BASE}/login`, { waitUntil: "domcontentloaded" });
-    await page.fill('input[type="email"]', EMAIL);
-    await page.fill('input[type="password"]', PASSWORD);
-    await page.locator('form button[type="submit"]').first().click();
-    await page.waitForURL((url) => !url.pathname.includes("/login"), { timeout: 15000 });
-  });
-
   test("inbox loads and shows empty state or conversations", async ({ page }) => {
     await page.goto(`${BASE}/messages`, { waitUntil: "domcontentloaded" });
 

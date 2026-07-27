@@ -45,8 +45,8 @@ test.describe('Messaging + notifications — real signed-in RPC gating', () => {
 
   test.beforeAll(async () => {
     // Sign in as the seeded instructor for COURSE_ID (e2e-instructor).
-    const email = process.env.E2E_INSTRUCTOR_EMAIL ?? 'e2e-instructor@insightscollective.org';
-    const password = process.env.E2E_INSTRUCTOR_PASSWORD ?? process.env.E2E_TEST_PASSWORD;
+    const email = process.env.E2E_INSTRUCTOR_EMAIL || 'e2e-instructor@insightscollective.org';
+    const password = process.env.E2E_INSTRUCTOR_PASSWORD || process.env.E2E_TEST_PASSWORD;
     if (!password) throw new Error('E2E_INSTRUCTOR_PASSWORD or E2E_TEST_PASSWORD required');
     instructorToken = await passwordSignIn(email, password);
   });
@@ -102,8 +102,8 @@ test.describe('Messaging + notifications — real signed-in RPC gating', () => {
   });
 
   test('student -> other student in same course: RPC rejects (requires E2E_MEMBER_PASSWORD)', async () => {
-    const memberEmail = process.env.E2E_MEMBER_EMAIL ?? 'e2e-member@insightscollective.org';
-    const memberPassword = process.env.E2E_MEMBER_PASSWORD ?? process.env.E2E_TEST_PASSWORD;
+    const memberEmail = process.env.E2E_MEMBER_EMAIL || 'e2e-member@insightscollective.org';
+    const memberPassword = process.env.E2E_MEMBER_PASSWORD || process.env.E2E_TEST_PASSWORD;
     test.skip(
       !memberEmail || !memberPassword,
       'E2E_MEMBER_EMAIL / E2E_MEMBER_PASSWORD (or E2E_TEST_PASSWORD) not set',
@@ -119,8 +119,8 @@ test.describe('Messaging + notifications — real signed-in RPC gating', () => {
   });
 
   test('announcement insert fans out real notification rows visible to the enrolled recipient', async () => {
-    const memberEmail = process.env.E2E_MEMBER_EMAIL ?? 'e2e-member@insightscollective.org';
-    const memberPassword = process.env.E2E_MEMBER_PASSWORD ?? process.env.E2E_TEST_PASSWORD;
+    const memberEmail = process.env.E2E_MEMBER_EMAIL || 'e2e-member@insightscollective.org';
+    const memberPassword = process.env.E2E_MEMBER_PASSWORD || process.env.E2E_TEST_PASSWORD;
     test.skip(
       !memberEmail || !memberPassword,
       'E2E_MEMBER_EMAIL / E2E_MEMBER_PASSWORD (or E2E_TEST_PASSWORD) not set',

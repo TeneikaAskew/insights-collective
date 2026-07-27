@@ -5,13 +5,11 @@
 
 export const TEST_USERS = {
   member: {
-    // E2E_MEMBER_EMAIL first. Five specs used to read E2E_TEST_EMAIL directly
-    // and default to test@insightscollective.org — a different account from the
-    // one global-setup signs in and seed.sql enrols. Nothing sets
-    // E2E_TEST_EMAIL, so the default always won and those specs ran as a user
-    // with no enrolment, no certificate and no progress, then asserted on
-    // whatever an empty dashboard renders. Kept as a fallback so an environment
-    // that does set it still works.
+    // E2E_MEMBER_* first, which is what CI and global-setup actually set.
+    // These read E2E_TEST_EMAIL before, and nothing sets it — so the default
+    // always won. main has since corrected that default to the right account;
+    // preferring the variable CI populates removes the reliance on a default
+    // being right at all, and keeps E2E_TEST_* working where it is set.
     email:
       process.env.E2E_MEMBER_EMAIL ??
       process.env.E2E_TEST_EMAIL ??
@@ -22,7 +20,7 @@ export const TEST_USERS = {
       'TestPass123!',
   },
   instructor: {
-    email: process.env.E2E_INSTRUCTOR_EMAIL ?? 'e2e-instructor@insightscollective.org',
+    email: process.env.E2E_INSTRUCTOR_EMAIL || 'e2e-instructor@insightscollective.org',
     password: process.env.E2E_INSTRUCTOR_PASSWORD,
   },
   admin: {
@@ -38,11 +36,11 @@ export const TEST_USERS = {
  */
 export const FIXTURE_COURSES = {
   enrolled: {
-    id: process.env.E2E_ENROLLED_COURSE_ID ?? '660e8400-e29b-41d4-a716-446655440001',
+    id: process.env.E2E_ENROLLED_COURSE_ID || '660e8400-e29b-41d4-a716-446655440001',
     title: 'Introduction to Data Science',
   },
   unenrolled: {
-    id: process.env.E2E_UNENROLLED_COURSE_ID ?? '660e8400-e29b-41d4-a716-446655440002',
+    id: process.env.E2E_UNENROLLED_COURSE_ID || '660e8400-e29b-41d4-a716-446655440002',
     title: 'Advanced Machine Learning',
   },
 } as const;
@@ -51,7 +49,7 @@ export const FIXTURE_COURSES = {
  * Helper: base URL for the target under test. Every spec should read this
  * instead of using a raw string.
  */
-export const E2E_BASE_URL = process.env.E2E_BASE_URL ?? 'http://localhost:8080';
+export const E2E_BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:8080';
 
 /**
  * Skip a test with a loud, actionable reason. Prevents "silent pass" specs

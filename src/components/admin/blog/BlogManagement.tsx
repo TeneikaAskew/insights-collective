@@ -28,11 +28,15 @@ import {
   TrendingUp,
   Users,
   Clock,
-  Star
+  Star,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import { BlogCategoriesManager } from '@/components/blog/categories/BlogCategoriesManager';
 import { BlogAnalyticsDashboard } from '@/components/blog/analytics/BlogAnalyticsDashboard';
 import { BlogSettings } from './BlogSettings';
@@ -58,7 +62,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 
 import { createLogger } from '@/utils/logger';
 
-const logger = createLogger('BlogManagementV2');
+const logger = createLogger('BlogManagement');
 
 interface BlogPost {
   id: string;
@@ -77,6 +81,7 @@ interface BlogPost {
   scheduled_at?: string;
   created_at: string;
   updated_at: string;
+  tags: string[];
   author: {
     full_name?: string;
   };
@@ -85,9 +90,16 @@ interface BlogPost {
   };
 }
 
-export function BlogManagementV2() {
+type SortField = 'title' | 'views' | 'date';
+type SortDirection = 'asc' | 'desc';
+
+export function BlogManagement() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
+  // Admins manage the whole blog; instructors manage only what they authored.
+  // This mirrors the RLS policies rather than adding a second access model.
+  const isAdmin = !!user?.roles?.includes('admin');
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('posts');
@@ -96,6 +108,8 @@ export function BlogManagementV2() {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [deleteConfirm, setDeleteConfirm] = useState<BlogPost | null>(null);
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
+  const [sortField, setSortField] = useState<SortField>('date');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [stats, setStats] = useState({
     totalPosts: 0,
     publishedPosts: 0,
@@ -108,7 +122,8 @@ export function BlogManagementV2() {
   useEffect(() => {
     loadPosts();
     loadCategories();
-  }, [statusFilter, categoryFilter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, categoryFilter, isAdmin, user?.id]);
 
   const loadCategories = async () => {
     try {
@@ -127,11 +142,20 @@ export function BlogManagementV2() {
   const loadPosts = async () => {
     setLoading(true);
     try {
-      // Get blog posts with separate queries to avoid relationship issues
-      const { data: postsData, error: postsError } = await supabase
+      // Get blog posts with separate queries to avoid relationship issues.
+      // Instructors see only their own posts: RLS lets them READ every post
+      // (so they can review), but they can only edit what they authored —
+      // listing other people's posts would offer actions that always fail.
+      let postsQuery = supabase
         .from('blog_posts')
         .select('*')
         .order('created_at', { ascending: false });
+
+      if (!isAdmin && user?.id) {
+        postsQuery = postsQuery.eq('author_id', user.id);
+      }
+
+      const { data: postsData, error: postsError } = await postsQuery;
 
       if (postsError) throw postsError;
 
@@ -145,37 +169,68 @@ export function BlogManagementV2() {
         .from('profiles')
         .select('id, first_name, last_name');
 
+      // Tags for every post in one query, grouped client-side — never per-post
+      // (an N+1 here would fire one request per row in the list).
+      const { data: tagsData } = await supabase
+        .from('blog_post_tags')
+        .select('blog_post_id, tag_name');
+
+      // Index authors and categories once instead of scanning per post.
+      const authorsById = new Map((authorsData || []).map((a) => [a.id, a]));
+      const categoriesById = new Map((categoriesData || []).map((c) => [c.id, c]));
+      const tagsByPost = new Map<string, string[]>();
+      for (const row of (tagsData || []) as Array<{ blog_post_id: string; tag_name: string }>) {
+        if (!row.blog_post_id || !row.tag_name) continue;
+        const existing = tagsByPost.get(row.blog_post_id);
+        if (existing) existing.push(row.tag_name);
+        else tagsByPost.set(row.blog_post_id, [row.tag_name]);
+      }
+
       // Combine the data
-      const enrichedPosts = (postsData || []).map(post => ({
-        id: post.id,
-        title: post.title,
-        slug: post.slug,
-        content: post.content,
-        excerpt: post.excerpt,
-        status: post.status,
-        author_id: post.author_id,
-        category_id: post.category_id,
-        views_count: post.view_count || 0,
-        likes_count: 0, // This field doesn't exist yet
-        reading_time: post.read_time,
-        is_featured: post.featured,
-        published_at: post.published_at,
-        scheduled_at: null, // This field doesn't exist yet
-        created_at: post.created_at,
-        updated_at: post.updated_at,
-        author: {
-          full_name: authorsData?.find(a => a.id === post.author_id)
-            ? `${authorsData.find(a => a.id === post.author_id)?.first_name || ''} ${authorsData.find(a => a.id === post.author_id)?.last_name || ''}`.trim()
-            : ''
-        },
-        category: categoriesData?.find(c => c.id === post.category_id) 
-          ? { name: categoriesData.find(c => c.id === post.category_id)?.name || '' }
-          : undefined
-      }));
+      const enrichedPosts = (postsData || []).map(post => {
+        const author = authorsById.get(post.author_id);
+        const category = categoriesById.get(post.category_id);
+        return {
+          id: post.id,
+          title: post.title,
+          slug: post.slug,
+          content: post.content,
+          excerpt: post.excerpt,
+          status: post.status,
+          author_id: post.author_id,
+          category_id: post.category_id,
+          views_count: post.view_count || 0,
+          likes_count: post.likes_count || 0,
+          reading_time: post.read_time,
+          is_featured: post.featured,
+          published_at: post.published_at,
+          scheduled_at: post.scheduled_at ?? null,
+          created_at: post.created_at,
+          updated_at: post.updated_at,
+          tags: tagsByPost.get(post.id) || [],
+          author: {
+            full_name: author
+              ? `${author.first_name || ''} ${author.last_name || ''}`.trim()
+              : '',
+          },
+          category: category ? { name: category.name || '' } : undefined,
+        };
+      });
 
       // Apply filters
+      // A post is "scheduled" when it has a future scheduled_at (there is no
+      // 'scheduled' value in the status CHECK constraint).
+      const nowIso = new Date().toISOString();
+      const isScheduled = (p: { scheduled_at?: string | null }) =>
+        !!p.scheduled_at && p.scheduled_at > nowIso;
+
       let filteredPosts = enrichedPosts;
-      if (statusFilter !== 'all') {
+      if (statusFilter === 'scheduled') {
+        filteredPosts = filteredPosts.filter(isScheduled);
+      } else if (statusFilter === 'featured') {
+        // "Featured" is a flag, not a status value — filter on the flag.
+        filteredPosts = filteredPosts.filter(p => p.is_featured);
+      } else if (statusFilter !== 'all') {
         filteredPosts = filteredPosts.filter(p => p.status === statusFilter);
       }
       if (categoryFilter !== 'all') {
@@ -188,7 +243,7 @@ export function BlogManagementV2() {
       const totalPosts = enrichedPosts.length;
       const publishedPosts = enrichedPosts.filter(p => p.status === 'published').length;
       const draftPosts = enrichedPosts.filter(p => p.status === 'draft').length;
-      const scheduledPosts = enrichedPosts.filter(p => p.status === 'scheduled').length;
+      const scheduledPosts = enrichedPosts.filter(isScheduled).length;
       const totalViews = enrichedPosts.reduce((sum, p) => sum + (p.views_count || 0), 0);
       const totalLikes = enrichedPosts.reduce((sum, p) => sum + (p.likes_count || 0), 0);
 
@@ -245,20 +300,39 @@ export function BlogManagementV2() {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) throw new Error('User not authenticated');
 
-      const { error } = await supabase
+      // A duplicate needs its own slug — slug is UNIQUE, and the original's
+      // would collide. Suffix with a short timestamp for a stable unique value.
+      const copySlug = `${post.slug}-copy-${Date.now().toString(36)}`;
+
+      const { data: newPost, error } = await supabase
         .from('blog_posts')
         .insert({
           title: `${post.title} (Copy)`,
+          slug: copySlug,
           content: post.content || '',
           excerpt: post.excerpt,
           status: 'draft',
-          author_id: userData.user.id,
+          // Authorship follows the original author, not whoever clicked
+          // Duplicate. RLS still permits the insert: admins may write any
+          // author_id, and an instructor duplicating their own post is
+          // unaffected.
+          author_id: post.author_id || userData.user.id,
           category_id: post.category_id,
           read_time: post.reading_time,
           featured: false,
-        });
+        })
+        .select('id')
+        .single();
 
       if (error) throw error;
+
+      // Carry the tags over — a copy without them silently loses metadata.
+      if (newPost && post.tags.length > 0) {
+        const { error: tagError } = await supabase
+          .from('blog_post_tags')
+          .insert(post.tags.map(tag_name => ({ blog_post_id: newPost.id, tag_name })));
+        if (tagError) throw tagError;
+      }
 
       toast({
         title: 'Success',
@@ -289,14 +363,34 @@ export function BlogManagementV2() {
     }
   };
 
-  const filteredPosts = posts.filter(post => {
-    const searchLower = searchQuery.toLowerCase();
-    return (
-      post.title.toLowerCase().includes(searchLower) ||
-      post.excerpt?.toLowerCase().includes(searchLower) ||
-      post.author.full_name?.toLowerCase().includes(searchLower)
-    );
-  });
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(d => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      // Titles read best A→Z; numbers and dates read best largest/newest first.
+      setSortDirection(field === 'title' ? 'asc' : 'desc');
+    }
+  };
+
+  const postDate = (post: BlogPost) =>
+    new Date(post.published_at || post.created_at).getTime();
+
+  const filteredPosts = posts
+    .filter(post => {
+      const searchLower = searchQuery.toLowerCase();
+      return (
+        post.title.toLowerCase().includes(searchLower) ||
+        post.excerpt?.toLowerCase().includes(searchLower) ||
+        post.author.full_name?.toLowerCase().includes(searchLower)
+      );
+    })
+    .sort((a, b) => {
+      const dir = sortDirection === 'asc' ? 1 : -1;
+      if (sortField === 'title') return a.title.localeCompare(b.title) * dir;
+      if (sortField === 'views') return ((a.views_count || 0) - (b.views_count || 0)) * dir;
+      return (postDate(a) - postDate(b)) * dir;
+    });
 
   return (
     <div className="space-y-6">
@@ -379,18 +473,25 @@ export function BlogManagementV2() {
             <FileText className="h-4 w-4 mr-2" />
             Posts
           </TabsTrigger>
-          <TabsTrigger value="categories">
-            <FolderTree className="h-4 w-4 mr-2" />
-            Categories
-          </TabsTrigger>
+          {/* Categories and Settings write to blog_categories / blog_settings,
+              which RLS restricts to admins. Rendering them for an instructor
+              would show controls whose every save fails, so hide them. */}
+          {isAdmin && (
+            <TabsTrigger value="categories">
+              <FolderTree className="h-4 w-4 mr-2" />
+              Categories
+            </TabsTrigger>
+          )}
           <TabsTrigger value="analytics">
             <BarChart3 className="h-4 w-4 mr-2" />
             Analytics
           </TabsTrigger>
-          <TabsTrigger value="settings">
-            <Settings className="h-4 w-4 mr-2" />
-            Settings
-          </TabsTrigger>
+          {isAdmin && (
+            <TabsTrigger value="settings">
+              <Settings className="h-4 w-4 mr-2" />
+              Settings
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="posts" className="space-y-4">
@@ -416,6 +517,7 @@ export function BlogManagementV2() {
                     <SelectItem value="published">Published</SelectItem>
                     <SelectItem value="draft">Draft</SelectItem>
                     <SelectItem value="scheduled">Scheduled</SelectItem>
+                    <SelectItem value="featured">Featured</SelectItem>
                   </SelectContent>
                 </Select>
                 <Select value={categoryFilter} onValueChange={setCategoryFilter}>
@@ -431,6 +533,33 @@ export function BlogManagementV2() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="flex items-center gap-2 mt-4">
+                <span className="text-sm text-muted-foreground">Sort by</span>
+                {([
+                  { field: 'title' as SortField, label: 'Title' },
+                  { field: 'views' as SortField, label: 'Views' },
+                  { field: 'date' as SortField, label: 'Date' },
+                ]).map(({ field, label }) => (
+                  <Button
+                    key={field}
+                    variant={sortField === field ? 'secondary' : 'ghost'}
+                    size="sm"
+                    onClick={() => toggleSort(field)}
+                    aria-pressed={sortField === field}
+                  >
+                    {label}
+                    {sortField === field ? (
+                      sortDirection === 'asc' ? (
+                        <ArrowUp className="h-3.5 w-3.5 ml-1.5" />
+                      ) : (
+                        <ArrowDown className="h-3.5 w-3.5 ml-1.5" />
+                      )
+                    ) : (
+                      <ArrowUpDown className="h-3.5 w-3.5 ml-1.5 opacity-40" />
+                    )}
+                  </Button>
+                ))}
               </div>
             </CardContent>
           </Card>
@@ -480,6 +609,20 @@ export function BlogManagementV2() {
                               <p className="text-sm text-muted-foreground line-clamp-2">
                                 {post.excerpt}
                               </p>
+                            )}
+                            {post.tags.length > 0 && (
+                              <div className="flex flex-wrap items-center gap-1">
+                                {post.tags.slice(0, 2).map(tag => (
+                                  <Badge key={tag} variant="outline" className="text-xs">
+                                    {tag}
+                                  </Badge>
+                                ))}
+                                {post.tags.length > 2 && (
+                                  <Badge variant="outline" className="text-xs">
+                                    +{post.tags.length - 2}
+                                  </Badge>
+                                )}
+                              </div>
                             )}
                             <div className="flex items-center gap-4 text-sm text-muted-foreground">
                               <span>{post.author.full_name}</span>
@@ -555,17 +698,21 @@ export function BlogManagementV2() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="categories">
-          <BlogCategoriesManager />
-        </TabsContent>
+        {isAdmin && (
+          <TabsContent value="categories">
+            <BlogCategoriesManager />
+          </TabsContent>
+        )}
 
         <TabsContent value="analytics">
           <BlogAnalyticsDashboard />
         </TabsContent>
 
-        <TabsContent value="settings">
-          <BlogSettings />
-        </TabsContent>
+        {isAdmin && (
+          <TabsContent value="settings">
+            <BlogSettings />
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* Delete Confirmation */}

@@ -53,13 +53,13 @@ async function insertMinimal(
 test.describe.configure({ mode: 'serial' });
 test.describe('Smoke — instructor course creation through student progress', () => {
   const password =
-    process.env.E2E_TEST_PASSWORD ??
-    process.env.E2E_INSTRUCTOR_PASSWORD ??
+    process.env.E2E_TEST_PASSWORD ||
+    process.env.E2E_INSTRUCTOR_PASSWORD ||
     process.env.E2E_MEMBER_PASSWORD;
   const instructorEmail =
-    process.env.E2E_INSTRUCTOR_EMAIL ?? 'e2e-instructor@insightscollective.org';
+    process.env.E2E_INSTRUCTOR_EMAIL || 'e2e-instructor@insightscollective.org';
   const studentEmail =
-    process.env.E2E_MEMBER_EMAIL ?? 'e2e-member@insightscollective.org';
+    process.env.E2E_MEMBER_EMAIL || 'e2e-member@insightscollective.org';
 
   const suffix = Date.now().toString(36);
   const state = {

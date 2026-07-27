@@ -21,6 +21,7 @@ import {
   Users,
 } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
+import { downloadCsv } from '@/utils/csv';
 import type { Course } from '@/types/course';
 
 type Row = {
@@ -58,16 +59,12 @@ export function CourseProgressDashboard({ courses }: Props) {
       if (!courses.length) { setRows([]); setLoading(false); return; }
       const ids = courses.map((c) => c.id);
 
-      const [enrollRes, itemsRes, progRes, certRes] = await Promise.all([
+      const [enrollRes, itemsRes, certRes] = await Promise.all([
+        // completion_status, not progress: enrollments has no `progress` column,
+        // so this select returned 42703 and the dashboard showed zeros for every
+        // course. Confirmed against the live schema by the query gate.
         supabase.from('enrollments').select('course_id, user_id, completion_status').in('course_id', ids),
         supabase.from('content_items').select('id, module_id, modules!inner(course_id)').in('modules.course_id', ids),
-        // content_item_progressions has workflow_state, not completed_at, and
-        // enrollments has completion_status, not progress. Both selects returned
-        // 42703, so this dashboard has been showing zeros for every course.
-        // 'read' and 'completed' both count as done — the same predicate
-        // CourseProgressOverview, ModuleProgressCard and StudentProgressAnalytics
-        // already use.
-        supabase.from('content_item_progressions').select('user_id, content_item_id, workflow_state'),
         supabase.from('certificates').select('course_id').in('course_id', ids),
       ]);
 
@@ -75,8 +72,27 @@ export function CourseProgressDashboard({ courses }: Props) {
 
       const enrollments = enrollRes.data ?? [];
       const items = (itemsRes.data ?? []) as any[];
-      const progressions = progRes.data ?? [];
       const certs = certRes.data ?? [];
+
+      // Fetch progressions only for THIS course set's content items. The
+      // previous query selected the entire content_item_progressions table and
+      // filtered client-side, which does not scale. Chunk the id list to keep
+      // each request URL within limits.
+      const itemIds = items.map((it) => it.id);
+      const progressions: any[] = [];
+      const CHUNK = 200;
+      for (let i = 0; i < itemIds.length; i += CHUNK) {
+        const chunk = itemIds.slice(i, i + CHUNK);
+        const { data } = await supabase
+          .from('content_item_progressions')
+          // workflow_state, not completed_at — same 42703 as above. 'read' and
+          // 'completed' both count as done, matching the predicate
+          // CourseProgressOverview and StudentProgressAnalytics already use.
+          .select('user_id, content_item_id, workflow_state')
+          .in('content_item_id', chunk);
+        if (!alive) return;
+        if (data) progressions.push(...data);
+      }
 
       const itemsByCourse: Record<string, Set<string>> = {};
       for (const it of items) {
@@ -108,7 +124,7 @@ export function CourseProgressDashboard({ courses }: Props) {
         let sumPct = 0;
         for (const e of enrolled) {
           const done = completedPerUserCourse[`${e.user_id}::${c.id}`]?.size ?? 0;
-          const pct = total > 0 ? Math.round((done / total) * 100) : (e.completion_status ?? 0);
+          const pct = total > 0 ? Math.round((done / total) * 100) : (e.completion_status === 'completed' ? 100 : 0);
           sumPct += pct;
           if (total > 0 && done >= total) completedUsers += 1;
         }
@@ -189,19 +205,11 @@ export function CourseProgressDashboard({ courses }: Props) {
 
   const exportCsv = () => {
     const header = ['Course', 'Category', 'Status', 'Enrolled', 'Completed', 'Avg progress %', 'Certificates issued'];
-    const lines = [header.join(',')];
-    for (const r of filtered) {
-      const cells = [r.title, r.category ?? '', r.published ? 'Published' : 'Draft', r.enrolled, r.completed, r.avgProgress, r.certificates]
-        .map((v) => `"${String(v).replace(/"/g, '""')}"`);
-      lines.push(cells.join(','));
-    }
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `course-progress-${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(a); a.click(); a.remove();
-    URL.revokeObjectURL(url);
+    const rows = filtered.map((r) => [
+      r.title, r.category ?? '', r.published ? 'Published' : 'Draft',
+      r.enrolled, r.completed, r.avgProgress, r.certificates,
+    ]);
+    downloadCsv(`course-progress-${new Date().toISOString().slice(0, 10)}.csv`, header, rows);
   };
 
   if (loading) {

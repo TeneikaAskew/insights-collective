@@ -162,6 +162,7 @@ export default defineConfig({
         '**/courses/course-question-banks.spec.ts',
         '**/assignments/grading-interface.spec.ts',
         '**/journeys/grading-workflow-flow.spec.ts',
+        '**/instructor/**',
       ],
     },
     // Chromium — admin role
@@ -189,6 +190,8 @@ export default defineConfig({
         '**/courses/course-question-banks.spec.ts',
         '**/assignments/grading-interface.spec.ts',
         '**/journeys/grading-workflow-flow.spec.ts',
+        // Specs that are inherently instructor-role live under e2e/instructor/.
+        '**/instructor/**',
       ],
     },
     // Unauthenticated — auth flows, landing, public pages
