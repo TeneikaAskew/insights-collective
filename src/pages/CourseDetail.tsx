@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { htmlToPlainText } from '@/utils/htmlToPlainText';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
 import { CourseLayout } from '@/components/course/CourseLayout';
@@ -1247,7 +1248,7 @@ const CourseDetail = () => {
                               <h3 className="font-semibold text-neutral-900 truncate">{m.title}</h3>
                               {m.description && (
                                 <p className="mt-1 text-sm text-neutral-600 line-clamp-2">
-                                  {String(m.description).replace(/<[^>]+>/g, '').trim()}
+                                  {htmlToPlainText(String(m.description))}
                                 </p>
                               )}
                             </div>
@@ -1325,7 +1326,7 @@ const CourseDetail = () => {
                                 <h3 className="font-semibold text-neutral-900 truncate">{m.title}</h3>
                                 {m.description && (
                                   <p className="mt-1 text-sm text-neutral-600 line-clamp-2">
-                                    {String(m.description).replace(/<[^>]+>/g, '').trim()}
+                                    {htmlToPlainText(String(m.description))}
                                   </p>
                                 )}
                               </div>

@@ -248,7 +248,12 @@ const SurveyField: React.FC<SurveyFieldProps> = ({ field, fieldName, defaultValu
             break;
           case 'url':
             rules.pattern = {
-              value: /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w.-]*)*\/?$/,
+              // De-nested from ([/\w.-]*)* — the (X*)* shape backtracks
+              // exponentially (CodeQL js/redos): 30 non-matching characters
+              // measured 14s in Node before this change; a respondent typing
+              // a non-URL froze the tab. Same accept/reject behaviour, one
+              // linear quantifier.
+              value: /^(https?:\/\/)?[\da-z.-]+\.[a-z.]{2,6}[/\w.-]*$/,
               message: field.validation.message || "Please enter a valid URL"
             };
             break;

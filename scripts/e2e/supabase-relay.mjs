@@ -71,9 +71,17 @@ function rewriteBody(buf, contentType, relayOrigin) {
   return Buffer.from(text.split(TARGET).join(relayOrigin), 'utf8');
 }
 
-/** Request paths reach the log verbatim; strip control characters so a crafted one cannot forge log lines. */
+/**
+ * Make an attacker-influenced value safe to log. JSON.stringify escapes every
+ * control character (a newline becomes the two characters \n), so a crafted
+ * request path cannot forge log lines — and unlike the previous
+ * strip-control-chars replace, it is an escaping step CodeQL recognises as a
+ * log-injection sanitiser (js/log-injection was reported on all three call
+ * sites despite the strip). The quotes around the value are a feature: they
+ * make the logged boundary unambiguous.
+ */
 function safe(value, max = 90) {
-  return String(value ?? '').replace(/[\u0000-\u001f\u007f]/g, '?').slice(0, max);
+  return JSON.stringify(String(value ?? '').slice(0, max));
 }
 
 async function readBody(req) {

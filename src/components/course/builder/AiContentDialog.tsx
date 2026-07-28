@@ -3,6 +3,7 @@
 // ABOUTME: then Insert or Replace into the editor.
 
 import { useEffect, useRef, useState } from 'react';
+import { htmlToPlainText } from '@/utils/htmlToPlainText';
 import {
   Dialog,
   DialogContent,
@@ -169,7 +170,7 @@ export function AiContentDialog({
     });
   }
 
-  const hasExisting = Boolean(existingContent && existingContent.replace(/<[^>]+>/g, '').trim());
+  const hasExisting = Boolean(existingContent && htmlToPlainText(existingContent));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

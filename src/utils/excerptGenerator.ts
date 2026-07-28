@@ -1,6 +1,8 @@
 // ABOUTME: Utility functions for automatically generating excerpts from blog post content
 // ABOUTME: Provides smart excerpt generation with sentence boundary detection and content cleaning
 
+import { htmlToPlainText } from './htmlToPlainText';
+
 /**
  * Generates an excerpt from HTML or markdown content
  * @param content - The full blog post content (HTML or markdown)
@@ -17,12 +19,11 @@ export function generateExcerpt(
     return '';
   }
 
-  // Remove HTML tags and decode HTML entities
-  const cleanContent = content
-    .replace(/<[^>]*>/g, '') // Remove HTML tags
-    .replace(/&[a-zA-Z0-9#]+;/g, ' ') // Remove HTML entities
-    .replace(/\s+/g, ' ') // Normalize whitespace
-    .trim();
+  // Parse rather than regex-strip: htmlToPlainText uses DOMParser, which
+  // handles nested/malformed tags correctly and decodes entities to their
+  // characters instead of deleting them (the old regex turned "R&amp;D" into
+  // "R D"). Whitespace normalisation happens inside the util.
+  const cleanContent = htmlToPlainText(content);
 
   if (!cleanContent) {
     return '';
