@@ -254,7 +254,7 @@ function PortfolioExplorer() {
               </CardDescription>
             </CardHeader>
             <CardContent className="flex justify-center">
-              <Button asChild className="bg-[#9b87f5] hover:bg-[#8B5CF6]">
+              <Button asChild>
                 <a href="/login">Sign In</a>
               </Button>
             </CardContent>
@@ -280,25 +280,25 @@ function PortfolioExplorer() {
           <div className="w-full">
             <TabsList className="grid grid-cols-2 sm:grid-cols-4 gap-1 sm:gap-2 mb-8 w-full max-w-4xl mx-auto h-auto p-2">
               <TabsTrigger value="discover" className="relative flex-col sm:flex-row gap-1 sm:gap-2 py-2 sm:py-1.5">
-                <div className={`${profileCompleted ? 'bg-green-500' : 'bg-[#9b87f5]'} rounded-full w-5 h-5 sm:w-6 sm:h-6 text-white flex items-center justify-center text-xs flex-shrink-0`}>
+                <div className={`${profileCompleted ? 'bg-ss-good' : 'bg-primary'} rounded-full w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground flex items-center justify-center text-xs flex-shrink-0`}>
                   {profileCompleted ? <Check className="h-3 w-3 sm:h-4 sm:w-4" /> : '1'}
                 </div>
                 <span className="text-xs sm:text-sm">Discover You</span>
               </TabsTrigger>
               <TabsTrigger value="ideas" disabled={!profileCompleted} className="relative flex-col sm:flex-row gap-1 sm:gap-2 py-2 sm:py-1.5">
-                <div className="bg-[#9b87f5] rounded-full w-5 h-5 sm:w-6 sm:h-6 text-white flex items-center justify-center text-xs flex-shrink-0">
+                <div className="bg-primary rounded-full w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground flex items-center justify-center text-xs flex-shrink-0">
                   2
                 </div>
                 <span className="text-xs sm:text-sm">Project Ideas</span>
               </TabsTrigger>
               <TabsTrigger value="tracker" className="relative flex-col sm:flex-row gap-1 sm:gap-2 py-2 sm:py-1.5">
-                <div className="bg-[#9b87f5] rounded-full w-5 h-5 sm:w-6 sm:h-6 text-white flex items-center justify-center text-xs flex-shrink-0">
+                <div className="bg-primary rounded-full w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground flex items-center justify-center text-xs flex-shrink-0">
                   3
                 </div>
                 <span className="text-xs sm:text-sm">Project Tracker</span>
               </TabsTrigger>
               <TabsTrigger value="pages" className="relative flex-col sm:flex-row gap-1 sm:gap-2 py-2 sm:py-1.5">
-                <div className="bg-[#9b87f5] rounded-full w-5 h-5 sm:w-6 sm:h-6 text-white flex items-center justify-center text-xs flex-shrink-0">
+                <div className="bg-primary rounded-full w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground flex items-center justify-center text-xs flex-shrink-0">
                   4
                 </div>
                 <span className="text-xs sm:text-sm">Portfolio Pages</span>
@@ -325,48 +325,48 @@ function PortfolioExplorer() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="flex gap-3">
-                      <div className="bg-[#9b87f5]/10 text-[#9b87f5] rounded-full w-6 h-6 flex items-center justify-center text-xs flex-shrink-0 mt-0.5">
+                      <div className="bg-ss-lav-chip text-ss-lav-deep rounded-full w-6 h-6 flex items-center justify-center text-xs flex-shrink-0 mt-0.5">
                         1
                       </div>
                       <div>
                         <h3 className="font-medium text-sm">Profile Analysis</h3>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-muted-foreground">
                           We analyze your background, resume, and interests to identify optimal career paths.
                         </p>
                       </div>
                     </div>
                     
                     <div className="flex gap-3">
-                      <div className="bg-[#9b87f5]/10 text-[#9b87f5] rounded-full w-6 h-6 flex items-center justify-center text-xs flex-shrink-0 mt-0.5">
+                      <div className="bg-ss-lav-chip text-ss-lav-deep rounded-full w-6 h-6 flex items-center justify-center text-xs flex-shrink-0 mt-0.5">
                         2
                       </div>
                       <div>
                         <h3 className="font-medium text-sm">Project Recommendations</h3>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-muted-foreground">
                           Discover tailored portfolio project ideas aligned with your target roles.
                         </p>
                       </div>
                     </div>
                     
                     <div className="flex gap-3">
-                      <div className="bg-[#9b87f5]/10 text-[#9b87f5] rounded-full w-6 h-6 flex items-center justify-center text-xs flex-shrink-0 mt-0.5">
+                      <div className="bg-ss-lav-chip text-ss-lav-deep rounded-full w-6 h-6 flex items-center justify-center text-xs flex-shrink-0 mt-0.5">
                         3
                       </div>
                       <div>
                         <h3 className="font-medium text-sm">Progress Tracking</h3>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-muted-foreground">
                           Manage your portfolio projects from idea to completion with our visual tracker.
                         </p>
                       </div>
                     </div>
                     
                     <div className="flex gap-3">
-                      <div className="bg-[#9b87f5]/10 text-[#9b87f5] rounded-full w-6 h-6 flex items-center justify-center text-xs flex-shrink-0 mt-0.5">
+                      <div className="bg-ss-lav-chip text-ss-lav-deep rounded-full w-6 h-6 flex items-center justify-center text-xs flex-shrink-0 mt-0.5">
                         4
                       </div>
                       <div>
                         <h3 className="font-medium text-sm">Portfolio Showcase</h3>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-muted-foreground">
                           Create a professional portfolio page to showcase your completed projects.
                         </p>
                       </div>
@@ -380,19 +380,19 @@ function PortfolioExplorer() {
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="flex items-start gap-2">
-                      <WandSparkles className="h-4 w-4 text-[#9b87f5] mt-0.5" />
+                      <WandSparkles className="h-4 w-4 text-ss-lav-deep mt-0.5" />
                       <p className="text-sm">Career-aligned portfolio project ideas</p>
                     </div>
                     <div className="flex items-start gap-2">
-                      <WandSparkles className="h-4 w-4 text-[#9b87f5] mt-0.5" />
+                      <WandSparkles className="h-4 w-4 text-ss-lav-deep mt-0.5" />
                       <p className="text-sm">Skill gap analysis with learning resources</p>
                     </div>
                     <div className="flex items-start gap-2">
-                      <WandSparkles className="h-4 w-4 text-[#9b87f5] mt-0.5" />
+                      <WandSparkles className="h-4 w-4 text-ss-lav-deep mt-0.5" />
                       <p className="text-sm">Visual project tracker to manage your portfolio</p>
                     </div>
                     <div className="flex items-start gap-2">
-                      <WandSparkles className="h-4 w-4 text-[#9b87f5] mt-0.5" />
+                      <WandSparkles className="h-4 w-4 text-ss-lav-deep mt-0.5" />
                       <p className="text-sm">Shareable portfolio pages to showcase your work</p>
                     </div>
                   </CardContent>
@@ -404,8 +404,8 @@ function PortfolioExplorer() {
           <TabsContent value="ideas">
             {generatePortfolioIdeas.isPending ? (
               <div className="flex flex-col items-center justify-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#9b87f5]"></div>
-                <p className="mt-4 text-gray-500">Analyzing your profile and generating project ideas...</p>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                <p className="mt-4 text-muted-foreground">Analyzing your profile and generating project ideas...</p>
               </div>
             ) : portfolioData ? (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -441,8 +441,8 @@ function PortfolioExplorer() {
             ) : recommendationsLoading ? (
               // Show loading indicator while fetching previous recommendations
               <div className="flex flex-col items-center justify-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#9b87f5]"></div>
-                <p className="mt-4 text-gray-500">Loading your previous portfolio recommendations...</p>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                <p className="mt-4 text-muted-foreground">Loading your previous portfolio recommendations...</p>
               </div>
             ) : previousRecommendations ? (
               // This should handle the case when previousRecommendations exists but hasn't been set to portfolioData yet
@@ -454,7 +454,7 @@ function PortfolioExplorer() {
                       setPortfolioData(previousRecommendations);
                     }
                   }}
-                  className="bg-[#9b87f5] hover:bg-[#8B5CF6] mb-4"
+                  className="mb-4"
                 >
                   Load Your Previous Recommendations
                 </Button>
@@ -472,7 +472,6 @@ function PortfolioExplorer() {
                     <Button 
                       onClick={() => handleQuestionnaireSubmit(savedAnswers)}
                       disabled={generatePortfolioIdeas.isPending}
-                      className="bg-[#9b87f5] hover:bg-[#8B5CF6]"
                     >
                       {generatePortfolioIdeas.isPending ? (
                         <>
@@ -513,8 +512,7 @@ function PortfolioExplorer() {
             
             {portfolioData && (
               <div className="mt-8 flex justify-center">
-                <Button 
-                  className="bg-[#9b87f5] hover:bg-[#8B5CF6]"
+                <Button
                   onClick={() => {
                     setForceDiscoverTab(false); // Reset the force flag when navigating away
                     setActiveTab('tracker');
@@ -534,8 +532,8 @@ function PortfolioExplorer() {
 
             {projectsLoading ? (
               <div className="flex flex-col items-center justify-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#9b87f5]"></div>
-                <p className="mt-4 text-gray-500">Loading your projects...</p>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                <p className="mt-4 text-muted-foreground">Loading your projects...</p>
               </div>
             ) : projectsError ? (
               <Card>

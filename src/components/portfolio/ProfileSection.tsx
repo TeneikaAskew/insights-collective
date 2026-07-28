@@ -195,7 +195,7 @@ export function ProfileSection({ profileData, onUpdate }: ProfileSectionProps) {
           <div>
             <Label htmlFor="avatar-section">Avatar</Label>
             <div className="flex items-start gap-4 mt-2">
-              <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
+              <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center overflow-hidden flex-shrink-0">
                 {profileData.avatar_url ? (
                   <img 
                     src={profileData.avatar_url} 
@@ -203,7 +203,7 @@ export function ProfileSection({ profileData, onUpdate }: ProfileSectionProps) {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <span className="text-gray-500 text-sm">No image</span>
+                  <span className="text-muted-foreground text-sm">No image</span>
                 )}
               </div>
               <div className="flex-1 space-y-3">
@@ -217,7 +217,7 @@ export function ProfileSection({ profileData, onUpdate }: ProfileSectionProps) {
                   />
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-500">or</span>
+                  <span className="text-sm text-muted-foreground">or</span>
                   <input
                     type="file"
                     id="avatar-upload"
@@ -319,7 +319,7 @@ export function ProfileSection({ profileData, onUpdate }: ProfileSectionProps) {
               </div>
             </div>
             {getLocationDisplay() && (
-              <div className="mt-2 p-2 bg-gray-50 rounded text-sm text-gray-600">
+              <div className="mt-2 p-2 bg-muted rounded text-sm text-muted-foreground">
                 Preview: {getLocationDisplay()}
               </div>
             )}
@@ -433,7 +433,7 @@ export function ProfileSection({ profileData, onUpdate }: ProfileSectionProps) {
               />
             ))}
             {(!profileData.experience || profileData.experience.length === 0) && (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-muted-foreground">
                 <p>No experience added yet. Click "Add Experience" to get started.</p>
               </div>
             )}
@@ -500,7 +500,7 @@ export function ProfileSection({ profileData, onUpdate }: ProfileSectionProps) {
               </div>
             ))}
             {(!profileData.education || profileData.education.length === 0) && (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-muted-foreground">
                 <p>No education added yet. Click "Add Education" to get started.</p>
               </div>
             )}

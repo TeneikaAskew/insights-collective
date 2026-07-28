@@ -154,11 +154,11 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
 
   const getStatusColor = (status: ProjectStatus) => {
     switch (status) {
-      case 'Idea': return 'bg-gray-100 text-gray-800';
-      case 'Planned': return 'bg-blue-100 text-blue-800';
-      case 'In Progress': return 'bg-amber-100 text-amber-800';
-      case 'Completed': return 'bg-green-100 text-green-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'Idea': return 'bg-muted text-muted-foreground';
+      case 'Planned': return 'bg-ss-teal-chip text-ss-teal';
+      case 'In Progress': return 'bg-ss-warn-chip text-ss-warn';
+      case 'Completed': return 'bg-ss-good-chip text-ss-good';
+      default: return 'bg-muted text-muted-foreground';
     }
   };
 
@@ -168,7 +168,7 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
       <Card
         ref={setNodeRef}
         style={style}
-        className="bg-white shadow-sm hover:shadow-md transition-shadow"
+        className="bg-card shadow-sm hover:shadow-md transition-shadow"
       >
         <CardContent className="p-4">
           <div className="flex gap-3">
@@ -177,14 +177,14 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
               {...listeners}
               className="cursor-grab hover:cursor-grabbing"
             >
-              <GripVertical className="h-5 w-5 text-gray-400" />
+              <GripVertical className="h-5 w-5 text-muted-foreground" />
             </div>
             <div className="flex-1 min-w-0 space-y-2">
               <div className="flex justify-between items-start gap-2">
                 <h3 className="font-semibold text-lg leading-tight flex-1">{project.title}</h3>
               </div>
               {project.description && (
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-muted-foreground">
                   {truncate(project.description, 100)}
                 </p>
               )}
@@ -192,7 +192,7 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
           </div>
         </CardContent>
         
-        <CardFooter className="p-4 pt-0 border-t bg-gray-50/50">
+        <CardFooter className="p-4 pt-0 border-t bg-muted/50">
           <div className="flex flex-col w-full gap-2">
             <div className="flex justify-between items-center w-full">
               <div className="flex gap-1 flex-shrink-0">
@@ -200,14 +200,14 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
                   size="sm"
                   variant="ghost"
                   onClick={() => setIsDialogOpen(true)}
-                  className="hover:bg-blue-50 hover:text-blue-600"
+                  className="hover:bg-ss-lav-chip hover:text-ss-lav-deep"
                 >
                   <Edit className="h-4 w-4" />
                 </Button>
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                  className="text-ss-bad hover:text-ss-bad hover:bg-ss-bad-chip"
                   onClick={() => setIsDeleteDialogOpen(true)}
                 >
                   <Trash className="h-4 w-4" />
@@ -219,7 +219,7 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
               <Button 
                 size="sm" 
                 variant="outline" 
-                className="text-xs px-2 py-1 h-8 w-full hover:bg-purple-50 hover:text-purple-600 hover:border-purple-200"
+                className="text-xs px-2 py-1 h-8 w-full hover:bg-ss-lav-chip hover:text-ss-lav-deep hover:border-ss-lav"
                 onClick={handleAddToPortfolio}
               >
                 <Plus className="h-3 w-3 mr-1" />
@@ -306,7 +306,7 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
                   onChange={handleSkillsChange}
                   placeholder="React, TypeScript, Node.js, PostgreSQL, AWS"
                 />
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground">
                   Add the main technologies and tools used in this project
                 </p>
               </div>
@@ -361,7 +361,7 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
                   rows={5}
                   placeholder="Implemented user authentication system&#10;Designed responsive UI components&#10;Optimized database queries for 50% faster performance&#10;Deployed to AWS with CI/CD pipeline"
                 />
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground">
                   List the main accomplishments and milestones of this project
                 </p>
               </div>
@@ -370,7 +370,7 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
               <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleUpdateProject} className="bg-blue-600 hover:bg-blue-700">
+              <Button onClick={handleUpdateProject}>
                 Save Changes
               </Button>
             </DialogFooter>
@@ -436,7 +436,7 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
     <Card
       ref={setNodeRef}
       style={style}
-      className="bg-white shadow-sm hover:shadow-md transition-shadow"
+      className="bg-card shadow-sm hover:shadow-md transition-shadow"
     >
       <CardContent className="p-4">
         <div className="flex gap-3">
@@ -445,7 +445,7 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
             {...listeners}
             className="cursor-grab hover:cursor-grabbing"
           >
-            <GripVertical className="h-5 w-5 text-gray-400" />
+            <GripVertical className="h-5 w-5 text-muted-foreground" />
           </div>
           <div className="flex-1 min-w-0 space-y-3">
             <div>
@@ -458,7 +458,7 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
                         <Button 
                           size="sm" 
                           variant="ghost" 
-                          className="h-7 w-7 p-0 hover:bg-blue-50"
+                          className="h-7 w-7 p-0 hover:bg-ss-lav-chip"
                           onClick={() => window.open(formatUrl(project.live_url), '_blank')}
                         >
                           <ExternalLink className="h-3 w-3" />
@@ -468,7 +468,7 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
                         <Button 
                           size="sm" 
                           variant="ghost" 
-                          className="h-7 w-7 p-0 hover:bg-gray-50"
+                          className="h-7 w-7 p-0 hover:bg-muted"
                           onClick={() => window.open(formatUrl(project.github_url), '_blank')}
                         >
                           <Github className="h-3 w-3" />
@@ -484,7 +484,7 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
                 </div>
               </div>
               {project.description && (
-                <p className="text-sm text-gray-600 mt-1">
+                <p className="text-sm text-muted-foreground mt-1">
                   {truncate(project.description, 120)}
                 </p>
               )}
@@ -493,7 +493,7 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
             {/* Tech Stack */}
             {project.required_skills && project.required_skills.length > 0 && (
               <div>
-                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Tech Stack</span>
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Tech Stack</span>
                 <div className="flex flex-wrap gap-1 mt-1">
                   {project.required_skills.slice(0, 4).map((skill, index) => (
                     <Badge key={index} variant="secondary" className="text-xs px-2 py-0.5">
@@ -513,14 +513,14 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
             <div className="grid grid-cols-2 gap-3 text-sm">
               {project.effort_level && (
                 <div>
-                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wide block">Effort</span>
-                  <span className="text-gray-700">{project.effort_level}</span>
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide block">Effort</span>
+                  <span className="text-foreground">{project.effort_level}</span>
                 </div>
               )}
               {project.impact && (
                 <div>
-                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wide block">Impact</span>
-                  <span className="text-gray-700">{truncate(project.impact, 30)}</span>
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide block">Impact</span>
+                  <span className="text-foreground">{truncate(project.impact, 30)}</span>
                 </div>
               )}
             </div>
@@ -528,16 +528,16 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
             {/* Key Achievements */}
             {project.roadmap?.milestones && project.roadmap.milestones.length > 0 && (
               <div>
-                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Key Achievements</span>
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Key Achievements</span>
                 <ul className="mt-1 space-y-1">
                   {project.roadmap.milestones.slice(0, 2).map((milestone, index) => (
-                    <li key={index} className="text-xs text-gray-600 flex items-start gap-1">
-                      <span className="text-green-500 mt-0.5">•</span>
+                    <li key={index} className="text-xs text-muted-foreground flex items-start gap-1">
+                      <span className="text-ss-good mt-0.5">•</span>
                       <span>{truncate(milestone, 50)}</span>
                     </li>
                   ))}
                   {project.roadmap.milestones.length > 2 && (
-                    <li className="text-xs text-gray-500">
+                    <li className="text-xs text-muted-foreground">
                       +{project.roadmap.milestones.length - 2} more achievements
                     </li>
                   )}
@@ -548,7 +548,7 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
             {/* Status Update Dropdown for non-kanban view */}
             {onStatusChange && (
               <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Status:</span>
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Status:</span>
                 <Select value={project.status || ''} onValueChange={handleStatusChange}>
                   <SelectTrigger className="w-32 h-7 text-xs">
                     <SelectValue placeholder="Select status" />
@@ -566,21 +566,21 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
         </div>
       </CardContent>
       
-      <CardFooter className="p-4 pt-0 border-t bg-gray-50/50">
+      <CardFooter className="p-4 pt-0 border-t bg-muted/50">
         <div className="flex justify-between items-center w-full gap-2">
           <div className="flex gap-1 flex-shrink-0">
             <Button
               size="sm"
               variant="ghost"
               onClick={() => setIsDialogOpen(true)}
-              className="hover:bg-blue-50 hover:text-blue-600"
+              className="hover:bg-ss-lav-chip hover:text-ss-lav-deep"
             >
               <Edit className="h-4 w-4" />
             </Button>
             <Button
               size="sm"
               variant="ghost"
-              className="text-red-500 hover:text-red-700 hover:bg-red-50"
+              className="text-ss-bad hover:text-ss-bad hover:bg-ss-bad-chip"
               onClick={() => setIsDeleteDialogOpen(true)}
             >
               <Trash className="h-4 w-4" />
@@ -591,7 +591,7 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
             <Button 
               size="sm" 
               variant="outline" 
-              className="text-xs px-3 py-1 h-8 flex-shrink-0 hover:bg-purple-50 hover:text-purple-600 hover:border-purple-200"
+              className="text-xs px-3 py-1 h-8 flex-shrink-0 hover:bg-ss-lav-chip hover:text-ss-lav-deep hover:border-ss-lav"
               onClick={handleAddToPortfolio}
             >
               <Briefcase className="h-3 w-3 mr-1.5" />
@@ -666,7 +666,7 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
                 onChange={handleSkillsChange}
                 placeholder="React, TypeScript, Node.js, PostgreSQL, AWS"
               />
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-muted-foreground">
                 Add the main technologies and tools used in this project
               </p>
             </div>
@@ -721,7 +721,7 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
                 rows={5}
                 placeholder="Implemented user authentication system&#10;Designed responsive UI components&#10;Optimized database queries for 50% faster performance&#10;Deployed to AWS with CI/CD pipeline"
               />
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-muted-foreground">
                 List the main accomplishments and milestones of this project
               </p>
             </div>
@@ -730,7 +730,7 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleUpdateProject} className="bg-blue-600 hover:bg-blue-700">
+            <Button onClick={handleUpdateProject}>
               Save Changes
             </Button>
           </DialogFooter>

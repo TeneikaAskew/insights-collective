@@ -324,8 +324,8 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
       </div>
 
       {hasUnsavedChanges && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-          <p className="text-amber-800 text-sm">
+        <div className="bg-ss-warn-chip border border-ss-warn rounded-lg p-4">
+          <p className="text-ss-warn text-sm">
             You have unsaved changes. Don't forget to save your work!
           </p>
         </div>
@@ -419,7 +419,7 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
                     className={`cursor-pointer p-4 rounded-lg border-2 transition-all ${
                       theme === themeOption.value
                         ? 'border-primary bg-primary/5'
-                        : 'border-gray-200 hover:border-gray-300'
+                        : 'border-border hover:border-ss-lav'
                     }`}
                     onClick={() => setTheme(themeOption.value)}
                   >

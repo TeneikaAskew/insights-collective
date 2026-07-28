@@ -28,10 +28,10 @@ import { createLogger } from '@/utils/logger';
 const logger = createLogger('KanbanBoard');
 
 const statusColumns: { id: ProjectStatus; title: string; color: string }[] = [
-  { id: 'Idea', title: 'Ideas', color: 'bg-gray-100' },
-  { id: 'Planned', title: 'Planned', color: 'bg-blue-50' },
-  { id: 'In Progress', title: 'In Progress', color: 'bg-amber-50' },
-  { id: 'Completed', title: 'Completed', color: 'bg-green-50' },
+  { id: 'Idea', title: 'Ideas', color: 'bg-muted' },
+  { id: 'Planned', title: 'Planned', color: 'bg-ss-teal-chip' },
+  { id: 'In Progress', title: 'In Progress', color: 'bg-ss-warn-chip' },
+  { id: 'Completed', title: 'Completed', color: 'bg-ss-good-chip' },
 ];
 
 interface KanbanBoardProps {
@@ -54,7 +54,7 @@ function DroppableColumn({
   return (
     <div 
       ref={setNodeRef} 
-      className={`${className} ${isOver ? 'ring-2 ring-blue-400 ring-opacity-50' : ''}`}
+      className={`${className} ${isOver ? 'ring-2 ring-primary ring-opacity-50' : ''}`}
     >
       {children}
     </div>
@@ -163,7 +163,7 @@ export function KanbanBoard({
   return (
     <div className="mt-6">
       <h2 className="text-2xl font-semibold mb-4">Portfolio Tracker</h2>
-      <p className="text-gray-600 mb-6">
+      <p className="text-muted-foreground mb-6">
         Track your portfolio projects from idea to completion. Drag projects between columns to update their status.
       </p>
 
@@ -184,8 +184,8 @@ export function KanbanBoard({
                 className={`rounded-lg p-3 ${column.color} border min-h-[300px] transition-all duration-200`}
               >
                 <div className="flex justify-between items-center mb-3">
-                  <h3 className="font-semibold text-gray-700">{column.title}</h3>
-                  <span className="bg-white text-gray-700 rounded-full px-2 py-0.5 text-xs font-medium">
+                  <h3 className="font-semibold text-foreground">{column.title}</h3>
+                  <span className="bg-card text-foreground rounded-full px-2 py-0.5 text-xs font-medium">
                     {columnProjects.length}
                   </span>
                 </div>
@@ -208,7 +208,7 @@ export function KanbanBoard({
                   </SortableContext>
                   
                   {columnProjects.length === 0 && (
-                    <div className="border border-dashed rounded-lg p-4 text-center text-gray-400 text-sm h-24 flex items-center justify-center">
+                    <div className="border border-dashed rounded-lg p-4 text-center text-muted-foreground text-sm h-24 flex items-center justify-center">
                       Drop projects here
                     </div>
                   )}
@@ -221,9 +221,9 @@ export function KanbanBoard({
         {draggingProject && createPortal(
           <DragOverlay>
             <div className="opacity-80 rotate-3 scale-105">
-              <Card className="p-3 shadow-lg border-2 border-blue-400">
+              <Card className="p-3 shadow-lg border-2 border-primary">
                 <p className="font-medium">{draggingProject.title}</p>
-                <p className="text-sm text-gray-500 mt-1">
+                <p className="text-sm text-muted-foreground mt-1">
                   {draggingProject.description && draggingProject.description.length > 50 
                     ? draggingProject.description.substring(0, 50) + '...' 
                     : draggingProject.description || 'No description'}

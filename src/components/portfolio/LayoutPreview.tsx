@@ -182,8 +182,8 @@ export function LayoutPreview({ layout, isSelected, onSelect }: LayoutPreviewPro
       
       default:
         return (
-          <div className="w-full h-32 bg-gray-100 rounded-md flex items-center justify-center">
-            <span className="text-gray-500 text-sm">Preview</span>
+          <div className="w-full h-32 bg-muted rounded-md flex items-center justify-center">
+            <span className="text-muted-foreground text-sm">Preview</span>
           </div>
         );
     }
@@ -204,16 +204,16 @@ export function LayoutPreview({ layout, isSelected, onSelect }: LayoutPreviewPro
   return (
     <Card 
       className={`relative cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-[1.02] ${
-        isSelected 
-          ? 'ring-2 ring-blue-500 bg-blue-50 shadow-md' 
-          : 'border-gray-200 hover:border-gray-300'
+        isSelected
+          ? 'ring-2 ring-primary bg-ss-lav-chip shadow-md'
+          : 'border-border hover:border-ss-lav'
       }`}
       onClick={onSelect}
     >
       {isSelected && (
         <div className="absolute -top-2 -right-2 z-10">
-          <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
-            <Check className="w-4 h-4 text-white" />
+          <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center">
+            <Check className="w-4 h-4 text-primary-foreground" />
           </div>
         </div>
       )}
@@ -224,8 +224,8 @@ export function LayoutPreview({ layout, isSelected, onSelect }: LayoutPreviewPro
         </div>
         
         <div className="space-y-1">
-          <h3 className="font-semibold text-sm text-gray-900">{getLayoutName()}</h3>
-          <p className="text-xs text-gray-600 leading-relaxed">
+          <h3 className="font-semibold text-sm text-foreground">{getLayoutName()}</h3>
+          <p className="text-xs text-muted-foreground leading-relaxed">
             {layout === 'sidebar' && 'Profile sidebar with project grid layout'}
             {layout === 'hero-timeline' && 'Large hero header with timeline-style projects'}
             {layout === 'grid' && 'Clean project grid layout for easy browsing'}

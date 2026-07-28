@@ -173,7 +173,7 @@ export function PortfolioEditor() {
         <CardContent className="py-10">
           <div className="text-center">
             <h2 className="text-2xl font-bold mb-2">Portfolio page not found</h2>
-            <p className="text-gray-500 mb-6">The portfolio page you're looking for doesn't exist or you don't have permission to view it.</p>
+            <p className="text-muted-foreground mb-6">The portfolio page you're looking for doesn't exist or you don't have permission to view it.</p>
             <Button onClick={() => navigate('/portfolio-explorer')}>
               Back to Portfolio Explorer
             </Button>
@@ -208,7 +208,6 @@ export function PortfolioEditor() {
                 <span>Portfolio Projects</span>
                 <Button 
                   onClick={() => setAddProjectDialogOpen(true)}
-                  className="bg-[#9b87f5] hover:bg-[#8B5CF6]"
                   disabled={availableProjects.length === 0}
                 >
                   <Plus className="h-4 w-4 mr-1" />
@@ -223,19 +222,18 @@ export function PortfolioEditor() {
               {!portfolioPage.projects || portfolioPage.projects.length === 0 ? (
                 <div className="text-center py-12 border border-dashed rounded-md">
                   <h3 className="font-medium text-lg mb-2">No projects added yet</h3>
-                  <p className="text-gray-500 mb-4">
+                  <p className="text-muted-foreground mb-4">
                     Add completed projects to your portfolio to showcase your work.
                   </p>
                   <Button 
                     onClick={() => setAddProjectDialogOpen(true)}
-                    className="bg-[#9b87f5] hover:bg-[#8B5CF6]"
                     disabled={availableProjects.length === 0}
                   >
                     <Plus className="h-4 w-4 mr-1" />
                     Add Project
                   </Button>
                   {availableProjects.length === 0 && (
-                    <p className="text-sm text-amber-600 mt-4">
+                    <p className="text-sm text-ss-warn mt-4">
                       You need to have projects with "Completed" status to add them to your portfolio.
                     </p>
                   )}
@@ -271,7 +269,7 @@ export function PortfolioEditor() {
                                         {...provided.dragHandleProps}
                                         className="mr-3 self-center cursor-grab"
                                       >
-                                        <MoveVertical className="h-5 w-5 text-gray-400" />
+                                        <MoveVertical className="h-5 w-5 text-muted-foreground" />
                                       </div>
                                       <div className="flex-1">
                                         <h3 className="font-medium text-lg">{project.title}</h3>
@@ -289,7 +287,6 @@ export function PortfolioEditor() {
                                               <Button 
                                                 size="sm" 
                                                 onClick={saveCustomDescription}
-                                                className="bg-[#9b87f5] hover:bg-[#8B5CF6]"
                                               >
                                                 <Check className="h-4 w-4 mr-1" />
                                                 Save
@@ -304,7 +301,7 @@ export function PortfolioEditor() {
                                             </div>
                                           </div>
                                         ) : (
-                                          <p className="text-gray-600 mt-1">
+                                          <p className="text-muted-foreground mt-1">
                                             {projectItem.custom_description || project.description || 'No description'}
                                           </p>
                                         )}
@@ -314,7 +311,7 @@ export function PortfolioEditor() {
                                             {project.required_skills.map((skill, i) => (
                                               <span 
                                                 key={i} 
-                                                className="bg-gray-100 text-gray-800 text-xs font-medium px-2 py-0.5 rounded"
+                                                className="bg-muted text-foreground text-xs font-medium px-2 py-0.5 rounded"
                                               >
                                                 {skill}
                                               </span>
@@ -337,7 +334,7 @@ export function PortfolioEditor() {
                                         size="sm"
                                         variant="outline"
                                         onClick={() => handleRemoveProject(project.id)}
-                                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                        className="text-ss-bad hover:text-ss-bad hover:bg-ss-bad-chip"
                                       >
                                         <X className="h-4 w-4" />
                                       </Button>
@@ -376,7 +373,7 @@ export function PortfolioEditor() {
                     return (
                       <div key={projectItem.id} className="border rounded-lg p-4">
                         <h3 className="font-semibold text-lg mb-2">{project.title}</h3>
-                        <p className="text-gray-600 text-sm mb-3">
+                        <p className="text-muted-foreground text-sm mb-3">
                           {projectItem.custom_description || project.description || 'No description'}
                         </p>
                         {project.required_skills && project.required_skills.length > 0 && (
@@ -384,7 +381,7 @@ export function PortfolioEditor() {
                             {project.required_skills.map((skill, i) => (
                               <span 
                                 key={i} 
-                                className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-0.5 rounded"
+                                className="bg-ss-teal-chip text-ss-teal text-xs font-medium px-2 py-0.5 rounded"
                               >
                                 {skill}
                               </span>
@@ -395,7 +392,7 @@ export function PortfolioEditor() {
                     );
                   })
                 ) : (
-                  <div className="col-span-full text-center py-8 text-gray-500">
+                  <div className="col-span-full text-center py-8 text-muted-foreground">
                     No projects to preview
                   </div>
                 )}
@@ -419,15 +416,15 @@ export function PortfolioEditor() {
             <div className="space-y-4">
               {availableProjects.length === 0 ? (
                 <div className="text-center py-8">
-                  <FileCheck className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No completed projects</h3>
-                  <p className="text-gray-500">
+                  <FileCheck className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium text-foreground mb-2">No completed projects</h3>
+                  <p className="text-muted-foreground">
                     Complete some projects in your project tracker to add them here.
                   </p>
                 </div>
               ) : (
                 availableProjects.map((project) => (
-                  <Card key={project.id} className="cursor-pointer hover:bg-gray-50">
+                  <Card key={project.id} className="cursor-pointer hover:bg-muted/50">
                     <CardHeader className="pb-3">
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
@@ -438,7 +435,7 @@ export function PortfolioEditor() {
                         </div>
                         <Button
                           onClick={() => handleAddProject(project)}
-                          className="bg-[#9b87f5] hover:bg-[#8B5CF6] ml-4"
+                          className="ml-4"
                         >
                           <Plus className="h-4 w-4 mr-1" />
                           Add
@@ -451,7 +448,7 @@ export function PortfolioEditor() {
                           {project.required_skills.map((skill, i) => (
                             <span 
                               key={i} 
-                              className="bg-gray-100 text-gray-800 text-xs font-medium px-2 py-0.5 rounded"
+                              className="bg-muted text-foreground text-xs font-medium px-2 py-0.5 rounded"
                             >
                               {skill}
                             </span>

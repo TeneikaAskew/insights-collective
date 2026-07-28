@@ -107,12 +107,12 @@ export function AddToPortfolio({ project }: AddToPortfolioProps) {
         
         {pagesLoading ? (
           <div className="flex justify-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : !portfolioPages || portfolioPages.length === 0 ? (
           <div className="py-8 text-center">
-            <p className="text-gray-500 mb-4">You don't have any portfolio pages yet.</p>
-            <Button onClick={handleCreateNewPortfolio} className="bg-[#9b87f5] hover:bg-[#8B5CF6]">
+            <p className="text-muted-foreground mb-4">You don't have any portfolio pages yet.</p>
+            <Button onClick={handleCreateNewPortfolio}>
               Create Your First Portfolio Page
             </Button>
           </div>
@@ -139,7 +139,7 @@ export function AddToPortfolio({ project }: AddToPortfolioProps) {
                   return (
                     <Card 
                       key={page.id} 
-                      className={`transition-colors cursor-pointer ${isAdded ? 'border-green-500 bg-green-50' : 'hover:bg-gray-50'}`}
+                      className={`transition-colors cursor-pointer ${isAdded ? 'border-ss-good bg-ss-good-chip' : 'hover:bg-muted/50'}`}
                       onClick={() => {
                         if (!isAdded && !isLoading) {
                           logger.log('Card clicked for page:', page.id);
@@ -151,16 +151,16 @@ export function AddToPortfolio({ project }: AddToPortfolioProps) {
                         <div className="flex-1">
                           <h3 className="font-medium">{page.title}</h3>
                           {page.description && (
-                            <p className="text-sm text-gray-500">{page.description}</p>
+                            <p className="text-sm text-muted-foreground">{page.description}</p>
                           )}
-                          <p className="text-xs text-gray-400 mt-1">
+                          <p className="text-xs text-muted-foreground mt-1">
                             {page.projects?.length || 0} project(s)
                           </p>
                         </div>
                         
                         <div className="flex items-center">
                           {isAdded ? (
-                            <div className="flex items-center text-green-600">
+                            <div className="flex items-center text-ss-good">
                               <CheckCircle2 className="h-5 w-5 mr-2" />
                               <span className="text-sm font-medium">
                                 {isAlreadyInPortfolio ? 'Already Added' : 'Added'}
@@ -175,7 +175,6 @@ export function AddToPortfolio({ project }: AddToPortfolioProps) {
                                 handleAddToPage(page.id);
                               }}
                               disabled={isLoading || addProjectToPage.isPending}
-                              className="bg-[#9b87f5] hover:bg-[#8B5CF6]"
                             >
                               {isLoading ? (
                                 <>

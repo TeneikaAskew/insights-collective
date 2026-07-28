@@ -33,7 +33,7 @@ export function SkillGapChart({ userSkills, missingSkills, learningResources }: 
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <h4 className="text-sm font-medium">Skill Coverage</h4>
-              <span className="text-sm text-gray-500">{completionPercentage}%</span>
+              <span className="text-sm text-muted-foreground">{completionPercentage}%</span>
             </div>
             <Progress value={completionPercentage} className="h-2" />
           </div>
@@ -45,12 +45,12 @@ export function SkillGapChart({ userSkills, missingSkills, learningResources }: 
             <h4 className="text-sm font-medium mb-3">Your Current Skills</h4>
             <div className="flex flex-wrap gap-2 mb-4">
               {userSkills.map((skill, idx) => (
-                <Badge key={idx} className="bg-green-100 text-green-800 hover:bg-green-200 border-0">
+                <Badge key={idx} className="bg-ss-good-chip text-ss-good hover:bg-ss-good-chip border-0">
                   {skill}
                 </Badge>
               ))}
               {userSkills.length === 0 && (
-                <span className="text-sm text-gray-500 italic">No skills detected from your profile</span>
+                <span className="text-sm text-muted-foreground italic">No skills detected from your profile</span>
               )}
             </div>
           </div>
@@ -62,12 +62,12 @@ export function SkillGapChart({ userSkills, missingSkills, learningResources }: 
             <h4 className="text-sm font-medium mb-3">Skills to Develop</h4>
             <div className="flex flex-wrap gap-2 mb-4">
               {missingSkills.map((skill, idx) => (
-                <Badge key={idx} variant="outline" className="border-red-300 text-red-700">
+                <Badge key={idx} variant="outline" className="border-ss-bad text-ss-bad">
                   {skill}
                 </Badge>
               ))}
               {missingSkills.length === 0 && (
-                <span className="text-sm text-gray-500 italic">Great job! You have all the required skills.</span>
+                <span className="text-sm text-muted-foreground italic">Great job! You have all the required skills.</span>
               )}
             </div>
           </div>
@@ -86,7 +86,7 @@ export function SkillGapChart({ userSkills, missingSkills, learningResources }: 
                       <ul className="space-y-2">
                         {item.resources.map((resource, i) => (
                           <li key={i} className="text-sm flex items-start">
-                            <div className="mr-2 mt-0.5 text-blue-500">•</div>
+                            <div className="mr-2 mt-0.5 text-ss-teal">•</div>
                             <span>{resource}</span>
                           </li>
                         ))}
