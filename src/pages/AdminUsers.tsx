@@ -497,7 +497,7 @@ const AdminUsers = () => {
                                   <span className="sr-only">Actions</span>
                                 </Button>
                               </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="soft-studio">
+                              <DropdownMenuContent align="end">
                                 <DropdownMenuItem onClick={() => handleOpenUserDetails(userData)}>
                                   <Eye className="mr-2 h-4 w-4" />
                                   View Details
@@ -556,7 +556,7 @@ const AdminUsers = () => {
 
       {/* View Details Sheet */}
       <Sheet open={isViewDetailsOpen} onOpenChange={setIsViewDetailsOpen}>
-        <SheetContent className="soft-studio bg-background w-full sm:max-w-md overflow-y-auto">
+        <SheetContent className="bg-background w-full sm:max-w-md overflow-y-auto">
           <SheetHeader>
             <SheetTitle>User Details</SheetTitle>
             <SheetDescription>View detailed information about this user.</SheetDescription>
@@ -618,7 +618,7 @@ const AdminUsers = () => {
 
       {/* Edit Roles Sheet (single user) */}
       <Sheet open={isEditUserOpen} onOpenChange={setIsEditUserOpen}>
-        <SheetContent className="soft-studio bg-background w-full sm:max-w-md overflow-y-auto">
+        <SheetContent className="bg-background w-full sm:max-w-md overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Edit User Roles</SheetTitle>
             <SheetDescription>Update the roles for this user.</SheetDescription>
@@ -657,7 +657,7 @@ const AdminUsers = () => {
 
       {/* Bulk Role Update Sheet */}
       <Sheet open={isBulkRoleOpen} onOpenChange={setIsBulkRoleOpen}>
-        <SheetContent className="soft-studio bg-background w-full sm:max-w-md overflow-y-auto">
+        <SheetContent className="bg-background w-full sm:max-w-md overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Update Roles for {selectedUsers.length} User(s)</SheetTitle>
             <SheetDescription>
@@ -707,7 +707,7 @@ const AdminUsers = () => {
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
-        <AlertDialogContent className="soft-studio">
+        <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="text-destructive">
               Permanently Delete {deleteTargetIds.length === 1 ? 'User' : `${deleteTargetIds.length} Users`}

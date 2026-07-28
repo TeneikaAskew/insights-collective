@@ -342,7 +342,7 @@ export function FormList({ searchTerm }: FormListProps) {
 
       {/* Detail drawer — hooks live in the child so they only run when open */}
       <Sheet open={!!selectedForm} onOpenChange={(open) => { if (!open) setSelectedForm(null); }}>
-        <SheetContent className="soft-studio bg-background w-full sm:max-w-2xl overflow-y-auto">
+        <SheetContent className="bg-background w-full sm:max-w-2xl overflow-y-auto">
           {selectedForm && (
             <FormDetailDrawer
               form={selectedForm}
@@ -358,7 +358,7 @@ export function FormList({ searchTerm }: FormListProps) {
       </Sheet>
 
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent className="soft-studio">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Form</DialogTitle>
             <DialogDescription>

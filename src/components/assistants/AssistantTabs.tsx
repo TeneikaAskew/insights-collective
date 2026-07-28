@@ -14,25 +14,25 @@ export function AssistantTabs({ assistants, onLaunch }: AssistantTabsProps) {
       <TabsList className="bg-slate-100 p-1 rounded-md">
         <TabsTrigger 
           value="all" 
-          className="data-[state=active]:bg-energeticAmber data-[state=active]:text-white"
+          className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
         >
           All Assistants
         </TabsTrigger>
         <TabsTrigger 
           value="analytics" 
-          className="data-[state=active]:bg-energeticAmber data-[state=active]:text-white"
+          className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
         >
           Analytics
         </TabsTrigger>
         <TabsTrigger 
           value="coding" 
-          className="data-[state=active]:bg-energeticAmber data-[state=active]:text-white"
+          className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
         >
           Coding
         </TabsTrigger>
         <TabsTrigger 
           value="content" 
-          className="data-[state=active]:bg-energeticAmber data-[state=active]:text-white"
+          className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
         >
           Content
         </TabsTrigger>

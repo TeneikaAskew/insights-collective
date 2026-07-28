@@ -11,7 +11,7 @@ const ResumeLoginWall = () => {
   
   return (
     <AppLayout>
-      <div className="soft-studio ss-wash container mx-auto py-12 min-h-full">
+      <div className="ss-wash container mx-auto py-12 min-h-full">
         <Card className="ss-card mx-auto max-w-md">
           <CardHeader>
             <CardTitle>Resume Analysis</CardTitle>

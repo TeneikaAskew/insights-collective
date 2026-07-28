@@ -131,8 +131,6 @@ import { usePortfolioPages } from '@/hooks/usePortfolioPages';
 import { GoogleAnalytics, SEOMetaTags } from '@/components/common/GoogleAnalytics';
 import CourseFeedbackButton from '@/components/course/CourseFeedbackButton';
 
-import '@/App.css';
-
 // Loading component for Suspense fallback
 const PageLoader = () => (
   <div className="flex flex-col justify-center items-center h-96 gap-3">

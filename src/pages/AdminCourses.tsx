@@ -233,7 +233,7 @@ export default function AdminCourses() {
               <SelectTrigger className="w-full md:w-[200px] rounded-xl bg-card">
                 <SelectValue placeholder="Category" />
               </SelectTrigger>
-              <SelectContent className="soft-studio">
+              <SelectContent>
                 <SelectItem value="all">All categories</SelectItem>
                 {categories.map((c) => (
                   <SelectItem key={c} value={c}>{c}</SelectItem>
@@ -244,7 +244,7 @@ export default function AdminCourses() {
               <SelectTrigger className="w-full md:w-[180px] rounded-xl bg-card">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
-              <SelectContent className="soft-studio">
+              <SelectContent>
                 <SelectItem value="all">All statuses</SelectItem>
                 <SelectItem value="published">Published</SelectItem>
                 <SelectItem value="draft">Draft</SelectItem>
@@ -376,7 +376,7 @@ export default function AdminCourses() {
                                     </Button>
                                   </Hint>
                                 </AlertDialogTrigger>
-                                <AlertDialogContent className="soft-studio">
+                                <AlertDialogContent>
                                   <AlertDialogHeader>
                                     <AlertDialogTitle>Delete this course?</AlertDialogTitle>
                                     <AlertDialogDescription>
@@ -425,7 +425,7 @@ export default function AdminCourses() {
 
       {/* Course detail drawer — hooks live inside so they only run when open */}
       <Sheet open={!!selectedCourse} onOpenChange={(open) => { if (!open) setSelectedCourse(null); }}>
-        <SheetContent className="soft-studio bg-background w-full sm:max-w-lg overflow-y-auto">
+        <SheetContent className="bg-background w-full sm:max-w-lg overflow-y-auto">
           {selectedCourse && (
             <CourseDetailDrawer
               course={selectedCourse}
@@ -536,7 +536,7 @@ function CourseDetailDrawer({
                   <Trash2 className="h-4 w-4 mr-2" /> Delete
                 </Button>
               </AlertDialogTrigger>
-              <AlertDialogContent className="soft-studio">
+              <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Delete this course?</AlertDialogTitle>
                   <AlertDialogDescription>
@@ -647,7 +647,7 @@ function CourseDetailDrawer({
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </AlertDialogTrigger>
-                      <AlertDialogContent className="soft-studio">
+                      <AlertDialogContent>
                         <AlertDialogHeader>
                           <AlertDialogTitle>Revoke this certificate?</AlertDialogTitle>
                           <AlertDialogDescription>

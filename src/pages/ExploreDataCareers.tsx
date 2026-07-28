@@ -139,7 +139,7 @@ const ExploreDataCareers = () => {
       }} transition={{
         duration: 0.5
       }} className="space-y-2">
-          <h1 className="text-4xl font-bold tracking-tight text-energeticAmber">Explore Careers</h1>
+          <h1 className="text-4xl font-bold tracking-tight text-foreground">Explore Careers</h1>
           <p className="text-xl text-muted-foreground max-w-3xl">
             Browse real-world roles across data science, analytics, engineering, and AI to see which one fits your strengths and interests.
           </p>
