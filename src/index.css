@@ -510,7 +510,7 @@
 
 /* STAR Practice styles */
 .star-card {
-  @apply bg-white rounded-lg shadow-md border border-border/30 overflow-hidden transition-all duration-300;
+  @apply bg-white rounded-lg shadow-md border border-border overflow-hidden transition-all duration-300;
 }
 
 .star-card-situation {
