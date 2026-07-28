@@ -17,6 +17,8 @@ test.describe('Course builder — verification suite', () => {
   test('Curriculum tab renders modules and lessons', async ({ page }) => {
     await goto(page, `/courses/${COURSE_ID}/builder`);
     const curriculum = page.getByRole('link', { name: /Curriculum/i }).first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await curriculum.count()) {
       await curriculum.click();
     }
@@ -27,6 +29,8 @@ test.describe('Course builder — verification suite', () => {
     for (const label of ['Design templates', 'Certificates', 'Information']) {
       await goto(page, `/courses/${COURSE_ID}/builder`);
       const tab = page.getByRole('link', { name: new RegExp(label, 'i') }).first();
+      // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+      // eslint-disable-next-line no-restricted-syntax
       if (await tab.count()) {
         await tab.click();
         await expect(page.getByText(new RegExp(label, 'i')).first()).toBeVisible();

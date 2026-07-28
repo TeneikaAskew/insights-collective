@@ -17,6 +17,8 @@ test.describe('Admin Courses Management', () => {
   test('course table or list renders', async ({ page }) => {
     await goto(page, Routes.adminCourses);
     const table = page.locator('table, [role="table"], [class*="course"], [class*="Card"]').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await table.count() > 0) {
       await expect(table).toBeVisible();
     }
@@ -25,6 +27,8 @@ test.describe('Admin Courses Management', () => {
   test('course status (published/draft) is displayed', async ({ page }) => {
     await goto(page, Routes.adminCourses);
     const status = page.locator(':has-text("Published"), :has-text("Draft"), [class*="badge"], [class*="status"]').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await status.count() > 0) {
       await expect(status).toBeVisible();
     }
@@ -33,6 +37,8 @@ test.describe('Admin Courses Management', () => {
   test('edit course link is present', async ({ page }) => {
     await goto(page, Routes.adminCourses);
     const editLink = page.locator('a[href*="course-edit"], button:has-text("Edit"), a:has-text("Edit")').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await editLink.count() > 0) {
       await expect(editLink).toBeVisible();
     }
@@ -41,6 +47,8 @@ test.describe('Admin Courses Management', () => {
   test('create new course button is visible', async ({ page }) => {
     await goto(page, Routes.adminCourses);
     const createBtn = page.locator('button:has-text("Create"), button:has-text("New Course"), a:has-text("Create")').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await createBtn.count() > 0) {
       await expect(createBtn).toBeVisible();
     }

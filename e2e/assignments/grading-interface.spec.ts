@@ -19,6 +19,8 @@ test.describe('Grading Interface (Instructor)', () => {
   test('submission content is displayed', async ({ page }) => {
     await goto(page, gradingUrl);
     const content = page.locator('[class*="submission"], [class*="grading"], [class*="student"]').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await content.count() > 0) {
       await expect(content).toBeVisible();
     }
@@ -27,6 +29,8 @@ test.describe('Grading Interface (Instructor)', () => {
   test('grade input field is present', async ({ page }) => {
     await goto(page, gradingUrl);
     const gradeInput = page.locator('input[type="number"], input[name*="grade"], input[placeholder*="grade"]').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await gradeInput.count() > 0) {
       await expect(gradeInput).toBeVisible();
     }
@@ -35,6 +39,8 @@ test.describe('Grading Interface (Instructor)', () => {
   test('feedback textarea is present', async ({ page }) => {
     await goto(page, gradingUrl);
     const feedback = page.locator('textarea, [placeholder*="feedback"], [placeholder*="comment"]').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await feedback.count() > 0) {
       await expect(feedback).toBeVisible();
     }
@@ -43,6 +49,8 @@ test.describe('Grading Interface (Instructor)', () => {
   test('Save Grade button is present', async ({ page }) => {
     await goto(page, gradingUrl);
     const saveBtn = page.locator('button:has-text("Save"), button:has-text("Grade"), button:has-text("Submit Grade")').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await saveBtn.count() > 0) {
       await expect(saveBtn).toBeVisible();
     }

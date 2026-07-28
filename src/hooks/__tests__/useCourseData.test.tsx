@@ -150,3 +150,46 @@ describe('useCourseData', () => {
     expect(mockSupabaseClient.from).not.toHaveBeenCalledWith('courses');
   });
 });
+
+/**
+ * `courses.id` is a uuid column, so a route param that is not one is rejected by
+ * Postgres with 22P02 before RLS or the row is considered — it is never a real
+ * query. Every caller takes `courseId` straight from `useParams`, so a mistyped
+ * or stale URL lands here directly.
+ *
+ * The e2e structural check caught this in CI as `GET courses — 22P02 invalid
+ * input syntax for type uuid: "non-existent-course-id-12345"` on
+ * /courses/<not-a-uuid>: CourseDetail guarded its own fetch, but CourseSidebar
+ * (via CourseLayout) issued one anyway through this hook.
+ */
+describe('useCourseData — non-uuid course ids', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it.each([
+    ['a slug-like id', 'non-existent-course-id-12345'],
+    ['a bare word', 'undefined'],
+    ['a numeric id', '12345'],
+  ])('does not query for %s', async (_label, badId) => {
+    const { result } = renderHook(() => useCourseData(badId));
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(mockSupabaseClient.from).not.toHaveBeenCalledWith('courses');
+    expect(result.current.course).toBeNull();
+    expect(result.current.error).toBe('Invalid course ID format');
+  });
+
+  // The other direction, so the guard cannot quietly start blocking real ids.
+  it('still queries for a well-formed uuid', async () => {
+    stubCourseQuery({ data: makeCourseRow(), error: null }, { count: 1, error: null });
+
+    const { result } = renderHook(() => useCourseData(COURSE_ID));
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(mockSupabaseClient.from).toHaveBeenCalledWith('courses');
+    expect(result.current.error).toBeNull();
+  });
+});

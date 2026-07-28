@@ -1,19 +1,24 @@
-# Lessons learned — admin remediation, blog consolidation, featured courses
+# Lessons learned
 
-Written from two long working sessions: PR #28 (an eight-phase blog
-consolidation, an admin redesign, eight production migrations, roughly a dozen
-CI round-trips) and PR #32 (the landing page's Featured Courses section and the
-automated-review round that followed). It is deliberately unflattering where
-that is accurate: the most useful entries are the mistakes, because each one has
-a cheap preventive check that was skipped.
+Files 00–07 come from one long working session (PR #28) spanning an eight-phase
+blog consolidation, an admin redesign, eight production migrations, and roughly
+a dozen CI round-trips. Files 08–12 come from a second session — the
+query-validity audit — and are kept separate because their failures have a
+distinct shape: not mistakes made while building, but defects that had been live
+for months without anything noticing. File 13 comes from a third (PR #32,
+Featured Courses and the automated-review round after it).
 
-Files `00`–`07` come from the first session, `08` from the second. They fail in
-different ways and that difference is the point: the first session's mistakes
-were about **tools** — a CLI flag's arity, a file's lifecycle, an image's
-dimensions. The second session's headline mistake was about **evidence** —
-verifying at length that a fix worked, without ever verifying that the thing it
-fixed was broken. Careful verification aimed at the wrong proposition still
-produces a confident, wrong claim.
+File 12 is a category of its own and worth reading first if you only read one:
+defects in the *instruments* rather than the product. Every entry in it is a
+gate, reader or harness failing in exactly the way it was built to prevent.
+
+File 13 is the shortest and the most uncomfortable: a fix verified three
+independent ways, whose *premise* — that the thing was broken — was never
+checked at all, and which a green test had already contradicted.
+
+All three sets are deliberately unflattering where that is accurate: the most
+useful entries are the mistakes, because each one has a cheap preventive check
+that was skipped.
 
 ## How to use this
 
@@ -32,7 +37,12 @@ faith.
 | `05-authorization-and-consent.md` | What to do without asking, what never to |
 | `06-honest-reporting.md` | Claiming only what was proven |
 | `07-proposed-claude-md-additions.md` | **The distilled rules** |
-| `08-premise-and-attribution.md` | Verifying the *bug*, not just the fix (PR #32) |
+| `08-silent-failures-and-the-query-audit.md` | Successes that did nothing, and the gate that catches them |
+| `09-corrections-and-process.md` | Where pushback changed the outcome, and the order that mattered |
+| `10-design-refactor-deletion.md` | Choosing what to build, narrow, and remove |
+| `11-repo-and-stack-specifics.md` | Verified stack facts worth not rediscovering |
+| `12-when-the-tooling-lies.md` | Gates and readers failing the way they were built to prevent |
+| `13-premise-and-attribution.md` | Verifying the *bug*, not just the fix (PR #32) |
 
 ## The one-paragraph version
 

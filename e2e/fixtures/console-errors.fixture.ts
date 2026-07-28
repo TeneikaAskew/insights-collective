@@ -1,12 +1,108 @@
 import { test as base, expect } from '@playwright/test';
-import type { ConsoleMessage } from '@playwright/test';
+import type { ConsoleMessage, Response } from '@playwright/test';
+import fs from 'fs';
+import path from 'path';
+import type { SupabaseIssue } from '../../src/integrations/supabase/instrumentation';
+import { structuralIssues, describeIssue } from '../../src/integrations/supabase/issue-triage';
+
+/**
+ * Two mechanisms live here, and the second is the one that matters.
+ *
+ * 1. Console errors, filtered through the ignore lists below. Those lists have
+ *    grown two rules that between them hide most of what this fixture was
+ *    supposed to catch: `/\/rest\/v1\//` suppresses every PostgREST failure, and
+ *    `/^\[[A-Z][A-Za-z0-9]+\] \[\d{2}:\d{2}:\d{2}/` suppresses 110 of the app's
+ *    187 logger prefixes. Two real page-breaking 42703 errors
+ *    (/courses/:id/quiz-results and /courses/:id/progress) were invisible to the
+ *    whole suite because of the first.
+ *
+ * 2. Structural Supabase failures, read from the app's own instrumentation
+ *    (src/integrations/supabase/instrumentation.ts) rather than from console
+ *    text. See structuralIssues() below.
+ *
+ * The obvious fix for (1) was to delete the two blanket rules. That trades one
+ * blindness for another: they suppress a real volume of expected noise, and
+ * without them the genuine defects drown. Matching on prose was the mistake —
+ * a suppression pattern has to guess how a message was worded, and an error's
+ * severity has nothing to do with which component logged it.
+ *
+ * (2) sidesteps that. A 42703 is a 42703 whoever logged it, and it can never be
+ * confused with an empty table, so it needs no suppression list at all. The
+ * console rules stay as a backstop for everything that is not a Supabase
+ * request; they are no longer the only thing standing between a broken query
+ * and a green suite.
+ *
+ * Audit mode (`E2E_AUDIT_CONSOLE=1`) records EVERY console error and EVERY
+ * failed network response — including suppressed ones — to
+ * .e2e-audit/console-audit.jsonl. It never changes pass/fail.
+ */
+const AUDIT = process.env.E2E_AUDIT_CONSOLE === '1';
+// Deliberately NOT under test-results/ — Playwright wipes that directory at the
+// start of every run, taking the log with it.
+const AUDIT_FILE =
+  process.env.E2E_AUDIT_FILE ?? path.join(process.cwd(), '.e2e-audit', 'console-audit.jsonl');
+
+function auditRecord(entry: Record<string, unknown>): void {
+  if (!AUDIT) return;
+  try {
+    fs.mkdirSync(path.dirname(AUDIT_FILE), { recursive: true });
+    fs.appendFileSync(AUDIT_FILE, `${JSON.stringify(entry)}\n`);
+  } catch {
+    // Recording is diagnostic only — never let it affect a test result.
+  }
+}
+
+/**
+ * Third-party hosts whose console noise is never our bug.
+ */
+const IGNORED_HOSTS = [
+  // Lovable's editor script, loaded from a CDN by index.html:26. It fails CORS
+  // wherever that CDN is unreachable, which is not a regression here.
+  'cdn.gpteng.co',
+  // Analytics / tracking vendors. Named explicitly because a bare /analytics/i
+  // also swallowed the app's own [CourseAnalytics] and [StudentInsights] errors.
+  'google-analytics.com',
+  'googletagmanager.com',
+  'segment.io',
+  'segment.com',
+];
+
+/**
+ * True when the message names one of IGNORED_HOSTS as an actual host.
+ *
+ * Deliberately not a regex, after two attempts that were both wrong.
+ *
+ * A bare /google-analytics\.com/ also matches `evil-google-analytics.com` and
+ * `google-analytics.com.attacker.net`, so an error mentioning either was
+ * silently suppressed — the same over-matching that made a bare /analytics/i
+ * swallow the app's own errors. Rewriting it with lookarounds fixed the
+ * semantics but CodeQL only recognises `^`-style anchors, so the alert count
+ * went up rather than down, and anchoring to `^` is simply wrong here: these
+ * match anywhere inside a console message, not a whole URL.
+ *
+ * Host comparison is not a regex problem. Split the message on characters that
+ * cannot appear in a hostname, then compare the candidates as hosts — exact
+ * match or a proper subdomain. No anchors to get wrong, and the suffix check
+ * makes `evil-google-analytics.com` and `google-analytics.com.attacker.net`
+ * fail by construction.
+ */
+function mentionsIgnoredHost(text: string): boolean {
+  return text
+    .toLowerCase()
+    .split(/[^a-z0-9.-]+/)
+    .some((token) =>
+      IGNORED_HOSTS.some((host) => token === host || token.endsWith(`.${host}`)),
+    );
+}
 
 /**
  * Known-noisy messages that are safe to ignore.
  * These come from third-party scripts, browser extensions, or React
  * internals that fire in every environment and are not our bugs.
  */
-const IGNORED_PATTERNS: RegExp[] = [
+type IgnoreRule = RegExp | ((text: string) => boolean);
+
+const IGNORED_PATTERNS: IgnoreRule[] = [
   // Browser / OS noise
   /ResizeObserver loop limit exceeded/,
   /ResizeObserver loop completed with undelivered notifications/,
@@ -15,6 +111,9 @@ const IGNORED_PATTERNS: RegExp[] = [
   /Download the React DevTools/,
   // Lovable component tagger (dev-only, not our code)
   /lovable-tagger/,
+  // Lovable's editor script, loaded from a CDN by index.html:26. Third-party and
+  // unrelated to any app behaviour — it fails CORS wherever that CDN is
+  // unreachable, which is not a regression in this codebase.
   // Supabase realtime warning when no channel is subscribed
   /No session found/,
   // Vite HMR noise in test environments
@@ -29,9 +128,13 @@ const IGNORED_PATTERNS: RegExp[] = [
   /Warning: An update to .* inside a test was not wrapped in act/,
   // Monaco editor workers (loaded via CDN, may fail in offline environments)
   /monaco.*worker/i,
-  // Third-party analytics / tracking (not our code)
+  // Third-party analytics / tracking (not our code). Named vendors only —
+  // a bare /analytics/i also swallowed the app's own [CourseAnalytics],
+  // [StudentInsights] and analytics-query errors — and matched as whole
+  // hostnames, so a lookalike domain cannot inherit the suppression.
   /gtag/,
-  /analytics/i,
+  // Vendor hosts are matched by mentionsIgnoredHost, not by pattern.
+  mentionsIgnoredHost,
   // Expected auth errors in login tests (bad credentials, intercepted auth)
   /AuthApiError/,
   /Invalid login credentials/,
@@ -49,8 +152,9 @@ const IGNORED_PATTERNS: RegExp[] = [
   /Error loading assignment/,
   /Error fetching content item/,
   /getContentItem/,
-  // Forum thread errors (threads table is empty / schema difference)
-  /\[ThreadDetail\]/,
+  // (ThreadDetail / useForums patterns removed with the forum feature — the
+  // routes redirect to /dashboard and the modules are deleted, so those
+  // suppressions could only have hidden errors from live code.)
   // Mock interview room error (no session ID provided in URL)
   /\[MockInterviewRoom\]/,
   // Course permission and data errors for invalid-UUID tests
@@ -59,7 +163,6 @@ const IGNORED_PATTERNS: RegExp[] = [
   /\[useCourseData\]/,
   /\[useCoursePermissions\]/,
   /\[useCourseProgress\]/,
-  /\[useForums\]/,
   // Quiz / grading errors (schema relationships missing in test DB)
   /\[CanvasQuizResults\]/,
   /\[gradingSubmissions\]/,
@@ -121,19 +224,76 @@ const IGNORED_URL_PATTERNS: RegExp[] = [
   // Vite dev server — HMR module reload returns 500 when files change mid-run
   /localhost:\d+\/src\//,
   /localhost:\d+\/node_modules\/.vite/,
+  // i.pravatar.cc — free third-party avatar host used for the landing page's
+  // testimonial portraits (CommunityShowcase). It rate-limits and 503s under a
+  // long suite, which failed landing and survey specs for a reason that has
+  // nothing to do with this app. The Avatar falls back to initials, so a failed
+  // image is a cosmetic third-party outage, not a regression.
+  /i\.pravatar\.cc/,
 ];
+
+/**
+ * Hosts the browser is allowed to reach. Everything else is blocked on purpose
+ * by `--host-resolver-rules` in playwright.config.ts, so its resource errors are
+ * our own doing and must not fail a test.
+ *
+ * Derived from the same inputs as the block rather than written out as a list of
+ * regexes. An enumerated list goes stale the moment someone adds a font, an
+ * avatar host or an image CDN — and the failure mode is a red suite with a
+ * cause nobody can find. This is the exact complement of what we permit, so it
+ * cannot drift.
+ *
+ * Note this is *not* the blanket `/\/rest\/v1\//` rule that used to live here.
+ * Supabase is an allowed host, so its errors still fail tests — which is the
+ * whole point.
+ */
+const RELAY_MODE = process.env.E2E_USE_RELAY === '1';
+
+function allowedHosts(): Set<string> {
+  const hosts = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
+  // Monaco (cdn.jsdelivr.net) and esm.sh are in the app's own CSP script-src;
+  // the code editor does not work without them, so they stay reachable.
+  for (const h of ['cdn.jsdelivr.net', 'esm.sh']) hosts.add(h);
+  try {
+    hosts.add(new URL(process.env.VITE_SUPABASE_URL ?? 'https://siuqvhscuiycvdrtiqsh.supabase.co').hostname);
+  } catch {
+    // Malformed env: fall through with the loopback defaults.
+  }
+  return hosts;
+}
+const ALLOWED_HOSTS = allowedHosts();
+
+function isDeliberatelyBlocked(url: string): boolean {
+  let hostname: string;
+  try {
+    hostname = new URL(url).hostname;
+  } catch {
+    return false;
+  }
+  // Blocked in every mode — see hermeticArgs() in playwright.config.ts.
+  if (hostname === 'cdn.gpteng.co') return true;
+  // Everything else is only blocked under E2E_USE_RELAY. Outside relay mode the
+  // suite reaches the real internet, so a failure from a third party is a real
+  // third-party failure and belongs in the named suppressions above (or nowhere)
+  // rather than being waved through by this rule.
+  return RELAY_MODE && !ALLOWED_HOSTS.has(hostname);
+}
 
 function shouldIgnore(msg: ConsoleMessage): boolean {
   const text = msg.text();
 
   // Check text-based patterns first (covers app console.error calls)
-  if (IGNORED_PATTERNS.some((pattern) => pattern.test(text))) return true;
+  if (IGNORED_PATTERNS.some((rule) => (typeof rule === 'function' ? rule(text) : rule.test(text)))) {
+    return true;
+  }
 
   // For browser-native "Failed to load resource" errors the URL is in
   // msg.location(), not msg.text() — check URL patterns separately.
   if (text.startsWith('Failed to load resource:')) {
     const url = msg.location()?.url ?? '';
     if (IGNORED_URL_PATTERNS.some((pattern) => pattern.test(url))) return true;
+    // A host we blocked ourselves. See allowedHosts() above.
+    if (isDeliberatelyBlocked(url)) return true;
   }
 
   return false;
@@ -147,6 +307,11 @@ interface ConsoleFixtures {
    */
   consoleErrors: ConsoleMessage[];
 }
+
+// Which recorded issues count as defects lives in src/, next to the
+// instrumentation it describes, so it can be unit-tested. A pass/fail predicate
+// that nothing can test is how the suppression lists above drifted into hiding
+// real defects in the first place.
 
 /**
  * Base test extended with automatic console-error detection.
@@ -162,12 +327,20 @@ export const test = base.extend<ConsoleFixtures>({
   consoleErrors: [
     async ({ page }, use, testInfo) => {
       const errors: ConsoleMessage[] = [];
+      const where = { spec: testInfo.titlePath[0], test: testInfo.title, project: testInfo.project.name };
 
       // Capture console.error() calls
       const onConsole = (msg: ConsoleMessage) => {
-        if (msg.type() === 'error' && !shouldIgnore(msg)) {
-          errors.push(msg);
-        }
+        if (msg.type() !== 'error') return;
+        const ignored = shouldIgnore(msg);
+        auditRecord({
+          ...where,
+          kind: 'console',
+          ignored,
+          text: msg.text().slice(0, 500),
+          url: msg.location()?.url ?? '',
+        });
+        if (!ignored) errors.push(msg);
       };
 
       // Capture uncaught exceptions (window.onerror / unhandledrejection)
@@ -177,18 +350,59 @@ export const test = base.extend<ConsoleFixtures>({
           text: () => `[pageerror] ${err.message}`,
           location: () => ({ url: '', lineNumber: 0, columnNumber: 0 }),
         } as unknown as ConsoleMessage;
-        if (!shouldIgnore(fakeMsg)) {
-          errors.push(fakeMsg);
-        }
+        const ignored = shouldIgnore(fakeMsg);
+        auditRecord({ ...where, kind: 'pageerror', ignored, text: fakeMsg.text().slice(0, 500), url: '' });
+        if (!ignored) errors.push(fakeMsg);
+      };
+
+      // Audit only: every non-2xx response. A console message is not emitted for
+      // a failed fetch/XHR the app handles itself, so PostgREST errors that the
+      // app swallows are invisible to the listeners above — those are exactly
+      // the ones worth cataloguing.
+      const onResponse = (res: Response) => {
+        if (!AUDIT || res.status() < 400) return;
+        auditRecord({
+          ...where,
+          kind: 'response',
+          ignored: null,
+          status: res.status(),
+          method: res.request().method(),
+          url: res.url().slice(0, 400),
+        });
       };
 
       page.on('console', onConsole);
       page.on('pageerror', onPageError);
+      if (AUDIT) page.on('response', onResponse);
 
       await use(errors);
 
       page.off('console', onConsole);
       page.off('pageerror', onPageError);
+      if (AUDIT) page.off('response', onResponse);
+
+      // Structured check first: it is the more specific failure, and reporting
+      // "column profiles.full_name does not exist on /courses/:id/quiz-results"
+      // is far more useful than whichever console line happened to be emitted.
+      const issues: SupabaseIssue[] = await page
+        .evaluate(() => (window as unknown as { __supabaseIssues?: SupabaseIssue[] }).__supabaseIssues ?? [])
+        .catch(() => []);          // page already closed, or navigated away
+      const structural = structuralIssues(issues);
+
+      for (const issue of structural) {
+        auditRecord({ ...where, kind: 'supabase-issue', ignored: false, ...issue });
+      }
+
+      if (structural.length > 0) {
+        expect(
+          structural,
+          `Test "${testInfo.title}" hit ${structural.length} Supabase request(s) that cannot succeed:\n` +
+            `${structural.map(describeIssue).join('\n')}\n\n` +
+            `These are structural — a missing column, table, relationship or function, a filter built\n` +
+            `from undefined, or a write that changed nothing. None of them is an empty-data condition,\n` +
+            `so none can be "expected in the test environment". Fix the query or the guard.`,
+        ).toHaveLength(0);
+      }
 
       // Assert after the test body runs
       if (errors.length > 0) {

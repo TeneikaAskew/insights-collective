@@ -1,7 +1,7 @@
 // ABOUTME: Real-session hardening for course messaging RPC gating and announcement
 // ABOUTME: notification fan-out. Uses live signed-in Supabase JWTs to call PostgREST
 // ABOUTME: end-to-end and verifies persisted rows, not UI state alone.
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures/page-helpers';
 import { signInMember, getSupabaseAccessToken } from './_helpers/signIn';
 
 const SUPABASE_URL = 'https://siuqvhscuiycvdrtiqsh.supabase.co';

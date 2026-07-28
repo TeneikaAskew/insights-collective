@@ -24,6 +24,8 @@ test.describe('Event Detail', () => {
   test('event date or time is displayed', async ({ page }) => {
     await goto(page, eventUrl);
     const date = page.locator(':has-text("date"), :has-text("Date"), time, [class*="date"]').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await date.count() > 0) {
       await expect(date).toBeVisible();
     }
@@ -32,6 +34,8 @@ test.describe('Event Detail', () => {
   test('Register / RSVP button is visible', async ({ page }) => {
     await goto(page, eventUrl);
     const btn = page.locator('button:has-text("Register"), button:has-text("RSVP"), button:has-text("Attend")').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await btn.count() > 0) {
       await expect(btn).toBeVisible();
     }
@@ -40,6 +44,8 @@ test.describe('Event Detail', () => {
   test('back to events link is present', async ({ page }) => {
     await goto(page, eventUrl);
     const backLink = page.locator('a[href*="/events"], button:has-text("Back"), a:has-text("Back")').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await backLink.count() > 0) {
       await expect(backLink).toBeVisible();
     }

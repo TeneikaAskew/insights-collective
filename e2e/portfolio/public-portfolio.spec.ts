@@ -29,6 +29,8 @@ test.describe('Public Portfolio View', () => {
     await goto(page, publicUrl);
     // Public portfolio should show some content
     const content = page.locator('main, [role="main"], [class*="portfolio"], [class*="Portfolio"]').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await content.count() > 0) {
       await expect(content).toBeVisible();
     }

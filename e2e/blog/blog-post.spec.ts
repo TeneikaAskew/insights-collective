@@ -35,6 +35,8 @@ test.describe('Blog Post', () => {
     const page = await ctx.newPage();
     await goto(page, blogUrl);
     const content = page.locator('article, [class*="content"], [class*="body"], p').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await content.count() > 0) {
       await expect(content).toBeVisible();
     }
@@ -63,6 +65,8 @@ test.describe('Blog Post', () => {
     const page = await ctx.newPage();
     await goto(page, blogUrl);
     const backLink = page.locator('a:has-text("Back"), a[href*="/blog"], a[href="/resources"]').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await backLink.count() > 0) {
       await expect(backLink).toBeVisible();
     }

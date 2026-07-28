@@ -3,7 +3,7 @@
 // ABOUTME: verifies persisted rows for course, module, and each content type (page,
 // ABOUTME: assignment + assignments row, quiz + quiz_questions row, discussion,
 // ABOUTME: external_url, external_tool) and cleans up on completion.
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures/page-helpers';
 import { randomUUID } from 'node:crypto';
 
 const SUPABASE_URL = 'https://siuqvhscuiycvdrtiqsh.supabase.co';

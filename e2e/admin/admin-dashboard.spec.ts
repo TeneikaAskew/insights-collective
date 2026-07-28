@@ -34,6 +34,8 @@ test.describe('Admin Dashboard', () => {
   test('stats cards render (users, courses, etc.)', async ({ page }) => {
     await goto(page, Routes.admin);
     const stats = page.locator('[class*="stat"], [class*="metric"], [class*="card"], [class*="Card"]').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await stats.count() > 0) {
       await expect(stats).toBeVisible();
     }
@@ -42,6 +44,8 @@ test.describe('Admin Dashboard', () => {
   test('charts render on dashboard', async ({ page }) => {
     await goto(page, Routes.admin);
     const chart = page.locator('[class*="chart"], [class*="Chart"], svg, canvas').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await chart.count() > 0) {
       await expect(chart).toBeVisible();
     }
@@ -50,6 +54,8 @@ test.describe('Admin Dashboard', () => {
   test('recent activity feed renders', async ({ page }) => {
     await goto(page, Routes.admin);
     const activity = page.locator('[class*="activity"], [class*="feed"], [role="list"]').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await activity.count() > 0) {
       await expect(activity).toBeVisible();
     }
@@ -58,6 +64,8 @@ test.describe('Admin Dashboard', () => {
   test('admin navigation links are visible', async ({ page }) => {
     await goto(page, Routes.admin);
     const navLinks = page.locator('a[href*="/admin/"]');
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await navLinks.count() > 0) {
       await expect(navLinks.first()).toBeVisible();
     }

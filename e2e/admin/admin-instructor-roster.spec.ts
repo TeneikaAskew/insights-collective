@@ -39,13 +39,20 @@ test.describe('Instructor/admin roster + reporting', () => {
     await page.goto('/admin/courses');
     await page.getByRole('tab', { name: /enrollments/i }).click();
 
-    // Pick the seeded course.
-    await page.locator('[role="combobox"]').first().click();
-    await page.getByRole('option', { name: new RegExp(COURSE_TITLE, 'i') }).click();
+    // Pick the seeded course. The tab opens on courses[0] — which, after any
+    // smoke run, is a leaked "Smoke Course" — so confirm the trigger actually
+    // shows the course under test before reading anything off the page.
+    const selectTrigger = page.locator('[role="combobox"]').first();
+    await selectTrigger.click();
+    await page.getByRole('option', { name: new RegExp(`^${COURSE_TITLE}$`, 'i') }).click();
+    await expect(selectTrigger).toContainText(COURSE_TITLE);
 
-    // Wait for either enrollments to load or an explicit empty-state.
+    // Wait for the roster to settle: either the stats card (enrollments loaded)
+    // or the table's explicit empty-state. Both can be on the page at once —
+    // the stats card renders above a table that says "No enrollments found" —
+    // so match a single element rather than tripping strict mode with .or().
     await expect(
-      page.getByText(/Total Enrollments/i).or(page.getByText(/No enrollments found/i)),
+      page.locator('table tbody tr').first().or(page.getByText(/No enrollments found/i)),
     ).toBeVisible({ timeout: 15_000 });
 
     // Ground truth from Supabase (respects admin RLS via session token).

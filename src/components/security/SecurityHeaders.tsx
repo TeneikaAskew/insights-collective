@@ -1,9 +1,38 @@
 
 // Security headers component for CSP and other security measures
 import { useEffect } from 'react';
+import { securityConfig } from '@/config/security';
+
+/**
+ * `connect-src` allows `https:` and `wss:` but not `http:`, which is right for a
+ * deployed app and wrong for the two supported local setups:
+ *
+ *   - `supabase start`, documented in CLAUDE.md, serves on http://127.0.0.1:54321
+ *   - scripts/e2e/supabase-relay.mjs, which the e2e suite uses on a loopback port
+ *
+ * Both were silently blocked. The request never left the browser, so it surfaced
+ * as a bare "TypeError: Failed to fetch" with no mention of CSP — the app looked
+ * like it had lost its database.
+ *
+ * Rather than open `http:` wholesale, allow exactly the origin the app is
+ * configured to talk to, and only when that origin is loopback. A deployed build
+ * points at https and this adds nothing at all.
+ */
+function localSupabaseOrigin(): string | null {
+  try {
+    const url = new URL(securityConfig.supabase.url);
+    if (url.protocol !== 'http:') return null;
+    return ['localhost', '127.0.0.1', '[::1]', '::1'].includes(url.hostname) ? url.origin : null;
+  } catch {
+    return null;
+  }
+}
 
 export const SecurityHeaders = () => {
   useEffect(() => {
+    const localOrigin = localSupabaseOrigin();
+    const connectSrc = ["connect-src 'self' wss: https:", localOrigin].filter(Boolean).join(' ');
+
     // Set Content Security Policy via meta tag
     const cspMeta = document.createElement('meta');
     cspMeta.httpEquiv = 'Content-Security-Policy';
@@ -13,7 +42,7 @@ export const SecurityHeaders = () => {
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: https: blob:",
-      "connect-src 'self' wss: https:",
+      connectSrc,
       "frame-src 'self' blob: https://www.youtube.com https://www.youtube-nocookie.com https://youtube.com https://player.vimeo.com",
       "object-src 'none'",
       "base-uri 'self'"

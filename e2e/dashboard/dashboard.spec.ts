@@ -51,6 +51,8 @@ test.describe('Dashboard', () => {
   test('Browse Courses button is visible', async ({ page }) => {
     await goto(page, Routes.dashboard);
     const btn = page.locator('button:has-text("Browse"), a:has-text("Browse"), button:has-text("Courses")').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await btn.count() > 0) {
       await expect(btn).toBeVisible();
     }
