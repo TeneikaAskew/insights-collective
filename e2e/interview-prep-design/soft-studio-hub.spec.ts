@@ -148,30 +148,6 @@ test.describe('Code practice page (Soft Studio, Problem Book)', () => {
     await expect(page.getByRole('button', { name: /submit solution/i })).toBeEnabled();
   });
 
-  test('submitting swaps the problem page for the result card', async ({ page }) => {
-    await page.getByRole('button', { name: /submit solution/i }).click();
-    await expect(page.getByText('Result', { exact: true })).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByText('Correct', { exact: true })).toBeVisible();
-    await expect(page.getByText('3/3')).toBeVisible();
-    await expect(page.getByText('Code Review')).toBeVisible();
-    await expect(page.getByText('Suggestions')).toBeVisible();
-
-    await page.getByRole('button', { name: /continue editing/i }).click();
-    await expect(page.getByText('Constraints')).toBeVisible();
-    await expect(page.getByRole('tab', { name: 'Feedback' })).toBeEnabled();
-  });
-
-  // Logged-out visitors get the simulation — it must say so, so nobody
-  // mistakes canned numbers for a real evaluation. (Signed-in AI-judged and
-  // executed modes need a live backend: scripts/verify-code-evaluation.mjs.)
-  test('labels the logged-out result as a demo', async ({ page }) => {
-    await page.getByRole('button', { name: /submit solution/i }).click();
-    await expect(page.getByText('Result', { exact: true })).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByText('Demo', { exact: true })).toBeVisible();
-    await expect(page.getByText('AI-judged')).toHaveCount(0);
-    await expect(page.getByText('Executed')).toHaveCount(0);
-  });
-
   // Monaco itself loads from a CDN that sandboxed/offline runs can't reach,
   // so this asserts the editor chrome the redesign owns rather than the
   // editor internals. Reset semantics are unit-tested.
@@ -186,6 +162,51 @@ test.describe('Code practice page (Soft Studio, Problem Book)', () => {
     await page.getByRole('button', { name: /interview prep/i }).click();
     await page.waitForURL('**/interview-prep', { timeout: 15_000, waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('heading', { name: 'Interview Preparation' })).toBeVisible();
+  });
+});
+
+// The result card has two very different sources. CodePractice submits to
+// execute-code/review-code only when there is BOTH a signed-in user and a
+// challenge row for the selected role; otherwise it falls back to a canned
+// simulation. These assertions describe the simulation — fixed "Correct",
+// "3/3", and the "Demo" provenance chip — so they only hold logged out.
+//
+// They used to run under chromium-member and passed by accident: no
+// code_challenges row matched the default "all" role, so even a signed-in
+// member fell through to the demo. Once a challenge was seeded for that role
+// the member started getting a real evaluation, which is labelled "Executed"
+// or "AI-judged" and carries the real test count. Pin the context to
+// logged-out so the tests exercise the path they actually describe.
+test.describe('Code practice result card (logged out — canned simulation)', () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/interview-prep/code-practice', { waitUntil: 'domcontentloaded' });
+    await page.getByText('Code Challenge Practice').waitFor({ timeout: 15_000 });
+  });
+
+  test('submitting swaps the problem page for the result card', async ({ page }) => {
+    await page.getByRole('button', { name: /submit solution/i }).click();
+    await expect(page.getByText('Result', { exact: true })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('Correct', { exact: true })).toBeVisible();
+    await expect(page.getByText('3/3')).toBeVisible();
+    await expect(page.getByText('Code Review')).toBeVisible();
+    await expect(page.getByText('Suggestions')).toBeVisible();
+
+    await page.getByRole('button', { name: /continue editing/i }).click();
+    await expect(page.getByText('Constraints')).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Feedback' })).toBeEnabled();
+  });
+
+  // The simulation must say so, so nobody mistakes canned numbers for a real
+  // evaluation. (Signed-in AI-judged and executed modes need a live backend:
+  // scripts/verify-code-evaluation.mjs.)
+  test('labels the logged-out result as a demo', async ({ page }) => {
+    await page.getByRole('button', { name: /submit solution/i }).click();
+    await expect(page.getByText('Result', { exact: true })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('Demo', { exact: true })).toBeVisible();
+    await expect(page.getByText('AI-judged')).toHaveCount(0);
+    await expect(page.getByText('Executed')).toHaveCount(0);
   });
 });
 

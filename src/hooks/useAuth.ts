@@ -243,7 +243,10 @@ export const useAuthProvider = () => {
     }
     
     try {
-      await supabase.auth.signOut();
+      // Scope to this session only. supabase-js defaults to 'global', which
+      // revokes every session for the user, so signing out on one device
+      // silently signs them out everywhere else too.
+      await supabase.auth.signOut({ scope: 'local' });
       setSession(null);
       navigate('/');
     } catch (error: any) {

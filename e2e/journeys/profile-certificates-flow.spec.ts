@@ -39,17 +39,25 @@ test.describe('Profile — My Certificates', () => {
     // this wait, count() races the fetch and returns 0 before data lands.
     await expect(page.getByTestId('certificates-loading')).toHaveCount(0, { timeout: 15_000 });
 
-    const rows = page.getByTestId('certificate-row');
-    const count = await rows.count();
-    expect(
-      count,
-      'Seed gap: signed-in E2E member has zero certificates. Reseed a completed course + certificate row for the member in e2e/fixtures/seed.sql.',
-    ).toBeGreaterThan(0);
+    // Match the seeded row by its verification code rather than taking
+    // rows.first(), so this assertion names the row it means. The specs that
+    // issue and delete certificates now run as a separate account
+    // (chromium-member-journeys), so the shared member's list should hold
+    // exactly this one row -- the seed asserts that count directly. Matching
+    // by code keeps the failure legible if that ever stops being true.
+    const SEEDED_CODE = 'E2EMEMBERCERT';
 
     // Radix Slot forwards data-testid onto the underlying <a>, so the testid
     // IS the anchor rather than a wrapper around one.
-    const link = rows.first().getByTestId('certificate-verify-link');
-    const href = await link.getAttribute('href');
-    expect(href).toMatch(/\/verify-certificate\/.+/);
+    const link = page.locator(
+      `[data-testid="certificate-verify-link"][href="/verify-certificate/${SEEDED_CODE}"]`,
+    );
+    await expect(
+      link,
+      `Seed gap: the E2E member has no certificate with verification code ${SEEDED_CODE}. ` +
+        'Re-apply e2e/fixtures/seed.sql (section 3). If it applied cleanly, check that the ' +
+        'certificate-reset specs are still running in the chromium-member-journeys project: ' +
+        'as the shared member they delete this row out from under this spec.',
+    ).toHaveCount(1);
   });
 });
