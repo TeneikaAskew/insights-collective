@@ -276,9 +276,28 @@ const SurveyField: React.FC<SurveyFieldProps> = ({ field, fieldName, defaultValu
             };
             break;
           case 'linkedin_url':
-            rules.pattern = {
-              value: /.*linkedin\.com.*/,
-              message: field.validation.message || "Please enter a valid LinkedIn URL"
+            // Parsed, not pattern-matched. The old /.*linkedin\.com.*/ matched
+            // anywhere (CodeQL js/regex/missing-regexp-anchor), so
+            // "evil.com/linkedin.com" and "linkedin.com.evil.net" both passed.
+            // Require linkedin.com (or a subdomain) as the actual host.
+            rules.validate = (value: any) => {
+              if (!value) return true; // presence is enforced by `required`
+              const raw = String(value).trim();
+              for (const candidate of [raw, `https://${raw}`]) {
+                try {
+                  const u = new URL(candidate);
+                  const host = u.hostname.toLowerCase();
+                  if (
+                    (u.protocol === 'http:' || u.protocol === 'https:') &&
+                    (host === 'linkedin.com' || host.endsWith('.linkedin.com'))
+                  ) {
+                    return true;
+                  }
+                } catch {
+                  // try the next candidate
+                }
+              }
+              return field.validation.message || 'Please enter a valid LinkedIn URL';
             };
             break;
         }
