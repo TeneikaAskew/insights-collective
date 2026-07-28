@@ -18,15 +18,15 @@ const PersonalizedPathway = () => {
   };
 
   return (
-    <section className="py-16 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-gray-900 dark:to-gray-800" data-tour="personalizedPathway">
+    <section className="py-16 ss-wash" data-tour="personalizedPathway">
       <div className="container mx-auto px-4">
         <div className="max-w-4xl mx-auto text-center mb-10">
           <Badge className="mb-4 px-3 py-1 bg-primary/10 text-primary border-primary/20 hover:bg-primary/20">
             <Sparkles className="w-3.5 h-3.5 mr-1" />
             New Feature
           </Badge>
-          <h2 className="text-3xl md:text-4xl font-bold font-display bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-600 mb-4">
-            Your Personalized Data Career Path
+          <h2 className="text-3xl md:text-4xl font-bold font-display text-foreground mb-4">
+            Your Personalized <span className="text-ss-lav-deep">Data Career Path</span>
           </h2>
           <p className="text-lg text-muted-foreground">
             Discover the perfect learning journey tailored to your skills, experience, and career goals
@@ -35,9 +35,9 @@ const PersonalizedPathway = () => {
         </div>
 
         <div className="grid md:grid-cols-3 gap-6">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border border-gray-100 dark:border-gray-700">
-            <div className="h-12 w-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center mb-4">
-              <BarChart2 className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+          <div className="bg-card p-6 rounded-lg shadow-md border border-border">
+            <div className="h-12 w-12 bg-ss-teal-chip rounded-lg flex items-center justify-center mb-4">
+              <BarChart2 className="h-6 w-6 text-ss-teal" />
             </div>
             <h3 className="text-xl font-semibold mb-2">Skill Assessment</h3>
             <p className="text-muted-foreground mb-4">
@@ -45,24 +45,24 @@ const PersonalizedPathway = () => {
             </p>
             <ul className="space-y-2 text-sm mb-4">
               <li className="flex items-center">
-                <span className="bg-green-100 dark:bg-green-900/30 p-1 rounded-full mr-2">
-                  <svg className="h-2 w-2 text-green-600" fill="currentColor" viewBox="0 0 8 8">
+                <span className="bg-ss-good-chip p-1 rounded-full mr-2">
+                  <svg className="h-2 w-2 text-ss-good" fill="currentColor" viewBox="0 0 8 8">
                     <circle cx="4" cy="4" r="3" />
                   </svg>
                 </span>
                 Interactive quiz assessment
               </li>
               <li className="flex items-center">
-                <span className="bg-green-100 dark:bg-green-900/30 p-1 rounded-full mr-2">
-                  <svg className="h-2 w-2 text-green-600" fill="currentColor" viewBox="0 0 8 8">
+                <span className="bg-ss-good-chip p-1 rounded-full mr-2">
+                  <svg className="h-2 w-2 text-ss-good" fill="currentColor" viewBox="0 0 8 8">
                     <circle cx="4" cy="4" r="3" />
                   </svg>
                 </span>
                 Technical expertise evaluation
               </li>
               <li className="flex items-center">
-                <span className="bg-green-100 dark:bg-green-900/30 p-1 rounded-full mr-2">
-                  <svg className="h-2 w-2 text-green-600" fill="currentColor" viewBox="0 0 8 8">
+                <span className="bg-ss-good-chip p-1 rounded-full mr-2">
+                  <svg className="h-2 w-2 text-ss-good" fill="currentColor" viewBox="0 0 8 8">
                     <circle cx="4" cy="4" r="3" />
                   </svg>
                 </span>
@@ -71,9 +71,9 @@ const PersonalizedPathway = () => {
             </ul>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border border-gray-100 dark:border-gray-700">
-            <div className="h-12 w-12 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center mb-4">
-              <BookOpen className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+          <div className="bg-card p-6 rounded-lg shadow-md border border-border">
+            <div className="h-12 w-12 bg-ss-lav-chip rounded-lg flex items-center justify-center mb-4">
+              <BookOpen className="h-6 w-6 text-ss-lav-deep" />
             </div>
             <h3 className="text-xl font-semibold mb-2">Career Mapping</h3>
             <p className="text-muted-foreground mb-4">
@@ -81,24 +81,24 @@ const PersonalizedPathway = () => {
             </p>
             <ul className="space-y-2 text-sm mb-4">
               <li className="flex items-center">
-                <span className="bg-green-100 dark:bg-green-900/30 p-1 rounded-full mr-2">
-                  <svg className="h-2 w-2 text-green-600" fill="currentColor" viewBox="0 0 8 8">
+                <span className="bg-ss-good-chip p-1 rounded-full mr-2">
+                  <svg className="h-2 w-2 text-ss-good" fill="currentColor" viewBox="0 0 8 8">
                     <circle cx="4" cy="4" r="3" />
                   </svg>
                 </span>
                 AI-powered path recommendations
               </li>
               <li className="flex items-center">
-                <span className="bg-green-100 dark:bg-green-900/30 p-1 rounded-full mr-2">
-                  <svg className="h-2 w-2 text-green-600" fill="currentColor" viewBox="0 0 8 8">
+                <span className="bg-ss-good-chip p-1 rounded-full mr-2">
+                  <svg className="h-2 w-2 text-ss-good" fill="currentColor" viewBox="0 0 8 8">
                     <circle cx="4" cy="4" r="3" />
                   </svg>
                 </span>
                 Industry-aligned curriculum
               </li>
               <li className="flex items-center">
-                <span className="bg-green-100 dark:bg-green-900/30 p-1 rounded-full mr-2">
-                  <svg className="h-2 w-2 text-green-600" fill="currentColor" viewBox="0 0 8 8">
+                <span className="bg-ss-good-chip p-1 rounded-full mr-2">
+                  <svg className="h-2 w-2 text-ss-good" fill="currentColor" viewBox="0 0 8 8">
                     <circle cx="4" cy="4" r="3" />
                   </svg>
                 </span>
@@ -107,9 +107,9 @@ const PersonalizedPathway = () => {
             </ul>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border border-gray-100 dark:border-gray-700">
-            <div className="h-12 w-12 bg-amber-100 dark:bg-amber-900/30 rounded-lg flex items-center justify-center mb-4">
-              <Sparkles className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+          <div className="bg-card p-6 rounded-lg shadow-md border border-border">
+            <div className="h-12 w-12 bg-ss-warn-chip rounded-lg flex items-center justify-center mb-4">
+              <Sparkles className="h-6 w-6 text-ss-warn" />
             </div>
             <h3 className="text-xl font-semibold mb-2">Progress Tracking</h3>
             <p className="text-muted-foreground mb-4">
@@ -117,24 +117,24 @@ const PersonalizedPathway = () => {
             </p>
             <ul className="space-y-2 text-sm mb-4">
               <li className="flex items-center">
-                <span className="bg-green-100 dark:bg-green-900/30 p-1 rounded-full mr-2">
-                  <svg className="h-2 w-2 text-green-600" fill="currentColor" viewBox="0 0 8 8">
+                <span className="bg-ss-good-chip p-1 rounded-full mr-2">
+                  <svg className="h-2 w-2 text-ss-good" fill="currentColor" viewBox="0 0 8 8">
                     <circle cx="4" cy="4" r="3" />
                   </svg>
                 </span>
                 Visual skill development graphs
               </li>
               <li className="flex items-center">
-                <span className="bg-green-100 dark:bg-green-900/30 p-1 rounded-full mr-2">
-                  <svg className="h-2 w-2 text-green-600" fill="currentColor" viewBox="0 0 8 8">
+                <span className="bg-ss-good-chip p-1 rounded-full mr-2">
+                  <svg className="h-2 w-2 text-ss-good" fill="currentColor" viewBox="0 0 8 8">
                     <circle cx="4" cy="4" r="3" />
                   </svg>
                 </span>
                 Completion certificates
               </li>
               <li className="flex items-center">
-                <span className="bg-green-100 dark:bg-green-900/30 p-1 rounded-full mr-2">
-                  <svg className="h-2 w-2 text-green-600" fill="currentColor" viewBox="0 0 8 8">
+                <span className="bg-ss-good-chip p-1 rounded-full mr-2">
+                  <svg className="h-2 w-2 text-ss-good" fill="currentColor" viewBox="0 0 8 8">
                     <circle cx="4" cy="4" r="3" />
                   </svg>
                 </span>
@@ -148,7 +148,7 @@ const PersonalizedPathway = () => {
           <Button 
             size="lg" 
             onClick={handleExploreClick}
-            className="bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-700 text-white font-medium shadow-lg hover:shadow-primary/25 transition-all duration-300"
+            className="rounded-full font-medium shadow-lg transition-all duration-300"
           >
             Discover Your Path <ArrowRight className="ml-2 h-4 w-4" />
           </Button>

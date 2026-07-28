@@ -33,19 +33,19 @@ const UpcomingEvents = ({ events }: UpcomingEventsProps) => {
   const getTypeColor = (type: string): string => {
     switch (type.toLowerCase()) {
       case 'workshop':
-        return 'bg-blue-100 text-blue-600';
+        return 'bg-ss-teal-chip text-ss-teal';
       case 'webinar':
-        return 'bg-purple-100 text-purple-600';
+        return 'bg-ss-lav-chip text-ss-lav-deep';
       case 'conference':
-        return 'bg-amber-100 text-amber-600';
+        return 'bg-ss-warn-chip text-ss-warn';
       case 'meetup':
-        return 'bg-green-100 text-green-600';
+        return 'bg-ss-good-chip text-ss-good';
       case 'hackathon':
-        return 'bg-orange-100 text-orange-600';
+        return 'bg-ss-warn-chip text-ss-peach-deep';
       case 'panel':
-        return 'bg-pink-100 text-pink-600';
+        return 'bg-ss-bad-chip text-ss-bad';
       default:
-        return 'bg-gray-100 text-gray-600';
+        return 'bg-muted text-muted-foreground';
     }
   };
 
@@ -54,13 +54,13 @@ const UpcomingEvents = ({ events }: UpcomingEventsProps) => {
     switch (format?.toLowerCase()) {
       case 'virtual':
       case 'online':
-        return 'bg-blue-100 text-blue-600 border-blue-200';
+        return 'bg-ss-teal-chip text-ss-teal border-border';
       case 'in-person':
-        return 'bg-green-100 text-green-600 border-green-200';
+        return 'bg-ss-good-chip text-ss-good border-border';
       case 'hybrid':
-        return 'bg-purple-100 text-purple-600 border-purple-200';
+        return 'bg-ss-lav-chip text-ss-lav-deep border-border';
       default:
-        return 'bg-gray-100 text-gray-600 border-gray-200';
+        return 'bg-muted text-muted-foreground border-border';
     }
   };
 
@@ -107,10 +107,10 @@ const UpcomingEvents = ({ events }: UpcomingEventsProps) => {
 
 
   return (
-    <section className="py-20 bg-white dark:bg-gray-900">
+    <section className="py-20 bg-background">
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-bold font-display bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
+          <h2 className="text-3xl md:text-4xl font-bold font-display text-foreground">
             Events & Workshops
           </h2>
           <Button variant="ghost" asChild className="group">
@@ -134,7 +134,7 @@ const UpcomingEvents = ({ events }: UpcomingEventsProps) => {
                 transition={{ duration: 0.5, delay: index * 0.1 }}
               >
                 <Link to={`/events/${event.id}`} className="block group">
-                  <div className="rounded-xl overflow-hidden border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-800 shadow-md hover:shadow-xl transition-all duration-300 h-full flex flex-col">
+                  <div className="rounded-xl overflow-hidden border border-border bg-card shadow-md hover:shadow-lg transition-shadow duration-300 h-full flex flex-col">
                     <div className="aspect-video overflow-hidden relative">
                       {/* No stock-photo fallback: events without real artwork
                           render a neutral gradient block instead. */}
@@ -146,7 +146,7 @@ const UpcomingEvents = ({ events }: UpcomingEventsProps) => {
                         />
                       ) : (
                         <div
-                          className="w-full h-full bg-gradient-to-br from-primary/15 to-accent/15 flex items-center justify-center"
+                          className="w-full h-full bg-ss-lav-chip flex items-center justify-center"
                           aria-hidden="true"
                         >
                           <Calendar className="h-10 w-10 text-primary/40" />
@@ -154,21 +154,21 @@ const UpcomingEvents = ({ events }: UpcomingEventsProps) => {
                       )}
                       
                       {/* Date overlay */}
-                      <div className="absolute top-3 left-3 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm rounded-lg p-2.5 text-center shadow-lg">
+                      <div className="absolute top-3 left-3 bg-card/95 backdrop-blur-sm rounded-lg p-2.5 text-center shadow-lg">
                         <div className="text-2xl font-bold text-primary">{dateObj.day}</div>
-                        <div className="text-xs uppercase text-gray-600 dark:text-gray-400">{dateObj.month}</div>
+                        <div className="text-xs uppercase text-muted-foreground">{dateObj.month}</div>
                       </div>
                       
                       {/* Past event badge */}
                       {isPast && (
-                        <div className="absolute top-3 right-3 bg-gray-900/80 text-white text-xs font-bold px-2.5 py-1.5 rounded-full shadow-lg">
+                        <div className="absolute top-3 right-3 bg-foreground/80 text-background text-xs font-bold px-2.5 py-1.5 rounded-full shadow-lg">
                           Past Event
                         </div>
                       )}
                       
                       {/* Popular badge for high capacity events */}
                       {!isPast && event.capacity && event.capacity >= 100 && (
-                        <div className="absolute top-3 right-3 bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs font-bold px-2.5 py-1.5 rounded-full shadow-lg flex items-center">
+                        <div className="absolute top-3 right-3 bg-ss-peach-deep text-white text-xs font-bold px-2.5 py-1.5 rounded-full shadow-lg flex items-center">
                           <Sparkles className="h-3 w-3 mr-1" />
                           Popular
                         </div>
@@ -208,7 +208,7 @@ const UpcomingEvents = ({ events }: UpcomingEventsProps) => {
                       </div>
                     </div>
                     
-                    <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                    <div className="px-6 py-4 border-t border-border bg-muted/50">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center text-muted-foreground text-sm">
                           {event.capacity && (

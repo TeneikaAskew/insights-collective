@@ -49,7 +49,7 @@ const CommunityShowcase = () => {
   };
 
   return (
-    <section className="py-20 bg-gradient-to-b from-slate-50 to-white dark:from-gray-900 dark:to-gray-800">
+    <section className="py-20 ss-wash">
       <div className="container mx-auto px-4">
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-4xl font-bold mb-4 font-display">Learn Together, Grow Together</h2>
@@ -59,62 +59,62 @@ const CommunityShowcase = () => {
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
-          <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/10 dark:to-blue-900/20 border-blue-200 dark:border-blue-800">
+          <Card className="bg-card border-border">
             <CardContent className="pt-6">
               <div className="flex flex-col items-center text-center">
-                <div className="h-12 w-12 bg-blue-100 dark:bg-blue-800/50 rounded-full flex items-center justify-center mb-4">
-                  <MessageSquare className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                <div className="h-12 w-12 bg-ss-teal-chip rounded-full flex items-center justify-center mb-4">
+                  <MessageSquare className="h-6 w-6 text-ss-teal" />
                 </div>
                 <h3 className="text-lg font-semibold mb-2">Discussion Forums</h3>
                 <p className="text-muted-foreground text-sm">
                   Course-specific forums for questions, insights and collaborative problem-solving
                 </p>
-                <p className="mt-3 text-blue-600 dark:text-blue-400 text-sm font-medium">25+ active forums</p>
+                <p className="mt-3 text-ss-teal text-sm font-medium">25+ active forums</p>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/10 dark:to-purple-900/20 border-purple-200 dark:border-purple-800">
+          <Card className="bg-card border-border">
             <CardContent className="pt-6">
               <div className="flex flex-col items-center text-center">
-                <div className="h-12 w-12 bg-purple-100 dark:bg-purple-800/50 rounded-full flex items-center justify-center mb-4">
-                  <Users className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                <div className="h-12 w-12 bg-ss-lav-chip rounded-full flex items-center justify-center mb-4">
+                  <Users className="h-6 w-6 text-ss-lav-deep" />
                 </div>
                 <h3 className="text-lg font-semibold mb-2">Study Groups</h3>
                 <p className="text-muted-foreground text-sm">
                   Join virtual study groups for focused learning and peer accountability
                 </p>
-                <p className="mt-3 text-purple-600 dark:text-purple-400 text-sm font-medium">40+ weekly sessions</p>
+                <p className="mt-3 text-ss-lav-deep text-sm font-medium">40+ weekly sessions</p>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/10 dark:to-amber-900/20 border-amber-200 dark:border-amber-800">
+          <Card className="bg-card border-border">
             <CardContent className="pt-6">
               <div className="flex flex-col items-center text-center">
-                <div className="h-12 w-12 bg-amber-100 dark:bg-amber-800/50 rounded-full flex items-center justify-center mb-4">
-                  <Bookmark className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+                <div className="h-12 w-12 bg-ss-warn-chip rounded-full flex items-center justify-center mb-4">
+                  <Bookmark className="h-6 w-6 text-ss-warn" />
                 </div>
                 <h3 className="text-lg font-semibold mb-2">Resource Sharing</h3>
                 <p className="text-muted-foreground text-sm">
                   Curated libraries of industry resources and learner-shared content
                 </p>
-                <p className="mt-3 text-amber-600 dark:text-amber-400 text-sm font-medium">500+ shared resources</p>
+                <p className="mt-3 text-ss-warn text-sm font-medium">500+ shared resources</p>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/10 dark:to-green-900/20 border-green-200 dark:border-green-800">
+          <Card className="bg-card border-border">
             <CardContent className="pt-6">
               <div className="flex flex-col items-center text-center">
-                <div className="h-12 w-12 bg-green-100 dark:bg-green-800/50 rounded-full flex items-center justify-center mb-4">
-                  <Award className="h-6 w-6 text-green-600 dark:text-green-400" />
+                <div className="h-12 w-12 bg-ss-good-chip rounded-full flex items-center justify-center mb-4">
+                  <Award className="h-6 w-6 text-ss-good" />
                 </div>
                 <h3 className="text-lg font-semibold mb-2">Mentorship</h3>
                 <p className="text-muted-foreground text-sm">
                   Connect with experienced professionals for guidance and career advice
                 </p>
-                <p className="mt-3 text-green-600 dark:text-green-400 text-sm font-medium">50+ active mentors</p>
+                <p className="mt-3 text-ss-good text-sm font-medium">50+ active mentors</p>
               </div>
             </CardContent>
           </Card>
@@ -150,7 +150,7 @@ const CommunityShowcase = () => {
         <div className="text-center">
           <Button 
             onClick={handleJoinCommunity}
-            className="bg-primary hover:bg-primary/90 text-white px-6 shadow-md hover:shadow-lg transition-shadow duration-300"
+            className="rounded-full px-6 shadow-md hover:shadow-lg transition-shadow duration-300"
           >
             Join Our Community <ArrowRight className="ml-2 h-4 w-4" />
           </Button>

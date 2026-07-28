@@ -6,7 +6,7 @@ const FeatureCard = ({ icon: Icon, title, description }: {
   title: string; 
   description: string 
 }) => (
-  <div className="flex flex-col items-center text-center p-6 rounded-lg bg-card shadow-sm">
+  <div className="flex flex-col items-center text-center p-6 ss-tile">
     <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
       <Icon className="h-7 w-7 text-primary" />
     </div>
