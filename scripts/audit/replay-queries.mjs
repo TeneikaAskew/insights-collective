@@ -78,6 +78,14 @@ function normaliseSelect(select) {
  * zero rows is a data question, not a validity one.
  */
 async function probeSelect(table, select, token) {
+  // The inventory file is generated from this repo's own source, but treat it
+  // as data all the same (CodeQL js/file-access-to-http): `select` is
+  // percent-encoded, and the table name — which lands in the URL path — must
+  // be a plain PostgREST identifier. Anything else is a malformed inventory
+  // entry, reported as such rather than sent.
+  if (!/^[a-z_][a-z0-9_]*$/.test(table)) {
+    return { status: 0, ok: false, code: 'BAD_TABLE', message: `not a valid table identifier: ${JSON.stringify(String(table).slice(0, 80))}` };
+  }
   const cols = select && select.trim() ? normaliseSelect(select) : '*';
   const url = `${URL_BASE}/rest/v1/${table}?select=${encodeURIComponent(cols)}&limit=1`;
   try {

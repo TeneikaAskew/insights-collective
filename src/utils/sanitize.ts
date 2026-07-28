@@ -46,6 +46,21 @@ const ensureHooks = () => {
  * Sanitize HTML content for safe rendering via dangerouslySetInnerHTML.
  * Allows common formatting tags while stripping dangerous content. <iframe>
  * embeds are restricted to an allowlist of trusted video hosts.
+ *
+ * This is the ONLY HTML sanitizer in the codebase — the TipTap editors
+ * (BlogEditor, unified-canvas-editor) run their output through it on every
+ * update, and blog/lesson renderers pass stored content through it before
+ * dangerouslySetInnerHTML. It replaced a second, regex-based sanitizer in
+ * securityUtils.ts whose single-pass strips CodeQL correctly flagged as
+ * bypassable (js/bad-tag-filter, js/incomplete-multi-character-sanitization):
+ * regexes cannot parse nested or malformed tags, and `<scr<script>ipt>`
+ * survives a one-shot replace. DOMPurify parses.
+ *
+ * The tag/attr allowlist must cover everything the editors' TipTap extensions
+ * emit, because sanitisation runs while the user types — a missing tag here
+ * silently deletes content mid-keystroke. StarterKit + Highlight (<mark>),
+ * Underline, Image, Link, Table (colspan/rowspan/colwidth), TextAlign and
+ * Color (style) are all represented; extend this list when adding extensions.
  */
 export const sanitizeHTML = (dirty: string): string => {
   if (!dirty) return '';
@@ -58,7 +73,7 @@ export const sanitizeHTML = (dirty: string): string => {
       'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
       'ul', 'ol', 'li',
       'a', 'code', 'pre', 'blockquote',
-      'span', 'div', 'img', 'hr',
+      'span', 'div', 'img', 'hr', 'mark',
       'table', 'thead', 'tbody', 'tr', 'th', 'td',
       'video', 'source', 'audio',
       'iframe',
@@ -69,6 +84,7 @@ export const sanitizeHTML = (dirty: string): string => {
       'value', 'controls', 'allowfullscreen',
       'allow', 'frameborder', 'title',
       'data-youtube-video',
+      'colspan', 'rowspan', 'colwidth',
     ],
     // DOMPurify's documented safe default: permits http(s)/mailto/tel absolute
     // URLs, relative URLs, and anchors while rejecting javascript:/data: URIs.

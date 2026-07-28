@@ -15,7 +15,7 @@ describe('safeInternalPath', () => {
       'data:text/html,<script>alert(1)</script>',
       'mailto:someone@example.com',
       'evil.com',
-      '/\t/evil.com'.replace('\t', '\\'),
+      '/\\/evil.com',
     ];
 
     it.each(escapes)('rejects %j', (candidate) => {

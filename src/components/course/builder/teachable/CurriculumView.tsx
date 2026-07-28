@@ -2,6 +2,7 @@
 // ABOUTME: Uses dnd-kit for reorder of both sections and lessons within each section.
 
 import { useMemo, useState } from 'react';
+import { htmlToPlainText } from '@/utils/htmlToPlainText';
 import {
   DndContext,
   DragEndEvent,
@@ -39,13 +40,7 @@ import { ConfirmDialog } from './ConfirmDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-function htmlToPlainText(html: string): string {
-  if (!html) return '';
-  if (typeof document === 'undefined') return html.replace(/<[^>]+>/g, '').trim();
-  const tmp = document.createElement('div');
-  tmp.innerHTML = html;
-  return (tmp.textContent || tmp.innerText || '').trim();
-}
+
 
 function looksLikeHtml(text: string): boolean {
   return /<\/?[a-z][\s\S]*>/i.test(text);

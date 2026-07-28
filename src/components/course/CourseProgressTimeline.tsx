@@ -2,6 +2,7 @@
 // ABOUTME: Auto-updates via useCourseProgress and Supabase realtime on progressions/submissions.
 
 import { useEffect } from 'react';
+import { htmlToPlainText } from '@/utils/htmlToPlainText';
 import { Check, Circle, CircleDot } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -132,7 +133,7 @@ export function CourseProgressTimeline({ courseId, modules, title = 'Weekly chec
 
               {m.description && (
                 <p className="mt-2 text-sm text-neutral-600 leading-relaxed">
-                  {m.description.replace(/<[^>]+>/g, '').trim()}
+                  {htmlToPlainText(m.description)}
                 </p>
               )}
 
