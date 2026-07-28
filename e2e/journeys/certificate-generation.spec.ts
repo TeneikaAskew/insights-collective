@@ -28,7 +28,13 @@ test.describe('Certificate generation — end to end', () => {
 
     // 2) Resolve the member's user id.
     const meRes = await page.request.get(`${SUPABASE_URL}/auth/v1/user`, { headers: authHeaders });
-    expect(meRes.ok(), `auth/v1/user ok (${meRes.status()})`).toBeTruthy();
+    // Include the response body: a bare status tells us the token was rejected
+    // but not why, and "why" is the whole question when this fails in CI.
+    // Supabase names the cause here (expired, bad_jwt, session_not_found, ...).
+    expect(
+      meRes.ok(),
+      `auth/v1/user ${meRes.status()} — ${(await meRes.text()).slice(0, 300)}`,
+    ).toBeTruthy();
     const userId = (await meRes.json()).id as string;
     expect(userId).toBeTruthy();
 
@@ -42,6 +48,13 @@ test.describe('Certificate generation — end to end', () => {
     expect(items.length, 'seeded course has published content items').toBeGreaterThan(0);
 
     // 4) Reset any existing certificate + progressions so this run truly proves auto-issuance.
+    //    This spec runs in the chromium-member-journeys project, so `userId`
+    //    here is the dedicated journeys account, not the shared member. That
+    //    is what makes this reset safe: RLS scopes certificate deletes to the
+    //    acting user, so nothing here can touch the shared member's fixture
+    //    certificate, which profile-certificates-flow.spec.ts asserts on and
+    //    the /profile visual snapshot renders. Keep it that way -- running
+    //    this as the shared member reintroduces both failures at once.
     await page.request.delete(
       `${SUPABASE_URL}/rest/v1/certificates?user_id=eq.${userId}&course_id=eq.${COURSE_ID}`,
       { headers: authHeaders },

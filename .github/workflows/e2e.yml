@@ -14,6 +14,15 @@ on:
         type: boolean
         default: false
 
+# Every run of this suite drives the same live Supabase project through the same
+# three e2e-* accounts, so two runs cannot share the wall clock: they seed over
+# each other's fixtures and revoke each other's sessions. The group is
+# deliberately a constant rather than per-ref — the point is one E2E run at a
+# time across the whole repository, not one per branch.
+concurrency:
+  group: e2e-shared-supabase
+  cancel-in-progress: false
+
 jobs:
   # Replays every query the code issues against the live database and fails if
   # any of them is invalid on a page a user can actually load.
@@ -174,7 +183,46 @@ jobs:
               exit 0
               ;;
           esac
-          if ! psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f e2e/fixtures/seed.sql; then
+          # A scheme alone is not enough: a database password containing URI
+          # reserved characters silently corrupts the authority section. A raw
+          # "?" or "#" ends the authority early, so the host is read as the few
+          # characters before it and the port cast then fails -- which is what
+          # makes those two detectable here rather than fifteen minutes later.
+          # A malformed percent-escape is NOT caught that way (urlsplit does not
+          # decode escapes, and unquote leaves an invalid one literal), so it
+          # gets its own check. Skip rather than fail, for the same reason the
+          # scheme check does. Deliberately no worked example: an inline
+          # connection-string literal, even a fabricated one, trips TruffleHog's
+          # Postgres detector and fails the Secret Detection job.
+          if ! python3 - <<'PY'
+          import os, re, sys
+          from urllib.parse import urlsplit
+          raw = os.environ["SUPABASE_DB_URL"]
+          advice = "Percent-encode the password if it contains reserved characters: % becomes %25, ? becomes %3F, # becomes %23, / becomes %2F, @ becomes %40, : becomes %3A. Skipping seed."
+          if re.search(r"%(?![0-9A-Fa-f]{2})", raw):
+              print("::error title=SUPABASE_DB_URL contains a malformed percent-escape::A '%' must be followed by two hex digits. " + advice)
+              sys.exit(1)
+          try:
+              parts = urlsplit(raw)
+              port = parts.port
+          except ValueError:
+              print("::error title=SUPABASE_DB_URL does not parse as a URI::A raw '?' or '#' in the password ends the authority early, so the host and port are read from the wrong place. " + advice)
+              sys.exit(1)
+          if not parts.hostname or not port:
+              print("::error title=SUPABASE_DB_URL is missing a host or port::Expected the postgresql:// URI form ending in :5432/postgres. " + advice)
+              sys.exit(1)
+          PY
+          then
+            exit 0
+          fi
+          # ON_ERROR_STOP so a failed statement (including the seed's own
+          # invariant RAISE EXCEPTIONs) aborts psql. Without it psql prints the
+          # error and still exits 0, and a half-applied seed looks fine while
+          # the specs fail later for reasons that make no sense.
+          # -v e2e_password: the seed provisions the dedicated journeys account
+          # and needs the shared password to set. It is read from the secret
+          # here and never stored in the SQL file.
+          if ! psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -v e2e_password="$E2E_TEST_PASSWORD" -f e2e/fixtures/seed.sql; then
             echo "::error title=E2E seeding failed::psql could not apply e2e/fixtures/seed.sql. Continuing so the suite still runs; fixture-dependent specs will report their own 'Seed gap' errors."
           fi
 
