@@ -23,6 +23,100 @@ BEGIN
   END IF;
 END $$;
 
+-- 1b. Provision the dedicated "journeys" member.
+--
+--     Why a second member account exists at all: the destructive completion
+--     journeys (certificate-generation, full-completion-sequence) prove
+--     auto-issuance from a clean slate, so they delete the acting user's
+--     certificate and progressions for the reference course before rebuilding
+--     them. Run as the shared member, that mutates state other specs render:
+--     the profile "My Certificates" card and the /profile visual snapshot both
+--     read the member's certificate list, and the suite is fullyParallel, so
+--     the list they see depends on where those journeys happen to be. Pinning
+--     the fixture certificate to a different course only moved the problem --
+--     the *count* still changed mid-run. Only a different user makes the
+--     shared member's certificate set constant.
+--
+--     It also separates the two specs that grade fixture assignment
+--     aa0e8400-...0001: submissions are keyed per (assignment, user), so once
+--     the journeys account owns one of them the two stop overwriting each
+--     other's grade.
+--
+--     auth.users is written directly because this project has no service-role
+--     key in CI and signup is not exercisable headlessly. Two details are
+--     load-bearing: the token columns must be '' rather than NULL (GoTrue
+--     scans them into non-nullable Go strings and answers every sign-in with
+--     "Database error querying schema"), and the auth.identities row must
+--     exist or password grant finds no identity to authenticate against. The
+--     profiles row and the 'student' role come from the on_auth_user_created
+--     trigger; only the enrollment has to be added here.
+DO $$
+DECLARE
+  v_course_id uuid := '660e8400-e29b-41d4-a716-446655440001';
+  v_email text := 'e2e-journeys@insightscollective.org';
+  v_password text := NULLIF(current_setting('e2e.password', true), '');
+  v_id uuid;
+BEGIN
+  SELECT id INTO v_id FROM auth.users WHERE email = v_email;
+
+  IF v_id IS NULL THEN
+    v_id := gen_random_uuid();
+    INSERT INTO auth.users (
+      id, instance_id, aud, role, email, encrypted_password, email_confirmed_at,
+      raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
+      confirmation_token, recovery_token, email_change_token_new,
+      email_change_token_current, email_change, phone_change,
+      phone_change_token, reauthentication_token
+    ) VALUES (
+      v_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+      v_email,
+      extensions.crypt(
+        COALESCE(v_password, encode(extensions.gen_random_bytes(24), 'base64')),
+        extensions.gen_salt('bf')
+      ),
+      now(),
+      '{"provider":"email","providers":["email"]}'::jsonb,
+      '{"full_name":"E2E Journeys","email_verified":true}'::jsonb,
+      now(), now(),
+      '', '', '', '', '', '', '', ''
+    );
+  ELSIF v_password IS NOT NULL THEN
+    -- Re-apply on every run so a rotated CI secret self-heals.
+    UPDATE auth.users
+       SET encrypted_password = extensions.crypt(v_password, extensions.gen_salt('bf')),
+           updated_at = now()
+     WHERE id = v_id;
+  END IF;
+
+  -- Repair an existing row rather than assuming the create path built it:
+  -- any NULL here is a sign-in failure with a misleading error message.
+  UPDATE auth.users
+     SET email_confirmed_at = COALESCE(email_confirmed_at, now()),
+         confirmation_token = COALESCE(confirmation_token, ''),
+         recovery_token = COALESCE(recovery_token, ''),
+         email_change_token_new = COALESCE(email_change_token_new, ''),
+         email_change_token_current = COALESCE(email_change_token_current, ''),
+         email_change = COALESCE(email_change, ''),
+         phone_change = COALESCE(phone_change, ''),
+         phone_change_token = COALESCE(phone_change_token, ''),
+         reauthentication_token = COALESCE(reauthentication_token, '')
+   WHERE id = v_id;
+
+  INSERT INTO auth.identities (
+    id, user_id, provider_id, provider, identity_data,
+    last_sign_in_at, created_at, updated_at
+  )
+  SELECT gen_random_uuid(), v_id, v_id::text, 'email',
+         jsonb_build_object('sub', v_id::text, 'email', v_email, 'email_verified', true),
+         now(), now(), now()
+  WHERE NOT EXISTS (
+    SELECT 1 FROM auth.identities WHERE user_id = v_id AND provider = 'email'
+  );
+
+  INSERT INTO public.enrollments (user_id, course_id)
+  VALUES (v_id, v_course_id)
+  ON CONFLICT DO NOTHING;
+END $$;
 -- 2. Ensure the dedicated instructor is set as the primary instructor of the reference course.
 DO $$
 DECLARE
@@ -409,6 +503,21 @@ BEGIN
   ) INTO v_ok;
   IF NOT v_ok THEN
     RAISE EXCEPTION 'E2E SEED FAILED: fixture survey form missing; the admin survey editor has nothing to open';
+  END IF;
+  -- The journeys account must be usable, or every spec retargeted onto it
+  -- fails at sign-in with an error that points at global-setup instead of here.
+  SELECT EXISTS (
+    SELECT 1 FROM auth.users u
+    JOIN auth.identities i ON i.user_id = u.id AND i.provider = 'email'
+    JOIN public.enrollments e
+      ON e.user_id = u.id AND e.course_id = '660e8400-e29b-41d4-a716-446655440001'
+    WHERE u.email = 'e2e-journeys@insightscollective.org'
+      AND u.email_confirmed_at IS NOT NULL
+      AND u.confirmation_token IS NOT NULL
+      AND u.encrypted_password IS NOT NULL
+  ) INTO v_ok;
+  IF NOT v_ok THEN
+    RAISE EXCEPTION 'E2E SEED FAILED: e2e-journeys@insightscollective.org must exist confirmed, with an email identity, non-NULL auth token columns, and an enrollment on course 660e8400-...0001';
   END IF;
 END $$;
 

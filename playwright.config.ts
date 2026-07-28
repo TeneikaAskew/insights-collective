@@ -175,6 +175,10 @@ export default defineConfig({
         '**/blog/**',
         '**/portfolio/public-portfolio.spec.ts',
         '**/career/career-pathway-public.spec.ts',
+        // Destructive completion journeys — handled by chromium-member-journeys
+        // on a separate account. See that project for why.
+        '**/journeys/certificate-generation.spec.ts',
+        '**/journeys/full-completion-sequence.spec.ts',
         // Asserts the LOGGED-OUT code-practice experience ("the hub is public,
         // so no auth is required", and it expects the Demo-mode result badge).
         // Claimed by this project it ran with a member session, where the page
@@ -193,6 +197,35 @@ export default defineConfig({
         '**/assignments/grading-interface.spec.ts',
         '**/journeys/grading-workflow-flow.spec.ts',
         '**/instructor/**',
+      ],
+    },
+    // Chromium — second member account, for the completion journeys that reset
+    // state to prove auto-issuance.
+    //
+    // These specs delete the acting user's certificates and progressions for
+    // the reference course before rebuilding them. Run as the shared member
+    // that is destructive to specs which only read: profile-certificates-flow
+    // asserts the member's certificate list, and the /profile visual snapshot
+    // renders it at a 1% pixel tolerance. Since the suite is fullyParallel,
+    // both saw a list whose contents depended on where these journeys had got
+    // to. Certificates are per (user, course) and RLS scopes deletes to the
+    // acting user, so moving the journeys to their own account makes the
+    // shared member's certificate set constant.
+    //
+    // It also splits the two specs that grade fixture assignment
+    // aa0e8400-...0001: submissions are keyed per (assignment, user), so with
+    // full-completion-sequence here and assignment-submission-feedback still
+    // on the shared member, they write separate rows instead of racing to
+    // overwrite one grade.
+    {
+      name: 'chromium-member-journeys',
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: path.join(SESSIONS_DIR, 'journeys.json'),
+      },
+      testMatch: [
+        '**/journeys/certificate-generation.spec.ts',
+        '**/journeys/full-completion-sequence.spec.ts',
       ],
     },
     // Chromium — admin role

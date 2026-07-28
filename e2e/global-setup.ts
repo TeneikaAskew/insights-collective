@@ -31,6 +31,12 @@ const DEFAULT_EMAILS = {
   admin: 'e2e-admin@insightscollective.org',
   instructor: 'e2e-instructor@insightscollective.org',
   member: 'e2e-member@insightscollective.org',
+  // Second member account, used only by the chromium-member-journeys project.
+  // The destructive completion journeys reset certificates and progressions
+  // for the acting user, so they must not act as the shared member whose
+  // state other specs (and the /profile visual baseline) read. Provisioned by
+  // e2e/fixtures/seed.sql, not by the bootstrap below.
+  journeys: 'e2e-journeys@insightscollective.org',
 } as const;
 
 type Role = keyof typeof DEFAULT_EMAILS;
@@ -55,6 +61,10 @@ const TEST_USERS: Record<Role, TestUser> = {
     email: process.env.E2E_MEMBER_EMAIL || DEFAULT_EMAILS.member,
     password: process.env.E2E_MEMBER_PASSWORD || SHARED_PASSWORD,
   },
+  journeys: {
+    email: process.env.E2E_JOURNEYS_EMAIL || DEFAULT_EMAILS.journeys,
+    password: process.env.E2E_JOURNEYS_PASSWORD || SHARED_PASSWORD,
+  },
 };
 
 async function signInViaApi(email: string, password: string) {
@@ -65,6 +75,22 @@ async function signInViaApi(email: string, password: string) {
   });
   if (!res.ok) throw new Error(`Auth failed for ${email}: ${res.status} ${await res.text()}`);
   return res.json();
+}
+
+// Cheap probe: can this account already sign in with the shared password? The
+// probe session is revoked immediately (scope=local) so it does not accumulate
+// a row per CI run.
+async function passwordWorks(email: string, password: string): Promise<boolean> {
+  try {
+    const session = await signInViaApi(email, password);
+    await fetch(`${SUPABASE_URL}/auth/v1/logout?scope=local`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${session.access_token}` },
+    }).catch(() => {});
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // Uses the admin-users edge function's setE2EPassword action, which is narrowly
@@ -275,10 +301,27 @@ async function globalSetup(config: FullConfig): Promise<void> {
   if (SHARED_PASSWORD && admin.email && admin.password) {
     try {
       const adminSession = await signInViaApi(admin.email, admin.password);
+      // 'journeys' is deliberately absent: bootstrapPassword goes through the
+      // admin-users setE2EPassword action, whose allowlist covers only the
+      // three original e2e-* accounts. The seed sets that account's password
+      // from the same E2E_TEST_PASSWORD secret instead, so there is nothing to
+      // bootstrap here and adding it would only log a 400 every run.
       for (const role of ['instructor', 'member'] as const) {
         const target = TEST_USERS[role];
         if (!target.email) continue;
         if (target.password === SHARED_PASSWORD) {
+          // Only set the password if it is not already correct. Setting it
+          // revokes every existing session for that account, and this suite
+          // runs against a shared Supabase project — so an unconditional
+          // bootstrap deletes the sessions of any run already in flight for
+          // another branch. Those runs then fail scattered specs with
+          // `session_not_found` on /auth/v1/user, or silently drop to the
+          // anon role and hit `42501 permission denied`. Both look like
+          // product bugs and are not.
+          if (await passwordWorks(target.email, SHARED_PASSWORD)) {
+            console.log(`[global-setup] Password already valid for ${role} (${target.email})`);
+            continue;
+          }
           const ok = await bootstrapPassword(adminSession.access_token, target.email, SHARED_PASSWORD);
           if (ok) console.log(`[global-setup] Bootstrapped password for ${role} (${target.email})`);
         }
@@ -291,11 +334,19 @@ async function globalSetup(config: FullConfig): Promise<void> {
   // Fail the run rather than degrade it. Writing an empty storageState here let
   // ~60 member specs continue as signed-out smoke tests, green, with no signal.
   const sessionFailures: string[] = [];
-  for (const role of ['admin', 'instructor', 'member'] as const) {
+  for (const role of ['admin', 'instructor', 'member', 'journeys'] as const) {
     try {
       await saveSessionForRole(role, TEST_USERS[role], baseURL);
     } catch (err) {
-      sessionFailures.push(`${role}: ${(err as Error).message}`);
+      // `journeys` is created and password-set by the seed, not by the admin
+      // bootstrap above, so it has a failure mode the others do not: a skipped
+      // seed leaves it absent or on a stale password.
+      const hint =
+        role === 'journeys'
+          ? ' (provisioned by e2e/fixtures/seed.sql — apply it with:' +
+            ' psql "$SUPABASE_DB_URL" -v e2e_password="$E2E_TEST_PASSWORD" -f e2e/fixtures/seed.sql)'
+          : '';
+      sessionFailures.push(`${role}: ${(err as Error).message}${hint}`);
     }
   }
   if (sessionFailures.length) {
