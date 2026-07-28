@@ -49,14 +49,8 @@ export function LessonEditView({
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-6 mt-3">
         {/* Center content */}
         <div>
-          <div
-            className="rounded-xl bg-white overflow-hidden"
-            style={{ border: '1px solid hsl(var(--tw-border))' }}
-          >
-            <div
-              className="flex items-center justify-between px-6 py-4"
-              style={{ borderBottom: '1px solid hsl(var(--tw-border))' }}
-            >
+          <div className="rounded-xl bg-card overflow-hidden border border-border">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
               <h3 className="font-display text-2xl truncate">
                 {currentItem?.title || 'Select a lesson'}
               </h3>
@@ -70,7 +64,7 @@ export function LessonEditView({
                     className={
                       currentItem.published
                         ? 'text-xs font-bold px-3 py-1.5 rounded border bg-primary text-primary-foreground border-primary hover:bg-primary/90'
-                        : 'text-xs font-bold px-3 py-1.5 rounded border bg-white text-gray-800 border-gray-300 hover:bg-gray-50'
+                        : 'text-xs font-bold px-3 py-1.5 rounded border bg-card text-foreground border-border hover:bg-muted'
                     }
                   >
                     {currentItem.published ? 'Unpublish' : 'Publish'}
@@ -79,18 +73,15 @@ export function LessonEditView({
                     <button
                       type="button"
                       onClick={() => setMenuOpen((v) => !v)}
-                      className="p-1.5 rounded hover:bg-gray-100 text-gray-500"
+                      className="p-1.5 rounded hover:bg-muted text-muted-foreground"
                     >
                       <MoreHorizontal className="h-4 w-4" />
                     </button>
                     {menuOpen && (
-                      <div
-                        className="absolute right-0 top-full mt-1 min-w-[140px] rounded-md bg-white shadow-lg z-10 py-1"
-                        style={{ border: '1px solid hsl(var(--tw-border))' }}
-                      >
+                      <div className="absolute right-0 top-full mt-1 min-w-[140px] rounded-md bg-card shadow-lg z-10 py-1 border border-border">
                         <button
                           type="button"
-                          className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-red-50"
+                          className="w-full text-left px-3 py-2 text-xs text-destructive hover:bg-ss-bad-chip"
                           onClick={() => {
                             setMenuOpen(false);
                             setConfirmDeleteOpen(true);
@@ -132,7 +123,7 @@ export function LessonEditView({
                   );
                 })()
               ) : (
-                <div className="text-center py-20 text-sm text-gray-500">
+                <div className="text-center py-20 text-sm text-muted-foreground">
                   Pick a lesson from the outline or add one from the panel to the right.
                 </div>
               )}
@@ -143,17 +134,14 @@ export function LessonEditView({
 
         {/* Right column: Outline + Add content */}
         <aside className="space-y-6">
-          <div
-            className="bg-white rounded-xl p-5"
-            style={{ border: '1px solid hsl(var(--tw-border))' }}
-          >
+          <div className="bg-card rounded-xl p-5 border border-border">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-display text-2xl">Outline</h3>
             </div>
             <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1">
               {modules.map((m) => (
                 <div key={m.id}>
-                  <div className="text-[10px] uppercase tracking-widest font-bold text-gray-500 mb-2">
+                  <div className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground mb-2">
                     {m.title || 'Untitled section'}
                   </div>
                   <ul className="space-y-0.5">
@@ -166,13 +154,8 @@ export function LessonEditView({
                             onClick={() => onSelectLesson(it.id)}
                             className={
                               active
-                                ? 'w-full text-left text-sm px-2 py-1.5 rounded font-semibold'
-                                : 'w-full text-left text-sm px-2 py-1.5 rounded text-gray-700 hover:bg-gray-50'
-                            }
-                            style={
-                              active
-                                ? { borderLeft: '2px solid hsl(var(--tw-accent))', paddingLeft: 10 }
-                                : undefined
+                                ? 'w-full text-left text-sm py-1.5 rounded font-semibold border-l-2 border-primary pl-2.5 pr-2'
+                                : 'w-full text-left text-sm px-2 py-1.5 rounded text-foreground hover:bg-muted'
                             }
                           >
                             <span className="truncate block">{it.title || 'Untitled lesson'}</span>
@@ -181,7 +164,7 @@ export function LessonEditView({
                       );
                     })}
                     {m.items.length === 0 && (
-                      <li className="text-xs text-gray-400 italic px-2">No lessons</li>
+                      <li className="text-xs text-muted-foreground italic px-2">No lessons</li>
                     )}
                   </ul>
                 </div>

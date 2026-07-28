@@ -114,14 +114,14 @@ export function CurriculumTree(props: CurriculumTreeProps) {
   return (
     <div className="flex flex-col h-full">
       {/* Sidebar Header */}
-      <div className="p-6" style={{ borderBottom: '1px solid hsl(var(--cw-border))' }}>
+      <div className="p-6 border-b border-border">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-bold text-base tracking-tight">Curriculum</h2>
           {!readOnly && onAddModule && (
             <button
               type="button"
               onClick={onAddModule}
-              className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors"
+              className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg hover:bg-muted text-muted-foreground transition-colors"
             >
               <Plus className="h-3.5 w-3.5" />
               Module
@@ -130,18 +130,17 @@ export function CurriculumTree(props: CurriculumTreeProps) {
         </div>
         {showProgress && (
           <div className="space-y-2">
-            <div className="flex justify-between text-[11px] font-bold text-gray-400 uppercase tracking-widest">
+            <div className="flex justify-between text-[11px] font-bold text-muted-foreground uppercase tracking-widest">
               <span>Progress</span>
-              <span style={{ color: 'hsl(var(--cw-accent-strong))' }}>
+              <span className="text-ss-teal">
                 {Math.round(progressPercent!)}%
               </span>
             </div>
-            <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
+            <div className="h-1.5 w-full bg-ss-track rounded-full overflow-hidden">
               <div
-                className="h-full rounded-full transition-all"
+                className="h-full rounded-full transition-all bg-ss-teal"
                 style={{
                   width: `${Math.min(100, Math.max(0, progressPercent!))}%`,
-                  background: 'hsl(var(--cw-accent))',
                 }}
               />
             </div>
@@ -152,12 +151,12 @@ export function CurriculumTree(props: CurriculumTreeProps) {
       {/* Modules */}
       <nav className="flex-1 overflow-y-auto p-4 space-y-6">
         {modules.length === 0 ? (
-          <div className="p-4 text-center text-sm text-gray-500">
+          <div className="p-4 text-center text-sm text-muted-foreground">
             No modules yet.
             {!readOnly && onAddModule && (
               <button
                 onClick={onAddModule}
-                className="mt-3 mx-auto inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50"
+                className="mt-3 mx-auto inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg border border-border hover:bg-muted"
               >
                 <Plus className="h-3.5 w-3.5" />
                 Add your first module
@@ -274,7 +273,7 @@ function SortableModule({
         {!readOnly && (
           <button
             type="button"
-            className="cursor-grab text-gray-300 hover:text-gray-500"
+            className="cursor-grab text-muted-foreground/50 hover:text-muted-foreground"
             {...attributes}
             {...listeners}
             aria-label="Drag to reorder module"
@@ -285,7 +284,7 @@ function SortableModule({
         {editing && !readOnly ? (
           <input
             autoFocus
-            className="flex-1 bg-transparent text-[11px] font-bold text-gray-500 uppercase tracking-widest outline-none focus:ring-2 focus:ring-teal-400 rounded px-1"
+            className="flex-1 bg-transparent text-[11px] font-bold text-muted-foreground uppercase tracking-widest outline-none focus:ring-2 focus:ring-ss-teal rounded px-1"
             value={draftTitle}
             onChange={(e) => setDraftTitle(e.target.value)}
             onBlur={commitRename}
@@ -300,7 +299,7 @@ function SortableModule({
         ) : (
           <button
             type="button"
-            className="flex-1 text-left text-[11px] font-bold text-gray-500 uppercase tracking-widest truncate hover:text-gray-800"
+            className="flex-1 text-left text-[11px] font-bold text-muted-foreground uppercase tracking-widest truncate hover:text-foreground"
             onClick={() =>
               readOnly ? onToggleExpand(module.id) : setEditing(true)
             }
@@ -313,7 +312,7 @@ function SortableModule({
           <button
             type="button"
             onClick={() => onAddItem(module.id)}
-            className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-all"
+            className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-all"
             aria-label="Add lesson"
           >
             <Plus className="h-3.5 w-3.5" />
@@ -323,7 +322,7 @@ function SortableModule({
           <button
             type="button"
             onClick={() => onDeleteModule(module.id)}
-            className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-600 transition-all"
+            className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-ss-bad-chip text-muted-foreground hover:text-destructive transition-all"
             aria-label="Delete module"
           >
             <Trash2 className="h-3.5 w-3.5" />
@@ -335,12 +334,12 @@ function SortableModule({
       {isExpanded && (
         <div className="space-y-1">
           {module.items.length === 0 ? (
-            <div className="pl-4 pr-2 pb-1 text-xs text-gray-400">
+            <div className="pl-4 pr-2 pb-1 text-xs text-muted-foreground">
               No lessons yet.
               {!readOnly && onAddItem && (
                 <button
                   type="button"
-                  className="ml-1 underline hover:text-gray-700"
+                  className="ml-1 underline hover:text-foreground"
                   onClick={() => onAddItem(module.id)}
                 >
                   Add one
@@ -421,24 +420,22 @@ function SortableItem({
     }
   };
 
-  const activeBg = isSelected
-    ? { background: 'hsl(var(--cw-accent) / 0.12)', color: 'hsl(var(--cw-accent-strong))' }
-    : undefined;
-
   return (
     <div
       ref={setNodeRef}
-      style={{ ...style, ...activeBg }}
+      style={style}
       className={cn(
         'group flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all',
-        !isSelected && 'hover:bg-gray-50 text-gray-600',
+        isSelected
+          ? 'bg-ss-teal-chip text-ss-teal'
+          : 'hover:bg-muted text-muted-foreground',
       )}
       onClick={() => onSelectItem(moduleId, item.id)}
     >
       {!readOnly && (
         <button
           type="button"
-          className="cursor-grab text-gray-300 hover:text-gray-500 -ml-1"
+          className="cursor-grab text-muted-foreground/50 hover:text-muted-foreground -ml-1"
           {...attributes}
           {...listeners}
           onClick={(e) => e.stopPropagation()}
@@ -451,21 +448,15 @@ function SortableItem({
       {/* Progress indicator circle */}
       <div className="flex-shrink-0">
         {isCompleted ? (
-          <div
-            className="w-6 h-6 rounded-full flex items-center justify-center text-white"
-            style={{ background: 'hsl(var(--cw-accent))' }}
-          >
+          <div className="w-6 h-6 rounded-full flex items-center justify-center text-white bg-ss-teal">
             <Check className="h-3.5 w-3.5" strokeWidth={3} />
           </div>
         ) : isSelected ? (
-          <div
-            className="w-6 h-6 rounded-full flex items-center justify-center text-white"
-            style={{ background: 'hsl(var(--cw-accent))' }}
-          >
+          <div className="w-6 h-6 rounded-full flex items-center justify-center text-white bg-ss-teal">
             <Play className="h-3 w-3 ml-0.5" fill="currentColor" />
           </div>
         ) : (
-          <div className="w-6 h-6 rounded-full border-2 border-gray-200 flex items-center justify-center text-gray-300">
+          <div className="w-6 h-6 rounded-full border-2 border-border flex items-center justify-center text-muted-foreground/50">
             <Circle className="h-2 w-2" fill="none" strokeWidth={0} />
           </div>
         )}
@@ -473,7 +464,7 @@ function SortableItem({
 
       <span
         className={cn(
-          'text-gray-400 flex-shrink-0',
+          'text-muted-foreground/70 flex-shrink-0',
           isSelected && 'text-current opacity-70',
         )}
       >
@@ -483,7 +474,7 @@ function SortableItem({
       {editing && !readOnly ? (
         <input
           autoFocus
-          className="flex-1 min-w-0 bg-transparent text-sm outline-none focus:ring-2 focus:ring-teal-400 rounded px-1"
+          className="flex-1 min-w-0 bg-transparent text-sm outline-none focus:ring-2 focus:ring-ss-teal rounded px-1"
           value={draftTitle}
           onChange={(e) => setDraftTitle(e.target.value)}
           onClick={(e) => e.stopPropagation()}
@@ -517,7 +508,7 @@ function SortableItem({
             e.stopPropagation();
             onDeleteItem(item.id);
           }}
-          className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-600 transition-all"
+          className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-ss-bad-chip text-muted-foreground hover:text-destructive transition-all"
           aria-label="Delete lesson"
         >
           <Trash2 className="h-3 w-3" />
