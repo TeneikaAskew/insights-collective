@@ -63,10 +63,53 @@ what earns its place; the supporting files hold the evidence.
   not persist it, do not echo it back.** Diagnose structurally without
   transmitting it.
 
+## Verify the bug, not just the fix
+
+Added after PR #32, where a change was justified by a premise that existing
+green tests contradicted. See `08-premise-and-attribution.md`.
+
+- **Prove the *before* state with the same rigour as the after.** "I read the
+  code and it must fail" is a hypothesis, not a finding. Before claiming a page,
+  route or role is broken, search for what already covers it:
+  `grep -rn "/the-route" e2e/ --include=*.ts`. A green test over the same route
+  and role is evidence, and evidence outranks inference.
+- **A passing test that contradicts your model is data.** If one fact doesn't
+  fit the story, the story is wrong or incomplete — say so and stop. Do not
+  adopt the hypothesis that happens to flatter your change.
+- **Name the environment a verification covers.** Probing production proves
+  nothing about CI when CI's backend URL is a masked secret. Say "verified
+  against <env>", not "verified".
+- **When an env var feeds a fallback, check the name matches what the code
+  reads.** CI here sets `VITE_SUPABASE_PUBLISHABLE_KEY`; the app reads
+  `VITE_SUPABASE_ANON_KEY` and silently uses a hardcoded fallback. Nothing
+  fails, nothing warns, and the misconfiguration is invisible forever.
+- **Before working around a value, grep whether anything renders it.** A fatal
+  cross-user query on a public page fed a field no card displayed; deleting it
+  beat making it non-fatal. The same evidence produced a different fix on a page
+  that *did* display it.
+- **Trace the mechanism before calling a failure flaky.** "I found the code path
+  that produces this exact symptom and it depends on a third-party service" is a
+  finding; "it passed last time" is a guess. Only the first justifies not fixing.
+- **When a fix changes what a page renders, check what has photographed it**
+  before pushing — `ls e2e/visual/*snapshots*/`. Predicting the baseline failure
+  costs one command; reacting to it costs a CI round-trip.
+
 ## Tests
 
 - **A spec's location determines its role** in a path-routed Playwright config.
   Confirm which project claims a new file before writing assertions.
+- **Never screenshot a route whose content comes from a live shared database.**
+  The PNG pins layout *and* that day's rows *and* the permissions in force —
+  only the first is a design fact. Stub the network layer with a fixed payload,
+  then a diff means "the layout changed" and nothing else.
+- **A check that needs its threshold loosened is measuring the wrong thing.**
+  Raised tolerance buys quiet, not signal. Three routes here carry 5% tolerance
+  for drift that "reproduces regardless of how recently the baseline was
+  captured" — that comment is the diagnosis.
+- **A committed baseline can encode throwaway data.** One here shows three
+  `Smoke Course <random>` fixtures that a smoke test created during capture and
+  deleted afterwards. Look at what a baseline actually depicts before trusting
+  it as "expected".
 - **A regex alternation in a locator can match several elements** — strict mode
   then fails with a message that reads like absence.
 - **Prefer a skipped-and-explained test to a flaky one**, with a comment saying

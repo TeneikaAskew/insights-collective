@@ -1,10 +1,19 @@
-# Lessons learned — admin remediation + blog consolidation
+# Lessons learned — admin remediation, blog consolidation, featured courses
 
-Written from a single long working session (PR #28) that spanned an eight-phase
-blog consolidation, an admin redesign, eight production migrations, and roughly
-a dozen CI round-trips. It is deliberately unflattering where that is accurate:
-the most useful entries are the mistakes, because each one has a cheap
-preventive check that was skipped.
+Written from two long working sessions: PR #28 (an eight-phase blog
+consolidation, an admin redesign, eight production migrations, roughly a dozen
+CI round-trips) and PR #32 (the landing page's Featured Courses section and the
+automated-review round that followed). It is deliberately unflattering where
+that is accurate: the most useful entries are the mistakes, because each one has
+a cheap preventive check that was skipped.
+
+Files `00`–`07` come from the first session, `08` from the second. They fail in
+different ways and that difference is the point: the first session's mistakes
+were about **tools** — a CLI flag's arity, a file's lifecycle, an image's
+dimensions. The second session's headline mistake was about **evidence** —
+verifying at length that a fix worked, without ever verifying that the thing it
+fixed was broken. Careful verification aimed at the wrong proposition still
+produces a confident, wrong claim.
 
 ## How to use this
 
@@ -23,12 +32,17 @@ faith.
 | `05-authorization-and-consent.md` | What to do without asking, what never to |
 | `06-honest-reporting.md` | Claiming only what was proven |
 | `07-proposed-claude-md-additions.md` | **The distilled rules** |
+| `08-premise-and-attribution.md` | Verifying the *bug*, not just the fix (PR #32) |
 
 ## The one-paragraph version
 
-Nearly every error in this session came from asserting something about a tool,
-a file, or an artifact without spending the ten seconds it would have taken to
-check. A CI round-trip costs ~13 minutes; reproducing the same mechanism
-locally in an isolated harness costs seconds. The habit worth building is not
-"be more careful" — it is **build the smallest possible local reproduction of
-the mechanism you are about to depend on, before you depend on it.**
+Nearly every error in these sessions came from asserting something — about a
+tool, a file, an artifact, or the state of a bug — without spending the ten
+seconds it would have taken to check. A CI round-trip costs ~13 minutes;
+reproducing the same mechanism locally in an isolated harness costs seconds. Two
+habits are worth building. **Build the smallest possible local reproduction of
+the mechanism you are about to depend on, before you depend on it.** And
+**check that the problem exists before proving you solved it** — search for what
+already covers the route, role or behaviour you are calling broken, because a
+green test that contradicts your reasoning is evidence, and evidence outranks
+inference.
