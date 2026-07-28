@@ -1,5 +1,6 @@
 
 import { useState, useMemo } from 'react';
+import { urlHostMatches } from '@/utils/videoUrls';
 import AppLayout from '@/components/layout/AppLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
@@ -29,9 +30,20 @@ export type ResourceWithSourceType = Resource & {
 // Helper functions remain here for now as they are used by useMemo hooks in this component.
 // They could be moved to useResources.ts or a utils file in a further refactoring step.
 const classifyResourceSource = (resource: Resource): 'Tweet' | 'LinkedIn' | 'Standard' => {
-  if (resource.source?.toLowerCase().includes('twitter') || resource.resource_link && resource.resource_link.toLowerCase().includes('twitter.com')) {
+  // `source` is a free-text label, so a substring check is the right tool
+  // there. `resource_link` is a URL, so it is matched by parsed hostname —
+  // an unanchored includes('twitter.com') also matched
+  // evil.com/twitter.com and twitter.com.evil.net (CodeQL
+  // js/incomplete-url-substring-sanitization).
+  if (
+    resource.source?.toLowerCase().includes('twitter') ||
+    (resource.resource_link && urlHostMatches(resource.resource_link, ['twitter.com', 'x.com']))
+  ) {
     return 'Tweet';
-  } else if (resource.source?.toLowerCase().includes('linkedin') || resource.resource_link && resource.resource_link.toLowerCase().includes('linkedin.com')) {
+  } else if (
+    resource.source?.toLowerCase().includes('linkedin') ||
+    (resource.resource_link && urlHostMatches(resource.resource_link, ['linkedin.com']))
+  ) {
     return 'LinkedIn';
   }
   return 'Standard';
