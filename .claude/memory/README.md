@@ -20,6 +20,7 @@ reviewer, does.
 | `03-ci-and-tooling.md` | How the CI tools here actually behave: TruffleHog's scan scope, psql's argument handling, Supabase connectivity from Actions. |
 | `04-credential-handling.md` | What went wrong with secrets in this session and the rules that would have prevented it. |
 | `05-proposed-claude-md-additions.md` | Ready-to-paste sections for `CLAUDE.md`. Start here if you only want the actionable output. |
+| `06-ci-triage-and-silent-controls.md` | A later session: triaging five failures with three unrelated causes. Backend logs before backend theories; tests that passed by accident; controls that revert instead of reject; assertions that say what they saw. |
 
 ## How to use this
 

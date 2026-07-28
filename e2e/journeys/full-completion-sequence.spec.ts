@@ -2,7 +2,7 @@
 // ABOUTME: student submits an assignment, instructor leaves rubric feedback, then every content item
 // ABOUTME: is completed and the certificate trigger auto-issues a verifiable certificate.
 import { test, expect } from '../fixtures/page-helpers';
-import { signInMember, getSupabaseAccessToken } from './_helpers/signIn';
+import { signInMember, getSupabaseAccessToken, getInstructorAccessToken } from './_helpers/signIn';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://siuqvhscuiycvdrtiqsh.supabase.co';
 const SUPABASE_KEY =
@@ -104,10 +104,14 @@ test.describe('Full course completion sequence', () => {
     expect(submissionId).toBeTruthy();
 
     // ---- Phase 2: instructor grades the submission with rubric feedback ----
+    // Grade with an instructor token, not the student's: `pin_assignment_grade_columns`
+    // silently reverts the grade columns for writers that fail `is_grading_staff()`, which
+    // would leave the lesson showing "Graded" with no score.
+    const instructorToken = await getInstructorAccessToken();
     const gradeRes = await page.request.patch(
       `${SUPABASE_URL}/rest/v1/assignment_submissions?id=eq.${submissionId}`,
       {
-        headers,
+        headers: { ...headers, Authorization: `Bearer ${instructorToken}` },
         data: JSON.stringify({
           workflow_state: 'graded',
           score: 92,
@@ -117,6 +121,11 @@ test.describe('Full course completion sequence', () => {
       },
     );
     expect(gradeRes.ok(), `grade update (${gradeRes.status()})`).toBeTruthy();
+    // The trigger reverts rather than rejects, so assert the score survived the write.
+    expect(
+      (await gradeRes.json())[0]?.score,
+      'score persisted past pin_assignment_grade_columns',
+    ).toBe(92);
 
     // Verify the student sees the graded feedback in the lesson viewer
     await page.goto(`/courses/${COURSE_ID}/learn`);

@@ -113,3 +113,60 @@ obtain a known-good one, and what the error means.
   production database, so baselines drift whenever data changes. The durable fix
   is masking dynamic regions or using a dedicated E2E project.
 ```
+
+---
+
+## Section: Silent controls and test premises
+
+*Added after a later triage session — see `06-ci-triage-and-silent-controls.md`.*
+
+```markdown
+### Diagnosing Test Failures
+
+- Pull the authoritative failure list from the CI job log before fixing
+  anything, and re-read it rather than working from a recalled summary. A
+  misremembered spec name sends the whole investigation to the wrong file.
+- When a failure plausibly implicates a backend in this repo, fetch its logs
+  (`get_logs`, service `edge-function`) **before** reading its source. Status
+  codes are ground truth; control flow inferred from source is a hypothesis.
+- Separate "my change broke it" from "my change exposed it" and say which is
+  true — but fix both. On your own PR every red check is yours to drive to
+  green, whoever introduced it. The only exception is a failure that reproduces
+  on the base branch; say so once, then act on the recovery notice.
+
+### Writes Guarded by Pin/Revert Triggers
+
+`pin_assignment_grade_columns` on `assignment_submissions` **reverts rather than
+rejects**: a caller failing `is_grading_staff()` gets a 2xx, and the grade
+columns are silently restored to their previous values.
+
+- A 2xx from PostgREST means "the statement ran", not "your columns landed".
+  After such a write, assert the **persisted value** from the
+  `return=representation` body.
+- A spec that claims to act as staff must use a staff token. Role comments go
+  stale when accounts are split — verify against `user_roles` rather than
+  trusting the comment. `e2e-member` and `e2e-journeys` are student-only and
+  cannot grade; `e2e-instructor` is the reference course's instructor.
+- Mint a separate token for the privileged step instead of swapping the browser
+  session, so the spec can still assert the unprivileged user's view.
+- If a control this branch introduced blocks a test, the default assumption is
+  that the **test** is wrong about who it acts as. Loosening the control needs a
+  stated reason why the control, not the test, encodes the wrong policy.
+
+### Test Premises Must Match Test Context
+
+- When a spec's comment states a precondition ("logged out", "as an
+  instructor", "with no data"), confirm the project and `storageState` actually
+  establish it. A spec whose stated premise differs from its runtime context is
+  not passing — it is waiting for unrelated data to change. Two code-practice
+  specs asserted the logged-out demo result while running signed in; they
+  survived only until a challenge row was seeded for the default role.
+- Override context with an explicit empty state —
+  `test.use({ storageState: { cookies: [], origins: [] } })`. In `test.use`,
+  `storageState: undefined` means "unspecified" and falls back to the project
+  value, silently leaving the test signed in.
+- If a polled condition has more than two distinguishable failure states, poll a
+  descriptive **string** and match it. `expect.poll(...).toBe(true)` fails as
+  "Expected: true", which cannot distinguish "still loading" from "error shown"
+  from "rendered empty".
+```

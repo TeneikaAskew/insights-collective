@@ -1,7 +1,7 @@
 // ABOUTME: E2E — student submits an assignment inline, instructor grades it via REST, and rubric feedback + completion propagate.
 // ABOUTME: Uses real Supabase data for the seeded Introduction to Data Science course.
 import { test, expect } from '../fixtures/page-helpers';
-import { signInMember, getSupabaseAccessToken } from './_helpers/signIn';
+import { signInMember, getSupabaseAccessToken, getInstructorAccessToken } from './_helpers/signIn';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://siuqvhscuiycvdrtiqsh.supabase.co';
 const SUPABASE_KEY =
@@ -85,11 +85,17 @@ test.describe('Assignment submission → feedback → completion', () => {
     expect(submission.workflow_state).toBe('submitted');
 
 
-    // 5. Grade the submission as the instructor (test user has admin + instructor roles).
+    // 5. Grade the submission as the instructor.
+    //    This must NOT reuse `headers` (the student's token). `pin_assignment_grade_columns`
+    //    reverts score/graded_at/grader_comments for any writer failing `is_grading_staff()`,
+    //    so a student-authored PATCH still returns 2xx but drops the grade — the lesson would
+    //    then render "Graded" with no score. Grade with a real instructor token instead.
+    const instructorToken = await getInstructorAccessToken();
+    const graderHeaders = { ...headers, Authorization: `Bearer ${instructorToken}` };
     const grader = await page.request.patch(
       `${SUPABASE_URL}/rest/v1/assignment_submissions?id=eq.${submission.id}`,
       {
-        headers,
+        headers: graderHeaders,
         data: {
           workflow_state: 'graded',
           score: 90,
@@ -99,6 +105,11 @@ test.describe('Assignment submission → feedback → completion', () => {
       },
     );
     expect(grader.ok(), `grade update ok (${grader.status()})`).toBeTruthy();
+    // The grade-pinning trigger reverts rather than rejects, so a 2xx alone proves nothing.
+    // Assert the score actually persisted, so a regression fails here instead of masquerading
+    // as a missing label in the UI assertions below.
+    const gradedRow = (await grader.json())[0];
+    expect(gradedRow?.score, 'score persisted past pin_assignment_grade_columns').toBe(90);
 
     // 6. Mark the content item complete so completion status advances (upsert)
     const prog = await page.request.post(

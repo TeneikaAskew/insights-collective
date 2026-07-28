@@ -4,6 +4,10 @@
 import type { Page } from '@playwright/test';
 
 const BASE = process.env.E2E_BASE_URL || 'http://localhost:8080';
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://siuqvhscuiycvdrtiqsh.supabase.co';
+const SUPABASE_ANON_KEY =
+  process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNpdXF2aHNjdWl5Y3ZkcnRpcXNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQyMDU0MTUsImV4cCI6MjA1OTc4MTQxNX0.CbAWzKbUfbqYKAZr93jAQm8z8chbNoTe0EnK-E_4u9w';
 
 /**
  * Ensures the calling project's session is live in the page.
@@ -22,6 +26,45 @@ const BASE = process.env.E2E_BASE_URL || 'http://localhost:8080';
 export async function signInMember(page: Page): Promise<void> {
   await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
   await page.waitForLoadState('networkidle').catch(() => {});
+}
+
+/**
+ * Mints a standalone access token for the seeded instructor account.
+ *
+ * Grading is staff-only at the database level: `pin_assignment_grade_columns`
+ * silently reverts score/grade/graded_at/grader_comments/rubric_scores on any
+ * UPDATE whose caller fails `is_grading_staff()`. A student PATCHing their own
+ * submission therefore still gets a 2xx — the write just loses the grade
+ * columns — so specs that "grade" with the student's own token see
+ * `workflow_state = 'graded'` render while the score never appears.
+ *
+ * Use this for the grading step so the write is made by someone who is
+ * actually allowed to grade. It talks to the token endpoint directly and does
+ * not touch the page's localStorage, so the browser stays signed in as the
+ * student whose view the spec is asserting on.
+ */
+export async function getInstructorAccessToken(): Promise<string> {
+  const email = process.env.E2E_INSTRUCTOR_EMAIL || 'e2e-instructor@insightscollective.org';
+  const password = process.env.E2E_INSTRUCTOR_PASSWORD || process.env.E2E_TEST_PASSWORD;
+  if (!password) {
+    throw new Error(
+      'E2E_INSTRUCTOR_PASSWORD (or E2E_TEST_PASSWORD) must be set to grade as the instructor',
+    );
+  }
+
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!res.ok) {
+    throw new Error(
+      `instructor sign-in failed (${res.status}): ${(await res.text()).slice(0, 300)}`,
+    );
+  }
+  const token = (await res.json()).access_token as string | undefined;
+  if (!token) throw new Error('instructor sign-in returned no access_token');
+  return token;
 }
 
 export async function getSupabaseAccessToken(page: Page): Promise<string | null> {

@@ -18,17 +18,37 @@ test.describe("Messaging", () => {
     await expect(page.getByRole("tab", { name: /archived/i })).toBeVisible();
     await expect(page.getByRole("tab", { name: /deleted/i })).toBeVisible();
 
-    // Wait for the inbox fetch to resolve (skeleton disappears within 10s).
+    // Wait for the inbox fetch to resolve into one of its terminal states.
+    //
+    // Which state is correct depends on data this spec does not control: the
+    // acting account has conversations in some environments and none in
+    // others, so both the empty state and a list of rows are passes. The old
+    // version polled a bare boolean, so any failure surfaced as
+    // "Expected: true" with no indication of what the page was showing —
+    // stuck on skeletons, showing the error alert, or rendering an empty list.
+    // Poll a descriptive state instead, and let the error alert fail loudly.
+    const inboxState = async () => {
+      const errorAlert = page.getByText(/error loading conversations/i);
+      if (await errorAlert.isVisible().catch(() => false)) {
+        const detail = await page
+          .getByRole('alert')
+          .innerText()
+          .catch(() => '');
+        return `error: ${detail.replace(/\s+/g, ' ').trim().slice(0, 200)}`;
+      }
+      if (await page.getByText(/no conversations yet/i).isVisible().catch(() => false)) {
+        return 'empty';
+      }
+      if (await page.locator('a[href^="/messages/"]').count()) return 'rows';
+      return 'pending';
+    };
+
     await expect
-      .poll(
-        async () => {
-          const emptyVisible = await page.getByText(/no conversations yet/i).isVisible().catch(() => false);
-          const rowsCount = await page.locator('[data-conversation-id], a[href^="/messages/"]').count();
-          return emptyVisible || rowsCount > 0;
-        },
-        { timeout: 10000 },
-      )
-      .toBe(true);
+      .poll(inboxState, {
+        timeout: 30_000,
+        message: 'inbox should settle on the empty state or a list of conversations',
+      })
+      .toMatch(/^(empty|rows)$/);
   });
 
   test("archived and deleted tabs load without error", async ({ page }) => {
