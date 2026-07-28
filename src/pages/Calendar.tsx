@@ -57,11 +57,11 @@ const CalendarPage = () => {
 
   const getEventColor = (type: string) => {
     switch (type) {
-      case 'assignment': return 'bg-blue-100 text-blue-800';
-      case 'quiz': return 'bg-purple-100 text-purple-800';
-      case 'event': return 'bg-green-100 text-green-800';
-      case 'announcement': return 'bg-orange-100 text-orange-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'assignment': return 'bg-ss-teal-chip text-ss-teal';
+      case 'quiz': return 'bg-ss-lav-chip text-ss-lav-deep';
+      case 'event': return 'bg-ss-good-chip text-ss-good';
+      case 'announcement': return 'bg-ss-warn-chip text-ss-warn';
+      default: return 'bg-muted text-muted-foreground';
     }
   };
 
@@ -157,8 +157,8 @@ const CalendarPage = () => {
                       <Card key={i}>
                         <CardContent className="p-4">
                           <div className="animate-pulse">
-                            <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                            <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                            <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>
+                            <div className="h-3 bg-muted rounded w-1/2"></div>
                           </div>
                         </CardContent>
                       </Card>
@@ -175,11 +175,11 @@ const CalendarPage = () => {
                                 <h3 className="font-medium">{event.title}</h3>
                                 <p className="text-sm text-muted-foreground">{event.course_title}</p>
                                 {event.description && (
-                                  <p className="text-xs text-gray-500 mt-1 line-clamp-2">{event.description}</p>
+                                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{event.description}</p>
                                 )}
                                 <div className="flex items-center gap-2 mt-2">
-                                  <Clock className="h-3 w-3 text-gray-400" />
-                                  <span className="text-xs text-gray-500">
+                                  <Clock className="h-3 w-3 text-muted-foreground" />
+                                  <span className="text-xs text-muted-foreground">
                                     {format(new Date(event.start_date), 'h:mm a')}
                                   </span>
                                 </div>
@@ -211,9 +211,9 @@ const CalendarPage = () => {
                       <Card key={i}>
                         <CardContent className="p-4">
                           <div className="animate-pulse">
-                            <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                            <div className="h-3 bg-gray-200 rounded w-1/2 mb-2"></div>
-                            <div className="h-3 bg-gray-200 rounded w-1/3"></div>
+                            <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>
+                            <div className="h-3 bg-muted rounded w-1/2 mb-2"></div>
+                            <div className="h-3 bg-muted rounded w-1/3"></div>
                           </div>
                         </CardContent>
                       </Card>
@@ -230,7 +230,7 @@ const CalendarPage = () => {
                                 <h3 className="font-medium">{event.title}</h3>
                                 <p className="text-sm text-muted-foreground">{event.course_title}</p>
                                 {event.description && (
-                                  <p className="text-xs text-gray-500 mt-1 line-clamp-2">{event.description}</p>
+                                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{event.description}</p>
                                 )}
                                 <div className="flex items-center text-sm text-muted-foreground mt-2">
                                   <CalendarIcon className="h-3 w-3 mr-1" />

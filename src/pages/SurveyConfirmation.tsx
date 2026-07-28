@@ -13,10 +13,10 @@ export default function SurveyConfirmation() {
   return (
     <AppLayout>
       <div className="container max-w-2xl py-10">
-        <Card className="border-t-4 border-t-green-500">
+        <Card className="border-t-4 border-t-ss-good">
           <CardHeader className="text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-              <CheckCircle2 className="h-8 w-8 text-green-600" />
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-ss-good-chip">
+              <CheckCircle2 className="h-8 w-8 text-ss-good" />
             </div>
             <CardTitle className="text-2xl">Submission Successful!</CardTitle>
             <CardDescription className="text-base">

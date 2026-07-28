@@ -338,7 +338,7 @@ export default function EnrolledCoursesDashboard() {
 
                         {course.upcoming_due_date && (
                           <div className="flex justify-end text-xs">
-                            <span className="text-orange-600">
+                            <span className="text-ss-warn">
                               Due: {new Date(course.upcoming_due_date).toLocaleDateString()}
                             </span>
                           </div>
@@ -407,7 +407,7 @@ export default function EnrolledCoursesDashboard() {
                         <div key={index} className="border-b last:border-0 pb-3 last:pb-0">
                           <p className="font-medium text-sm">{deadline.task}</p>
                           <p className="text-sm text-muted-foreground">{deadline.course}</p>
-                          <p className="text-xs text-orange-600">Due: {deadline.due}</p>
+                          <p className="text-xs text-ss-warn">Due: {deadline.due}</p>
                         </div>
                       ))
                     )}
