@@ -98,7 +98,7 @@ const QuizSection: React.FC = () => {
   };
 
   return (
-    <section className="py-20 relative overflow-hidden bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-800" data-tour="quiz">
+    <section id="career-quiz" className="py-20 relative overflow-hidden border-y border-studio-border bg-studio-cardWarm">
       {/* Background pattern */}
       <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMSIgY3k9IjEiIHI9IjEiIGZpbGw9InJnYmEoMCwwLDAsMC4wNSkiLz48L3N2Zz4=')] bg-[length:20px_20px] opacity-50"></div>
       

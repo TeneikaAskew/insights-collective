@@ -15,6 +15,7 @@ import Login from '@/pages/Login';
 import Register from '@/pages/Register';
 
 // Lazy load non-critical pages
+const Blog = lazy(() => import('@/pages/Blog'));
 const Dashboard = lazy(() => import('@/pages/Dashboard'));
 const Profile = lazy(() => import('@/pages/Profile'));
 const Notifications = lazy(() => import('@/pages/Notifications'));
@@ -342,6 +343,7 @@ function App() {
                     <Route path="/portfolio/:customUrl" element={<PublicPortfolioWrapper />} />
 
                     {/* Blog & Content Routes */}
+                    <Route path="/blog" element={<Blog />} />
                     <Route path="/blog/:slug" element={<BlogPost />} />
                     <Route path="/create-blog-post" element={<CreateBlogPost />} />
                     <Route path="/edit-blog-post/:slug" element={<EditBlogPost />} />

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -95,6 +96,14 @@ export default function Blog() {
   if (loading) {
     return (
       <AppLayout>
+      <Helmet>
+        <title>Data Blueprint Series | Insights Collective</title>
+        <meta name="description" content="Guides on choosing a data career path, building a portfolio, and getting through the hiring process." />
+        <link rel="canonical" href="https://insightscollective.org/blog" />
+        <meta property="og:title" content="Data Blueprint Series | Insights Collective" />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://insightscollective.org/blog" />
+      </Helmet>
         <div className="container mx-auto py-8 px-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[...Array(6)].map((_, i) => (

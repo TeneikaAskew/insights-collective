@@ -236,6 +236,12 @@ const QuizResults: React.FC<QuizResultsProps> = ({
     persona: getTrackPersona(track as CareerTrack),
     courses: getCourseRecommendations(track as CareerTrack, getSkillLevel(score * 5))
   }));
+
+  // Answering every scale question the same way leaves the tracks nearly tied.
+  // Say so rather than presenting a near-coin-flip as a confident single match.
+  const closeGap = topTracks.length > 1 ? Math.round(topTracks[0].score - topTracks[1].score) : 0;
+  const isCloseCall = topTracks.length > 1 && closeGap <= 5;
+
   const getTrackIcon = (track: CareerTrack) => {
     switch (track) {
       case 'AI/ML':
@@ -345,6 +351,13 @@ const QuizResults: React.FC<QuizResultsProps> = ({
         <div className="text-center mb-10">
           <h2 className="text-3xl font-bold mb-3">Your Career Path Results</h2>
           <p className="text-muted-foreground">Here are the top data career paths based on your answers.</p>
+          {isCloseCall && (
+            <p className="mt-4 mx-auto max-w-xl text-sm rounded-xl px-4 py-3 bg-amber-50 text-amber-800 border border-amber-200">
+              <strong>{topTracks[0].track}</strong> and <strong>{topTracks[1].track}</strong> came out
+              close — only {closeGap} point{closeGap === 1 ? '' : 's'} apart. Both are worth reading
+              before you commit.
+            </p>
+          )}
           <div className="mt-6 mb-4">
             <Button onClick={handleCareerCoachClick} disabled={isProcessing} className="w-full sm:w-auto py-6 px-8">
               <MessageCircle className="h-5 w-5" /> Chat with Career Coach

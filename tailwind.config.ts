@@ -21,8 +21,34 @@ export default {
 			fontFamily: {
 				sans: ['Inter', 'system-ui', 'sans-serif'],
 				display: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+				// Soft Studio pairing, used by the public landing page
+				studio: ['Outfit', 'Avenir Next', 'Segoe UI', 'system-ui', 'sans-serif'],
+				studioSerif: ['Lora', 'Georgia', 'serif'],
 			},
 			colors: {
+				// ── Soft Studio (public landing page) ──────────────────────────────
+				studio: {
+					ground: '#FAF8F5',
+					card: '#FFFFFF',
+					cardWarm: '#FFF9F3',
+					ink: '#2C2A33',
+					muted: '#837E8C',
+					track: '#EDE9F3',
+					lav: '#A794EB',
+					lavDeep: '#624EBE',
+					lavDeeper: '#533FA8',
+					lavChip: '#F3EFFC',
+					peach: '#F0BE96',
+					peachDeep: '#B97143',
+					good: '#4E9B70',
+					goodChip: '#E7F3EC',
+					warn: '#C97F3D',
+					warnChip: '#FBEEDF',
+					bad: '#C25B49',
+					badChip: '#F9E8E4',
+					teal: '#3FA391',
+					tealChip: '#E4F3F0',
+				},
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
 				ring: 'hsl(var(--ring))',
@@ -215,5 +241,5 @@ export default {
 			}
 		}
 	},
-	plugins: [require("tailwindcss-animate")],
+	plugins: [require("tailwindcss-animate"), require("@tailwindcss/typography")],
 } satisfies Config;

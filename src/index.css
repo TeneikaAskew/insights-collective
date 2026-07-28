@@ -1,4 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+/* Soft Studio pairing — Outfit carries the page, Lora italic is the accent. */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Lora:ital,wght@1,500&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -460,4 +462,81 @@
 /* Progress bar with gradient */
 .progress-bar-gradient .bg-primary {
   @apply bg-gradient-to-r from-primary/80 to-primary;
+}
+
+/* ── Soft Studio: the public landing page ────────────────────────────────────
+   Scoped to .soft-studio so the authenticated app keeps the existing theme. */
+.soft-studio {
+  --studio-ground: #FAF8F5;
+  --studio-card: #FFFFFF;
+  --studio-card-warm: #FFF9F3;
+  --studio-ink: #2C2A33;
+  --studio-muted: #837E8C;
+  --studio-track: #EDE9F3;
+  --studio-lav: #A794EB;
+  --studio-lav-deep: #624EBE;
+  --studio-lav-deeper: #533FA8;
+  --studio-lav-chip: #F3EFFC;
+  --studio-peach: #F0BE96;
+  --studio-peach-deep: #B97143;
+  --studio-border: rgba(44, 42, 51, 0.12);
+  --studio-shadow: 0 14px 34px -18px rgba(90, 80, 120, 0.35);
+  --studio-wash-lav: rgba(196, 180, 250, 0.55);
+  --studio-wash-peach: rgba(250, 216, 190, 0.55);
+
+  background: var(--studio-ground);
+  color: var(--studio-ink);
+  font-family: 'Outfit', 'Avenir Next', 'Segoe UI', system-ui, sans-serif;
+}
+
+.soft-studio h1,
+.soft-studio h2,
+.soft-studio h3 {
+  font-family: 'Outfit', 'Avenir Next', system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+
+/* The one italic accent, used sparingly inside headings. */
+.soft-studio .studio-accent {
+  font-family: 'Lora', Georgia, serif;
+  font-weight: 500;
+  font-style: italic;
+  letter-spacing: 0;
+}
+
+.soft-studio .studio-card {
+  background: var(--studio-card);
+  border: 1px solid var(--studio-border);
+  border-radius: 1rem;
+  box-shadow: var(--studio-shadow);
+}
+
+.soft-studio .studio-card-warm {
+  background: var(--studio-card-warm);
+  border: 1px solid var(--studio-border);
+  border-radius: 1rem;
+}
+
+/* Blurred colour washes behind the hero. */
+.soft-studio .studio-wash {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(66px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Anchor targets clear the sticky public nav. */
+.soft-studio [id] {
+  scroll-margin-top: 88px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .soft-studio * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

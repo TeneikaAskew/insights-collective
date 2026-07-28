@@ -15,10 +15,6 @@ const Footer = () => {
             <p className="text-gray-400">
               A modern e-learning platform designed to help you achieve your educational goals
             </p>
-            <address className="text-gray-400 not-italic mt-4">
-              <p>Email: info@ic.tech</p>
-              <p>Phone: (123) 456-7890</p>
-            </address>
           </div>
           
           <div>
@@ -26,6 +22,7 @@ const Footer = () => {
             <ul className="space-y-2">
               <li><Link to="/courses" className="text-gray-400 hover:text-white">Courses</Link></li>
               <li><Link to="/resources" className="text-gray-400 hover:text-white">Resources</Link></li>
+              <li><Link to="/blog" className="text-gray-400 hover:text-white">Data Blueprint Series</Link></li>
               <li><Link to="/register" className="text-gray-400 hover:text-white">Sign Up</Link></li>
               <li><Link to="/login" className="text-gray-400 hover:text-white">Sign In</Link></li>
             </ul>

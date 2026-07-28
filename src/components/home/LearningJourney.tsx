@@ -105,7 +105,7 @@ const LearningJourney = () => {
   };
 
   return (
-    <section className="py-24 relative bg-gradient-to-b from-gray-50 to-white dark:from-gray-800 dark:to-gray-900">
+    <section className="py-20 relative">
       {/* Background elements */}
       <div className="absolute top-0 left-0 w-full h-20 bg-gradient-to-b from-white to-transparent dark:from-gray-900 dark:to-transparent"></div>
       <div className="absolute inset-0 overflow-hidden">

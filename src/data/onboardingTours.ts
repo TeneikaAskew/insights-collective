@@ -37,10 +37,18 @@ export const onboardingTours: Record<string, OnboardingTour> = {
         highlight: true
       },
       {
-        id: 'personalized-pathway',
-        title: 'Your Personalized Career Path',
-        description: 'Get customized recommendations based on your quiz results and career goals.',
-        target: '[data-tour="personalizedPathway"]',
+        id: 'career-tools',
+        title: 'Career Exploration & Enhancement Tools',
+        description: 'Resume review, interview practice, portfolio building and a career coach — all included with a free account.',
+        target: '[data-tour="tools"]',
+        position: 'top',
+        highlight: true
+      },
+      {
+        id: 'get-started',
+        title: 'Ready When You Are',
+        description: 'Create a free account to save your path and start the first course.',
+        target: '[data-tour="cta"]',
         position: 'top',
         highlight: true
       }

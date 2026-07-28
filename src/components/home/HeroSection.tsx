@@ -1,7 +1,8 @@
 
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Search, ArrowRight, ChevronDown } from 'lucide-react';
+import { ArrowRight, ChevronDown } from 'lucide-react';
+import { useParallax } from './motion/useParallax';
 import { useIsMobile } from '@/hooks/use-mobile';
 //import { motion } from 'framer-motion';
 //import { useState, useEffect, useRef } from 'react';
@@ -26,7 +27,7 @@ const RotatingWords = () => {
         <motion.span 
           key={words[currentIndex]} 
           layout 
-          className="inline-block font-bold text-slate-800 dark:text-primary-foreground drop-shadow-md"
+          className="inline-block font-bold text-studio-lavDeep"
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -30 }}
@@ -35,7 +36,7 @@ const RotatingWords = () => {
           {words[currentIndex]}
           <motion.span 
             layoutId="underline" 
-            className="absolute left-0 -bottom-1 h-1 w-full bg-primary/40 rounded-t-full" 
+            className="absolute left-0 -bottom-1 h-1 w-full bg-studio-peach rounded-t-full"
           />
         </motion.span>
       </AnimatePresence>
@@ -45,119 +46,124 @@ const RotatingWords = () => {
 
 const HeroSection = () => {
   const isMobile = useIsMobile();
-  
+  const { ref, y } = useParallax(90);
+
+  const scrollToQuiz = () => {
+    document.getElementById('career-quiz')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   return (
-    <section className="relative py-20 md:py-32 overflow-hidden" data-tour="hero">
-      {/* Abstract background */}
-      <div className="absolute inset-0 bg-gradient-radial from-primary/5 to-transparent">
-        <div className="animated-grid"></div>
-        
-        {/* Animated blobs */}
-        <div className="blob from-primary/30 to-accent/30 w-64 h-64 -top-10 -left-10"></div>
-        <div className="blob from-accent/20 to-orange-400/20 w-96 h-96 top-1/4 -right-20 delay-700"></div>
-        <div className="blob from-purple-400/20 to-primary/20 w-80 h-80 bottom-0 left-1/3 delay-500"></div>
-        
-        {/* Floating elements - hidden on mobile */}
-        {!isMobile && (
-          <>
-            <div className="absolute top-1/4 left-[15%] w-2 h-2 rounded-full bg-primary animate-pulse"></div>
-            <div 
-              className="absolute top-1/2 left-[85%] w-3 h-3 rounded-full bg-accent animate-pulse" 
-              style={{ animationDelay: '1s' }}
-            ></div>
-            <div 
-              className="absolute bottom-1/4 right-[20%] w-2 h-2 rounded-full bg-orange-400 animate-pulse" 
-              style={{ animationDelay: '1.5s' }}
-            ></div>
-            <div 
-              className="absolute top-[70%] right-[40%] w-2 h-2 rounded-full bg-purple-500 animate-pulse" 
-              style={{ animationDelay: '0.7s' }}
-            ></div>
-          </>
-        )}
-      </div>
-      
-      {/* Content */}
+    <section
+      ref={ref}
+      className="relative py-20 md:py-28 overflow-hidden"
+    >
+      {/* Soft Studio washes — decorative, drift against the scroll. */}
+      <motion.div className="absolute inset-0 pointer-events-none" style={{ y }} aria-hidden="true">
+        <div
+          className="studio-wash"
+          style={{
+            width: 460,
+            height: 460,
+            top: -210,
+            left: -140,
+            background: 'var(--studio-wash-lav)',
+          }}
+        />
+        <div
+          className="studio-wash"
+          style={{
+            width: 400,
+            height: 400,
+            top: -180,
+            right: -130,
+            background: 'var(--studio-wash-peach)',
+          }}
+        />
+      </motion.div>
+
       <div className="container relative z-10 mx-auto px-4">
         <div className="max-w-4xl mx-auto text-center">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <h1 className="text-4xl md:text-6xl font-bold mb-6 font-display leading-tight bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
+            <span className="inline-block text-[11px] font-bold uppercase tracking-[0.14em] text-studio-peachDeep bg-studio-warnChip rounded-full px-3.5 py-1.5">
+              Free career quiz · 10 questions
+            </span>
+            {/* The rotating word is the site's signature — kept, in Soft Studio colours. */}
+            <h1 className="mt-5 text-4xl md:text-6xl font-bold leading-[1.07] text-studio-ink">
               Accelerate Your <RotatingWords />
             </h1>
           </motion.div>
-          
-          <motion.div 
+
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
+            transition={{ duration: 0.6, delay: 0.15 }}
           >
-            <p className="text-lg md:text-xl mb-10 text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-              A modern resource and learning platform designed to help you master data skills with structured learning paths, resources and expert guidance
+            <p className="mt-5 text-lg md:text-xl text-studio-muted max-w-2xl mx-auto">
+              A modern resource and learning platform designed to help you master data skills with
+              structured learning paths, resources and expert guidance
             </p>
           </motion.div>
-          
-          <motion.div 
+
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.4 }}
-            className="flex flex-wrap justify-center gap-5"
+            transition={{ duration: 0.6, delay: 0.3 }}
+            className="mt-8 flex flex-wrap justify-center gap-4"
           >
-            <Button 
-              size="lg" 
-              className="bg-primary hover:bg-primary/90 shadow-lg hover:shadow-primary/30 modern-button text-lg" 
-              asChild
+            <Button
+              size="lg"
+              onClick={scrollToQuiz}
+              className="rounded-full bg-studio-lavDeep hover:bg-studio-lavDeeper text-white text-base shadow-sm"
             >
-              <Link to="/register">
-                Get Started <ArrowRight className="ml-1 h-5 w-5" />
-              </Link>
+              Find your path <ArrowRight className="ml-1 h-5 w-5" />
             </Button>
-            <Button 
-              size="lg" 
-              variant="outline" 
-              className="border-primary text-primary hover:bg-primary hover:text-white modern-button text-lg" 
+            <Button
+              size="lg"
+              variant="outline"
+              className="rounded-full border-studio-border text-studio-ink hover:bg-studio-card text-base"
               asChild
             >
-              <Link to="/resources">
-                <Search className="mr-1 h-5 w-5" />
-                Explore Resources
-              </Link>
+              <Link to="/register">Get Started</Link>
             </Button>
           </motion.div>
-          
-          <motion.div 
+
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.6 }}
-            className="mt-16 mb-10 flex flex-wrap justify-center gap-8 text-sm text-gray-500 dark:text-gray-400"
+            transition={{ duration: 0.6, delay: 0.45 }}
+            className="mt-10 flex flex-wrap justify-center gap-x-8 gap-y-3 text-sm text-studio-muted"
           >
-            <div className="flex items-center">
-              <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
-              <span>Professional Courses</span>
-            </div>
-            <div className="flex items-center">
-              <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
-              <span>Expert Instructors</span>
-            </div>
-            <div className="flex items-center">
-              <div className="w-3 h-3 bg-purple-500 rounded-full mr-2"></div>
-              <span>Industry-Recognized Certifications</span>
-            </div>
+            <span className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-studio-teal" />
+              Professional Courses
+            </span>
+            <span className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-studio-lav" />
+              Expert Instructors
+            </span>
+            <span className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-studio-peach" />
+              Industry-Recognized Certifications
+            </span>
           </motion.div>
-          
-          {/* Scroll indicator - fixed positioning and responsive adjustments */}
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.6, delay: 1 }}
-            className="relative mt-4 flex flex-col items-center text-gray-400 md:absolute md:bottom-[-130px] md:left-1/2 md:transform md:-translate-x-1/2 px-0"
-          >
-            <span className="text-sm mb-2">Scroll to explore</span>
-            <ChevronDown className="w-5 h-5 animate-bounce" />
-          </motion.div>
+
+          {!isMobile && (
+            <motion.button
+              type="button"
+              onClick={scrollToQuiz}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.9 }}
+              className="mt-12 flex flex-col items-center gap-1 text-studio-muted hover:text-studio-ink transition-colors mx-auto"
+            >
+              <span className="text-sm">Scroll to explore</span>
+              <ChevronDown className="w-5 h-5 animate-bounce" />
+            </motion.button>
+          )}
         </div>
       </div>
     </section>

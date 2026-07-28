@@ -9,6 +9,7 @@ import { getBlogPostBySlug } from '@/services/blogService';
 import { sanitizeHTML } from '@/utils/sanitize';
 import { BlogPost } from '@/types/blog';
 import AppLayout from '@/components/layout/AppLayout';
+import { Helmet } from 'react-helmet-async';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
@@ -140,6 +141,21 @@ export default function BlogPostPage() {
 
   return (
     <AppLayout>
+      {/* seoTitle/seoDescription were stored but never reached the document head. */}
+      <Helmet>
+        <title>{`${post.seoTitle || post.title} | Insights Collective`}</title>
+        {(post.seoDescription || post.excerpt) && (
+          <meta name="description" content={post.seoDescription || post.excerpt} />
+        )}
+        <link rel="canonical" href={`https://insightscollective.org/blog/${post.slug}`} />
+        <meta property="og:title" content={post.seoTitle || post.title} />
+        {(post.seoDescription || post.excerpt) && (
+          <meta property="og:description" content={post.seoDescription || post.excerpt} />
+        )}
+        <meta property="og:type" content="article" />
+        <meta property="og:url" content={`https://insightscollective.org/blog/${post.slug}`} />
+        {post.imageUrl && <meta property="og:image" content={post.imageUrl} />}
+      </Helmet>
       <div className="container mx-auto py-8 px-4 max-w-4xl">
         {/* Navigation */}
         <div className="mb-6">

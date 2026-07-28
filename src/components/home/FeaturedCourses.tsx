@@ -14,11 +14,13 @@ type ExtendedCourse = Course & {
 
 type FeaturedCoursesProps = {
   courses: ExtendedCourse[];
+  isLoading?: boolean;
 };
 
-const FeaturedCourses = ({ courses }: FeaturedCoursesProps) => {
+const FeaturedCourses = ({ courses, isLoading = false }: FeaturedCoursesProps) => {
   // Helper function to ensure the category matches one of the standardized labels
-  const getCategoryLabel = (category: string): string => {
+  const getCategoryLabel = (category?: string): string => {
+    if (!category) return 'Course';
     // Map old category names to standardized ones
     switch (category) {
       case 'Machine Learning & Artificial Intelligence':
@@ -44,7 +46,7 @@ const FeaturedCourses = ({ courses }: FeaturedCoursesProps) => {
   };
   
   // Get badge color based on category
-  const getCategoryColor = (category: string): string => {
+  const getCategoryColor = (category?: string): string => {
     switch (getCategoryLabel(category)) {
       case 'AI/ML':
         return 'bg-blue-100 text-blue-600';
@@ -59,9 +61,10 @@ const FeaturedCourses = ({ courses }: FeaturedCoursesProps) => {
     }
   };
   
-  // Get level badge style
-  const getLevelStyle = (level: string): string => {
-    switch (level.toLowerCase()) {
+  // Get level badge style. `level` is optional on course rows, so guard it —
+  // an unset value used to throw and take the whole landing page down.
+  const getLevelStyle = (level?: string): string => {
+    switch (level?.toLowerCase()) {
       case 'beginner':
         return 'bg-green-100 text-green-600 border-green-200';
       case 'intermediate':
@@ -100,18 +103,51 @@ const FeaturedCourses = ({ courses }: FeaturedCoursesProps) => {
   };
 
   return (
-    <section className="py-20 bg-white dark:bg-gray-900">
-      <div className="container mx-auto px-4">
-        <div className="flex justify-between items-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-bold font-display bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">Featured Courses</h2>
-          <Button variant="ghost" asChild className="group">
+    <section className="py-20">
+      <div className="container mx-auto px-4 max-w-6xl">
+        <div className="flex justify-between items-center mb-12 gap-4 flex-wrap">
+          <h2 className="text-3xl md:text-4xl font-bold text-studio-ink">Featured Courses</h2>
+          <Button variant="ghost" asChild className="group text-studio-lavDeep hover:text-studio-lavDeeper">
             <Link to="/courses" className="flex items-center">
               View All <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform duration-300" />
             </Link>
           </Button>
         </div>
-        
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+
+        {/* Loading: hold the grid's shape so the section doesn't jump when data lands. */}
+        {isLoading && (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="rounded-xl overflow-hidden border border-studio-border bg-studio-card">
+                <div className="aspect-video bg-studio-track animate-pulse" />
+                <div className="p-6 space-y-3">
+                  <div className="h-4 w-24 rounded-full bg-studio-track animate-pulse" />
+                  <div className="h-5 w-3/4 rounded bg-studio-track animate-pulse" />
+                  <div className="h-4 w-full rounded bg-studio-track animate-pulse" />
+                  <div className="h-4 w-2/3 rounded bg-studio-track animate-pulse" />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Empty: previously this section rendered a heading above a blank grid. */}
+        {!isLoading && courses.length === 0 && (
+          <div className="studio-card-warm p-10 text-center">
+            <h3 className="text-xl font-semibold text-studio-ink mb-2">
+              New courses are on the way
+            </h3>
+            <p className="text-studio-muted max-w-md mx-auto mb-6">
+              Nothing is published in this view yet. Browse the full catalog to see everything
+              available right now.
+            </p>
+            <Button asChild className="bg-studio-lavDeep hover:bg-studio-lavDeeper text-white rounded-full">
+              <Link to="/courses">Browse all courses</Link>
+            </Button>
+          </div>
+        )}
+
+        <div className={`grid md:grid-cols-2 lg:grid-cols-3 gap-8 ${isLoading || courses.length === 0 ? 'hidden' : ''}`}>
           {courses.map((course, index) => (
             <motion.div
               key={course.id}

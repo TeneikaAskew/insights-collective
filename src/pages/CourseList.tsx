@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, Clock, BookOpen, ArrowRight } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { fetchPublicCourses } from '@/hooks/usePublicCourses';
 import { Course } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { createLogger } from '@/utils/logger';
@@ -27,46 +27,25 @@ const CourseList = () => {
   const categories = [...new Set(courses.map(c => c.category).filter(Boolean))];
   const levels = [...new Set(courses.map(c => c.level).filter(Boolean))];
 
+  // Shares usePublicCourses with the landing page so both read the catalog the same way.
   useEffect(() => {
-    const fetchCourses = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('courses')
-          .select(`*, instructor:profiles(id, first_name, last_name, avatar_url)`)
-          .eq('status', 'published')
-          .order('created_at', { ascending: false });
-        if (error) throw error;
-        const formatted = (data || []).map((c: any) => ({
-          ...c,
-          instructor: {
-            id: c.instructor?.id || '',
-            name: c.instructor
-              ? `${c.instructor?.first_name || ''} ${c.instructor?.last_name || ''}`.trim() || 'Instructor'
-              : 'Instructor',
-            email: '',
-            role: 'instructor',
-            avatar: c.instructor?.avatar_url || '',
-          },
-          enrollmentCount: 0,
-          modules: [],
-          rating: 4.5,
-          createdAt: c.created_at,
-          updatedAt: c.updated_at,
-          thumbnail:
-            c.image_url ||
-            c.thumbnail ||
-            'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=1200&q=70',
-        }));
-        setCourses(formatted);
-      } catch (e: any) {
+    let cancelled = false;
+    fetchPublicCourses()
+      .then((formatted) => {
+        if (!cancelled) setCourses(formatted);
+      })
+      .catch((e: any) => {
+        if (cancelled) return;
         logger.error('Error fetching courses:', e);
         setError(e.message);
         toast({ title: 'Failed to load courses', description: e.message, variant: 'destructive' });
-      } finally {
-        setLoading(false);
-      }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
     };
-    fetchCourses();
   }, [toast]);
 
   const filtered = courses.filter((c) => {
