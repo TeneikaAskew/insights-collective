@@ -40,6 +40,14 @@ test.describe("Messaging", () => {
       if (await page.getByText(/no conversations yet/i).isVisible().catch(() => false)) {
         return 'empty';
       }
+      // Exempt from the count-guard rule on purpose, and not as backlog.
+      //
+      // The banned shape is a count guard wrapped around the only assertion,
+      // where a missing element silently skips it. This is a state classifier
+      // inside expect.poll, and the poll below asserts /^(empty|rows)$/ — so a
+      // missing element returns 'pending' and fails the test rather than
+      // passing it. The branch cannot hide anything.
+      // eslint-disable-next-line no-restricted-syntax
       if (await page.locator('a[href^="/messages/"]').count()) return 'rows';
       return 'pending';
     };
