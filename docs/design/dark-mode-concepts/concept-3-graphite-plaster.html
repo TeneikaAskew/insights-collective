@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dark Concept 3 — Graphite Plaster</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Lora:ital,wght@1,400;1,500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    /* Graphite Plaster: neutral graphite ground, no hue cast — maximum
+       legibility; color is reserved for meaning (chips, accents) only */
+    --bg:#1B1A1E; --surface:#232226; --surface-2:#2C2B30; --warm:#282624;
+    --text:#EDEBE8; --muted:#98959E;
+    --lav:#A794EB; --lav-deep:#BDAEF1; --lav-chip:rgba(167,148,235,.14);
+    --peach:#F0BE96; --peach-deep:#DFA97F;
+    --track:#333238;
+    --good:#78C096; --good-chip:rgba(78,155,112,.16);
+    --warn:#DFA468; --warn-chip:rgba(201,127,61,.16);
+    --bad:#DC8B7B; --bad-chip:rgba(194,91,73,.16);
+    --teal:#69C0B1; --teal-chip:rgba(63,163,145,.14);
+    --border:rgba(237,235,232,.1);
+    --shadow:0 18px 40px -20px rgba(0,0,0,.55);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text)}
+  .serif{font-family:'Lora',serif;font-style:italic}
+  .wrap{max-width:1180px;margin:0 auto;padding:34px 30px 60px}
+  .head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px}
+  .head h1{font-size:25px;font-weight:600}
+  .head .serif{color:var(--peach);font-size:14px}
+  .lede{color:var(--muted);font-size:13.5px;margin-bottom:26px;max-width:640px}
+
+  .grid{display:grid;grid-template-columns:300px 1fr;gap:20px;align-items:start}
+  .tokens{background:var(--surface);border:1px solid var(--border);border-radius:26px;box-shadow:var(--shadow);padding:20px 22px}
+  .tokens h2{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:14px}
+  .tk{display:flex;align-items:center;gap:12px;padding:6px 0;font-size:12.5px}
+  .swatch{width:30px;height:30px;border-radius:10px;border:1px solid var(--border);flex:none}
+  .tk .n{font-family:ui-monospace,monospace;font-size:11.5px}
+  .tk .v{margin-left:auto;color:var(--muted);font-family:ui-monospace,monospace;font-size:11px}
+  .rule{border-top:1px dashed var(--border);margin:12px 0 0;padding-top:12px;font-size:12px;color:var(--muted)}
+  .rule b{color:var(--text);font-weight:600}
+
+  .mock{display:flex;flex-direction:column;gap:16px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:26px;box-shadow:var(--shadow);padding:24px 26px}
+  .card.warm{background:var(--warm)}
+  .row{display:flex;align-items:center;justify-content:space-between}
+  .chip{display:inline-flex;align-items:center;border-radius:999px;padding:4px 12px;font-size:11.5px;font-weight:600}
+  .c-lav{background:var(--lav-chip);color:var(--lav-deep)}
+  .c-good{background:var(--good-chip);color:var(--good)}
+  .c-warn{background:var(--warn-chip);color:var(--warn)}
+  .c-bad{background:var(--bad-chip);color:var(--bad)}
+  .c-teal{background:var(--teal-chip);color:var(--teal)}
+  .h3{font-size:19px;font-weight:600}
+  .sub{font-size:13px;color:var(--muted)}
+  .stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:16px}
+  .tile{background:var(--surface-2);border:1px solid var(--border);border-radius:20px;padding:16px 18px}
+  .tile .v{font-size:24px;font-weight:600}
+  .tile .l{font-size:12px;color:var(--muted);margin-top:2px}
+  .bar{height:8px;border-radius:999px;background:var(--track);margin-top:10px;overflow:hidden}
+  .bar i{display:block;height:100%;border-radius:999px;background:var(--lav)}
+  .btns{display:flex;gap:10px;margin-top:18px}
+  .btn{border:none;font-family:inherit;font-size:13px;font-weight:600;border-radius:999px;padding:10px 18px;cursor:pointer}
+  .btn-p{background:var(--lav);color:#1B1A1E}
+  .btn-g{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .quote{font-size:15px;color:var(--peach);margin-top:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head"><h1>Dark Concept 3 — Graphite Plaster</h1><span class="serif">quiet ground, color as meaning</span></div>
+  <p class="lede">A strictly neutral graphite ground with no hue cast and no washes — the calmest and
+    most legible option, friendliest to long reading and data-dense admin screens. Lavender, peach and
+    the semantic hues appear only where they mean something. The safest derivation; least atmospheric.</p>
+
+  <div class="grid">
+    <aside class="tokens">
+      <h2>Token derivation</h2>
+      <div class="tk"><span class="swatch" style="background:#1B1A1E"></span><span class="n">--background</span><span class="v">#1B1A1E</span></div>
+      <div class="tk"><span class="swatch" style="background:#232226"></span><span class="n">--card</span><span class="v">#232226</span></div>
+      <div class="tk"><span class="swatch" style="background:#2C2B30"></span><span class="n">--muted / tile</span><span class="v">#2C2B30</span></div>
+      <div class="tk"><span class="swatch" style="background:#282624"></span><span class="n">--ss-card-warm</span><span class="v">#282624</span></div>
+      <div class="tk"><span class="swatch" style="background:#EDEBE8"></span><span class="n">--foreground</span><span class="v">#EDEBE8</span></div>
+      <div class="tk"><span class="swatch" style="background:#A794EB"></span><span class="n">--primary (lav =)</span><span class="v">#A794EB</span></div>
+      <div class="tk"><span class="swatch" style="background:#F0BE96"></span><span class="n">--ss-peach (=)</span><span class="v">#F0BE96</span></div>
+      <div class="tk"><span class="swatch" style="background:rgba(167,148,235,.14)"></span><span class="n">--ss-lav-chip</span><span class="v">lav / 14%</span></div>
+      <div class="tk"><span class="swatch" style="background:rgba(78,155,112,.16)"></span><span class="n">--ss-good-chip</span><span class="v">good / 16%</span></div>
+      <div class="rule"><b>Rules:</b> surfaces are pure neutrals (s≈3%); brand hues keep their light-mode
+        values (they already read on dark); <b>no background washes</b> — elevation comes from the
+        3-step surface scale and shadows only.</div>
+    </aside>
+
+    <main class="mock">
+      <div class="card">
+        <div class="row">
+          <div><div class="h3">Resume score</div><div class="sub">Updated 2 hours ago</div></div>
+          <span class="chip c-good">On track</span>
+        </div>
+        <div class="stat-row">
+          <div class="tile"><div class="v">86</div><div class="l">Overall</div><div class="bar"><i style="width:86%"></i></div></div>
+          <div class="tile"><div class="v">14/16</div><div class="l">ATS checks</div><div class="bar"><i style="width:87%"></i></div></div>
+          <div class="tile"><div class="v">9</div><div class="l">Strong bullets</div><div class="bar"><i style="width:56%"></i></div></div>
+        </div>
+        <div class="btns"><button class="btn btn-p">Re-analyze</button><button class="btn btn-g">Export report</button></div>
+      </div>
+
+      <div class="card warm">
+        <div class="row"><div class="h3">Why this matters</div><span class="chip c-lav">Guidance</span></div>
+        <p class="quote serif">"Strong bullets carry numbers — recruiters skim for evidence, not adjectives."</p>
+      </div>
+
+      <div class="card">
+        <div class="row" style="gap:10px;justify-content:flex-start;flex-wrap:wrap">
+          <span class="chip c-good">Measurable</span>
+          <span class="chip c-warn">Needs numbers</span>
+          <span class="chip c-bad">Passive voice</span>
+          <span class="chip c-teal">Skill match</span>
+          <span class="chip c-lav">Action verb</span>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+</body>
+</html>
