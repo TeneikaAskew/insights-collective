@@ -124,7 +124,7 @@ const NotFound = lazy(() => import('@/pages/NotFound'));
 
 // Components
 import ProtectedRoute from '@/components/ProtectedRoute';
-import PageVisibilityGuard from '@/components/PageVisibilityGuard';
+import VisibilityGate from '@/components/VisibilityGate';
 import { SecurityHeaders } from '@/components/security/SecurityHeaders';
 import { useSecureSession } from '@/hooks/useSecureSession';
 import { usePortfolioPages } from '@/hooks/usePortfolioPages';
@@ -239,6 +239,16 @@ function App() {
               <div className="min-h-screen bg-gray-50">
                 <Suspense fallback={<PageLoader />}>
                   <Routes>
+                    {/*
+                      Page-visibility gate. Routes render only when visible
+                      for the current user's role; hidden pages mount a
+                      Coming Soon page instead — the page component itself
+                      never runs. Policy (which paths are gated, subtree
+                      governance, aliases) lives in src/config/pageManifest.ts.
+                      Auth, legal, public and /admin surfaces short-circuit
+                      through UNGATED_PATHS.
+                    */}
+                    <Route element={<VisibilityGate />}>
                     {/* Home & Core Routes */}
                     <Route path="/" element={<Index />} />
                     <Route path="/dashboard" element={<Dashboard />} />
@@ -347,16 +357,12 @@ function App() {
                     {/* Portfolio Routes */}
                     <Route path="/portfolio-explorer" element={
                       <ProtectedRoute>
-                        <PageVisibilityGuard>
-                          <PortfolioExplorer />
-                        </PageVisibilityGuard>
+                        <PortfolioExplorer />
                       </ProtectedRoute>
                     } />
                     <Route path="/portfolio-editor/:pageId" element={
                       <ProtectedRoute>
-                        <PageVisibilityGuard>
-                          <PortfolioEditorWrapper />
-                        </PageVisibilityGuard>
+                        <PortfolioEditorWrapper />
                       </ProtectedRoute>
                     } />
                     <Route path="/portfolio/:customUrl" element={<PublicPortfolioWrapper />} />
@@ -370,16 +376,8 @@ function App() {
 
                     {/* Resources & Tools Routes */}
                     <Route path="/resources" element={<Resources />} />
-                    <Route path="/teneika-linkedin" element={
-                      <PageVisibilityGuard>
-                        <TeneikaLinkedIn />
-                      </PageVisibilityGuard>
-                    } />
-                    <Route path="/teneika-tweets" element={
-                      <PageVisibilityGuard>
-                        <TeneikaTweets />
-                      </PageVisibilityGuard>
-                    } />
+                    <Route path="/teneika-linkedin" element={<TeneikaLinkedIn />} />
+                    <Route path="/teneika-tweets" element={<TeneikaTweets />} />
 
                     {/* Survey & Forms Routes */}
                     <Route path="/survey" element={<Survey />} />
@@ -422,6 +420,7 @@ function App() {
 
                     {/* 404 Catch-All Route */}
                     <Route path="*" element={<NotFound />} />
+                    </Route>
                   </Routes>
                 </Suspense>
                 <Toaster />
