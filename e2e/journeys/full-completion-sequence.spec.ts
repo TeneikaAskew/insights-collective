@@ -2,7 +2,7 @@
 // ABOUTME: student submits an assignment, instructor leaves rubric feedback, then every content item
 // ABOUTME: is completed and the certificate trigger auto-issues a verifiable certificate.
 import { test, expect } from '../fixtures/page-helpers';
-import { signInMember, getSupabaseAccessToken, getInstructorAccessToken } from './_helpers/signIn';
+import { signInMember, getSupabaseAccessToken, getGradingStaffToken } from './_helpers/signIn';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://siuqvhscuiycvdrtiqsh.supabase.co';
 const SUPABASE_KEY =
@@ -29,12 +29,7 @@ test.describe('Full course completion sequence', () => {
 
     // Resolve user id
     const meRes = await page.request.get(`${SUPABASE_URL}/auth/v1/user`, { headers });
-    // Body included deliberately: the status alone says the token was rejected
-    // but not why, which is the only useful thing when this fails in CI.
-    expect(
-      meRes.ok(),
-      `auth/v1/user ${meRes.status()} — ${(await meRes.text()).slice(0, 300)}`,
-    ).toBeTruthy();
+    expect(meRes.ok(), `auth/v1/user (${meRes.status()})`).toBeTruthy();
     const userId = (await meRes.json()).id as string;
     expect(userId).toBeTruthy();
 
@@ -63,14 +58,7 @@ test.describe('Full course completion sequence', () => {
     expect(items.length, 'seeded course must publish content items').toBeGreaterThan(0);
     const itemIds = items.map((i) => i.id);
 
-    // Reset prior submission, progressions, and certificate so this run truly exercises the flow.
-    // This spec runs in the chromium-member-journeys project, so every reset
-    // below lands on the dedicated journeys account rather than the shared
-    // member. That is also what keeps the grade assertion here from racing
-    // assignment-submission-feedback.spec.ts, which grades this same fixture
-    // assignment as the shared member: submissions are keyed per
-    // (assignment, user), so the two specs now own separate rows.
-    // See the same note in certificate-generation.spec.ts.
+    // Reset prior submission, progressions, and certificate so this run truly exercises the flow
     await page.request.delete(
       `${SUPABASE_URL}/rest/v1/certificates?user_id=eq.${userId}&course_id=eq.${COURSE_ID}`,
       { headers },
@@ -104,14 +92,15 @@ test.describe('Full course completion sequence', () => {
     expect(submissionId).toBeTruthy();
 
     // ---- Phase 2: instructor grades the submission with rubric feedback ----
-    // Grade with an instructor token, not the student's: `pin_assignment_grade_columns`
-    // silently reverts the grade columns for writers that fail `is_grading_staff()`, which
-    // would leave the lesson showing "Graded" with no score.
-    const instructorToken = await getInstructorAccessToken();
+    // Must be a real instructor token: pin_assignment_grade_columns silently
+    // reverts every grade column unless is_grading_staff() passes, and returns
+    // 200 while doing it. Grading with the member's own token left score null
+    // and surfaced only as a missing "Score 92" in the UI much later.
+    const staffToken = await getGradingStaffToken(page);
     const gradeRes = await page.request.patch(
       `${SUPABASE_URL}/rest/v1/assignment_submissions?id=eq.${submissionId}`,
       {
-        headers: { ...headers, Authorization: `Bearer ${instructorToken}` },
+        headers: { ...headers, Authorization: `Bearer ${staffToken}` },
         data: JSON.stringify({
           workflow_state: 'graded',
           score: 92,
@@ -121,10 +110,15 @@ test.describe('Full course completion sequence', () => {
       },
     );
     expect(gradeRes.ok(), `grade update (${gradeRes.status()})`).toBeTruthy();
-    // The trigger reverts rather than rejects, so assert the score survived the write.
+
+    // ok() alone cannot distinguish "graded" from "silently reverted".
+    const gradeCheck = await page.request.get(
+      `${SUPABASE_URL}/rest/v1/assignment_submissions?id=eq.${submissionId}&select=score`,
+      { headers },
+    );
     expect(
-      (await gradeRes.json())[0]?.score,
-      'score persisted past pin_assignment_grade_columns',
+      (await gradeCheck.json())[0]?.score,
+      'grade did not persist — pin_assignment_grade_columns reverts grade columns unless is_grading_staff()',
     ).toBe(92);
 
     // Verify the student sees the graded feedback in the lesson viewer

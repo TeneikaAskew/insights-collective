@@ -26,6 +26,8 @@ test.describe('Events', () => {
 
   test('search input is present', async ({ page }) => {
     const searchInput = page.locator(Sel.searchInput).first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await searchInput.count() > 0) {
       await expect(searchInput).toBeVisible();
     }
@@ -33,6 +35,8 @@ test.describe('Events', () => {
 
   test('Upcoming / Past tabs are present', async ({ page }) => {
     const tabs = page.locator('[role="tab"]');
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await tabs.count() > 0) {
       await tabs.first().click();
       await page.waitForTimeout(300);
@@ -41,6 +45,8 @@ test.describe('Events', () => {
 
   test('Register button is visible on event cards', async ({ page }) => {
     const registerBtn = page.locator('button:has-text("Register"), button:has-text("RSVP"), a:has-text("Register")').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await registerBtn.count() > 0) {
       await expect(registerBtn).toBeVisible();
     }

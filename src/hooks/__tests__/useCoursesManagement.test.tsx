@@ -66,7 +66,44 @@ describe('useCoursesManagement', () => {
     // logged-in user before it fetches. Return a STABLE object so the
     // [user]-keyed effect does not loop.
     vi.mocked(useAuth).mockReturnValue({ user: mockUser } as any);
+    // The enrollment-count query is gated on a real Supabase session, not just
+    // on AuthContext believing someone is signed in — the context restores from
+    // localStorage before the client attaches a token, and requests sent in that
+    // window go out as `anon` and are refused with 42501.
+    mockSupabaseClient.auth.getSession.mockResolvedValue({
+      data: { session: { access_token: 'token', user: mockUser } },
+      error: null,
+    } as any);
     mockSupabaseClient.rpc.mockResolvedValue({ data: null, error: null });
+  });
+
+  /**
+   * AuthContext restores `user` from localStorage before supabase-js has
+   * attached the token, so a request sent in that window goes out as `anon`.
+   * enrollments has no anon grant, so it came back 42501 — four times on every
+   * public page carrying SiteSearch. Courses must still load; only the
+   * enrollment counts wait for a real session.
+   */
+  it('skips the enrollment count while the client has no session yet', async () => {
+    mockSupabaseClient.auth.getSession.mockResolvedValue({
+      data: { session: null },
+      error: null,
+    } as any);
+    const courseA = makeCourse({ id: 'course-a', instructor: instructorRow });
+    const tables = setupTables({
+      courses: makeTableBuilder({ data: [courseA], error: null }),
+      enrollments: makeTableBuilder({ data: [], error: null }),
+      user_roles: makeTableBuilder({ data: [{ role: 'admin' }], error: null }),
+    });
+
+    const { result } = renderHook(() => useCoursesManagement());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.error).toBeNull();
+    expect(result.current.courses).toHaveLength(1);
+    expect(result.current.courses[0].enrollmentCount).toBe(0);
+    // Not merely zero because the table was empty — the query never ran.
+    expect(tables.enrollments.select).not.toHaveBeenCalled();
   });
 
   it('fetches courses with real enrollment counts', async () => {
@@ -121,34 +158,6 @@ describe('useCoursesManagement', () => {
     expect(toastMock).toHaveBeenCalledWith(
       expect.objectContaining({ variant: 'destructive' })
     );
-  });
-
-  it('does not touch enrollments at all when withEnrollmentCounts is false', async () => {
-    const courseA = makeCourse({ id: 'course-a', instructor: instructorRow });
-
-    // enrollments is wired to fail the way the live table does for a request
-    // that arrives without a valid session. With counts opted out the hook must
-    // never reach the table, so that failure cannot take the course fetch down
-    // with it — this is the navbar SiteSearch case, which renders no counts but
-    // is mounted on every page in the app.
-    setupTables({
-      courses: makeTableBuilder({ data: [courseA], error: null }),
-      enrollments: makeTableBuilder(
-        supabaseError('permission denied for table enrollments')
-      ),
-      user_roles: makeTableBuilder({ data: [{ role: 'admin' }], error: null }),
-    });
-
-    const { result } = renderHook(() =>
-      useCoursesManagement({ withEnrollmentCounts: false })
-    );
-
-    await waitFor(() => expect(result.current.loading).toBe(false));
-
-    expect(mockSupabaseClient.from).not.toHaveBeenCalledWith('enrollments');
-    expect(result.current.error).toBeNull();
-    expect(result.current.courses).toHaveLength(1);
-    expect(result.current.courses[0].enrollmentCount).toBe(0);
   });
 
   it('REGRESSION: role-query failure sets hook error and does NOT silently filter the course list', async () => {

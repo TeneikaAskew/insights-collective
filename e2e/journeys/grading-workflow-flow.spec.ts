@@ -1,7 +1,7 @@
 // ABOUTME: Genuine end-to-end test for the instructor grading workflow. Verifies
 // ABOUTME: the /manage/assignments dashboard and the SpeedGrader entry point. Skips
 // ABOUTME: cleanly (with a loud message, not a silent pass) when instructor creds are absent.
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures/page-helpers';
 
 const BASE = process.env.E2E_BASE_URL || 'http://localhost:8080';
 const INSTRUCTOR_COURSE =

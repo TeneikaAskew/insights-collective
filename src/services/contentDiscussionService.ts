@@ -67,7 +67,7 @@ class ContentDiscussionService {
       .select(
         `
         *,
-        profiles!content_discussions_user_id_fkey(
+        profiles!content_discussions_user_id_profiles_fkey(
           id,
           first_name,
           last_name,
@@ -108,7 +108,7 @@ class ContentDiscussionService {
       .select(
         `
         *,
-        profiles!content_discussions_user_id_fkey(
+        profiles!content_discussions_user_id_profiles_fkey(
           id,
           first_name,
           last_name,

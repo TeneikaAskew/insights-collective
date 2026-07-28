@@ -5,8 +5,19 @@
 
 export const TEST_USERS = {
   member: {
-    email: process.env.E2E_TEST_EMAIL || 'e2e-member@insightscollective.org',
-    password: process.env.E2E_TEST_PASSWORD || 'TestPass123!',
+    // E2E_MEMBER_* first, which is what CI and global-setup actually set.
+    // These read E2E_TEST_EMAIL before, and nothing sets it — so the default
+    // always won. main has since corrected that default to the right account;
+    // preferring the variable CI populates removes the reliance on a default
+    // being right at all, and keeps E2E_TEST_* working where it is set.
+    email:
+      process.env.E2E_MEMBER_EMAIL ??
+      process.env.E2E_TEST_EMAIL ??
+      'e2e-member@insightscollective.org',
+    password:
+      process.env.E2E_MEMBER_PASSWORD ??
+      process.env.E2E_TEST_PASSWORD ??
+      'TestPass123!',
   },
   instructor: {
     email: process.env.E2E_INSTRUCTOR_EMAIL || 'e2e-instructor@insightscollective.org',

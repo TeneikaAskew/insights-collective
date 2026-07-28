@@ -19,6 +19,8 @@ test.describe('Job Description Analyzer', () => {
 
   test('job description textarea is present', async ({ page }) => {
     const textarea = page.locator('textarea, [placeholder*="job"], [placeholder*="description"], [placeholder*="paste"]').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await textarea.count() > 0) {
       await expect(textarea).toBeVisible();
       await textarea.fill('Senior Software Engineer - React, TypeScript, Node.js required');
@@ -27,6 +29,8 @@ test.describe('Job Description Analyzer', () => {
 
   test('analyze or generate button is present', async ({ page }) => {
     const btn = page.locator('button:has-text("Analyze"), button:has-text("Generate"), button:has-text("Submit"), button:has-text("Study Guide")').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await btn.count() > 0) {
       await expect(btn).toBeVisible();
     }

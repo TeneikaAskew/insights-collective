@@ -1,4 +1,57 @@
 import { vi } from 'vitest';
+import DB_FUNCTIONS from '../fixtures/db-functions.json';
+
+/**
+ * Every function that exists in the database's public schema.
+ *
+ * `rpc: vi.fn()` accepts any string, so a unit test can call a function that
+ * does not exist and still pass — which is exactly what happened with
+ * `select_random_questions`: 893 tests were green against a function that had
+ * never been created, and only a live replay found it.
+ *
+ * The list is checked in because unit tests must run offline and
+ * deterministically. It is kept honest by CI, which fails when the committed
+ * file no longer matches the database:
+ *
+ *   node scripts/audit/refresh-db-functions.mjs --check
+ */
+const KNOWN_RPCS = new Set<string>(DB_FUNCTIONS as string[]);
+
+async function defaultRpc(name: string) {
+  assertKnownRpc(name);
+  return { data: null, error: null };
+}
+
+/** Length of the shared leading substring — a cheap stand-in for "looks alike". */
+function commonPrefix(a: string, b: string): number {
+  let i = 0;
+  while (i < a.length && i < b.length && a[i] === b[i]) i++;
+  return i;
+}
+
+function assertKnownRpc(name: string): void {
+  if (KNOWN_RPCS.has(name)) return;
+
+  // Near-misses are the common case — a truncated name, a plural, a renamed
+  // function whose call site was missed — so point at the closest candidates
+  // rather than dumping 87 names.
+  //
+  // Rank by shared prefix rather than by splitting on '_': the first token of
+  // `get_quiz_questions` is "get", which matches every getter in the schema and
+  // buries the one name the caller actually meant.
+  const near = [...KNOWN_RPCS]
+    .map((n) => ({ n, score: commonPrefix(n, name) }))
+    .filter(({ n, score }) => score >= 6 || n.includes(name) || name.includes(n))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3)
+    .map(({ n }) => n);
+
+  throw new Error(
+    `supabase.rpc('${name}') — no such function in the database.\n` +
+      (near.length ? `Did you mean: ${near.join(', ')}?\n` : '') +
+      `If it was just added, run: node scripts/audit/refresh-db-functions.mjs`,
+  );
+}
 
 // Builds a fresh supabase query builder — a new set of chainable vi.fn()s.
 // Every builder method returns `this` by default so tests can chain
@@ -88,7 +141,13 @@ export const mockSupabaseClient = {
     }),
   },
   from: vi.fn(),
-  rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
+  // Validates the name, then behaves exactly as before. Tests that stub a
+  // return value with .mockResolvedValue() replace this implementation entirely
+  // and skip the check — which is correct: an explicit stub is the author
+  // saying what the call returns, and the CI query gate replays the real name
+  // against the database anyway. resetSupabaseMock() restores this between
+  // tests so such a stub cannot leak.
+  rpc: vi.fn(defaultRpc),
   storage: {
     from: vi.fn().mockReturnValue({
       upload: vi.fn(),
@@ -141,7 +200,17 @@ export function getQueryBuilder() {
 // Called from src/test/setup.ts in a beforeEach.
 export function resetSupabaseMock() {
   const fresh = buildQueryBuilder();
+  // Clear the call history as well as the builder. Swapping the return value
+  // left `from.mock.calls` accumulating across every test in a file, so
+  // `expect(from).not.toHaveBeenCalledWith('some_table')` reported a call an
+  // earlier test had made — an assertion that silently cannot pass.
+  (mockSupabaseClient.from as ReturnType<typeof vi.fn>).mockClear();
   (mockSupabaseClient.from as ReturnType<typeof vi.fn>).mockReturnValue(fresh);
+  // rpc too: a test that stubs it with mockResolvedValue replaces the name
+  // validation, and without this the next test would silently inherit both the
+  // stubbed value and the missing check.
+  (mockSupabaseClient.rpc as ReturnType<typeof vi.fn>).mockReset();
+  (mockSupabaseClient.rpc as ReturnType<typeof vi.fn>).mockImplementation(defaultRpc);
 }
 
 // Seed an initial builder so the very first test has a working `from()`

@@ -24,6 +24,8 @@ test.describe('Admin LocalStorage Debug', () => {
     await goto(page, Routes.adminLocalStorageDebug);
     // The page should show localStorage contents — at minimum the auth token key
     const content = page.locator('[class*="key"], [class*="value"], pre, code, table, [class*="storage"]').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await content.count() > 0) {
       await expect(content).toBeVisible();
     }
@@ -32,6 +34,8 @@ test.describe('Admin LocalStorage Debug', () => {
   test('clear or delete key button is present', async ({ page }) => {
     await goto(page, Routes.adminLocalStorageDebug);
     const clearBtn = page.locator('button:has-text("Clear"), button:has-text("Delete"), button:has-text("Remove")').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await clearBtn.count() > 0) {
       await expect(clearBtn).toBeVisible();
     }
@@ -40,6 +44,8 @@ test.describe('Admin LocalStorage Debug', () => {
   test('refresh button is present', async ({ page }) => {
     await goto(page, Routes.adminLocalStorageDebug);
     const refreshBtn = page.locator('button:has-text("Refresh"), button[aria-label*="refresh"]').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await refreshBtn.count() > 0) {
       await expect(refreshBtn).toBeVisible();
     }

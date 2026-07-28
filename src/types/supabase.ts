@@ -100,115 +100,16 @@ export interface PortfolioProject {
   status: string | null;
 }
 
-export type Database = {
-  public: {
-    Tables: {
-      profiles: {
-        Row: Profile;
-      };
-      conversations: {
-        Row: Omit<Conversation, 'participants' | 'last_message'>;
-      };
-      conversation_participants: {
-        Row: Omit<ConversationParticipant, 'profile'>;
-      };
-      messages: {
-        Row: Omit<Message, 'sender'>;
-      };
-      courses: {
-        Row: {
-          id: string;
-          title: string;
-          description: string;
-          category: string;
-          level: string;
-          image_url: string | null;
-          thumbnail: string | null;
-          instructor_id: string | null;
-          published: boolean;
-          enrollment_status: string | null;
-          duration: string | null;
-          tags: string[] | null;
-          created_at: string;
-          updated_at: string;
-        };
-      };
-      enrollments: {
-        Row: {
-          id: string;
-          user_id: string;
-          course_id: string;
-          enrolled_at: string;
-          completion_status: number;
-        };
-      };
-      course_wishlists: {
-        Row: {
-          id: string;
-          user_id: string;
-          course_id: string;
-          created_at: string;
-        };
-      };
-      resumes: {
-        Row: {
-          id: string;
-          user_id: string;
-          file_path: string;
-          analysis: any;
-          uploaded_at: string;
-          updated_at: string;
-          text: string | null;
-        };
-      };
-      portfolio_projects: {
-        Row: {
-          id: string;
-          user_id: string;
-          title: string;
-          description?: string;
-          required_skills?: string[];
-          effort_level?: string;
-          impact?: string;
-          roadmap?: any;
-          created_at?: string;
-          updated_at?: string;
-          status?: string;
-        };
-      };
-      portfolio_pages: {
-        Row: {
-          id: string;
-          user_id: string;
-          title: string;
-          description: string | null;
-          theme: string;
-          is_public: boolean;
-          custom_url: string | null;
-          created_at: string;
-          updated_at: string;
-        };
-      };
-      portfolio_page_projects: {
-        Row: {
-          id: string;
-          portfolio_page_id: string;
-          project_id: string;
-          display_order: number;
-          custom_description: string | null;
-        };
-      };
-      page_visibility: {
-        Row: {
-          id: string;
-          page_path: string;
-          page_name: string;
-          visible_to_users: boolean;
-          visible_to_instructors: boolean;
-          created_at?: string;
-          updated_at?: string;
-        };
-      };
-    };
-  };
-};
+// The `Database` generic used to live here as a hand-written 12-table subset,
+// and `src/integrations/supabase/client.ts` passed *that* to createClient — so
+// a 214-line hand-maintained declaration typed every `.from()` call in the app
+// while the 6,000-line generated file sat beside it, imported by two services.
+//
+// Two competing declarations of one schema is a defect on its own, and it also
+// put the drift gate on the wrong file: `npm run audit:types` validated the
+// generated types against the database while the compiler applied these.
+//
+// The client now imports Database from `@/integrations/supabase/types`, which
+// is generated from the live schema and is what the gate checks. This file
+// keeps only the domain interfaces above, which are hand-written on purpose and
+// used by nine modules. (Caught in review on PR #30.)

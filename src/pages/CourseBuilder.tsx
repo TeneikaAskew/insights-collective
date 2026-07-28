@@ -18,6 +18,7 @@ import { PlaceholderView } from '@/components/course/builder/teachable/Placehold
 import { CourseInformationView } from '@/components/course/builder/teachable/CourseInformationView';
 import { CourseDesignView } from '@/components/course/builder/teachable/CourseDesignView';
 import { CourseCertificatesView } from '@/components/course/builder/teachable/CourseCertificatesView';
+import { CourseSettingsView } from '@/components/course/builder/teachable/CourseSettingsView';
 import { InstructorBuilderTour } from '@/components/onboarding/InstructorBuilderTour';
 import {
   NewCourseWizard,
@@ -672,12 +673,17 @@ const CourseBuilder = () => {
         <CourseCertificatesView course={course} onSave={persistCourse} />
       )}
 
+      {activeView === 'settings' && (
+        <CourseSettingsView course={course} onSave={persistCourse} />
+      )}
+
       {activeView !== 'setup' &&
         activeView !== 'curriculum' &&
         activeView !== 'lesson' &&
         activeView !== 'information' &&
         activeView !== 'design' &&
         activeView !== 'certificates' &&
+        activeView !== 'settings' &&
         PLACEHOLDER_COPY[activeView as keyof typeof PLACEHOLDER_COPY] && (
           <PlaceholderView
             courseId={course.id}

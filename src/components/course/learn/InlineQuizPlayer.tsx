@@ -437,7 +437,7 @@ export function InlineQuizPlayer({ item, quiz, onCompleted }: InlineQuizPlayerPr
 
   if (questions.length === 0) {
     return (
-      <Card>
+      <Card data-testid="quiz-player-empty">
         <CardHeader>
           <CardTitle className="text-lg">Quiz</CardTitle>
         </CardHeader>
@@ -453,7 +453,7 @@ export function InlineQuizPlayer({ item, quiz, onCompleted }: InlineQuizPlayerPr
     const scored = typeof submission.score === 'number' ? submission.score : 0;
     const attemptsLeft = quiz.allowed_attempts - (submission.attempt || 0);
     return (
-      <div className="space-y-4">
+      <div className="space-y-4" data-testid="quiz-player-review">
         <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
@@ -547,7 +547,7 @@ export function InlineQuizPlayer({ item, quiz, onCompleted }: InlineQuizPlayerPr
 
   if (!canTakeQuiz) {
     return (
-      <Card>
+      <Card data-testid="quiz-player-exhausted">
         <CardHeader>
           <CardTitle className="text-lg">Quiz</CardTitle>
         </CardHeader>
@@ -566,7 +566,7 @@ export function InlineQuizPlayer({ item, quiz, onCompleted }: InlineQuizPlayerPr
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="quiz-player-active">
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">

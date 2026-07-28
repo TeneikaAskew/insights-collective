@@ -24,18 +24,31 @@ test.describe('Course List', () => {
   });
 
   test('search filters course results', async ({ page }) => {
-    const search = page.locator(Sel.searchInput).first();
-    await search.fill('python');
-    await page.waitForTimeout(500); // debounce
-    // After typing, the UI should react (different results or no-results message)
-    const cards = page.locator('[class*="card"], article, [data-component-name*="Card"]');
-    const empty = page.locator(':has-text("No courses"), :has-text("no results")');
-    const hasResult = (await cards.count()) > 0 || (await empty.count()) > 0;
-    expect(hasResult).toBe(true);
+    // The catalog's own filter input. Sel.searchInput.first() resolves to the
+    // Navbar site search, which sits earlier in the DOM and does not drive this
+    // grid — filling that only ever exercised the Navbar's dropdown.
+    const search = page.getByPlaceholder('Search courses');
+    const grid = page.locator('[data-onboarding="course-grid"]');
+    // Cards are buttons carrying the course title; loading renders skeleton
+    // divs instead, so wait for a real one before measuring the catalog.
+    const cards = grid.locator('button:has(h3)');
+    await expect(cards.first()).toBeVisible();
+    const total = await cards.count();
+
+    // A query nothing can match collapses the grid to the empty state.
+    await search.fill('zzzz-no-such-course');
+    await expect(grid.getByRole('heading', { name: 'No courses found' })).toBeVisible();
+    await expect(cards).toHaveCount(0);
+
+    // Clearing it restores the full catalog.
+    await search.fill('');
+    await expect(cards).toHaveCount(total);
   });
 
   test('category filter dropdown is present', async ({ page }) => {
     const filter = page.locator('[role="combobox"]:has-text("Category"), button:has-text("Category")').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await filter.count() > 0) {
       await expect(filter).toBeVisible();
     }
@@ -43,6 +56,8 @@ test.describe('Course List', () => {
 
   test('sort dropdown is present', async ({ page }) => {
     const sort = page.locator('[role="combobox"]:has-text("Sort"), button:has-text("Sort")').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await sort.count() > 0) {
       await expect(sort).toBeVisible();
     }
@@ -59,6 +74,8 @@ test.describe('Course List', () => {
 
   test('course cards are visible', async ({ page }) => {
     const cards = page.locator('a[href*="/courses/"], [class*="CourseCard"]');
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await cards.count() > 0) {
       await expect(cards.first()).toBeVisible();
     }
@@ -66,6 +83,8 @@ test.describe('Course List', () => {
 
   test('clicking a course card navigates to detail page', async ({ page }) => {
     const courseLink = page.locator('a[href^="/courses/"]').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await courseLink.count() > 0) {
       const href = await courseLink.getAttribute('href');
       expect(href).toMatch(/\/courses\/.+/);

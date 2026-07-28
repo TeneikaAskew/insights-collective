@@ -1,7 +1,7 @@
 // ABOUTME: E2E — student submits an assignment inline, instructor grades it via REST, and rubric feedback + completion propagate.
 // ABOUTME: Uses real Supabase data for the seeded Introduction to Data Science course.
 import { test, expect } from '../fixtures/page-helpers';
-import { signInMember, getSupabaseAccessToken, getInstructorAccessToken } from './_helpers/signIn';
+import { signInMember, getSupabaseAccessToken, getGradingStaffToken } from './_helpers/signIn';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://siuqvhscuiycvdrtiqsh.supabase.co';
 const SUPABASE_KEY =
@@ -38,12 +38,7 @@ test.describe('Assignment submission → feedback → completion', () => {
 
     // 2. Reset any prior submission for this user so we exercise the full flow
     const meRes = await page.request.get(`${SUPABASE_URL}/auth/v1/user`, { headers });
-    // Status + body: this assertion previously failed in CI as a bare
-    // "Received: false", which says nothing about why the token was rejected.
-    expect(
-      meRes.ok(),
-      `auth/v1/user ${meRes.status()} — ${(await meRes.text()).slice(0, 300)}`,
-    ).toBeTruthy();
+    expect(meRes.ok()).toBeTruthy();
     const me = await meRes.json();
     const userId: string = me.id;
 
@@ -65,6 +60,12 @@ test.describe('Assignment submission → feedback → completion', () => {
     await expect(submitBtn).toBeVisible({ timeout: 15_000 });
     const textArea = page.getByPlaceholder(/Write your response here/i);
     const submissionBody = `E2E submission at ${new Date().toISOString()}`;
+    // Exempt from the count-guard rule on purpose: this is conditional setup,
+    // not a conditional assertion. The assignment has no submission_types, so
+    // no text field renders and the button submits an empty body — filling it
+    // when it happens to exist is optional work, and the assertion that matters
+    // is the unconditional one below.
+    // eslint-disable-next-line no-restricted-syntax
     if (await textArea.count()) {
       await textArea.fill(submissionBody);
     }
@@ -85,17 +86,21 @@ test.describe('Assignment submission → feedback → completion', () => {
     expect(submission.workflow_state).toBe('submitted');
 
 
-    // 5. Grade the submission as the instructor.
-    //    This must NOT reuse `headers` (the student's token). `pin_assignment_grade_columns`
-    //    reverts score/graded_at/grader_comments for any writer failing `is_grading_staff()`,
-    //    so a student-authored PATCH still returns 2xx but drops the grade — the lesson would
-    //    then render "Graded" with no score. Grade with a real instructor token instead.
-    const instructorToken = await getInstructorAccessToken();
-    const graderHeaders = { ...headers, Authorization: `Bearer ${instructorToken}` };
+    // 5. Grade the submission as grading staff.
+    //
+    // This used to reuse `headers` (the signed-in member's token) on the claim
+    // that the test user "has admin + instructor roles". It does not —
+    // e2e-member holds `student` only — and assignment_submissions has a BEFORE
+    // UPDATE trigger, pin_assignment_grade_columns, that silently reverts every
+    // grade column unless is_grading_staff() passes. PostgREST still answered
+    // 200, so `grader.ok()` was true while score stayed null and the assertion
+    // on the rendered score failed several steps later for no visible reason.
+    const staffToken = await getGradingStaffToken(page);
+    const staffHeaders = { ...headers, Authorization: `Bearer ${staffToken}` };
     const grader = await page.request.patch(
       `${SUPABASE_URL}/rest/v1/assignment_submissions?id=eq.${submission.id}`,
       {
-        headers: graderHeaders,
+        headers: staffHeaders,
         data: {
           workflow_state: 'graded',
           score: 90,
@@ -105,11 +110,20 @@ test.describe('Assignment submission → feedback → completion', () => {
       },
     );
     expect(grader.ok(), `grade update ok (${grader.status()})`).toBeTruthy();
-    // The grade-pinning trigger reverts rather than rejects, so a 2xx alone proves nothing.
-    // Assert the score actually persisted, so a regression fails here instead of masquerading
-    // as a missing label in the UI assertions below.
-    const gradedRow = (await grader.json())[0];
-    expect(gradedRow?.score, 'score persisted past pin_assignment_grade_columns').toBe(90);
+
+    // ok() is not enough: the trigger reverts silently and still returns 200.
+    // Read the row back and assert the grade actually persisted, so a future
+    // permission regression fails HERE with a clear cause rather than as a
+    // missing string in the UI.
+    const verify = await page.request.get(
+      `${SUPABASE_URL}/rest/v1/assignment_submissions?id=eq.${submission.id}&select=score,workflow_state`,
+      { headers },
+    );
+    const [graded] = await verify.json();
+    expect(
+      graded?.score,
+      'grade did not persist — pin_assignment_grade_columns reverts grade columns unless is_grading_staff()',
+    ).toBe(90);
 
     // 6. Mark the content item complete so completion status advances (upsert)
     const prog = await page.request.post(

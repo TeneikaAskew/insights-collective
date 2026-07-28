@@ -27,7 +27,25 @@ vi.mock('@/components/interview-prep/AvailabilityManager', () => ({
   AvailabilityManager: () => <div>availability-manager</div>,
 }));
 
-const SESSIONS = [
+/** Mirrors the mock_sessions row shape the page reads. */
+interface SessionFixture {
+  id: string;
+  user1_id: string;
+  user2_id: string;
+  role1: string;
+  role2: string;
+  session_time: string;
+  end_time: string;
+  type: string;
+  status: string;
+  study_guide_id: string | null;
+  video_platform: string;
+  meeting_url?: string | null;
+  start_url?: string | null;
+  meeting_id?: string | null;
+}
+
+const SESSIONS: SessionFixture[] = [
   {
     id: 's1',
     user1_id: 'user-1',

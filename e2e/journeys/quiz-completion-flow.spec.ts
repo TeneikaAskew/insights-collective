@@ -1,6 +1,6 @@
 // ABOUTME: Genuine end-to-end test for the per-week quiz results view and the inline quiz player.
 // ABOUTME: Signs in as the seeded test member and verifies the correct role-scoped rendering.
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures/page-helpers';
 
 // This spec runs under the chromium-member project, whose storageState is the
 // session global-setup already established, so it starts authenticated. Driving
@@ -75,16 +75,24 @@ test.describe('Quiz taking — full attempt lifecycle', () => {
 
     await quizRow.getByRole('button', { name: /start|resume|review/i }).click();
 
-    // Player exposes either a Start-quiz control (fresh attempt), a Completed
-    // banner (previously submitted), or a question prompt when auto-launched.
-    // All three are real, verifiable states.
-    await expect
-      .poll(async () => {
-        const startBtn = await page.getByRole('button', { name: /start quiz|begin quiz/i }).isVisible().catch(() => false);
-        const complete = await page.getByText(/completed|your score/i).isVisible().catch(() => false);
-        const question = await page.getByText(/question\s*\d+/i).isVisible().catch(() => false);
-        return startBtn || complete || question;
-      }, { timeout: 10_000 })
-      .toBe(true);
+    // This previously polled for a "Start quiz" button, a "Completed" banner or
+    // a "Question N" prompt. InlineQuizPlayer renders none of those strings —
+    // there is no start control (the first question is shown immediately), the
+    // review header reads "Quiz results", and question text is rendered as the
+    // question body with no "Question N" label. All three alternatives were
+    // unreachable, so the poll could only ever time out.
+    //
+    // Assert the states the player actually has, by testid so wording changes
+    // don't silently break this again.
+    const state = page.locator(
+      '[data-testid="quiz-player-active"], [data-testid="quiz-player-review"], ' +
+      '[data-testid="quiz-player-exhausted"], [data-testid="quiz-player-empty"]',
+    );
+    await expect(state.first()).toBeVisible({ timeout: 15_000 });
+
+    // The attempt-lookup failure path renders CourseErrorState. That is a real
+    // state too, but it is a failure — accepting it would let a broken player
+    // pass as "scaffolding rendered".
+    await expect(page.getByText(/couldn't load your quiz attempts/i)).toHaveCount(0);
   });
 });

@@ -19,6 +19,8 @@ test.describe('Assistant Interface', () => {
   test('chat message input is present', async ({ page }) => {
     await goto(page, assistantUrl);
     const input = page.locator('textarea, input[type="text"]').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await input.count() > 0) {
       await expect(input).toBeVisible();
     }
@@ -27,6 +29,8 @@ test.describe('Assistant Interface', () => {
   test('send button is present', async ({ page }) => {
     await goto(page, assistantUrl);
     const sendBtn = page.locator('button[type="submit"], button:has-text("Send"), button[aria-label*="send"]').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await sendBtn.count() > 0) {
       await expect(sendBtn).toBeVisible();
     }
@@ -40,6 +44,8 @@ test.describe('Assistant Interface', () => {
   test('message history / conversation area renders', async ({ page }) => {
     await goto(page, assistantUrl);
     const convo = page.locator('[class*="message"], [class*="chat"], [class*="conversation"]').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await convo.count() > 0) {
       await expect(convo).toBeVisible();
     }

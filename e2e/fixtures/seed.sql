@@ -1,23 +1,9 @@
 -- ABOUTME: Idempotent seed for deterministic Playwright test fixtures.
 -- ABOUTME: Run against the target Supabase project before executing the e2e suite.
--- Usage: psql "$SUPABASE_DB_URL" -v e2e_password="$E2E_TEST_PASSWORD" -f e2e/fixtures/seed.sql
+-- Usage: psql "$SUPABASE_DB_URL" -f e2e/fixtures/seed.sql
 -- Safe to run repeatedly. Uses stable identifiers so tests can reference known rows.
 
--- The shared e2e password, used to provision the dedicated journeys account
--- below. It is a CI secret and must never be written into this file; CI passes
--- it with -v. Default it to empty so the seed still runs locally without it --
--- the account is then created with an unguessable random password, and
--- global-setup fails loudly on sign-in rather than the suite failing obscurely.
-\if :{?e2e_password}
-\else
-  \set e2e_password ''
-\endif
-
 BEGIN;
-
--- psql does not expand :variables inside dollar-quoted bodies, so hand the
--- password to the DO blocks the same way this file already passes member_email.
-SELECT set_config('e2e.password', :'e2e_password', true);
 
 -- Reference course (already exists in production seed): Introduction to Data Science
 -- id = 660e8400-e29b-41d4-a716-446655440001
@@ -131,7 +117,6 @@ BEGIN
   VALUES (v_id, v_course_id)
   ON CONFLICT DO NOTHING;
 END $$;
-
 -- 2. Ensure the dedicated instructor is set as the primary instructor of the reference course.
 DO $$
 DECLARE
@@ -148,147 +133,69 @@ END $$;
 
 -- 3. Seed a completion certificate for the member so the profile "My Certificates"
 --    verify-link test can exercise a real row instead of skipping.
---
---    This sits on the primary fixture course (E2E_TEST_COURSE_ID,
---    660e8400-...0001), and stays safe there only because the specs that
---    delete certificates for that course -- certificate-generation and
---    full-completion-sequence, which prove auto-issuance from a clean slate --
---    now run as the separate journeys account seeded above. RLS lets a user
---    delete only their own certificates, so a different acting user puts this
---    row outside their blast radius entirely.
---
---    An earlier revision instead pinned this to course ...0002 to dodge that
---    race. It fixed the profile spec and broke the /profile visual snapshot:
---    the shared member then held this row *plus* whatever the journeys issued,
---    so the "My Certificates" card rendered a varying number of entries. The
---    certificate set has to be constant, not merely non-empty.
 DO $$
 DECLARE
   v_course_id uuid := '660e8400-e29b-41d4-a716-446655440001';
   v_member_id uuid;
 BEGIN
   SELECT id INTO v_member_id FROM auth.users
-   WHERE email = 'e2e-member@insightscollective.org';
-  IF v_member_id IS NOT NULL THEN
-    -- verification_code is globally UNIQUE, so a row left on the old course by
-    -- an earlier revision of this seed would collide -- and ON CONFLICT
-    -- (user_id, course_id) below does not catch a verification_code conflict,
-    -- so psql would abort the whole seed under ON_ERROR_STOP. Clear it first,
-    -- scoped to this member's own row carrying exactly this fixture code.
-    DELETE FROM public.certificates
-     WHERE user_id = v_member_id
-       AND verification_code = 'E2EMEMBERCERT'
-       AND course_id <> v_course_id;
+   WHERE email = COALESCE(current_setting('e2e.member_email', true), 'e2e-member@insightscollective.org');
+  IF v_member_id IS NULL THEN
+    RETURN;
+  END IF;
 
-    -- issued_at is pinned, not now(): the My Certificates card renders it as
-    -- "Issued {toLocaleDateString()}", and that text is inside the /profile
-    -- visual snapshot. With now() the baseline would match on the day it was
-    -- captured and drift the next day -- and only on a database where this row
-    -- happened to be recreated, which is the kind of failure that looks random.
-    -- Midday UTC so the rendered date is the same calendar day across any
-    -- plausible runner timezone (CI runs UTC and sets no timezoneId).
-    -- Assigned on update too, so an existing row created by an older revision
-    -- of this seed is corrected rather than keeping its original timestamp.
+  -- Update-then-insert rather than ON CONFLICT. certificates has NO unique
+  -- constraint on (user_id, course_id), so `ON CONFLICT (user_id, course_id)`
+  -- raised "there is no unique or exclusion constraint matching the ON CONFLICT
+  -- specification" — and because this script runs inside BEGIN..COMMIT, that
+  -- error aborted the ENTIRE transaction. Every section rolled back, so the
+  -- seed had never actually applied: no member certificate, no fixture event,
+  -- no invariant checks. The only visible symptom was one spec reporting a
+  -- "seed gap".
+  --
+  -- Adding the constraint would fix the syntax, but certificate_type exists
+  -- precisely so a user can hold more than one kind of certificate for a
+  -- course; a (user_id, course_id) unique constraint would forbid that
+  -- forever to satisfy a test fixture. Scope the idempotency to the row this
+  -- fixture owns instead, and leave the schema alone.
+  UPDATE public.certificates
+     SET verification_code = 'E2EMEMBERCERT',
+         certificate_data  = jsonb_build_object(
+           'completion_percentage', 100, 'total_items', 11,
+           'auto_issued', false, 'seeded_for', 'e2e')
+   WHERE user_id = v_member_id
+     AND course_id = v_course_id
+     AND certificate_type = 'completion';
+
+  IF NOT FOUND THEN
     INSERT INTO public.certificates (user_id, course_id, certificate_type, certificate_data, verification_code, issued_at)
     VALUES (
       v_member_id, v_course_id, 'completion',
       jsonb_build_object('completion_percentage', 100, 'total_items', 11, 'auto_issued', false, 'seeded_for', 'e2e'),
-      'E2EMEMBERCERT', timestamptz '2026-07-27 12:00:00+00'
-    )
-    ON CONFLICT (user_id, course_id) DO UPDATE
-    SET verification_code = EXCLUDED.verification_code,
-        certificate_data = EXCLUDED.certificate_data,
-        issued_at = EXCLUDED.issued_at;
-  END IF;
-END $$;
-
--- 4. Seed a published assignment with a submitted (ungraded) submission from the
---    member. Without this the instructor's /manage/assignments dashboard renders
---    its empty state, so grading-workflow-flow finds no "Grade submissions" link
---    and assignment-submission-feedback / full-completion-sequence find no
---    assignment UI to act on. Fixed id so specs can deep-link if they need to.
-DO $$
-DECLARE
-  v_course_id uuid := '660e8400-e29b-41d4-a716-446655440001';
-  v_assignment_id uuid := 'aa0e8400-e29b-41d4-a716-446655440001';
-  v_item_id uuid := 'cc0e8400-e29b-41d4-a716-446655440001';
-  v_module_id uuid;
-  v_member_id uuid;
-  v_position integer;
-BEGIN
-  SELECT id INTO v_member_id FROM auth.users
-   WHERE email = 'e2e-member@insightscollective.org';
-  SELECT id INTO v_module_id FROM public.modules
-   WHERE course_id = v_course_id ORDER BY created_at LIMIT 1;
-
-  -- content_items has a unique (module_id, position); take the next free slot
-  -- rather than a fixed number, which collides with whatever the course already
-  -- has. On conflict the existing position is deliberately left alone.
-  SELECT COALESCE(max(ci.position), 0) + 1 INTO v_position
-    FROM public.content_items ci
-   WHERE ci.module_id = v_module_id;
-
-  -- The assignment MUST hang off a content item. InstructorAssignments renders
-  -- the "Grade submissions" link only when content_item_id is set (otherwise a
-  -- disabled "No submissions target" button), and CanvasGradingInterface
-  -- resolves the :contentItemId route param — so a null here leaves the
-  -- SpeedGrader unreachable and grading-workflow-flow still failing.
-  INSERT INTO public.content_items (id, course_id, module_id, type, title, position, published)
-  VALUES (v_item_id, v_course_id, v_module_id, 'assignment', 'E2E Fixture Assignment', v_position, true)
-  ON CONFLICT (id) DO UPDATE
-  SET published = true,
-      course_id = EXCLUDED.course_id,
-      module_id = EXCLUDED.module_id,
-      type = EXCLUDED.type;
-
-  INSERT INTO public.assignments (id, course_id, content_item_id, title, description, instructions, points, due_date, is_published, submission_types)
-  VALUES (
-    v_assignment_id, v_course_id, v_item_id,
-    'E2E Fixture Assignment',
-    'Seeded assignment backing the grading and submission journeys.',
-    'Submit a short written response. Seeded for E2E; safe to leave in place.',
-    100, now() + interval '30 days', true, ARRAY['online_text_entry']
-  )
-  ON CONFLICT (id) DO UPDATE
-  SET is_published = true,
-      course_id = EXCLUDED.course_id,
-      content_item_id = EXCLUDED.content_item_id,
-      points = EXCLUDED.points;
-
-  -- Must end up submitted-but-ungraded every time the seed runs. A previous run
-  -- (or a manual click through the SpeedGrader) will have graded this row, and
-  -- the unique key is (assignment_id, user_id, attempt) — so DO NOTHING would
-  -- silently leave it graded and the fixture would stop supplying the pending
-  -- item it promises. Reset the grading fields explicitly on conflict.
-  IF v_member_id IS NOT NULL THEN
-    INSERT INTO public.assignment_submissions
-      (assignment_id, user_id, submitted_at, submission_type, body, workflow_state, attempt)
-    VALUES (
-      v_assignment_id, v_member_id, now(), 'online_text_entry',
-      'Seeded E2E submission body.', 'submitted', 1
-    )
-    ON CONFLICT (assignment_id, user_id, attempt) DO UPDATE
-    SET workflow_state = 'submitted',
-        submitted_at = now(),
-        submission_type = 'online_text_entry',
-        body = EXCLUDED.body,
-        grade = NULL,
-        score = NULL,
-        graded_at = NULL,
-        grader_comments = NULL,
-        rubric_scores = NULL,
-        excused = false,
-        missing = false;
+      'E2EMEMBERCERT', now()
+    );
   END IF;
 END $$;
 
 -- Seed one course material file so the enrolled-student signed-URL journey has a row to click.
+--
+-- NOT ON CONFLICT DO NOTHING: course_material_files has no unique constraint on
+-- (course_id, storage_path) — its only unique index is the surrogate id, which a
+-- fresh gen_random_uuid() never collides with. The clause therefore never fired
+-- and this "safe to run repeatedly" seed appended another Welcome.pdf on every
+-- run (verified: 1 row before, 2 after). NOT EXISTS is the guard that matches
+-- the constraint that actually exists.
 INSERT INTO public.course_material_files (course_id, name, storage_path, bucket, mime_type, size_bytes, uploaded_by)
 SELECT '660e8400-e29b-41d4-a716-446655440001', 'Welcome.pdf',
        '660e8400-e29b-41d4-a716-446655440001/welcome.pdf', 'course-documents',
        'application/pdf', 1024, c.instructor_id
-FROM public.courses c WHERE c.id = '660e8400-e29b-41d4-a716-446655440001'
-ON CONFLICT DO NOTHING;
+FROM public.courses c
+WHERE c.id = '660e8400-e29b-41d4-a716-446655440001'
+  AND NOT EXISTS (
+    SELECT 1 FROM public.course_material_files f
+    WHERE f.course_id = '660e8400-e29b-41d4-a716-446655440001'
+      AND f.storage_path = '660e8400-e29b-41d4-a716-446655440001/welcome.pdf'
+  );
 
 -- Seed the event the specs deep-link to. Without this the default id in
 -- e2e/helpers/route-helpers.ts resolves to Event Not Found on a fresh
@@ -299,6 +206,173 @@ VALUES ('dd0e8400-e29b-41d4-a716-446655440001',
         'Data Science Career Panel',
         'A panel of working data scientists on breaking into the field.',
         'panel', 'virtual', CURRENT_DATE + 30, 'Zoom', 100)
+ON CONFLICT (id) DO NOTHING;
+
+-- ── Fixtures for the routes that used to be tested with placeholder IDs ─────
+--
+-- Nine TestIds defaults in e2e/helpers/route-helpers.ts were non-UUID strings
+-- ('test-module-id', 'test-quiz-id', …). Postgres rejects those with 22P02, so
+-- eight route builders loaded pages that could never fetch anything: the specs
+-- asserted against an error state and passed on generic headings. That noise is
+-- also what the two blanket suppressions in console-errors.fixture.ts were
+-- compensating for — every /rest/v1/ failure and 110 of the app's 187 logger
+-- prefixes — which is how two real 42703 page breaks stayed invisible to the
+-- whole suite.
+--
+-- These rows make the defaults real, so the suppressions can be narrowed to the
+-- errors that are genuinely expected.
+--
+-- IDs are deliberately patterned (aaaa1111…, bbbb2222…) so a row that turns up
+-- in a query result is obviously a fixture rather than user data.
+
+-- Quiz the quiz-taking and quiz-results specs deep-link to. The content_item is
+-- the routable half; the quiz row is what the page actually loads.
+INSERT INTO public.content_items (id, course_id, module_id, type, title, content, position, published)
+VALUES ('aaaa1111-1111-1111-1111-111111111111',
+        '660e8400-e29b-41d4-a716-446655440001',
+        '770e8400-e29b-41d4-a716-446655440001',
+        'quiz', 'Foundations Check-in', '', 99, true)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.quizzes (id, content_item_id, module_id, title, description,
+                            quiz_type, points_possible, allowed_attempts, show_correct_answers)
+VALUES ('bbbb2222-2222-2222-2222-222222222222',
+        'aaaa1111-1111-1111-1111-111111111111',
+        '770e8400-e29b-41d4-a716-446655440001',
+        'Foundations Check-in', 'Weekly foundations check-in',
+        'assignment', 20, 3, true)
+ON CONFLICT (id) DO NOTHING;
+
+-- Questions need real answers. A question whose choices are empty renders
+-- "No options configured for this question" — the page loads but nothing can be
+-- answered, so the spec is back to testing an error state.
+--
+-- Seed the `answers` column, not just `options`. get_quiz_questions_for_taking
+-- supports two shapes and prefers the first:
+--
+--   answers  [{id, text, correct}, …]     ← preferred; what the editor writes
+--   options  ["A", "B"] + correct_answer  ← legacy fallback
+--
+-- Filling only the legacy pair works, but leaves the fixture on a code path the
+-- app itself no longer produces, and any row that happens to carry an `answers`
+-- value silently wins over it. Seed the preferred shape and mirror it into the
+-- legacy columns so both paths describe the same quiz.
+--
+-- correct_answer is jsonb: `''` would fold to ''::jsonb at parse time, which is
+-- the bug that made every quiz on the platform throw 22P02
+-- (migration 20260730000000).
+INSERT INTO public.quiz_questions (id, quiz_id, question_text, question_type,
+                                   answers, options, correct_answer, points, position)
+VALUES
+  ('db813510-23b3-4954-b211-e0d40d97bc24',
+   'bbbb2222-2222-2222-2222-222222222222',
+   'Which of these is a supervised learning task?', 'multiple_choice',
+   '[{"id":"a1000001-0000-4000-8000-000000000001","text":"Spam classification","correct":true},
+     {"id":"a1000001-0000-4000-8000-000000000002","text":"K-means clustering","correct":false},
+     {"id":"a1000001-0000-4000-8000-000000000003","text":"Principal component analysis","correct":false},
+     {"id":"a1000001-0000-4000-8000-000000000004","text":"Anomaly detection","correct":false}]'::jsonb,
+   '["Spam classification","K-means clustering","Principal component analysis","Anomaly detection"]'::jsonb,
+   '"Spam classification"'::jsonb, 10, 1),
+  ('c636a401-d4d2-498a-a33b-c9c8abcfb294',
+   'bbbb2222-2222-2222-2222-222222222222',
+   'What does EDA stand for?', 'multiple_choice',
+   '[{"id":"a2000002-0000-4000-8000-000000000001","text":"Exploratory Data Analysis","correct":true},
+     {"id":"a2000002-0000-4000-8000-000000000002","text":"Extended Data Aggregation","correct":false},
+     {"id":"a2000002-0000-4000-8000-000000000003","text":"Enterprise Data Architecture","correct":false},
+     {"id":"a2000002-0000-4000-8000-000000000004","text":"Estimated Data Accuracy","correct":false}]'::jsonb,
+   '["Exploratory Data Analysis","Extended Data Aggregation","Enterprise Data Architecture","Estimated Data Accuracy"]'::jsonb,
+   '"Exploratory Data Analysis"'::jsonb, 10, 2)
+ON CONFLICT (id) DO UPDATE
+  SET answers = EXCLUDED.answers,
+      options = EXCLUDED.options,
+      correct_answer = EXCLUDED.correct_answer,
+      question_text = EXCLUDED.question_text;
+
+-- A graded attempt, so /quiz-results renders a real score.
+--
+-- pin_quiz_submission_score() rewrites score to NULL and 'complete' to
+-- 'pending_review' for anyone who is not grading staff — a deliberate control so
+-- a student cannot POST themselves a grade. The seed does not bypass it; it
+-- adopts the instructor's identity for this one statement, which is the identity
+-- that would legitimately produce a graded submission. Set LOCAL, so it lasts
+-- only for this transaction, and cleared immediately afterwards.
+--
+-- DO UPDATE rather than DO NOTHING: a spec that submits the quiz leaves the row
+-- mid-attempt, and the next run would open a results page for an unfinished one.
+DO $$
+DECLARE
+  v_member_id uuid;
+  v_instructor_id uuid;
+BEGIN
+  SELECT id INTO v_member_id FROM auth.users
+   WHERE email = COALESCE(current_setting('e2e.member_email', true), 'e2e-member@insightscollective.org');
+  SELECT id INTO v_instructor_id FROM auth.users
+   WHERE email = 'e2e-instructor@insightscollective.org';
+
+  IF v_member_id IS NOT NULL AND v_instructor_id IS NOT NULL THEN
+    PERFORM set_config('request.jwt.claims',
+                       json_build_object('sub', v_instructor_id, 'role', 'authenticated')::text,
+                       true);
+
+    INSERT INTO public.quiz_submissions (id, quiz_id, user_id, attempt, started_at, finished_at,
+                                         time_spent, score, kept_score, workflow_state)
+    VALUES ('dddd4444-4444-4444-4444-444444444444',
+            'bbbb2222-2222-2222-2222-222222222222', v_member_id, 1,
+            now() - interval '1 hour', now() - interval '58 minutes', 120, 20, 20, 'complete')
+    ON CONFLICT (id) DO UPDATE
+      SET user_id = EXCLUDED.user_id,
+          finished_at = EXCLUDED.finished_at,
+          workflow_state = EXCLUDED.workflow_state,
+          score = EXCLUDED.score,
+          kept_score = EXCLUDED.kept_score;
+
+    PERFORM set_config('request.jwt.claims', '', true);
+  END IF;
+END $$;
+
+-- Rubric for /courses/:courseId/rubrics/:rubricId/edit. It must live on the
+-- reference course: the route builder defaults both segments, and a rubric
+-- belonging to a different course renders Not Found.
+DO $$
+DECLARE
+  v_instructor_id uuid;
+BEGIN
+  SELECT id INTO v_instructor_id FROM auth.users
+   WHERE email = 'e2e-instructor@insightscollective.org';
+  IF v_instructor_id IS NOT NULL THEN
+    INSERT INTO public.rubrics (id, course_id, title, description, points_possible, created_by)
+    VALUES ('eeee5555-5555-5555-5555-555555555555',
+            '660e8400-e29b-41d4-a716-446655440001',
+            'Data Analysis Rubric', 'Fixture rubric for the rubric-editor spec.', 100, v_instructor_id)
+    ON CONFLICT (id) DO NOTHING;
+  END IF;
+END $$;
+
+-- Portfolio page for /portfolio/edit/:pageId. Owned by the member, because the
+-- editor checks ownership — pointing the default at a real user's page would
+-- both fail and put a test one keystroke away from editing live content.
+DO $$
+DECLARE
+  v_member_id uuid;
+BEGIN
+  SELECT id INTO v_member_id FROM auth.users
+   WHERE email = COALESCE(current_setting('e2e.member_email', true), 'e2e-member@insightscollective.org');
+  IF v_member_id IS NOT NULL THEN
+    INSERT INTO public.portfolio_pages (id, user_id, title, description, theme, is_public, custom_url, layout, profile_data)
+    VALUES ('ffff6666-6666-6666-6666-666666666666', v_member_id,
+            'E2E Portfolio', 'Fixture portfolio page for the editor spec.',
+            'modern', true, 'e2e-member', 'hero-focus',
+            '{"skills":["SQL","Python"],"professional_summary":"Fixture portfolio."}'::jsonb)
+    ON CONFLICT (id) DO NOTHING;
+  END IF;
+END $$;
+
+-- Form for /admin/surveys/:formId/edit.
+INSERT INTO public.forms (id, title, description, status, form_link, slug, form_structure)
+VALUES ('aaab7777-7777-7777-7777-777777777777',
+        'E2E Fixture Survey', 'Fixture survey for the admin survey-editor spec.',
+        true, '/survey/e2e-fixture-survey', 'e2e-fixture-survey',
+        '{"fields":[{"id":"q1","type":"text","label":"What did you think?"}]}'::jsonb)
 ON CONFLICT (id) DO NOTHING;
 
 -- Assert deterministic invariants so a failed seed surfaces before tests run.
@@ -319,52 +393,117 @@ BEGIN
     RAISE EXCEPTION 'E2E SEED FAILED: fixture event dd0e8400-...0001 missing; event specs would pass against a Not Found page';
   END IF;
 
-  -- Assert the exact state the grading specs need, not merely that some row
-  -- exists: published assignment, linked to a published content item (else the
-  -- dashboard shows "No submissions target" instead of a Grade submissions
-  -- link), with a submitted-and-ungraded submission to open in the SpeedGrader.
+  -- Everything this script INSERTs sits inside `IF v_member_id IS NOT NULL`
+  -- style guards, so a missed auth.users lookup (wrong email, account not
+  -- created yet) made the whole script a silent no-op that still COMMITted and
+  -- reported success. Only the two checks above were asserted, and both cover
+  -- rows the script does not create. Assert its own output too.
+
   SELECT EXISTS (
-    SELECT 1
-    FROM public.assignment_submissions s
-    JOIN public.assignments a ON a.id = s.assignment_id
-    JOIN public.content_items ci ON ci.id = a.content_item_id
-    WHERE a.id = 'aa0e8400-e29b-41d4-a716-446655440001'
-      AND a.is_published
-      AND ci.published
-      AND s.workflow_state = 'submitted'
-      AND s.grade IS NULL
+    SELECT 1 FROM public.enrollments e
+    JOIN auth.users u ON u.id = e.user_id
+    WHERE e.course_id = '660e8400-e29b-41d4-a716-446655440001'
+      AND u.email = COALESCE(current_setting('e2e.member_email', true), 'e2e-member@insightscollective.org')
   ) INTO v_ok;
   IF NOT v_ok THEN
-    RAISE EXCEPTION 'E2E SEED FAILED: fixture assignment aa0e8400-...0001 must be published, linked to a published content item, and carry a submitted/ungraded submission; without all four the grading dashboard renders no Grade submissions link';
+    RAISE EXCEPTION 'E2E SEED FAILED: member is not enrolled in 660e8400-...0001; every enrolled-course spec would assert against an empty dashboard';
   END IF;
 
-  -- The profile certificate, asserted by verification_code on the course it is
-  -- pinned to. The code is what the profile spec matches on; the course is
-  -- what the /profile visual baseline was captured against.
   SELECT EXISTS (
     SELECT 1 FROM public.certificates c
     JOIN auth.users u ON u.id = c.user_id
-    WHERE u.email = 'e2e-member@insightscollective.org'
-      AND c.verification_code = 'E2EMEMBERCERT'
-      AND c.course_id = '660e8400-e29b-41d4-a716-446655440001'
+    WHERE c.course_id = '660e8400-e29b-41d4-a716-446655440001'
+      AND u.email = COALESCE(current_setting('e2e.member_email', true), 'e2e-member@insightscollective.org')
   ) INTO v_ok;
   IF NOT v_ok THEN
-    RAISE EXCEPTION 'E2E SEED FAILED: member certificate E2EMEMBERCERT must exist on course 660e8400-...0001; the profile My Certificates spec matches that exact code';
+    RAISE EXCEPTION 'E2E SEED FAILED: member certificate missing; profile-certificates-flow and the /profile visual baseline both depend on it';
   END IF;
 
-  -- Exactly one, not at least one: the /profile visual snapshot renders this
-  -- card, so an extra certificate on the shared member is a pixel diff. A
-  -- second row here means some spec issued a certificate as the shared member
-  -- instead of the journeys account -- fail now, with the cause named, rather
-  -- than as an unexplained visual regression.
-  SELECT COUNT(*) = 1 INTO v_ok
-    FROM public.certificates c
-    JOIN auth.users u ON u.id = c.user_id
-   WHERE u.email = 'e2e-member@insightscollective.org';
+  SELECT COUNT(*) = 1 INTO v_ok FROM public.course_material_files
+   WHERE course_id = '660e8400-e29b-41d4-a716-446655440001'
+     AND storage_path = '660e8400-e29b-41d4-a716-446655440001/welcome.pdf';
   IF NOT v_ok THEN
-    RAISE EXCEPTION 'E2E SEED FAILED: the shared member must hold exactly one certificate (the E2EMEMBERCERT fixture); the /profile visual snapshot renders that list, so any extra row is a visual diff. Destructive completion journeys belong on e2e-journeys@insightscollective.org';
+    RAISE EXCEPTION 'E2E SEED FAILED: expected exactly one seeded Welcome.pdf — this script is meant to be idempotent';
   END IF;
 
+  SELECT c.instructor_id IS NOT NULL INTO v_ok
+    FROM public.courses c WHERE c.id = '660e8400-e29b-41d4-a716-446655440001';
+  IF NOT v_ok THEN
+    RAISE EXCEPTION 'E2E SEED FAILED: fixture course has no instructor_id; every instructor-role spec would hit a permission fallback';
+  END IF;
+
+  -- The fixtures the route-helper defaults point at. Without each of these the
+  -- corresponding spec loads an error state and still passes on generic
+  -- headings, which is the false-green this seed exists to prevent.
+
+  SELECT EXISTS (
+    SELECT 1 FROM public.content_items
+     WHERE id = 'aaaa1111-1111-1111-1111-111111111111'
+       AND module_id = '770e8400-e29b-41d4-a716-446655440001'
+  ) INTO v_ok;
+  IF NOT v_ok THEN
+    RAISE EXCEPTION 'E2E SEED FAILED: fixture quiz content item missing; quiz-taking and quiz-results would test a Not Found page';
+  END IF;
+
+  -- Answers, not just the question rows. get_quiz_questions_for_taking reads
+  -- `answers` first and falls back to `options`; a question with neither renders
+  -- "No options configured for this question" and the quiz is as untakeable as
+  -- it was with a placeholder ID. Assert exactly one correct answer per
+  -- question too — zero makes the quiz unscoreable, more than one makes the
+  -- expected score ambiguous.
+  SELECT COUNT(*) = 2 INTO v_ok
+    FROM public.quiz_questions q
+   WHERE q.quiz_id = 'bbbb2222-2222-2222-2222-222222222222'
+     AND jsonb_array_length(COALESCE(q.answers, '[]'::jsonb)) > 0
+     AND jsonb_array_length(COALESCE(q.options, '[]'::jsonb)) > 0
+     AND q.correct_answer IS NOT NULL
+     AND (
+       SELECT COUNT(*) FROM jsonb_array_elements(q.answers) a
+        WHERE COALESCE((a->>'correct')::boolean, false)
+     ) = 1;
+  IF NOT v_ok THEN
+    RAISE EXCEPTION 'E2E SEED FAILED: fixture quiz needs 2 questions, each with answers and exactly one marked correct';
+  END IF;
+
+  -- Assert the score too, not just the row. pin_quiz_submission_score() nulls
+  -- the score for any writer that is not grading staff, so a seed that lost the
+  -- instructor identity would still insert a row — one that renders an empty
+  -- results page while this check passed.
+  SELECT EXISTS (
+    SELECT 1 FROM public.quiz_submissions
+     WHERE id = 'dddd4444-4444-4444-4444-444444444444'
+       AND workflow_state = 'complete'
+       AND score IS NOT NULL
+  ) INTO v_ok;
+  IF NOT v_ok THEN
+    RAISE EXCEPTION 'E2E SEED FAILED: fixture quiz submission missing, unfinished or ungraded; quiz-results has nothing to render';
+  END IF;
+
+  SELECT EXISTS (
+    SELECT 1 FROM public.rubrics
+     WHERE id = 'eeee5555-5555-5555-5555-555555555555'
+       AND course_id = '660e8400-e29b-41d4-a716-446655440001'
+  ) INTO v_ok;
+  IF NOT v_ok THEN
+    RAISE EXCEPTION 'E2E SEED FAILED: fixture rubric missing from the reference course; the rubric editor renders Not Found';
+  END IF;
+
+  SELECT EXISTS (
+    SELECT 1 FROM public.portfolio_pages p
+    JOIN auth.users u ON u.id = p.user_id
+     WHERE p.id = 'ffff6666-6666-6666-6666-666666666666'
+       AND u.email = COALESCE(current_setting('e2e.member_email', true), 'e2e-member@insightscollective.org')
+  ) INTO v_ok;
+  IF NOT v_ok THEN
+    RAISE EXCEPTION 'E2E SEED FAILED: fixture portfolio page missing or not owned by the member; the editor rejects it';
+  END IF;
+
+  SELECT EXISTS (
+    SELECT 1 FROM public.forms WHERE id = 'aaab7777-7777-7777-7777-777777777777'
+  ) INTO v_ok;
+  IF NOT v_ok THEN
+    RAISE EXCEPTION 'E2E SEED FAILED: fixture survey form missing; the admin survey editor has nothing to open';
+  END IF;
   -- The journeys account must be usable, or every spec retargeted onto it
   -- fails at sign-in with an error that points at global-setup instead of here.
   SELECT EXISTS (

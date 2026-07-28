@@ -84,6 +84,8 @@ interface CourseShell {
   id: string;
   title: string;
   thumbnail: string | null;
+  /** courses.settings JSON — read for the discussions toggle in the builder's Settings tab. */
+  settings?: { discussions?: { enabled?: boolean } } | null;
 }
 
 interface CurriculumModule {
@@ -143,7 +145,7 @@ const CourseLearn = () => {
       try {
         const { data: courseData, error } = await supabase
           .from('courses')
-          .select('id, title, thumbnail')
+          .select('id, title, thumbnail, settings')
           .eq('id', courseId)
           .single();
         if (error) {
@@ -734,6 +736,7 @@ const CourseLearn = () => {
               onMarkDone={handleMarkDone}
               actionBasePath={`/courses/${course.id}/modules/${selected.module.id}`}
               hideFooter
+              discussionsEnabled={course.settings?.discussions?.enabled !== false}
             />
 
             <div className="mt-10 flex justify-center">

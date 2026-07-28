@@ -7,11 +7,15 @@ test.describe('Additional Admin Route Coverage', () => {
     await goto(page, Routes.adminUnifiedFormManagement);
 
     const heading = page.locator('h1, h2, h3').filter({ hasText: /form management/i }).first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await heading.count() > 0) {
       await expect(heading).toBeVisible();
     }
 
     const newFormBtn = page.locator('button:has-text("New Form"), button:has-text("Create")').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await newFormBtn.count() > 0) {
       await newFormBtn.click();
       await expect(page.locator('[role="dialog"]')).toBeVisible();

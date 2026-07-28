@@ -66,6 +66,27 @@ export const CourseProgressOverview: React.FC<CourseProgressOverviewProps> = ({
     refetch: refetchProgress,
   } = useCourseProgress(courseId, studentId);
 
+  /**
+   * A module is locked while any module it depends on is unfinished.
+   *
+   * This replaces a `prerequisites_met` column that does not exist and never
+   * did. `prerequisite_module_ids` is real; whether those are *met* depends on
+   * the student, so it belongs here where their progress is already loaded.
+   * Until progress resolves nothing is locked — showing every module as locked
+   * during load would be worse than showing it unlocked for a moment.
+   */
+  const isModuleLocked = React.useCallback(
+    (prerequisiteIds: string[] | null | undefined): boolean => {
+      if (!prerequisiteIds?.length) return false;
+      const completed = new Set(
+        (progress?.modules ?? []).filter((m) => m.percent === 100).map((m) => m.moduleId),
+      );
+      if (completed.size === 0 && !progress) return false;
+      return prerequisiteIds.some((id) => !completed.has(id));
+    },
+    [progress],
+  );
+
   // Get course details with modules
   const {
     data: course,
@@ -74,6 +95,14 @@ export const CourseProgressOverview: React.FC<CourseProgressOverviewProps> = ({
   } = useQuery({
     queryKey: ['course-with-modules', courseId],
     queryFn: async () => {
+      // `modules` has position, not order_index, and has never had unlock_at or
+      // prerequisites_met. Asking for all three returned 42703 on every load, so
+      // this page showed "Failed to load course progress" to every role — the
+      // e2e spec passed anyway because it only asserted that <main> was visible.
+      //
+      // Prerequisites are modelled as prerequisite_module_ids; whether they are
+      // *met* is a per-student question the database does not answer, so it is
+      // computed below from the progress this component already loads.
       const { data, error } = await supabase
         .from('courses')
         .select(`
@@ -82,9 +111,8 @@ export const CourseProgressOverview: React.FC<CourseProgressOverviewProps> = ({
             id,
             title,
             description,
-            order_index,
-            unlock_at,
-            prerequisites_met
+            position,
+            prerequisite_module_ids
           )
         `)
         .eq('id', courseId)
@@ -462,32 +490,34 @@ export const CourseProgressOverview: React.FC<CourseProgressOverviewProps> = ({
         <h3 className="text-lg font-semibold">Module Progress</h3>
         <Accordion type="single" collapsible className="space-y-4">
           {course?.modules
-            .sort((a, b) => a.order_index - b.order_index)
-            .map((module, index) => (
-              <AccordionItem key={module.id} value={module.id}>
-                <AccordionTrigger className="hover:no-underline">
-                  <ModuleProgressCard
-                    moduleId={module.id}
-                    moduleTitle={module.title}
-                    studentId={studentId}
-                    isLocked={!module.prerequisites_met}
-                    unlockDate={module.unlock_at}
-                    showDetails={false}
-                  />
-                </AccordionTrigger>
-                <AccordionContent>
-                  <ModuleProgressCard
-                    moduleId={module.id}
-                    moduleTitle={module.title}
-                    studentId={studentId}
-                    isLocked={!module.prerequisites_met}
-                    unlockDate={module.unlock_at}
-                    onLessonClick={onNavigateToLesson}
-                    showDetails={true}
-                  />
-                </AccordionContent>
-              </AccordionItem>
-            ))}
+            .slice()
+            .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+            .map((module) => {
+              const locked = isModuleLocked(module.prerequisite_module_ids);
+              return (
+                <AccordionItem key={module.id} value={module.id}>
+                  <AccordionTrigger className="hover:no-underline">
+                    <ModuleProgressCard
+                      moduleId={module.id}
+                      moduleTitle={module.title}
+                      studentId={studentId}
+                      isLocked={locked}
+                      showDetails={false}
+                    />
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <ModuleProgressCard
+                      moduleId={module.id}
+                      moduleTitle={module.title}
+                      studentId={studentId}
+                      isLocked={locked}
+                      onLessonClick={onNavigateToLesson}
+                      showDetails={true}
+                    />
+                  </AccordionContent>
+                </AccordionItem>
+              );
+            })}
         </Accordion>
       </div>
     </div>

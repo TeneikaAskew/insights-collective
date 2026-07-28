@@ -1,9 +1,11 @@
 // ABOUTME: E2E coverage of the Soft Studio interview-prep hub (Concept D:
 // ABOUTME: stepper-as-navigation). The hub is public, so no auth is required.
 //
-// Plain @playwright/test (not the console-error fixture): logged-out Supabase
-// noise must not fail design tests.
-import { test, expect } from '@playwright/test';
+// Uses the shared console-error fixture. It previously opted out on the grounds
+// that logged-out Supabase noise must not fail design tests — but that noise is
+// already covered by named suppressions (/auth\/v1\//, AuthApiError, "No session
+// found"), and opting out meant these specs saw no console errors at all.
+import { test, expect } from '../fixtures/page-helpers';
 
 test.describe('Interview prep hub (Soft Studio, Concept D)', () => {
   test.beforeEach(async ({ page }) => {
@@ -114,6 +116,15 @@ test.describe('Job description page (Soft Studio, Split Desk)', () => {
 });
 
 test.describe('Code practice page (Soft Studio, Problem Book)', () => {
+  // These assert the logged-out simulation — canned "Correct / 3/3", labelled
+  // Demo. The file previously ran under chromium-member, where a signed-in
+  // visitor happened to get the demo too, because Submit resolved before the
+  // database challenge loaded. That bug is fixed, so signed-in visitors now
+  // get a real evaluation and these assertions would be testing the wrong
+  // mode. Force a signed-out context so they test what they claim to.
+  // The signed-in path has its own spec: interview-prep-design/code-evaluation.
+  test.use({ storageState: { cookies: [], origins: [] } });
+
   test.beforeEach(async ({ page }) => {
     await page.goto('/interview-prep/code-practice', { waitUntil: 'domcontentloaded' });
     await page.getByText('Code Challenge Practice').waitFor({ timeout: 15_000 });

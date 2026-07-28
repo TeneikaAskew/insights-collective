@@ -363,6 +363,23 @@ export class CanvasContentService {
     return { ...data, questions: questions || [] };
   }
 
+  /**
+   * Questions for a quiz id, through the same RPC getQuiz uses. Post
+   * submission that RPC also reveals the correct answers, subject to the
+   * quiz's show_correct_answers setting.
+   *
+   * CanvasQuizResults already called this; the method was never defined, so
+   * the results page threw "is not a function" at runtime. Its unit test
+   * mocked the name, which is why the suite stayed green.
+   */
+  static async getQuizQuestionsForTaking(quizId: string): Promise<QuizQuestion[]> {
+    const { data, error } = await supabase
+      .rpc('get_quiz_questions_for_taking', { p_quiz_id: quizId });
+
+    if (error) throw error;
+    return (data || []) as QuizQuestion[];
+  }
+
   static async updateQuiz(
     contentItemId: string,
     updates: Partial<Quiz>

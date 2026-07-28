@@ -19,6 +19,8 @@ test.describe('Course Question Banks (Instructor)', () => {
   test('add question button is present', async ({ page }) => {
     await goto(page, qbUrl);
     const addBtn = page.locator('button:has-text("Add"), button:has-text("New Question"), button:has-text("Create")').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await addBtn.count() > 0) {
       await expect(addBtn).toBeVisible();
     }

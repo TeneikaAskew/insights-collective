@@ -6,10 +6,12 @@
 // so it is safe in CI (which serves `vite preview`) and fully active locally
 // against `npm run dev`.
 //
-// Uses plain @playwright/test (not the console-error fixture): the preview
-// route intentionally runs without auth, so benign Supabase auth noise in the
-// console must not fail these design tests.
-import { test, expect, Page } from '@playwright/test';
+// Uses the shared console-error fixture. It previously opted out because the
+// preview route runs without auth — but that auth noise is already covered by
+// named suppressions, and opting out meant a real error on this page could not
+// fail the spec.
+import { test, expect } from '../fixtures/page-helpers';
+import type { Page } from '@playwright/test';
 
 const PREVIEW_PATH = '/dev/soft-studio';
 

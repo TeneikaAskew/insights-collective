@@ -292,37 +292,6 @@ export const questionBankService = {
   },
 
   // Utility functions
-  async getRandomQuestions(
-    bankId: string,
-    count: number,
-    filters?: {
-      categoryId?: string;
-      difficulty?: string;
-      tags?: string[];
-    }
-  ): Promise<QuestionBankQuestion[]> {
-    const { data, error } = await supabase
-      .rpc('select_random_questions', {
-        p_bank_id: bankId,
-        p_category_id: filters?.categoryId || null,
-        p_count: count,
-        p_difficulty: filters?.difficulty || null,
-        p_tags: filters?.tags || null
-      });
-
-    if (error) throw error;
-
-    // Fetch the full question data
-    const questionIds = data.map((row: any) => row.question_id);
-    const { data: questions, error: questionsError } = await supabase
-      .from('question_bank_questions')
-      .select('*')
-      .in('id', questionIds);
-
-    if (questionsError) throw questionsError;
-    return questions || [];
-  },
-
   async getQuestionStatistics(questionId: string): Promise<{
     usage_count: number;
     success_rate: number;

@@ -20,6 +20,8 @@ test.describe('Quiz Results', () => {
   test('score or result is displayed', async ({ page }) => {
     await goto(page, resultsUrl);
     const score = page.locator(':has-text("score"), :has-text("Score"), :has-text("%"), :has-text("points")').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await score.count() > 0) {
       await expect(score).toBeVisible();
     }
@@ -28,6 +30,8 @@ test.describe('Quiz Results', () => {
   test('link back to course is present', async ({ page }) => {
     await goto(page, resultsUrl);
     const backLink = page.locator('a[href*="/courses/"], button:has-text("Back"), a:has-text("Return")').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await backLink.count() > 0) {
       await expect(backLink).toBeVisible();
     }

@@ -20,6 +20,8 @@ test.describe('Course Detail', () => {
   test('tabs are present: Modules, Assignments, Grades/Overview', async ({ page }) => {
     await goto(page, courseUrl);
     const tabList = page.locator('[role="tablist"]');
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await tabList.count() > 0) {
       await expect(tabList.first()).toBeVisible();
     }
@@ -50,6 +52,8 @@ test.describe('Course Detail', () => {
   test('breadcrumb or back link renders', async ({ page }) => {
     await goto(page, courseUrl);
     const backLink = page.locator('a[href="/courses"], a:has-text("Courses"), nav').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await backLink.count() > 0) {
       await expect(backLink).toBeVisible();
     }

@@ -32,6 +32,13 @@ function createBuilder(result: { data: any; error: any } = { data: null, error: 
   return builder;
 }
 
+// Bylines are resolved through the blog_post_authors() RPC rather than a direct
+// `profiles` select, because RLS grants anon no read on profiles — see
+// fetchPublishedAuthorNames in blogService.
+function mockAuthorRpc(result: { data: any; error: any }) {
+  (mockSupabaseClient.rpc as any).mockResolvedValue(result);
+}
+
 function mockTables(tables: Record<string, any>) {
   (mockSupabaseClient.from as any).mockImplementation((table: string) => {
     const builder = tables[table];
@@ -77,12 +84,10 @@ describe('blogService error propagation', () => {
 
   describe('getAllBlogPosts', () => {
     it('returns mapped posts on success', async () => {
-      mockTables({
-        blog_posts: createBuilder({ data: [post], error: null }),
-        profiles: createBuilder({
-          data: [{ id: 'author-1', first_name: 'Ada', last_name: 'Lovelace' }],
-          error: null,
-        }),
+      mockTables({ blog_posts: createBuilder({ data: [post], error: null }) });
+      mockAuthorRpc({
+        data: [{ id: 'author-1', display_name: 'Ada Lovelace' }],
+        error: null,
       });
 
       const result = await getAllBlogPosts();
@@ -103,12 +108,37 @@ describe('blogService error propagation', () => {
     });
 
     it('throws when the author lookup fails instead of silently mislabeling authors', async () => {
-      mockTables({
-        blog_posts: createBuilder({ data: [post], error: null }),
-        profiles: createBuilder(supabaseError('authors failed')),
-      });
+      mockTables({ blog_posts: createBuilder({ data: [post], error: null }) });
+      mockAuthorRpc(supabaseError('authors failed'));
 
       await expect(getAllBlogPosts()).rejects.toMatchObject({ message: 'authors failed' });
+    });
+
+    // REGRESSION: bylines were resolved with a direct `profiles` select, which
+    // RLS returns nothing from for signed-out visitors, so every post on the
+    // public blog rendered "Unknown Author". Nothing asserted the byline, so no
+    // check failed — it was found by eye in a screenshot. Pin it.
+    it('renders a real byline, not the Unknown Author fallback', async () => {
+      mockTables({ blog_posts: createBuilder({ data: [post], error: null }) });
+      mockAuthorRpc({
+        data: [{ id: 'author-1', display_name: 'Ada Lovelace' }],
+        error: null,
+      });
+
+      const [result] = await getAllBlogPosts();
+      expect(result.authorName).toBe('Ada Lovelace');
+      expect(result.authorName).not.toBe('Unknown Author');
+    });
+
+    // The accessor only returns users who have published, so a post whose author
+    // is absent from it must still render rather than throwing.
+    it('falls back to Unknown Author only when the author is genuinely absent', async () => {
+      mockTables({ blog_posts: createBuilder({ data: [post], error: null }) });
+      mockAuthorRpc({ data: [], error: null });
+
+      const [result] = await getAllBlogPosts();
+      expect(result.authorName).toBe('Unknown Author');
+      expect(result.title).toBe('Hello');
     });
   });
 

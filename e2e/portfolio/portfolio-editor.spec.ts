@@ -30,6 +30,8 @@ test.describe('Portfolio Editor', () => {
   test('editor toolbar or components panel renders', async ({ page }) => {
     await goto(page, editorUrl);
     const editor = page.locator('[class*="editor"], [class*="Editor"], [class*="toolbar"], [class*="canvas"]').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await editor.count() > 0) {
       await expect(editor).toBeVisible();
     }
@@ -46,6 +48,8 @@ test.describe('Portfolio Editor', () => {
   test('save or publish button is visible', async ({ page }) => {
     await goto(page, editorUrl);
     const saveBtn = page.locator('button:has-text("Save"), button:has-text("Publish"), button:has-text("Update")').first();
+    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
+    // eslint-disable-next-line no-restricted-syntax
     if (await saveBtn.count() > 0) {
       await expect(saveBtn).toBeVisible();
     }

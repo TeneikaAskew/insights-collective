@@ -41,7 +41,19 @@ test.describe('Code Practice real evaluation (signed in)', () => {
   });
 
   test('evaluates a correct solution for real, not as a demo', async ({ page }) => {
-    await page.getByRole('button', { name: /submit solution/i }).click();
+    // execute-code then review-code is a two-hop round trip through the sandbox
+    // and the AI judge, which outruns the 30s default. Without this the 90s
+    // budget below can never actually elapse — the test dies at 30s first.
+    test.setTimeout(150_000);
+
+    // Submitting before the seeded challenge lands resolves as a demo: the page
+    // has no dbChallenge yet, so handleSubmit takes the demo branch. Constraints
+    // only render from the database row, so they mark the real challenge as in.
+    await expect(page.getByText('Constraints')).toBeVisible();
+    const submit = page.getByRole('button', { name: /submit solution/i });
+    await expect(submit).toBeEnabled();
+
+    await submit.click();
     await expect(page.getByText('Result', { exact: true })).toBeVisible({ timeout: 90_000 });
 
     // Real evaluation must never be labeled Demo
@@ -61,6 +73,12 @@ test.describe('Code Practice real evaluation (signed in)', () => {
 
     // Sandbox-executed results carry real runtime/memory; AI-judged ones must
     // not fabricate them.
+    //
+    // Exempt from the count-guard rule on purpose: this asserts in BOTH
+    // branches, so one of them must hold whichever way the verdict went. The
+    // banned shape is an `if` with no `else`, where a missing element skips the
+    // only assertion. Here a missing element still fails the else.
+    // eslint-disable-next-line no-restricted-syntax
     if ((await executed.count()) > 0) {
       await expect(page.getByText('runtime')).toBeVisible();
       await expect(page.getByText('memory')).toBeVisible();

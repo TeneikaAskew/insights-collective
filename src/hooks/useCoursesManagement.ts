@@ -8,18 +8,7 @@ import { createLogger } from '@/utils/logger';
 
 const logger = createLogger('useCoursesManagement');
 
-interface UseCoursesManagementOptions {
-  // Per-course enrollment counts are rendered only by the admin course
-  // surfaces (CourseManagementDashboard, and AdminCourses for sorting). This
-  // hook is also mounted on every page in the app through the navbar's
-  // SiteSearch, which matches on title/description alone and never reads a
-  // count — so leaving this on there scans the enrollments table on every
-  // navigation to build a number nothing displays.
-  withEnrollmentCounts?: boolean;
-}
-
-export function useCoursesManagement(options: UseCoursesManagementOptions = {}) {
-  const { withEnrollmentCounts = true } = options;
+export function useCoursesManagement() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +54,17 @@ export function useCoursesManagement(options: UseCoursesManagementOptions = {}) 
       const courseIds = coursesData?.map(course => course.id) || [];
       let enrollmentCounts: Record<string, number> = {};
 
-      if (withEnrollmentCounts && courseIds.length > 0) {
+      // `user` above comes from AuthContext, which restores from localStorage
+      // before supabase-js has finished attaching the token to outgoing
+      // requests. In that window the query goes out as `anon`, which has no
+      // grant on enrollments, and every public page carrying SiteSearch logged
+      // `42501 permission denied for table enrollments` — four times per load.
+      //
+      // Ask the client whether it will actually send a token, rather than
+      // asking the context whether it believes someone is signed in.
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (courseIds.length > 0 && session) {
         const { data: enrollmentData, error: enrollmentError } = await supabase
           .from('enrollments')
           .select('course_id')

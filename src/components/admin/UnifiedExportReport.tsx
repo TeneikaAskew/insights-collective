@@ -63,9 +63,14 @@ export function UnifiedExportReport({ courses }: Props) {
     const ids = courses.map((c) => c.id);
 
     const [enrollRes, itemsRes, progRes, certRes, usersRes] = await Promise.all([
-      supabase.from('enrollments').select('course_id, user_id, progress, created_at').in('course_id', ids),
+      // completion_status, not progress, and enrolled_at, not created_at —
+      // enrollments has neither `progress` nor `created_at`, so this select
+      // returned 42703 and the whole export aborted before writing a row.
+      supabase.from('enrollments').select('course_id, user_id, completion_status, enrolled_at').in('course_id', ids),
       supabase.from('content_items').select('id, module_id, modules!inner(course_id)').in('modules.course_id', ids),
-      supabase.from('content_item_progressions').select('user_id, content_item_id, completed_at'),
+      // workflow_state, not completed_at — same 42703. 'read' and 'completed'
+      // both count as done.
+      supabase.from('content_item_progressions').select('user_id, content_item_id, workflow_state'),
       supabase.from('certificates').select('user_id, course_id, verification_code, issued_at').in('course_id', ids),
       supabase.functions.invoke('admin-users', { body: { action: 'listUsers' } }),
     ]);
@@ -95,7 +100,7 @@ export function UnifiedExportReport({ courses }: Props) {
 
     const completedByUserCourse: Record<string, number> = {};
     for (const p of progressions) {
-      if (!p.completed_at) continue;
+      if (p.workflow_state !== 'read' && p.workflow_state !== 'completed') continue;
       const cid = itemToCourse[p.content_item_id];
       if (!cid) continue;
       const k = `${p.user_id}::${cid}`;
@@ -122,7 +127,7 @@ export function UnifiedExportReport({ courses }: Props) {
       const course = courseMap[e.course_id];
       const total = itemsByCourse[e.course_id]?.size ?? 0;
       const done = completedByUserCourse[`${e.user_id}::${e.course_id}`] ?? 0;
-      const pct = total > 0 ? Math.round((done / total) * 100) : (e.progress ?? 0);
+      const pct = total > 0 ? Math.round((done / total) * 100) : (e.completion_status === 'completed' ? 100 : 0);
       const cert = certByUserCourse[`${e.user_id}::${e.course_id}`];
       const learner = userMap[e.user_id] ?? { name: e.user_id, email: '' };
       return {
@@ -133,7 +138,7 @@ export function UnifiedExportReport({ courses }: Props) {
         userId: e.user_id,
         learnerName: learner.name,
         learnerEmail: learner.email,
-        enrolledAt: e.created_at ?? '',
+        enrolledAt: e.enrolled_at ?? '',
         itemsCompleted: done,
         totalItems: total,
         progressPct: pct,

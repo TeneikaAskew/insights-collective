@@ -1,6 +1,7 @@
 // ABOUTME: End-to-end validation of the site messaging feature.
 // ABOUTME: Signs in as the seeded test account and exercises inbox load, tabs, and the New Conversation dialog.
-import { test, expect } from "@playwright/test";
+import { test, expect } from '../fixtures/page-helpers';
+import { TEST_USERS } from "../fixtures/test-data";
 
 // This spec runs under the chromium-member project, whose storageState is the
 // session global-setup already established, so it starts authenticated. Driving
