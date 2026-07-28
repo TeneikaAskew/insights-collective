@@ -33,6 +33,19 @@ describe('htmlToPlainText', () => {
     expect(htmlToPlainText('<p>one</p>\n\n<p>two</p>')).toBe('one two');
   });
 
+  it('separates adjacent block elements that have no whitespace between them', () => {
+    // The bug Codex caught: compact TipTap output "<p>First</p><p>Second</p>"
+    // yielded "FirstSecond" from textContent alone.
+    expect(htmlToPlainText('<p>First</p><p>Second</p>')).toBe('First Second');
+    expect(htmlToPlainText('<ul><li>a</li><li>b</li></ul>')).toBe('a b');
+    expect(htmlToPlainText('<h1>Title</h1><p>Body</p>')).toBe('Title Body');
+    expect(htmlToPlainText('line<br>break')).toBe('line break');
+  });
+
+  it('does not insert spurious spaces inside inline runs', () => {
+    expect(htmlToPlainText('<p>a <strong>bold</strong> word</p>')).toBe('a bold word');
+  });
+
   it('returns empty string for empty input', () => {
     expect(htmlToPlainText('')).toBe('');
   });

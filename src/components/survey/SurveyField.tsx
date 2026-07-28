@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { FileUp, Upload, Link as LinkIcon } from 'lucide-react';
+import { Upload, Link as LinkIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -55,7 +55,7 @@ interface SurveyFieldProps {
 }
 
 const SurveyField: React.FC<SurveyFieldProps> = ({ field, fieldName, defaultValue }) => {
-  const { control, setValue, register, watch } = useFormContext();
+  const { control, setValue, watch } = useFormContext();
   const { user } = useAuth();
   const { toast } = useToast();
   const [existingResume, setExistingResume] = useState<{ id: string; file_path: string } | null>(null);
@@ -247,14 +247,26 @@ const SurveyField: React.FC<SurveyFieldProps> = ({ field, fieldName, defaultValu
             };
             break;
           case 'url':
-            rules.pattern = {
-              // De-nested from ([/\w.-]*)* — the (X*)* shape backtracks
-              // exponentially (CodeQL js/redos): 30 non-matching characters
-              // measured 14s in Node before this change; a respondent typing
-              // a non-URL froze the tab. Same accept/reject behaviour, one
-              // linear quantifier.
-              value: /^(https?:\/\/)?[\da-z.-]+\.[a-z.]{2,6}[/\w.-]*$/,
-              message: field.validation.message || "Please enter a valid URL"
+            // Validated with the URL parser rather than a regex. The previous
+            // pattern was a ReDoS (CodeQL js/redos: the (X*)* tail took 14s on
+            // 30 chars) and a URL regex also draws js/regex/missing-regexp-anchor;
+            // parsing has neither problem and is a stricter, clearer check. A
+            // scheme-less entry ("example.com") is accepted by trying https://
+            // in front, matching the old pattern's optional-scheme behaviour.
+            rules.validate = (value: any) => {
+              if (!value) return true; // presence is enforced by `required`
+              const raw = String(value).trim();
+              for (const candidate of [raw, `https://${raw}`]) {
+                try {
+                  const u = new URL(candidate);
+                  if ((u.protocol === 'http:' || u.protocol === 'https:') && u.hostname.includes('.')) {
+                    return true;
+                  }
+                } catch {
+                  // try the next candidate
+                }
+              }
+              return field.validation.message || 'Please enter a valid URL';
             };
             break;
           case 'gpa':

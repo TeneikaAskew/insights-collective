@@ -15,18 +15,11 @@ import {
   List,
   ListOrdered,
   Quote,
-  Heading1,
-  Heading2,
-  Heading3,
   Link as LinkIcon,
   Image as ImageIcon,
   Highlighter,
   Undo,
   Redo,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
-  AlignJustify
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Toggle } from '@/components/ui/toggle';

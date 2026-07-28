@@ -25,6 +25,18 @@ export function htmlToPlainText(html: string): string {
 
   if (typeof DOMParser !== 'undefined') {
     const doc = new DOMParser().parseFromString(html, 'text/html');
+    // textContent alone concatenates across block boundaries, so
+    // "<p>First</p><p>Second</p>" reads "FirstSecond". Insert a separator after
+    // every block-level element (and <br>) so distinct blocks stay readable —
+    // paragraphs, list items, headings, table rows. The separator is collapsed
+    // with surrounding whitespace below, so adjacent inline text is unaffected.
+    const BLOCK_SELECTOR =
+      'address,article,aside,blockquote,br,dd,div,dl,dt,fieldset,figcaption,' +
+      'figure,footer,form,h1,h2,h3,h4,h5,h6,header,hr,li,main,nav,ol,p,pre,' +
+      'section,table,tbody,td,th,thead,tr,ul';
+    doc.body?.querySelectorAll(BLOCK_SELECTOR).forEach((el) => {
+      el.insertAdjacentText('afterend', ' ');
+    });
     return (doc.body?.textContent ?? '').replace(/\s+/g, ' ').trim();
   }
 

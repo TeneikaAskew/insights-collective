@@ -7,7 +7,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useResources, Resource, parseArrayField, normalizeString } from '@/hooks/useResources';
 import { useAllTweetsData } from '@/hooks/useAllTweetsData'; 
 import { FeedbackSection } from '@/components/common/FeedbackSection';
-import LoginWall from '@/components/common/LoginWall';
 
 import { ResourceFilters } from '@/components/resources/ResourceFilters';
 import { ResourceDirectoryTab } from '@/components/resources/ResourceDirectoryTab';
