@@ -72,23 +72,28 @@ test.describe('Course List', () => {
     }
   });
 
+  // Both of these used to locate `a[href*="/courses/"]` behind an
+  // `if (count > 0)` guard. The catalog renders `<button onClick={navigate}>`,
+  // not anchors, so the locator matched nothing, the guard swallowed it, and
+  // both tests passed while asserting nothing at all.
   test('course cards are visible', async ({ page }) => {
-    const cards = page.locator('a[href*="/courses/"], [class*="CourseCard"]');
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await cards.count() > 0) {
-      await expect(cards.first()).toBeVisible();
-    }
+    const cards = page.locator('[data-onboarding="course-grid"] button:has(h3)');
+    await expect(cards.first()).toBeVisible();
+    expect(await cards.count()).toBeGreaterThan(0);
   });
 
   test('clicking a course card navigates to detail page', async ({ page }) => {
-    const courseLink = page.locator('a[href^="/courses/"]').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await courseLink.count() > 0) {
-      const href = await courseLink.getAttribute('href');
-      expect(href).toMatch(/\/courses\/.+/);
-    }
+    const firstCard = page.locator('[data-onboarding="course-grid"] button:has(h3)').first();
+    await expect(firstCard).toBeVisible();
+
+    // The card carries the course title; the detail page must show that same
+    // title, so a navigation to the wrong course fails here rather than
+    // passing on the URL shape alone.
+    const title = (await firstCard.locator('h3').innerText()).trim();
+    await firstCard.click();
+
+    await expect(page).toHaveURL(/\/courses\/[0-9a-f-]{36}/i);
+    await expect(page.getByRole('heading', { name: title }).first()).toBeVisible();
   });
 
   test('sidebar is visible', async ({ page }) => {

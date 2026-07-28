@@ -1,6 +1,6 @@
 // ABOUTME: Lightweight read of published courses for public-facing surfaces
-// ABOUTME: (site search today). Deliberately does NOT fetch enrollment counts
-// ABOUTME: or the viewer's roles — see the note below for why that matters.
+// ABOUTME: (site search and the landing page's Featured Courses). Deliberately
+// ABOUTME: does NOT fetch enrollment counts or the viewer's roles — see below.
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { createLogger } from '@/utils/logger';
@@ -12,8 +12,10 @@ export interface PublishedCourse {
   title: string;
   description: string;
   category: string;
+  level: string | null;
   image_url: string | null;
   thumbnail: string | null;
+  estimated_hours: number | null;
 }
 
 /**
@@ -38,6 +40,12 @@ export interface PublishedCourse {
  * A published-courses read is what the search box actually wanted: it works for
  * anonymous and authenticated visitors alike, needs no role lookup, and touches
  * one table.
+ *
+ * The landing page's Featured Courses section wanted the same thing, for a
+ * sharper reason: `Index` redirects every authenticated user to `/dashboard`,
+ * so the landing page is only ever rendered for signed-out visitors — and
+ * `useCoursesManagement` returns early with an empty list and a CRITICAL log
+ * line when there is no user. That section rendered for nobody.
  */
 export function usePublishedCourses() {
   const [courses, setCourses] = useState<PublishedCourse[]>([]);
@@ -49,7 +57,7 @@ export function usePublishedCourses() {
     const load = async () => {
       const { data, error } = await supabase
         .from('courses')
-        .select('id, title, description, category, image_url, thumbnail')
+        .select('id, title, description, category, level, image_url, thumbnail, estimated_hours')
         .eq('published', true)
         .order('created_at', { ascending: false });
 

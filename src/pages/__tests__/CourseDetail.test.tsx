@@ -174,21 +174,28 @@ describe('CourseDetail', () => {
     expect(screen.queryByText('course fetch failed')).not.toBeInTheDocument();
   });
 
-  it('treats a failed enrollment-count query as a page-level fetch failure', async () => {
+  it('still renders the course when the enrollment count cannot be read, and omits the count', async () => {
+    // Replaces a test that pinned the opposite behaviour. Course pages are
+    // public and `anon` has no SELECT on `enrollments`, so throwing here
+    // replaced the whole page with an error state for every signed-out
+    // visitor. The original concern — never show a misleading "0 enrolled" —
+    // is kept by omitting the line rather than rendering a zero.
     mockTables({
       ...successTables(),
       enrollments: {
         select: (_cols?: string, opts?: { head?: boolean }) =>
           opts?.head
-            ? { count: null, data: null, error: { message: 'count unavailable' } }
+            ? { count: null, data: null, error: { code: '42501', message: 'permission denied for table enrollments' } }
             : { data: null, error: null },
       },
     });
 
     render(<CourseDetail />);
 
-    expect(await screen.findByText('count unavailable')).toBeInTheDocument();
-    expect(screen.queryByText('0 students enrolled')).not.toBeInTheDocument();
+    expect((await screen.findAllByText('Intro to Data Analytics')).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/permission denied/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/0 students enrolled/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/0 enrolled/)).not.toBeInTheDocument();
   });
 
   it('does not mark the client as enrolled when the enrollment insert fails', async () => {

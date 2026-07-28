@@ -80,6 +80,71 @@ container produce a viewport-height capture, not a whole-document one. Thirteen
 of fifteen baselines here are exactly `1280x800` for that reason. Interpreting
 one as "the section is empty" was wrong.
 
+### A baseline over live data measures the database, not the design
+
+This is the suite's central design flaw, and it surfaced properly in PR #32.
+
+A screenshot of a data-driven route pins three unrelated things into one PNG:
+the **layout**, the **rows that happened to exist that day**, and the
+**permissions in force at capture time**. Only the first is a design fact. The
+other two drift on their own, so the check fails for reasons that have nothing
+to do with a regression.
+
+The `courses-catalog` baseline is the clearest case. Its three visible cards are
+
+```
+Smoke Course mryr1wv7   Smoke Course mryqon7l   Smoke Course mryq4cde
+```
+
+— fixtures created by a smoke test during the run that captured it, and deleted
+afterwards. They sort first (`created_at desc`) so they dominate the frame. The
+baseline is a photograph of throwaway data, committed as "expected". It also
+predates a grant migration, so it encodes a permission state that no longer
+exists.
+
+Add to that: **seeded courses have no artwork**, so every card renders the
+neutral placeholder block. Card height and the whole grid rhythm then depend on
+title length and description wrap — i.e. on whatever rows exist. The baseline
+moves whenever the data does, which for a shared database with parallel workers
+is *most runs*.
+
+The strain was already visible in the file before anyone named the cause:
+
+- 3 of 14 routes carry a raised 5% tolerance, with a comment conceding the drift
+  "reproduces at 2-3% of pixels regardless of how recently the baseline was
+  captured — regenerating just moves it"
+- 2 routes sit commented out awaiting regeneration
+- 4 baseline-churn commits in four weeks
+
+That is a suite spending real maintenance to assert facts about test fixtures.
+
+**The fix is not to delete the technique — it is to freeze the inputs.** Stub
+the network layer with a fixed payload and screenshot that:
+
+```ts
+await page.route('**/rest/v1/**', r => r.fulfill({ status: 200, body: '[]' }));
+await page.route('**/rest/v1/courses?*', r => r.fulfill({
+  status: 200, contentType: 'application/json', body: JSON.stringify(FIXTURE),
+}));
+```
+
+Then a diff means "the layout changed", full stop — it cannot be moved by a
+smoke test, a parallel worker, a grant migration, or a course without a
+thumbnail. This is exactly the harness used to verify the catalog locally, so
+the cost is near zero.
+
+**Rule of thumb for which routes earn a baseline:**
+
+| Route shape | Baseline worth it? |
+|---|---|
+| Chrome-heavy, little live data (`login`, admin shells) | Yes, as-is |
+| Data-driven lists (`courses-catalog`, `blog-index`, `enrolled-courses`) | Only with a stubbed payload |
+| Anything already needing raised tolerance | Treat the tolerance as the bug |
+
+**Lesson:** if a check needs its threshold loosened to stay green, that is the
+check telling you it is measuring the wrong thing. Loosening buys quiet; it does
+not buy signal.
+
 ## Environment honesty
 
 Authenticated specs cannot run in a sandbox with no route to the backend — they

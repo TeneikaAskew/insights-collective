@@ -24,8 +24,10 @@ const publishedCourse = {
   title: 'Introduction to Data Science',
   description: 'Learn the fundamentals',
   category: 'Data',
+  level: 'Beginner',
   image_url: null,
   thumbnail: null,
+  estimated_hours: 12.5,
 };
 
 describe('usePublishedCourses', () => {
@@ -62,6 +64,21 @@ describe('usePublishedCourses', () => {
     expect(queried).toEqual(['courses']);
     expect(queried).not.toContain('enrollments');
     expect(queried).not.toContain('user_roles');
+  });
+
+  it('selects the columns the landing page cards render', async () => {
+    tables.courses = makeTableBuilder({ data: [publishedCourse], error: null });
+
+    const { result } = renderHook(() => usePublishedCourses());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    // Featured Courses shows the level badge and the estimated-hours badge.
+    // Dropping either from the select renders a silently incomplete card
+    // rather than failing, so pin the column list here.
+    const selected = tables.courses.select.mock.calls[0][0] as string;
+    for (const column of ['level', 'estimated_hours', 'image_url', 'thumbnail']) {
+      expect(selected).toContain(column);
+    }
   });
 
   it('degrades to an empty list on error instead of throwing', async () => {

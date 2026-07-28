@@ -56,10 +56,26 @@ const ROUTES: RouteSpec[] = [
   // than what they look like. Removed here: dashboard, enrolled-courses,
   // notifications, profile, admin-dashboard, admin-users, admin-courses,
   // admin-activity, admin-page-visibility.
-  { name: 'landing',         path: '/',                role: 'public' },
+  // landing and courses-catalog are removed here for the same reason, applied
+  // to two routes the sweep above did not reach:
+  //
+  //   - landing only became data-driven in this PR. Featured Courses used to
+  //     read from an admin hook that returns nothing without a user, so on the
+  //     one page only signed-out visitors ever see, it rendered for nobody.
+  //     Now that it draws real course rows, the landing screenshot tracks the
+  //     course table like every route removed above.
+  //   - courses-catalog is a live course list. Its committed baseline depicts
+  //     three `Smoke Course <random>` fixtures that a smoke test created during
+  //     capture and deleted afterwards, and it failed at 22% of pixels on this
+  //     branch. Seeded courses also carry no artwork, so card height tracks
+  //     title and description wrap — the frame moves whenever the rows do.
+  //
+  // Both are still covered behaviourally: e2e/courses/course-list.spec.ts
+  // asserts the catalog renders cards and that clicking one reaches that
+  // course, and the landing section has unit coverage for what each card may
+  // and may not claim.
   { name: 'login',           path: '/login',           role: 'public', waitFor: 'form' },
   { name: 'blog-index',      path: '/blog',            role: 'public' },
-  { name: 'courses-catalog', path: '/courses',         role: 'public' },
   { name: 'calendar',        path: '/calendar',        role: 'member' },
   { name: 'resume-analyzer', path: '/resume-analyzer', role: 'member' },
 ];

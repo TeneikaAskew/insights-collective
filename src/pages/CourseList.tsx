@@ -43,21 +43,14 @@ const CourseList = () => {
         .order('created_at', { ascending: false });
       if (error) throw error;
       const rows = data || [];
-      const courseIds = rows.map((c: any) => c.id);
-      // Real per-course enrollment counts (avoids hardcoded 0-enrolled everywhere).
-      const enrollCounts = new Map<string, number>();
-      if (courseIds.length > 0) {
-        const { data: enrollRows, error: enrollError } = await supabase
-          .from('enrollments')
-          .select('course_id')
-          .in('course_id', courseIds);
-        // A failed count query is a real fetch failure — surface it through
-        // the page error/retry UI instead of rendering misleading 0-enrolled cards.
-        if (enrollError) throw enrollError;
-        (enrollRows || []).forEach((r: any) => {
-          enrollCounts.set(r.course_id, (enrollCounts.get(r.course_id) || 0) + 1);
-        });
-      }
+      // NOTE: no enrollment-count scan here. This page is public — `anon` has
+      // no SELECT on `enrollments` by design (see
+      // 20260731000800_restore_missing_select_grants.sql), so the cross-course
+      // scan that used to run here returned 42501 for every signed-out visitor
+      // and, because the failure was treated as fatal, replaced the whole
+      // catalog with an error state. It populated `enrollmentCount`, which no
+      // card on this page renders. Removing it fixes the catalog for anonymous
+      // visitors and drops a cross-user query from a public page.
       const formatted = rows.map((c: any) => ({
         ...c,
         instructor: {
@@ -71,7 +64,6 @@ const CourseList = () => {
           role: 'instructor',
           avatar: c.instructor?.avatar_url || '',
         },
-        enrollmentCount: enrollCounts.get(c.id) ?? 0,
         modules: [],
         createdAt: c.created_at,
         updatedAt: c.updated_at,

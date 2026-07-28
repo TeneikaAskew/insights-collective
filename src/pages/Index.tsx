@@ -10,7 +10,7 @@ import Footer from '@/components/layout/Footer';
 import LearningJourney from '@/components/home/LearningJourney';
 import AnalyticsDashboard from '@/components/home/AnalyticsDashboard';
 import { useInView } from 'react-intersection-observer';
-import { useCoursesManagement } from '@/hooks/useCoursesManagement';
+import { usePublishedCourses } from '@/hooks/usePublishedCourses';
 import PersonalizedPathway from '@/components/home/PersonalizedPathway';
 import InteractiveShowcase from '@/components/home/InteractiveShowcase';
 import CommunityShowcase from '@/components/home/CommunityShowcase';
@@ -51,8 +51,22 @@ function SectionItem({ id, Component, threshold, isOnboardingActive }: {
 
 const Index = () => {
   const { user, loading } = useAuth();
-  const { courses } = useCoursesManagement();
-  const featuredCourses = courses.filter(course => course.published).slice(0, 3);
+  // This page redirects authenticated visitors to /dashboard (below), so every
+  // visitor who reaches it is signed out. `useCoursesManagement` returns an
+  // empty list and logs a CRITICAL line when there is no user, which meant
+  // Featured Courses rendered for nobody. The published-courses read works
+  // for anonymous visitors, which is the only kind this page has.
+  const { courses } = usePublishedCourses();
+  const featuredCourses = useMemo(
+    () =>
+      courses.slice(0, 3).map(course => ({
+        ...course,
+        // Same precedence as the catalog: image_url first, thumbnail as the
+        // fallback, and no stock-photo substitute when both are absent.
+        thumbnail: course.image_url || course.thumbnail || undefined,
+      })),
+    [courses]
+  );
   const { data: upcomingEvents = [], isLoading: eventsLoading } = useRecentEvents(3);
   const { isFirstVisit, completedTours, dismissedTours, startTour, isOnboardingActive, currentTour } = useOnboarding();
 
@@ -86,7 +100,7 @@ const Index = () => {
     { id: 'interactiveShowcase', Component: InteractiveShowcase, threshold: 0.2 },
     { id: 'features', Component: FeaturesSection, threshold: 0.3 },
     { id: 'journey', Component: LearningJourney, threshold: 0.2 },
-    { id: 'courses', Component: () => <FeaturedCourses courses={featuredCourses as any} />, threshold: 0.2 },
+    { id: 'courses', Component: () => <FeaturedCourses courses={featuredCourses} />, threshold: 0.2 },
     { id: 'tools', Component: ExploreTools, threshold: 0.3 },
     { id: 'analytics', Component: AnalyticsDashboard, threshold: 0.2 },
     { id: 'communityShowcase', Component: CommunityShowcase, threshold: 0.2 },
