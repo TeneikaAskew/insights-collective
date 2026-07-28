@@ -28,7 +28,8 @@ function formatCourse(c: any): Course {
     },
     enrollmentCount: 0,
     modules: [],
-    rating: 4.5,
+    // No `rating` column exists. CourseList used to hardcode 4.5 here, which the
+    // landing page then rendered as a "Top Rated 4.5" badge on every single card.
     createdAt: c.created_at,
     updatedAt: c.updated_at,
     thumbnail: c.image_url || c.thumbnail || FALLBACK_THUMBNAIL,

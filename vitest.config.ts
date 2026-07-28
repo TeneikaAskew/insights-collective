@@ -9,6 +9,11 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
     css: true,
+    // Unit tests live beside the source they cover. `e2e/` is Playwright's —
+    // its specs throw "Playwright Test did not expect test.describe() to be
+    // called here" when Vitest picks them up, so keep the two runners apart.
+    include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    exclude: ['**/node_modules/**', '**/dist/**', 'e2e/**', 'playwright-report/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

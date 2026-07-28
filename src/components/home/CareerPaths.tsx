@@ -27,8 +27,10 @@ const CareerPaths = () => {
     <section className="py-20" id="career-paths">
       <div className="container mx-auto px-4 max-w-6xl">
         <Reveal>
+          {/* Deliberately not "Find Your Data Career Path" — that is the quiz section's
+              heading, and two identical headings on one page read as a duplicate. */}
           <h2 className="text-3xl md:text-4xl font-bold text-studio-ink">
-            Find Your Data Career Path
+            The Four Paths, Side by Side
           </h2>
           <p className="mt-3 text-studio-muted max-w-2xl">
             Not ready for the quiz? Read the four profiles and pick directly. These are the same

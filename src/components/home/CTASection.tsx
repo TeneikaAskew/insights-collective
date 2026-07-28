@@ -19,24 +19,19 @@ const Stat = ({ value, label }: { value: string; label: string }) => (
 );
 
 const CTASection = () => {
-  const [stats, setStats] = useState({ courses: 0, students: 0, completionRate: 0 });
+  const [stats, setStats] = useState({ courses: 0, articles: 0 });
 
+  // Only figures a signed-out visitor can actually read. The previous version
+  // counted `profiles` and `enrollments`, which RLS hides from anonymous users,
+  // so those two stats rendered as em-dashes on every visit.
   useEffect(() => {
     const fetchStats = async () => {
-      const [coursesRes, studentsRes, enrollmentsRes] = await Promise.all([
-        supabase.from('courses').select('id', { count: 'exact', head: true }).eq('published', true),
-        supabase.from('profiles').select('id', { count: 'exact', head: true }),
-        supabase.from('enrollments').select('completion_status'),
+      const [coursesRes, articlesRes] = await Promise.all([
+        supabase.from('courses').select('id', { count: 'exact', head: true }).eq('status', 'published'),
+        supabase.from('blog_posts').select('id', { count: 'exact', head: true }).eq('status', 'published'),
       ]);
 
-      const courseCount = coursesRes.count || 0;
-      const studentCount = studentsRes.count || 0;
-      const enrollments = enrollmentsRes.data || [];
-      const avgCompletion = enrollments.length > 0
-        ? Math.round(enrollments.reduce((s, e) => s + (e.completion_status || 0), 0) / enrollments.length)
-        : 0;
-
-      setStats({ courses: courseCount, students: studentCount, completionRate: avgCompletion });
+      setStats({ courses: coursesRes.count || 0, articles: articlesRes.count || 0 });
     };
     fetchStats();
   }, []);
@@ -58,19 +53,15 @@ const CTASection = () => {
       <div className="container mx-auto px-4 relative z-10 max-w-6xl">
         <div className="max-w-3xl mx-auto text-center">
           <Reveal>
-            {stats.students > 0 && (
-              <div className="inline-flex items-center justify-center mb-6 bg-studio-lavChip text-studio-lavDeeper px-4 py-2 rounded-full">
-                <Sparkles className="h-4 w-4 mr-2" />
-                <span className="text-sm font-semibold">
-                  Join {stats.students.toLocaleString()}+ data professionals
-                </span>
-              </div>
-            )}
+            <div className="inline-flex items-center justify-center mb-6 bg-studio-lavChip text-studio-lavDeeper px-4 py-2 rounded-full">
+              <Sparkles className="h-4 w-4 mr-2" />
+              <span className="text-sm font-semibold">Free to join</span>
+            </div>
 
             <h2 className="text-4xl md:text-5xl font-bold text-studio-ink">Ready to Start Learning?</h2>
             <p className="text-lg md:text-xl max-w-2xl mx-auto mt-5 text-studio-muted">
-              Join thousands of students already learning on Insights Collective. Sign up today and
-              take the first step towards your data career goals.
+              Create an account to take the quiz, save your results, and work through the courses
+              and tools at your own pace.
             </p>
           </Reveal>
 
@@ -98,17 +89,10 @@ const CTASection = () => {
 
           {/* Every figure below is a query against the platform database. */}
           <Reveal delay={0.18}>
-            <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-y-8 gap-x-6">
-              <Stat value={stats.courses > 0 ? String(stats.courses) : '—'} label="Expert-Led Courses" />
-              <Stat
-                value={stats.students > 0 ? stats.students.toLocaleString() : '—'}
-                label="Active Students"
-              />
-              <Stat
-                value={stats.completionRate > 0 ? `${stats.completionRate}%` : '—'}
-                label="Avg. Completion"
-              />
+            <div className="mt-16 grid grid-cols-3 gap-y-8 gap-x-6">
+              <Stat value={stats.courses > 0 ? String(stats.courses) : '—'} label="Published Courses" />
               <Stat value={String(trackPersonas.length)} label="Career Paths" />
+              <Stat value={stats.articles > 0 ? String(stats.articles) : '—'} label="Blueprint Articles" />
             </div>
           </Reveal>
         </div>

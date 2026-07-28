@@ -10,11 +10,14 @@ export const getAllBlogPosts = async (): Promise<BlogPost[]> => {
   try {
     const { data, error } = await supabase
       .from('blog_posts')
+      // The named-constraint hints (`!blog_posts_category_id_fkey`) do not exist in
+      // the schema, so PostgREST rejected the whole query with PGRST200 and every
+      // caller silently got an empty list. The plain embeds resolve fine.
       .select(`
         *,
-        blog_categories!blog_posts_category_id_fkey(name),
+        blog_categories(name),
         blog_post_tags(tag_name),
-        profiles!blog_posts_author_id_fkey(first_name, last_name)
+        profiles(first_name, last_name)
       `)
       .order('created_at', { ascending: false });
 
