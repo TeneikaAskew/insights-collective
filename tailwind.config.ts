@@ -19,8 +19,8 @@ export default {
 		},
 		extend: {
 			fontFamily: {
-				sans: ['Inter', 'system-ui', 'sans-serif'],
-				display: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+				sans: ['Outfit', 'Inter', 'system-ui', 'sans-serif'],
+				display: ['Outfit', 'Inter', 'system-ui', 'sans-serif'],
 				outfit: ['Outfit', 'Inter', 'system-ui', 'sans-serif'],
 				lora: ['Lora', 'Georgia', 'serif'],
 			},
@@ -58,8 +58,7 @@ export default {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
 				},
-				/* Soft Studio palette — resolves only inside a .soft-studio wrapper
-				   (the --ss-* vars are defined there); used by the resume feature. */
+				/* Soft Studio palette — the site-wide system; --ss-* vars live on :root. */
 				ss: {
 					lav: 'hsl(var(--ss-lav))',
 					'lav-deep': 'hsl(var(--ss-lav-deep))',
