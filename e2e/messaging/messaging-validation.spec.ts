@@ -40,6 +40,11 @@ test.describe("Messaging", () => {
       if (await page.getByText(/no conversations yet/i).isVisible().catch(() => false)) {
         return 'empty';
       }
+      // Not the banned guard-around-an-assertion: inboxState is a state
+      // classifier whose result is asserted by .poll(...).toMatch(/^(empty|rows)$/)
+      // below — a count of 0 yields 'pending', which fails the poll rather
+      // than silently skipping a check.
+      // eslint-disable-next-line no-restricted-syntax
       if (await page.locator('a[href^="/messages/"]').count()) return 'rows';
       return 'pending';
     };

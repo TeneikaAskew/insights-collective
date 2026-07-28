@@ -5,6 +5,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import { getVideoKind, toVideoEmbedUrl } from '@/utils/videoUrls';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -269,18 +270,16 @@ export const TrackedVideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   };
 
-  // Determine video type
-  const getVideoType = (): 'youtube' | 'vimeo' | 'direct' => {
-    if (videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be')) {
-      return 'youtube';
-    }
-    if (videoUrl.includes('vimeo.com')) {
-      return 'vimeo';
-    }
-    return 'direct';
-  };
-
-  const videoType = getVideoType();
+  // Classified by parsed hostname, and the iframe src is rebuilt from the
+  // validated video ID on a fixed origin — never from the raw URL. The old
+  // substring check meant https://evil.com/youtube.com classified as YouTube
+  // and was then framed verbatim (CodeQL
+  // js/incomplete-url-substring-sanitization). A URL that looks like a video
+  // host but yields no parseable ID plays as 'direct', which fails visibly
+  // instead of framing an arbitrary page.
+  const embedUrl = toVideoEmbedUrl(videoUrl);
+  const videoType: 'youtube' | 'vimeo' | 'direct' =
+    embedUrl ? (getVideoKind(videoUrl) as 'youtube' | 'vimeo') : 'direct';
 
   return (
     <Card className="overflow-hidden">
@@ -433,7 +432,7 @@ export const TrackedVideoPlayer: React.FC<VideoPlayerProps> = ({
           {/* YouTube Embed */}
           {videoType === 'youtube' && (
             <iframe
-              src={videoUrl.replace('watch?v=', 'embed/')}
+              src={embedUrl!}
               className="w-full h-full"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
@@ -443,7 +442,7 @@ export const TrackedVideoPlayer: React.FC<VideoPlayerProps> = ({
           {/* Vimeo Embed */}
           {videoType === 'vimeo' && (
             <iframe
-              src={videoUrl.replace('vimeo.com/', 'player.vimeo.com/video/')}
+              src={embedUrl!}
               className="w-full h-full"
               allow="autoplay; fullscreen; picture-in-picture"
               allowFullScreen

@@ -2,6 +2,8 @@
 // This is the single editor to be used throughout the application
 
 import { useEditor, EditorContent } from '@tiptap/react';
+import { toVideoEmbedUrl } from '@/utils/videoUrls';
+import { toast } from 'sonner';
 import StarterKit from '@tiptap/starter-kit';
 import Highlight from '@tiptap/extension-highlight';
 import Image from '@tiptap/extension-image';
@@ -71,7 +73,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { sanitizeHtmlContent, isValidUrl } from '@/utils/securityUtils';
+import { isValidUrl } from '@/utils/securityUtils';
+// DOMPurify-based; replaced the regex sanitizer whose single-pass strips were
+// bypassable (CodeQL js/bad-tag-filter). One sanitizer, one place.
+import { sanitizeHTML } from '@/utils/sanitize';
 import { cn } from '@/lib/utils';
 import { 
   DropdownMenu,
@@ -200,7 +205,7 @@ export function UnifiedCanvasEditor({
     onUpdate: ({ editor }) => {
       if (!readOnly) {
         const html = editor.getHTML();
-        const sanitizedHtml = sanitizeHtmlContent(html);
+        const sanitizedHtml = sanitizeHTML(html);
         onChange(sanitizedHtml);
       }
     },
@@ -311,29 +316,21 @@ export function UnifiedCanvasEditor({
   };
 
   const addVideo = () => {
-    if (videoUrl && isValidUrl(videoUrl)) {
-      // Process video URL for embedding
-      let embedUrl = videoUrl;
-      
-      // YouTube URL processing
-      if (videoUrl.includes('youtube.com/watch?v=')) {
-        const videoId = videoUrl.split('v=')[1]?.split('&')[0];
-        embedUrl = `https://www.youtube.com/embed/${videoId}`;
-      } else if (videoUrl.includes('youtu.be/')) {
-        const videoId = videoUrl.split('youtu.be/')[1]?.split('?')[0];
-        embedUrl = `https://www.youtube.com/embed/${videoId}`;
-      } else if (videoUrl.includes('youtube.com/embed/')) {
-        // Already an embed URL
-        embedUrl = videoUrl;
-      } else if (videoUrl.includes('vimeo.com/')) {
-        const videoId = videoUrl.split('vimeo.com/')[1]?.split('?')[0];
-        embedUrl = `https://player.vimeo.com/video/${videoId}`;
-      }
-
-      // Use the video extension command
+    // The embed src is rebuilt from a validated video ID on a fixed origin —
+    // toVideoEmbedUrl returns null for anything that is not verifiably a
+    // YouTube/Vimeo link. The old version defaulted to the raw input when no
+    // pattern matched (and its "already an embed" branch matched by substring,
+    // so https://evil.com/youtube.com/embed/x passed through verbatim), which
+    // let any URL be framed inside course content.
+    const embedUrl = videoUrl ? toVideoEmbedUrl(videoUrl) : null;
+    if (embedUrl) {
       editor.chain().focus().setVideo({ src: embedUrl }).run();
       setVideoUrl('');
       setShowVideoDialog(false);
+    } else {
+      toast.error('Enter a YouTube or Vimeo link', {
+        description: 'Only YouTube and Vimeo videos can be embedded.',
+      });
     }
   };
 

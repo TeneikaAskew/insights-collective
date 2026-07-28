@@ -9,77 +9,59 @@ import { createLogger } from '@/utils/logger';
 
 const logger = createLogger('sanitizeInput');
 
-// Enhanced input sanitization with comprehensive XSS protection
+/**
+ * Constructs that must never survive in plain-text input.
+ *
+ * The first pattern strips anything tag-shaped, not four named tags. The old
+ * version enumerated script/iframe/object/embed with paired open/close
+ * regexes, which CodeQL flagged (js/bad-tag-filter) for good reason: it did
+ * not match an unclosed `<script>`, a `</script foo>` closer, or an
+ * `<img onerror=…>` at all. This function's contract is *plain text* — there
+ * is no legitimate markup to preserve — so anything a browser would treat as
+ * a tag open (`<` + letter, `/`, `!` or `?`) is dangerous by definition,
+ * closed or not. HTML that should stay HTML goes through sanitizeHTML in
+ * '@/utils/sanitize' instead.
+ */
+const DANGEROUS_PLAIN_TEXT: RegExp[] = [
+  /<[a-z!/?][^>]*(?:>|$)/gi,
+  /(?:javascript|vbscript|livescript|data)\s*:/gi,
+  /on\w+\s*=\s*(["'])[^"']*\1/gi,
+  /expression\s*\(/gi,
+  /eval\s*\(/gi,
+  /setTimeout\s*\(/gi,
+  /setInterval\s*\(/gi,
+];
+
+/**
+ * Strip dangerous constructs from plain-text input, repeating until nothing
+ * changes.
+ *
+ * The repeat is the fix for the bypass class CodeQL reported
+ * (js/incomplete-multi-character-sanitization): a single-pass replace turns
+ * `javasjavascript:cript:` into `javascript:` — removal *creates* the payload
+ * it just removed. Iterating to a fixed point closes that whole class; the
+ * iteration cap fails closed to '' rather than returning half-cleaned input.
+ *
+ * Callers and their contracts, all preserved:
+ * - formValidation.ts rejects the value when the output differs from the
+ *   input, so this also serves as a detector;
+ * - sanitizeUserInput (config/security.ts) length-caps the output for form
+ *   field configs and display fallbacks, which React escapes on render.
+ */
 export const sanitizeInput = (input: string): string => {
   if (!input) return '';
-  
-  // Remove potential XSS patterns and dangerous content
-  return input
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
-    .replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, '')
-    .replace(/<embed\b[^<]*(?:(?!<\/embed>)<[^<]*)*<\/embed>/gi, '')
-    .replace(/javascript:/gi, '')
-    .replace(/data:text\/html/gi, '')
-    .replace(/vbscript:/gi, '')
-    .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '')
-    .replace(/expression\s*\(/gi, '')
-    .replace(/eval\s*\(/gi, '')
-    .replace(/setTimeout\s*\(/gi, '')
-    .replace(/setInterval\s*\(/gi, '')
-    .trim();
-};
 
-// Sanitize HTML content for rich text editor
-export const sanitizeHtmlContent = (html: string): string => {
-  if (!html) return '';
-  
-  // First, preserve safe video embeds by temporarily replacing them
-  const videoEmbedPlaceholders: { placeholder: string; content: string }[] = [];
-  let placeholderIndex = 0;
-  
-  // Preserve YouTube and Vimeo embeds
-  html = html.replace(/<iframe\s+[^>]*src=["'](https:\/\/(?:www\.)?(?:youtube\.com\/embed\/|player\.vimeo\.com\/video\/)[^"']+)["'][^>]*><\/iframe>/gi, (match, src) => {
-    const placeholder = `__SAFE_VIDEO_EMBED_${placeholderIndex}__`;
-    videoEmbedPlaceholders.push({ placeholder, content: match });
-    placeholderIndex++;
-    return placeholder;
-  });
-  
-  // Preserve video-embed divs with iframes (from our canvas editor)
-  html = html.replace(/<div[^>]*class=["'][^"']*video-embed[^"']*["'][^>]*>[\s\S]*?<iframe\s+[^>]*src=["'](https:\/\/(?:www\.)?(?:youtube\.com\/embed\/|player\.vimeo\.com\/video\/)[^"']+)["'][^>]*>[\s\S]*?<\/iframe>[\s\S]*?<\/div>/gi, (match) => {
-    const placeholder = `__SAFE_VIDEO_EMBED_${placeholderIndex}__`;
-    videoEmbedPlaceholders.push({ placeholder, content: match });
-    placeholderIndex++;
-    return placeholder;
-  });
-  
-  // Also preserve divs with data-youtube-video attribute (from our TipTap extension)
-  html = html.replace(/<div[^>]*data-youtube-video[^>]*>[\s\S]*?<iframe\s+[^>]*src=["'](https:\/\/(?:www\.)?(?:youtube\.com\/embed\/|player\.vimeo\.com\/video\/)[^"']+)["'][^>]*>[\s\S]*?<\/iframe>[\s\S]*?<\/div>/gi, (match) => {
-    const placeholder = `__SAFE_VIDEO_EMBED_${placeholderIndex}__`;
-    videoEmbedPlaceholders.push({ placeholder, content: match });
-    placeholderIndex++;
-    return placeholder;
-  });
-  
-  // Remove dangerous elements (including non-whitelisted iframes)
-  html = html
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
-    .replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, '')
-    .replace(/<embed\b[^<]*(?:(?!<\/embed>)<[^<]*)*<\/embed>/gi, '')
-    .replace(/<form\b[^<]*(?:(?!<\/form>)<[^<]*)*<\/form>/gi, '')
-    .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '')
-    .replace(/javascript:/gi, '')
-    .replace(/data:text\/html/gi, '')
-    .replace(/vbscript:/gi, '');
-  
-  // Restore safe video embeds
-  videoEmbedPlaceholders.forEach(({ placeholder, content }) => {
-    html = html.replace(placeholder, content);
-  });
-  
-  return html;
+  let out = input;
+  for (let pass = 0; pass < 10; pass++) {
+    const before = out;
+    for (const pattern of DANGEROUS_PLAIN_TEXT) {
+      out = out.replace(pattern, '');
+    }
+    if (out === before) return out.trim();
+  }
+  // Ten passes without converging means adversarial nesting; return nothing
+  // rather than something half-cleaned.
+  return '';
 };
 
 // Validate email format

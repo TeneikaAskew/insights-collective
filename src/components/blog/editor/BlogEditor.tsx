@@ -15,18 +15,11 @@ import {
   List,
   ListOrdered,
   Quote,
-  Heading1,
-  Heading2,
-  Heading3,
   Link as LinkIcon,
   Image as ImageIcon,
   Highlighter,
   Undo,
   Redo,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
-  AlignJustify
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Toggle } from '@/components/ui/toggle';
@@ -46,7 +39,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useState } from 'react';
 import { MediaLibraryDialog } from '../media/MediaLibraryDialog';
-import { sanitizeHtmlContent, isValidUrl } from '@/utils/securityUtils';
+import { isValidUrl } from '@/utils/securityUtils';
+// DOMPurify-based; replaced the regex sanitizer whose single-pass strips were
+// bypassable (CodeQL js/bad-tag-filter). One sanitizer, one place.
+import { sanitizeHTML } from '@/utils/sanitize';
 
 interface BlogEditorProps {
   content: string;
@@ -86,7 +82,7 @@ export function BlogEditor({ content, onChange, placeholder }: BlogEditorProps) 
     content,
     onUpdate: ({ editor }) => {
       const html = editor.getHTML();
-      const sanitizedHtml = sanitizeHtmlContent(html);
+      const sanitizedHtml = sanitizeHTML(html);
       onChange(sanitizedHtml);
     },
     editorProps: {
