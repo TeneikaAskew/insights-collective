@@ -113,7 +113,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   if (loading || (session !== null && !isAuthenticated) || (requireAdmin && hasAdminAccess === null)) {
     return (
       <div className="flex flex-col justify-center items-center h-96 gap-3">
-        <Spinner size="lg" className="text-[#9b87f5]" />
+        <Spinner size="lg" className="text-primary" />
         <p className="text-sm text-muted-foreground">Verifying access...</p>
       </div>
     );

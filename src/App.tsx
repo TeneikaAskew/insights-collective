@@ -236,7 +236,7 @@ function App() {
               <SecurityHeaders />
               <SecurityManager />
               <RouteTracker />
-              <div className="min-h-screen bg-gray-50">
+              <div className="min-h-screen bg-background">
                 <Suspense fallback={<PageLoader />}>
                   <Routes>
                     {/*

@@ -221,11 +221,11 @@ const AppSidebar = () => {
   };
 
   return (
-    <Sidebar className="border-r border-gray-200 dark:border-gray-800 text-gray-800 dark:text-gray-200" collapsible="icon">
-      <SidebarHeader className="border-b border-gray-200 dark:border-gray-800 px-2 bg-gray-100">
+    <Sidebar className="border-r border-sidebar-border text-sidebar-foreground" collapsible="icon">
+      <SidebarHeader className="border-b border-sidebar-border px-2">
         <div className={`flex items-center ${open ? 'space-x-2' : 'justify-center'} p-2`}>
           <Link to="/" className={`flex items-center ${open ? 'space-x-2' : ''}`}>
-            <div className="relative w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-md bg-gradient-to-tr from-[#9b87f5] to-[#7E69AB]">
+            <div className="relative w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-md bg-gradient-to-tr from-ss-lav to-ss-lav-deep">
               <GraduationCap className="h-4 w-4 text-white" />
             </div>
             {open && <span className="font-bold text-base">Insights Collective</span>}
@@ -233,12 +233,12 @@ const AppSidebar = () => {
         </div>
       </SidebarHeader>
       
-      <SidebarContent className="py-2 px-2 group-data-[collapsible=icon]:px-0 bg-gray-50 dark:bg-gray-900">
+      <SidebarContent className="py-2 px-2 group-data-[collapsible=icon]:px-0">
         {isAuthenticated && <div className={`mb-4 ${open ? 'px-2' : 'flex justify-center'}`}>
             <div className={`flex items-center ${open ? 'space-x-2' : 'justify-center'} mb-2`}>
-              <Avatar className="border-2 border-[#9b87f5]/20 w-7 h-7 flex-shrink-0">
+              <Avatar className="border-2 border-ss-lav/30 w-7 h-7 flex-shrink-0">
                 <AvatarImage src={user?.avatar} alt="User avatar" />
-                <AvatarFallback className="bg-[#9b87f5]/10 text-[#9b87f5] text-xs">
+                <AvatarFallback className="bg-ss-lav-chip text-ss-lav-deep text-xs">
                   {user?.email?.charAt(0).toUpperCase() || 'U'}
                 </AvatarFallback>
               </Avatar>
@@ -246,16 +246,16 @@ const AppSidebar = () => {
                 <p className="font-medium text-xs truncate max-w-[140px]">
                   {user?.name || user?.email?.split('@')[0] || 'User'}
                 </p>
-                <p className="text-[10px] text-gray-500 dark:text-gray-400">{isAdmin ? 'Administrator' : isInstructor ? 'Instructor' : 'Member'}</p>
+                <p className="text-[10px] text-muted-foreground">{isAdmin ? 'Administrator' : isInstructor ? 'Instructor' : 'Member'}</p>
               </div>}
             </div>
           </div>}
 
         {!isAuthenticated && open && (
-          <div className="mb-4 px-2 py-3 bg-[#9b87f5]/5 rounded-lg border border-[#9b87f5]/20">
+          <div className="mb-4 px-2 py-3 bg-ss-lav-chip rounded-lg border border-ss-lav/30">
             <p className="text-[10px] text-muted-foreground mb-2 font-medium">Join to unlock all features</p>
             <div className="space-y-1.5">
-              <Button asChild className="w-full h-8 text-xs bg-[#9b87f5] hover:bg-[#8B5CF6] text-white">
+              <Button asChild className="w-full h-8 text-xs bg-primary hover:bg-primary/90 text-primary-foreground">
                 <Link to="/register">Create Free Account</Link>
               </Button>
               <Button asChild variant="ghost" className="w-full h-8 text-xs text-muted-foreground">
@@ -271,10 +271,10 @@ const AppSidebar = () => {
               {menuItems.map((item, index) => (
                   <motion.div key={item.title} custom={index} initial="hidden" animate="visible" variants={menuItemVariants} className={open ? '' : 'flex justify-center'}>
                     <SidebarMenuItem className={open ? '' : 'w-8'}>
-                      <SidebarMenuButton asChild isActive={item.active} className={`transition-all duration-200 ${item.active ? 'font-medium' : 'text-gray-700 dark:text-gray-300 hover:text-sidebar-accent hover:bg-sidebar-accent/10'}`}>
+                      <SidebarMenuButton asChild isActive={item.active} className={`transition-all duration-200 ${item.active ? 'font-medium' : 'text-sidebar-foreground/80 hover:text-sidebar-accent hover:bg-sidebar-accent/10'}`}>
                         <Link to={item.url} className={`flex items-center rounded-md py-1.5 ${open ? 'space-x-2 px-2' : 'justify-center w-8 h-8 px-0 mx-auto'} ${item.highlight && open && !item.active ? 'bg-sidebar-accent/10 border border-sidebar-accent/30' : ''}`}>
 
-                          <item.icon className={`h-3.5 w-3.5 flex-shrink-0 ${item.active ? 'text-sidebar-accent-foreground' : 'text-gray-500 dark:text-gray-400'}`} />
+                          <item.icon className={`h-3.5 w-3.5 flex-shrink-0 ${item.active ? 'text-sidebar-accent-foreground' : 'text-muted-foreground'}`} />
                           {open && <span className="text-xs truncate">{item.title}</span>}
                           {open && item.highlight && !item.active && (
                             <Badge className="ml-auto h-4 text-[10px] bg-sidebar-accent/20 text-sidebar-accent hover:bg-sidebar-accent/30">
@@ -291,24 +291,24 @@ const AppSidebar = () => {
         </SidebarGroup>
         
         {isAuthenticated && (isAdmin || isInstructor) && <SidebarGroup className="mt-4">
-            {open && <SidebarGroupLabel className="text-gray-500 dark:text-gray-400 font-medium px-2 py-1 text-[10px] uppercase tracking-wider">
+            {open && <SidebarGroupLabel className="text-muted-foreground font-medium px-2 py-1 text-[10px] uppercase tracking-wider">
               {isAdmin ? 'Administration' : 'Instructor Tools'}
             </SidebarGroupLabel>}
             <SidebarGroupContent>
               <SidebarMenu>
                 {isAdmin && visibleAdminMenuItems.map(item => <SidebarMenuItem key={item.title} className={open ? '' : 'flex justify-center'}>
-                    <SidebarMenuButton asChild isActive={item.active} className={`transition-all duration-200 ${item.active ? 'font-medium' : 'text-gray-700 dark:text-gray-400 hover:text-sidebar-accent hover:bg-sidebar-accent/10'}`}>
+                    <SidebarMenuButton asChild isActive={item.active} className={`transition-all duration-200 ${item.active ? 'font-medium' : 'text-sidebar-foreground/80 hover:text-sidebar-accent hover:bg-sidebar-accent/10'}`}>
                       <Link to={item.url} className={`flex items-center rounded-md py-1.5 ${open ? 'space-x-2 px-2' : 'justify-center w-8 h-8 px-0 mx-auto'}`}>
-                        <item.icon className={`h-3.5 w-3.5 flex-shrink-0 ${item.active ? 'text-sidebar-accent-foreground' : 'text-gray-500'}`} />
+                        <item.icon className={`h-3.5 w-3.5 flex-shrink-0 ${item.active ? 'text-sidebar-accent-foreground' : 'text-muted-foreground'}`} />
                         {open && <span className="text-xs truncate">{item.title}</span>}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>)}
                 
                 {isInstructor && !isAdmin && <SidebarMenuItem className={open ? '' : 'flex justify-center'}>
-                    <SidebarMenuButton asChild className="text-gray-700 dark:text-gray-400 hover:text-sidebar-accent hover:bg-sidebar-accent/10">
+                    <SidebarMenuButton asChild className="text-sidebar-foreground/80 hover:text-sidebar-accent hover:bg-sidebar-accent/10">
                       <Link to="/course-management" className={`flex items-center rounded-md py-1.5 ${open ? 'space-x-2 px-2' : 'justify-center w-8 h-8 px-0 mx-auto'}`}>
-                        <BookOpen className="h-3.5 w-3.5 flex-shrink-0 text-gray-500" />
+                        <BookOpen className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
                         {open && <span className="text-xs truncate">My Courses</span>}
                       </Link>
                     </SidebarMenuButton>
@@ -318,9 +318,9 @@ const AppSidebar = () => {
                     their own posts, so surface the entry rather than leaving the
                     capability unreachable. Admins already get it above. */}
                 {isInstructor && !isAdmin && <SidebarMenuItem className={open ? '' : 'flex justify-center'}>
-                    <SidebarMenuButton asChild isActive={location.pathname.startsWith('/admin/blog')} className="text-gray-700 dark:text-gray-400 hover:text-sidebar-accent hover:bg-sidebar-accent/10">
+                    <SidebarMenuButton asChild isActive={location.pathname.startsWith('/admin/blog')} className="text-sidebar-foreground/80 hover:text-sidebar-accent hover:bg-sidebar-accent/10">
                       <Link to="/admin/blog" className={`flex items-center rounded-md py-1.5 ${open ? 'space-x-2 px-2' : 'justify-center w-8 h-8 px-0 mx-auto'}`}>
-                        <Newspaper className="h-3.5 w-3.5 flex-shrink-0 text-gray-500" />
+                        <Newspaper className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
                         {open && <span className="text-xs truncate">Manage Blog</span>}
                       </Link>
                     </SidebarMenuButton>
@@ -331,15 +331,15 @@ const AppSidebar = () => {
           </SidebarGroup>}
       </SidebarContent>
       
-      <SidebarFooter className="border-t border-gray-200 dark:border-gray-800 mt-auto p-3 bg-gray-50 dark:bg-gray-900">
+      <SidebarFooter className="border-t border-sidebar-border mt-auto p-3">
         {!isAuthenticated && open ? <div className="space-y-2 px-2">
             <Button variant="outline" asChild className="w-full justify-start text-xs h-8">
               <Link to="/login">Sign In</Link>
             </Button>
-            <Button asChild className="w-full justify-start bg-[#9b87f5] hover:bg-[#8B5CF6] text-white text-xs h-8">
+            <Button asChild className="w-full justify-start bg-primary hover:bg-primary/90 text-primary-foreground text-xs h-8">
               <Link to="/register">Create Account</Link>
             </Button>
-          </div> : open ? <div className="text-[10px] text-gray-500 dark:text-gray-400 px-2">
+          </div> : open ? <div className="text-[10px] text-muted-foreground px-2">
             <p>Insights Collective v1.0</p>
           </div> : null}
       </SidebarFooter>
