@@ -46,7 +46,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useState } from 'react';
 import { MediaLibraryDialog } from '../media/MediaLibraryDialog';
-import { sanitizeHtmlContent, isValidUrl } from '@/utils/securityUtils';
+import { isValidUrl } from '@/utils/securityUtils';
+// DOMPurify-based; replaced the regex sanitizer whose single-pass strips were
+// bypassable (CodeQL js/bad-tag-filter). One sanitizer, one place.
+import { sanitizeHTML } from '@/utils/sanitize';
 
 interface BlogEditorProps {
   content: string;
@@ -86,7 +89,7 @@ export function BlogEditor({ content, onChange, placeholder }: BlogEditorProps) 
     content,
     onUpdate: ({ editor }) => {
       const html = editor.getHTML();
-      const sanitizedHtml = sanitizeHtmlContent(html);
+      const sanitizedHtml = sanitizeHTML(html);
       onChange(sanitizedHtml);
     },
     editorProps: {

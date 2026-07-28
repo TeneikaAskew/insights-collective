@@ -71,7 +71,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { sanitizeHtmlContent, isValidUrl } from '@/utils/securityUtils';
+import { isValidUrl } from '@/utils/securityUtils';
+// DOMPurify-based; replaced the regex sanitizer whose single-pass strips were
+// bypassable (CodeQL js/bad-tag-filter). One sanitizer, one place.
+import { sanitizeHTML } from '@/utils/sanitize';
 import { cn } from '@/lib/utils';
 import { 
   DropdownMenu,
@@ -200,7 +203,7 @@ export function UnifiedCanvasEditor({
     onUpdate: ({ editor }) => {
       if (!readOnly) {
         const html = editor.getHTML();
-        const sanitizedHtml = sanitizeHtmlContent(html);
+        const sanitizedHtml = sanitizeHTML(html);
         onChange(sanitizedHtml);
       }
     },
