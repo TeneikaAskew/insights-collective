@@ -53,3 +53,40 @@ UPDATE public.page_visibility
 SET visible_to_users = true,
     visible_to_instructors = true
 WHERE page_path IN ('/', '/blog');
+
+-- Seed every canonical manifest row that does not exist yet. Without this,
+-- a database initialized purely from migrations would be missing rows for
+-- newer pages: the gate defaults a missing row to visible (no security
+-- hole), but the admin manager disables a page's switches until its row
+-- exists — leaving those pages untoggleable until someone runs Sync.
+INSERT INTO public.page_visibility (page_path, page_name)
+VALUES
+  ('/', 'Home'),
+  ('/dashboard', 'Dashboard'),
+  ('/user-dashboard', 'User Dashboard'),
+  ('/notifications', 'Notifications'),
+  ('/calendar', 'Calendar'),
+  ('/profile', 'Profile'),
+  ('/courses', 'Courses'),
+  ('/course-management', 'Course Management'),
+  ('/enrolled-courses', 'Enrolled Courses'),
+  ('/interview-prep', 'Interview Prep'),
+  ('/interview-prep/code-practice', 'Code Practice'),
+  ('/interview-prep/job-description', 'Job Description Analyzer'),
+  ('/interview-prep/mock-interview-room', 'Mock Interview Room'),
+  ('/interview-prep/mock-interviews', 'Mock Interviews'),
+  ('/interview-prep/star-practice', 'STAR Practice'),
+  ('/career-pathway', 'Career Pathway'),
+  ('/assistants', 'AI Assistants'),
+  ('/explore-data-careers', 'Explore Data Careers'),
+  ('/resume', 'Resume Analyzer'),
+  ('/events', 'Events'),
+  ('/messages', 'Messages'),
+  ('/portfolio-explorer', 'Portfolio Explorer'),
+  ('/portfolio-editor', 'Portfolio Editor'),
+  ('/blog', 'Blog'),
+  ('/resources', 'Resources'),
+  ('/teneika-linkedin', 'Teneika LinkedIn'),
+  ('/teneika-tweets', 'Teneika Tweets'),
+  ('/survey', 'Surveys')
+ON CONFLICT (page_path) DO NOTHING;

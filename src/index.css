@@ -72,9 +72,12 @@
 
   /* Ink Studio — the Soft Studio dark derivation. The ink deepens into the
      ground, plaster flips to the text color, lavender keeps the identity
-     (and "deep" accents get LIGHTER, since they sit on dark now). Chips
-     become low-alpha tints of their hue. Toggled by next-themes via the
-     `dark` class on <html>. */
+     (and "deep" accents get LIGHTER, since they sit on dark now). Chip
+     tokens are hue tints PRE-BLENDED onto the card surface — they must
+     stay opaque because bg-*-chip/NN and bg-accent/NN opacity modifiers
+     appear in components (only --border/--input may carry alpha; nothing
+     applies modifiers to those). Toggled by next-themes via the `dark`
+     class on <html>. */
   .dark {
     --background: 257 14% 10%;         /* deep ink #17151C */
     --foreground: 38 21% 93%;          /* plaster text #F0EDE8 */
@@ -94,7 +97,8 @@
     --muted: 255 13% 18%;              /* tile surface #2A2733 */
     --muted-foreground: 260 8% 62%;    /* #9B96A5 */
 
-    --accent: 254 66% 75% / 0.16;      /* lavender tint surface */
+    --accent: 254 18% 24%;             /* lavender tint pre-blended on card, #363147
+                                          (opaque: accent is used with /NN modifiers) */
     --accent-foreground: 253 71% 82%;
 
     --destructive: 10 62% 68%;         /* soft bad, brightened #E08A79 */
@@ -115,19 +119,19 @@
 
     --ss-lav: 254 66% 75%;
     --ss-lav-deep: 253 71% 82%;        /* lighter on dark */
-    --ss-lav-chip: 254 66% 75% / 0.16;
+    --ss-lav-chip: 254 18% 24%;        /* #363147 */
     --ss-peach: 26 75% 76%;
     --ss-peach-deep: 26 61% 69%;       /* lighter on dark */
     --ss-card-warm: 285 11% 14%;       /* warmed ink #262028 */
     --ss-track: 257 13% 21%;           /* #332F3D */
     --ss-good: 145 38% 63%;            /* #7CC49A */
-    --ss-good-chip: 146 33% 46% / 0.18;
+    --ss-good-chip: 185 13% 18%;       /* #293435 */
     --ss-warn: 30 69% 65%;             /* #E3A466 */
-    --ss-warn-chip: 28 54% 51% / 0.18;
+    --ss-warn-chip: 9 18% 21%;         /* #3F2F2C */
     --ss-bad: 10 62% 68%;              /* #E08A79 */
-    --ss-bad-chip: 9 51% 52% / 0.18;
+    --ss-bad-chip: 346 20% 20%;        /* #3E292E */
     --ss-teal: 169 43% 60%;            /* #6CC4B4 */
-    --ss-teal-chip: 169 44% 44% / 0.16;
+    --ss-teal-chip: 199 20% 19%;       /* #263339 */
     --ss-shadow: 0 18px 40px -20px rgba(0, 0, 0, 0.6);
   }
 }
