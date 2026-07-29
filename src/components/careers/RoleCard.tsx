@@ -6,7 +6,8 @@ import { ChevronRight } from 'lucide-react';
 import { DataCareerRole } from '@/data/dataCareerRoles';
 import { Dialog, DialogTrigger, DialogContent, DialogClose } from '@/components/ui/dialog';
 import { CareerRoleDetails } from './CareerRoleDetails';
-import { CareerRoleWage, formatWageShort } from '@/hooks/useCareerRoleWages';
+import { CareerRoleWage } from '@/hooks/useCareerRoleWages';
+import WageBand from './WageBand';
 
 interface RoleCardProps {
   role: DataCareerRole;
@@ -51,21 +52,9 @@ export const RoleCard: React.FC<RoleCardProps> = ({
             <span className="font-medium">Key Tools:</span>{' '}
             <span className="text-muted-foreground">{role.tools.slice(0, 3).join(', ')}{role.tools.length > 3 ? '...' : ''}</span>
           </div>
-          {/* Real figures or nothing — never an estimate scraped from the prose. */}
-          {wage?.pct25 && wage?.pct75 && (
-            <div>
-              <span className="font-medium">Typical pay:</span>{' '}
-              <span className="text-muted-foreground tabular-nums">
-                {formatWageShort(wage.pct25)} – {formatWageShort(wage.pct75)}
-              </span>
-              {wage.occupation_title && (
-                <span className="block text-xs text-muted-foreground mt-0.5">
-                  BLS: {wage.occupation_title}
-                  {wage.soc_code ? ` (${wage.soc_code})` : ''}
-                </span>
-              )}
-            </div>
-          )}
+          {/* `wage` is optional only while the query is in flight; once loaded
+              every role has one. Same WageBand the landing page uses. */}
+          {wage && <WageBand wage={wage} className="pt-1" />}
         </div>
       </CardContent>
       <CardFooter>

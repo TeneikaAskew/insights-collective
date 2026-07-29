@@ -55,10 +55,14 @@ CREATE TABLE IF NOT EXISTS public.career_roles (
   title       TEXT NOT NULL,
   category    TEXT NOT NULL,
 
-  -- The FK. A role either points at a real BLS occupation or shows no salary.
-  soc_code    TEXT REFERENCES public.bls_occupations (soc_code)
+  -- The FK. NOT NULL on purpose: every one of the 33 roles has a mapping, so a
+  -- nullable column would invent an "unmapped role" state that no data can reach
+  -- and that every consumer would then have to guard against. RESTRICT rather
+  -- than SET NULL for the same reason — deleting a referenced occupation is a
+  -- mistake to block, not a way to silently blank out a role's salary.
+  soc_code    TEXT NOT NULL REFERENCES public.bls_occupations (soc_code)
                 ON UPDATE CASCADE
-                ON DELETE SET NULL,
+                ON DELETE RESTRICT,
 
   -- Why this occupation was chosen. BLS publishes no "Data Engineer" or
   -- "MLOps Engineer" occupation, so several roles map to a broader one and the
@@ -75,7 +79,7 @@ CREATE INDEX IF NOT EXISTS career_roles_category_idx  ON public.career_roles (ca
 COMMENT ON TABLE public.career_roles IS
   'Career roles shown on /explore-data-careers, each mapped to at most one BLS occupation for wage data.';
 COMMENT ON COLUMN public.career_roles.soc_code IS
-  'FK to bls_occupations. NULL means we have no defensible BLS mapping, and the UI must show no salary rather than guess.';
+  'FK to bls_occupations. NOT NULL: a role without a defensible BLS mapping does not belong in this table.';
 
 -- ── Seed: May 2025 OEWS national estimates ───────────────────────────────────
 
@@ -221,8 +225,10 @@ CREATE OR REPLACE VIEW public.career_role_wages AS
     o.reference_period,
     o.source_name,
     o.source_url
+  -- Inner join: the NOT NULL FK guarantees a match, so a LEFT JOIN would only
+  -- produce all-NULL wage columns that can never occur.
   FROM public.career_roles r
-  LEFT JOIN public.bls_occupations o ON o.soc_code = r.soc_code;
+  JOIN public.bls_occupations o ON o.soc_code = r.soc_code;
 
 COMMENT ON VIEW public.career_role_wages IS
   'Career roles with their BLS wage figures and citation, ready to render.';

@@ -19,13 +19,13 @@ type Props = {
   className?: string;
 };
 
+/**
+ * No absent-data branch on purpose: `career_role_wages` inner-joins a NOT NULL
+ * FK, and a CHECK constraint keeps the percentiles ordered, so every row that
+ * reaches this component has a complete, well-formed band.
+ */
 const WageBand = ({ wage, showOccupation = true, className = '' }: Props) => {
   const { pct25, median, pct75 } = wage;
-
-  // No figures, no bar. Never fall back to a placeholder range.
-  if (typeof pct25 !== 'number' || typeof pct75 !== 'number' || typeof median !== 'number') {
-    return null;
-  }
 
   const left = pct(pct25);
   const width = Math.max(1.5, pct(pct75) - left);
@@ -64,10 +64,9 @@ const WageBand = ({ wage, showOccupation = true, className = '' }: Props) => {
         <span>{formatWageShort(WAGE_SCALE_MAX)}</span>
       </div>
 
-      {showOccupation && wage.occupation_title && (
+      {showOccupation && (
         <p className="mt-2 text-[11px] leading-snug text-studio-muted">
-          BLS occupation: {wage.occupation_title}
-          {wage.soc_code ? ` (${wage.soc_code})` : ''}
+          BLS occupation: {wage.occupation_title} ({wage.soc_code})
           {wage.mapping_note ? ` — ${wage.mapping_note}` : ''}
         </p>
       )}
