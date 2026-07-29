@@ -351,7 +351,7 @@ export function FormList({ searchTerm }: FormListProps) {
               onPreview={() => navigate(`/survey/${selectedForm.slug}`)}
               onToggleFeature={() => toggleFeatured(selectedForm)}
               onDelete={() => confirmDelete(selectedForm)}
-              onOpenFullPage={() => navigate(`/admin/unified-form-management/submissions/${selectedForm.slug}`)}
+              onOpenFullPage={() => navigate(`/admin/forms/submissions/${selectedForm.slug}`)}
             />
           )}
         </SheetContent>

@@ -3,7 +3,6 @@ import { useMemo, useState } from 'react';
 import { downloadCsv } from '@/utils/csv';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import AdminSoftStudio from '@/components/admin/AdminSoftStudio';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -158,11 +157,9 @@ export default function AdminCourses() {
 
   if (coursesLoading) {
     return (
-      <AdminSoftStudio>
-        <div className="flex justify-center items-center h-[50vh]">
-          <Spinner size="lg" />
-        </div>
-      </AdminSoftStudio>
+      <div className="flex justify-center items-center h-[50vh]">
+        <Spinner size="lg" />
+      </div>
     );
   }
 
@@ -170,22 +167,20 @@ export default function AdminCourses() {
   // this page depends on the course list, so surface the failure with a retry.
   if (coursesError) {
     return (
-      <AdminSoftStudio>
-        <div className="max-w-3xl mx-auto py-16 px-4">
-          <CourseErrorState
-            title="Failed to load courses"
-            error={coursesError}
-            onRetry={() => refetchCourses()}
-          />
-        </div>
-      </AdminSoftStudio>
+      <div className="max-w-3xl mx-auto py-16 px-4">
+        <CourseErrorState
+          title="Failed to load courses"
+          error={coursesError}
+          onRetry={() => refetchCourses()}
+        />
+      </div>
     );
   }
 
   const tabTrigger = 'rounded-xl px-4 py-2 data-[state=active]:bg-card data-[state=active]:text-ss-lav-deep data-[state=active]:shadow-[var(--ss-shadow)]';
 
   return (
-    <AdminSoftStudio>
+    <>
       {/* Header */}
       <header className="flex flex-col md:flex-row md:justify-between md:items-end gap-4 mb-7">
         <div>
@@ -438,7 +433,7 @@ export default function AdminCourses() {
           )}
         </SheetContent>
       </Sheet>
-    </AdminSoftStudio>
+    </>
   );
 }
 

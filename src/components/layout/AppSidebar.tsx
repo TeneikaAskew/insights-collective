@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, Bot, MessageSquare, FileUp, Eye, Compass, FileCheck, FormInput, Newspaper, Lightbulb, Twitter, Database } from 'lucide-react';
+import { BookOpen, Home, UserCircle, GraduationCap, Calendar, Bell, FileText, Briefcase, Award, Bot, MessageSquare, FileUp, FileCheck, LayoutDashboard, Newspaper, Lightbulb, Twitter } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarTrigger, SidebarFooter, SidebarRail, useSidebar } from '@/components/ui/sidebar';
 import { useAuth } from '@/contexts/AuthContext';
@@ -144,50 +144,14 @@ const AppSidebar = () => {
     highlight: true
   }];
 
-  // Define admin menu items - removed Manage Resources
+  // Single entry into the unified admin shell — section navigation lives in
+  // the shell's own rail (src/pages/admin/AdminLayout.tsx).
   const adminMenuItems = [{
-    title: "Admin Dashboard",
+    title: "Admin",
     url: "/admin",
-    icon: BarChart2,
-    active: location.pathname === '/admin' || location.pathname === '/admin/activity'
-  }, {
-    title: "Manage Courses",
-    url: "/admin/courses",
-    icon: GraduationCap,
-    active: location.pathname === '/admin/courses'
-  }, {
-    title: "Manage Users",
-    url: "/admin/users",
-    icon: Users,
-    active: location.pathname === '/admin/users'
-  }, {
-    title: "Manage Forms",
-    url: "/admin/unified-form-management",
-    icon: FormInput,
-    active: location.pathname.startsWith('/admin/unified-form-management')
-  }, {
-    title: "Manage Blog",
-    url: "/admin/blog",
-    icon: Newspaper,
-    active: location.pathname.startsWith('/admin/blog')
-  }, {
-    title: "Manage Events",
-    url: "/admin/events",
-    icon: Calendar,
-    active: location.pathname === '/admin/events'
-  }, {
-    title: "Page Visibility",
-    url: "/admin/page-visibility",
-    icon: Eye,
-    active: location.pathname === '/admin/page-visibility'
-  },
-  // Debug Tools is a dev-only surface (the route itself is DEV-gated in App.tsx).
-  ...(import.meta.env.DEV ? [{
-    title: "Debug Tools",
-    url: "/admin/local-storage-debug",
-    icon: Database,
-    active: location.pathname === '/admin/local-storage-debug'
-  }] : [])];
+    icon: LayoutDashboard,
+    active: location.pathname.startsWith('/admin')
+  }];
 
   const isAdmin = user?.roles?.includes('admin');
   const isInstructor = user?.roles?.includes('instructor');

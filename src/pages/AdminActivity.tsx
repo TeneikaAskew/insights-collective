@@ -2,7 +2,6 @@
 // ABOUTME: Replaces hardcoded mock data with live security_events table queries
 
 import React, { useState, useEffect } from 'react';
-import AppLayout from '@/components/layout/AppLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
@@ -86,8 +85,7 @@ const AdminActivity = () => {
   };
 
   return (
-    <AppLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold tracking-tight">Activity Log</h1>
           <div className="flex gap-2">
@@ -168,8 +166,7 @@ const AdminActivity = () => {
             )}
           </CardContent>
         </Card>
-      </div>
-    </AppLayout>
+    </div>
   );
 };
 

@@ -3,7 +3,6 @@
 // ABOUTME: Soft Studio "Operator's Console" layout scoped to the admin section.
 
 import { useState, useEffect } from 'react';
-import AdminSoftStudio from '@/components/admin/AdminSoftStudio';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -313,19 +312,17 @@ const AdminUsers = () => {
   // ran and `loading` never left its initial true. Show an explicit denial.
   if (authResolved && !isAdmin) {
     return (
-      <AdminSoftStudio>
-        <div className="py-16 text-center" role="alert">
-          <h1 className="text-2xl font-semibold mb-2">Access denied</h1>
-          <p className="text-muted-foreground">
-            You need administrator privileges to manage users.
-          </p>
-        </div>
-      </AdminSoftStudio>
+      <div className="py-16 text-center" role="alert">
+        <h1 className="text-2xl font-semibold mb-2">Access denied</h1>
+        <p className="text-muted-foreground">
+          You need administrator privileges to manage users.
+        </p>
+      </div>
     );
   }
 
   return (
-    <AdminSoftStudio>
+    <>
       {/* Header */}
       <header className="mb-7">
         <p className="ss-serif text-ss-lav-deep text-lg mb-1">Insights Collective · Admin</p>
@@ -756,7 +753,7 @@ const AdminUsers = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </AdminSoftStudio>
+    </>
   );
 };
 
