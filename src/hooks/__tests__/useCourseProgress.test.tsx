@@ -69,7 +69,7 @@ describe('useCourseProgress', () => {
   it('returns empty progress when course has no modules', async () => {
     setTables({ modules: [], content_items: [], content_item_progressions: [] });
 
-    const { result } = renderHook(() => useCourseProgress('course-1'));
+    const { result } = renderHook(() => useCourseProgress('11111111-2222-4333-8444-555555555555'));
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
@@ -99,7 +99,7 @@ describe('useCourseProgress', () => {
       ],
     });
 
-    const { result } = renderHook(() => useCourseProgress('course-1'));
+    const { result } = renderHook(() => useCourseProgress('11111111-2222-4333-8444-555555555555'));
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
@@ -120,7 +120,7 @@ describe('useCourseProgress', () => {
       content_item_progressions: [{ content_item_id: 'i1', workflow_state: 'read' }],
     });
 
-    const { result } = renderHook(() => useCourseProgress('course-1'));
+    const { result } = renderHook(() => useCourseProgress('11111111-2222-4333-8444-555555555555'));
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     expect(result.current.getModulePercent('m1')).toBe(100);
@@ -138,7 +138,7 @@ describe('useCourseProgress', () => {
     setTables({ content_items: [], content_item_progressions: [] });
     setTableError('modules', 'modules query failed');
 
-    const { result } = renderHook(() => useCourseProgress('course-1'));
+    const { result } = renderHook(() => useCourseProgress('11111111-2222-4333-8444-555555555555'));
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     expect(result.current.error).toBe('modules query failed');
@@ -153,7 +153,7 @@ describe('useCourseProgress', () => {
     });
     setTableError('content_items', 'content items query failed');
 
-    const { result } = renderHook(() => useCourseProgress('course-1'));
+    const { result } = renderHook(() => useCourseProgress('11111111-2222-4333-8444-555555555555'));
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     expect(result.current.error).toBe('content items query failed');
@@ -167,7 +167,7 @@ describe('useCourseProgress', () => {
     });
     setTableError('content_item_progressions', 'progressions query failed');
 
-    const { result } = renderHook(() => useCourseProgress('course-1'));
+    const { result } = renderHook(() => useCourseProgress('11111111-2222-4333-8444-555555555555'));
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     expect(result.current.error).toBe('progressions query failed');
