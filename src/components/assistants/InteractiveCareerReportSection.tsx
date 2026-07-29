@@ -32,102 +32,32 @@ import { usePortfolio } from '@/hooks/usePortfolio';
 import CareerActionPlan from './CareerActionPlan';
 import { CareerReportData } from './utils/types';
 import { useToast } from '@/hooks/use-toast';
+import { useCareerRoleWages } from '@/hooks/useCareerRoleWages';
+import WageBand from '@/components/careers/WageBand';
 
 import { createLogger } from '@/utils/logger';
 
 const logger = createLogger('handleTakeQuiz');
 
-const sampleReportData: CareerReportData = {
-  userName: "Joshua B. Brown",
-  summary: "Based on your quiz answers and resume, we have generated a comprehensive report to guide your career growth in the data field. Your experience in program management, data-driven marketing, and logistics has equipped you with a unique set of skills that can be leveraged to excel in various roles.",
-  recommendedRoles: [
-    {
-      title: "Data Program Manager",
-      description: "Oversee data-related projects, ensuring timely completion, budget adherence, and stakeholder satisfaction.",
-      salaryRange: "$80,000 - $110,000 per year",
-      matchPercentage: 92
-    },
-    {
-      title: "Business Intelligence Analyst",
-      description: "Analyze complex data to inform business decisions, drive strategic growth, and optimize operations.",
-      salaryRange: "$60,000 - $90,000 per year",
-      matchPercentage: 85
-    },
-    {
-      title: "Operations Research Analyst",
-      description: "Apply advanced analytical methods to help organizations solve complex problems and make informed decisions.",
-      salaryRange: "$70,000 - $100,000 per year",
-      matchPercentage: 78
-    }
-  ],
-  skillsAndCourses: [
-    {
-      skill: "Data analysis",
-      course: "Data Analysis with Python",
-      provider: "Coursera",
-      level: "Intermediate"
-    },
-    {
-      skill: "Program management",
-      course: "Project Management Professional (PMP) Certification",
-      provider: "Coursera",
-      level: "Advanced"
-    },
-    {
-      skill: "Business intelligence",
-      course: "Business Intelligence and Data Visualization",
-      provider: "edX",
-      level: "Intermediate"
-    },
-    {
-      skill: "Leadership",
-      course: "Leadership and Management",
-      provider: "Udemy",
-      level: "Beginner"
-    }
-  ],
-  nextStepRecommendations: "Considering your experience in program management and data-driven marketing, we recommend that you explore roles that leverage your analytical and leadership skills. Your future vision of working in data and desired role as a data professional align with the recommended roles.",
-  potentialRoles: [
-    "Data Scientist",
-    "Operations Manager",
-    "Business Analyst"
-  ],
-  careerPathSteps: [
-    {
-      title: "Upskill",
-      description: "Enhance your data analysis and programming skills through online courses or certifications.",
-      timeframe: "3-6 months"
-    },
-    {
-      title: "Network",
-      description: "Attend industry events and connect with professionals in your desired field to build relationships and learn about new opportunities.",
-      timeframe: "Ongoing"
-    },
-    {
-      title: "Gain experience",
-      description: "Seek out projects or roles that allow you to apply your skills and build a portfolio of data-related work.",
-      timeframe: "6-12 months"
-    }
-  ],
-  keyTakeaways: [
-    "Your experience in program management and data-driven marketing is highly valuable in the data field.",
-    "Developing your analytical and leadership skills will be crucial to success in your desired role.",
-    "Exploring different roles and industries will help you find the best fit for your skills and interests."
-  ]
-};
-
 interface InteractiveCareerReportSectionProps {
-  reportData?: CareerReportData;
+  /**
+   * Required. This used to default to a `sampleReportData` fixture — a fake
+   * person with invented salary ranges and match percentages — which rendered
+   * as a real report whenever the prop was missing. The only caller already
+   * shows a "take the assessment" state when there is no report.
+   */
+  reportData: CareerReportData;
 }
 
-const InteractiveCareerReportSection: React.FC<InteractiveCareerReportSectionProps> = ({ 
-  reportData = sampleReportData // Use sample data as fallback
+const InteractiveCareerReportSection: React.FC<InteractiveCareerReportSectionProps> = ({
+  reportData
 }) => {
   const [activeTab, setActiveTab] = useState('overview');
   const navigate = useNavigate();
   const { initiateCareerCoachChat } = useCareerCoach();
   const { addProject } = usePortfolio();
   const { toast } = useToast();
+  const { bySlug: wagesBySlug } = useCareerRoleWages();
 
   const handleTakeQuiz = () => {
     navigate('/#quiz-section');
@@ -142,9 +72,9 @@ const InteractiveCareerReportSection: React.FC<InteractiveCareerReportSectionPro
     });
   };
 
-  const handleExploreRole = (roleTitle: string) => {
-    // Convert role title to URL-friendly format and navigate
-    const roleSlug = roleTitle.toLowerCase().replace(/\s+/g, '-');
+  const handleExploreRole = (roleSlug: string) => {
+    // Already the catalog slug, so it matches dataCareerRoles ids exactly —
+    // this used to slugify the display title and miss whenever they differed.
     navigate(`/explore-data-careers?role=${roleSlug}`);
   };
 
@@ -291,17 +221,17 @@ const InteractiveCareerReportSection: React.FC<InteractiveCareerReportSectionPro
                           {reportData.recommendedRoles[0].description}
                         </p>
                       </div>
-                      <div className="flex flex-col items-center">
-                        <div className="text-2xl font-bold text-primary">
-                          {reportData.recommendedRoles[0].matchPercentage}%
-                        </div>
-                        <div className="text-xs text-muted-foreground">Match Score</div>
-                      </div>
                     </div>
-                    <Button 
-                      className="w-full mt-4" 
+                    {wagesBySlug.get(reportData.recommendedRoles[0].roleSlug) && (
+                      <WageBand
+                        wage={wagesBySlug.get(reportData.recommendedRoles[0].roleSlug)!}
+                        className="mt-4"
+                      />
+                    )}
+                    <Button
+                      className="w-full mt-4"
                       size="sm"
-                      onClick={() => handleExploreRole(reportData.recommendedRoles[0].title)}
+                      onClick={() => handleExploreRole(reportData.recommendedRoles[0].roleSlug)}
                     >
                       Explore This Career
                     </Button>
@@ -349,25 +279,18 @@ const InteractiveCareerReportSection: React.FC<InteractiveCareerReportSectionPro
                   >
                     <div className="mb-3">
                       <h4 className="font-medium">{role.title}</h4>
-                      <div className="mt-2 mb-2">
-                        <div className="flex justify-between text-sm mb-1">
-                          <span>Match Score</span>
-                          <span className="font-medium">{role.matchPercentage}%</span>
-                        </div>
-                        <Progress value={role.matchPercentage} className="h-2" />
-                      </div>
                     </div>
                     <p className="text-sm text-muted-foreground mb-3">
                       {role.description}
                     </p>
-                    <div className="text-sm text-muted-foreground mb-3">
-                      Salary Range: <span className="font-medium text-foreground">{role.salaryRange}</span>
-                    </div>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
+                    {wagesBySlug.get(role.roleSlug) && (
+                      <WageBand wage={wagesBySlug.get(role.roleSlug)!} className="mb-3" />
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
                       className="w-full justify-between"
-                      onClick={() => handleExploreRole(role.title)}
+                      onClick={() => handleExploreRole(role.roleSlug)}
                     >
                       Explore Role <ArrowRightCircle className="h-3.5 w-3.5" />
                     </Button>

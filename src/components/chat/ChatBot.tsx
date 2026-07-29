@@ -172,7 +172,6 @@ const ChatBot = () => {
           query: userMessage.content,
           careerFocus: 'Data',
           careerPath: 'Data Analyst',
-          salaryCap: 120000,
           assistantType: 'Career Coach',
           context,
         },

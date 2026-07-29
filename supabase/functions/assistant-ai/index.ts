@@ -35,48 +35,41 @@ DATA BLUEPRINT SERIES KNOWLEDGE:
 - Lead: Lead Data Scientist/Analytics Manager (8+ years)
 - Executive: Director of Analytics/Chief Data Officer (10+ years)
 
-4. SALARY RANGES (USD):
-- Junior roles: $60,000-$85,000
-- Mid-level roles: $85,000-$120,000
-- Senior roles: $120,000-$165,000
-- Lead/Management: $150,000-$200,000
-- Executive: $200,000-$350,000+
-
-5. EDUCATION AND CERTIFICATION:
+4. EDUCATION AND CERTIFICATION:
 - Bachelor's degree: Minimum requirement for most entry-level positions
 - Master's/PhD: Often preferred for Data Scientist and research roles
 - Certifications: AWS/Azure/GCP cloud certifications, Tableau, Microsoft Power BI
 - Boot camps: Accelerated learning for career changers (3-6 months)
 
-6. INDUSTRY DEMAND:
+5. INDUSTRY DEMAND:
 - Healthcare: Growing need for data professionals in medical research, patient care optimization
 - Finance: High demand for risk modeling, fraud detection, algorithmic trading
 - Retail: Customer analytics, supply chain optimization, recommendation systems
 - Technology: Product analytics, user behavior analysis, platform optimization
 - Manufacturing: Process optimization, predictive maintenance, quality control
 
-7. EMERGING TRENDS:
+6. EMERGING TRENDS:
 - MLOps: Growing importance of operationalizing machine learning models
 - AutoML: Automation of model selection and hyperparameter tuning
 - Responsible AI: Focus on ethical AI, fairness, and removing bias
 - Data Mesh: Decentralized data ownership and governance
 - Real-time Analytics: Increasing demand for streaming data processing
 
-8. PORTFOLIO DEVELOPMENT:
+7. PORTFOLIO DEVELOPMENT:
 - Projects should demonstrate problem-solving abilities and technical skills
 - Include 3-5 substantial projects showing different aspects of data work
 - Document methodology, challenges faced, and business impact
 - Share code through GitHub with clear documentation
 - Consider contributing to open-source projects
 
-9. JOB SEARCH STRATEGIES:
+8. JOB SEARCH STRATEGIES:
 - Tailor resume to highlight relevant skills and projects for each application
 - Network through data conferences, meetups, and online communities
 - Prepare for technical interviews with coding practice and case studies
 - Follow companies of interest on LinkedIn and engage with their content
 - Consider contract roles as entry points to desirable companies
 
-10. CONTINUOUS LEARNING RESOURCES:
+9. CONTINUOUS LEARNING RESOURCES:
 - Academic courses: Coursera, edX, Udacity
 - Technical skills: DataCamp, Pluralsight, LeetCode
 - Books: "Python for Data Analysis", "The Data Warehouse Toolkit"
@@ -88,11 +81,57 @@ interface AIRequest {
   query: string;
   careerFocus: string;
   careerPath: string;
-  salaryCap: number;
+  salaryCap?: number;
   assistantType: string;
   conversationId?: string;
   quizAttemptId?: string;
   context?: string;
+}
+
+/**
+ * Real wage figures for the curated roles, injected per request.
+ *
+ * The knowledge base used to carry a hardcoded, undated salary ladder
+ * ("Junior roles: $60,000-$85,000" …) that the model answered pay questions
+ * from. It had no source, no reference period, and was organised by seniority
+ * rather than by occupation, so nothing about it could be checked. These come
+ * from `bls_occupations`, and the model is told to cite the period.
+ */
+async function fetchWageContext(supabaseClient: any): Promise<string> {
+  const { data, error } = await supabaseClient
+    .from('career_role_wages')
+    .select('title, occupation_title, soc_code, pct25, median, pct75, reference_period')
+    .eq('source', 'curated')
+    .order('median', { ascending: false });
+
+  if (error || !data?.length) {
+    console.error('Could not load BLS wage context:', error);
+    // Say nothing about pay rather than falling back to remembered numbers.
+    return `
+SALARY DATA:
+No wage data is available for this request. Do not state or estimate any salary
+figures. Tell the user pay data is temporarily unavailable.
+`;
+  }
+
+  const period = data[0].reference_period;
+  const lines = data
+    .map(
+      (r: Record<string, string | number>) =>
+        `- ${r.title} (BLS: ${r.occupation_title}, ${r.soc_code}): 25th–75th percentile $${r.pct25}–$${r.pct75}, median $${r.median}`,
+    )
+    .join('\n');
+
+  return `
+SALARY DATA — U.S. Bureau of Labor Statistics, Occupational Employment and Wage
+Statistics, ${period}. National, cross-industry. These are the ONLY salary
+figures you may state. Do not estimate, extrapolate, adjust for seniority or
+location, or quote any number that is not below. Always name the reference
+period (${period}) when you give a figure, and note that the figure is for the
+BLS occupation the role maps to.
+
+${lines}
+`;
 }
 
 
@@ -305,14 +344,18 @@ serve(async (req) => {
     // Create Supabase client for database operations
     let quizContext = '';
     let conversationHistory = '';
+    let wageContext = '';
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
-    
+
     if (!supabaseUrl || !supabaseKey) {
       console.warn("Supabase credentials not found, conversation tracking disabled");
     } else {
       const supabase = createClient(supabaseUrl, supabaseKey);
-      
+
+      // Real pay figures, replacing the ladder that used to live in the prompt.
+      wageContext = await fetchWageContext(supabase);
+
       // Fetch quiz data if available
       if (quizAttemptId) {
         quizContext = await fetchQuizData(quizAttemptId, supabase);
@@ -328,10 +371,16 @@ serve(async (req) => {
     }
     
     // Create context based on user preferences
+    // `salaryCap` is a slider the user sets, so it is only stated when they
+    // actually set one. Callers that had no slider used to send a hardcoded
+    // 120000, which read to the model as a stated preference.
     let userContext = `
-      The user is interested in the ${careerFocus} sector, 
-      specifically in ${careerPath} career paths, 
-      with a target salary range up to $${salaryCap}.
+      The user is interested in the ${careerFocus} sector,
+      specifically in ${careerPath} career paths.${
+        typeof salaryCap === 'number' && salaryCap > 0
+          ? `\n      They are targeting roles paying up to $${salaryCap}.`
+          : ''
+      }
       You are acting as a ${assistantType} assistant.
     `;
     
@@ -367,12 +416,12 @@ serve(async (req) => {
           messages: [
             {
               role: 'system',
-              content: `You are a helpful data career assistant with expertise in the data industry. 
-                       Use the following knowledge base to inform your responses: 
+              content: `You are a helpful data career assistant with expertise in the data industry.
+                       Use the following knowledge base to inform your responses:
                        ${KNOWLEDGE_BASE}
-                       
+                       ${wageContext}
                        ${userContext}
-                       
+
                        Focus on providing accurate, actionable advice based on the knowledge base above.
                        If you're unsure about something or if the information isn't in the knowledge base,
                        acknowledge the limitations of your knowledge rather than making up information.`

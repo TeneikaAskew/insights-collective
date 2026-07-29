@@ -10,14 +10,6 @@ import { createLogger } from '@/utils/logger';
 
 const logger = createLogger('useCareerCoach');
 
-// Define typical salary ranges for each career path
-const careerPathSalaries: Record<CareerTrack, number> = {
-  'AI/ML': 160000,
-  'Analytics': 110000,
-  'Data Engineering': 140000,
-  'Business Intelligence': 120000
-};
-
 export function useCareerCoach() {
   const [isProcessing, setIsProcessing] = useState(false);
   const navigate = useNavigate();
@@ -114,14 +106,16 @@ export function useCareerCoach() {
         .sort(([, scoreA], [, scoreB]) => scoreB - scoreA);
       
       const topCareerPath = sortedTracks[0][0] as CareerTrack;
-      const recommendedSalary = careerPathSalaries[topCareerPath];
-      
-      // Step 4: Store settings for the assistant interface to use
+
+      // Step 4: Store settings for the assistant interface to use.
+      // `recommendedSalary` used to be written here from a hardcoded per-track
+      // map (AI/ML 160000, Analytics 110000, …). The assistant now derives pay
+      // from the track's BLS band via TRACK_ROLE_SLUG, so there is nothing to
+      // stash and nothing to keep in sync.
       localStorage.setItem('activeQuizAttemptId', quizAttemptId);
       localStorage.setItem('activeConversationId', conversationId);
       localStorage.setItem('recommendedCareerPath', topCareerPath);
-      localStorage.setItem('recommendedSalary', recommendedSalary.toString());
-      
+
       // Clear stored quiz data as it's now in Supabase
       localStorage.removeItem('quizScores');
       localStorage.removeItem('quizAnswers');

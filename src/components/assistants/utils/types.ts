@@ -4,13 +4,13 @@ import { CareerReportData as CareerReportDataType } from "../../assistants/types
 
 // Define missing types that are used in CareerReportParser.ts
 export interface RecommendedRole {
+  /** Slug from the curated career_roles catalog. Pay is joined from BLS on it. */
+  roleSlug: string;
   title: string;
   description: string;
-  salaryRange: string;
   focusAreas?: string[];
   responsibilities?: string[];
   requirements?: string[];
-  matchPercentage: number; // Make this required to match the expected type
 }
 
 export interface SkillCourse {

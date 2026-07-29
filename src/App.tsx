@@ -29,7 +29,6 @@ const CourseList = lazy(() => import('@/pages/CourseList'));
 const CourseDetail = lazy(() => import('@/pages/CourseDetail'));
 const CourseBuilder = lazy(() => import('@/pages/CourseBuilder'));
 const CourseLearn = lazy(() => import('@/pages/CourseLearn'));
-const CourseManagement = lazy(() => import('@/pages/CourseManagement'));
 const CourseManagementDashboard = lazy(() => import('@/components/course/management/CourseManagementDashboard'));
 const AssignmentDetail = lazy(() => import('@/pages/AssignmentDetail'));
 const LessonDetail = lazy(() => import('@/pages/LessonDetail'));
@@ -72,9 +71,6 @@ const Resume = lazy(() => import('@/pages/Resume'));
 const Events = lazy(() => import('@/pages/Events'));
 const EventDetail = lazy(() => import('@/pages/EventDetail'));
 const Messages = lazy(() => import('@/pages/Messages'));
-const Forum = lazy(() => import('@/pages/ForumList'));
-const ForumDetail = lazy(() => import('@/pages/ForumDetail'));
-const ThreadDetail = lazy(() => import('@/pages/ThreadDetail'));
 
 // Portfolio Pages
 const PortfolioExplorer = lazy(() => import('@/pages/PortfolioExplorer'));
@@ -103,7 +99,6 @@ const AdminDashboard = lazy(() => import('@/pages/AdminDashboard'));
 const AdminActivity = lazy(() => import('@/pages/AdminActivity'));
 const AdminBlogPosts = lazy(() => import('@/pages/AdminBlogPosts'));
 const AdminCourses = lazy(() => import('@/pages/AdminCourses'));
-const AdminCourseEdit = lazy(() => import('@/pages/AdminCourseEdit'));
 const AdminEvents = lazy(() => import('@/pages/AdminEvents'));
 const AdminUsers = lazy(() => import('@/pages/AdminUsers'));
 const BlogAdmin = lazy(() => import('@/pages/admin/BlogAdmin'));

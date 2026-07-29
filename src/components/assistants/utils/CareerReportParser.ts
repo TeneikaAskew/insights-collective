@@ -128,14 +128,16 @@ export const formatCareerPathwayReport = (reportData: any): CareerReportData => 
 };
 
 const extractDataFromJSON = (data: any): CareerReportData => {
+  // `salaryRange` and `matchPercentage` are gone: the report no longer emits
+  // either. Pay is joined from career_role_wages on `roleSlug`, and the match
+  // percentage was only ever `|| 0` here and `90 - index * 5` at the render.
   const recommendedRoles = (data.recommended_roles || data.recommendedRoles || []).map((role: any) => ({
-    title: role.title || role.role || 'Unknown Role',
+    roleSlug: role.roleSlug || role.role_slug,
+    title: role.title || role.role || '',
     description: role.description || '',
-    salaryRange: role.salary_range || role.salaryRange || role.salary || 'Not specified',
     focusAreas: cleanFocusAreas(role.focus_areas || role.focusAreas || []),
     responsibilities: role.responsibilities || [],
-    requirements: role.requirements || [],
-    matchPercentage: role.matchPercentage || role.match_percentage || 0
+    requirements: role.requirements || []
   }));
 
   const potentialRoles = (data.potential_roles || data.potentialRoles || []).map((role: string) => role);

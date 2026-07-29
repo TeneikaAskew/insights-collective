@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -48,10 +48,11 @@ const ExploreDataCareers = () => {
   // Filters on the BLS median for the occupation this role maps to. The previous
   // version regex-scraped dollar amounts out of the description prose and
   // averaged whatever it found, which is why the filter behaved unpredictably.
-  // With no BLS figure we keep the role in results rather than hide it.
+  // Every role has a median once loaded; the guard covers the in-flight render,
+  // where filtering on an empty map would blank the whole list.
   const matchesSalaryFilter = (roleId: string, filter: string) => {
     const median = wagesBySlug.get(roleId)?.median;
-    if (typeof median !== 'number') return true;
+    if (median === undefined) return true;
     switch (filter) {
       case 'under-80k':
         return median < 80000;
@@ -223,18 +224,25 @@ const ExploreDataCareers = () => {
 
             <div className="bg-white dark:bg-gray-800 rounded-xl p-5 space-y-4 shadow-md">
               <h3 className="font-medium">Career Resources</h3>
+              {/* All four links here pointed at routes that do not exist
+                  (/resources/salary-guide, /career-pathway/skills-assessment,
+                  /career-pathway/planner, /resources/interview-prep) and fell
+                  through to the catch-all NotFound. Pointed at the real ones;
+                  the salary guide is gone because the pay data is now on the
+                  cards themselves. Client-side navigation, not <a href>, so
+                  they no longer force a full page reload. */}
               <div className="space-y-3">
                 <Button variant="link" className="justify-start p-0 h-auto" asChild>
-                  <a href="/resources/salary-guide">Salary Guide 2025</a>
+                  <Link to="/career-pathway">Career Path Planner</Link>
                 </Button>
                 <Button variant="link" className="justify-start p-0 h-auto" asChild>
-                  <a href="/career-pathway/skills-assessment">Skills Assessment</a>
+                  <Link to="/career-agent">Skills Assessment</Link>
                 </Button>
                 <Button variant="link" className="justify-start p-0 h-auto" asChild>
-                  <a href="/career-pathway/planner">Career Path Planner</a>
+                  <Link to="/interview-prep">Interview Preparation</Link>
                 </Button>
                 <Button variant="link" className="justify-start p-0 h-auto" asChild>
-                  <a href="/resources/interview-prep">Interview Preparation</a>
+                  <Link to="/resources">All Resources</Link>
                 </Button>
               </div>
             </div>

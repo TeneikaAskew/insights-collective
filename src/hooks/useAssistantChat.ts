@@ -213,33 +213,11 @@ export const useAssistantChat = (initialAssistant: Assistant) => {
         variant: "destructive",
       });
       
-      // Add fallback response if the API call fails
-      const { careerFocus, careerPath, salaryCap } = settings;
-      const fallbackMessage: Message = {
-        id: `assistant-fallback-${Date.now()}`,
-        role: 'assistant',
-        content: `Based on your interest in ${careerFocus} with a focus on ${careerPath} careers and a target salary up to $${(salaryCap/1000).toFixed(0)}K, I'd recommend exploring roles like Senior Data Analyst or ML Engineer. Would you like more specific information about either of these paths?`,
-        timestamp: new Date(),
-      };
-      
-      setMessages(prevMessages => [...prevMessages, fallbackMessage]);
-      
-      // Update chat with fallback response
-      if (currentChat) {
-        const updatedChat = {
-          ...currentChat,
-          messages: [...currentChat.messages, userMessage, fallbackMessage],
-          updatedAt: new Date()
-        };
-        setCurrentChat(updatedChat);
-        
-        // Update localStorage
-        const savedChats = JSON.parse(localStorage.getItem('assistantChats') || '[]');
-        const updatedChats = savedChats.map((chat: Chat) => 
-          chat.id === updatedChat.id ? updatedChat : chat
-        );
-        localStorage.setItem('assistantChats', JSON.stringify(updatedChats));
-      }
+      // No canned reply on failure. This used to append an assistant message
+      // that invented a salary from the slider and recommended "Senior Data
+      // Analyst or ML Engineer" from a string literal — indistinguishable from
+      // a real answer, and persisted into the chat history. The destructive
+      // toast above already tells the user the request failed.
     } finally {
       setIsLoading(false);
     }
