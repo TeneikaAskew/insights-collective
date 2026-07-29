@@ -78,7 +78,7 @@ async function callBls(body: Record<string, unknown>) {
  * catalog, which is why the key is mandatory: without it we would be storing a
  * caller-supplied name against BLS figures and calling it authoritative.
  */
-async function resolveOccupation(socCode: string): Promise<{ title: string }> {
+export async function resolveOccupation(socCode: string): Promise<{ title: string }> {
   if (!SOC_PATTERN.test(socCode)) {
     throw new Error(`"${socCode}" is not a SOC code (expected NN-NNNN)`);
   }
@@ -116,7 +116,7 @@ async function resolveOccupation(socCode: string): Promise<{ title: string }> {
   return { title };
 }
 
-async function fetchOewsFigures(socCodes: string[]) {
+export async function fetchOewsFigures(socCodes: string[]) {
   const measures = Object.keys(OEWS_DATATYPES) as Measure[];
   const wanted = socCodes.flatMap((soc) =>
     measures.map((m) => ({ id: seriesId(soc, m), soc, measure: m })),
@@ -175,7 +175,7 @@ async function fetchOewsFigures(socCodes: string[]) {
   return { rows, skipped };
 }
 
-serve(async (req) => {
+export const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -338,4 +338,8 @@ serve(async (req) => {
     console.error("bls-wages failed:", error);
     return json({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
   }
-});
+};
+
+// Only listen when run as the function entrypoint, so the helpers above can
+// be imported and exercised directly by a test harness.
+if (import.meta.main) serve(handler);
