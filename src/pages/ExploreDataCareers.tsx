@@ -232,11 +232,14 @@ const ExploreDataCareers = () => {
                   cards themselves. Client-side navigation, not <a href>, so
                   they no longer force a full page reload. */}
               <div className="space-y-3">
+                {/* Named after what each page actually is. "Career Path
+                    Planner" and "Skills Assessment" were labels for pages that
+                    were never built. */}
                 <Button variant="link" className="justify-start p-0 h-auto" asChild>
-                  <Link to="/career-pathway">Career Path Planner</Link>
+                  <Link to="/career-agent">Take the Career Assessment</Link>
                 </Button>
                 <Button variant="link" className="justify-start p-0 h-auto" asChild>
-                  <Link to="/career-agent">Skills Assessment</Link>
+                  <Link to="/career-pathway">Your Career Report</Link>
                 </Button>
                 <Button variant="link" className="justify-start p-0 h-auto" asChild>
                   <Link to="/interview-prep">Interview Preparation</Link>
