@@ -99,11 +99,12 @@ export default function AdminLayout({ children }: { children?: React.ReactNode }
             )}
           </nav>
         </aside>
-        <main className="min-w-0 flex-1 px-4 py-8 sm:px-6 lg:px-8" data-testid="admin-shell-content">
+        {/* div, not <main> — AppLayout already provides the main landmark */}
+        <div className="min-w-0 flex-1 px-4 py-8 sm:px-6 lg:px-8" data-testid="admin-shell-content">
           <div className="mx-auto w-full max-w-6xl" key={location.pathname}>
             {children ?? <Outlet />}
           </div>
-        </main>
+        </div>
       </div>
     </AppLayout>
   );
