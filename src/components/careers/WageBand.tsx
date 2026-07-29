@@ -1,10 +1,10 @@
-// ABOUTME: Renders a BLS wage band as a labelled range bar on a shared salary scale.
+// ABOUTME: Renders a BLS wage distribution as a box-and-whisker strip on a shared salary scale.
 // ABOUTME: Every instance names the BLS occupation it came from, because role titles are not BLS titles.
 import { CareerRoleWage, formatWageShort } from '@/hooks/useCareerRoleWages';
 
 /**
- * A fixed scale, so bars are comparable across cards. The floor and ceiling sit
- * outside every seeded occupation's 10th/90th percentile, so nothing clips.
+ * A fixed scale, so strips are directly comparable between roles. The floor and
+ * ceiling sit outside every seeded occupation's 10th/90th percentile.
  */
 export const WAGE_SCALE_MIN = 40_000;
 export const WAGE_SCALE_MAX = 300_000;
@@ -14,64 +14,94 @@ const pct = (value: number) =>
 
 type Props = {
   wage: CareerRoleWage;
-  /** Show the BLS occupation title and SOC code under the bar. */
+  /** Name the BLS occupation and SOC code under the strip. */
   showOccupation?: boolean;
+  /** Print the $40k / median / $300k scale under the strip. */
+  showScale?: boolean;
   className?: string;
 };
 
 /**
- * No absent-data branch on purpose: `career_role_wages` inner-joins a NOT NULL
- * FK, and a CHECK constraint keeps the percentiles ordered, so every row that
- * reaches this component has a complete, well-formed band.
+ * BLS publishes five percentiles, so the strip draws all of them: whiskers span
+ * the 10th to 90th, the box the 25th to 75th, and a tick marks the median. Two
+ * roles can share a "typical pay" range and have very different spreads, which
+ * a single bar hides.
+ *
+ * No absent-data branch: `career_role_wages` inner-joins a NOT NULL FK and a
+ * CHECK keeps the percentiles ordered, so every row here has a complete band.
  */
-const WageBand = ({ wage, showOccupation = true, className = '' }: Props) => {
-  const { pct25, median, pct75 } = wage;
+const WageBand = ({ wage, showOccupation = true, showScale = true, className = '' }: Props) => {
+  const { pct10, pct25, median, pct75, pct90 } = wage;
 
-  const left = pct(pct25);
-  const width = Math.max(1.5, pct(pct75) - left);
-  const medianLeft = pct(median);
+  const lo = pct(pct10);
+  const hi = pct(pct90);
+  const boxLeft = pct(pct25);
+  const boxWidth = Math.max(1.2, pct(pct75) - boxLeft);
 
   return (
     <div className={className}>
       <div className="flex justify-between gap-4 text-sm">
-        <span className="text-studio-muted">Typical pay</span>
-        <span className="font-semibold text-studio-ink text-right tabular-nums">
+        <span className="text-muted-foreground">Typical pay</span>
+        <span className="font-semibold text-right tabular-nums">
           {formatWageShort(pct25)} – {formatWageShort(pct75)}
         </span>
       </div>
 
       <div
-        className="relative mt-2 h-[9px] rounded-full bg-studio-track overflow-hidden"
+        className="relative h-[22px] mt-1"
         role="img"
-        aria-label={`Middle half of earners make ${formatWageShort(pct25)} to ${formatWageShort(
-          pct75,
-        )}, median ${formatWageShort(median)}`}
+        aria-label={`Pay distribution: 10th percentile ${formatWageShort(pct10)}, 25th ${formatWageShort(
+          pct25,
+        )}, median ${formatWageShort(median)}, 75th ${formatWageShort(pct75)}, 90th ${formatWageShort(pct90)}`}
       >
+        <span className="absolute left-0 right-0 top-[10px] h-[2px] rounded bg-muted" />
         <span
-          className="absolute inset-y-0 rounded-full bg-studio-teal"
-          style={{ left: `${left}%`, width: `${width}%` }}
+          className="absolute top-[10px] h-[2px] bg-studio-tealChip"
+          style={{ left: `${lo}%`, width: `${hi - lo}%` }}
         />
-        {/* Median tick, so the bar shows centre as well as spread. */}
+        <span className="absolute top-[6px] w-[2px] h-[10px] rounded bg-studio-tealChip" style={{ left: `${lo}%` }} />
+        <span className="absolute top-[6px] w-[2px] h-[10px] rounded bg-studio-tealChip" style={{ left: `${hi}%` }} />
         <span
-          className="absolute inset-y-0 w-[2px] bg-studio-card"
-          style={{ left: `${medianLeft}%` }}
+          className="absolute top-[4px] h-[14px] rounded bg-studio-teal opacity-90"
+          style={{ left: `${boxLeft}%`, width: `${boxWidth}%` }}
+        />
+        <span
+          className="absolute top-[1px] w-[2px] h-[20px] rounded bg-foreground"
+          style={{ left: `${pct(median)}%` }}
         />
       </div>
 
-      <div className="mt-1 flex justify-between text-[10px] text-studio-muted tabular-nums">
-        <span>{formatWageShort(WAGE_SCALE_MIN)}</span>
-        <span>Median {formatWageShort(median)}</span>
-        <span>{formatWageShort(WAGE_SCALE_MAX)}</span>
-      </div>
+      {showScale && (
+        <div className="flex justify-between text-[10px] text-muted-foreground tabular-nums">
+          <span>{formatWageShort(WAGE_SCALE_MIN)}</span>
+          <span>Median {formatWageShort(median)}</span>
+          <span>{formatWageShort(WAGE_SCALE_MAX)}</span>
+        </div>
+      )}
 
       {showOccupation && (
-        <p className="mt-2 text-[11px] leading-snug text-studio-muted">
-          BLS occupation: {wage.occupation_title} ({wage.soc_code})
+        <p className="mt-2 text-[11px] leading-snug text-muted-foreground">
+          BLS: {wage.occupation_title} ({wage.soc_code})
           {wage.mapping_note ? ` — ${wage.mapping_note}` : ''}
         </p>
       )}
     </div>
   );
 };
+
+/** Shared key for the strip, so the encoding is explained once per page. */
+export const WageBandLegend = ({ className = '' }: { className?: string }) => (
+  <div className={`flex flex-wrap items-center gap-4 text-xs text-muted-foreground ${className}`}>
+    <span className="flex items-center gap-1.5">
+      <i className="inline-block w-[22px] h-[2px] bg-studio-tealChip" /> 10th–90th
+    </span>
+    <span className="flex items-center gap-1.5">
+      <i className="inline-block w-[22px] h-[10px] rounded-sm bg-studio-teal" /> 25th–75th
+    </span>
+    <span className="flex items-center gap-1.5">
+      <i className="inline-block w-[2px] h-[12px] bg-foreground" /> Median
+    </span>
+  </div>
+);
 
 export default WageBand;

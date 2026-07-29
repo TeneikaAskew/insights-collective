@@ -81,10 +81,10 @@ export interface CareerReportData {
   userName: string;
   summary: string;
   recommendedRoles: Array<{
+    /** Slug from the curated career_roles catalog; pay is joined from BLS on it. */
+    roleSlug: string;
     title: string;
     description: string;
-    salaryRange: string;
-    matchPercentage: number;
     focusAreas?: string[];
     responsibilities?: string[];
     requirements?: string[];

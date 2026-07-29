@@ -2,13 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Separator } from '@/components/ui/separator';
-import { Search, Filter, ChevronDown, Briefcase, LineChart, Database, Monitor, Brain } from 'lucide-react';
+import { Search, Filter, ChevronDown, Briefcase, List, LayoutGrid, LineChart, Database, Monitor, Brain } from 'lucide-react';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RoleCard } from '@/components/careers/RoleCard';
 import { dataCareerRoles } from '@/data/dataCareerRoles';
 import { useCareerRoleWages } from '@/hooks/useCareerRoleWages';
+import { RoleTable } from '@/components/careers/RoleTable';
+import { CareerRoleDetails } from '@/components/careers/CareerRoleDetails';
+import { WageBandLegend } from '@/components/careers/WageBand';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 
@@ -18,7 +20,11 @@ const ExploreDataCareers = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [skillFilters, setSkillFilters] = useState<string[]>([]);
   const [salaryFilter, setSalaryFilter] = useState('all');
-  const [visibleRoles, setVisibleRoles] = useState(6);
+  const [visibleRoles, setVisibleRoles] = useState(9);
+  const [view, setView] = useState<'list' | 'grid'>('list');
+  const [sortKey, setSortKey] = useState('title');
+  // One dialog for the page, shared by both views.
+  const [openRoleId, setOpenRoleId] = useState<string | null>(null);
   const { bySlug: wagesBySlug, citation: wageCitation } = useCareerRoleWages();
   useEffect(() => {
     const roleId = searchParams.get('role');
@@ -70,13 +76,20 @@ const ExploreDataCareers = () => {
     const matchesSkills = skillFilters.length === 0 || role.skills && skillFilters.every(skill => Array.isArray(role.skills) && role.skills.includes(skill));
     const matchesSalary = salaryFilter === 'all' || matchesSalaryFilter(role.id, salaryFilter);
     return matchesSearch && matchesCategory && matchesSkills && matchesSalary;
+  }).sort((a, b) => {
+    if (sortKey === 'title') return a.title.localeCompare(b.title);
+    // Pay and job counts read highest-first; both come from the BLS row.
+    const av = wagesBySlug.get(a.id)?.[sortKey as 'median' | 'employment'] ?? 0;
+    const bv = wagesBySlug.get(b.id)?.[sortKey as 'median' | 'employment'] ?? 0;
+    return bv - av;
   });
-  const rolesByCategory = categories.reduce((acc, category) => {
-    if (category !== 'all') {
-      acc[category] = dataCareerRoles.filter(role => role.category.split(',').some(cat => cat.trim() === category));
-    }
-    return acc;
-  }, {} as Record<string, typeof dataCareerRoles>);
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setSelectedCategory('all');
+    setSkillFilters([]);
+    setSalaryFilter('all');
+  };
   const toggleSkillFilter = (skill: string) => {
     setSkillFilters(prev => prev.includes(skill) ? prev.filter(s => s !== skill) : [...prev, skill]);
   };
@@ -212,12 +225,7 @@ const ExploreDataCareers = () => {
                 </Select>
               </div>
 
-              {(searchQuery || selectedCategory !== 'all' || skillFilters.length > 0 || salaryFilter !== 'all') && <Button variant="outline" className="w-full" onClick={() => {
-              setSearchQuery('');
-              setSelectedCategory('all');
-              setSkillFilters([]);
-              setSalaryFilter('all');
-            }}>
+              {(searchQuery || selectedCategory !== 'all' || skillFilters.length > 0 || salaryFilter !== 'all') && <Button variant="outline" className="w-full" onClick={clearFilters}>
                   Clear All Filters
                 </Button>}
             </div>
@@ -300,74 +308,99 @@ const ExploreDataCareers = () => {
           duration: 0.5,
           delay: 0.4
         }} className="md:col-span-4">
-            <Tabs defaultValue="grid" className="space-y-6">
-              <div className="flex justify-between items-center">
-                <TabsList className="bg-transparent">
-                  <TabsTrigger value="grid" className="data-[state=active]:bg-primary data-[state=active]:text-white">Grid View</TabsTrigger>
-                  <TabsTrigger value="categories" className="data-[state=active]:bg-primary data-[state=active]:text-white">By Category</TabsTrigger>
-                </TabsList>
+            <div className="space-y-5">
+              <div className="flex items-center gap-3 flex-wrap">
+                {/* List and Grid are two readings of the same filtered set:
+                    List compares pay across many roles at once, Grid gives each
+                    role room to describe itself. "By Category" is gone — the
+                    Category filter in the sidebar already does that, and it
+                    ignored the filters entirely. */}
+                <div className="inline-flex gap-1 p-1 rounded-xl border bg-muted/40">
+                  <Button
+                    size="sm"
+                    variant={view === 'list' ? 'default' : 'ghost'}
+                    className="gap-2"
+                    aria-pressed={view === 'list'}
+                    onClick={() => setView('list')}
+                  >
+                    <List className="h-4 w-4" /> List
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={view === 'grid' ? 'default' : 'ghost'}
+                    className="gap-2"
+                    aria-pressed={view === 'grid'}
+                    onClick={() => setView('grid')}
+                  >
+                    <LayoutGrid className="h-4 w-4" /> Grid
+                  </Button>
+                </div>
+
+                <div className="flex items-center gap-2 ml-auto">
+                  <label htmlFor="sort-roles" className="text-sm text-muted-foreground">Sort</label>
+                  <Select value={sortKey} onValueChange={setSortKey}>
+                    <SelectTrigger id="sort-roles" className="w-[150px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="title">Role name</SelectItem>
+                      <SelectItem value="median">Median pay</SelectItem>
+                      <SelectItem value="employment">US jobs</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <span className="text-sm text-muted-foreground">
                   {filteredRoles.length} role{filteredRoles.length !== 1 ? 's' : ''} found
                 </span>
               </div>
-              
-              <TabsContent value="grid" className="space-y-6">
-                {filteredRoles.length > 0 ? <>
-                    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+
+              {filteredRoles.length > 0 && <WageBandLegend />}
+
+              {filteredRoles.length === 0 ? <div className="text-center py-12 bg-muted/50 rounded-lg">
+                  <Briefcase className="h-16 w-16 text-muted-foreground/40 mx-auto mb-4" />
+                  <h3 className="text-xl font-medium mb-2">No roles match your search</h3>
+                  <p className="text-muted-foreground">Try adjusting your search or filter criteria</p>
+                  <Button variant="outline" className="mt-4" onClick={clearFilters}>Clear All Filters</Button>
+                </div> : <>
+                  {view === 'list' ? <RoleTable
+                      roles={filteredRoles.slice(0, visibleRoles)}
+                      wagesBySlug={wagesBySlug}
+                      onOpenRole={setOpenRoleId}
+                    /> : <motion.div variants={containerVariants} initial="hidden" animate="visible" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                       {filteredRoles.slice(0, visibleRoles).map(role => <motion.div key={role.id} variants={itemVariants}>
-                          <RoleCard role={role} wage={wagesBySlug.get(role.id)} />
+                          <RoleCard role={role} wage={wagesBySlug.get(role.id)} onOpenRole={setOpenRoleId} />
                         </motion.div>)}
-                    </motion.div>
-                    
-                    {visibleRoles < filteredRoles.length && <div className="flex justify-center pt-4">
-                        <Button onClick={handleLoadMore} variant="outline" className="group">
-                          Load More
-                          <ChevronDown className="ml-2 h-4 w-4 transition-transform group-hover:translate-y-1" />
-                        </Button>
-                      </div>}
-                  </> : <div className="text-center py-12 bg-muted/50 rounded-lg">
-                    <Briefcase className="h-16 w-16 text-muted-foreground/40 mx-auto mb-4" />
-                    <h3 className="text-xl font-medium mb-2">No roles match your search</h3>
-                    <p className="text-muted-foreground">Try adjusting your search or filter criteria</p>
-                    <Button variant="outline" className="mt-4" onClick={() => {
-                  setSearchQuery('');
-                  setSelectedCategory('all');
-                  setSkillFilters([]);
-                  setSalaryFilter('all');
-                }}>
-                      Clear All Filters
-                    </Button>
-                  </div>}
-              </TabsContent>
-              
-              <TabsContent value="categories" className="space-y-10">
-                {Object.entries(rolesByCategory).map(([category, roles]) => <motion.div key={category} initial={{
-                opacity: 0,
-                y: 20
-              }} animate={{
-                opacity: 1,
-                y: 0
-              }} transition={{
-                duration: 0.5
-              }} className="space-y-4">
-                    <div>
-                      <div className="flex items-center gap-3">
-                        <div className="bg-primary/10 p-2 rounded-lg">
-                          <CategoryIcon category={category} />
-                        </div>
-                        <h2 className="text-2xl font-bold">{category}</h2>
-                      </div>
-                      <Separator className="my-3" />
-                    </div>
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                      {roles.map(role => <RoleCard key={role.id} role={role} wage={wagesBySlug.get(role.id)} />)}
-                    </div>
-                  </motion.div>)}
-              </TabsContent>
-            </Tabs>
+                    </motion.div>}
+
+                  {visibleRoles < filteredRoles.length && <div className="flex justify-center pt-4">
+                      <Button onClick={handleLoadMore} variant="outline" className="group">
+                        Load More
+                        <ChevronDown className="ml-2 h-4 w-4 transition-transform group-hover:translate-y-1" />
+                      </Button>
+                    </div>}
+                </>}
+            </div>
           </motion.div>
         </div>
       </div>
+
+      {/* Shared detail dialog. Mounted once for the page instead of once per
+          card, and driven by id so List and Grid open the same instance. */}
+      <Dialog open={openRoleId !== null} onOpenChange={open => !open && setOpenRoleId(null)}>
+        <DialogContent className="p-0 border-none bg-transparent shadow-none max-w-4xl w-[95vw]">
+          {openRoleId && (() => {
+            const role = dataCareerRoles.find(r => r.id === openRoleId);
+            if (!role) return null;
+            return <>
+              {/* Radix needs a title for screen readers; the visible one lives
+                  inside RoleHeader, so this is the accessible-name copy. */}
+              <DialogTitle className="sr-only">{role.title}</DialogTitle>
+              <CareerRoleDetails role={role} wage={wagesBySlug.get(role.id)} onClose={() => setOpenRoleId(null)} />
+            </>;
+          })()}
+        </DialogContent>
+      </Dialog>
     </AppLayout>;
 };
 export default ExploreDataCareers;
