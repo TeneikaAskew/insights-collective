@@ -5,6 +5,22 @@ import { Link } from 'react-router-dom';
 import { ChevronDown, BrainCircuit, BarChart3, Database, Presentation } from 'lucide-react';
 import { trackPersonas, courseRecommendations, CareerTrack } from '@/data/careerQuizData';
 import { Reveal, stagger } from './motion/Reveal';
+import { useCareerRoleWages } from '@/hooks/useCareerRoleWages';
+import WageBand from '@/components/careers/WageBand';
+
+/**
+ * Each track shows the wage band of one representative role rather than an
+ * average across the track, so the figure stays traceable to a single BLS
+ * occupation. Analytics and Business Intelligence resolve to the same
+ * occupation because BLS reports both inside Data Scientists (15-2051) — the
+ * card names the occupation, so the repetition is informative, not a bug.
+ */
+const TRACK_ROLE_SLUG: Record<CareerTrack, string> = {
+  'AI/ML': 'machine-learning-engineer',
+  Analytics: 'data-analyst',
+  'Data Engineering': 'data-engineer',
+  'Business Intelligence': 'bi-analyst',
+};
 
 const ICONS: Record<CareerTrack, React.ComponentType<{ className?: string }>> = {
   'AI/ML': BrainCircuit,
@@ -22,6 +38,7 @@ function starterCourses(track: CareerTrack) {
 
 const CareerPaths = () => {
   const [open, setOpen] = useState<CareerTrack | null>(null);
+  const { bySlug, citation } = useCareerRoleWages();
 
   return (
     <section className="py-20" id="career-paths">
@@ -44,6 +61,7 @@ const CareerPaths = () => {
             const isOpen = open === persona.track;
             const courses = starterCourses(persona.track);
             const panelId = `path-panel-${persona.track.replace(/[^a-z]/gi, '-').toLowerCase()}`;
+            const wage = bySlug.get(TRACK_ROLE_SLUG[persona.track]);
 
             return (
               <Reveal key={persona.track} delay={stagger(i)} as="article" className="h-full">
@@ -80,6 +98,9 @@ const CareerPaths = () => {
                       <dd className="font-semibold text-studio-ink text-right">{courses.length}</dd>
                     </div>
                   </dl>
+
+                  {/* Renders nothing until the BLS reference data is present. */}
+                  {wage && <WageBand wage={wage} className="mt-4" />}
 
                   <button
                     type="button"
@@ -142,6 +163,27 @@ const CareerPaths = () => {
             );
           })}
         </div>
+
+        {/* The citation is not optional decoration — it is the reason these
+            figures are allowed on the page at all. */}
+        {citation && (
+          <Reveal delay={0.1}>
+            <p className="mt-6 text-xs text-studio-muted max-w-3xl">
+              Pay ranges show the middle half of earners (25th–75th percentile), national and
+              cross-industry, from{' '}
+              <a
+                href={citation.url}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="underline hover:text-studio-ink"
+              >
+                {citation.source}
+              </a>
+              , {citation.referencePeriod}. Figures are for the BLS occupation each track maps to,
+              not for the track title itself.
+            </p>
+          </Reveal>
+        )}
       </div>
     </section>
   );

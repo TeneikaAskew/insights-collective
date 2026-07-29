@@ -50,3 +50,8 @@ verify_jwt = true
 
 [functions.evaluate-star-response]
 verify_jwt = true
+
+# Public reference data — the landing page reads salary bands while signed out.
+# The refresh path inside the function checks for the service-role key itself.
+[functions.bls-wages]
+verify_jwt = false

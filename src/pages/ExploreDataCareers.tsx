@@ -8,6 +8,7 @@ import { Search, Filter, ChevronDown, Briefcase, LineChart, Database, Monitor, B
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RoleCard } from '@/components/careers/RoleCard';
 import { dataCareerRoles } from '@/data/dataCareerRoles';
+import { useCareerRoleWages } from '@/hooks/useCareerRoleWages';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 
@@ -18,6 +19,7 @@ const ExploreDataCareers = () => {
   const [skillFilters, setSkillFilters] = useState<string[]>([]);
   const [salaryFilter, setSalaryFilter] = useState('all');
   const [visibleRoles, setVisibleRoles] = useState(6);
+  const { bySlug: wagesBySlug, citation: wageCitation } = useCareerRoleWages();
   useEffect(() => {
     const roleId = searchParams.get('role');
     const category = searchParams.get('category');
@@ -43,25 +45,20 @@ const ExploreDataCareers = () => {
   }, [searchParams]);
   const categories = ['all', 'AI/ML', 'Analytics', 'Data Engineering', 'Business Intelligence'];
   const allSkills = Array.from(new Set(dataCareerRoles.flatMap(role => role.skills ? Array.isArray(role.skills) ? role.skills : [] : []))).sort();
-  const matchesSalaryFilter = (role: typeof dataCareerRoles[0], filter: string) => {
-    if (!role) return false;
-
-    // Get salary range from the longDescription or shortDescription
-    // Try to extract numbers from these fields if needed
-    const salaryText = role.longDescription || role.shortDescription || '';
-    const numbers = salaryText.match(/\d+k|\$\d+,\d+|\d+,\d+|\$\d+k/g);
-    if (!numbers || numbers.length < 1) return true; // If no salary info found, include it in results
-
-    // Estimate an average salary based on extracted numbers
-    const cleanNumbers = numbers.map(num => parseInt(num.replace(/[$,k]/g, '')) * (num.includes('k') ? 1000 : 1));
-    const avgSalary = cleanNumbers.reduce((a, b) => a + b, 0) / cleanNumbers.length;
+  // Filters on the BLS median for the occupation this role maps to. The previous
+  // version regex-scraped dollar amounts out of the description prose and
+  // averaged whatever it found, which is why the filter behaved unpredictably.
+  // With no BLS figure we keep the role in results rather than hide it.
+  const matchesSalaryFilter = (roleId: string, filter: string) => {
+    const median = wagesBySlug.get(roleId)?.median;
+    if (typeof median !== 'number') return true;
     switch (filter) {
       case 'under-80k':
-        return avgSalary < 80000;
+        return median < 80000;
       case '80k-120k':
-        return avgSalary >= 80000 && avgSalary <= 120000;
+        return median >= 80000 && median <= 120000;
       case 'over-120k':
-        return avgSalary > 120000;
+        return median > 120000;
       default:
         return true;
     }
@@ -70,7 +67,7 @@ const ExploreDataCareers = () => {
     const matchesSearch = role.title.toLowerCase().includes(searchQuery.toLowerCase()) || role.shortDescription.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === 'all' || role.category.split(',').some(cat => cat.trim() === selectedCategory);
     const matchesSkills = skillFilters.length === 0 || role.skills && skillFilters.every(skill => Array.isArray(role.skills) && role.skills.includes(skill));
-    const matchesSalary = salaryFilter === 'all' || matchesSalaryFilter(role, salaryFilter);
+    const matchesSalary = salaryFilter === 'all' || matchesSalaryFilter(role.id, salaryFilter);
     return matchesSearch && matchesCategory && matchesSkills && matchesSalary;
   });
   const rolesByCategory = categories.reduce((acc, category) => {
@@ -143,6 +140,14 @@ const ExploreDataCareers = () => {
           <p className="text-xl text-muted-foreground max-w-3xl">
             Browse real-world roles across data science, analytics, engineering, and AI to see which one fits your strengths and interests.
           </p>
+          {/* Salary figures on this page are only shown because of this citation. */}
+          {wageCitation && <p className="text-sm text-muted-foreground max-w-3xl">
+              Pay ranges show the middle half of earners (25th–75th percentile), national and cross-industry, from{' '}
+              <a href={wageCitation.url} target="_blank" rel="noreferrer noopener" className="underline hover:text-foreground">
+                {wageCitation.source}
+              </a>
+              , {wageCitation.referencePeriod}. Each role is mapped to the closest BLS occupation, named on the card.
+            </p>}
         </motion.div>
 
         <div className="grid gap-8 md:grid-cols-5">
@@ -299,7 +304,7 @@ const ExploreDataCareers = () => {
                 {filteredRoles.length > 0 ? <>
                     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                       {filteredRoles.slice(0, visibleRoles).map(role => <motion.div key={role.id} variants={itemVariants}>
-                          <RoleCard role={role} />
+                          <RoleCard role={role} wage={wagesBySlug.get(role.id)} />
                         </motion.div>)}
                     </motion.div>
                     
@@ -344,7 +349,7 @@ const ExploreDataCareers = () => {
                       <Separator className="my-3" />
                     </div>
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                      {roles.map(role => <RoleCard key={role.id} role={role} />)}
+                      {roles.map(role => <RoleCard key={role.id} role={role} wage={wagesBySlug.get(role.id)} />)}
                     </div>
                   </motion.div>)}
               </TabsContent>
