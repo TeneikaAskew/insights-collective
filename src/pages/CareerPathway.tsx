@@ -18,6 +18,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import CareerHeader from '@/components/career/CareerHeader';
 import { Helmet } from 'react-helmet-async';
+import { useCareerRoleWages } from '@/hooks/useCareerRoleWages';
+import WageBand from '@/components/careers/WageBand';
 import OnboardingGuide from '@/components/onboarding/OnboardingGuide';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 
@@ -53,8 +55,6 @@ interface ActionPlan {
   "12_weeks": ActionPlanTimeframe;
   "6_months": ActionPlanTimeframe;
   "12_months": ActionPlanTimeframe;
-  recommendedSkills?: Array<any>;
-  careerPathRoles?: Array<any>;
 }
 
 // Sample data for skill building purposes
@@ -70,6 +70,8 @@ const CareerPathway: React.FC = () => {
     error,
     isError
   } = useCareerPathwayResults();
+  // Pay for every recommended role, joined by the slug the report now returns.
+  const { bySlug: wagesBySlug } = useCareerRoleWages();
   const [activeTab, setActiveTab] = useState('overview');
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
   const [activeTimeframe, setActiveTimeframe] = useState<string>("6_weeks");
@@ -188,32 +190,6 @@ const CareerPathway: React.FC = () => {
         duration: 0.2
       }
     }
-  };
-
-  // Prepare data for the career components
-  const mapRecommendedRolesToCareerPathRoles = () => {
-    if (!data?.report?.recommendedRoles || data.report.recommendedRoles.length === 0) {
-      return [];
-    }
-    return data.report.recommendedRoles.map(role => ({
-      title: role.title,
-      description: role.description || 'No description available',
-      level: role.salaryRange ? `${role.matchPercentage || 80}% Match` : 'Intermediate', // Use matchPercentage for level or default
-      requirements: [] // Add empty requirements array since it's optional but expected
-    }));
-  };
-  
-  const mapSkillsAndCoursesToSkillsSection = () => {
-    if (!data?.report?.skillsAndCourses || data.report.skillsAndCourses.length === 0) {
-      return [];
-    }
-    return data.report.skillsAndCourses.map(item => ({
-      name: item.skill,
-      level: item.level === 'beginner' ? 30 : item.level === 'intermediate' ? 60 : 90, // Convert string level to number
-      category: item.provider || 'Technical', // Use provider as category or default to 'Technical'
-      type: item.level?.toLowerCase() === "beginner" ? "soft" : "hard",
-      course: item.course
-    }));
   };
 
   // If there's an error or no report data found
@@ -513,18 +489,23 @@ const CareerPathway: React.FC = () => {
                             <Briefcase className="h-6 w-6 text-primary" />
                           </div>
                           <div className="flex-1">
-                            <h3 className="font-semibold text-xl text-gray-900">{role.title}</h3>
-                            <div className="flex items-center gap-3 mt-1 mb-3">
-                              <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100">
-                                {role.salaryRange || '$80-120K'}
-                              </Badge>
-                              <span className="text-sm text-muted-foreground">Match: {90 - index * 5}%</span>
-                            </div>
-                            <p className="text-gray-600">{role.description}</p>
-                            
-                            <div className="mt-4 flex flex-wrap gap-2">
-                              {['SQL', 'Python', 'Data Visualization', 'Communication'].map(skill => <Badge key={skill} variant="outline">{skill}</Badge>)}
-                            </div>
+                            {/* Title, pay and skills all come from the role's
+                                catalog entry now. Previously the salary fell back
+                                to a literal '$80-120K', the match percentage was
+                                derived from the array index (90 - index * 5), and
+                                the skill chips were a hardcoded list shown
+                                identically under every role. */}
+                            <h3 className="font-semibold text-xl text-gray-900">
+                              {wagesBySlug.get(role.roleSlug)?.title ?? role.title}
+                            </h3>
+                            <p className="text-gray-600 mt-2">{role.description}</p>
+
+                            {wagesBySlug.get(role.roleSlug) && (
+                              <WageBand
+                                wage={wagesBySlug.get(role.roleSlug)!}
+                                className="mt-4 max-w-sm"
+                              />
+                            )}
                           </div>
                           <div>
                             <Button onClick={() => navigate(`/explore-data-careers?role=${encodeURIComponent(role.title.toLowerCase().replace(/\s+/g, '-'))}`)} variant="outline" size="sm">

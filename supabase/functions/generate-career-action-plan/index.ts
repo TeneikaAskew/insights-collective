@@ -171,38 +171,13 @@ function normalizeActionPlan(rawPlan) {
       milestones: Array.isArray(data.milestones_to_achieve) ? data.milestones_to_achieve : []
     };
   });
-  // Add careerPathRoles and recommendedSkills properties to make it compatible with our components
-  const recommendedSkills = [];
-  const careerPathRoles = [];
-  // Extract skills from all timeframes and convert to the format expected by SkillsSection
-  keys.forEach((timeframe)=>{
-    if (normalized[timeframe] && normalized[timeframe].skills) {
-      normalized[timeframe].skills.forEach((skill)=>{
-        if (skill.name && !recommendedSkills.some((s)=>s.name === skill.name)) {
-          recommendedSkills.push({
-            name: skill.name,
-            type: Math.random() > 0.5 ? 'hard' : 'soft',
-            course: skill.courses && skill.courses.length > 0 ? skill.courses[0] : 'No specific course recommended'
-          });
-        }
-      });
-    }
-    // Extract projects as potential career roles
-    if (normalized[timeframe] && normalized[timeframe].projects) {
-      normalized[timeframe].projects.forEach((project)=>{
-        if (project.title && !careerPathRoles.some((r)=>r.title === project.title)) {
-          careerPathRoles.push({
-            title: project.title,
-            description: project.description,
-            salary: `$${60000 + Math.floor(Math.random() * 40000)} - $${100000 + Math.floor(Math.random() * 50000)} per year`
-          });
-        }
-      });
-    }
-  });
-  // Add these to the normalized plan
-  normalized.recommendedSkills = recommendedSkills;
-  normalized.careerPathRoles = careerPathRoles;
+  // `recommendedSkills` and `careerPathRoles` used to be synthesised here and
+  // were never rendered anywhere — the only consumer declared them on an
+  // interface and never read them. Both were fabricated: skills were labelled
+  // hard or soft by `Math.random() > 0.5`, and each "role" was an action-plan
+  // *project title* given a `Math.random()` salary range that changed on every
+  // regeneration. Deleted rather than sourced: a project is not an occupation,
+  // so there is nothing to look up. Real pay comes from career_role_wages.
   return normalized;
 }
 // Edge function handler
