@@ -69,6 +69,67 @@
     --ss-teal-chip: 168 38% 92%;       /* #E4F3F0 */
     --ss-shadow: 0 14px 34px -18px rgba(90, 80, 120, 0.35);
   }
+
+  /* Ink Studio — the Soft Studio dark derivation. The ink deepens into the
+     ground, plaster flips to the text color, lavender keeps the identity
+     (and "deep" accents get LIGHTER, since they sit on dark now). Chips
+     become low-alpha tints of their hue. Toggled by next-themes via the
+     `dark` class on <html>. */
+  .dark {
+    --background: 257 14% 10%;         /* deep ink #17151C */
+    --foreground: 38 21% 93%;          /* plaster text #F0EDE8 */
+
+    --card: 258 14% 14%;               /* #211E28 */
+    --card-foreground: 38 21% 93%;
+
+    --popover: 258 14% 14%;
+    --popover-foreground: 38 21% 93%;
+
+    --primary: 254 66% 75%;            /* lavender #A794EB */
+    --primary-foreground: 257 14% 10%; /* ink text on lavender */
+
+    --secondary: 253 71% 82%;          /* lightened lav-deep #C0B2F2 */
+    --secondary-foreground: 257 14% 10%;
+
+    --muted: 255 13% 18%;              /* tile surface #2A2733 */
+    --muted-foreground: 260 8% 62%;    /* #9B96A5 */
+
+    --accent: 254 66% 75% / 0.16;      /* lavender tint surface */
+    --accent-foreground: 253 71% 82%;
+
+    --destructive: 10 62% 68%;         /* soft bad, brightened #E08A79 */
+    --destructive-foreground: 257 14% 10%;
+
+    --border: 38 21% 93% / 0.11;       /* plaster-alpha */
+    --input: 38 21% 93% / 0.16;
+    --ring: 254 66% 75%;
+
+    --sidebar-background: 258 14% 12%;
+    --sidebar-foreground: 38 21% 93%;
+    --sidebar-primary: 254 66% 75%;
+    --sidebar-primary-foreground: 257 14% 10%;
+    --sidebar-accent: 254 66% 75%;
+    --sidebar-accent-foreground: 257 14% 10%;
+    --sidebar-border: 38 21% 93% / 0.11;
+    --sidebar-ring: 254 66% 75%;
+
+    --ss-lav: 254 66% 75%;
+    --ss-lav-deep: 253 71% 82%;        /* lighter on dark */
+    --ss-lav-chip: 254 66% 75% / 0.16;
+    --ss-peach: 26 75% 76%;
+    --ss-peach-deep: 26 61% 69%;       /* lighter on dark */
+    --ss-card-warm: 285 11% 14%;       /* warmed ink #262028 */
+    --ss-track: 257 13% 21%;           /* #332F3D */
+    --ss-good: 145 38% 63%;            /* #7CC49A */
+    --ss-good-chip: 146 33% 46% / 0.18;
+    --ss-warn: 30 69% 65%;             /* #E3A466 */
+    --ss-warn-chip: 28 54% 51% / 0.18;
+    --ss-bad: 10 62% 68%;              /* #E08A79 */
+    --ss-bad-chip: 9 51% 52% / 0.18;
+    --ss-teal: 169 43% 60%;            /* #6CC4B4 */
+    --ss-teal-chip: 169 44% 44% / 0.16;
+    --ss-shadow: 0 18px 40px -20px rgba(0, 0, 0, 0.6);
+  }
 }
 
 @layer base {
@@ -110,6 +171,14 @@
       radial-gradient(46rem 30rem at 86% -6%, rgba(196, 180, 250, 0.55), transparent 62%),
       radial-gradient(40rem 28rem at 2% 108%, rgba(250, 216, 190, 0.55), transparent 60%);
     background-attachment: local;
+  }
+
+  /* Ink Studio wash: the same radial geometry, glowing instead of pastel */
+  .dark .ss-wash {
+    background-color: hsl(var(--background));
+    background-image:
+      radial-gradient(46rem 30rem at 86% -6%, rgba(167, 148, 235, 0.16), transparent 62%),
+      radial-gradient(40rem 28rem at 2% 108%, rgba(240, 190, 150, 0.09), transparent 60%);
   }
 
   .ss-card {

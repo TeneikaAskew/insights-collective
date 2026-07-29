@@ -156,7 +156,7 @@ const ExploreDataCareers = () => {
           duration: 0.5,
           delay: 0.2
         }} className="md:block space-y-6">
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-5 space-y-5 shadow-md">
+            <div className="bg-white rounded-xl p-5 space-y-5 shadow-md">
               <div className="space-y-3">
                 <h3 className="font-medium flex items-center">
                   <Filter className="h-4 w-4 mr-2" />
@@ -216,7 +216,7 @@ const ExploreDataCareers = () => {
                 </Button>}
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-5 space-y-4 shadow-md">
+            <div className="bg-white rounded-xl p-5 space-y-4 shadow-md">
               <h3 className="font-medium">Career Resources</h3>
               <div className="space-y-3">
                 <Button variant="link" className="justify-start p-0 h-auto" asChild>

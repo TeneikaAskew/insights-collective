@@ -25,25 +25,25 @@ const getDifficultyConfig = (difficulty?: CourseDifficulty | string) => {
     case 'beginner':
       return {
         icon: Target,
-        color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+        color: 'bg-green-100 text-green-800 ',
         label: 'Beginner'
       };
     case 'intermediate':
       return {
         icon: TrendingUp,
-        color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+        color: 'bg-yellow-100 text-yellow-800 ',
         label: 'Intermediate'
       };
     case 'advanced':
       return {
         icon: Award,
-        color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+        color: 'bg-red-100 text-red-800 ',
         label: 'Advanced'
       };
     default:
       return {
         icon: Target,
-        color: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200',
+        color: 'bg-gray-100 text-gray-800 ',
         label: difficulty || 'Not specified'
       };
   }

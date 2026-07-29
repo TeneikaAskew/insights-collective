@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Link, useParams, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ThemeProvider } from 'next-themes';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { OnboardingProvider } from '@/contexts/OnboardingContext';
 import { DialogsProvider } from '@/components/dialogs/DialogsProvider';
@@ -226,6 +227,7 @@ function RouteTracker() {
 
 function App() {
   return (
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem storageKey="ic-theme">
     <Router>
         <AuthProvider>
           <PageVisibilityProvider>
@@ -450,6 +452,7 @@ function App() {
           </PageVisibilityProvider>
         </AuthProvider>
       </Router>
+    </ThemeProvider>
   );
 }
 

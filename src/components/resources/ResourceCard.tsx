@@ -99,8 +99,8 @@ export const ResourceCard = ({
                 </Badge>)}
             </div>
           </div>
-          <div className="md:w-1/3 bg-gray-50 dark:bg-gray-800 p-4 flex flex-col justify-between">
-            {isTimeSensitive ? <div className="flex items-center text-xs text-red-600 dark:text-red-400 font-medium">
+          <div className="md:w-1/3 bg-gray-50 p-4 flex flex-col justify-between">
+            {isTimeSensitive ? <div className="flex items-center text-xs text-red-600 font-medium">
                 <Clock className="h-3 w-3 mr-1.5" />
                 <span>Deadline: {formatDate(resource.deadline)}</span>
               </div> : timeAgo ? <div className="flex items-center text-xs text-muted-foreground">
@@ -133,7 +133,7 @@ export const ResourceCard = ({
         </CardDescription>
       </CardHeader>
       <CardContent className="flex-grow pt-0">
-        {isTimeSensitive ? <div className="flex items-center text-xs text-red-600 dark:text-red-400 mb-2 font-medium">
+        {isTimeSensitive ? <div className="flex items-center text-xs text-red-600 mb-2 font-medium">
             <Clock className="h-3 w-3 mr-1.5" />
             <span>Deadline: {formatDate(resource.deadline)}</span>
           </div> : timeAgo ? <div className="flex items-center text-xs text-muted-foreground mb-2">

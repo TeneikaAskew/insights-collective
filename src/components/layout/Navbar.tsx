@@ -6,6 +6,7 @@ import { useSidebar } from '@/components/ui/sidebar';
 import { useAuth } from '@/contexts/AuthContext';
 import SiteSearch from '@/components/search/SiteSearch';
 import { ProfileMenu } from '@/components/layout/ProfileMenu';
+import ThemeToggle from '@/components/layout/ThemeToggle';
 const Navbar = () => {
   const location = useLocation();
   const {
@@ -30,6 +31,7 @@ const Navbar = () => {
         
         <div className="flex items-center justify-end space-x-4">
           <nav className="flex items-center space-x-2">
+            <ThemeToggle />
             <Button variant="ghost" size="icon" asChild>
               <Link to="/notifications">
                 <Bell className="h-5 w-5" />
