@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Reveal, stagger } from './motion/Reveal';
+import ToolWorkbench from './ToolWorkbench';
 
 /**
  * These are career tools, not data-science tools — a resume review, interview
@@ -63,12 +64,15 @@ const CareerTools = () => (
           Career Exploration &amp; Enhancement Tools
         </h2>
         <p className="mt-3 text-studio-muted max-w-2xl">
-          Everything you need to find a direction and strengthen how you show up for it — from
-          exploring paths to the interview itself.
+          Everything you need to find a direction and strengthen how you show up for it. Try them
+          here before you make an account.
         </p>
       </Reveal>
 
-      <div className="grid gap-5 mt-10 sm:grid-cols-2 lg:grid-cols-3">
+      {/* The live previews. Everything below them is the full toolkit. */}
+      <ToolWorkbench />
+
+      <div className="grid gap-5 mt-14 sm:grid-cols-2 lg:grid-cols-3">
         {TOOLS.map((tool, i) => {
           const Icon = tool.icon;
           return (
