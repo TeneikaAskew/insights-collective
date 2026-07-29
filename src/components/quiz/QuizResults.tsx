@@ -144,16 +144,16 @@
 //                 <h4 className="font-semibold text-lg mb-2">Ideal For</h4>
 //                 <p>{result.persona?.idealFor}</p>
 //                 <h4 className="mt-4 font-semibold text-lg mb-2">Tools</h4>
-//                 <div className="flex flex-wrap gap-2">{result.persona?.tools.map(t => <span key={t} className="badge bg-aquaTeal">{t}</span>)}</div>
+//                 <div className="flex flex-wrap gap-2">{result.persona?.tools.map(t => <span key={t} className="badge bg-ss-teal-chip text-ss-teal">{t}</span>)}</div>
 //                 <h4 className="mt-4 font-semibold text-lg mb-2">Sample Roles</h4>
 //                 <div className="flex flex-wrap gap-2">{result.persona?.sampleRoles.map(role => (
-//                   <Link to={`/explore-data-careers?role=${getCareerRoleId(result.track)}`} key={role} className="badge bg-aquaTeal text-white">{role}</Link>
+//                   <Link to={`/explore-data-careers?role=${getCareerRoleId(result.track)}`} key={role} className="badge bg-ss-teal-chip text-ss-teal">{role}</Link>
 //                 ))}</div>
 //               </div>
 //               <div>
 //                 <h4 className="font-semibold text-lg mb-2">Courses</h4>
 //                 <ul className="space-y-2">{result.courses.map(course => (
-//                   <li key={course.id} className="bg-muted p-3 rounded"><strong>{course.title}</strong><p className="text-sm bg-slateGray/20">{course.description}</p></li>
+//                   <li key={course.id} className="bg-muted p-3 rounded"><strong>{course.title}</strong><p className="text-sm bg-muted">{course.description}</p></li>
 //                 ))}</ul>
 //               </div>
 //             </div>
@@ -375,16 +375,16 @@ const QuizResults: React.FC<QuizResultsProps> = ({
                     <h5 className="mt-3 font-semibold">Ideal For</h5>
                     <p>{result.persona?.idealFor}</p>
                     <h5 className="mt-3 fontsemibold">Tools</h5>
-                    <div className="flex flex-wrap gap-1  ">{result.persona?.tools.map(tool => <span key={tool} className="text-xs bg-aquaTeal  px-2 py-1 rounded-full">{tool}</span>)}</div>
+                    <div className="flex flex-wrap gap-1  ">{result.persona?.tools.map(tool => <span key={tool} className="text-xs bg-ss-teal-chip text-ss-teal px-2 py-1 rounded-full">{tool}</span>)}</div>
                     <h5 className="mt-3 font-semibold">Sample Roles</h5>
                     <div className="flex flex-wrap gap-1">
-                      {result.persona?.sampleRoles.map(role => <Link key={role} to={`/explore-data-careers?role=${getCareerRoleId(result.track)}`} className="text-xs bg-aquaTeal  px-2 py-1 rounded-full">{role}</Link>)}
+                      {result.persona?.sampleRoles.map(role => <Link key={role} to={`/explore-data-careers?role=${getCareerRoleId(result.track)}`} className="text-xs bg-ss-teal-chip text-ss-teal px-2 py-1 rounded-full">{role}</Link>)}
                     </div>
                   </div>
                   <div>
                     <h4 className="font-semibold mb-2">Recommended Courses</h4>
                     <div className="space-y-3">
-                      {result.courses.map(course => <div key={course.id} className="p-3 bg-slateGray/20 rounded-lg">
+                      {result.courses.map(course => <div key={course.id} className="p-3 bg-muted rounded-lg">
                           <h5 className="font-medium">{course.title}</h5>
                           <p className="text-sm">{course.description}</p>
                         </div>)}

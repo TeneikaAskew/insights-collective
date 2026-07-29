@@ -105,7 +105,7 @@ export function ProfileForm({ onSubmit, isLoading, initialData }: ProfileFormPro
               )}
             />
 
-            <Button type="submit" className="w-full bg-[#9b87f5] hover:bg-[#8B5CF6]" disabled={isLoading}>
+            <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? "Analyzing..." : "Generate Portfolio Recommendations"}
             </Button>
           </form>

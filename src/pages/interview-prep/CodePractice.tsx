@@ -407,7 +407,7 @@ export default function CodePractice() {
 
   return (
     <AppLayout fullWidth>
-      <div className="soft-studio ss-wash min-h-full px-4 sm:px-6 py-8">
+      <div className="ss-wash min-h-full px-4 sm:px-6 py-8">
         <div className="mx-auto max-w-7xl">
           <div className="mb-8">
             <div className="flex items-center gap-2 mb-4">

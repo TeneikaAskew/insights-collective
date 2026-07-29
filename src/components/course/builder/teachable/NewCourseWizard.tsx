@@ -150,20 +150,17 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
   };
 
   return (
-    <div className="teachable-workspace fixed inset-0 z-50 bg-white flex flex-col">
+    <div className="fixed inset-0 z-50 bg-background text-foreground flex flex-col">
       {submitting && <CreationProgressOverlay steps={progressSteps} />}
       {/* Top bar */}
-      <div
-        className="h-14 px-6 flex items-center justify-between flex-shrink-0"
-        style={{ borderBottom: '1px solid hsl(var(--tw-border))' }}
-      >
-        <div className="text-xs text-gray-500 font-semibold">
+      <div className="h-14 px-6 flex items-center justify-between flex-shrink-0 border-b border-border">
+        <div className="text-xs text-muted-foreground font-semibold">
           {step + 1}/{STEPS.length}
         </div>
         <button
           type="button"
           onClick={onCancel}
-          className="p-2 hover:bg-gray-100 rounded-md"
+          className="p-2 hover:bg-muted rounded-md"
           aria-label="Close"
         >
           <X className="h-4 w-4" />
@@ -175,8 +172,11 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
         {STEPS.map((_, i) => (
           <div
             key={i}
-            className={cn('h-1 rounded-full transition-all', i === step ? 'w-8' : 'w-4')}
-            style={{ background: i <= step ? 'hsl(var(--tw-accent))' : '#E5E7EB' }}
+            className={cn(
+              'h-1 rounded-full transition-all',
+              i === step ? 'w-8' : 'w-4',
+              i <= step ? 'bg-primary' : 'bg-ss-track',
+            )}
           />
         ))}
       </div>
@@ -187,7 +187,7 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
           {step === 0 && (
             <div>
               <h2 className="font-display text-4xl text-center mb-2">Tell us about your course</h2>
-              <p className="text-center text-sm text-gray-600 mb-8">
+              <p className="text-center text-sm text-muted-foreground mb-8">
                 We'll use this information to customize your course. You can change it any time.
               </p>
               <div className="space-y-5">
@@ -195,21 +195,19 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
                   <input
                     autoFocus
                     type="text"
-                    className="w-full px-4 py-3 rounded-md border outline-none focus:ring-2 focus:ring-yellow-300"
-                    style={{ borderColor: 'hsl(var(--tw-border))' }}
+                    className="w-full px-4 py-3 rounded-md border border-border outline-none focus:ring-2 focus:ring-ring"
                     placeholder="Give it a name"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                   />
                   {!title.trim() && (
-                    <div className="text-xs text-red-600 mt-1">Course title is required</div>
+                    <div className="text-xs text-destructive mt-1">Course title is required</div>
                   )}
                 </Field>
                 <Field label="Describe your course">
                   <textarea
                     rows={5}
-                    className="w-full px-4 py-3 rounded-md border outline-none focus:ring-2 focus:ring-yellow-300"
-                    style={{ borderColor: 'hsl(var(--tw-border))' }}
+                    className="w-full px-4 py-3 rounded-md border border-border outline-none focus:ring-2 focus:ring-ring"
                     placeholder="Write a thorough description of what your course will contain."
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
@@ -222,17 +220,14 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
           {step === 1 && (
             <div>
               <h2 className="font-display text-4xl text-center mb-2">Add a thumbnail image</h2>
-              <p className="text-center text-sm text-gray-600 mb-8">
+              <p className="text-center text-sm text-muted-foreground mb-8">
                 The thumbnail is displayed at checkout and throughout the member experience.
               </p>
 
               {/* Live preview */}
               {thumbnailUrl ? (
                 <div className="mb-6">
-                  <div
-                    className="relative w-full aspect-video rounded-lg overflow-hidden bg-gray-50"
-                    style={{ border: '1px solid hsl(var(--tw-border))' }}
-                  >
+                  <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-muted border border-border">
                     <img
                       src={thumbnailUrl}
                       alt="Thumbnail preview"
@@ -240,11 +235,11 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
                     />
                   </div>
                   <div className="flex items-center justify-between mt-2 text-xs">
-                    <span className="text-gray-500 truncate max-w-[70%]">
+                    <span className="text-muted-foreground truncate max-w-[70%]">
                       {thumbnailFile?.name}
                     </span>
                     <div className="flex gap-3">
-                      <label className="font-semibold text-gray-700 hover:text-black cursor-pointer">
+                      <label className="font-semibold text-foreground hover:text-primary cursor-pointer">
                         Replace
                         <input
                           type="file"
@@ -256,7 +251,7 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
                       <button
                         type="button"
                         onClick={() => setThumbnailFile(null)}
-                        className="font-semibold text-red-600 hover:text-red-700"
+                        className="font-semibold text-destructive hover:text-destructive/80"
                       >
                         Remove
                       </button>
@@ -265,13 +260,10 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-4">
-                  <label
-                    className="rounded-lg p-8 text-center cursor-pointer transition-colors hover:bg-gray-50 flex flex-col items-center justify-center gap-3"
-                    style={{ border: '2px solid #111' }}
-                  >
+                  <label className="rounded-lg p-8 text-center cursor-pointer transition-colors hover:bg-muted flex flex-col items-center justify-center gap-3 border-2 border-foreground">
                     <Upload className="h-6 w-6" />
                     <div className="font-bold text-sm">Upload an image</div>
-                    <div className="text-xs text-gray-500">Aspect ratio 16:9 · 1024×576</div>
+                    <div className="text-xs text-muted-foreground">Aspect ratio 16:9 · 1024×576</div>
                     <input
                       type="file"
                       accept="image/*"
@@ -279,12 +271,9 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
                       onChange={(e) => setThumbnailFile(e.target.files?.[0] ?? null)}
                     />
                   </label>
-                  <div
-                    className="rounded-lg p-8 flex flex-col items-center justify-center gap-2 text-center"
-                    style={{ border: '1px solid hsl(var(--tw-border))', background: '#F9F9F9' }}
-                  >
+                  <div className="rounded-lg p-8 flex flex-col items-center justify-center gap-2 text-center border border-border bg-muted">
                     <div className="font-sans text-lg">I don't have one</div>
-                    <div className="text-xs text-gray-500">Skip this step for now</div>
+                    <div className="text-xs text-muted-foreground">Skip this step for now</div>
                   </div>
                 </div>
               )}
@@ -294,7 +283,7 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
           {step === 2 && (
             <div>
               <h2 className="font-display text-4xl text-center mb-2">Outline your course</h2>
-              <p className="text-center text-sm text-gray-600 mb-8">
+              <p className="text-center text-sm text-muted-foreground mb-8">
                 Choose a method below to create your course curriculum.
               </p>
 
@@ -302,23 +291,18 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
                 <button
                   type="button"
                   onClick={() => setOutlineMethod('ai')}
-                  className="w-full rounded-lg px-5 py-4 text-left relative"
-                  style={{
-                    border:
-                      outlineMethod === 'ai' ? '2px solid #111' : '1px solid hsl(var(--tw-border))',
-                    background: '#FAFAFA',
-                  }}
+                  className={cn(
+                    'w-full rounded-lg px-5 py-4 text-left relative bg-muted/50',
+                    outlineMethod === 'ai' ? 'border-2 border-foreground' : 'border border-border',
+                  )}
                 >
                   {outlineMethod === 'ai' && (
-                    <div
-                      className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center"
-                      style={{ background: '#111', color: '#fff' }}
-                    >
+                    <div className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center bg-foreground text-background">
                       <Check className="h-3 w-3" strokeWidth={3} />
                     </div>
                   )}
                   <div className="font-sans text-xl">Generate with AI</div>
-                  <div className="text-xs text-gray-500">
+                  <div className="text-xs text-muted-foreground">
                     Describe your course below and we'll generate a full outline you can edit.
                   </div>
                 </button>
@@ -326,19 +310,18 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
                 {outlineMethod === 'ai' && (
                   <div className="pl-1 space-y-4">
                     <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1">
+                      <label className="block text-xs font-semibold text-foreground mb-1">
                         Describe your course
                       </label>
                       <textarea
                         rows={4}
-                        className="w-full px-4 py-3 rounded-md border outline-none focus:ring-2 focus:ring-yellow-300 text-sm"
-                        style={{ borderColor: 'hsl(var(--tw-border))' }}
+                        className="w-full px-4 py-3 rounded-md border border-border outline-none focus:ring-2 focus:ring-ring text-sm"
                         placeholder="Add a strong course description. More detail helps generate a more accurate outline."
                         value={aiDescription}
                         onChange={(e) => setAiDescription(e.target.value)}
                       />
                       <div className="flex justify-between items-center mt-2">
-                        <div className="text-xs text-gray-500">
+                        <div className="text-xs text-muted-foreground">
                           {aiDescription.trim().length < 11
                             ? 'At least 10 characters, please.'
                             : ' '}
@@ -347,11 +330,7 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
                           type="button"
                           disabled={aiDescription.trim().length < 11 || generating}
                           onClick={generateOutline}
-                          className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-xs font-bold disabled:opacity-40"
-                          style={{
-                            background: 'hsl(var(--tw-accent))',
-                            color: 'hsl(var(--tw-accent-ink))',
-                          }}
+                          className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-xs font-bold disabled:opacity-40 bg-primary text-primary-foreground hover:bg-primary/90"
                         >
                           {generating ? (
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -366,13 +345,13 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
                     </div>
 
                     {genError && (
-                      <div className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-md p-3">
+                      <div className="text-xs text-destructive bg-ss-bad-chip border border-destructive/20 rounded-md p-3">
                         {genError}
                       </div>
                     )}
 
                     {generating && outline.length === 0 && (
-                      <div className="flex items-center justify-center py-10 text-sm text-gray-500 gap-2">
+                      <div className="flex items-center justify-center py-10 text-sm text-muted-foreground gap-2">
                         <Loader2 className="h-4 w-4 animate-spin" /> Drafting your outline…
                       </div>
                     )}
@@ -393,18 +372,17 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
                         setOutlineMethod(m);
                         if (m === 'scratch' && outline.length === 0) seedScratchOutline();
                       }}
-                      className="w-full rounded-lg px-5 py-4 text-left"
-                      style={{
-                        border: active ? '2px solid #111' : '1px solid hsl(var(--tw-border))',
-                        background: '#FAFAFA',
-                      }}
+                      className={cn(
+                        'w-full rounded-lg px-5 py-4 text-left bg-muted/50',
+                        active ? 'border-2 border-foreground' : 'border border-border',
+                      )}
                     >
                       <div className="font-sans text-xl">
                         {m === 'scratch' && 'Start from scratch'}
                         {m === 'bulk' && 'Bulk upload'}
                         {m === 'copy' && 'Copy from another course'}
                       </div>
-                      <div className="text-xs text-gray-500">
+                      <div className="text-xs text-muted-foreground">
                         {m === 'scratch' && "I'll create my own outline in the builder."}
                         {m === 'bulk' && 'Upload multiple files to generate your outline.'}
                         {m === 'copy' && 'Copy sections and lessons from another course.'}
@@ -419,15 +397,12 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
           {step === 3 && (
             <div>
               <h2 className="font-display text-4xl text-center mb-2">Review and create</h2>
-              <p className="text-center text-sm text-gray-600 mb-8">
+              <p className="text-center text-sm text-muted-foreground mb-8">
                 Here's how your course will start out. You can change everything in the builder.
               </p>
 
-              <div
-                className="rounded-xl overflow-hidden mb-6"
-                style={{ border: '1px solid hsl(var(--tw-border))' }}
-              >
-                <div className="aspect-video bg-gray-100 flex items-center justify-center">
+              <div className="rounded-xl overflow-hidden mb-6 border border-border">
+                <div className="aspect-video bg-muted flex items-center justify-center">
                   {thumbnailUrl ? (
                     <img
                       src={thumbnailUrl}
@@ -435,26 +410,23 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="text-xs text-gray-400">No thumbnail — you can add one later</div>
+                    <div className="text-xs text-muted-foreground">No thumbnail — you can add one later</div>
                   )}
                 </div>
                 <div className="p-5">
                   <div className="text-2xl font-semibold mb-1">{title || 'Untitled course'}</div>
                   {description && (
-                    <div className="text-sm text-gray-600 whitespace-pre-wrap">{description}</div>
+                    <div className="text-sm text-muted-foreground whitespace-pre-wrap">{description}</div>
                   )}
                 </div>
               </div>
 
-              <div
-                className="rounded-xl p-5"
-                style={{ border: '1px solid hsl(var(--tw-border))', background: '#FAFAFA' }}
-              >
-                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+              <div className="rounded-xl p-5 border border-border bg-muted/50">
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
                   Starting curriculum
                 </div>
                 {outline.length === 0 ? (
-                  <div className="text-sm text-gray-500">
+                  <div className="text-sm text-muted-foreground">
                     You'll start with an empty curriculum and can add sections in the builder.
                   </div>
                 ) : (
@@ -468,12 +440,9 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
                           {s.lessons.map((l, j) => (
                             <li
                               key={j}
-                              className="text-xs text-gray-600 flex items-center gap-2"
+                              className="text-xs text-muted-foreground flex items-center gap-2"
                             >
-                              <span
-                                className="inline-block px-1.5 py-0.5 rounded text-[10px] uppercase font-bold"
-                                style={{ background: '#EEE', color: '#555' }}
-                              >
+                              <span className="inline-block px-1.5 py-0.5 rounded text-[10px] uppercase font-bold bg-muted text-muted-foreground">
                                 {l.type}
                               </span>
                               {l.title}
@@ -491,14 +460,11 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
       </div>
 
       {/* Footer */}
-      <div
-        className="flex flex-col flex-shrink-0"
-        style={{ borderTop: '1px solid hsl(var(--tw-border))' }}
-      >
+      <div className="flex flex-col flex-shrink-0 border-t border-border">
         {submitError && (
           <div
             role="alert"
-            className="px-6 py-3 text-sm font-medium border-b border-red-200 bg-red-50 text-red-700 flex items-start gap-2"
+            className="px-6 py-3 text-sm font-medium border-b border-destructive/20 bg-ss-bad-chip text-destructive flex items-start gap-2"
           >
             <span aria-hidden>⚠</span>
             <span>
@@ -510,7 +476,7 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
           <button
             type="button"
             onClick={() => (step === 0 ? onCancel() : setStep((s) => s - 1))}
-            className="text-sm font-semibold text-gray-600 hover:text-black"
+            className="text-sm font-semibold text-muted-foreground hover:text-foreground"
           >
             {step === 0 ? 'Cancel' : '‹ Back'}
           </button>
@@ -518,11 +484,7 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
             type="button"
             disabled={!canContinue() || submitting || generating}
             onClick={handleNext}
-            className="inline-flex items-center gap-2 px-5 py-2 rounded-md text-sm font-bold disabled:opacity-40"
-            style={{
-              background: 'hsl(var(--tw-accent))',
-              color: 'hsl(var(--tw-accent-ink))',
-            }}
+            className="inline-flex items-center gap-2 px-5 py-2 rounded-md text-sm font-bold disabled:opacity-40 bg-primary text-primary-foreground hover:bg-primary/90"
           >
             {submitting ? 'Creating…' : step === STEPS.length - 1 ? 'Create course' : 'Continue'}
           </button>
@@ -569,30 +531,25 @@ function OutlineEditor({
   };
 
   return (
-    <div
-      className="rounded-lg p-4 space-y-3"
-      style={{ border: '1px solid hsl(var(--tw-border))', background: '#fff' }}
-    >
-      <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+    <div className="rounded-lg p-4 space-y-3 border border-border bg-card">
+      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
         Generated outline · edit before creating
       </div>
       {outline.map((section, si) => (
         <div
           key={si}
-          className="rounded-md p-3"
-          style={{ border: '1px solid hsl(var(--tw-border))' }}
+          className="rounded-md p-3 border border-border"
         >
           <div className="flex items-center gap-2 mb-2">
             <input
               value={section.title}
               onChange={(e) => updateSection(si, { title: e.target.value })}
-              className="flex-1 text-sm font-semibold px-2 py-1 rounded border outline-none focus:ring-2 focus:ring-yellow-300"
-              style={{ borderColor: 'hsl(var(--tw-border))' }}
+              className="flex-1 text-sm font-semibold px-2 py-1 rounded border border-border outline-none focus:ring-2 focus:ring-ring"
             />
             <button
               type="button"
               onClick={() => removeSection(si)}
-              className="p-1.5 rounded hover:bg-red-50 text-red-600"
+              className="p-1.5 rounded hover:bg-ss-bad-chip text-destructive"
               aria-label="Remove section"
             >
               <Trash2 className="h-3.5 w-3.5" />
@@ -606,8 +563,7 @@ function OutlineEditor({
                   onChange={(e) =>
                     updateLesson(si, li, { type: e.target.value as OutlineLesson['type'] })
                   }
-                  className="text-[10px] uppercase font-bold px-1.5 py-1 rounded border bg-gray-50"
-                  style={{ borderColor: 'hsl(var(--tw-border))' }}
+                  className="text-[10px] uppercase font-bold px-1.5 py-1 rounded border border-border bg-muted"
                 >
                   <option value="page">Page</option>
                   <option value="assignment">Assignment</option>
@@ -617,13 +573,12 @@ function OutlineEditor({
                 <input
                   value={lesson.title}
                   onChange={(e) => updateLesson(si, li, { title: e.target.value })}
-                  className="flex-1 text-xs px-2 py-1 rounded border outline-none focus:ring-2 focus:ring-yellow-300"
-                  style={{ borderColor: 'hsl(var(--tw-border))' }}
+                  className="flex-1 text-xs px-2 py-1 rounded border border-border outline-none focus:ring-2 focus:ring-ring"
                 />
                 <button
                   type="button"
                   onClick={() => removeLesson(si, li)}
-                  className="p-1 rounded hover:bg-red-50 text-red-500"
+                  className="p-1 rounded hover:bg-ss-bad-chip text-destructive"
                   aria-label="Remove lesson"
                 >
                   <Trash2 className="h-3 w-3" />
@@ -634,7 +589,7 @@ function OutlineEditor({
               <button
                 type="button"
                 onClick={() => addLesson(si)}
-                className="text-xs text-gray-600 hover:text-black inline-flex items-center gap-1"
+                className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
               >
                 <Plus className="h-3 w-3" /> Add lesson
               </button>
@@ -645,7 +600,7 @@ function OutlineEditor({
       <button
         type="button"
         onClick={addSection}
-        className="text-xs font-semibold text-gray-700 hover:text-black inline-flex items-center gap-1"
+        className="text-xs font-semibold text-foreground hover:text-primary inline-flex items-center gap-1"
       >
         <Plus className="h-3.5 w-3.5" /> Add section
       </button>
@@ -664,8 +619,8 @@ function Field({
 }) {
   return (
     <div>
-      <label className="block text-xs font-semibold text-gray-700 mb-1">
-        {label} {required && <span className="text-red-500">*</span>}
+      <label className="block text-xs font-semibold text-foreground mb-1">
+        {label} {required && <span className="text-destructive">*</span>}
       </label>
       {children}
     </div>
@@ -690,25 +645,22 @@ function CreationProgressOverlay({ steps }: { steps: CreationStep[] }) {
       role="dialog"
       aria-live="polite"
       aria-label="Creating course"
-      className="absolute inset-0 z-[60] bg-white/95 backdrop-blur-sm flex items-center justify-center px-6"
+      className="absolute inset-0 z-[60] bg-background/95 backdrop-blur-sm flex items-center justify-center px-6"
     >
-      <div
-        className="w-full max-w-md rounded-xl p-6 shadow-lg"
-        style={{ border: '1px solid hsl(var(--tw-border))', background: '#fff' }}
-      >
+      <div className="w-full max-w-md rounded-xl p-6 shadow-lg border border-border bg-card">
         <div className="flex items-center gap-3 mb-4">
           {hasError ? (
-            <span className="h-8 w-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center text-lg">
+            <span className="h-8 w-8 rounded-full bg-ss-bad-chip text-destructive flex items-center justify-center text-lg">
               !
             </span>
           ) : (
-            <Loader2 className="h-6 w-6 animate-spin text-gray-700" />
+            <Loader2 className="h-6 w-6 animate-spin text-foreground" />
           )}
           <div>
             <div className="font-semibold text-base">
               {hasError ? 'Something went wrong' : 'Creating your course'}
             </div>
-            <div className="text-xs text-gray-500">
+            <div className="text-xs text-muted-foreground">
               {hasError
                 ? 'See details below.'
                 : activeIndex >= 0
@@ -718,13 +670,10 @@ function CreationProgressOverlay({ steps }: { steps: CreationStep[] }) {
           </div>
         </div>
 
-        <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden mb-4">
+        <div className="h-1.5 rounded-full bg-ss-track overflow-hidden mb-4">
           <div
-            className="h-full transition-all"
-            style={{
-              width: `${pct}%`,
-              background: hasError ? '#dc2626' : 'hsl(var(--tw-accent))',
-            }}
+            className={cn('h-full transition-all', hasError ? 'bg-destructive' : 'bg-primary')}
+            style={{ width: `${pct}%` }}
           />
         </div>
 
@@ -733,36 +682,36 @@ function CreationProgressOverlay({ steps }: { steps: CreationStep[] }) {
             <li key={s.id} className="flex items-start gap-3 text-sm">
               <span className="mt-0.5">
                 {s.status === 'done' && (
-                  <span className="inline-flex h-4 w-4 rounded-full bg-emerald-500 text-white items-center justify-center">
+                  <span className="inline-flex h-4 w-4 rounded-full bg-ss-good text-white items-center justify-center">
                     <Check className="h-3 w-3" strokeWidth={3} />
                   </span>
                 )}
                 {s.status === 'running' && (
-                  <Loader2 className="h-4 w-4 animate-spin text-gray-600" />
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                 )}
                 {s.status === 'pending' && (
-                  <span className="inline-block h-4 w-4 rounded-full border border-gray-300" />
+                  <span className="inline-block h-4 w-4 rounded-full border border-border" />
                 )}
                 {s.status === 'error' && (
-                  <span className="inline-flex h-4 w-4 rounded-full bg-red-500 text-white items-center justify-center text-[10px] font-bold">
+                  <span className="inline-flex h-4 w-4 rounded-full bg-destructive text-white items-center justify-center text-[10px] font-bold">
                     !
                   </span>
                 )}
                 {s.status === 'skipped' && (
-                  <span className="inline-block h-4 w-4 rounded-full border border-dashed border-gray-300" />
+                  <span className="inline-block h-4 w-4 rounded-full border border-dashed border-border" />
                 )}
               </span>
               <span
                 className={cn(
                   'flex-1 leading-tight',
-                  s.status === 'pending' && 'text-gray-400',
-                  s.status === 'error' && 'text-red-600',
-                  s.status === 'skipped' && 'text-gray-400 line-through',
+                  s.status === 'pending' && 'text-muted-foreground',
+                  s.status === 'error' && 'text-destructive',
+                  s.status === 'skipped' && 'text-muted-foreground line-through',
                 )}
               >
                 <div>{s.label}</div>
                 {s.detail && (
-                  <div className="text-xs text-gray-500 mt-0.5">{s.detail}</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">{s.detail}</div>
                 )}
               </span>
             </li>

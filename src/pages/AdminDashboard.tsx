@@ -13,7 +13,6 @@ import {
 import { useCoursesManagement } from '@/hooks/useCoursesManagement';
 import { supabase } from '@/integrations/supabase/client';
 import ResourceManagement from '@/components/admin/ResourceManagement';
-import AdminSoftStudio from '@/components/admin/AdminSoftStudio';
 import { cn } from '@/lib/utils';
 
 const AdminDashboard = () => {
@@ -98,13 +97,13 @@ const AdminDashboard = () => {
     { title: 'Manage Users', desc: 'Roles, access, and accounts', icon: Users, to: '/admin/users', count: userCount },
     { title: 'Manage Courses', desc: 'Courses, enrollments, certificates', icon: GraduationCap, to: '/admin/courses', count: courseCount },
     { title: 'Manage Events', desc: 'Sessions and registrations', icon: Calendar, to: '/admin/events', count: eventCount },
-    { title: 'Manage Forms', desc: 'Forms and submissions', icon: FormInput, to: '/admin/unified-form-management', count: formCount },
+    { title: 'Manage Forms', desc: 'Forms and submissions', icon: FormInput, to: '/admin/forms', count: formCount },
     { title: 'Manage Blog', desc: 'Posts, drafts, and categories', icon: Newspaper, to: '/admin/blog', count: blogCount },
     { title: 'Page Visibility', desc: 'Control who sees each page', icon: Eye, to: '/admin/page-visibility', count: pageVisibilityCount },
   ];
 
   return (
-    <AdminSoftStudio>
+    <>
       {/* Header */}
       <header className="mb-7">
         <p className="ss-serif text-ss-lav-deep text-lg mb-1">Insights Collective · Admin</p>
@@ -213,7 +212,7 @@ const AdminDashboard = () => {
           <ResourceManagement />
         </div>
       </section>
-    </AdminSoftStudio>
+    </>
   );
 };
 

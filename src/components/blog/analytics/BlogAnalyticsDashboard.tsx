@@ -338,13 +338,13 @@ export function BlogAnalyticsDashboard({ postId }: BlogAnalyticsDashboardProps) 
             <p className="text-xs text-muted-foreground flex items-center gap-1">
               {metrics.viewsChange > 0 ? (
                 <>
-                  <TrendingUp className="h-3 w-3 text-green-600" />
-                  <span className="text-green-600">+{metrics.viewsChange.toFixed(1)}%</span>
+                  <TrendingUp className="h-3 w-3 text-ss-good" />
+                  <span className="text-ss-good">+{metrics.viewsChange.toFixed(1)}%</span>
                 </>
               ) : (
                 <>
-                  <TrendingDown className="h-3 w-3 text-red-600" />
-                  <span className="text-red-600">{metrics.viewsChange.toFixed(1)}%</span>
+                  <TrendingDown className="h-3 w-3 text-ss-bad" />
+                  <span className="text-ss-bad">{metrics.viewsChange.toFixed(1)}%</span>
                 </>
               )}
               from previous period
@@ -362,13 +362,13 @@ export function BlogAnalyticsDashboard({ postId }: BlogAnalyticsDashboardProps) 
             <p className="text-xs text-muted-foreground flex items-center gap-1">
               {metrics.visitorsChange > 0 ? (
                 <>
-                  <TrendingUp className="h-3 w-3 text-green-600" />
-                  <span className="text-green-600">+{metrics.visitorsChange.toFixed(1)}%</span>
+                  <TrendingUp className="h-3 w-3 text-ss-good" />
+                  <span className="text-ss-good">+{metrics.visitorsChange.toFixed(1)}%</span>
                 </>
               ) : (
                 <>
-                  <TrendingDown className="h-3 w-3 text-red-600" />
-                  <span className="text-red-600">{metrics.visitorsChange.toFixed(1)}%</span>
+                  <TrendingDown className="h-3 w-3 text-ss-bad" />
+                  <span className="text-ss-bad">{metrics.visitorsChange.toFixed(1)}%</span>
                 </>
               )}
               from previous period

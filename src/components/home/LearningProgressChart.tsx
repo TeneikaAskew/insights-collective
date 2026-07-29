@@ -11,8 +11,8 @@ const chartConfig = {
   progress: {
     label: 'Completion %',
     theme: {
-      light: '#8884d8',
-      dark: '#a78bfa'
+      light: 'hsl(var(--ss-lav))',
+      dark: 'hsl(var(--ss-lav))'
     }
   }
 };
@@ -103,7 +103,7 @@ const LearningProgressChart = () => {
               domain={[0, 100]}
             />
             <ChartTooltip content={<ChartTooltipContent />} />
-            <Bar dataKey="progress" fill="var(--color-progress, #8884d8)" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="progress" fill="var(--color-progress, hsl(var(--ss-lav)))" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ChartContainer>
       </div>

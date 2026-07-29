@@ -104,8 +104,8 @@ export default function Blog() {
         <div className="container mx-auto py-8 px-4">
           <Card>
             <CardContent className="py-12 text-center" role="alert">
-              <p className="text-red-600 font-medium mb-2">Failed to load blog articles</p>
-              <p className="text-gray-500 mb-4">{loadError}</p>
+              <p className="text-destructive font-medium mb-2">Failed to load blog articles</p>
+              <p className="text-muted-foreground mb-4">{loadError}</p>
               <Button variant="outline" onClick={loadBlogData}>
                 Retry
               </Button>
@@ -123,10 +123,10 @@ export default function Blog() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[...Array(6)].map((_, i) => (
               <Card key={i} className="animate-pulse">
-                <div className="h-48 bg-gray-200 rounded-t-lg"></div>
+                <div className="h-48 bg-muted rounded-t-lg"></div>
                 <CardHeader>
-                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                  <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                  <div className="h-4 bg-muted rounded w-3/4"></div>
+                  <div className="h-3 bg-muted rounded w-1/2"></div>
                 </CardHeader>
               </Card>
             ))}
@@ -144,14 +144,14 @@ export default function Blog() {
           <div className="flex justify-between items-start mb-4">
             <div>
               <h1 className="text-4xl font-bold mb-2">Data Blueprint Series</h1>
-              <p className="text-gray-600 max-w-2xl">
+              <p className="text-muted-foreground max-w-2xl">
                 Comprehensive guides, insights, and practical knowledge for data science professionals. 
                 From fundamentals to advanced techniques, explore the complete data science journey.
               </p>
             </div>
             {isAdmin && (
               <Link to="/admin/blog">
-                <Button className="bg-[#9b87f5] hover:bg-[#8B5CF6]">
+                <Button>
                   Manage Blog
                 </Button>
               </Link>
@@ -162,7 +162,7 @@ export default function Blog() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div className="md:col-span-2">
               <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search articles..."
                   value={searchTerm}
@@ -217,12 +217,12 @@ export default function Blog() {
         {featuredPosts.length > 0 && (
           <div className="mb-12">
             <div className="flex items-center gap-2 mb-6">
-              <Star className="h-5 w-5 text-yellow-500" />
+              <Star className="h-5 w-5 text-ss-warn" />
               <h2 className="text-2xl font-bold">Featured Articles</h2>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {featuredPosts.slice(0, 2).map(post => (
-                <Card key={post.id} className="overflow-hidden border-2 border-yellow-200 bg-gradient-to-br from-yellow-50 to-white">
+                <Card key={post.id} className="overflow-hidden border-border ss-card-warm">
                   {post.imageUrl && (
                     <div className="h-48 overflow-hidden">
                       <img 
@@ -234,8 +234,8 @@ export default function Blog() {
                   )}
                   <CardHeader>
                     <div className="flex items-center gap-2 mb-2">
-                      <Star className="h-4 w-4 text-yellow-500" />
-                      <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+                      <Star className="h-4 w-4 text-ss-warn" />
+                      <Badge variant="secondary" className="bg-ss-warn-chip text-ss-warn">
                         Featured
                       </Badge>
                       <Badge variant="outline">{post.category}</Badge>
@@ -243,7 +243,7 @@ export default function Blog() {
                     <CardTitle className="text-xl mb-2">
                       <Link 
                         to={`/blog/${post.slug}`}
-                        className="hover:text-[#9b87f5] transition-colors"
+                        className="hover:text-primary transition-colors"
                       >
                         {post.title}
                       </Link>
@@ -253,7 +253,7 @@ export default function Blog() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="flex items-center justify-between text-sm text-gray-500">
+                    <div className="flex items-center justify-between text-sm text-muted-foreground">
                       <div className="flex items-center gap-4">
                         <div className="flex items-center gap-1">
                           <User className="h-4 w-4" />
@@ -275,7 +275,7 @@ export default function Blog() {
                           <Badge 
                             key={tag} 
                             variant="secondary" 
-                            className="text-xs cursor-pointer hover:bg-[#9b87f5] hover:text-white"
+                            className="text-xs cursor-pointer hover:bg-primary hover:text-primary-foreground"
                             onClick={() => {
                               setSelectedTag(tag);
                               setSearchParams({ tag });
@@ -304,7 +304,7 @@ export default function Blog() {
           {regularPosts.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center">
-                <p className="text-gray-500 mb-4">No articles found matching your criteria.</p>
+                <p className="text-muted-foreground mb-4">No articles found matching your criteria.</p>
                 <Button variant="outline" onClick={clearFilters}>
                   Clear Filters
                 </Button>
@@ -333,7 +333,7 @@ export default function Blog() {
                     <CardTitle className="text-lg mb-2">
                       <Link 
                         to={`/blog/${post.slug}`}
-                        className="hover:text-[#9b87f5] transition-colors"
+                        className="hover:text-primary transition-colors"
                       >
                         {post.title}
                       </Link>
@@ -343,7 +343,7 @@ export default function Blog() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="flex items-center justify-between text-sm text-gray-500 mb-3">
+                    <div className="flex items-center justify-between text-sm text-muted-foreground mb-3">
                       <div className="flex items-center gap-1">
                         <Calendar className="h-4 w-4" />
                         <span>{formatDate(post.publishedAt)}</span>
@@ -359,7 +359,7 @@ export default function Blog() {
                           <Badge 
                             key={tag} 
                             variant="secondary" 
-                            className="text-xs cursor-pointer hover:bg-[#9b87f5] hover:text-white"
+                            className="text-xs cursor-pointer hover:bg-primary hover:text-primary-foreground"
                             onClick={() => {
                               setSelectedTag(tag);
                               setSearchParams({ tag });

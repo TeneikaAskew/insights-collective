@@ -128,7 +128,7 @@ const TeneikaLinkedIn = () => {
         <div className="container mx-auto px-4 py-8">
           <Card>
             <CardContent className="py-8 text-center">
-              <p className="text-red-600 mb-4">Error loading LinkedIn posts: {error.message}</p>
+              <p className="text-destructive mb-4">Error loading LinkedIn posts: {error.message}</p>
               <Button onClick={() => refetch()}>Try Again</Button>
             </CardContent>
           </Card>
@@ -261,8 +261,8 @@ const TeneikaLinkedIn = () => {
                       {/* Post Header */}
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                            <span className="text-blue-700 font-semibold">
+                          <div className="w-10 h-10 rounded-full bg-ss-lav-chip flex items-center justify-center">
+                            <span className="text-ss-lav-deep font-semibold">
                               {post.author_display_name?.charAt(0) || 'T'}
                             </span>
                           </div>
@@ -314,7 +314,7 @@ const TeneikaLinkedIn = () => {
                               href={url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-blue-600 hover:underline text-sm"
+                              className="text-primary hover:underline text-sm"
                             >
                               Media {index + 1}
                             </a>

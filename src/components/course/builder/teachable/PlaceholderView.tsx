@@ -16,15 +16,12 @@ export function PlaceholderView({ courseId, courseTitle, title, description }: P
       <TeachableBreadcrumb courseId={courseId} courseTitle={courseTitle} current={title} />
 
       <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl mb-4">{title}</h2>
-      <div
-        className="rounded-xl bg-white p-12 text-center"
-        style={{ border: '1px dashed hsl(var(--tw-border))' }}
-      >
-        <h3 className="text-xl font-semibold text-gray-900 mb-3">
+      <div className="rounded-xl bg-card p-12 text-center border border-dashed border-border">
+        <h3 className="text-xl font-semibold text-foreground mb-3">
           This feature is not available yet
         </h3>
-        <p className="text-sm text-gray-500 max-w-md mx-auto">{description}</p>
-        <p className="text-xs text-gray-400 mt-3">Coming soon in this workspace.</p>
+        <p className="text-sm text-muted-foreground max-w-md mx-auto">{description}</p>
+        <p className="text-xs text-muted-foreground mt-3">Coming soon in this workspace.</p>
       </div>
     </div>
   );

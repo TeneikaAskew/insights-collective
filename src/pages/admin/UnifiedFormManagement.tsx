@@ -4,7 +4,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FormList } from '@/components/admin/forms/FormList';
 import { FormTemplates } from '@/components/admin/forms/FormTemplates';
 import FormAnalytics from '@/components/admin/forms/FormAnalytics';
-import AdminSoftStudio from '@/components/admin/AdminSoftStudio';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { PlusCircle, BarChart3, ListFilter, BookTemplate } from 'lucide-react';
@@ -25,7 +24,7 @@ export default function UnifiedFormManagement() {
   const tabTrigger = 'rounded-xl data-[state=active]:bg-card data-[state=active]:text-ss-lav-deep data-[state=active]:shadow-[var(--ss-shadow)] flex items-center';
 
   return (
-    <AdminSoftStudio>
+    <>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <div>
           <p className="ss-serif text-ss-lav-deep text-lg mb-1">Insights Collective · Admin</p>
@@ -88,6 +87,6 @@ export default function UnifiedFormManagement() {
         open={createDialogOpen}
         onOpenChange={setCreateDialogOpen}
       />
-    </AdminSoftStudio>
+    </>
   );
 }

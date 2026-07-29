@@ -187,11 +187,11 @@ export function LessonAccordion({
                   )}
                   
                   {lesson.completion_criteria && (
-                    <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-4 mt-4">
-                      <h5 className="font-medium text-blue-900 dark:text-blue-100 mb-2">
+                    <div className="bg-blue-50 rounded-lg p-4 mt-4">
+                      <h5 className="font-medium text-blue-900 mb-2">
                         Completion Requirements
                       </h5>
-                      <p className="text-sm text-blue-700 dark:text-blue-300">
+                      <p className="text-sm text-blue-700 ">
                         {lesson.completion_criteria.type === 'all_blocks' 
                           ? 'Complete all content items in this lesson'
                           : 'Custom completion criteria apply'

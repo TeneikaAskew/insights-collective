@@ -233,7 +233,7 @@ export default function FormSubmissionsList({ formId, formSlug, onSelectSubmissi
                           if (onSelectSubmission) {
                             onSelectSubmission(submission.id);
                           } else {
-                            navigate(`/admin/unified-form-management/submissions/${formSlug}/submission/${submission.id}`);
+                            navigate(`/admin/forms/submissions/${formSlug}/submission/${submission.id}`);
                           }
                         }}
                         className="flex items-center gap-1"

@@ -127,19 +127,19 @@ export default function EventDetail() {
   const getTypeColor = (type: string): string => {
     switch (type.toLowerCase()) {
       case 'workshop':
-        return 'bg-blue-100 text-blue-600';
+        return 'bg-ss-teal-chip text-ss-teal';
       case 'webinar':
-        return 'bg-purple-100 text-purple-600';
+        return 'bg-ss-lav-chip text-ss-lav-deep';
       case 'conference':
-        return 'bg-amber-100 text-amber-600';
+        return 'bg-ss-warn-chip text-ss-warn';
       case 'meetup':
-        return 'bg-green-100 text-green-600';
+        return 'bg-ss-good-chip text-ss-good';
       case 'hackathon':
-        return 'bg-orange-100 text-orange-600';
+        return 'bg-ss-warn-chip text-ss-warn';
       case 'panel':
-        return 'bg-pink-100 text-pink-600';
+        return 'bg-ss-lav-chip text-ss-lav-deep';
       default:
-        return 'bg-gray-100 text-gray-600';
+        return 'bg-muted text-muted-foreground';
     }
   };
 
@@ -147,13 +147,13 @@ export default function EventDetail() {
     switch (format?.toLowerCase()) {
       case 'virtual':
       case 'online':
-        return 'bg-blue-100 text-blue-600 border-blue-200';
+        return 'bg-ss-teal-chip text-ss-teal border-border';
       case 'in-person':
-        return 'bg-green-100 text-green-600 border-green-200';
+        return 'bg-ss-good-chip text-ss-good border-border';
       case 'hybrid':
-        return 'bg-purple-100 text-purple-600 border-purple-200';
+        return 'bg-ss-lav-chip text-ss-lav-deep border-border';
       default:
-        return 'bg-gray-100 text-gray-600 border-gray-200';
+        return 'bg-muted text-muted-foreground border-border';
     }
   };
 
@@ -295,7 +295,7 @@ export default function EventDetail() {
                     <>
                       <Button 
                         disabled
-                        className="w-full bg-gray-100 text-gray-600"
+                        className="w-full bg-muted text-muted-foreground"
                       >
                         Already Registered
                       </Button>
@@ -313,7 +313,7 @@ export default function EventDetail() {
                     <Button 
                       onClick={handleRegister}
                       disabled={isRegistering}
-                      className="w-full text-white bg-insightBlue hover:bg-insightBlue/90"
+                      className="w-full text-primary-foreground bg-primary hover:bg-primary/90"
                     >
                       {isRegistering && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                       Register for Event

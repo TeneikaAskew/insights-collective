@@ -34,12 +34,12 @@ interface CourseLite {
 function iconFor(type: string) {
   switch (type) {
     case 'course_announcement':
-      return <Megaphone className="h-4 w-4 text-blue-600" />;
+      return <Megaphone className="h-4 w-4 text-ss-teal" />;
     case 'assignment_grade':
     case 'assignment':
-      return <FileText className="h-4 w-4 text-purple-600" />;
+      return <FileText className="h-4 w-4 text-ss-lav-deep" />;
     case 'message':
-      return <MessageSquare className="h-4 w-4 text-emerald-600" />;
+      return <MessageSquare className="h-4 w-4 text-ss-good" />;
     default:
       return <Bell className="h-4 w-4 text-primary" />;
   }

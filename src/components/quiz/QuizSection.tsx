@@ -98,7 +98,7 @@ const QuizSection: React.FC = () => {
   };
 
   return (
-    <section className="py-20 relative overflow-hidden bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-800" data-tour="quiz">
+    <section className="py-20 relative overflow-hidden bg-gradient-to-b from-white to-gray-50 " data-tour="quiz">
       {/* Background pattern */}
       <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMSIgY3k9IjEiIHI9IjEiIGZpbGw9InJnYmEoMCwwLDAsMC4wNSkiLz48L3N2Zz4=')] bg-[length:20px_20px] opacity-50"></div>
       
@@ -109,7 +109,7 @@ const QuizSection: React.FC = () => {
       <div className="container mx-auto px-4 relative z-10">
         <div className="text-center max-w-3xl mx-auto mb-12">
           <h2 className="text-3xl md:text-4xl font-bold mb-4 font-display">Find Your Data Career Path</h2>
-          <p className="text-lg mb-8 text-gray-600 dark:text-gray-300">
+          <p className="text-lg mb-8 text-gray-600 ">
             Take our interactive quiz to discover which data career path best matches your 
             interests, skills, and working style.
           </p>
@@ -162,7 +162,7 @@ const QuizSection: React.FC = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700"
+            className="bg-white p-6 md:p-8 rounded-xl shadow-xl border border-gray-100 "
           >
             <Quiz />
           </motion.div>

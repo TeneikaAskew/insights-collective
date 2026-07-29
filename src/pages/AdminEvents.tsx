@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import AppLayout from '@/components/layout/AppLayout';
 import { AddEventModal } from '@/components/events/modals/AddEventModal';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -157,8 +156,7 @@ export default function AdminEvents() {
   };
 
   return (
-    <AppLayout>
-      <div className="space-y-8">
+    <div className="space-y-8">
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Manage Events</h1>
@@ -331,7 +329,6 @@ export default function AdminEvents() {
             </Card>
           </TabsContent>
         </Tabs>
-      </div>
-    </AppLayout>
+    </div>
   );
 }

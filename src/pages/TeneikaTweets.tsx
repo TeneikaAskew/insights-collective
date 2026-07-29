@@ -131,7 +131,7 @@ const TeneikaTweets = () => {
         <div className="container mx-auto px-4 py-8">
           <Card>
             <CardContent className="py-8 text-center">
-              <p className="text-red-600 mb-4">Error loading tweets: {error.message}</p>
+              <p className="text-destructive mb-4">Error loading tweets: {error.message}</p>
               <Button onClick={() => refetch()}>Try Again</Button>
             </CardContent>
           </Card>

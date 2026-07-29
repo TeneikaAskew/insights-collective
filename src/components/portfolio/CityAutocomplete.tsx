@@ -100,15 +100,15 @@ export function CityAutocomplete({ value, onChange, country, state, placeholder 
               className={cn(
                 "w-full justify-between text-left font-normal",
                 !value && "text-muted-foreground",
-                validationError && "border-red-500"
+                validationError && "border-destructive"
               )}
             >
               {value || placeholder}
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-full p-0 bg-white border shadow-lg z-[9999]" align="start">
-            <div className="bg-white rounded-md border">
+          <PopoverContent className="w-full p-0 bg-popover border shadow-lg z-[9999]" align="start">
+            <div className="bg-popover rounded-md border">
               {/* Search Input */}
               <div className="flex items-center border-b px-3 py-2">
                 <input
@@ -122,7 +122,7 @@ export function CityAutocomplete({ value, onChange, country, state, placeholder 
               </div>
               
               {/* Results */}
-              <div className="max-h-[200px] overflow-y-auto bg-white">
+              <div className="max-h-[200px] overflow-y-auto bg-popover">
                 {searchQuery.length < 3 ? (
                   <div className="py-6 text-center text-sm text-muted-foreground">
                     Type at least 3 characters to search
@@ -133,7 +133,7 @@ export function CityAutocomplete({ value, onChange, country, state, placeholder 
                       <div
                         key={city}
                         onClick={() => handleSelectCity(city)}
-                        className="relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-gray-100 focus:bg-gray-100 transition-colors"
+                        className="relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-muted focus:bg-muted transition-colors"
                       >
                         <Check
                           className={cn(
@@ -152,7 +152,7 @@ export function CityAutocomplete({ value, onChange, country, state, placeholder 
                       {validateCityName(searchQuery).isValid && (
                         <button
                           onClick={handleAddCustomCity}
-                          className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 transition-colors"
+                          className="flex items-center gap-2 text-sm text-primary hover:text-ss-lav-deep transition-colors"
                         >
                           <Plus className="h-4 w-4" />
                           Add "{formatCityName(searchQuery)}"
@@ -173,12 +173,12 @@ export function CityAutocomplete({ value, onChange, country, state, placeholder 
           onChange={handleManualInputChange}
           onBlur={handleBlur}
           placeholder={placeholder}
-          className={cn(validationError && "border-red-500")}
+          className={cn(validationError && "border-destructive")}
         />
       )}
       
       {validationError && (
-        <p className="text-sm text-red-500">{validationError}</p>
+        <p className="text-sm text-destructive">{validationError}</p>
       )}
       
       {!country && (

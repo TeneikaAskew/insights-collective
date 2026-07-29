@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin Concept 2 — Control Room</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Lora:ital,wght@1,400;1,500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --plaster:#FAF8F5; --ink:#2C2A33; --muted:#837E8C;
+    --lav:#A794EB; --lav-deep:#624EBE; --lav-chip:#F3EFFC;
+    --peach:#F0BE96; --peach-deep:#B97143; --card-warm:#FFF9F3;
+    --track:#EDE9F3; --good:#4E9B70; --good-chip:#E7F3EC;
+    --warn:#C97F3D; --warn-chip:#FBEEDF; --bad:#C25B49; --bad-chip:#F9E8E4;
+    --teal:#3FA391; --teal-chip:#E4F3F0;
+    --shadow:0 14px 34px -18px rgba(90,80,120,.35);
+    --border:rgba(44,42,51,.12);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Outfit',sans-serif;background:var(--plaster);color:var(--ink);
+    background-image:radial-gradient(60% 50% at 85% -10%,rgba(167,148,235,.14),transparent),
+                     radial-gradient(50% 40% at 0% 110%,rgba(240,190,150,.12),transparent);}
+  .serif{font-family:'Lora',serif;font-style:italic}
+  .wrap{max-width:1160px;margin:0 auto;padding:30px 28px 70px}
+
+  .top{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px}
+  .top h1{font-size:24px;font-weight:600}
+  .top .serif{color:var(--peach-deep);font-size:14px;margin-left:10px}
+
+  /* horizontal section pills */
+  .sections{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:26px}
+  .pill{padding:9px 17px;border-radius:999px;font-size:13.5px;border:1px solid var(--border);
+    background:#fff;color:var(--ink);text-decoration:none}
+  .pill.active{background:var(--ink);color:var(--plaster);border-color:var(--ink);font-weight:600}
+  .pill .n{display:inline-block;margin-left:7px;background:var(--lav-chip);color:var(--lav-deep);
+    border-radius:999px;font-size:11px;font-weight:700;padding:1px 7px}
+  .pill.active .n{background:rgba(250,248,245,.18);color:var(--plaster)}
+
+  /* KPI strip */
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:26px}
+  .kpi{background:#fff;border:1px solid var(--border);border-radius:20px;box-shadow:var(--shadow);padding:18px 20px}
+  .kpi .v{font-size:26px;font-weight:600;letter-spacing:-.02em}
+  .kpi .l{font-size:12px;color:var(--muted);margin-top:3px}
+  .kpi.warm{background:var(--card-warm)}
+  .kpi .v small{font-size:13px;color:var(--muted);font-weight:400}
+
+  .bar{display:flex;gap:10px;align-items:center;margin-bottom:18px}
+  .search{flex:1;max-width:340px;display:flex;align-items:center;gap:8px;background:#fff;
+    border:1px solid var(--border);border-radius:999px;padding:9px 15px;font-size:13px;color:var(--muted)}
+  .btn{border:none;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;border-radius:999px;padding:9px 16px}
+  .btn-ghost{background:transparent;border:1px solid var(--border);color:var(--ink)}
+
+  /* group cards grid */
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+  .gcard{background:#fff;border:1px solid var(--border);border-radius:26px;box-shadow:var(--shadow);padding:20px 22px}
+  .gcard.hidden-state{background:var(--card-warm)}
+  .ghead{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+  .ghead .t{font-size:16.5px;font-weight:600;display:flex;align-items:center;gap:9px}
+  .gpath{font-size:12px;color:var(--muted);font-family:ui-monospace,monospace;margin-bottom:12px}
+  .chip{display:inline-flex;align-items:center;border-radius:999px;padding:3px 10px;font-size:11px;font-weight:700}
+  .chip-good{background:var(--good-chip);color:var(--good)}
+  .chip-bad{background:var(--bad-chip);color:var(--bad)}
+  .chip-warn{background:var(--warn-chip);color:var(--warn)}
+  .chip-lav{background:var(--lav-chip);color:var(--lav-deep)}
+
+  .roles{display:flex;gap:18px;padding:10px 0 4px;border-top:1px dashed var(--border)}
+  .role{display:flex;align-items:center;gap:8px;font-size:13px}
+  .sw{width:36px;height:21px;border-radius:999px;background:var(--track);position:relative;display:inline-block;flex:none}
+  .sw::after{content:'';position:absolute;top:2.5px;left:3px;width:16px;height:16px;border-radius:50%;
+    background:#fff;box-shadow:0 1px 3px rgba(44,42,51,.3)}
+  .sw.on{background:var(--lav-deep)}
+  .sw.on::after{left:17px}
+  .role .always{color:var(--muted);font-size:12px}
+
+  .children{margin-top:12px;border-top:1px dashed var(--border);padding-top:6px}
+  .childrow{display:flex;align-items:center;justify-content:space-between;padding:7px 0;font-size:13.5px}
+  .childrow .p{color:var(--muted);font-size:11.5px;font-family:ui-monospace,monospace}
+  .childrow .sws{display:flex;gap:14px;align-items:center}
+  .expander{font-size:12.5px;color:var(--lav-deep);font-weight:600;margin-top:10px;display:inline-block}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div><h1 style="display:inline">Admin</h1><span class="serif">control room</span></div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <span class="chip chip-lav">TA</span><span style="font-size:13px">Teneika</span>
+    </div>
+  </div>
+
+  <div class="sections">
+    <a class="pill" href="#">Overview</a>
+    <a class="pill" href="#">Users <span class="n">128</span></a>
+    <a class="pill" href="#">Courses <span class="n">14</span></a>
+    <a class="pill" href="#">Events</a>
+    <a class="pill" href="#">Blog</a>
+    <a class="pill" href="#">Forms</a>
+    <a class="pill" href="#">Activity</a>
+    <a class="pill active" href="#">Page visibility <span class="n">3 hidden</span></a>
+    <a class="pill" href="#">Debug</a>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="v">24</div><div class="l">Managed pages</div></div>
+    <div class="kpi"><div class="v">21 <small>/ 24</small></div><div class="l">Visible to all users</div></div>
+    <div class="kpi warm"><div class="v">3</div><div class="l">Hidden — showing Coming Soon</div></div>
+    <div class="kpi"><div class="v">2</div><div class="l">Stale entries to clean</div></div>
+  </div>
+
+  <div class="bar">
+    <div class="search">⌕ &nbsp;Filter pages or paths…</div>
+    <button class="btn btn-ghost">Sync from manifest</button>
+  </div>
+
+  <div class="grid">
+    <div class="gcard">
+      <div class="ghead"><span class="t">Interview Prep</span><span class="chip chip-good">Live</span></div>
+      <div class="gpath">/interview-prep · governs 5 sub-pages</div>
+      <div class="roles">
+        <span class="role"><span class="sw on"></span> All users</span>
+        <span class="role"><span class="sw on"></span> Instructors</span>
+        <span class="role"><span class="always">Admins always</span></span>
+      </div>
+      <div class="children">
+        <div class="childrow"><span>Code Practice <span class="p">/code-practice</span></span>
+          <span class="sws"><span class="sw on"></span><span class="sw on"></span></span></div>
+        <div class="childrow"><span>Mock Interview Room <span class="p">/mock-interview-room</span></span>
+          <span class="sws"><span class="sw"></span><span class="sw on"></span></span></div>
+        <div class="childrow"><span>STAR Practice <span class="p">/star-practice</span></span>
+          <span class="sws"><span class="sw on"></span><span class="sw on"></span></span></div>
+      </div>
+      <span class="expander">Show 2 more ▾</span>
+    </div>
+
+    <div class="gcard hidden-state">
+      <div class="ghead"><span class="t">Portfolio Explorer</span><span class="chip chip-bad">Hidden</span></div>
+      <div class="gpath">/portfolio-explorer · visitors see Coming Soon</div>
+      <div class="roles">
+        <span class="role"><span class="sw"></span> All users</span>
+        <span class="role"><span class="sw"></span> Instructors</span>
+        <span class="role"><span class="always">Admins always</span></span>
+      </div>
+    </div>
+
+    <div class="gcard">
+      <div class="ghead"><span class="t">Courses</span><span class="chip chip-good">Live</span></div>
+      <div class="gpath">/courses · governs every /courses/* page</div>
+      <div class="roles">
+        <span class="role"><span class="sw on"></span> All users</span>
+        <span class="role"><span class="sw on"></span> Instructors</span>
+        <span class="role"><span class="always">Admins always</span></span>
+      </div>
+    </div>
+
+    <div class="gcard">
+      <div class="ghead"><span class="t">Blog</span><span class="chip chip-warn">Instructors only</span></div>
+      <div class="gpath">/blog · includes /blog/:slug</div>
+      <div class="roles">
+        <span class="role"><span class="sw"></span> All users</span>
+        <span class="role"><span class="sw on"></span> Instructors</span>
+        <span class="role"><span class="always">Admins always</span></span>
+      </div>
+    </div>
+
+    <div class="gcard">
+      <div class="ghead"><span class="t">Resume Analyzer</span><span class="chip chip-good">Live</span></div>
+      <div class="gpath">/resume</div>
+      <div class="roles">
+        <span class="role"><span class="sw on"></span> All users</span>
+        <span class="role"><span class="sw on"></span> Instructors</span>
+        <span class="role"><span class="always">Admins always</span></span>
+      </div>
+    </div>
+
+    <div class="gcard" style="border-style:dashed;box-shadow:none">
+      <div class="ghead"><span class="t">Stale entries</span><span class="chip chip-bad">2</span></div>
+      <div class="gpath">rows whose paths the app no longer manages</div>
+      <div class="childrow"><span>/forum</span><button class="btn" style="background:var(--bad-chip);color:var(--bad);padding:6px 13px;font-size:12px">Remove</button></div>
+      <div class="childrow"><span>/code-practice</span><button class="btn" style="background:var(--bad-chip);color:var(--bad);padding:6px 13px;font-size:12px">Remove</button></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

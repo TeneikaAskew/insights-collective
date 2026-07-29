@@ -42,15 +42,15 @@ const FeaturedCourses = ({ courses }: FeaturedCoursesProps) => {
   const getCategoryColor = (category: string): string => {
     switch (getCategoryDisplayName(category)) {
       case 'ML/AI':
-        return 'bg-blue-100 text-blue-600';
+        return 'bg-ss-teal-chip text-ss-teal';
       case 'Analytics & BI':
-        return 'bg-green-100 text-green-600';
+        return 'bg-ss-good-chip text-ss-good';
       case 'Data Engineering':
-        return 'bg-purple-100 text-purple-600';
+        return 'bg-ss-lav-chip text-ss-lav-deep';
       case 'Data Science':
-        return 'bg-amber-100 text-amber-600';
+        return 'bg-ss-warn-chip text-ss-warn';
       default:
-        return 'bg-gray-100 text-gray-600';
+        return 'bg-muted text-muted-foreground';
     }
   };
   
@@ -58,13 +58,13 @@ const FeaturedCourses = ({ courses }: FeaturedCoursesProps) => {
   const getLevelStyle = (level: string): string => {
     switch (level.toLowerCase()) {
       case 'beginner':
-        return 'bg-green-100 text-green-600 border-green-200';
+        return 'bg-ss-good-chip text-ss-good border-border';
       case 'intermediate':
-        return 'bg-blue-100 text-blue-600 border-blue-200';
+        return 'bg-ss-teal-chip text-ss-teal border-border';
       case 'advanced':
-        return 'bg-purple-100 text-purple-600 border-purple-200';
+        return 'bg-ss-lav-chip text-ss-lav-deep border-border';
       default:
-        return 'bg-gray-100 text-gray-600 border-gray-200';
+        return 'bg-muted text-muted-foreground border-border';
     }
   };
 
@@ -74,10 +74,10 @@ const FeaturedCourses = ({ courses }: FeaturedCoursesProps) => {
   }
 
   return (
-    <section className="py-20 bg-white dark:bg-gray-900">
+    <section className="py-20 bg-background">
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-bold font-display bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">Featured Courses</h2>
+          <h2 className="text-3xl md:text-4xl font-bold font-display text-foreground">Featured Courses</h2>
           <Button variant="ghost" asChild className="group">
             <Link to="/courses" className="flex items-center">
               View All <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform duration-300" />
@@ -94,7 +94,7 @@ const FeaturedCourses = ({ courses }: FeaturedCoursesProps) => {
               transition={{ duration: 0.5, delay: index * 0.1 }}
             >
               <Link to={`/courses/${course.id}`} className="block group">
-                <div className="rounded-xl overflow-hidden border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-800 shadow-md hover:shadow-xl transition-all duration-300 h-full flex flex-col">
+                <div className="rounded-xl overflow-hidden border border-border bg-card shadow-md hover:shadow-lg transition-shadow duration-300 h-full flex flex-col">
                   <div className="aspect-video overflow-hidden relative">
                     {course.thumbnail ? (
                       <img
@@ -104,7 +104,7 @@ const FeaturedCourses = ({ courses }: FeaturedCoursesProps) => {
                       />
                     ) : (
                       <div
-                        className="w-full h-full bg-gradient-to-br from-primary/15 to-accent/15"
+                        className="w-full h-full bg-ss-lav-chip"
                         aria-hidden="true"
                       />
                     )}
@@ -115,7 +115,7 @@ const FeaturedCourses = ({ courses }: FeaturedCoursesProps) => {
 
                     {/* Progress overlay - only show if progress exists */}
                     {course.progress !== undefined && (
-                      <div className="absolute bottom-0 left-0 w-full h-1.5 bg-gray-200">
+                      <div className="absolute bottom-0 left-0 w-full h-1.5 bg-muted">
                         <div 
                           className="h-full bg-primary" 
                           style={{ width: `${course.progress}%` }}
@@ -146,7 +146,7 @@ const FeaturedCourses = ({ courses }: FeaturedCoursesProps) => {
                         if (!estimatedHours) return null;
 
                         return (
-                          <Badge variant="outline" className="flex items-center gap-1 border-blue-200 bg-blue-50 text-blue-700 dark:bg-blue-900 dark:text-blue-200">
+                          <Badge variant="outline" className="flex items-center gap-1 border-border bg-ss-teal-chip text-ss-teal">
                             <Clock className="h-3 w-3" />
                             {estimatedHours.toFixed(1)} hours
                           </Badge>
@@ -174,7 +174,7 @@ const FeaturedCourses = ({ courses }: FeaturedCoursesProps) => {
                     </div>
                   </div>
                   
-                  <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                  <div className="px-6 py-4 border-t border-border bg-muted/50">
                     <div className="flex items-center justify-between">
                       {/* NOTE: no lesson count unless modules were actually
                           loaded. This read `modules?.length || 0`, and no

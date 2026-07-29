@@ -103,7 +103,7 @@ export default function BlogPostPage() {
       .replace(/~~(.*?)~~/gim, '<del class="line-through">$1</del>')
       .replace(/`([^`]+)`/gim, '<code class="bg-muted px-1 py-0.5 rounded text-sm font-mono">$1</code>')
       .replace(/^> (.*$)/gim, '<blockquote class="border-l-4 border-muted-foreground pl-4 italic my-4">$1</blockquote>')
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/gim, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-[#9b87f5] hover:underline">$1</a>')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/gim, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">$1</a>')
       .replace(/!\[([^\]]*)\]\(([^)]+)\)/gim, '<img src="$2" alt="$1" class="max-w-full h-auto rounded-lg my-4" />')
       .replace(/^\* (.*$)/gim, '• $1')
       .replace(/^- (.*$)/gim, '• $1')
@@ -122,12 +122,12 @@ export default function BlogPostPage() {
       <AppLayout>
         <div className="container mx-auto py-8 px-4 max-w-4xl">
           <div className="animate-pulse">
-            <div className="h-8 bg-gray-200 rounded w-3/4 mb-4"></div>
-            <div className="h-4 bg-gray-200 rounded w-1/2 mb-8"></div>
-            <div className="h-64 bg-gray-200 rounded mb-6"></div>
+            <div className="h-8 bg-muted rounded w-3/4 mb-4"></div>
+            <div className="h-4 bg-muted rounded w-1/2 mb-8"></div>
+            <div className="h-64 bg-muted rounded mb-6"></div>
             <div className="space-y-3">
               {[...Array(6)].map((_, i) => (
-                <div key={i} className="h-4 bg-gray-200 rounded"></div>
+                <div key={i} className="h-4 bg-muted rounded"></div>
               ))}
             </div>
           </div>
@@ -141,7 +141,7 @@ export default function BlogPostPage() {
       <AppLayout>
         <div className="container mx-auto py-8 px-4 text-center" role="alert">
           <h1 className="text-2xl font-bold mb-2">Failed to load blog post</h1>
-          <p className="text-gray-500 mb-4">{loadError}</p>
+          <p className="text-muted-foreground mb-4">{loadError}</p>
           <div className="flex justify-center gap-3">
             <Button variant="outline" onClick={() => slug && loadBlogPost(slug)}>
               Retry
@@ -197,7 +197,7 @@ export default function BlogPostPage() {
             <div className="flex items-center gap-2 mb-4">
               <Badge variant="outline">{post.category}</Badge>
               {post.featured && (
-                <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">
+                <Badge className="bg-ss-warn-chip text-ss-warn border-border">
                   Featured
                 </Badge>
               )}
@@ -207,12 +207,12 @@ export default function BlogPostPage() {
               {post.title}
             </h1>
 
-            <p className="text-lg text-gray-600 mb-6 leading-relaxed">
+            <p className="text-lg text-muted-foreground mb-6 leading-relaxed">
               {post.excerpt}
             </p>
 
             {/* Meta Information */}
-            <div className="flex flex-wrap items-center gap-6 text-sm text-gray-500 mb-6">
+            <div className="flex flex-wrap items-center gap-6 text-sm text-muted-foreground mb-6">
               <div className="flex items-center gap-1">
                 <User className="h-4 w-4" />
                 <span>{post.authorName}</span>
@@ -262,7 +262,7 @@ export default function BlogPostPage() {
           {/* Tags */}
           {post.tags && post.tags.length > 0 && (
             <div className="mb-8">
-              <h3 className="text-sm font-medium text-gray-500 mb-3">Tags</h3>
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">Tags</h3>
               <div className="flex flex-wrap gap-2">
                 {post.tags.map(tag => (
                   <Link
@@ -271,7 +271,7 @@ export default function BlogPostPage() {
                   >
                     <Badge 
                       variant="secondary" 
-                      className="cursor-pointer hover:bg-[#9b87f5] hover:text-white transition-colors"
+                      className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
                     >
                       {tag}
                     </Badge>
@@ -287,11 +287,11 @@ export default function BlogPostPage() {
           <footer className="text-center">
             <div className="mb-6">
               <h3 className="text-lg font-semibold mb-2">Enjoyed this article?</h3>
-              <p className="text-gray-600 mb-4">
+              <p className="text-muted-foreground mb-4">
                 Explore more insights on the blog
               </p>
               <Link to="/blog">
-                <Button className="bg-[#9b87f5] hover:bg-[#8B5CF6]">
+                <Button>
                   View All Articles
                 </Button>
               </Link>

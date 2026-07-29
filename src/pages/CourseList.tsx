@@ -102,12 +102,12 @@ const CourseList = () => {
 
   return (
     <AppLayout>
-      <div className="teachable-workspace bg-white -mx-4 md:-mx-6 lg:-mx-8 -my-4 px-4 md:px-8 lg:px-12 py-10 min-h-[calc(100vh-4rem)]">
+      <div className="bg-background text-foreground -mx-4 md:-mx-6 lg:-mx-8 -my-4 px-4 md:px-8 lg:px-12 py-10 min-h-[calc(100vh-4rem)]">
         {/* Header */}
         <div className="max-w-7xl mx-auto mb-10">
-          <p className="text-xs uppercase tracking-[0.15em] text-neutral-500 mb-3">Catalog</p>
-          <h1 className="font-display text-5xl md:text-6xl text-neutral-900 mb-3">Courses</h1>
-          <p className="text-neutral-600 max-w-2xl">
+          <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground mb-3">Catalog</p>
+          <h1 className="font-display text-5xl md:text-6xl text-foreground mb-3">Courses</h1>
+          <p className="text-muted-foreground max-w-2xl">
             Browse the full library and jump into a lesson whenever you're ready.
           </p>
         </div>
@@ -115,16 +115,16 @@ const CourseList = () => {
         {/* Filter bar */}
         <div data-onboarding="course-filters" className="max-w-7xl mx-auto mb-8 flex flex-col md:flex-row gap-3 md:items-center">
           <div className="relative flex-1">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              className="pl-11 h-11 rounded-full border-neutral-300 bg-white focus-visible:ring-neutral-900"
+              className="pl-11 h-11 rounded-full border-border bg-card focus-visible:ring-ring"
               placeholder="Search courses"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-full md:w-[200px] h-11 rounded-full border-neutral-300 bg-white">
+            <SelectTrigger className="w-full md:w-[200px] h-11 rounded-full border-border bg-card">
               <SelectValue placeholder="Category" />
             </SelectTrigger>
             <SelectContent>
@@ -135,7 +135,7 @@ const CourseList = () => {
             </SelectContent>
           </Select>
           <Select value={levelFilter} onValueChange={setLevelFilter}>
-            <SelectTrigger className="w-full md:w-[180px] h-11 rounded-full border-neutral-300 bg-white">
+            <SelectTrigger className="w-full md:w-[180px] h-11 rounded-full border-border bg-card">
               <SelectValue placeholder="Level" />
             </SelectTrigger>
             <SelectContent>
@@ -146,7 +146,7 @@ const CourseList = () => {
             </SelectContent>
           </Select>
           <Select value={scheduleFilter} onValueChange={setScheduleFilter}>
-            <SelectTrigger className="w-full md:w-[180px] h-11 rounded-full border-neutral-300 bg-white">
+            <SelectTrigger className="w-full md:w-[180px] h-11 rounded-full border-border bg-card">
               <SelectValue placeholder="Schedule" />
             </SelectTrigger>
             <SelectContent>
@@ -163,27 +163,27 @@ const CourseList = () => {
           {loading ? (
             <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
               {[0, 1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="rounded-2xl border border-neutral-200 overflow-hidden animate-pulse">
-                  <div className="aspect-[16/9] bg-neutral-100" />
+                <div key={i} className="rounded-2xl border border-border overflow-hidden animate-pulse">
+                  <div className="aspect-[16/9] bg-muted" />
                   <div className="p-5 space-y-3">
-                    <div className="h-4 bg-neutral-100 rounded w-1/3" />
-                    <div className="h-6 bg-neutral-100 rounded w-4/5" />
-                    <div className="h-4 bg-neutral-100 rounded w-full" />
+                    <div className="h-4 bg-muted rounded w-1/3" />
+                    <div className="h-6 bg-muted rounded w-4/5" />
+                    <div className="h-4 bg-muted rounded w-full" />
                   </div>
                 </div>
               ))}
             </div>
           ) : error ? (
             <div className="text-center py-16">
-              <p className="text-neutral-600">{error}</p>
+              <p className="text-muted-foreground">{error}</p>
               <Button variant="outline" className="mt-4" onClick={() => void fetchCourses()}>
                 Try again
               </Button>
             </div>
           ) : filtered.length === 0 ? (
             <div className="text-center py-20 border border-dashed rounded-2xl">
-              <h3 className="font-display text-2xl text-neutral-900 mb-2">No courses found</h3>
-              <p className="text-neutral-500 mb-4">Try adjusting your search or filters.</p>
+              <h3 className="font-display text-2xl text-foreground mb-2">No courses found</h3>
+              <p className="text-muted-foreground mb-4">Try adjusting your search or filters.</p>
               <Button
                 variant="outline"
                 onClick={() => { setSearchQuery(''); setCategoryFilter('all'); setLevelFilter('all'); setScheduleFilter('all'); }}
@@ -205,11 +205,11 @@ const CourseList = () => {
                   <button
                     key={course.id}
                     onClick={() => navigate(`/courses/${course.id}`)}
-                    className="group text-left rounded-2xl border border-neutral-200 bg-white hover:border-neutral-900 hover:shadow-[0_10px_30px_-10px_rgba(0,0,0,0.15)] transition-all"
+                    className="group text-left rounded-2xl border border-border bg-card hover:border-foreground hover:shadow-[0_10px_30px_-10px_rgba(0,0,0,0.15)] transition-all"
                   >
                     {/* Media (outer keeps rounded top; inner clips the image; avatar sits above) */}
                     <div className="relative">
-                      <div className="relative aspect-[16/10] overflow-hidden rounded-t-2xl bg-[hsl(var(--cw-accent-soft))]">
+                      <div className="relative aspect-[16/10] overflow-hidden rounded-t-2xl bg-ss-teal-chip">
                         {course.thumbnail ? (
                           <img
                             src={course.thumbnail}
@@ -221,7 +221,7 @@ const CourseList = () => {
                         )}
                       </div>
                       {/* Circular logo badge overlapping bottom-left, above the image */}
-                      <div className="absolute -bottom-6 left-5 z-10 h-14 w-14 rounded-full bg-white border-4 border-white shadow-md flex items-center justify-center overflow-hidden">
+                      <div className="absolute -bottom-6 left-5 z-10 h-14 w-14 rounded-full bg-card border-4 border-card shadow-md flex items-center justify-center overflow-hidden">
                         {course.instructor?.avatar ? (
                           <img
                             src={course.instructor.avatar}
@@ -229,21 +229,21 @@ const CourseList = () => {
                             className="h-full w-full object-cover rounded-full"
                           />
                         ) : (
-                          <span className="text-xs font-bold text-neutral-700">{initials}</span>
+                          <span className="text-xs font-bold text-foreground">{initials}</span>
                         )}
                       </div>
                     </div>
                     {/* Body */}
                     <div className="pt-9 px-6 pb-6">
-                      <h3 className="font-display text-xl text-neutral-900 mb-1 line-clamp-2 leading-snug">
+                      <h3 className="font-display text-xl text-foreground mb-1 line-clamp-2 leading-snug">
                         {course.title}
                       </h3>
                       {(course.instructor?.name || course.category) && (
-                        <p className="text-sm text-neutral-500 truncate">
+                        <p className="text-sm text-muted-foreground truncate">
                           {[course.instructor?.name, course.category].filter(Boolean).join(' · ')}
                         </p>
                       )}
-                      <div className="mt-4 flex items-center gap-4 text-xs text-neutral-500">
+                      <div className="mt-4 flex items-center gap-4 text-xs text-muted-foreground">
                         {course.duration && (
                           <span className="inline-flex items-center gap-1">
                             <Clock className="h-3.5 w-3.5" /> {course.duration}
@@ -254,7 +254,7 @@ const CourseList = () => {
                             <BookOpen className="h-3.5 w-3.5" /> {course.level}
                           </span>
                         )}
-                        <span className="ml-auto inline-flex items-center gap-1 text-neutral-900 font-medium group-hover:gap-2 transition-all">
+                        <span className="ml-auto inline-flex items-center gap-1 text-foreground font-medium group-hover:gap-2 transition-all">
                           View <ArrowRight className="h-4 w-4" />
                         </span>
                       </div>

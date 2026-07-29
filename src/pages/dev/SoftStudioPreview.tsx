@@ -14,7 +14,7 @@ const noopAsync = async () => {};
 const SoftStudioPreview: React.FC = () => {
   return (
     <div
-      className="soft-studio ss-wash mx-auto py-8 space-y-6 px-6 max-w-full min-h-screen"
+      className="ss-wash mx-auto py-8 space-y-6 px-6 max-w-full min-h-screen"
       data-testid="soft-studio-preview"
     >
       <ResumeAnalysisSection

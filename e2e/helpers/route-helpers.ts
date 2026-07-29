@@ -183,8 +183,8 @@ export const Routes = {
   adminForms: '/admin/forms',
   adminPageVisibility: '/admin/page-visibility',
   adminFormManagement: '/admin/form-management',
-  adminUnifiedFormManagement: '/admin/unified-form-management',
-  adminLocalStorageDebug: '/admin/local-storage-debug',
+  adminUnifiedFormManagement: '/admin/forms',
+  adminLocalStorageDebug: '/admin/debug/storage',
 
   // Legal
   privacyPolicy: '/privacy-policy',

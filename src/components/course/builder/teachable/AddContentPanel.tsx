@@ -102,17 +102,14 @@ const MARKETING_TILES: Tile[] = [
 
 export function AddContentPanel({ onAdd, onClose }: AddContentPanelProps) {
   return (
-    <div
-      className="bg-white rounded-xl p-5"
-      style={{ border: '1px solid hsl(var(--tw-border))' }}
-    >
+    <div className="bg-card rounded-xl p-5 border border-border">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-display text-2xl">Add content</h3>
         {onClose && (
           <button
             type="button"
             onClick={onClose}
-            className="text-gray-500 hover:text-black text-lg leading-none"
+            className="text-muted-foreground hover:text-foreground text-lg leading-none"
             aria-label="Close"
           >
             ×
@@ -138,7 +135,7 @@ function TileSection({
 }) {
   return (
     <div className="mb-5 last:mb-0">
-      <div className="text-[10px] uppercase tracking-widest font-bold text-gray-500 mb-2">
+      <div className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground mb-2">
         {title}
       </div>
       <div className="grid grid-cols-3 gap-2">
@@ -148,8 +145,7 @@ function TileSection({
             type="button"
             disabled={soon}
             onClick={() => onAdd(type, defaultTitle, defaultContent)}
-            className="aspect-square rounded-lg bg-white flex flex-col items-center justify-center gap-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            style={{ border: '1px solid hsl(var(--tw-border))' }}
+            className="aspect-square rounded-lg bg-card border border-border flex flex-col items-center justify-center gap-1.5 text-xs font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             title={soon ? 'Coming soon' : `Add ${label}`}
           >
             <Icon className="h-5 w-5" />

@@ -17,7 +17,7 @@ export function RoleCard({ role, onAddProject }: RoleCardProps) {
         <div className="flex justify-between items-start">
           <div>
             <CardTitle className="text-xl flex items-center">
-              <Briefcase className="h-5 w-5 mr-2 text-[#9b87f5]" />
+              <Briefcase className="h-5 w-5 mr-2 text-ss-lav-deep" />
               {role.title}
             </CardTitle>
             <CardDescription className="mt-1">
@@ -31,43 +31,43 @@ export function RoleCard({ role, onAddProject }: RoleCardProps) {
       <CardContent>
         <div className="flex flex-wrap gap-1 mb-3">
           {role.coreSkills.map((skill, idx) => (
-            <Badge key={idx} variant="outline" className="bg-[#9b87f5]/10 text-[#9b87f5] border-[#9b87f5]/20">
+            <Badge key={idx} variant="outline" className="ss-chip border-transparent">
               {skill}
             </Badge>
           ))}
         </div>
 
         <h4 className="font-medium text-sm mt-4 mb-2 flex items-center">
-          <FileCheck className="h-4 w-4 mr-1 text-[#9b87f5]" />
+          <FileCheck className="h-4 w-4 mr-1 text-ss-lav-deep" />
           Common Deliverables
         </h4>
-        <ul className="list-disc pl-5 text-sm text-gray-600 mb-4">
+        <ul className="list-disc pl-5 text-sm text-muted-foreground mb-4">
           {role.commonDeliverables.map((deliverable, idx) => (
             <li key={idx}>{deliverable}</li>
           ))}
         </ul>
         
         <h4 className="font-medium text-sm mt-4 mb-2 flex items-center">
-          <Code className="h-4 w-4 mr-1 text-[#9b87f5]" /> 
+          <Code className="h-4 w-4 mr-1 text-ss-lav-deep" />
           Project Ideas
         </h4>
         
         {role.projectIdeas.map((project, idx) => (
-          <div key={idx} className="border rounded-lg p-3 mb-3 hover:border-[#9b87f5]/30 hover:bg-[#9b87f5]/5 transition-colors">
+          <div key={idx} className="border border-border rounded-lg p-3 mb-3 hover:border-ss-lav hover:bg-ss-lav-chip transition-colors">
             <div className="flex justify-between items-start mb-1">
               <h5 className="font-medium text-sm">{project.title}</h5>
               <Button 
                 size="sm" 
                 variant="outline"
-                className="h-7 text-xs border-[#9b87f5] text-[#9b87f5] hover:bg-[#9b87f5]/10"
+                className="h-7 text-xs border-ss-lav text-ss-lav-deep hover:bg-ss-lav-chip"
                 onClick={() => onAddProject(project)}
               >
                 Add to Portfolio
               </Button>
             </div>
-            <p className="text-xs text-gray-600 mb-2">{project.description}</p>
+            <p className="text-xs text-muted-foreground mb-2">{project.description}</p>
             <div className="flex flex-wrap gap-1 mt-1">
-              <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-200 border-none text-xs">
+              <Badge className="bg-ss-warn-chip text-ss-warn hover:bg-ss-warn-chip border-none text-xs">
                 Effort: {project.effortLevel}
               </Badge>
               {project.requiredSkills.slice(0, 3).map((skill, i) => (

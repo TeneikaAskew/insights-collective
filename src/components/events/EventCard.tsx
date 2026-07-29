@@ -94,7 +94,7 @@ export function EventCard({
             <Calendar className="h-10 w-10 text-muted-foreground/40" />
           </div>
         )}
-        <Badge className="absolute top-2 right-2 text-white bg-energeticAmber">{event.type}</Badge>
+        <Badge className="absolute top-2 right-2 bg-ss-warn-chip text-ss-warn">{event.type}</Badge>
         {isRegistered && <Badge className="absolute top-2 left-2 bg-green-500 text-white">Registered</Badge>}
       </div>
       <CardHeader>
@@ -149,7 +149,7 @@ export function EventCard({
             <Button 
               onClick={handleRegister} 
               disabled={isRegistering}
-              className="w-full text-white bg-insightBlue hover:bg-insightBlue/90"
+              className="w-full"
             >
               {isRegistering ? (
                 <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing...</>

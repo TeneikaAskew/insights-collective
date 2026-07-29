@@ -156,13 +156,7 @@ export function TeachableShell({
   );
 
   return (
-    <div
-      className="teachable-workspace fixed inset-0 flex font-sans"
-      style={{
-        background: 'hsl(var(--tw-page))',
-        color: 'hsl(var(--tw-text))',
-      }}
-    >
+    <div className="fixed inset-0 flex font-sans bg-background text-foreground">
       {/* Desktop left rail */}
       <aside
         data-onboarding="builder-nav"
@@ -203,15 +197,12 @@ export function TeachableShell({
 
       {/* Main area */}
       <main className="flex-1 flex flex-col min-w-0">
-        <header
-          className="h-16 px-4 md:px-8 flex items-center gap-3 bg-white flex-shrink-0"
-          style={{ borderBottom: '1px solid hsl(var(--tw-border))' }}
-        >
+        <header className="h-16 px-4 md:px-8 flex items-center gap-3 bg-card flex-shrink-0 border-b border-border">
           <Hint label="Open course navigation">
             <button
               type="button"
               onClick={() => setDrawerOpen(true)}
-              className="lg:hidden p-2 -ml-2 rounded-md hover:bg-gray-100 text-foreground"
+              className="lg:hidden p-2 -ml-2 rounded-md hover:bg-muted text-foreground"
               aria-label="Open menu"
             >
               <Menu className="h-5 w-5" />
@@ -226,8 +217,7 @@ export function TeachableShell({
                 <Link
                   data-onboarding="builder-preview"
                   to={previewHref}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-xs md:text-sm font-semibold border hover:bg-gray-50 transition-colors"
-                  style={{ borderColor: 'hsl(var(--tw-border))' }}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-xs md:text-sm font-semibold border border-border hover:bg-muted transition-colors"
                 >
                   <Eye className="h-4 w-4" />
                   <span className="hidden sm:inline">Preview</span>

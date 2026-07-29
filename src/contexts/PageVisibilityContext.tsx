@@ -4,21 +4,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { createLogger } from '@/utils/logger';
+import { resolveGoverningPaths, getAllManifestEntries } from '@/config/pageManifest';
 
 const logger = createLogger('PageVisibilityContext');
-
-interface OnlineUser {
-  id: string;
-  first_name?: string;
-  last_name?: string;
-  avatar_url?: string;
-}
-
-interface CurrentUserPresence {
-  first_name?: string;
-  last_name?: string;
-  avatar_url?: string;
-}
 
 interface PageVisibilityEntry {
   id: string;
@@ -35,8 +23,6 @@ interface PageVisibilityContextType {
   isReady: boolean;
   /** True when the page-visibility fetch failed; isPageVisible fails CLOSED for non-admins in this state */
   loadError: boolean;
-  onlineUsers: OnlineUser[];
-  currentUserPresence: CurrentUserPresence | null;
   pageVisibility: PageVisibilityEntry[];
   updatePageVisibility: (pageId: string, updates: Partial<PageVisibilityEntry>) => Promise<void>;
   syncAvailablePages: () => Promise<void>;
@@ -54,8 +40,6 @@ export const usePageVisibility = () => {
       isLoading: true,
       isReady: false,
       loadError: false,
-      onlineUsers: [] as OnlineUser[],
-      currentUserPresence: null,
       pageVisibility: [] as PageVisibilityEntry[],
       updatePageVisibility: async () => {},
       syncAvailablePages: async () => {},
@@ -73,8 +57,6 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const [dataLoading, setDataLoading] = useState(true);
-  const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
-  const [currentUserPresence, setCurrentUserPresence] = useState<CurrentUserPresence | null>(null);
   const [pageVisibility, setPageVisibility] = useState<PageVisibilityEntry[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
   const [dataFetched, setDataFetched] = useState(false);
@@ -88,17 +70,6 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
   useEffect(() => {
     fetchPageVisibilityData();
   }, []);
-
-  // Set current user presence when user changes
-  useEffect(() => {
-    if (user?.user_metadata) {
-      setCurrentUserPresence({
-        first_name: user.user_metadata.first_name,
-        last_name: user.user_metadata.last_name,
-        avatar_url: user.user_metadata.avatar_url
-      });
-    }
-  }, [user]);
 
   const fetchPageVisibilityData = async () => {
     setDataLoading(true);
@@ -145,10 +116,14 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
    *   admin     => always visible
    *   instructor => visible_to_users OR visible_to_instructors
    *   regular user => visible_to_users
-   *   no entry in DB => default visible
    *   not ready yet => hidden (fail-closed)
    *   fetch failed  => hidden (fail-closed) — a DB/RLS failure must not
    *                    silently grant access to gated pages
+   *
+   * A URL is governed by its manifest chain (see pageManifest.ts): hiding
+   * /courses hides /courses/:id/builder too, and a child page like
+   * /interview-prep/star-practice needs BOTH /interview-prep and its own
+   * entry visible. Paths outside the manifest default to visible.
    */
   const isPageVisible = useCallback((path: string): boolean => {
     // Admin users always see everything
@@ -167,23 +142,29 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
       return false;
     }
 
-    // Find the page visibility entry for this path
-    const pageEntry = pageVisibility.find(page => page.page_path === path);
+    const chain = resolveGoverningPaths(path);
 
-    // If the page is not in the visibility table, default to visible
-    if (!pageEntry) {
+    // Not a managed page — default to visible
+    if (chain.length === 0) {
       return true;
     }
 
     const isInstructor = user?.roles?.includes('instructor');
 
-    // Instructor: visible if "All Users" OR "Instructors" is on
-    if (isInstructor) {
-      return pageEntry.visible_to_users || pageEntry.visible_to_instructors;
-    }
+    // Every governing path must be visible (a hidden parent hides the subtree)
+    return chain.every(governingPath => {
+      const entry = pageVisibility.find(page => page.page_path === governingPath);
 
-    // Regular signed-in user (student): visible only if "All Users" is on
-    return pageEntry.visible_to_users;
+      // Managed page without a DB row yet — default to visible
+      if (!entry) {
+        return true;
+      }
+
+      if (isInstructor) {
+        return entry.visible_to_users || entry.visible_to_instructors;
+      }
+      return entry.visible_to_users;
+    });
   }, [user?.roles, isReady, loadError, pageVisibility]);
 
   const updatePageVisibility = async (pageId: string, updates: Partial<PageVisibilityEntry>) => {
@@ -224,57 +205,18 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
     }
   };
 
+  /**
+   * Reconcile the page_visibility table with the page manifest: upsert a
+   * row for every canonical manifest entry, then remove rows whose path is
+   * no longer in the manifest (dead routes, aliases, and surfaces that are
+   * not visibility-gated — auth, legal, /admin). Stale rows are worse than
+   * cosmetic: a row for a path the gate never matches is a toggle that
+   * silently does nothing.
+   */
   const syncAvailablePages = async () => {
     setIsSyncing(true);
     try {
-      const availablePages = [
-        { page_path: '/', page_name: 'Home' },
-        { page_path: '/dashboard', page_name: 'Dashboard' },
-        { page_path: '/user-dashboard', page_name: 'User Dashboard' },
-        { page_path: '/notifications', page_name: 'Notifications' },
-        { page_path: '/calendar', page_name: 'Calendar' },
-        { page_path: '/login', page_name: 'Login' },
-        { page_path: '/register', page_name: 'Register' },
-        { page_path: '/reset-password', page_name: 'Reset Password' },
-        { page_path: '/auth-callback', page_name: 'Auth Callback' },
-        { page_path: '/profile', page_name: 'Profile' },
-        { page_path: '/courses', page_name: 'Courses' },
-        { page_path: '/course-list', page_name: 'Course List' },
-        { page_path: '/interview-prep', page_name: 'Interview Prep' },
-        { page_path: '/interview-prep/code-practice', page_name: 'Interview Code Practice' },
-        { page_path: '/interview-prep/job-description', page_name: 'Job Description Analysis' },
-        { page_path: '/interview-prep/mock-interview-room', page_name: 'Mock Interview Room' },
-        { page_path: '/interview-prep/mock-interviews', page_name: 'Mock Interviews' },
-        { page_path: '/interview-prep/star-practice', page_name: 'STAR Practice' },
-        { page_path: '/mock-interviews', page_name: 'Mock Interviews' },
-        { page_path: '/code-practice', page_name: 'Code Practice' },
-        // /career-agent is a redirect to /career-pathway now — it has no page
-        // of its own to show or hide.
-        { page_path: '/career-pathway', page_name: 'Career Pathway' },
-        { page_path: '/assistants', page_name: 'AI Assistants' },
-        { page_path: '/explore-data-careers', page_name: 'Explore Data Careers' },
-        { page_path: '/resume', page_name: 'Resume Analyzer' },
-        { page_path: '/events', page_name: 'Events' },
-        { page_path: '/messages', page_name: 'Messages' },
-        { page_path: '/forum', page_name: 'Forum' },
-        { page_path: '/forums', page_name: 'Forums' },
-        { page_path: '/portfolio-explorer', page_name: 'Portfolio Explorer' },
-        { page_path: '/resources', page_name: 'Resources' },
-        { page_path: '/teneika-linkedin', page_name: "Teneika's LinkedIn" },
-        { page_path: '/teneika-tweets', page_name: "Teneika's Tweets" },
-        { page_path: '/survey', page_name: 'AI & Automation Fellowship' },
-        { page_path: '/survey-confirmation', page_name: 'Survey Confirmation' },
-        { page_path: '/admin', page_name: 'Admin Dashboard' },
-        { page_path: '/admin/activity', page_name: 'Admin Activity' },
-        { page_path: '/admin/courses', page_name: 'Admin Courses' },
-        { page_path: '/admin/events', page_name: 'Admin Events' },
-        { page_path: '/admin/users', page_name: 'Admin Users' },
-        { page_path: '/admin/page-visibility', page_name: 'Admin Page Visibility' },
-        { page_path: '/admin/unified-form-management', page_name: 'Form Management' },
-        { page_path: '/admin/local-storage-debug', page_name: 'Admin Debug Tools' },
-        { page_path: '/privacy-policy', page_name: 'Privacy Policy' },
-        { page_path: '/terms-of-service', page_name: 'Terms of Service' }
-      ];
+      const availablePages = getAllManifestEntries();
 
       logger.log('Syncing pages to database:', availablePages);
 
@@ -301,7 +243,38 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
         }
       }
 
+      // Remove rows for paths the manifest no longer manages
+      let removedCount = 0;
+      const manifestPaths = new Set(availablePages.map(page => page.page_path));
+      const { data: existingRows, error: staleFetchError } = await supabase
+        .from('page_visibility')
+        .select('id, page_path')
+        .order('page_path');
+
+      if (staleFetchError) {
+        logger.error('Error fetching rows for stale-path cleanup:', staleFetchError);
+      } else {
+        const staleIds = (existingRows || [])
+          .filter(row => !manifestPaths.has(row.page_path))
+          .map(row => row.id);
+
+        if (staleIds.length > 0) {
+          const { error: deleteError } = await supabase
+            .from('page_visibility')
+            .delete()
+            .in('id', staleIds);
+
+          if (deleteError) {
+            logger.error('Error deleting stale page rows:', deleteError);
+          } else {
+            removedCount = staleIds.length;
+          }
+        }
+      }
+
       await fetchPageVisibilityData();
+
+      const removedNote = removedCount > 0 ? ` ${removedCount} stale entries removed.` : '';
 
       if (failedPages.length === availablePages.length) {
         toast({
@@ -312,13 +285,13 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
       } else if (failedPages.length > 0) {
         toast({
           title: 'Pages partially synced',
-          description: `${availablePages.length - failedPages.length} of ${availablePages.length} pages synced; ${failedPages.length} failed (${failedPages.slice(0, 3).join(', ')}${failedPages.length > 3 ? ', …' : ''}).`,
+          description: `${availablePages.length - failedPages.length} of ${availablePages.length} pages synced; ${failedPages.length} failed (${failedPages.slice(0, 3).join(', ')}${failedPages.length > 3 ? ', …' : ''}).${removedNote}`,
           variant: 'destructive',
         });
       } else {
         toast({
           title: 'Pages synced successfully',
-          description: `${availablePages.length} pages have been synchronized with the database.`,
+          description: `${availablePages.length} pages have been synchronized with the database.${removedNote}`,
         });
       }
     } catch (error) {
@@ -338,8 +311,6 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
     isLoading,
     isReady,
     loadError,
-    onlineUsers,
-    currentUserPresence,
     pageVisibility,
     updatePageVisibility,
     syncAvailablePages,

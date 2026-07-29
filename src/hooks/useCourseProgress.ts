@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import CanvasContentService from '@/services/canvasContentService';
 import { createLogger } from '@/utils/logger';
+import { isValidUUID } from '@/utils/idUtils';
 
 const logger = createLogger('useCourseProgress');
 
@@ -59,7 +60,10 @@ export function useCourseProgress(
   const [error, setError] = useState<string | null>(null);
 
   const fetchProgress = useCallback(async () => {
-    if (!courseId) {
+    // modules.course_id is a uuid column — a non-UUID route param (e.g. a
+    // mistyped /courses/<junk> URL) can never match and Postgres rejects it
+    // with 22P02. Same guard useCoursePermissions already uses.
+    if (!courseId || !isValidUUID(courseId)) {
       setData(undefined);
       setIsLoading(false);
       return;

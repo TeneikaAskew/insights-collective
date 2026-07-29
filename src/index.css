@@ -1,97 +1,164 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@400;500;700&family=Lora:ital,wght@1,500&display=swap');
+/* Self-hosted variable fonts (latin subsets). Google Fonts is unreachable
+   from CI runners — the runtime import broke font rendering there and made
+   visual baselines non-deterministic. Files live in public/fonts/. */
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/outfit-var-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/inter-var-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: italic;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/lora-italic-var-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  /* Soft Studio — the site-wide design system.
+     plaster ground, ink text, lavender identity, peach warmth,
+     soft semantic good/warn/bad/teal, Outfit + Lora Italic.
+     NOTE: --border and --input carry alpha INSIDE the token, so
+     Tailwind opacity modifiers (border-border/50) must not be used
+     on them — use the token as-is. */
   :root {
-    --background: 0 0% 98%; /* Soft White */
-    --foreground: 0 0% 17%; /* Slate Gray */
+    --background: 36 33% 97%;          /* plaster #FAF8F5 */
+    --foreground: 253 10% 18%;         /* ink #2C2A33 */
 
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 17%; /* Slate Gray */
+    --card-foreground: 253 10% 18%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 17%; /* Slate Gray */
+    --popover-foreground: 253 10% 18%;
 
-    --primary: 217 88% 56%; /* Insight Blue */
+    --primary: 256 43% 53%;            /* lavender-deep #624EBE */
     --primary-foreground: 0 0% 100%;
 
-    --secondary:  251 75% 75%; /* Softer Purple */
+    --secondary: 254 66% 75%;          /* lavender #A794EB */
     --secondary-foreground: 0 0% 100%;
 
-    --muted: 0 0% 98%; /* Soft White */
-    --muted-foreground: 220 6% 58%; /* Dusty Gray */
+    --muted: 260 24% 94%;              /* track #EDE9F3 */
+    --muted-foreground: 264 4% 53%;    /* #837E8C */
 
-    --accent: 252 82% 95%; /* Brand purple tint — active/hover surfaces */
-    --accent-foreground: 252 60% 30%;
+    --accent: 258 68% 96%;             /* lavender-chip #F3EFFC */
+    --accent-foreground: 256 43% 53%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 9 51% 52%;          /* soft bad #C25B49 */
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 37 91% 56%; /* Energetic Amber */
+    --border: 253 10% 18% / 0.12;
+    --input: 253 10% 18% / 0.16;
+    --ring: 254 66% 75%;
 
-    --radius: 0.75rem;
+    --radius: 0.9rem;
 
-    --sidebar-background: 0 0% 100%; /* White background for better contrast */
-    --sidebar-foreground: 0 0% 17%; /* Dark gray text */
-    --sidebar-primary: 217 88% 56%; /* Insight Blue */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 253 10% 18%;         /* ink */
+    --sidebar-primary: 256 43% 53%;            /* lavender-deep */
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 252 82% 65%; /* Logo brand purple for active pill (~4.9:1 on white) */
-    --sidebar-accent-foreground: 0 0% 100%; /* White text — passes WCAG AA */
-    --sidebar-border: 214 31% 91%; /* Light border */
-    --sidebar-ring: 217 88% 56%; /* Insight Blue */
-    
-    /* Brand color variables */
-    --insight-blue: 217 88% 56%; /* #1F75FE */
-    --vira-purple: 251 75% 75%; /* Softer purple */
-    --aqua-teal: 164 61% 60%; /* 5ED3B5 */
-    --energetic-amber: 37 91% 56%; /* #F9A826 */
-    --slate-gray: 0 0% 17%; /* #2C2C2C */
-    --soft-white: 0 0% 98%; /* #F9FAFB */
-    --dusty-gray: 220 6% 58%; /* #8A8F9E */
+    --sidebar-accent: 256 43% 53%;             /* lavender-deep pill (AA on white) */
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 253 10% 18% / 0.12;
+    --sidebar-ring: 254 66% 75%;
+
+    /* Soft Studio palette */
+    --ss-lav: 254 66% 75%;             /* #A794EB */
+    --ss-lav-deep: 256 43% 53%;        /* #624EBE */
+    --ss-lav-chip: 258 68% 96%;        /* #F3EFFC */
+    --ss-peach: 26 75% 76%;            /* #F0BE96 */
+    --ss-peach-deep: 23 47% 49%;       /* #B97143 */
+    --ss-card-warm: 30 100% 98%;       /* #FFF9F3 */
+    --ss-track: 260 24% 94%;           /* #EDE9F3 */
+    --ss-good: 146 33% 46%;            /* #4E9B70 */
+    --ss-good-chip: 145 33% 93%;       /* #E7F3EC */
+    --ss-warn: 28 54% 51%;             /* #C97F3D */
+    --ss-warn-chip: 32 78% 93%;        /* #FBEEDF */
+    --ss-bad: 9 51% 52%;               /* #C25B49 */
+    --ss-bad-chip: 11 64% 94%;         /* #F9E8E4 */
+    --ss-teal: 169 44% 44%;            /* #3FA391 */
+    --ss-teal-chip: 168 38% 92%;       /* #E4F3F0 */
+    --ss-shadow: 0 14px 34px -18px rgba(90, 80, 120, 0.35);
   }
 
+  /* Ink Studio — the Soft Studio dark derivation. The ink deepens into the
+     ground, plaster flips to the text color, lavender keeps the identity
+     (and "deep" accents get LIGHTER, since they sit on dark now). Chip
+     tokens are hue tints PRE-BLENDED onto the card surface — they must
+     stay opaque because bg-*-chip/NN and bg-accent/NN opacity modifiers
+     appear in components (only --border/--input may carry alpha; nothing
+     applies modifiers to those). Toggled by next-themes via the `dark`
+     class on <html>. */
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    --background: 257 14% 10%;         /* deep ink #17151C */
+    --foreground: 38 21% 93%;          /* plaster text #F0EDE8 */
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 258 14% 14%;               /* #211E28 */
+    --card-foreground: 38 21% 93%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 258 14% 14%;
+    --popover-foreground: 38 21% 93%;
 
-    --primary: 164 61% 60%; /* Aqua Teal */
-    --primary-foreground: 0 0% 100%;
+    --primary: 254 66% 75%;            /* lavender #A794EB */
+    --primary-foreground: 257 14% 10%; /* ink text on lavender */
 
-    --secondary: 251 75% 75%; /* Softer Purple */
-    --secondary-foreground: 0 0% 100%;
+    --secondary: 253 71% 82%;          /* lightened lav-deep #C0B2F2 */
+    --secondary-foreground: 257 14% 10%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 220 6% 58%; /* Dusty Gray */
+    --muted: 255 13% 18%;              /* tile surface #2A2733 */
+    --muted-foreground: 260 8% 62%;    /* #9B96A5 */
 
-    --accent: 252 40% 25%; /* Brand purple — dark surface */
-    --accent-foreground: 0 0% 98%;
+    --accent: 254 18% 24%;             /* lavender tint pre-blended on card, #363147
+                                          (opaque: accent is used with /NN modifiers) */
+    --accent-foreground: 253 71% 82%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 10 62% 68%;         /* soft bad, brightened #E08A79 */
+    --destructive-foreground: 257 14% 10%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 37 91% 56%; /* Energetic Amber */
-    
-    --sidebar-background: 222 100% 6%; /* Very dark purple/black */
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 37 91% 56%; /* Energetic Amber */
-    --sidebar-primary-foreground: 222 100% 6%; /* Dark background on amber */
-    --sidebar-accent: 222 100% 6%; /* Dark purple for selected states */
-    --sidebar-accent-foreground: 210 40% 98%; /* Light text on dark */
-    --sidebar-border: 222 50% 12%; /* Slightly lighter border */
-    --sidebar-ring: 37 91% 56%; /* Energetic Amber */
+    --border: 38 21% 93% / 0.11;       /* plaster-alpha */
+    --input: 38 21% 93% / 0.16;
+    --ring: 254 66% 75%;
+
+    --sidebar-background: 258 14% 12%;
+    --sidebar-foreground: 38 21% 93%;
+    --sidebar-primary: 254 66% 75%;
+    --sidebar-primary-foreground: 257 14% 10%;
+    --sidebar-accent: 254 66% 75%;
+    --sidebar-accent-foreground: 257 14% 10%;
+    --sidebar-border: 38 21% 93% / 0.11;
+    --sidebar-ring: 254 66% 75%;
+
+    --ss-lav: 254 66% 75%;
+    --ss-lav-deep: 253 71% 82%;        /* lighter on dark */
+    --ss-lav-chip: 254 18% 24%;        /* #363147 */
+    --ss-peach: 26 75% 76%;
+    --ss-peach-deep: 26 61% 69%;       /* lighter on dark */
+    --ss-card-warm: 285 11% 14%;       /* warmed ink #262028 */
+    --ss-track: 257 13% 21%;           /* #332F3D */
+    --ss-good: 145 38% 63%;            /* #7CC49A */
+    --ss-good-chip: 185 13% 18%;       /* #293435 */
+    --ss-warn: 30 69% 65%;             /* #E3A466 */
+    --ss-warn-chip: 9 18% 21%;         /* #3F2F2C */
+    --ss-bad: 10 62% 68%;              /* #E08A79 */
+    --ss-bad-chip: 346 20% 20%;        /* #3E292E */
+    --ss-teal: 169 43% 60%;            /* #6CC4B4 */
+    --ss-teal-chip: 199 20% 19%;       /* #263339 */
+    --ss-shadow: 0 18px 40px -20px rgba(0, 0, 0, 0.6);
   }
 }
 
@@ -120,102 +187,15 @@
 }
 
 @layer components {
-  /* Scoped course-platform theme (Teachable/Podia inspired) */
-  .course-workspace {
-    --cw-bg: 210 20% 98%;              /* #F8F9FA */
-    --cw-surface: 0 0% 100%;
-    --cw-border: 220 13% 91%;          /* #E5E7EB */
-    --cw-text: 228 24% 23%;            /* #2D334A */
-    --cw-muted: 220 9% 46%;
-    --cw-accent: 176 42% 62%;          /* #76C7C0 teal */
-    --cw-accent-strong: 176 34% 50%;   /* #54A8A2 */
-    --cw-accent-soft: 173 40% 90%;     /* #DDEEEB */
-  }
-
-  /* Teachable-style instructor workspace */
-  .teachable-workspace {
-    --tw-bg: 0 0% 100%;
-    --tw-page: 0 0% 98%;              /* subtle off-white page */
-    --tw-rail: 0 0% 10%;              /* #1A1A1A dark sidebar */
-    --tw-rail-text: 0 0% 96%;
-    --tw-rail-muted: 0 0% 65%;
-    --tw-rail-active: 0 0% 16%;
-    --tw-border: 220 13% 91%;
-    --tw-text: 0 0% 10%;
-    --tw-muted: 220 9% 46%;
-    --tw-accent: 217 88% 56%;         /* Insight Blue — site primary */
-    --tw-accent-ink: 0 0% 100%;       /* white ink on primary */
-    --tw-serif: 'Instrument Serif', 'Playfair Display', Georgia, serif;
-  }
-
-  .teachable-workspace .tw-serif {
-    font-family: var(--tw-serif);
-    font-weight: 400;
-    letter-spacing: -0.01em;
-  }
-
-  /* Scoped Soft Studio theme for the Resume Analysis page.
-     Overrides shadcn tokens inside the wrapper only — the navbar, sidebar,
-     and every other route keep reading the :root values. */
-  .soft-studio {
-    /* shadcn token overrides (HSL triples) */
-    --background: 36 33% 97%;          /* plaster #FAF8F5 */
-    --foreground: 253 10% 18%;         /* ink #2C2A33 */
-    --card: 0 0% 100%;
-    --card-foreground: 253 10% 18%;
-    --primary: 256 43% 53%;            /* lavender-deep #624EBE */
-    --primary-foreground: 0 0% 100%;
-    --secondary: 254 66% 75%;          /* lavender #A794EB */
-    --secondary-foreground: 0 0% 100%;
-    --muted: 260 24% 94%;              /* track #EDE9F3 */
-    --muted-foreground: 264 4% 53%;    /* #837E8C */
-    --accent: 258 68% 96%;             /* lavender-chip #F3EFFC */
-    --accent-foreground: 256 43% 53%;
-    --border: 253 10% 18% / 0.12;
-    --input: 253 10% 18% / 0.16;
-    --ring: 254 66% 75%;
-    --radius: 0.9rem;
-
-    /* Soft Studio palette */
-    --ss-lav: 254 66% 75%;             /* #A794EB */
-    --ss-lav-deep: 256 43% 53%;        /* #624EBE */
-    --ss-lav-chip: 258 68% 96%;        /* #F3EFFC */
-    --ss-peach: 26 75% 76%;            /* #F0BE96 */
-    --ss-peach-deep: 23 47% 49%;       /* #B97143 */
-    --ss-card-warm: 30 100% 98%;       /* #FFF9F3 */
-    --ss-track: 260 24% 94%;           /* #EDE9F3 */
-    --ss-good: 146 33% 46%;            /* #4E9B70 */
-    --ss-good-chip: 145 33% 93%;       /* #E7F3EC */
-    --ss-warn: 28 54% 51%;             /* #C97F3D */
-    --ss-warn-chip: 32 78% 93%;        /* #FBEEDF */
-    --ss-bad: 9 51% 52%;               /* #C25B49 */
-    --ss-bad-chip: 11 64% 94%;         /* #F9E8E4 */
-    --ss-teal: 169 44% 44%;            /* #3FA391 */
-    --ss-teal-chip: 168 38% 92%;       /* #E4F3F0 */
-    --ss-shadow: 0 14px 34px -18px rgba(90, 80, 120, 0.35);
-
-    font-family: 'Outfit', 'Inter', system-ui, sans-serif;
-    color: hsl(var(--foreground));
-  }
-
-  .soft-studio h1,
-  .soft-studio h2,
-  .soft-studio h3,
-  .soft-studio h4,
-  .soft-studio h5,
-  .soft-studio h6 {
-    font-family: 'Outfit', 'Inter', system-ui, sans-serif;
-    @apply font-bold;
-  }
-
-  .soft-studio .ss-serif {
+  /* Soft Studio utilities — tokens live on :root, so these work everywhere. */
+  .ss-serif {
     font-family: 'Lora', Georgia, serif;
     font-style: italic;
     font-weight: 500;
   }
 
   /* Soft gradient washes behind the page content */
-  .soft-studio.ss-wash {
+  .ss-wash {
     background-color: hsl(var(--background));
     background-image:
       radial-gradient(46rem 30rem at 86% -6%, rgba(196, 180, 250, 0.55), transparent 62%),
@@ -223,23 +203,31 @@
     background-attachment: local;
   }
 
-  .soft-studio .ss-card {
+  /* Ink Studio wash: the same radial geometry, glowing instead of pastel */
+  .dark .ss-wash {
+    background-color: hsl(var(--background));
+    background-image:
+      radial-gradient(46rem 30rem at 86% -6%, rgba(167, 148, 235, 0.16), transparent 62%),
+      radial-gradient(40rem 28rem at 2% 108%, rgba(240, 190, 150, 0.09), transparent 60%);
+  }
+
+  .ss-card {
     border-radius: 26px;
     border: 1px solid hsl(var(--border));
     box-shadow: var(--ss-shadow);
   }
 
-  .soft-studio .ss-card-warm {
+  .ss-card-warm {
     background-color: hsl(var(--ss-card-warm));
   }
 
-  .soft-studio .ss-chip {
+  .ss-chip {
     @apply inline-flex items-center rounded-full px-3 py-1 text-xs sm:text-sm font-medium;
     background-color: hsl(var(--ss-lav-chip));
     color: hsl(var(--ss-lav-deep));
   }
 
-  .soft-studio .ss-tile {
+  .ss-tile {
     @apply text-center;
     border-radius: 20px;
     border: 1px solid hsl(var(--border));
@@ -248,206 +236,17 @@
   }
 
 
-  .course-card {
-    @apply bg-white rounded-lg shadow-md overflow-hidden transition-all hover:shadow-lg;
-  }
-
-  .progress-circle {
-    @apply relative h-16 w-16 rounded-full flex items-center justify-center;
-  }
-  
-  
-  .progress-circle::before {
-    content: '';
-    @apply absolute inset-0 rounded-full border-4 border-secondary;
-  }
-  
   .animate-fade-in {
     animation: fadeIn 0.5s ease-out forwards;
   }
-  
-  .step-card {
-    @apply relative p-6 rounded-lg border border-border bg-card shadow-sm transition-all duration-300 hover:shadow-md hover:border-primary/20;
-  }
-  
-  .section-heading {
-    @apply text-3xl md:text-4xl font-bold mb-6 text-center font-display;
-  }
-  
-  .section-subheading {
-    @apply text-lg text-muted-foreground mb-12 max-w-3xl mx-auto text-center;
-  }
-  
-  .card-hover {
-    @apply transition-all duration-300 hover:shadow-md hover:-translate-y-1;
-  }
-  
-  .glass-card {
-    @apply bg-white/80 backdrop-blur-sm border border-white/50 shadow-sm;
-  }
-  
-  /* Brand color gradient utilities */
-  .bg-gradient-insight-vira {
-    @apply bg-gradient-to-r from-insightBlue to-viraDeepBlue;
-  }
-  
-  .bg-gradient-teal-amber {
-    @apply bg-gradient-to-r from-aquaTeal to-energeticAmber;
-  }
-  
-  .bg-gradient-insight-teal {
-    @apply bg-gradient-to-r from-insightBlue to-aquaTeal;
-  }
-  
-  .text-gradient-insight-vira {
-    @apply bg-gradient-to-r from-insightBlue to-viraDeepBlue bg-clip-text text-transparent;
-  }
-  
-  /* Interactive button with gradient hover */
-  .btn-gradient {
-    @apply relative overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1;
-  }
-  
-  .btn-gradient::before {
-    content: '';
-    @apply absolute inset-0 bg-gradient-to-r from-primary/80 to-accent/80 opacity-0 transition-opacity duration-300;
-  }
-  
-  .btn-gradient:hover::before {
-    @apply opacity-100;
-  }
-  
-  /* Card styling */
-  .modern-card {
-    @apply bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 border border-gray-100;
-  }
-  
-  /* Enhanced hover effects */
-  .hover-lift {
-    @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-md;
-  }
-  
-  /* Badge styling */
-  .badge {
-    @apply text-xs font-medium px-2 py-1 rounded-full;
-  }
-  
-  /* Modern button */
-  .modern-button {
-    @apply rounded-full font-medium shadow-sm transition-all duration-300 flex items-center justify-center gap-2 hover:shadow-md hover:-translate-y-0.5;
-  }
-  
-  /* Sidebar active-row styling — use tokenized accent for WCAG-safe contrast.
-     Previous rule forced light-purple text on a light-teal pill, failing AA. */
+
+  /* Sidebar active-row styling — use tokenized accent for WCAG-safe contrast. */
   .sidebar-active-item {
     color: hsl(var(--sidebar-accent-foreground));
   }
 
   [data-active=true] svg {
     color: hsl(var(--sidebar-accent-foreground));
-  }
-  
-  /* Custom scrollbar for the Monaco theme */
-  .custom-scrollbar::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-  }
-  
-  .custom-scrollbar::-webkit-scrollbar-track {
-    background: #2d2d2d;
-    border-radius: 4px;
-  }
-  
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: #555555;
-    border-radius: 4px;
-  }
-  
-  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: #666666;
-  }
-  
-  .custom-scrollbar {
-    scrollbar-width: thin;
-    scrollbar-color: #555555 #2d2d2d;
-  }
-  
-  /* Interview prep specific styles - updated for more harmony */
-  .star-step-badge {
-    @apply px-3 py-1 rounded-full text-xs font-medium shadow-sm;
-  }
-  
-  .star-step-situation {
-    @apply bg-indigo-100 text-indigo-700 border border-indigo-200;
-  }
-  
-  .star-step-task {
-    @apply bg-purple-100 text-purple-700 border border-purple-200;
-  }
-  
-  .star-step-action {
-    @apply bg-blue-100 text-blue-700 border border-blue-200;
-  }
-  
-  .star-step-result {
-    @apply bg-emerald-100 text-emerald-700 border border-emerald-200;
-  }
-  
-  /* Interview cards with subtle gradients */
-  .interview-card {
-    @apply rounded-lg shadow-md border hover:shadow-lg transition-all duration-300 overflow-hidden;
-  }
-  
-  /* Card header with softer gradients */
-  .interview-card-header {
-    @apply p-4 border-b;
-  }
-  
-  .behavioral-card .interview-card-header {
-    @apply bg-gradient-to-r from-purple-50 to-indigo-50 border-purple-100;
-  }
-  
-  .technical-card .interview-card-header {
-    @apply bg-gradient-to-r from-blue-50 to-primary/5 border-blue-100;
-  }
-  
-  .feedback-card .interview-card-header {
-    @apply bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-100;
-  }
-  
-  /* Job description analysis styles */
-  .job-description-card {
-    @apply bg-gradient-to-br from-primary/5 to-secondary/5 border border-primary/10 shadow-md hover:shadow-lg transition-all;
-  }
-  
-  /* Mock interview styles with gradients */
-  .mock-interview-card {
-    @apply bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 shadow-md hover:shadow-lg transition-all;
-  }
-  
-  /* Star practice styles with enhanced gradients */
-  .star-practice-card {
-    @apply bg-gradient-to-br from-secondary/5 to-primary/5 border border-secondary/10 shadow-md hover:shadow-lg transition-all;
-  }
-  
-  /* Colorful form input and button styles */
-  .colorful-input {
-    @apply border-primary/20 focus:border-primary/40 focus:ring-primary/20 bg-white/90 transition-all;
-  }
-  
-  .colorful-button {
-    @apply bg-primary text-white hover:bg-primary/90 transition-all;
-  }
-  
-  /* Animated gradient backgrounds */
-  .animated-gradient-background {
-    @apply bg-gradient-to-br from-indigo-100/30 via-purple-100/20 to-blue-100/30 animate-gradient-x;
-  }
-  
-  .shimmer {
-    background: linear-gradient(to right, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.2) 20%, rgba(255, 255, 255, 0.5) 60%, rgba(255, 255, 255, 0) 100%);
-    background-size: 1000px 100%;
-    animation: shimmer 2s infinite linear;
   }
 }
 
@@ -460,97 +259,4 @@
     opacity: 1;
     transform: translateY(0);
   }
-}
-
-/* Animated background */
-.animated-grid {
-  position: absolute;
-  inset: 0;
-  background-image: 
-    linear-gradient(to right, rgba(31, 117, 254, 0.03) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(31, 117, 254, 0.03) 1px, transparent 1px);
-  background-size: 40px 40px;
-  mask-image: radial-gradient(ellipse at center, rgba(0, 0, 0, 1) 30%, rgba(0, 0, 0, 0) 80%);
-}
-
-/* Animated gradient */
-.animated-gradient {
-  @apply bg-gradient-to-r from-primary/20 via-accent/20 to-primary/20 bg-[length:200%_200%] animate-gradient-x;
-}
-
-/* Blob animation */
-.blob {
-  @apply absolute rounded-full bg-gradient-to-r filter blur-3xl opacity-50;
-  animation: blob-animation 20s infinite alternate;
-}
-
-@keyframes blob-animation {
-  0% {
-    transform: translate(0, 0) scale(1);
-  }
-  33% {
-    transform: translate(5%, 5%) scale(1.1);
-  }
-  66% {
-    transform: translate(-5%, 5%) scale(0.9);
-  }
-  100% {
-    transform: translate(0, 0) scale(1);
-  }
-}
-
-@keyframes shimmer {
-  0% {
-    background-position: -1000px 0;
-  }
-  100% {
-    background-position: 1000px 0;
-  }
-}
-
-/* STAR Practice styles */
-.star-card {
-  @apply bg-white rounded-lg shadow-md border border-border/30 overflow-hidden transition-all duration-300;
-}
-
-.star-card-situation {
-  @apply border-l-4 border-indigo-300 bg-indigo-50/30;
-}
-
-.star-card-task {
-  @apply border-l-4 border-purple-300 bg-purple-50/30;
-}
-
-.star-card-action {
-  @apply border-l-4 border-blue-300 bg-blue-50/30;
-}
-
-.star-card-result {
-  @apply border-l-4 border-emerald-300 bg-emerald-50/30;
-}
-
-/* Mock interview styles */
-.mock-video-container {
-  @apply aspect-video bg-gradient-to-br from-slate-800 to-slate-900 rounded-lg overflow-hidden relative shadow-xl;
-}
-
-.mock-control-panel {
-  @apply absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/40 p-2 rounded-full backdrop-blur-sm;
-}
-
-.mock-question {
-  @apply p-3 bg-white/90 rounded-md border-l-4 shadow-sm hover:bg-white transition-colors;
-}
-
-.behavioral-question {
-  @apply border-secondary text-secondary/90;
-}
-
-.technical-question {
-  @apply border-primary text-primary/90;
-}
-
-/* Progress bar with gradient */
-.progress-bar-gradient .bg-primary {
-  @apply bg-gradient-to-r from-primary/80 to-primary;
 }

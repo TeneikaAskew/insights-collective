@@ -805,7 +805,7 @@ const Resume = () => {
   });
   
   return <AppLayout fullWidth>
-      <div className="soft-studio ss-wash mx-auto py-8 space-y-6 px-6 max-w-full min-h-full">
+      <div className="ss-wash mx-auto py-8 space-y-6 px-6 max-w-full min-h-full">
         {/* Analysis overlay that appears during processing */}
         <ResumeAnalysisOverlay 
           isVisible={showAnalysisOverlay} 

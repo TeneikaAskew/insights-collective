@@ -71,7 +71,7 @@ export function AssistantChat({ assistant, onClose }: AssistantChatProps) {
           <div className="flex flex-col items-center gap-3">
             <Avatar className="h-16 w-16">
               {assistant && (
-                <div className="bg-insightBlue/20 text-insightBlue rounded-full p-4">
+                <div className="bg-ss-lav-chip text-ss-lav-deep rounded-full p-4">
                   {renderIcon()}
                 </div>
               )}
@@ -90,7 +90,7 @@ export function AssistantChat({ assistant, onClose }: AssistantChatProps) {
               <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`inline-block max-w-[80%] p-3 rounded-lg ${
                   message.role === 'user' 
-                    ? 'bg-insightBlue text-white' 
+                    ? 'bg-primary text-primary-foreground' 
                     : 'bg-slate-100 text-slate-800'
                 }`}>
                   {message.content}
@@ -113,7 +113,7 @@ export function AssistantChat({ assistant, onClose }: AssistantChatProps) {
           </div>
           <Button 
             onClick={handleSendMessage}
-            className="bg-insightBlue hover:bg-insightBlue/90 text-white"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground"
           >
             <Send className="h-4 w-4" />
           </Button>
