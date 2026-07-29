@@ -26,6 +26,11 @@ CREATE TABLE IF NOT EXISTS public.bls_occupations (
   pct90               INTEGER,
 
   -- Provenance. `reference_period` is the OEWS release these figures come from.
+  -- 'seed' rows ship with this migration; 'discovered' rows were pulled from the
+  -- BLS API on demand when something asked about an occupation we did not hold.
+  source              TEXT        NOT NULL DEFAULT 'seed'
+                                  CHECK (source IN ('seed', 'discovered')),
+
   reference_period    TEXT        NOT NULL DEFAULT 'May 2025',
   source_name         TEXT        NOT NULL DEFAULT 'U.S. Bureau of Labor Statistics, Occupational Employment and Wage Statistics',
   source_url          TEXT        NOT NULL DEFAULT 'https://www.bls.gov/oes/',
@@ -69,8 +74,24 @@ CREATE TABLE IF NOT EXISTS public.career_roles (
   -- UI has to say which. Surfaced next to the figures.
   mapping_note TEXT,
 
+  -- 'curated' roles are the ones with editorial content in dataCareerRoles.ts
+  -- and are the only ones Explore Careers lists. 'discovered' roles were created
+  -- by the bls-wages lookup when a user or an assistant asked about an
+  -- occupation outside that set — they carry wage data and nothing else.
+  source      TEXT NOT NULL DEFAULT 'curated'
+              CHECK (source IN ('curated', 'discovered')),
+
+  -- The free-text title that triggered a discovery ("cyber security analyst"),
+  -- kept so the title→occupation resolution stays auditable.
+  requested_title TEXT,
+
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+  -- A discovered role records what was asked for; a curated one never does.
+  CONSTRAINT career_roles_requested_title_only_when_discovered CHECK (
+    (source = 'discovered') OR (requested_title IS NULL)
+  )
 );
 
 CREATE INDEX IF NOT EXISTS career_roles_soc_code_idx  ON public.career_roles (soc_code);
@@ -213,6 +234,7 @@ CREATE OR REPLACE VIEW public.career_role_wages AS
     r.title,
     r.category,
     r.mapping_note,
+    r.source,
     o.soc_code,
     o.occupation_title,
     o.employment,
