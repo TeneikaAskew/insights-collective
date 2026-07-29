@@ -112,7 +112,8 @@ const AdminCourses = lazy(() => import('@/pages/AdminCourses'));
 const AdminEvents = lazy(() => import('@/pages/AdminEvents'));
 const AdminUsers = lazy(() => import('@/pages/AdminUsers'));
 const BlogAdmin = lazy(() => import('@/pages/admin/BlogAdmin'));
-const AdminPageVisibility = lazy(() => import('@/pages/AdminPageVisibility'));
+const AdminLayout = lazy(() => import('@/pages/admin/AdminLayout'));
+const PageVisibilityManager = lazy(() => import('@/pages/admin/PageVisibilityManager'));
 const FormManagement = lazy(() => import('@/pages/admin/FormManagement'));
 const UnifiedFormManagement = lazy(() => import('@/pages/admin/UnifiedFormManagement'));
 const LocalStorageDebug = lazy(() => import('@/pages/admin/LocalStorageDebug'));
@@ -386,31 +387,42 @@ function App() {
                     <Route path="/survey/survey-form-edit/:id" element={<SurveyFormEdit />} />
                     <Route path="/survey/:surveySlug/edit" element={<SurveyFormEdit />} />
 
-                    {/* Admin Routes */}
-                    {/* Every /admin route is wrapped in ProtectedRoute
-                        requireAdmin — previously only /admin itself was,
-                        leaving the rest reachable by any visitor (RLS aside). */}
-                    <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminDashboard /></ProtectedRoute>} />
-                    <Route path="/admin/activity" element={<ProtectedRoute requireAdmin><AdminActivity /></ProtectedRoute>} />
-                    {/* Instructors author their own posts here — RLS already
-                        grants them CRUD on posts they own, and admin-only tabs
-                        are hidden inside the page. */}
-                    <Route path="/admin/blog/*" element={<ProtectedRoute requireAdmin allowInstructor><BlogAdmin /></ProtectedRoute>} />
-                    <Route path="/admin/courses" element={<ProtectedRoute requireAdmin><AdminCourses /></ProtectedRoute>} />
-                    <Route path="/admin/course-edit/:id" element={<ProtectedRoute requireAdmin><AdminCourseEditRedirect /></ProtectedRoute>} />
-                    <Route path="/admin/events" element={<ProtectedRoute requireAdmin><AdminEvents /></ProtectedRoute>} />
-                    <Route path="/admin/users" element={<ProtectedRoute requireAdmin><AdminUsers /></ProtectedRoute>} />
-                    <Route path="/admin/page-visibility" element={<ProtectedRoute requireAdmin><AdminPageVisibility /></ProtectedRoute>} />
-                    <Route path="/admin/form-management" element={<ProtectedRoute requireAdmin><FormManagement /></ProtectedRoute>} />
-                    <Route path="/admin/unified-form-management" element={<ProtectedRoute requireAdmin><UnifiedFormManagement /></ProtectedRoute>} />
-                    <Route path="/admin/unified-form-management/submissions/:slug" element={<ProtectedRoute requireAdmin><FormManagement /></ProtectedRoute>} />
-                    <Route path="/admin/unified-form-management/submissions/:slug/submission/:submissionId" element={<ProtectedRoute requireAdmin><FormManagement /></ProtectedRoute>} />
-                    {/* Debug Tools is a dev-only surface: it inspects raw
-                        localStorage (secrets are redacted, but it should not
-                        ship to production at all). Gate the route to DEV. */}
-                    {import.meta.env.DEV && (
-                      <Route path="/admin/local-storage-debug" element={<ProtectedRoute requireAdmin><LocalStorageDebug /></ProtectedRoute>} />
-                    )}
+                    {/* Admin Routes — one shell (AdminLayout), one guard at
+                        the layout. Every tool is a nested route rendered into
+                        the shell's Outlet. */}
+                    <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminLayout /></ProtectedRoute>}>
+                      <Route index element={<AdminDashboard />} />
+                      <Route path="users" element={<AdminUsers />} />
+                      <Route path="courses" element={<AdminCourses />} />
+                      <Route path="course-edit/:id" element={<AdminCourseEditRedirect />} />
+                      <Route path="events" element={<AdminEvents />} />
+                      <Route path="activity" element={<AdminActivity />} />
+                      <Route path="forms" element={<UnifiedFormManagement />} />
+                      <Route path="forms/submissions/:slug" element={<FormManagement />} />
+                      <Route path="forms/submissions/:slug/submission/:submissionId" element={<FormManagement />} />
+                      {/* Legacy form URLs keep working inside the shell */}
+                      <Route path="form-management" element={<FormManagement />} />
+                      <Route path="unified-form-management" element={<Navigate to="/admin/forms" replace />} />
+                      <Route path="unified-form-management/submissions/:slug" element={<FormManagement />} />
+                      <Route path="unified-form-management/submissions/:slug/submission/:submissionId" element={<FormManagement />} />
+                      <Route path="page-visibility" element={<PageVisibilityManager />} />
+                      {/* Debug Tools is a dev-only surface: it inspects raw
+                          localStorage and should not ship to production. */}
+                      {import.meta.env.DEV && (
+                        <Route path="debug/storage" element={<LocalStorageDebug />} />
+                      )}
+                      {import.meta.env.DEV && (
+                        <Route path="local-storage-debug" element={<Navigate to="/admin/debug/storage" replace />} />
+                      )}
+                    </Route>
+                    {/* Blog admin allows instructors (RLS grants them CRUD on
+                        their own posts), so it carries its own guard and wraps
+                        the shell explicitly. */}
+                    <Route path="/admin/blog/*" element={
+                      <ProtectedRoute requireAdmin allowInstructor>
+                        <AdminLayout><BlogAdmin /></AdminLayout>
+                      </ProtectedRoute>
+                    } />
 
                     {/* Legal & Info Routes */}
                     <Route path="/privacy-policy" element={<PrivacyPolicy />} />

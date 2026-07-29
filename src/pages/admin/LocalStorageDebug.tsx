@@ -12,7 +12,6 @@ import {
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
-import AppLayout from '@/components/layout/AppLayout';
 
 import { createLogger } from '@/utils/logger';
 
@@ -186,8 +185,8 @@ const LocalStorageDebugPage: React.FC = () => {
   };
 
   return (
-    <AppLayout>
-      <div className="container max-w-4xl py-8 space-y-6">
+    <>
+      <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold mb-1">LocalStorage Debug</h2>
@@ -196,8 +195,8 @@ const LocalStorageDebugPage: React.FC = () => {
           <div className="flex items-center gap-2">
             {isAuthenticated ? (
               <>
-                <Unlock className="h-4 w-4 text-green-500" />
-                <span className="text-sm font-medium text-green-500">
+                <Unlock className="h-4 w-4 text-ss-good" />
+                <span className="text-sm font-medium text-ss-good">
                   {user?.email ? `Authenticated — ${user.email}` : 'Authenticated'}
                 </span>
               </>
@@ -390,7 +389,7 @@ const LocalStorageDebugPage: React.FC = () => {
           </div>
         </div>
       </div>
-    </AppLayout>
+    </>
   );
 };
 
