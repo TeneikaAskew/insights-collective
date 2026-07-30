@@ -42,7 +42,9 @@ declare
   v_secret text;
   v_request_id bigint;
 begin
-  if p_action not in ('process', 'enqueue-discover', 'enqueue-refresh') then
+  -- 'status' is included so an operator can smoke-test the whole path — pg_net to
+  -- function to Vault-backed auth — without triggering a crawl.
+  if p_action not in ('process', 'enqueue-discover', 'enqueue-refresh', 'status') then
     raise exception 'unsupported action: %', p_action;
   end if;
 

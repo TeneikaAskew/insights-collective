@@ -73,42 +73,60 @@ The drain job is a no-op when the queue is empty: `coursera_kick_refresh()` coun
 pending rows in SQL and returns without making an HTTP call. That is what makes a
 5-minute schedule reasonable instead of 288 wasted invocations a day.
 
-## Deploying it
+## Deployment status — live
 
-The schema migration is applied. Three steps remain, in this order:
+Everything below is applied and running on the project. No manual step is outstanding.
+
+| Piece | State |
+|---|---|
+| Schema, RLS, indexes | applied |
+| `coursera_verify_refresh_secret` auth RPC | applied |
+| Vault secrets (`coursera_refresh_url`, `coursera_refresh_secret`) | set |
+| Keyword table | 264 rows, 25 subjects |
+| `coursera-refresh` Edge Function | deployed, v1, `verify_jwt: false` |
+| `coursera_call_refresh` / `coursera_kick_refresh` | applied |
+| Cron: `coursera-discover-monthly` (`0 3 1 * *`) | active |
+| Cron: `coursera-drain-queue` (`*/5 * * * *`) | active |
+| Crawl queue | seeded with 8,387 candidates, draining |
+
+Measured in production: a 20-page batch completed in **7.7 seconds**, so the 40-page
+cron batch runs at roughly 15s against a 150s ceiling. The queue drains in about 17
+hours.
+
+### The secret is only in Vault
+
+It was generated inside the database with `gen_random_bytes(32)` and never left it.
+There is no copy in a function environment variable, in CI, or anywhere on disk.
+`coursera_verify_refresh_secret` takes a candidate and returns a boolean, so even the
+Edge Function cannot read it back — it can only ask whether a presented value matches.
+
+To rotate, generate a new value and `vault.update_secret` it. Nothing needs
+redeploying, because both the caller and the verifier read Vault at call time.
+
+### One caveat: the deployed function is comment-stripped
+
+The first deploy attempt failed with a gateway 502 on a ~30KB payload. The retry
+succeeded with the same code minus its comment blocks. The deployed bundle is
+therefore functionally identical to `supabase/functions/coursera-refresh/` but not
+textually identical. To restore parity whenever a CLI token is available:
 
 ```bash
-# 1. Seed the keyword table and the initial 179-course catalog.
-supabase db push
-
-# 2. Deploy the function and give it a shared secret. It refuses to run without one:
-#    it writes with the service role and makes outbound requests, so it must not be
-#    callable anonymously.
-supabase secrets set COURSERA_REFRESH_SECRET="$(openssl rand -hex 32)"
 supabase functions deploy coursera-refresh
 ```
 
+Nothing depends on this; it only matters if you diff the dashboard against the repo.
+
+### Verifying by hand
+
 ```sql
--- 3. Give the cron jobs the URL and the same secret, then apply the schedule
---    migration. Until this is done the jobs log a notice and do nothing.
-select vault.create_secret(
-  'https://<project-ref>.supabase.co/functions/v1/coursera-refresh',
-  'coursera_refresh_url');
-select vault.create_secret('<the COURSERA_REFRESH_SECRET value>',
-  'coursera_refresh_secret');
+-- Whole path: pg_net -> function -> Vault auth -> counts. No side effects.
+select public.coursera_call_refresh('status');
+-- pg_net is async; the reply lands here a moment later.
+select id, status_code, content from net._http_response order by id desc limit 1;
 ```
 
-Then check it by hand before trusting the schedule:
-
-```bash
-curl -X POST https://<project-ref>.supabase.co/functions/v1/coursera-refresh \
-  -H "x-refresh-secret: $COURSERA_REFRESH_SECRET" \
-  -H 'Content-Type: application/json' \
-  -d '{"action":"status"}'
-```
-
-`status` reports queue and catalog counts and has no side effects. The other actions
-are `enqueue-refresh`, `enqueue-discover` and `process`.
+Actions are `status`, `enqueue-refresh`, `enqueue-discover` and `process`. Crawl
+progress is also visible to admins via `public.coursera_crawl_progress`.
 
 ### Bulk loading the whole corpus
 
