@@ -3,7 +3,7 @@
 // ABOUTME: role switches in-row, and a stale-entry cleanup driven by sync.
 
 import { useMemo, useState } from 'react';
-import { ChevronDown, ChevronRight, RefreshCw, Search } from 'lucide-react';
+import { ChevronDown, ChevronRight, Loader2, RefreshCw, Search } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,8 @@ interface RowProps {
   parentHidden?: { users: boolean; instructors: boolean };
   childCount?: number;
   open?: boolean;
+  /** Render the name cell as the section's CollapsibleTrigger button */
+  asTrigger?: boolean;
 }
 
 const COLUMNS = 'grid grid-cols-[1fr_90px_90px_70px] items-center gap-2 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_90px_90px_70px]';
@@ -35,10 +37,35 @@ function useVisibilityRow(path: string) {
   };
 }
 
-function PageRow({ page, child, parentHidden, childCount, open }: RowProps) {
+function PageRow({ page, child, parentHidden, childCount, open, asTrigger }: RowProps) {
   const { entry, setFlag } = useVisibilityRow(page.path);
   const users = entry?.visible_to_users ?? true;
   const instructors = entry?.visible_to_instructors ?? true;
+
+  const nameCellContent = (
+    <>
+      {!child && (
+        <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded bg-ss-lav-chip text-ss-lav-deep">
+          {childCount ? (
+            open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />
+          ) : (
+            <ChevronRight className="h-3 w-3 opacity-30" />
+          )}
+        </span>
+      )}
+      <span className="truncate">{page.name}</span>
+      {!child && childCount ? (
+        <span className="shrink-0 text-xs font-normal text-muted-foreground">
+          {childCount} sub-pages
+        </span>
+      ) : null}
+      {!child && !childCount && page.path !== '/' ? (
+        <span className="hidden shrink-0 text-xs font-normal text-muted-foreground lg:inline">
+          governs {page.path}/*
+        </span>
+      ) : null}
+    </>
+  );
 
   return (
     <div
@@ -49,28 +76,20 @@ function PageRow({ page, child, parentHidden, childCount, open }: RowProps) {
       )}
       data-testid={`visibility-row-${page.path}`}
     >
-      <span className={cn('flex min-w-0 items-center gap-2', !child && 'font-semibold')}>
-        {!child && (
-          <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded bg-ss-lav-chip text-ss-lav-deep">
-            {childCount ? (
-              open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />
-            ) : (
-              <ChevronRight className="h-3 w-3 opacity-30" />
-            )}
-          </span>
-        )}
-        <span className="truncate">{page.name}</span>
-        {!child && childCount ? (
-          <span className="shrink-0 text-xs font-normal text-muted-foreground">
-            {childCount} sub-pages
-          </span>
-        ) : null}
-        {!child && !childCount && page.path !== '/' ? (
-          <span className="hidden shrink-0 text-xs font-normal text-muted-foreground lg:inline">
-            governs {page.path}/*
-          </span>
-        ) : null}
-      </span>
+      {asTrigger ? (
+        // Only the name cell toggles the section — switches stay outside the
+        // trigger so flipping one never collapses/expands the row, and the
+        // real <button> keeps the toggle keyboard-accessible.
+        <CollapsibleTrigger asChild>
+          <button type="button" className="flex min-w-0 items-center gap-2 text-left font-semibold">
+            {nameCellContent}
+          </button>
+        </CollapsibleTrigger>
+      ) : (
+        <span className={cn('flex min-w-0 items-center gap-2', !child && 'font-semibold')}>
+          {nameCellContent}
+        </span>
+      )}
       <span className="hidden truncate font-mono text-xs text-muted-foreground sm:block">
         {page.path}
       </span>
@@ -122,15 +141,12 @@ function SectionRows({ section, filter }: { section: ManifestPage; filter: strin
 
   return (
     <Collapsible open={open || forcedOpen} onOpenChange={setOpen}>
-      <CollapsibleTrigger asChild disabled={!section.children?.length}>
-        <div className={cn(section.children?.length && 'cursor-pointer')}>
-          <PageRow
-            page={section}
-            childCount={section.children?.length}
-            open={open || forcedOpen}
-          />
-        </div>
-      </CollapsibleTrigger>
+      <PageRow
+        page={section}
+        childCount={section.children?.length}
+        open={open || forcedOpen}
+        asTrigger={Boolean(section.children?.length)}
+      />
       <CollapsibleContent>
         {children.map(childPage => (
           <PageRow key={childPage.path} page={childPage} child parentHidden={parentHidden} />
@@ -141,7 +157,7 @@ function SectionRows({ section, filter }: { section: ManifestPage; filter: strin
 }
 
 export default function PageVisibilityManager() {
-  const { pageVisibility, syncAvailablePages, isSyncing, loadError } = usePageVisibility();
+  const { pageVisibility, syncAvailablePages, isSyncing, isLoading, loadError } = usePageVisibility();
   const [filter, setFilter] = useState('');
 
   const manifestPaths = useMemo(
@@ -149,6 +165,8 @@ export default function PageVisibilityManager() {
     [],
   );
   const staleRows = pageVisibility.filter(row => !manifestPaths.has(row.page_path));
+  // Effectively hidden = hidden to students. users:true + instructors:false
+  // blocks nobody (instructors see users OR instructors), so it must not count.
   const hiddenCount = pageVisibility.filter(
     row => manifestPaths.has(row.page_path) && !row.visible_to_users,
   ).length;
@@ -216,9 +234,21 @@ export default function PageVisibilityManager() {
           <span>Instructors</span>
           <span>Admins</span>
         </div>
-        {PAGE_MANIFEST.map(section => (
-          <SectionRows key={section.path} section={section} filter={filter} />
-        ))}
+        {isLoading ? (
+          // Don't render switches while settings load — checked-but-disabled
+          // toggles read as a broken state, not a pending one.
+          <div
+            className="flex items-center justify-center gap-2 px-4 py-10 text-sm text-muted-foreground"
+            data-testid="visibility-loading"
+          >
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading visibility settings…
+          </div>
+        ) : (
+          PAGE_MANIFEST.map(section => (
+            <SectionRows key={section.path} section={section} filter={filter} />
+          ))
+        )}
       </Card>
 
       {staleRows.length > 0 && (

@@ -90,7 +90,7 @@ export default function FormManagement() {
 
   if (loading) {
     return (
-      <div className="container py-8 space-y-6">
+      <div className="space-y-6">
         <Skeleton className="h-10 w-1/3" />
         <Skeleton className="h-6 w-1/2" />
         <div className="h-4" />
@@ -101,7 +101,7 @@ export default function FormManagement() {
 
   if (error) {
     return (
-      <div className="container py-8">
+      <div className="space-y-6">
         <Alert variant="destructive">
           <AlertDescription>
             {error} <Button variant="link" onClick={() => navigate("/admin/forms")}>Return to forms</Button>
@@ -116,7 +116,7 @@ export default function FormManagement() {
   }
 
   return (
-    <div className="container py-8 space-y-6">
+    <div className="space-y-6">
         <div className="flex items-center gap-2">
           <Button 
             variant="ghost" 
