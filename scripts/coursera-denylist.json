@@ -1,0 +1,13 @@
+{
+  "$comment": "Coursera slugs to exclude when generating src/data/courseraCatalog.generated.ts. Because the catalog is built from a dataset snapshot, retired courses reappear on every regeneration unless they are listed here. `npm run verify:coursera` prints the slugs to add. Each entry records why, so a slug that comes back can be un-denied deliberately rather than by accident.",
+  "denied": [
+    {
+      "slug": "data-analysis-r",
+      "reason": "404 as of 2026-07. Retired after the Nov 2024 snapshot; Google's R course now only ships inside the Data Analytics certificate."
+    },
+    {
+      "slug": "gcp-big-data-ml-fundamentals",
+      "reason": "404 as of 2026-07. Google Cloud renamed the course after the Nov 2024 snapshot and no redirect was left behind."
+    }
+  ]
+}

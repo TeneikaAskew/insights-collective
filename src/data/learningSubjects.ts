@@ -3,6 +3,8 @@
 // ABOUTME: `category` and `tags` written by instructors, so they cannot be joined
 // ABOUTME: to roles directly — this module infers subjects from that text instead.
 
+import subjectKeywords from './subjectKeywords.json';
+
 /**
  * A subject area. Deliberately coarser than a skill: "SQL" is a subject,
  * "window functions" is not. Roles declare the subjects they need
@@ -96,49 +98,25 @@ export const SUBJECT_LABELS: Record<LearningSubject, string> = {
 /**
  * Keywords that mark a piece of free text as being about a subject.
  *
- * Matching is case-insensitive and word-boundary aware, so `"r"` would match far
- * too much and is deliberately absent — short, ambiguous tokens belong in a
- * course's `tags`, not in inference. Keep entries lowercase.
+ * Lives in JSON rather than here because `scripts/build-coursera-catalog.mjs` —
+ * a plain Node script that cannot import TypeScript — needs the same table to
+ * classify catalog rows. One file, no drift. `roleCourseResolver.test.ts` asserts
+ * that the generated catalog's stored subjects still match what `inferSubjects`
+ * produces, so a change to the matching logic on either side fails CI.
  */
-const SUBJECT_KEYWORDS: Record<LearningSubject, string[]> = {
-  'data-analysis': ['data analysis', 'data analytics', 'analytics', 'analyst', 'analysis', 'insights'],
-  sql: ['sql', 'postgres', 'postgresql', 'mysql', 'bigquery', 'snowflake', 'redshift', 'query', 'queries'],
-  python: ['python', 'pandas', 'numpy', 'jupyter'],
-  excel: ['excel', 'spreadsheet', 'spreadsheets', 'google sheets'],
-  statistics: ['statistics', 'statistical', 'probability', 'regression', 'hypothesis testing', 'inference'],
-  'data-visualization': ['visualization', 'visualisation', 'tableau', 'power bi', 'looker', 'charts', 'charting', 'dashboard', 'dashboards', 'd3'],
-  'business-intelligence': ['business intelligence', 'bi', 'reporting', 'kpi', 'kpis', 'metrics'],
-  'product-analytics': ['product analytics', 'product management', 'user behavior', 'funnel', 'retention', 'cohort'],
-  experimentation: ['experimentation', 'a/b testing', 'ab testing', 'experiment', 'experiments', 'causal inference'],
-  'machine-learning': ['machine learning', 'ml', 'scikit-learn', 'sklearn', 'supervised learning', 'predictive modeling', 'classification', 'clustering'],
-  'deep-learning': ['deep learning', 'neural network', 'neural networks', 'pytorch', 'tensorflow', 'computer vision', 'transformers'],
-  nlp: ['nlp', 'natural language', 'text mining', 'language model', 'language models'],
-  'generative-ai': ['generative ai', 'genai', 'llm', 'llms', 'large language model', 'prompt engineering', 'diffusion'],
-  mlops: ['mlops', 'model deployment', 'model monitoring', 'mlflow', 'kubeflow', 'feature store'],
-  'ai-ethics': ['ai ethics', 'responsible ai', 'fairness', 'bias', 'ai governance', 'explainability', 'interpretability'],
-  'data-engineering': ['data engineering', 'data engineer', 'spark', 'kafka', 'airflow', 'data pipeline', 'data pipelines', 'databricks'],
-  etl: ['etl', 'elt', 'ingestion', 'data warehouse', 'data warehousing', 'dbt', 'orchestration'],
-  'data-modeling': ['data modeling', 'data modelling', 'dimensional modeling', 'schema design', 'database design', 'normalization', 'star schema'],
-  'data-governance': ['data governance', 'data quality', 'data catalog', 'metadata', 'master data', 'lineage', 'stewardship', 'compliance', 'gdpr'],
-  cloud: ['cloud', 'aws', 'azure', 'gcp', 'google cloud', 'kubernetes', 'docker', 'terraform', 'serverless', 'infrastructure'],
-  security: ['security', 'cybersecurity', 'iam', 'encryption', 'threat', 'vulnerability', 'incident response'],
-  'software-engineering': ['software engineering', 'software development', 'programming', 'api', 'apis', 'ci/cd', 'testing', 'full stack', 'full-stack', 'backend', 'frontend', 'javascript', 'react'],
-  research: ['research', 'scientific', 'academic', 'literature review', 'experimental design', 'algorithms'],
-  finance: ['finance', 'financial', 'valuation', 'private equity', 'investment', 'accounting', 'financial modeling'],
-  'business-strategy': ['business strategy', 'strategy', 'consulting', 'stakeholder', 'change management', 'roi', 'business acumen', 'project management'],
-};
-
-/** Pre-compiled so inference over a whole course list stays cheap. */
-const SUBJECT_PATTERNS: Array<[LearningSubject, RegExp[]]> = (
-  Object.entries(SUBJECT_KEYWORDS) as Array<[LearningSubject, string[]]>
-).map(([subject, keywords]) => [
-  subject,
-  keywords.map((keyword) => new RegExp(`(^|[^a-z0-9])${escapeRegExp(keyword)}([^a-z0-9]|$)`, 'i')),
-]);
+const SUBJECT_KEYWORDS = subjectKeywords as unknown as Record<LearningSubject, string[]>;
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
+
+/** Pre-compiled so inference over a whole course list stays cheap. */
+const SUBJECT_PATTERNS: Array<[LearningSubject, RegExp[]]> = LEARNING_SUBJECTS.map((subject) => [
+  subject,
+  (SUBJECT_KEYWORDS[subject] ?? []).map(
+    (keyword) => new RegExp(`(^|[^a-z0-9])${escapeRegExp(keyword)}([^a-z0-9]|$)`, 'i'),
+  ),
+]);
 
 /**
  * Subjects mentioned anywhere in the given text fragments.

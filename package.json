@@ -23,6 +23,7 @@
     "visual:report": "playwright show-report",
     "verify:code-eval": "node scripts/verify-code-evaluation.mjs",
     "verify:coursera": "node scripts/verify-coursera-links.mjs",
+    "build:coursera": "node scripts/build-coursera-catalog.mjs",
     "audit:queries": "node scripts/audit/query-inventory.mjs && node scripts/audit/route-reachability.mjs && node scripts/audit/replay-queries.mjs && node scripts/audit/gate.mjs",
     "audit:types": "node scripts/audit/types-drift.mjs",
     "audit:invariants": "node scripts/audit/schema-invariants.mjs",

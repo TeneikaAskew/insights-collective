@@ -5,7 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import { resolveRoleCourses, scorePlatformCourse } from '../roleCourseResolver';
 import type { PublishedCourse } from '@/hooks/usePublishedCourses';
-import { courseraCatalog, courseraUrl } from '@/data/courseraCatalog';
+import { courseraCatalog, courseraCoursesForSubject, courseraUrl } from '@/data/courseraCatalog';
 import { roleLearningPaths } from '@/data/roleLearningPaths';
 import { LEARNING_SUBJECTS, SUBJECT_LABELS, inferSubjects } from '@/data/learningSubjects';
 import { dataCareerRoles } from '@/data/dataCareerRoles';
@@ -184,12 +184,80 @@ describe('data integrity', () => {
     expect(new Set(slugs).size).toBe(slugs.length);
   });
 
-  it('builds specialization and single-course URLs from the right path', () => {
-    const single = courseraCatalog.find((c) => c.format === 'Course')!;
-    const spec = courseraCatalog.find((c) => c.format === 'Specialization')!;
+  it('uses the stored URL verbatim rather than rebuilding it', () => {
+    for (const course of courseraCatalog) {
+      expect(courseraUrl(course)).toBe(course.url);
+    }
+  });
 
-    expect(courseraUrl(single)).toBe(`https://www.coursera.org/learn/${single.slug}`);
-    expect(courseraUrl(spec)).toBe(`https://www.coursera.org/specializations/${spec.slug}`);
+  it('puts each format on the URL path Coursera actually serves it from', () => {
+    // Regression: an earlier hand-written catalog derived URLs from `format` and
+    // mapped Professional Certificate to /specializations/. Coursera serves those
+    // from /professional-certificates/, so 11 of 34 links 404'd.
+    const expectedPath = {
+      Course: 'learn',
+      Specialization: 'specializations',
+      'Professional Certificate': 'professional-certificates',
+    } as const;
+
+    for (const course of courseraCatalog) {
+      expect(course.url, `${course.slug} (${course.format})`).toBe(
+        `https://www.coursera.org/${expectedPath[course.format]}/${course.slug}`,
+      );
+    }
+  });
+
+  it('covers all three Coursera URL formats', () => {
+    const formats = new Set(courseraCatalog.map((c) => c.format));
+    expect(formats).toContain('Course');
+    expect(formats).toContain('Specialization');
+    expect(formats).toContain('Professional Certificate');
+  });
+
+  it('keeps generated subjects in sync with inferSubjects', () => {
+    // scripts/build-coursera-catalog.mjs cannot import TypeScript, so it
+    // reimplements matching over the shared subjectKeywords.json. This re-derives
+    // every row the same way the generator did — from title and skills only, NOT
+    // description — so any drift between the two implementations fails here.
+    for (const course of courseraCatalog) {
+      expect(inferSubjects(course.title, course.skills.join(', ')), course.slug).toEqual(
+        course.subjects,
+      );
+      expect(inferSubjects(course.title), course.slug).toEqual(course.primarySubjects);
+    }
+  });
+
+  it('keeps primarySubjects a subset of subjects', () => {
+    for (const course of courseraCatalog) {
+      for (const subject of course.primarySubjects) {
+        expect(course.subjects, course.slug).toContain(subject);
+      }
+    }
+  });
+
+  it('prefers a course the subject is central to over one that merely touches it', () => {
+    for (const subject of LEARNING_SUBJECTS) {
+      const ranked = courseraCoursesForSubject(subject);
+      const firstIncidental = ranked.findIndex((c) => !c.primarySubjects.includes(subject));
+      if (firstIncidental === -1) continue;
+
+      // Once an incidental match appears, no central match may follow it.
+      const laterCentral = ranked
+        .slice(firstIncidental)
+        .find((c) => c.primarySubjects.includes(subject));
+      expect(laterCentral, `${subject} ranks an incidental match above a central one`)
+        .toBeUndefined();
+    }
+  });
+
+  it('has plausible ratings and a real partner on every row', () => {
+    for (const course of courseraCatalog) {
+      expect(course.rating, course.slug).toBeGreaterThanOrEqual(4);
+      expect(course.rating, course.slug).toBeLessThanOrEqual(5);
+      expect(course.reviews, course.slug).toBeGreaterThan(0);
+      expect(course.partner.trim(), course.slug).not.toBe('');
+      expect(course.partner, course.slug).not.toBe('Coursera');
+    }
   });
 
   it('only uses subjects that exist in the taxonomy', () => {
