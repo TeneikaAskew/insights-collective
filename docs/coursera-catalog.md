@@ -78,7 +78,7 @@ pending rows in SQL and returns without making an HTTP call. That is what makes 
 The schema migration is applied. Three steps remain, in this order:
 
 ```bash
-# 1. Seed the keyword table and the initial catalog.
+# 1. Seed the keyword table and the initial 179-course catalog.
 supabase db push
 
 # 2. Deploy the function and give it a shared secret. It refuses to run without one:
@@ -109,6 +109,36 @@ curl -X POST https://<project-ref>.supabase.co/functions/v1/coursera-refresh \
 
 `status` reports queue and catalog counts and has no side effects. The other actions
 are `enqueue-refresh`, `enqueue-discover` and `process`.
+
+### Bulk loading the whole corpus
+
+The seed is 179 curated courses. The full crawl holds far more — 7,419 rows survive
+normalization from an 8,381-page sweep — and getting there through cron takes about
+18 hours. `load:coursera` does it in minutes instead, which is what you want for the
+initial load:
+
+```bash
+npm run fetch:coursera -- --discover --all --out coursera-live.csv   # ~2.5 hours
+export SUPABASE_URL=https://<project-ref>.supabase.co
+export SUPABASE_SERVICE_ROLE_KEY=<service role key>
+npm run load:coursera -- coursera-live.csv          # add --dry-run to inspect first
+```
+
+This is the one place a service-role key is needed, it is read from the environment
+rather than an argument (so it stays out of shell history), and it is a one-off you
+run rather than a stored credential. The recurring refresh needs none of that, which
+is the argument for keeping it in the Edge Function.
+
+The loader upserts on `slug` and omits `status`, `curator_note` and `is_featured`, so
+re-running it never overwrites curation. Interrupting it is safe — rerun and it
+resumes by upserting the same rows.
+
+After a bulk load, refresh the committed seed so the fallback matches:
+
+```bash
+npm run build:coursera -- coursera-live.csv
+npm run emit:coursera-seed -- supabase/migrations/<timestamp>_coursera_catalog_seed.sql
+```
 
 ## Where the data comes from
 
@@ -279,11 +309,23 @@ Fundamentals as `data-analysis`.
 
 ## Known limitations
 
-- **`mlops` coverage is thin** (~4 courses). MLOps was sparse on Coursera in a 2024
-  snapshot. A fresher export should improve this.
+- **Non-English courses are in the corpus.** 128 of the 8,381 crawled courses have
+  non-Latin titles, and nothing filters by language. In practice the quality bar keeps
+  them out — zero of the 179 selected courses have a non-Latin title — but a
+  well-reviewed Chinese or Japanese course could surface for a subject. Course pages
+  expose `primaryLanguages` in their state blob if a hard filter is ever wanted; it is
+  not currently extracted.
+- **About 11% of crawled pages ship no partner node** (907 of 8,381), and those rows
+  are dropped rather than defaulted. That is the intended trade — attribution is not
+  something a course directory may invent — but it does mean the corpus is not the
+  whole catalog.
 - **`software-engineering` is a coarse subject.** It cannot distinguish "learn to
   program" from "learn full-stack", so a broad intro course can win the slot for a
   full-stack role. Splitting the subject would fix it if that matters.
+- **The crawl queue has no lease.** `process` claims rows by selecting them, so two
+  overlapping invocations could fetch the same page twice. Harmless at a 5-minute
+  cadence with a batch that finishes in well under a minute; it would need a real
+  `claimed_at` lease before the schedule got aggressive.
 - **Attribution.** Course titles, partner names, levels and ratings are Coursera's.
   The generated file is a filtered index kept only so the app can link out. Worth
   checking whether Coursera's affiliate program is a better fit before promoting

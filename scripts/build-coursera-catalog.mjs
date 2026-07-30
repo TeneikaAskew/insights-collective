@@ -179,194 +179,220 @@ function qualityScore(course) {
 }
 
 // ---------------------------------------------------------------------------
-// Main
+// Entry point
 // ---------------------------------------------------------------------------
+//
+// Guarded so the normalization helpers above can be imported rather than copied.
+// load-coursera-catalog.mjs reuses them to push the same rows into Postgres, and a
+// third copy of "how to read a Coursera CSV" is exactly the kind of duplication that
+// drifts.
 
-const csvPath = process.argv[2];
-if (!csvPath) {
-  console.error('Usage: npm run build:coursera -- <path-to-coursera-csv>');
-  console.error(
-    '\nExpected columns: title, Organization, Skills, Description, Level, URL, rating,\n' +
-      'num_reviews, enrolled. The azrai99/coursera-course-dataset export on Hugging Face\n' +
-      'matches this shape.',
+export {
+  parseCsv,
+  parseSkills,
+  parseNumber,
+  parseLevel,
+  parseUrl,
+  truncate,
+  qualityScore,
+  loadSubjectPatterns,
+  inferSubjects,
+};
+
+const invokedDirectly =
+  process.argv[1] && import.meta.url.endsWith(basename(process.argv[1]));
+
+if (invokedDirectly) {
+  await main();
+}
+
+async function main() {
+  const csvPath = process.argv[2];
+  if (!csvPath) {
+    console.error('Usage: npm run build:coursera -- <path-to-coursera-csv>');
+    console.error(
+      '\nExpected columns: title, Organization, Skills, Description, Level, URL, rating,\n' +
+        'num_reviews, enrolled. The azrai99/coursera-course-dataset export on Hugging Face\n' +
+        'matches this shape.',
+    );
+    process.exit(1);
+  }
+
+  const patterns = await loadSubjectPatterns();
+  const denylist = new Set(
+    JSON.parse(await readFile(DENYLIST_PATH, 'utf8')).denied.map((entry) => entry.slug),
   );
-  process.exit(1);
-}
+  const rows = parseCsv(await readFile(resolve(process.cwd(), csvPath), 'utf8'));
+  console.log(`Parsed ${rows.length} rows from ${basename(csvPath)}`);
 
-const patterns = await loadSubjectPatterns();
-const denylist = new Set(
-  JSON.parse(await readFile(DENYLIST_PATH, 'utf8')).denied.map((entry) => entry.slug),
-);
-const rows = parseCsv(await readFile(resolve(process.cwd(), csvPath), 'utf8'));
-console.log(`Parsed ${rows.length} rows from ${basename(csvPath)}`);
+  const normalized = [];
+  const seenSlugs = new Set();
+  const rejected = { badUrl: 0, lowRated: 0, noSubjects: 0, duplicate: 0, denied: 0, noPartner: 0 };
 
-const normalized = [];
-const seenSlugs = new Set();
-const rejected = { badUrl: 0, lowRated: 0, noSubjects: 0, duplicate: 0, denied: 0, noPartner: 0 };
+  for (const row of rows) {
+    const parsedUrl = parseUrl(row.URL);
+    if (!parsedUrl) {
+      rejected.badUrl += 1;
+      continue;
+    }
+    // Retired courses are still in the snapshot; without this they come back on
+    // every regeneration. `npm run verify:coursera` finds them.
+    if (denylist.has(parsedUrl.slug)) {
+      rejected.denied += 1;
+      continue;
+    }
+    if (seenSlugs.has(parsedUrl.slug)) {
+      rejected.duplicate += 1;
+      continue;
+    }
 
-for (const row of rows) {
-  const parsedUrl = parseUrl(row.URL);
-  if (!parsedUrl) {
-    rejected.badUrl += 1;
-    continue;
+    const rating = parseNumber(row.rating);
+    const reviews = parseNumber(row.num_reviews);
+    if (rating === null || rating < MIN_RATING || (reviews ?? 0) < MIN_REVIEWS) {
+      rejected.lowRated += 1;
+      continue;
+    }
+
+    // Drop rows with no authoring organization rather than substituting a
+    // placeholder. Attribution is the one field a course directory cannot fake, and
+    // a silent "Coursera" default is indistinguishable from the real "Coursera
+    // Instructor Network" partner.
+    const partner = truncate(row.Organization, 80);
+    if (!partner || partner === 'Coursera') {
+      rejected.noPartner += 1;
+      continue;
+    }
+
+    // Slice BEFORE inferring, not after. Inferring from all skills but shipping
+    // only the first 8 produced rows whose stored subjects could not be re-derived
+    // from their stored fields — the drift test in roleCourseResolver.test.ts caught
+    // exactly that. Everything the subjects were derived from has to survive here.
+    const skills = parseSkills(row.Skills).slice(0, 8);
+    const title = truncate(row.title, 120);
+    const description = truncate(row.Description, MAX_DESCRIPTION);
+    const skillsText = skills.join(', ');
+
+    // Infer from title and Coursera's own skill tags ONLY — deliberately not the
+    // description. Descriptions are marketing prose that name-drop everything
+    // adjacent, which produced real nonsense: an Academic English writing course
+    // classified as `research`, a UX course as `research`, AWS Fundamentals as
+    // `data-analysis`. Title plus curated skill tags is the high-signal subset.
+    const subjects = inferSubjects(patterns, title, skillsText);
+    if (subjects.length === 0) {
+      rejected.noSubjects += 1;
+      continue;
+    }
+
+    // Subjects named in the TITLE are what the course is about; subjects found only
+    // in skill tags are things it touches. Without this split, ranking by rating and
+    // audience alone handed the `software-engineering` slot to "Neural Networks and
+    // Deep Learning" (its skills list Python programming, and it has enormous review
+    // counts) and the `generative-ai` slot to a social media marketing certificate.
+    const primarySubjects = inferSubjects(patterns, title);
+
+    seenSlugs.add(parsedUrl.slug);
+    normalized.push({
+      ...parsedUrl,
+      title,
+      partner,
+      level: parseLevel(row.Level),
+      rating,
+      reviews: reviews ?? 0,
+      enrolled: parseNumber(row.enrolled),
+      skills,
+      description,
+      subjects,
+      primarySubjects,
+    });
   }
-  // Retired courses are still in the snapshot; without this they come back on
-  // every regeneration. `npm run verify:coursera` finds them.
-  if (denylist.has(parsedUrl.slug)) {
-    rejected.denied += 1;
-    continue;
-  }
-  if (seenSlugs.has(parsedUrl.slug)) {
-    rejected.duplicate += 1;
-    continue;
-  }
 
-  const rating = parseNumber(row.rating);
-  const reviews = parseNumber(row.num_reviews);
-  if (rating === null || rating < MIN_RATING || (reviews ?? 0) < MIN_REVIEWS) {
-    rejected.lowRated += 1;
-    continue;
-  }
-
-  // Drop rows with no authoring organization rather than substituting a
-  // placeholder. Attribution is the one field a course directory cannot fake, and
-  // a silent "Coursera" default is indistinguishable from the real "Coursera
-  // Instructor Network" partner.
-  const partner = truncate(row.Organization, 80);
-  if (!partner || partner === 'Coursera') {
-    rejected.noPartner += 1;
-    continue;
-  }
-
-  // Slice BEFORE inferring, not after. Inferring from all skills but shipping
-  // only the first 8 produced rows whose stored subjects could not be re-derived
-  // from their stored fields — the drift test in roleCourseResolver.test.ts caught
-  // exactly that. Everything the subjects were derived from has to survive here.
-  const skills = parseSkills(row.Skills).slice(0, 8);
-  const title = truncate(row.title, 120);
-  const description = truncate(row.Description, MAX_DESCRIPTION);
-  const skillsText = skills.join(', ');
-
-  // Infer from title and Coursera's own skill tags ONLY — deliberately not the
-  // description. Descriptions are marketing prose that name-drop everything
-  // adjacent, which produced real nonsense: an Academic English writing course
-  // classified as `research`, a UX course as `research`, AWS Fundamentals as
-  // `data-analysis`. Title plus curated skill tags is the high-signal subset.
-  const subjects = inferSubjects(patterns, title, skillsText);
-  if (subjects.length === 0) {
-    rejected.noSubjects += 1;
-    continue;
-  }
-
-  // Subjects named in the TITLE are what the course is about; subjects found only
-  // in skill tags are things it touches. Without this split, ranking by rating and
-  // audience alone handed the `software-engineering` slot to "Neural Networks and
-  // Deep Learning" (its skills list Python programming, and it has enormous review
-  // counts) and the `generative-ai` slot to a social media marketing certificate.
-  const primarySubjects = inferSubjects(patterns, title);
-
-  seenSlugs.add(parsedUrl.slug);
-  normalized.push({
-    ...parsedUrl,
-    title,
-    partner,
-    level: parseLevel(row.Level),
-    rating,
-    reviews: reviews ?? 0,
-    enrolled: parseNumber(row.enrolled),
-    skills,
-    description,
-    subjects,
-    primarySubjects,
-  });
-}
-
-console.log(
-  `Kept ${normalized.length} candidates ` +
-    `(dropped ${rejected.badUrl} unparseable URL, ${rejected.lowRated} below the quality bar, ` +
-    `${rejected.noSubjects} with no recognised subject, ${rejected.duplicate} duplicate, ` +
-    `${rejected.denied} denylisted, ${rejected.noPartner} missing a partner)`,
-);
-
-// Take the best PER_SUBJECT_LIMIT for each subject, preferring courses the subject
-// is central to before falling back to ones that merely touch it. A course kept for
-// one subject carries all its subjects along, so sparse subjects still benefit.
-const selected = new Map();
-
-for (const subject of patterns.map(([name]) => name)) {
-  const candidates = normalized
-    .filter((course) => course.subjects.includes(subject))
-    .sort((a, b) => {
-      const aPrimary = a.primarySubjects.includes(subject) ? 1 : 0;
-      const bPrimary = b.primarySubjects.includes(subject) ? 1 : 0;
-      return bPrimary - aPrimary || qualityScore(b) - qualityScore(a);
-    })
-    .slice(0, PER_SUBJECT_LIMIT);
-
-  for (const course of candidates) {
-    if (!selected.has(course.slug)) selected.set(course.slug, course);
-  }
-}
-
-const catalog = [...selected.values()].sort((a, b) => a.slug.localeCompare(b.slug));
-
-console.log(`\nSelected ${catalog.length} courses. Coverage per subject:`);
-for (const [subject] of patterns) {
-  const count = catalog.filter((course) => course.subjects.includes(subject)).length;
-  console.log(`  ${count === 0 ? '!! ' : '   '}${subject.padEnd(22)} ${count}`);
-}
-
-const emptySubjects = patterns
-  .map(([name]) => name)
-  .filter((subject) => !catalog.some((course) => course.subjects.includes(subject)));
-
-const body = catalog
-  .map((course) => {
-    const quote = (value) => JSON.stringify(value);
-    return `  {
-    slug: ${quote(course.slug)},
-    url: ${quote(course.url)},
-    title: ${quote(course.title)},
-    partner: ${quote(course.partner)},
-    format: ${quote(course.format)},
-    level: ${quote(course.level)},
-    rating: ${course.rating},
-    reviews: ${course.reviews},
-    subjects: [${course.subjects.map(quote).join(', ')}],
-    primarySubjects: [${course.primarySubjects.map(quote).join(', ')}],
-    skills: [${course.skills.map(quote).join(', ')}],
-    description: ${quote(course.description)},
-  },`;
-  })
-  .join('\n');
-
-const output = `// ABOUTME: GENERATED FILE — do not edit by hand. Regenerate with:
-// ABOUTME:   npm run build:coursera -- <path-to-coursera-csv>
-// ABOUTME: Source: a Coursera catalog CSV snapshot (Coursera retired its free
-// ABOUTME: public catalog API, so there is nothing live to query). Course titles,
-// ABOUTME: partners, levels and URLs are Coursera's; this file is a filtered index
-// ABOUTME: kept only so the app can link out to them.
-//
-// Generated from ${basename(csvPath)}: ${rows.length} rows in, ${catalog.length} courses kept.
-// Selection: rating >= ${MIN_RATING} with >= ${MIN_REVIEWS} reviews, top ${PER_SUBJECT_LIMIT} per subject
-// by rating weighted by audience size.
-//
-// Slugs go stale as courses are retired. \`npm run verify:coursera\` re-checks every
-// URL and reports the dead ones.
-
-import type { CourseraCourse } from './courseraCatalog';
-
-export const generatedCourseraCatalog: CourseraCourse[] = [
-${body}
-];
-`;
-
-await writeFile(OUTPUT_PATH, output, 'utf8');
-console.log(`\nWrote ${OUTPUT_PATH}`);
-
-if (emptySubjects.length > 0) {
   console.log(
-    `\nWARNING: no course covers ${emptySubjects.join(', ')} — roles needing those ` +
-      'subjects will fall through to whatever else their path lists.',
+    `Kept ${normalized.length} candidates ` +
+      `(dropped ${rejected.badUrl} unparseable URL, ${rejected.lowRated} below the quality bar, ` +
+      `${rejected.noSubjects} with no recognised subject, ${rejected.duplicate} duplicate, ` +
+      `${rejected.denied} denylisted, ${rejected.noPartner} missing a partner)`,
   );
+
+  // Take the best PER_SUBJECT_LIMIT for each subject, preferring courses the subject
+  // is central to before falling back to ones that merely touch it. A course kept for
+  // one subject carries all its subjects along, so sparse subjects still benefit.
+  const selected = new Map();
+
+  for (const subject of patterns.map(([name]) => name)) {
+    const candidates = normalized
+      .filter((course) => course.subjects.includes(subject))
+      .sort((a, b) => {
+        const aPrimary = a.primarySubjects.includes(subject) ? 1 : 0;
+        const bPrimary = b.primarySubjects.includes(subject) ? 1 : 0;
+        return bPrimary - aPrimary || qualityScore(b) - qualityScore(a);
+      })
+      .slice(0, PER_SUBJECT_LIMIT);
+
+    for (const course of candidates) {
+      if (!selected.has(course.slug)) selected.set(course.slug, course);
+    }
+  }
+
+  const catalog = [...selected.values()].sort((a, b) => a.slug.localeCompare(b.slug));
+
+  console.log(`\nSelected ${catalog.length} courses. Coverage per subject:`);
+  for (const [subject] of patterns) {
+    const count = catalog.filter((course) => course.subjects.includes(subject)).length;
+    console.log(`  ${count === 0 ? '!! ' : '   '}${subject.padEnd(22)} ${count}`);
+  }
+
+  const emptySubjects = patterns
+    .map(([name]) => name)
+    .filter((subject) => !catalog.some((course) => course.subjects.includes(subject)));
+
+  const body = catalog
+    .map((course) => {
+      const quote = (value) => JSON.stringify(value);
+      return `  {
+      slug: ${quote(course.slug)},
+      url: ${quote(course.url)},
+      title: ${quote(course.title)},
+      partner: ${quote(course.partner)},
+      format: ${quote(course.format)},
+      level: ${quote(course.level)},
+      rating: ${course.rating},
+      reviews: ${course.reviews},
+      subjects: [${course.subjects.map(quote).join(', ')}],
+      primarySubjects: [${course.primarySubjects.map(quote).join(', ')}],
+      skills: [${course.skills.map(quote).join(', ')}],
+      description: ${quote(course.description)},
+    },`;
+    })
+    .join('\n');
+
+  const output = `// ABOUTME: GENERATED FILE — do not edit by hand. Regenerate with:
+  // ABOUTME:   npm run build:coursera -- <path-to-coursera-csv>
+  // ABOUTME: Source: a Coursera catalog CSV snapshot (Coursera retired its free
+  // ABOUTME: public catalog API, so there is nothing live to query). Course titles,
+  // ABOUTME: partners, levels and URLs are Coursera's; this file is a filtered index
+  // ABOUTME: kept only so the app can link out to them.
+  //
+  // Generated from ${basename(csvPath)}: ${rows.length} rows in, ${catalog.length} courses kept.
+  // Selection: rating >= ${MIN_RATING} with >= ${MIN_REVIEWS} reviews, top ${PER_SUBJECT_LIMIT} per subject
+  // by rating weighted by audience size.
+  //
+  // Slugs go stale as courses are retired. \`npm run verify:coursera\` re-checks every
+  // URL and reports the dead ones.
+
+  import type { CourseraCourse } from './courseraCatalog';
+
+  export const generatedCourseraCatalog: CourseraCourse[] = [
+  ${body}
+  ];
+  `;
+
+  await writeFile(OUTPUT_PATH, output, 'utf8');
+  console.log(`\nWrote ${OUTPUT_PATH}`);
+
+  if (emptySubjects.length > 0) {
+    console.log(
+      `\nWARNING: no course covers ${emptySubjects.join(', ')} — roles needing those ` +
+        'subjects will fall through to whatever else their path lists.',
+    );
+  }
 }

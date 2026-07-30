@@ -31,7 +31,8 @@
     "audit:fixtures": "node scripts/audit/verify-fixtures.mjs",
     "audit:functions": "node scripts/audit/refresh-db-functions.mjs --check",
     "audit": "npm run audit:queries && npm run audit:types && npm run audit:invariants && npm run audit:fixtures && npm run audit:functions",
-    "emit:coursera-seed": "node scripts/emit-coursera-seed.mjs"
+    "emit:coursera-seed": "node scripts/emit-coursera-seed.mjs",
+    "load:coursera": "node scripts/load-coursera-catalog.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
