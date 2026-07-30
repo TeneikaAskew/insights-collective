@@ -365,17 +365,31 @@ Deno.serve(async (req) => {
   const startedAt = Date.now();
 
   // This function writes with the service role and makes outbound requests, so it
-  // must not be callable by anonymous traffic. Require a shared secret that only
-  // the cron job and an operator hold. Configure with:
-  //   supabase secrets set COURSERA_REFRESH_SECRET=<value>
-  const expected = Deno.env.get('COURSERA_REFRESH_SECRET');
-  if (!expected) {
-    return json({ error: 'COURSERA_REFRESH_SECRET is not configured' }, 500);
-  }
+  // must not be callable by anonymous traffic.
+  //
+  // The shared secret lives in Vault rather than in this function's environment, so
+  // it can be set and rotated over the database connection alone — no management
+  // access token, no `supabase secrets set`. The RPC returns only a boolean, so it
+  // cannot be used to read the secret back. SUPABASE_SERVICE_ROLE_KEY is injected by
+  // the platform, so this needs no configuration on the function side at all.
   const provided =
     req.headers.get('x-refresh-secret') ??
     (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '');
-  if (provided !== expected) return json({ error: 'unauthorized' }, 401);
+
+  if (!provided) return json({ error: 'unauthorized' }, 401);
+
+  const authClient = serviceClient();
+  const { data: authorized, error: authError } = await authClient.rpc(
+    'coursera_verify_refresh_secret',
+    { p_secret: provided },
+  );
+
+  if (authError) {
+    // Distinguish "cannot check" from "checked and refused" — a missing migration
+    // and a wrong secret need different fixes.
+    return json({ error: `authorization check failed: ${authError.message}` }, 500);
+  }
+  if (authorized !== true) return json({ error: 'unauthorized' }, 401);
 
   let body: Record<string, unknown> = {};
   try {
