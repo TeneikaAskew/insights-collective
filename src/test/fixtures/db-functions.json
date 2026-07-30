@@ -21,6 +21,7 @@
   "check_course_completion",
   "clean_old_security_events",
   "course_roster_stats",
+  "coursera_verify_refresh_secret",
   "create_grade_notification",
   "delete_all_user_resumes",
   "delete_resume_records",
