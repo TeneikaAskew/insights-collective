@@ -27,6 +27,13 @@ export interface ResolvedCourse {
   provider: string;
   /** Subjects from the role's path that this course covers. */
   matchedSubjects: LearningSubject[];
+  /**
+   * Star rating and review count, for Coursera courses only — the platform does
+   * not collect course ratings yet, so platform rows leave these null rather than
+   * showing a fabricated score.
+   */
+  rating: number | null;
+  reviews: number | null;
 }
 
 export interface ResolvedRoleCourses {
@@ -149,6 +156,8 @@ function toResolvedPlatformCourse(scored: ScoredPlatformCourse): ResolvedCourse 
     level: scored.course.level,
     provider: 'Insights Collective',
     matchedSubjects: scored.matchedSubjects,
+    rating: null,
+    reviews: null,
   };
 }
 
@@ -166,6 +175,8 @@ function toResolvedCourseraCourse(
     level: course.level,
     provider: course.partner,
     matchedSubjects,
+    rating: course.rating,
+    reviews: course.reviews,
   };
 }
 

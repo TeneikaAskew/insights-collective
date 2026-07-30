@@ -91,6 +91,19 @@ describe('CareerPathTab course recommendations', () => {
     }
   });
 
+  it('shows a star rating on Coursera rows but not on platform rows', () => {
+    mockUsePublishedCourses.mockReturnValue({ courses: [tableauCourse], loading: false });
+
+    render(<CareerPathTab role={role} />);
+
+    // Coursera rows carry a real rating; the platform has none to show.
+    expect(screen.getAllByText(/^\d\.\d( \([\d,]+\))?$/).length).toBeGreaterThan(0);
+
+    const platformRow = screen
+      .getByRole('link', { name: /Visualization with Tableau/ });
+    expect(platformRow.textContent).not.toMatch(/^\s*\d\.\d/);
+  });
+
   it('keeps Coursera below the platform section when both are present', () => {
     mockUsePublishedCourses.mockReturnValue({ courses: [tableauCourse], loading: false });
 

@@ -44,3 +44,4 @@ coverage/
 
 # E2E console/network audit log (diagnostic, regenerated per run)
 .e2e-audit/
+.cache/

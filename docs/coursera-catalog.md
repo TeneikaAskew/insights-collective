@@ -8,16 +8,67 @@ recommendations retreat on their own.
 This document covers where the Coursera data comes from and how to refresh it.
 For how recommendations are chosen, see `src/lib/roleCourseResolver.ts`.
 
-## Why the catalog is a static file
+## Where the data comes from
 
-There is no live source to query:
+`src/data/courseraCatalog.generated.ts` is a **generated file** — do not edit it by
+hand. Two scripts feed it, and either can be the source:
 
-- Coursera's free public catalog API (`api.coursera.org/api/courses.v1`) was
-  retired.
-- The affiliate/partner API requires partner credentials.
+```
+fetch:coursera  ─┐
+                 ├─►  CSV  ─►  build:coursera  ─►  courseraCatalog.generated.ts
+dataset export  ─┘                                          │
+                                                    verify:coursera
+```
 
-So `src/data/courseraCatalog.generated.ts` is built from a dataset snapshot. It is
-a **generated file** — do not edit it by hand.
+**`npm run fetch:coursera` is the preferred source.** It reads Coursera's public
+course pages directly, so the data is current. There is no API to call — Coursera
+retired its free public catalog API (`api.coursera.org/api/courses.v1`) and the
+affiliate API needs partner credentials — but the course pages themselves carry a
+complete state blob, which is what the fetcher parses.
+
+A downloaded dataset export works too, and is how the catalog was first built. Use
+it if the fetcher ever breaks.
+
+### What the fetcher is allowed to do
+
+`robots.txt` disallows `/api/`, `/search`, and `/lecture/` (the last specifically
+for AI crawlers). It permits `/learn/`, `/specializations/` and
+`/professional-certificates/`, and advertises sitemaps for discovery. The fetcher
+stays inside that: it reads only those three path prefixes plus the sitemaps, and
+never calls an internal API endpoint.
+
+It is also deliberately polite — 4 requests in flight, a pause between batches, a
+self-identifying user agent, exponential backoff on 429s and 5xxs, and a 7-day
+on-disk cache in `.cache/coursera/` so repeat runs re-fetch nothing.
+
+### Fetcher modes
+
+| Mode | What it does |
+|---|---|
+| `--refresh` (default) | Re-fetches the slugs already in the catalog. ~177 pages. Use this routinely to keep ratings, review counts and skill tags current, and to find retired courses. |
+| `--discover` | Pulls the sitemaps (24,000+ URLs), keeps the ones whose slug matches a subject keyword (~8,400), and samples across them. Use this to pick up courses published since the last run. |
+
+Other flags: `--limit N` (discovery sample size, default 400), `--out path.csv`,
+`--no-cache`.
+
+Discovery samples with a fixed stride rather than taking the first N — the URL list
+is sorted by slug, so slicing would fetch nothing but courses starting with "a".
+The stride is deterministic, so raising `--limit` still hits the cache for pages
+already fetched.
+
+### What the fetcher gets that a dataset export does not
+
+Measured against the November 2024 export over the same 177 courses:
+
+| | 2024 export | Live fetch |
+|---|---|---|
+| Skill tags | 926 | 2,845 |
+| Review counts | stale (one course: 3,420) | current (same course: 35,895) |
+| Learner review text | none | 128 of 177 courses |
+| Estimated hours | none | 124 of 177 courses |
+
+More skill tags directly improves subject classification, since that is what
+subjects are inferred from.
 
 ## Current snapshot
 
@@ -62,24 +113,41 @@ URL matches the prefix its format implies.
 
 ## Refreshing the catalog
 
+Routine refresh — keeps existing picks current and finds retired courses:
+
 ```bash
-# 1. Download a catalog CSV (see the table above for the expected columns).
-# 2. Regenerate.
-npm run build:coursera -- path/to/coursera.csv
-
-# 3. Check every URL still resolves. Prints the dead ones.
+npm run fetch:coursera -- --refresh --out coursera-live.csv
+npm run build:coursera -- coursera-live.csv
 npm run verify:coursera
-
-# 4. Add any dead slugs to scripts/coursera-denylist.json with a reason, then
-#    regenerate so they stop coming back.
-npm run build:coursera -- path/to/coursera.csv
-
-# 5. The drift and integrity tests must pass.
 npm run test -- --run src/lib/__tests__/roleCourseResolver.test.ts
 ```
 
-The generator expects these columns: `title`, `Organization`, `Skills`,
-`Description`, `Level`, `URL`, `rating`, `num_reviews`, `enrolled`.
+Wider sweep — also picks up courses published since the last run:
+
+```bash
+npm run fetch:coursera -- --discover --limit 1500 --out coursera-live.csv
+npm run build:coursera -- coursera-live.csv
+npm run verify:coursera
+```
+
+If `verify:coursera` reports dead links, add those slugs to
+`scripts/coursera-denylist.json` with a reason and re-run `build:coursera` so they
+stop coming back.
+
+Both `fetch:coursera` and a dataset export produce the same columns, which is what
+lets them be interchangeable: `title`, `Organization`, `Skills`, `Description`,
+`Level`, `URL`, `rating`, `num_reviews`, `enrolled`. The fetcher adds
+`estimated_hours` and `top_reviews`; the generator ignores columns it does not read.
+
+### Automating it
+
+The scripts are plain Node with no interactive steps, so anything that can run a
+command can run them — a GitHub Action on a monthly schedule is the obvious home.
+Have it run the refresh sequence and open a PR when
+`src/data/courseraCatalog.generated.ts` changes; the drift, integrity and link
+tests are what make that PR safe to review quickly. Nothing here needs Claude in
+the loop to work, though `npm run fetch:coursera -- --refresh` is a reasonable
+thing to ask Claude Code to run and summarize.
 
 ### Selection rules
 

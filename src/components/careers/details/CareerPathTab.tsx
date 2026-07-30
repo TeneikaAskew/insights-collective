@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Users, ArrowRight, ExternalLink } from 'lucide-react';
+import { Users, ArrowRight, ExternalLink, Star } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
@@ -23,9 +23,16 @@ const CourseRow: React.FC<{ course: ResolvedCourse }> = ({ course }) => {
         )}
       </div>
       <div className="text-sm text-muted-foreground">{course.description}</div>
-      <div className="mt-2 flex flex-wrap gap-1">
+      <div className="mt-2 flex flex-wrap items-center gap-1">
         {course.external && <Badge variant="secondary">{course.provider}</Badge>}
         {course.level && <Badge variant="outline">{course.level}</Badge>}
+        {course.rating !== null && (
+          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+            <Star className="h-3 w-3 fill-current" aria-hidden="true" />
+            {course.rating.toFixed(1)}
+            {course.reviews ? ` (${course.reviews.toLocaleString()})` : ''}
+          </span>
+        )}
         {course.matchedSubjects.slice(0, 3).map((subject) => (
           <Badge key={subject} variant="outline">
             {SUBJECT_LABELS[subject]}

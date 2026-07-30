@@ -5,7 +5,12 @@
 import { describe, it, expect } from 'vitest';
 import { resolveRoleCourses, scorePlatformCourse } from '../roleCourseResolver';
 import type { PublishedCourse } from '@/hooks/usePublishedCourses';
-import { courseraCatalog, courseraCoursesForSubject, courseraUrl } from '@/data/courseraCatalog';
+import {
+  courseraCatalog,
+  courseraCatalogBySlug,
+  courseraCoursesForSubject,
+  courseraUrl,
+} from '@/data/courseraCatalog';
 import { roleLearningPaths } from '@/data/roleLearningPaths';
 import { LEARNING_SUBJECTS, SUBJECT_LABELS, inferSubjects } from '@/data/learningSubjects';
 import { dataCareerRoles } from '@/data/dataCareerRoles';
@@ -102,6 +107,22 @@ describe('resolveRoleCourses', () => {
     expect(result.uncoveredSubjects).toContain('sql');
     expect(result.coursera.length).toBeGreaterThan(0);
     expect(result.coursera.flatMap((c) => c.matchedSubjects)).toContain('sql');
+  });
+
+  it('carries the Coursera rating through but leaves platform ratings null', () => {
+    const result = resolveRoleCourses({ id: 'data-analyst' }, [tableauCourse]);
+
+    for (const course of result.platform) {
+      // The platform does not collect course ratings, so showing one would be
+      // inventing it.
+      expect(course.rating).toBeNull();
+      expect(course.reviews).toBeNull();
+    }
+    for (const course of result.coursera) {
+      const source = courseraCatalogBySlug[course.id];
+      expect(course.rating).toBe(source.rating);
+      expect(course.reviews).toBe(source.reviews);
+    }
   });
 
   it('ranks the more central platform course higher', () => {
