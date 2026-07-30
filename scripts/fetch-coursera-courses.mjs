@@ -211,8 +211,12 @@ function parseCoursePage(html, url) {
     .filter(Boolean);
   // Partner nodes are shared across the page (a specialization lists its member
   // courses' partners too), so fall back to any partner node present.
-  const partner =
-    partners[0] ?? nodesOfType(state, 'DescriptionPage_Partner')[0]?.name ?? 'Coursera';
+  //
+  // If none is found, emit empty rather than a "Coursera" placeholder. Some pages
+  // ship a payload without partner nodes at all, and a placeholder is
+  // indistinguishable from the real "Coursera Instructor Network" partner once it
+  // lands in the CSV. The generator drops rows with no partner.
+  const partner = partners[0] ?? nodesOfType(state, 'DescriptionPage_Partner')[0]?.name ?? '';
 
   const skills = [
     ...new Set(

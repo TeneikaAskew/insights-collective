@@ -202,7 +202,7 @@ console.log(`Parsed ${rows.length} rows from ${basename(csvPath)}`);
 
 const normalized = [];
 const seenSlugs = new Set();
-const rejected = { badUrl: 0, lowRated: 0, noSubjects: 0, duplicate: 0, denied: 0 };
+const rejected = { badUrl: 0, lowRated: 0, noSubjects: 0, duplicate: 0, denied: 0, noPartner: 0 };
 
 for (const row of rows) {
   const parsedUrl = parseUrl(row.URL);
@@ -225,6 +225,16 @@ for (const row of rows) {
   const reviews = parseNumber(row.num_reviews);
   if (rating === null || rating < MIN_RATING || (reviews ?? 0) < MIN_REVIEWS) {
     rejected.lowRated += 1;
+    continue;
+  }
+
+  // Drop rows with no authoring organization rather than substituting a
+  // placeholder. Attribution is the one field a course directory cannot fake, and
+  // a silent "Coursera" default is indistinguishable from the real "Coursera
+  // Instructor Network" partner.
+  const partner = truncate(row.Organization, 80);
+  if (!partner || partner === 'Coursera') {
+    rejected.noPartner += 1;
     continue;
   }
 
@@ -259,7 +269,7 @@ for (const row of rows) {
   normalized.push({
     ...parsedUrl,
     title,
-    partner: truncate(row.Organization, 80) || 'Coursera',
+    partner,
     level: parseLevel(row.Level),
     rating,
     reviews: reviews ?? 0,
@@ -275,7 +285,7 @@ console.log(
   `Kept ${normalized.length} candidates ` +
     `(dropped ${rejected.badUrl} unparseable URL, ${rejected.lowRated} below the quality bar, ` +
     `${rejected.noSubjects} with no recognised subject, ${rejected.duplicate} duplicate, ` +
-    `${rejected.denied} denylisted)`,
+    `${rejected.denied} denylisted, ${rejected.noPartner} missing a partner)`,
 );
 
 // Take the best PER_SUBJECT_LIMIT for each subject, preferring courses the subject
