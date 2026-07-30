@@ -186,10 +186,25 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
       })
     );
 
+    // Field-scoped revert: restore ONLY the fields this request changed, and
+    // only where they still hold this request's optimistic values. Restoring
+    // the whole row snapshot would clobber a concurrent update to the other
+    // switch on the same row that succeeded while this one was in flight.
     const revert = () => {
       const before = previous;
       if (!before) return;
-      setPageVisibility(prev => prev.map(page => (page.id === pageId ? before : page)));
+      setPageVisibility(prev =>
+        prev.map(page => {
+          if (page.id !== pageId) return page;
+          const restored = { ...page };
+          for (const key of Object.keys(updates) as (keyof PageVisibilityEntry)[]) {
+            if (restored[key] === updates[key]) {
+              (restored as Record<string, unknown>)[key] = before[key];
+            }
+          }
+          return restored;
+        })
+      );
     };
 
     try {

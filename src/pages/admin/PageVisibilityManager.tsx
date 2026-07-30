@@ -165,10 +165,10 @@ export default function PageVisibilityManager() {
     [],
   );
   const staleRows = pageVisibility.filter(row => !manifestPaths.has(row.page_path));
+  // Effectively hidden = hidden to students. users:true + instructors:false
+  // blocks nobody (instructors see users OR instructors), so it must not count.
   const hiddenCount = pageVisibility.filter(
-    row =>
-      manifestPaths.has(row.page_path) &&
-      (!row.visible_to_users || !row.visible_to_instructors),
+    row => manifestPaths.has(row.page_path) && !row.visible_to_users,
   ).length;
 
   return (
