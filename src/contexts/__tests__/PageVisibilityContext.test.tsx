@@ -52,7 +52,7 @@ describe('PageVisibilityContext', () => {
     vi.mocked(useAuth).mockReturnValue({ ...baseAuth } as any);
   });
 
-  it('fails CLOSED for non-admins when the visibility fetch errors', async () => {
+  it('fails CLOSED for managed pages only when the visibility fetch errors', async () => {
     getQueryBuilder().order.mockResolvedValue(supabaseError('db unavailable'));
 
     const { result } = renderHook(() => usePageVisibility(), { wrapper });
@@ -60,9 +60,15 @@ describe('PageVisibilityContext', () => {
     await waitFor(() => expect(result.current.isReady).toBe(true));
 
     expect(result.current.loadError).toBe(true);
-    // Previously this returned true (fail-open) because the list was empty
-    expect(result.current.isPageVisible('/admin/users')).toBe(false);
-    expect(result.current.isPageVisible('/any-page')).toBe(false);
+    // Policy: fail-closed is scoped to MANAGED chains. A managed page like
+    // /resume stays hidden on a fetch error (a DB/RLS failure must not grant
+    // access), but unmanaged paths (404s, redirect-only URLs) have no
+    // governing chain — nothing to gate — so blanking them buys no security
+    // and they stay visible.
+    expect(result.current.isPageVisible('/resume')).toBe(false);
+    expect(result.current.isPageVisible('/courses/abc-123')).toBe(false);
+    expect(result.current.isPageVisible('/any-page')).toBe(true);
+    expect(result.current.isPageVisible('/admin/users')).toBe(true);
     // The failure must be surfaced, not silent
     expect(toastSpy).toHaveBeenCalledWith(
       expect.objectContaining({ variant: 'destructive' })

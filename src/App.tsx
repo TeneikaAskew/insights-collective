@@ -385,9 +385,11 @@ function App() {
                     <Route path="/survey/:slug" element={<SurveyPage />} />
                     <Route path="/survey-confirmation" element={<SurveyConfirmation />} />
                     <Route path="/survey-confirmation/:slug" element={<SurveyConfirmation />} />
-                    <Route path="/survey/survey-form-create" element={<SurveyFormCreate />} />
-                    <Route path="/survey/survey-form-edit/:id" element={<SurveyFormEdit />} />
-                    <Route path="/survey/:surveySlug/edit" element={<SurveyFormEdit />} />
+                    {/* Survey builder tools are admin form tooling, guarded
+                        like the admin Forms area */}
+                    <Route path="/survey/survey-form-create" element={<ProtectedRoute requireAdmin><SurveyFormCreate /></ProtectedRoute>} />
+                    <Route path="/survey/survey-form-edit/:id" element={<ProtectedRoute requireAdmin><SurveyFormEdit /></ProtectedRoute>} />
+                    <Route path="/survey/:surveySlug/edit" element={<ProtectedRoute requireAdmin><SurveyFormEdit /></ProtectedRoute>} />
 
                     {/* Admin Routes — one shell (AdminLayout), one guard at
                         the layout. Every tool is a nested route rendered into
@@ -413,9 +415,10 @@ function App() {
                       {import.meta.env.DEV && (
                         <Route path="debug/storage" element={<LocalStorageDebug />} />
                       )}
-                      {import.meta.env.DEV && (
-                        <Route path="local-storage-debug" element={<Navigate to="/admin/debug/storage" replace />} />
-                      )}
+                      {/* Legacy URL always redirects: to the debug tool in dev,
+                          to the admin dashboard in production builds */}
+                      <Route path="local-storage-debug" element={<Navigate to={import.meta.env.DEV ? '/admin/debug/storage' : '/admin'} replace />} />
+
                     </Route>
                     {/* Blog admin allows instructors (RLS grants them CRUD on
                         their own posts), so it carries its own guard and wraps

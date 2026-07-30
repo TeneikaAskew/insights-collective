@@ -116,18 +116,32 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
    *   admin     => always visible
    *   instructor => visible_to_users OR visible_to_instructors
    *   regular user => visible_to_users
-   *   not ready yet => hidden (fail-closed)
-   *   fetch failed  => hidden (fail-closed) — a DB/RLS failure must not
-   *                    silently grant access to gated pages
+   *   not ready yet => managed pages hidden (fail-closed)
+   *   fetch failed  => managed pages hidden (fail-closed) — a DB/RLS failure
+   *                    must not silently grant access to gated pages
    *
    * A URL is governed by its manifest chain (see pageManifest.ts): hiding
    * /courses hides /courses/:id/builder too, and a child page like
    * /interview-prep/star-practice needs BOTH /interview-prep and its own
-   * entry visible. Paths outside the manifest default to visible.
+   * entry visible.
+   *
+   * Fail-closed is scoped to MANAGED chains only: a path outside the
+   * manifest (404s, redirect-only URLs, unmanaged surfaces) can never be
+   * gated, so hiding it during loading/errors buys no security — it only
+   * blanks pages the visibility system does not govern. Those return true
+   * unconditionally (after the admin bypass).
    */
   const isPageVisible = useCallback((path: string): boolean => {
     // Admin users always see everything
     if (user?.roles?.includes('admin')) {
+      return true;
+    }
+
+    const chain = resolveGoverningPaths(path);
+
+    // Not a managed page — visible even while loading or on load error;
+    // there is nothing to gate here.
+    if (chain.length === 0) {
       return true;
     }
 
@@ -136,17 +150,10 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
       return false;
     }
 
-    // If the visibility fetch failed, we cannot know which pages are gated.
-    // Fail closed rather than defaulting everything to visible.
+    // If the visibility fetch failed, we cannot know which managed pages are
+    // gated. Fail closed rather than defaulting them to visible.
     if (loadError) {
       return false;
-    }
-
-    const chain = resolveGoverningPaths(path);
-
-    // Not a managed page — default to visible
-    if (chain.length === 0) {
-      return true;
     }
 
     const isInstructor = user?.roles?.includes('instructor');
@@ -168,6 +175,23 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
   }, [user?.roles, isReady, loadError, pageVisibility]);
 
   const updatePageVisibility = async (pageId: string, updates: Partial<PageVisibilityEntry>) => {
+    // Optimistic: flip local state immediately (the moved switch IS the
+    // success feedback — no toast on the happy path), revert on failure.
+    let previous: PageVisibilityEntry | undefined;
+    setPageVisibility(prev =>
+      prev.map(page => {
+        if (page.id !== pageId) return page;
+        previous = page;
+        return { ...page, ...updates };
+      })
+    );
+
+    const revert = () => {
+      const before = previous;
+      if (!before) return;
+      setPageVisibility(prev => prev.map(page => (page.id === pageId ? before : page)));
+    };
+
     try {
       const { error } = await supabase
         .from('page_visibility')
@@ -176,27 +200,16 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
 
       if (error) {
         logger.error('Error updating page visibility:', error);
+        revert();
         toast({
           title: 'Error updating page visibility',
           description: error.message,
           variant: 'destructive',
         });
-        return;
       }
-
-      // Update local state
-      setPageVisibility(prev =>
-        prev.map(page =>
-          page.id === pageId ? { ...page, ...updates } : page
-        )
-      );
-
-      toast({
-        title: 'Page visibility updated',
-        description: 'Page visibility settings have been saved successfully.',
-      });
     } catch (error) {
       logger.error('Error updating page visibility:', error);
+      revert();
       toast({
         title: 'Error updating page visibility',
         description: 'Failed to update page visibility settings',

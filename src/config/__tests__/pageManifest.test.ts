@@ -62,6 +62,12 @@ describe('resolveGoverningPaths', () => {
     expect(resolveGoverningPaths('/definitely-not-a-page')).toEqual([]);
   });
 
+  it('matches case-insensitively (React Router routes are case-insensitive)', () => {
+    expect(resolveGoverningPaths('/Resume')).toEqual(resolveGoverningPaths('/resume'));
+    expect(resolveGoverningPaths('/Resume')).toEqual(['/resume']);
+    expect(resolveGoverningPaths('/COURSES/abc/Learn')).toEqual(['/courses']);
+  });
+
   it('ignores trailing slashes', () => {
     expect(resolveGoverningPaths('/resume/')).toEqual(['/resume']);
     expect(resolveGoverningPaths('/interview-prep/star-practice/')).toEqual([
@@ -88,6 +94,10 @@ describe('isUngatedPath', () => {
     expect(isUngatedPath('/admin')).toBe(true);
     expect(isUngatedPath('/admin/users')).toBe(true);
     expect(isUngatedPath('/dev/soft-studio')).toBe(true);
+  });
+
+  it('exempts ungated paths regardless of case', () => {
+    expect(isUngatedPath('/Admin/users')).toBe(true);
   });
 
   it('does not exempt gated pages', () => {

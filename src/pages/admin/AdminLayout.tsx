@@ -25,6 +25,8 @@ interface AdminSection {
   end?: boolean;
   /** Instructors (non-admins) only see sections marked true */
   instructor?: boolean;
+  /** Extra path prefixes (legacy URLs) that should light this link up */
+  activePrefixes?: string[];
 }
 
 const SECTIONS: AdminSection[] = [
@@ -33,7 +35,12 @@ const SECTIONS: AdminSection[] = [
   { title: 'Courses', url: '/admin/courses', icon: GraduationCap },
   { title: 'Events', url: '/admin/events', icon: CalendarDays },
   { title: 'Blog', url: '/admin/blog', icon: Newspaper, instructor: true },
-  { title: 'Forms', url: '/admin/forms', icon: ClipboardList },
+  {
+    title: 'Forms',
+    url: '/admin/forms',
+    icon: ClipboardList,
+    activePrefixes: ['/admin/form-management', '/admin/unified-form-management'],
+  },
   { title: 'Activity', url: '/admin/activity', icon: Activity },
 ];
 
@@ -44,7 +51,11 @@ const PLATFORM_SECTIONS: AdminSection[] = [
     : []),
 ];
 
-function RailLink({ section }: { section: AdminSection }) {
+function RailLink({ section, className }: { section: AdminSection; className?: string }) {
+  const location = useLocation();
+  const prefixActive =
+    section.activePrefixes?.some(prefix => location.pathname.startsWith(prefix)) ?? false;
+
   return (
     <NavLink
       to={section.url}
@@ -52,9 +63,10 @@ function RailLink({ section }: { section: AdminSection }) {
       className={({ isActive }) =>
         cn(
           'flex items-center gap-2.5 rounded-full px-3.5 py-2 text-sm transition-colors',
-          isActive
+          isActive || prefixActive
             ? 'bg-ss-lav-chip font-semibold text-ss-lav-deep'
             : 'text-foreground/80 hover:bg-foreground/5 hover:text-foreground',
+          className,
         )
       }
     >
@@ -70,7 +82,6 @@ function RailLink({ section }: { section: AdminSection }) {
  */
 export default function AdminLayout({ children }: { children?: React.ReactNode }) {
   const { isAdmin } = useAuth();
-  const location = useLocation();
 
   const sections = isAdmin ? SECTIONS : SECTIONS.filter(s => s.instructor);
   const platformSections = isAdmin ? PLATFORM_SECTIONS : [];
@@ -99,10 +110,22 @@ export default function AdminLayout({ children }: { children?: React.ReactNode }
             )}
           </nav>
         </aside>
-        {/* div, not <main> — AppLayout already provides the main landmark */}
-        <div className="min-w-0 flex-1 px-4 py-8 sm:px-6 lg:px-8" data-testid="admin-shell-content">
-          <div className="mx-auto w-full max-w-6xl" key={location.pathname}>
-            {children ?? <Outlet />}
+        <div className="min-w-0 flex-1">
+          {/* Mobile: the rail is hidden, so every section gets a scrollable
+              pill above the content instead. */}
+          <nav
+            className="flex gap-2 overflow-x-auto whitespace-nowrap px-4 pt-4 pb-1 md:hidden"
+            aria-label="Admin sections"
+          >
+            {[...sections, ...platformSections].map(section => (
+              <RailLink key={section.url} section={section} className="shrink-0" />
+            ))}
+          </nav>
+          {/* div, not <main> — AppLayout already provides the main landmark */}
+          <div className="px-4 py-8 sm:px-6 lg:px-8" data-testid="admin-shell-content">
+            <div className="mx-auto w-full max-w-6xl">
+              {children ?? <Outlet />}
+            </div>
           </div>
         </div>
       </div>

@@ -42,6 +42,7 @@ vi.mock('@/contexts/PageVisibilityContext', () => ({
     updatePageVisibility,
     syncAvailablePages,
     isSyncing: false,
+    isLoading: false,
     loadError: false,
   }),
 }));
@@ -64,7 +65,7 @@ describe('PageVisibilityManager', () => {
 
   it('expands a section to reveal its children', () => {
     render(<PageVisibilityManager />);
-    fireEvent.click(screen.getByTestId('visibility-row-/interview-prep'));
+    fireEvent.click(screen.getByRole('button', { name: /interview prep/i }));
     expect(
       screen.getByTestId('visibility-row-/interview-prep/star-practice'),
     ).toBeInTheDocument();
@@ -72,7 +73,7 @@ describe('PageVisibilityManager', () => {
 
   it('disables child switches when the parent section is hidden', () => {
     render(<PageVisibilityManager />);
-    fireEvent.click(screen.getByTestId('visibility-row-/interview-prep'));
+    fireEvent.click(screen.getByRole('button', { name: /interview prep/i }));
     const childRow = screen.getByTestId('visibility-row-/interview-prep/star-practice');
     const switches = childRow.querySelectorAll('button[role="switch"]');
     expect(switches.length).toBe(2);

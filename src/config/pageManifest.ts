@@ -111,10 +111,14 @@ function isSegmentPrefix(prefix: string, pathname: string): boolean {
 }
 
 function normalize(pathname: string): string {
-  if (pathname.length > 1 && pathname.endsWith('/')) {
-    return pathname.slice(0, -1);
+  // React Router matches routes case-insensitively, so the visibility matcher
+  // must too — otherwise '/Resume' bypasses the gate on '/resume'. Manifest
+  // paths are already lowercase.
+  const lower = pathname.toLowerCase();
+  if (lower.length > 1 && lower.endsWith('/')) {
+    return lower.slice(0, -1);
   }
-  return pathname;
+  return lower;
 }
 
 /** True when the pathname is exempt from visibility gating. */
