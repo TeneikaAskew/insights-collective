@@ -64,8 +64,24 @@ export function courseraUrl(course: CourseraCourse): string {
  * bias. Mirrors `qualityScore` in scripts/build-coursera-catalog.mjs so the courses
  * the generator chose to keep are ranked the same way when displayed.
  */
+/**
+ * Multi-course programs are worth a modest boost over single courses.
+ *
+ * Coursera's catalog lists a specialization AND each of its member courses. The
+ * members often carry more reviews than the program itself, so on raw popularity a
+ * fragment beats the whole: `data-analysis` resolved to "Google Data Analytics
+ * Capstone", and `sql` for a data analyst to "Tools of the Trade: Linux and SQL" —
+ * which is a module of the Google *Cybersecurity* certificate.
+ *
+ * A boost rather than a hard tier, because a standalone course is sometimes genuinely
+ * the best answer (Generative AI with Large Language Models is a single course), and
+ * this still lets a clearly stronger one win.
+ */
+const PROGRAM_BOOST = 1.15;
+
 function qualityScore(course: CourseraCourse): number {
-  return course.rating * Math.log10(10 + course.reviews);
+  const base = course.rating * Math.log10(10 + course.reviews);
+  return course.format === 'Course' ? base : base * PROGRAM_BOOST;
 }
 
 /**

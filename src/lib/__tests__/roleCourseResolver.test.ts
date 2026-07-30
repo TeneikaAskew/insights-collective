@@ -10,6 +10,8 @@ import {
   courseraCatalogBySlug,
   courseraCoursesForSubject,
   courseraUrl,
+  indexCatalogBySubject,
+  type CourseraCourse,
 } from '@/data/courseraCatalog';
 import { roleLearningPaths } from '@/data/roleLearningPaths';
 import { LEARNING_SUBJECTS, SUBJECT_LABELS, inferSubjects } from '@/data/learningSubjects';
@@ -246,6 +248,71 @@ describe('data integrity', () => {
       );
       expect(inferSubjects(course.title), course.slug).toEqual(course.primarySubjects);
     }
+  });
+
+  it('prefers a multi-course program over a comparable single course', () => {
+    // Coursera lists a specialization AND its member courses, and members often have
+    // more reviews than the program. Without the boost a capstone or single module
+    // outranked the program it belongs to — "Google Data Analytics Capstone" won
+    // `data-analysis`, and a module of the Cybersecurity certificate won `sql`.
+    const program: CourseraCourse = {
+      slug: 'prog',
+      url: 'https://www.coursera.org/professional-certificates/prog',
+      title: 'Data Analytics Professional Certificate',
+      partner: 'Test',
+      format: 'Professional Certificate',
+      level: 'Beginner',
+      rating: 4.7,
+      reviews: 20000,
+      subjects: ['data-analysis'],
+      primarySubjects: ['data-analysis'],
+      skills: [],
+      description: '',
+    };
+    const capstone: CourseraCourse = {
+      ...program,
+      slug: 'capstone',
+      url: 'https://www.coursera.org/learn/capstone',
+      title: 'Data Analytics Capstone',
+      format: 'Course',
+      // Slightly better on both raw signals, and still must not win.
+      rating: 4.78,
+      reviews: 21000,
+    };
+
+    const ranked = indexCatalogBySubject([capstone, program]).get('data-analysis')!;
+    expect(ranked[0].slug).toBe('prog');
+  });
+
+  it('still lets a clearly stronger single course beat a weak program', () => {
+    // The boost is a thumb on the scale, not a hard tier — some of the best
+    // recommendations are standalone courses.
+    const weakProgram: CourseraCourse = {
+      slug: 'weak',
+      url: 'https://www.coursera.org/specializations/weak',
+      title: 'Weak Specialization',
+      partner: 'Test',
+      format: 'Specialization',
+      level: 'Beginner',
+      rating: 4.31,
+      reviews: 60,
+      subjects: ['generative-ai'],
+      primarySubjects: ['generative-ai'],
+      skills: [],
+      description: '',
+    };
+    const strongCourse: CourseraCourse = {
+      ...weakProgram,
+      slug: 'strong',
+      url: 'https://www.coursera.org/learn/strong',
+      title: 'Generative AI with Large Language Models',
+      format: 'Course',
+      rating: 4.8,
+      reviews: 30000,
+    };
+
+    const ranked = indexCatalogBySubject([weakProgram, strongCourse]).get('generative-ai')!;
+    expect(ranked[0].slug).toBe('strong');
   });
 
   it('keeps primarySubjects a subset of subjects', () => {

@@ -175,7 +175,12 @@ function truncate(text, limit) {
 function qualityScore(course) {
   const reviews = course.reviews ?? 0;
   const enrolled = course.enrolled ?? 0;
-  return course.rating * Math.log10(10 + reviews) * (1 + Math.log10(10 + enrolled) / 10);
+  const base = course.rating * Math.log10(10 + reviews) * (1 + Math.log10(10 + enrolled) / 10);
+  // Mirrors PROGRAM_BOOST in src/data/courseraCatalog.ts. Coursera lists a
+  // specialization and each of its member courses, and the members often carry more
+  // reviews than the program — so without this a capstone or a single module
+  // outranks the program it belongs to.
+  return course.format === 'Course' ? base : base * 1.15;
 }
 
 // ---------------------------------------------------------------------------
