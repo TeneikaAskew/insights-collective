@@ -84,16 +84,52 @@ function rankForSubject(subject: LearningSubject) {
   };
 }
 
-const bySubject = new Map<LearningSubject, CourseraCourse[]>();
-for (const course of courseraCatalog) {
-  for (const subject of course.subjects) {
-    if (!bySubject.has(subject)) bySubject.set(subject, []);
-    bySubject.get(subject)!.push(course);
-  }
-}
-for (const [subject, courses] of bySubject) courses.sort(rankForSubject(subject));
+export type SubjectIndex = Map<LearningSubject, CourseraCourse[]>;
 
-/** Catalog entries that teach `subject`, best-first. See `rankForSubject`. */
-export function courseraCoursesForSubject(subject: LearningSubject): CourseraCourse[] {
-  return bySubject.get(subject) ?? [];
+/**
+ * Group a catalog by subject, ranked within each. Exported because the catalog can
+ * come from the database at runtime rather than from this bundle.
+ */
+export function indexCatalogBySubject(catalog: CourseraCourse[]): SubjectIndex {
+  const index: SubjectIndex = new Map();
+  for (const course of catalog) {
+    for (const subject of course.subjects) {
+      if (!index.has(subject)) index.set(subject, []);
+      index.get(subject)!.push(course);
+    }
+  }
+  for (const [subject, courses] of index) courses.sort(rankForSubject(subject));
+  return index;
+}
+
+/** Index over the bundled catalog, built once. */
+const bundledIndex = indexCatalogBySubject(courseraCatalog);
+
+/**
+ * Indexes for database-supplied catalogs, keyed by the array itself. React Query
+ * hands back the same array reference until the data changes, so this rebuilds only
+ * on an actual refetch rather than on every render.
+ */
+const indexCache = new WeakMap<CourseraCourse[], SubjectIndex>();
+
+export function subjectIndexFor(catalog?: CourseraCourse[]): SubjectIndex {
+  if (!catalog || catalog === courseraCatalog) return bundledIndex;
+  let index = indexCache.get(catalog);
+  if (!index) {
+    index = indexCatalogBySubject(catalog);
+    indexCache.set(catalog, index);
+  }
+  return index;
+}
+
+/**
+ * Catalog entries that teach `subject`, best-first. See `rankForSubject`.
+ *
+ * Pass `index` to read from a database-supplied catalog; omit it for the bundled one.
+ */
+export function courseraCoursesForSubject(
+  subject: LearningSubject,
+  index: SubjectIndex = bundledIndex,
+): CourseraCourse[] {
+  return index.get(subject) ?? [];
 }

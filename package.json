@@ -30,7 +30,8 @@
     "audit:invariants": "node scripts/audit/schema-invariants.mjs",
     "audit:fixtures": "node scripts/audit/verify-fixtures.mjs",
     "audit:functions": "node scripts/audit/refresh-db-functions.mjs --check",
-    "audit": "npm run audit:queries && npm run audit:types && npm run audit:invariants && npm run audit:fixtures && npm run audit:functions"
+    "audit": "npm run audit:queries && npm run audit:types && npm run audit:invariants && npm run audit:fixtures && npm run audit:functions",
+    "emit:coursera-seed": "node scripts/emit-coursera-seed.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

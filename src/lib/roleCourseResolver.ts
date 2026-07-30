@@ -6,6 +6,7 @@
 import {
   courseraCoursesForSubject,
   courseraUrl,
+  subjectIndexFor,
   type CourseraCourse,
 } from '@/data/courseraCatalog';
 import { inferSubjects, type LearningSubject } from '@/data/learningSubjects';
@@ -55,6 +56,15 @@ export interface ResolveOptions {
   platformLimit?: number;
   /** Cap on Coursera courses shown. Default 4. */
   courseraLimit?: number;
+  /**
+   * Coursera catalog to draw from. Defaults to the one bundled with the app.
+   *
+   * Injected rather than imported because the catalog now lives in Postgres —
+   * `useCourseraCatalog` passes the rows it fetched, and falls back to the bundled
+   * copy when that query fails. Keeping the choice in the caller leaves this
+   * function pure and testable against a fixture.
+   */
+  catalog?: CourseraCourse[];
 }
 
 /**
@@ -201,8 +211,9 @@ export function resolveRoleCourses(
   platformCourses: PublishedCourse[],
   options: ResolveOptions = {},
 ): ResolvedRoleCourses {
-  const { platformLimit = 6, courseraLimit = 4 } = options;
+  const { platformLimit = 6, courseraLimit = 4, catalog } = options;
   const roleSubjects = subjectsForRole(role.id, role.category);
+  const subjectIndex = subjectIndexFor(catalog);
 
   const scored = platformCourses
     .map((course) => scorePlatformCourse(course, roleSubjects))
@@ -224,7 +235,7 @@ export function resolveRoleCourses(
   for (const subject of uncoveredSubjects) {
     if (coursera.length >= courseraLimit) break;
 
-    const candidate = courseraCoursesForSubject(subject).find(
+    const candidate = courseraCoursesForSubject(subject, subjectIndex).find(
       (course) => !usedSlugs.has(course.slug),
     );
     if (!candidate) continue;

@@ -8,6 +8,108 @@ recommendations retreat on their own.
 This document covers where the Coursera data comes from and how to refresh it.
 For how recommendations are chosen, see `src/lib/roleCourseResolver.ts`.
 
+## Where the catalog lives
+
+In Postgres — `public.coursera_courses` — refreshed by the `coursera-refresh` Edge
+Function on a monthly schedule. `src/data/courseraCatalog.generated.ts` still exists,
+but only as the seed for that table and as a client-side fallback.
+
+```
+                    ┌─ cron: 1st of month ──► enqueue-discover ─┐
+                    │                                            ▼
+coursera.org ◄──────┴─ cron: every 5 min ──► process ──► coursera_crawl_queue
+   (public                                      │
+    pages)                                      ▼
+                                        coursera_courses ──► useCourseraCatalog
+                                                                     │
+                                        courseraCatalog.generated.ts ┘ (fallback)
+```
+
+### Why a table and not the generated file
+
+The generated file works, but it ties every data refresh to a code deploy, and it
+cannot be curated: hiding a course you disagree with means a commit. As a table it is
+refreshable on a schedule and editable by an admin — `status`, `curator_note` and
+`is_featured` exist for exactly that, and the refresh upsert deliberately omits them
+so an admin's decision survives the next crawl.
+
+Keeping the whole crawled corpus (thousands of rows) rather than a pre-filtered 170
+also means the quality bar becomes a *query* parameter. `MIN_RATING` and
+`MIN_REVIEWS` in `useCourseraCatalog` can be tuned without re-crawling anything.
+
+The bundled file remains as the fallback because a database problem should degrade
+the section, not empty it. `useCourseraCatalog` returns `undefined` — which the
+resolver reads as "use the bundled catalog" — when the query errors, when the table
+does not exist yet, or when it returns no rows for a role's subjects.
+
+### Why an Edge Function and not a GitHub Action
+
+A GitHub Action would need a Supabase **service-role key** in repository secrets. That
+key bypasses RLS on every table in the project, so a workflow that only needs to
+write one reference table would hold total database authority, and the credential
+would live outside Supabase. The Edge Function already has that key in its own
+environment; nothing has to be copied anywhere.
+
+An Action is still fine for *running the local scripts* — a bulk backfill, or
+regenerating the committed seed — because those produce a CSV and a file diff rather
+than touching the database.
+
+### Why batched, and why that is not optional
+
+Edge Functions are wall-clock limited (150s on the current plan). Measured locally:
+
+| Work | Duration |
+|---|---|
+| Refresh the ~170 known courses | ~3 minutes |
+| Full discovery sweep (8,386 pages) | ~2.5 hours |
+
+Both are far past the ceiling, and that is *with* deliberate rate limiting that
+should not be removed — this is someone else's website. So one invocation cannot be
+one crawl. `coursera_crawl_queue` holds the work list, `process` drains 40 URLs per
+call, and cron ticks until the queue is empty. At that rate a full monthly sweep
+finishes in roughly 18 hours.
+
+The drain job is a no-op when the queue is empty: `coursera_kick_refresh()` counts
+pending rows in SQL and returns without making an HTTP call. That is what makes a
+5-minute schedule reasonable instead of 288 wasted invocations a day.
+
+## Deploying it
+
+The schema migration is applied. Three steps remain, in this order:
+
+```bash
+# 1. Seed the keyword table and the initial catalog.
+supabase db push
+
+# 2. Deploy the function and give it a shared secret. It refuses to run without one:
+#    it writes with the service role and makes outbound requests, so it must not be
+#    callable anonymously.
+supabase secrets set COURSERA_REFRESH_SECRET="$(openssl rand -hex 32)"
+supabase functions deploy coursera-refresh
+```
+
+```sql
+-- 3. Give the cron jobs the URL and the same secret, then apply the schedule
+--    migration. Until this is done the jobs log a notice and do nothing.
+select vault.create_secret(
+  'https://<project-ref>.supabase.co/functions/v1/coursera-refresh',
+  'coursera_refresh_url');
+select vault.create_secret('<the COURSERA_REFRESH_SECRET value>',
+  'coursera_refresh_secret');
+```
+
+Then check it by hand before trusting the schedule:
+
+```bash
+curl -X POST https://<project-ref>.supabase.co/functions/v1/coursera-refresh \
+  -H "x-refresh-secret: $COURSERA_REFRESH_SECRET" \
+  -H 'Content-Type: application/json' \
+  -d '{"action":"status"}'
+```
+
+`status` reports queue and catalog counts and has no side effects. The other actions
+are `enqueue-refresh`, `enqueue-discover` and `process`.
+
 ## Where the data comes from
 
 `src/data/courseraCatalog.generated.ts` is a **generated file** — do not edit it by

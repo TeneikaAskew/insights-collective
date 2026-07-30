@@ -2192,6 +2192,132 @@ export type Database = {
           },
         ]
       }
+      coursera_courses: {
+        Row: {
+          created_at: string
+          curator_note: string | null
+          description: string | null
+          enrolled: number | null
+          estimated_hours: number | null
+          format: string
+          is_featured: boolean
+          last_fetched_at: string | null
+          last_http_status: number | null
+          last_verified_at: string | null
+          level: string
+          partner: string
+          primary_subjects: string[]
+          rating: number | null
+          reviews: number | null
+          skills: string[]
+          slug: string
+          status: string
+          subjects: string[]
+          title: string
+          top_reviews: Json
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          curator_note?: string | null
+          description?: string | null
+          enrolled?: number | null
+          estimated_hours?: number | null
+          format: string
+          is_featured?: boolean
+          last_fetched_at?: string | null
+          last_http_status?: number | null
+          last_verified_at?: string | null
+          level?: string
+          partner: string
+          primary_subjects?: string[]
+          rating?: number | null
+          reviews?: number | null
+          skills?: string[]
+          slug: string
+          status?: string
+          subjects?: string[]
+          title: string
+          top_reviews?: Json
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          curator_note?: string | null
+          description?: string | null
+          enrolled?: number | null
+          estimated_hours?: number | null
+          format?: string
+          is_featured?: boolean
+          last_fetched_at?: string | null
+          last_http_status?: number | null
+          last_verified_at?: string | null
+          level?: string
+          partner?: string
+          primary_subjects?: string[]
+          rating?: number | null
+          reviews?: number | null
+          skills?: string[]
+          slug?: string
+          status?: string
+          subjects?: string[]
+          title?: string
+          top_reviews?: Json
+          updated_at?: string
+          url?: string
+        }
+        Relationships: []
+      }
+      coursera_crawl_queue: {
+        Row: {
+          attempts: number
+          enqueued_at: string
+          last_error: string | null
+          processed_at: string | null
+          slug: string
+          source: string
+          state: string
+          url: string
+        }
+        Insert: {
+          attempts?: number
+          enqueued_at?: string
+          last_error?: string | null
+          processed_at?: string | null
+          slug: string
+          source?: string
+          state?: string
+          url: string
+        }
+        Update: {
+          attempts?: number
+          enqueued_at?: string
+          last_error?: string | null
+          processed_at?: string | null
+          slug?: string
+          source?: string
+          state?: string
+          url?: string
+        }
+        Relationships: []
+      }
+      coursera_subject_keywords: {
+        Row: {
+          keyword: string
+          subject: string
+        }
+        Insert: {
+          keyword: string
+          subject: string
+        }
+        Update: {
+          keyword?: string
+          subject?: string
+        }
+        Relationships: []
+      }
       courses: {
         Row: {
           category: string
@@ -5614,12 +5740,28 @@ export type Database = {
       }
     }
     Functions: {
+      admin_user_role_counts: {
+        Args: never
+        Returns: {
+          admins: number
+          instructors: number
+          students: number
+          total: number
+        }[]
+      }
       audit_invariants: {
         Args: never
         Returns: {
           check_name: string
           violations: number
           why: string
+        }[]
+      }
+      blog_post_authors: {
+        Args: never
+        Returns: {
+          display_name: string
+          id: string
         }[]
       }
       calculate_course_difficulty: {
@@ -5692,6 +5834,14 @@ export type Database = {
         Returns: boolean
       }
       clean_old_security_events: { Args: never; Returns: undefined }
+      course_roster_stats: {
+        Args: never
+        Returns: {
+          avg_progress: number
+          course_id: string
+          enrolled: number
+        }[]
+      }
       delete_all_user_resumes: {
         Args: { user_id_param: string }
         Returns: undefined
@@ -5714,6 +5864,13 @@ export type Database = {
         Args: { user1_id: string; user2_id: string }
         Returns: {
           conversation_id: string
+        }[]
+      }
+      form_submission_counts: {
+        Args: never
+        Returns: {
+          form_id: string
+          submission_count: number
         }[]
       }
       generate_initial_assistant_message: {
@@ -5883,6 +6040,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      increment_blog_post_view: {
+        Args: { p_post_id: string }
+        Returns: undefined
+      }
       increment_blog_views: { Args: { post_id: string }; Returns: undefined }
       is_conversation_participant: {
         Args: { conversation_id_param: string; user_id_param: string }
@@ -5940,6 +6101,42 @@ export type Database = {
       rotate_my_calendar_feed_token: {
         Args: { p_course_id: string }
         Returns: string
+      }
+      search_admin_users: {
+        Args: {
+          p_limit: number
+          p_offset: number
+          p_role: string
+          p_search: string
+        }
+        Returns: {
+          avatar_url: string
+          bio: string
+          created_at: string
+          first_name: string
+          id: string
+          last_name: string
+          roles: Database["public"]["Enums"]["app_role"][]
+          total_count: number
+        }[]
+      }
+      search_form_submissions: {
+        Args: {
+          p_form_id: string
+          p_limit: number
+          p_offset: number
+          p_search: string
+        }
+        Returns: {
+          created_at: string
+          first_name: string
+          form_id: string
+          id: string
+          last_name: string
+          submission_data: Json
+          total_count: number
+          user_id: string
+        }[]
       }
       snapshot_enrollment_progress: { Args: never; Returns: undefined }
       track_blog_view: {
