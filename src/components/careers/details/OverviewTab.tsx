@@ -57,7 +57,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ role }) => {
               <h3 className="font-semibold text-lg mb-2">Key Skills</h3>
               <div className="flex flex-wrap gap-2">
                 {role.skills.map((skill, index) => (
-                  <Badge key={index} variant="outline" className="bg-primary/10">{skill}</Badge>
+                  <Badge key={index} className="border-transparent bg-accent text-accent-foreground hover:bg-accent">{skill}</Badge>
                 ))}
               </div>
             </div>

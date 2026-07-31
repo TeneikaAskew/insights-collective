@@ -17,16 +17,16 @@ interface CareerRoleDetailsProps {
 
 export const CareerRoleDetails: React.FC<CareerRoleDetailsProps> = ({ role, onClose }) => {
   return (
-    <Card className="shadow-lg animate-fade-in border-t-4 border-t-primary w-full max-h-[90vh] overflow-y-auto">
+    <Card className="ss-card animate-fade-in w-full max-h-[90vh] overflow-y-auto bg-card">
       <RoleHeader role={role} onClose={onClose} />
-      
+
       <CardContent className="pt-4">
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="day-life">Day in the Life</TabsTrigger>
-            <TabsTrigger value="month-life">Month in the Life</TabsTrigger>
-            <TabsTrigger value="career-path">Career Path</TabsTrigger>
+          <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 bg-transparent p-0">
+            <TabsTrigger value="overview" className="rounded-full px-4 data-[state=active]:bg-accent data-[state=active]:text-accent-foreground data-[state=active]:shadow-none">Overview</TabsTrigger>
+            <TabsTrigger value="day-life" className="rounded-full px-4 data-[state=active]:bg-accent data-[state=active]:text-accent-foreground data-[state=active]:shadow-none">Day in the Life</TabsTrigger>
+            <TabsTrigger value="month-life" className="rounded-full px-4 data-[state=active]:bg-accent data-[state=active]:text-accent-foreground data-[state=active]:shadow-none">Month in the Life</TabsTrigger>
+            <TabsTrigger value="career-path" className="rounded-full px-4 data-[state=active]:bg-accent data-[state=active]:text-accent-foreground data-[state=active]:shadow-none">Career Path</TabsTrigger>
           </TabsList>
           
           <TabsContent value="overview">

@@ -18,14 +18,17 @@ export const RoleHeader: React.FC<RoleHeaderProps> = ({ role, onClose }) => {
     <CardHeader className="relative pb-0">
       <div className="flex justify-between items-start">
         <div>
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex flex-wrap items-center gap-2 mb-2">
             {categories.map((category, index) => (
-              <Badge key={index} variant="outline">{category}</Badge>
+              <Badge key={index} className="border-transparent bg-accent text-accent-foreground hover:bg-accent">
+                {category}
+              </Badge>
             ))}
           </div>
-          <CardTitle className="text-2xl font-bold mb-1">{role.title}</CardTitle>
+          <CardTitle className="text-2xl font-display mb-1">{role.title}</CardTitle>
+          <p className="ss-serif text-ss-peach-deep text-base">{role.shortDescription}</p>
         </div>
-        <Button variant="ghost" size="icon" onClick={onClose} className="absolute top-4 right-4">
+        <Button variant="ghost" size="icon" onClick={onClose} className="absolute top-4 right-4 rounded-full" aria-label="Close">
           <X className="h-4 w-4" />
         </Button>
       </div>
