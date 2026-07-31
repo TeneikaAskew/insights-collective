@@ -792,7 +792,7 @@ function EnrollmentsTab({ courses }: { courses: Course[] }) {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <div className="bg-slate-200 h-2 w-24 rounded-full overflow-hidden">
+                            <div className="bg-ss-track h-2 w-24 rounded-full overflow-hidden">
                               <div 
                                 className="bg-primary h-full" 
                                 style={{ width: `${enrollment.completion_status}%` }}

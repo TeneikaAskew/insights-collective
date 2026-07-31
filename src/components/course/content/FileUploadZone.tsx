@@ -114,11 +114,11 @@ const FileUploadZone: React.FC<FileUploadZoneProps> = ({
 
   if (uploading) {
     return (
-      <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+      <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
         <div className="space-y-4">
-          <Upload className="h-8 w-8 mx-auto text-gray-400 animate-pulse" />
+          <Upload className="h-8 w-8 mx-auto text-muted-foreground animate-pulse" />
           <div>
-            <p className="text-sm text-gray-600">Uploading...</p>
+            <p className="text-sm text-muted-foreground">Uploading...</p>
             <Progress value={progress} className="mt-2" />
           </div>
         </div>
@@ -132,24 +132,24 @@ const FileUploadZone: React.FC<FileUploadZoneProps> = ({
       className={cn(
         "border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors",
         isDragActive || dragActive
-          ? "border-blue-400 bg-blue-50"
-          : "border-gray-300 hover:border-gray-400",
+          ? "border-ss-teal bg-ss-teal-chip"
+          : "border-border hover:border-border",
         className
       )}
     >
       <input {...getInputProps()} />
       <div className="space-y-4">
-        <div className="mx-auto text-gray-400">
+        <div className="mx-auto text-muted-foreground">
           {getIcon()}
         </div>
         <div>
-          <p className="text-sm font-medium text-gray-900">
+          <p className="text-sm font-medium text-foreground">
             {isDragActive ? 'Drop the file here' : 'Click to upload or drag and drop'}
           </p>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             {getDescription()}
           </p>
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             Max size: {Math.round(maxSize / (1024 * 1024))}MB
           </p>
         </div>

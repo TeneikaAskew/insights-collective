@@ -84,8 +84,8 @@ export const RubricList: React.FC<RubricListProps> = ({
       {rubrics?.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-8">
-            <FileText className="h-12 w-12 text-gray-400 mb-4" />
-            <p className="text-gray-500 text-center">
+            <FileText className="h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-muted-foreground text-center">
               No rubrics created yet. Create your first rubric to start grading assignments consistently.
             </p>
           </CardContent>
@@ -99,9 +99,9 @@ export const RubricList: React.FC<RubricListProps> = ({
               </CardHeader>
               <CardContent>
                 {rubric.description && (
-                  <p className="text-sm text-gray-600 mb-4">{rubric.description}</p>
+                  <p className="text-sm text-muted-foreground mb-4">{rubric.description}</p>
                 )}
-                <div className="text-sm text-gray-500 mb-4">
+                <div className="text-sm text-muted-foreground mb-4">
                   {rubric.criteria?.length || 0} criteria
                 </div>
                 <div className="flex gap-2">

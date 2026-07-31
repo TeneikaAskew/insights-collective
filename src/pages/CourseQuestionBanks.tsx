@@ -43,7 +43,7 @@ export default function CourseQuestionBanks() {
         <>
           <div className="mb-6">
             <h1 className="text-3xl font-bold">{course.title} - Question Banks</h1>
-            <p className="text-gray-600 mt-2">
+            <p className="text-muted-foreground mt-2">
               Create and manage reusable question libraries for quizzes and assessments
             </p>
           </div>

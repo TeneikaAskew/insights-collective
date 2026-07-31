@@ -48,21 +48,21 @@ export const CalendarWidget: React.FC<CalendarWidgetProps> = ({
     
     // Overdue items
     if (eventDate < now && (event.title.includes('Due') || event.title.includes('Closes'))) {
-      return 'bg-red-100 text-red-800 border-red-200';
+      return 'bg-ss-bad-chip text-ss-bad border-ss-bad';
     }
     
     // Due today
     if (isToday(eventDate)) {
-      return 'bg-orange-100 text-orange-800 border-orange-200';
+      return 'bg-ss-warn-chip text-ss-warn border-ss-warn';
     }
     
     // Due tomorrow
     if (isTomorrow(eventDate)) {
-      return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      return 'bg-ss-warn-chip text-ss-warn border-ss-warn';
     }
     
     // Future events
-    return 'bg-blue-100 text-blue-800 border-blue-200';
+    return 'bg-ss-teal-chip text-ss-teal border-ss-teal';
   };
 
   const formatEventDate = (dateString: string) => {
@@ -93,9 +93,9 @@ export const CalendarWidget: React.FC<CalendarWidgetProps> = ({
       <Card>
         <CardContent className="pt-6">
           <div className="animate-pulse space-y-3">
-            <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-            <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-            <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+            <div className="h-4 bg-muted rounded w-3/4"></div>
+            <div className="h-4 bg-muted rounded w-1/2"></div>
+            <div className="h-4 bg-muted rounded w-2/3"></div>
           </div>
         </CardContent>
       </Card>
@@ -120,27 +120,27 @@ export const CalendarWidget: React.FC<CalendarWidgetProps> = ({
       <CardContent className="space-y-4">
         {showStats && stats && variant === 'full' && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="text-center p-2 bg-blue-50 rounded-lg">
-              <div className="text-lg font-bold text-blue-600">{stats.upcoming_assignments}</div>
-              <div className="text-xs text-blue-600">Assignments</div>
+            <div className="text-center p-2 bg-ss-teal-chip rounded-lg">
+              <div className="text-lg font-bold text-ss-teal">{stats.upcoming_assignments}</div>
+              <div className="text-xs text-ss-teal">Assignments</div>
             </div>
-            <div className="text-center p-2 bg-purple-50 rounded-lg">
-              <div className="text-lg font-bold text-purple-600">{stats.upcoming_quizzes}</div>
-              <div className="text-xs text-purple-600">Quizzes</div>
+            <div className="text-center p-2 bg-ss-lav-chip rounded-lg">
+              <div className="text-lg font-bold text-ss-lav-deep">{stats.upcoming_quizzes}</div>
+              <div className="text-xs text-ss-lav-deep">Quizzes</div>
             </div>
-            <div className="text-center p-2 bg-green-50 rounded-lg">
-              <div className="text-lg font-bold text-green-600">{stats.total_events}</div>
-              <div className="text-xs text-green-600">Total Events</div>
+            <div className="text-center p-2 bg-ss-good-chip rounded-lg">
+              <div className="text-lg font-bold text-ss-good">{stats.total_events}</div>
+              <div className="text-xs text-ss-good">Total Events</div>
             </div>
-            <div className="text-center p-2 bg-red-50 rounded-lg">
-              <div className="text-lg font-bold text-red-600">{stats.overdue_items}</div>
-              <div className="text-xs text-red-600">Overdue</div>
+            <div className="text-center p-2 bg-ss-bad-chip rounded-lg">
+              <div className="text-lg font-bold text-ss-bad">{stats.overdue_items}</div>
+              <div className="text-xs text-ss-bad">Overdue</div>
             </div>
           </div>
         )}
 
         {!events || events.length === 0 ? (
-          <div className="text-center py-6 text-gray-500">
+          <div className="text-center py-6 text-muted-foreground">
             <CalendarIcon className="h-8 w-8 mx-auto mb-2 opacity-50" />
             <p className="text-sm">No upcoming events</p>
           </div>
@@ -150,7 +150,7 @@ export const CalendarWidget: React.FC<CalendarWidgetProps> = ({
               <Link
                 key={event.id}
                 to={getNavigationUrl(event)}
-                className="block hover:bg-gray-50 rounded-lg transition-colors"
+                className="block hover:bg-accent rounded-lg transition-colors"
               >
                 <div className={`p-3 rounded-lg border ${getEventColor(event)}`}>
                   <div className="flex items-start justify-between">
@@ -162,7 +162,7 @@ export const CalendarWidget: React.FC<CalendarWidgetProps> = ({
                         </span>
                       </div>
                       {event.description && variant === 'full' && (
-                        <p className="text-xs text-gray-600 line-clamp-2 mb-2">
+                        <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
                           {event.description}
                         </p>
                       )}
@@ -170,18 +170,18 @@ export const CalendarWidget: React.FC<CalendarWidgetProps> = ({
                         <Badge variant="outline" className="text-xs">
                           {event.type}
                         </Badge>
-                        <span className="text-xs text-gray-500 flex items-center gap-1">
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
                           <Clock className="h-3 w-3" />
                           {formatEventDate(event.start_date)}
                         </span>
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-xs text-gray-500">
+                      <div className="text-xs text-muted-foreground">
                         {formatDistanceToNow(new Date(event.start_date), { addSuffix: true })}
                       </div>
                       {event.location && variant === 'full' && (
-                        <div className="text-xs text-gray-400 mt-1">{event.location}</div>
+                        <div className="text-xs text-muted-foreground mt-1">{event.location}</div>
                       )}
                     </div>
                   </div>
@@ -199,7 +199,7 @@ export const CalendarWidget: React.FC<CalendarWidgetProps> = ({
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-muted-foreground">
                   {currentPage + 1} of {totalPages}
                 </span>
                 <Button
@@ -216,8 +216,8 @@ export const CalendarWidget: React.FC<CalendarWidgetProps> = ({
         )}
 
         {showStats && stats && stats.overdue_items > 0 && (
-          <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-            <div className="flex items-center gap-2 text-red-700">
+          <div className="mt-4 p-3 bg-ss-bad-chip border border-ss-bad rounded-lg">
+            <div className="flex items-center gap-2 text-ss-bad">
               <Clock className="h-4 w-4" />
               <span className="text-sm font-medium">
                 {stats.overdue_items} overdue item{stats.overdue_items !== 1 ? 's' : ''}

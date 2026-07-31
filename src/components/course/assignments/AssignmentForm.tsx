@@ -487,7 +487,7 @@ export const AssignmentForm: React.FC<AssignmentFormProps> = ({
                       <div>
                         <p className="font-medium">{selectedRubric.title}</p>
                         {selectedRubric.description && (
-                          <p className="text-sm text-gray-500">{selectedRubric.description}</p>
+                          <p className="text-sm text-muted-foreground">{selectedRubric.description}</p>
                         )}
                       </div>
                       <div className="flex gap-2">

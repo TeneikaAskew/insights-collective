@@ -263,11 +263,11 @@ export const CourseProgressOverview: React.FC<CourseProgressOverviewProps> = ({
   };
 
   const getGradeColor = (grade: number) => {
-    if (grade >= 90) return 'text-green-600';
-    if (grade >= 80) return 'text-blue-600';
-    if (grade >= 70) return 'text-yellow-600';
-    if (grade >= 60) return 'text-orange-600';
-    return 'text-red-600';
+    if (grade >= 90) return 'text-ss-good';
+    if (grade >= 80) return 'text-ss-teal';
+    if (grade >= 70) return 'text-ss-warn';
+    if (grade >= 60) return 'text-ss-warn';
+    return 'text-ss-bad';
   };
 
   // Distinct error state: a failed fetch renders an error block instead of
@@ -293,8 +293,8 @@ export const CourseProgressOverview: React.FC<CourseProgressOverviewProps> = ({
         <Card>
           <CardContent className="p-6">
             <div className="animate-pulse space-y-3">
-              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-              <div className="h-2 bg-gray-200 rounded"></div>
+              <div className="h-4 bg-muted rounded w-3/4"></div>
+              <div className="h-2 bg-muted rounded"></div>
             </div>
           </CardContent>
         </Card>
@@ -339,9 +339,9 @@ export const CourseProgressOverview: React.FC<CourseProgressOverviewProps> = ({
           </div>
           
           {isCompleted ? (
-            <div className="flex items-center gap-2 p-4 bg-green-50 rounded-lg border border-green-200">
-              <Trophy className="h-5 w-5 text-green-600" />
-              <span className="font-medium text-green-700">
+            <div className="flex items-center gap-2 p-4 bg-ss-good-chip rounded-lg border border-ss-good">
+              <Trophy className="h-5 w-5 text-ss-good" />
+              <span className="font-medium text-ss-good">
                 Congratulations! You've completed this course!
               </span>
             </div>

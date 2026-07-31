@@ -20,12 +20,12 @@ export function TeachableBreadcrumb({
     <nav
       aria-label="Breadcrumb"
       className={
-        'text-xs uppercase tracking-widest text-gray-500 mb-3 ' + (className ?? '')
+        'text-xs uppercase tracking-widest text-muted-foreground mb-3 ' + (className ?? '')
       }
     >
       <Link
         to="/courses"
-        className="underline underline-offset-4 hover:text-gray-800 transition-colors"
+        className="underline underline-offset-4 hover:text-foreground transition-colors"
       >
         Courses
       </Link>
@@ -33,7 +33,7 @@ export function TeachableBreadcrumb({
       {courseId ? (
         <Link
           to={`/courses/${courseId}`}
-          className="underline underline-offset-4 hover:text-gray-800 transition-colors"
+          className="underline underline-offset-4 hover:text-foreground transition-colors"
         >
           {courseTitle}
         </Link>

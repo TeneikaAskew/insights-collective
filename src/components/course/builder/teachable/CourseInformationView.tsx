@@ -77,7 +77,7 @@ export function CourseInformationView({ course, onSave }: CourseInformationViewP
         <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl">Course information</h2>
       </div>
 
-      <div className="space-y-6 bg-white rounded-xl border border-border p-6">
+      <div className="space-y-6 bg-card rounded-xl border border-border p-6">
         <Field label="Description">
           <textarea
             value={description}
@@ -103,7 +103,7 @@ export function CourseInformationView({ course, onSave }: CourseInformationViewP
             <select
               value={level}
               onChange={(e) => setLevel(e.target.value)}
-              className="w-full px-3 py-2 rounded-md border border-input text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full px-3 py-2 rounded-md border border-input text-sm bg-card focus:outline-none focus:ring-2 focus:ring-primary"
             >
               <option value="">—</option>
               {LEVELS.map((l) => (
@@ -118,7 +118,7 @@ export function CourseInformationView({ course, onSave }: CourseInformationViewP
             <select
               value={difficulty}
               onChange={(e) => setDifficulty(e.target.value)}
-              className="w-full px-3 py-2 rounded-md border border-input text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full px-3 py-2 rounded-md border border-input text-sm bg-card focus:outline-none focus:ring-2 focus:ring-primary"
             >
               <option value="">—</option>
               {DIFFICULTIES.map((d) => (

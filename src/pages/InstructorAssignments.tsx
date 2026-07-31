@@ -150,7 +150,7 @@ const InstructorAssignments = () => {
                         <Badge variant="secondary">{r.submitted} submitted</Badge>
                         <Badge variant="outline">{r.graded} graded</Badge>
                         {pending > 0 && (
-                          <Badge className="bg-amber-100 text-amber-900 hover:bg-amber-100">
+                          <Badge className="bg-ss-warn-chip text-ss-warn hover:bg-ss-warn-chip">
                             {pending} pending
                           </Badge>
                         )}

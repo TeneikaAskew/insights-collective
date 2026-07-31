@@ -179,8 +179,8 @@ export const ModuleProgressCard: React.FC<ModuleProgressCardProps> = ({
       <Card>
         <CardContent className="p-6">
           <div className="animate-pulse space-y-3">
-            <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-            <div className="h-2 bg-gray-200 rounded"></div>
+            <div className="h-4 bg-muted rounded w-3/4"></div>
+            <div className="h-2 bg-muted rounded"></div>
           </div>
         </CardContent>
       </Card>
@@ -228,22 +228,22 @@ export const ModuleProgressCard: React.FC<ModuleProgressCardProps> = ({
         className={cn(
           "flex items-center justify-between p-3 rounded-lg border transition-colors cursor-pointer",
           isItemCompleted 
-            ? "bg-green-50 border-green-200 hover:bg-green-100" 
-            : "hover:bg-gray-50"
+            ? "bg-ss-good-chip border-ss-good hover:bg-ss-good-chip" 
+            : "hover:bg-accent"
         )}
         onClick={() => type === 'lesson' && onLessonClick?.(item.id)}
       >
         <div className="flex items-center gap-3">
           {isItemCompleted ? (
-            <CheckCircle2 className="h-5 w-5 text-green-600" />
+            <CheckCircle2 className="h-5 w-5 text-ss-good" />
           ) : (
-            <Circle className="h-5 w-5 text-gray-400" />
+            <Circle className="h-5 w-5 text-muted-foreground" />
           )}
           <div className="flex items-center gap-2">
             {icon}
             <span className={cn(
               "text-sm",
-              isItemCompleted && "text-green-700 font-medium"
+              isItemCompleted && "text-ss-good font-medium"
             )}>
               {item.title}
             </span>
@@ -331,7 +331,7 @@ export const ModuleProgressCard: React.FC<ModuleProgressCardProps> = ({
 
         {/* Lock/Prerequisites info */}
         {isLocked && (
-          <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+          <div className="bg-muted rounded-lg p-4 space-y-2">
             <div className="flex items-center gap-2 text-sm font-medium">
               <Lock className="h-4 w-4" />
               Module Locked
@@ -347,11 +347,11 @@ export const ModuleProgressCard: React.FC<ModuleProgressCardProps> = ({
                 {prerequisites.map((prereq, idx) => (
                   <div key={idx} className="flex items-center gap-2 text-sm">
                     {prereq.completed ? (
-                      <CheckCircle2 className="h-3 w-3 text-green-600" />
+                      <CheckCircle2 className="h-3 w-3 text-ss-good" />
                     ) : (
-                      <Circle className="h-3 w-3 text-gray-400" />
+                      <Circle className="h-3 w-3 text-muted-foreground" />
                     )}
-                    <span className={prereq.completed ? "line-through text-gray-500" : ""}>
+                    <span className={prereq.completed ? "line-through text-muted-foreground" : ""}>
                       {prereq.moduleTitle}
                     </span>
                   </div>

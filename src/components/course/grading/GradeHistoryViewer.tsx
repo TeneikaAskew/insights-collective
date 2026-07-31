@@ -55,34 +55,34 @@ export const GradeHistoryViewer: React.FC<GradeHistoryViewerProps> = ({
   const getChangeIcon = (changeType: string) => {
     switch (changeType) {
       case 'created':
-        return <Plus className="h-4 w-4 text-green-600" />;
+        return <Plus className="h-4 w-4 text-ss-good" />;
       case 'updated':
-        return <Edit className="h-4 w-4 text-blue-600" />;
+        return <Edit className="h-4 w-4 text-ss-teal" />;
       case 'deleted':
-        return <Trash2 className="h-4 w-4 text-red-600" />;
+        return <Trash2 className="h-4 w-4 text-ss-bad" />;
       case 'excused':
-        return <Clock className="h-4 w-4 text-orange-600" />;
+        return <Clock className="h-4 w-4 text-ss-warn" />;
       case 'unexcused':
-        return <Clock className="h-4 w-4 text-gray-600" />;
+        return <Clock className="h-4 w-4 text-muted-foreground" />;
       default:
-        return <Edit className="h-4 w-4 text-gray-600" />;
+        return <Edit className="h-4 w-4 text-muted-foreground" />;
     }
   };
 
   const getChangeBadgeColor = (changeType: string) => {
     switch (changeType) {
       case 'created':
-        return 'bg-green-100 text-green-800';
+        return 'bg-ss-good-chip text-ss-good';
       case 'updated':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-ss-teal-chip text-ss-teal';
       case 'deleted':
-        return 'bg-red-100 text-red-800';
+        return 'bg-ss-bad-chip text-ss-bad';
       case 'excused':
-        return 'bg-orange-100 text-orange-800';
+        return 'bg-ss-warn-chip text-ss-warn';
       case 'unexcused':
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-muted text-foreground';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-muted text-foreground';
     }
   };
 
@@ -93,9 +93,9 @@ export const GradeHistoryViewer: React.FC<GradeHistoryViewerProps> = ({
     const newValue = entry.new_points_earned || entry.new_percentage || 0;
     
     if (newValue > oldValue) {
-      return <TrendingUp className="h-4 w-4 text-green-600" />;
+      return <TrendingUp className="h-4 w-4 text-ss-good" />;
     } else if (newValue < oldValue) {
-      return <TrendingDown className="h-4 w-4 text-red-600" />;
+      return <TrendingDown className="h-4 w-4 text-ss-bad" />;
     }
     return null;
   };
@@ -145,7 +145,7 @@ export const GradeHistoryViewer: React.FC<GradeHistoryViewerProps> = ({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-8 text-muted-foreground">
             <History className="h-12 w-12 mx-auto mb-4 opacity-50" />
             <p>No grade changes recorded yet.</p>
           </div>
@@ -186,28 +186,28 @@ export const GradeHistoryViewer: React.FC<GradeHistoryViewerProps> = ({
                       {getGradeChangeIndicator(entry)}
                     </div>
                     
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Clock className="h-3 w-3" />
                       {formatDistanceToNow(new Date(entry.changed_at), { addSuffix: true })}
                     </div>
                   </div>
 
                   {entry.change_type !== 'deleted' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-3 bg-gray-50 rounded-lg">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-3 bg-muted rounded-lg">
                       {entry.change_type !== 'created' && (
                         <div>
-                          <p className="text-xs text-gray-500 mb-1">Previous Grade</p>
-                          <p className="text-sm font-medium text-gray-700">
+                          <p className="text-xs text-muted-foreground mb-1">Previous Grade</p>
+                          <p className="text-sm font-medium text-foreground">
                             {formatGradeDisplay(entry, false)}
                           </p>
                         </div>
                       )}
                       
                       <div>
-                        <p className="text-xs text-gray-500 mb-1">
+                        <p className="text-xs text-muted-foreground mb-1">
                           {entry.change_type === 'created' ? 'Grade' : 'New Grade'}
                         </p>
-                        <p className="text-sm font-medium text-gray-900">
+                        <p className="text-sm font-medium text-foreground">
                           {formatGradeDisplay(entry, true)}
                         </p>
                       </div>
@@ -215,22 +215,22 @@ export const GradeHistoryViewer: React.FC<GradeHistoryViewerProps> = ({
                   )}
 
                   {(entry.new_comments || entry.previous_comments) && (
-                    <div className="p-3 bg-blue-50 rounded-lg">
-                      <p className="text-xs text-blue-600 mb-1">Feedback</p>
-                      <p className="text-sm text-blue-800">
+                    <div className="p-3 bg-ss-teal-chip rounded-lg">
+                      <p className="text-xs text-ss-teal mb-1">Feedback</p>
+                      <p className="text-sm text-ss-teal">
                         {entry.new_comments || entry.previous_comments}
                       </p>
                     </div>
                   )}
 
                   {entry.change_reason && (
-                    <div className="p-3 bg-yellow-50 rounded-lg">
-                      <p className="text-xs text-yellow-600 mb-1">Reason</p>
-                      <p className="text-sm text-yellow-800">{entry.change_reason}</p>
+                    <div className="p-3 bg-ss-warn-chip rounded-lg">
+                      <p className="text-xs text-ss-warn mb-1">Reason</p>
+                      <p className="text-sm text-ss-warn">{entry.change_reason}</p>
                     </div>
                   )}
 
-                  <div className="flex items-center justify-between text-xs text-gray-500">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <div className="flex items-center gap-2">
                       {entry.changer && (
                         <>

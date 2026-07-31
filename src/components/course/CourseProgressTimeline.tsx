@@ -67,13 +67,13 @@ export function CourseProgressTimeline({ courseId, modules, title = 'Weekly chec
   if (!modules.length) return null;
 
   return (
-    <section className="rounded-2xl bg-white border border-neutral-200 p-6 md:p-8">
-      <h2 className="font-display text-2xl text-neutral-900 mb-2">{title}</h2>
-      <p className="text-sm text-neutral-500 mb-4">
+    <section className="rounded-2xl bg-card border border-border p-6 md:p-8">
+      <h2 className="font-display text-2xl text-foreground mb-2">{title}</h2>
+      <p className="text-sm text-muted-foreground mb-4">
         {subtitle ?? "Each week's checkpoint updates automatically as you complete lessons, submit assignments, and receive feedback."}
       </p>
       <div className="flex items-center justify-between mb-6 gap-4">
-        <span className="text-xs text-neutral-500">
+        <span className="text-xs text-muted-foreground">
           {data ? `${data.completedItems} / ${data.totalItems} lessons` : isLoading ? 'Loading…' : ''}
         </span>
         {headerRight}
@@ -93,7 +93,7 @@ export function CourseProgressTimeline({ courseId, modules, title = 'Weekly chec
                   aria-hidden
                   className={cn(
                     'absolute left-[15px] top-8 bottom-0 w-0.5',
-                    state === 'complete' ? 'bg-primary' : 'bg-neutral-200',
+                    state === 'complete' ? 'bg-primary' : 'bg-ss-track',
                   )}
                 />
               )}
@@ -101,8 +101,8 @@ export function CourseProgressTimeline({ courseId, modules, title = 'Weekly chec
                 className={cn(
                   'absolute left-0 top-0 flex h-8 w-8 items-center justify-center rounded-full border-2',
                   state === 'complete' && 'bg-primary border-primary text-primary-foreground',
-                  state === 'in_progress' && 'bg-white border-primary text-primary',
-                  state === 'not_started' && 'bg-white border-neutral-300 text-neutral-400',
+                  state === 'in_progress' && 'bg-card border-primary text-primary',
+                  state === 'not_started' && 'bg-card border-border text-muted-foreground',
                 )}
               >
                 {state === 'complete' ? (
@@ -115,16 +115,16 @@ export function CourseProgressTimeline({ courseId, modules, title = 'Weekly chec
               </span>
 
               <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <span className="text-[11px] font-semibold uppercase tracking-widest text-neutral-500">
+                <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
                   Week {idx + 1}
                 </span>
-                <h3 className="font-semibold text-neutral-900">{m.title || 'Untitled module'}</h3>
+                <h3 className="font-semibold text-foreground">{m.title || 'Untitled module'}</h3>
                 <span
                   className={cn(
                     'text-[11px] font-semibold uppercase tracking-widest',
                     state === 'complete' && 'text-primary',
-                    state === 'in_progress' && 'text-neutral-700',
-                    state === 'not_started' && 'text-neutral-400',
+                    state === 'in_progress' && 'text-foreground',
+                    state === 'not_started' && 'text-muted-foreground',
                   )}
                 >
                   {LABELS[state]}
@@ -132,18 +132,18 @@ export function CourseProgressTimeline({ courseId, modules, title = 'Weekly chec
               </div>
 
               {m.description && (
-                <p className="mt-2 text-sm text-neutral-600 leading-relaxed">
+                <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
                   {htmlToPlainText(m.description)}
                 </p>
               )}
 
-              <div className="mt-3 h-1.5 w-full max-w-xs rounded-full bg-neutral-100 overflow-hidden">
+              <div className="mt-3 h-1.5 w-full max-w-xs rounded-full bg-ss-track overflow-hidden">
                 <div
                   className={cn('h-full', state === 'complete' ? 'bg-primary' : 'bg-primary/70')}
                   style={{ width: `${percent}%` }}
                 />
               </div>
-              <p className="mt-1 text-xs text-neutral-500">
+              <p className="mt-1 text-xs text-muted-foreground">
                 {mp ? `${mp.completedItems} of ${mp.totalItems} lessons` : 'No lessons yet'} · {percent}%
               </p>
             </li>

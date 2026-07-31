@@ -304,7 +304,8 @@ export const TrackedVideoPlayer: React.FC<VideoPlayerProps> = ({
       )}
 
       <CardContent className="p-0">
-        <div className="relative bg-black aspect-video">
+        {/* Deliberate single-theme dark video chrome — Ink Studio ground (#17151C), not a theme token */}
+        <div className="relative bg-[#17151C] aspect-video">
           {/* Native video player for direct URLs */}
           {videoType === 'direct' && (
             <>

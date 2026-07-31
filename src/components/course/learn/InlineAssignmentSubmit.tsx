@@ -237,7 +237,7 @@ export function InlineAssignmentSubmit({ item, assignment, onCompleted }: Props)
                     <p className="mt-2 text-sm"><span className="text-muted-foreground">Level: </span>{score.level}</p>
                   )}
                   {score?.comment && (
-                    <p className="mt-2 text-sm text-neutral-800">{score.comment}</p>
+                    <p className="mt-2 text-sm text-foreground">{score.comment}</p>
                   )}
                 </div>
               );
@@ -255,7 +255,7 @@ export function InlineAssignmentSubmit({ item, assignment, onCompleted }: Props)
       {isGraded && criteria.length === 0 && submission?.grader_comments && (
         <Card>
           <CardHeader><CardTitle className="text-lg">Instructor feedback</CardTitle></CardHeader>
-          <CardContent className="text-sm text-neutral-800">{submission.grader_comments}</CardContent>
+          <CardContent className="text-sm text-foreground">{submission.grader_comments}</CardContent>
         </Card>
       )}
 

@@ -108,8 +108,8 @@ export const QuestionBankList: React.FC<QuestionBankListProps> = ({
       {banks?.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-8">
-            <FileQuestion className="h-12 w-12 text-gray-400 mb-4" />
-            <p className="text-gray-500 text-center">
+            <FileQuestion className="h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-muted-foreground text-center">
               No question banks created yet. Create your first question bank to start building a reusable question library.
             </p>
           </CardContent>
@@ -135,9 +135,9 @@ export const QuestionBankList: React.FC<QuestionBankListProps> = ({
               </CardHeader>
               <CardContent>
                 {bank.description && (
-                  <p className="text-sm text-gray-600 mb-4">{bank.description}</p>
+                  <p className="text-sm text-muted-foreground mb-4">{bank.description}</p>
                 )}
-                <div className="flex items-center justify-between text-sm text-gray-500">
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
                   <div className="flex items-center gap-4">
                     <span className="flex items-center gap-1">
                       <FileQuestion className="h-4 w-4" />
@@ -201,7 +201,7 @@ export const QuestionBankList: React.FC<QuestionBankListProps> = ({
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <Label>Share Across Courses</Label>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-muted-foreground">
                   Allow this question bank to be used in other courses
                 </p>
               </div>

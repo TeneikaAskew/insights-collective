@@ -263,17 +263,17 @@ export const AssignmentSubmissionComponent: React.FC<AssignmentSubmissionProps> 
                     <div
                       {...getRootProps()}
                       className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors
-                        ${isDragActive ? 'border-primary bg-primary/10' : 'border-gray-300 hover:border-primary'}`}
+                        ${isDragActive ? 'border-primary bg-primary/10' : 'border-border hover:border-primary'}`}
                     >
                       <input {...getInputProps()} />
-                      <Upload className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                      <p className="text-sm text-gray-600">
+                      <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground">
                         {isDragActive
                           ? 'Drop the files here...'
                           : 'Drag and drop files here, or click to select'}
                       </p>
                       {assignment.allowed_file_extensions && (
-                        <p className="text-xs text-gray-500 mt-2">
+                        <p className="text-xs text-muted-foreground mt-2">
                           Allowed types: {assignment.allowed_file_extensions.join(', ')}
                         </p>
                       )}
@@ -285,7 +285,7 @@ export const AssignmentSubmissionComponent: React.FC<AssignmentSubmissionProps> 
                         {uploadedFiles.map((file, index) => (
                           <div key={index} className="flex items-center justify-between p-2 border rounded">
                             <span className="text-sm">{file.name}</span>
-                            <span className="text-xs text-gray-500">
+                            <span className="text-xs text-muted-foreground">
                               {(file.size / 1024 / 1024).toFixed(2)} MB
                             </span>
                           </div>

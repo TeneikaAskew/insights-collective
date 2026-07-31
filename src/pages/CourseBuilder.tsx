@@ -579,7 +579,7 @@ const CourseBuilder = () => {
 
   if (loading || permissionsLoading) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-white">
+      <div className="fixed inset-0 flex items-center justify-center bg-background">
         <Spinner size="lg" />
       </div>
     );
@@ -587,7 +587,7 @@ const CourseBuilder = () => {
 
   if (!canEdit) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-white">
+      <div className="fixed inset-0 flex items-center justify-center bg-background">
         <div className="text-center px-6">
           <h1 className="text-2xl font-semibold mb-2">Not authorized</h1>
           <p className="text-muted-foreground">You don't have permission to edit this course.</p>
@@ -601,7 +601,7 @@ const CourseBuilder = () => {
 
   if (!course) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-white">
+      <div className="fixed inset-0 flex items-center justify-center bg-background">
         <h1 className="text-2xl font-semibold">Course not found</h1>
       </div>
     );

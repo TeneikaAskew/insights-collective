@@ -110,7 +110,7 @@ export function CourseSettingsView({ course, onSave }: CourseSettingsViewProps) 
         <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl">Settings</h2>
       </div>
 
-      <div className="space-y-6 bg-white rounded-xl border border-border p-6">
+      <div className="space-y-6 bg-card rounded-xl border border-border p-6">
         <label className="flex items-start gap-3 cursor-pointer">
           <input
             type="checkbox"

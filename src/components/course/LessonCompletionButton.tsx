@@ -192,7 +192,7 @@ export const LessonCompletionButton: React.FC<LessonCompletionButtonProps> = ({
             disabled={isProcessing}
             className={cn(
               "transition-all",
-              isCompleted && "bg-green-600 hover:bg-green-700",
+              isCompleted && "bg-ss-good hover:bg-ss-good/90",
               className
             )}
           >
@@ -218,11 +218,11 @@ export const LessonCompletionButton: React.FC<LessonCompletionButtonProps> = ({
               {requirementsCheck?.requirements.map((req, idx) => (
                 <div key={idx} className="flex items-center gap-1">
                   {req.met ? (
-                    <Check className="h-3 w-3 text-green-500" />
+                    <Check className="h-3 w-3 text-ss-good" />
                   ) : (
-                    <Circle className="h-3 w-3 text-gray-400" />
+                    <Circle className="h-3 w-3 text-muted-foreground" />
                   )}
-                  <span className={req.met ? 'text-green-500' : 'text-gray-400'}>
+                  <span className={req.met ? 'text-ss-good' : 'text-muted-foreground'}>
                     {req.type.replace('_', ' ')}
                   </span>
                 </div>

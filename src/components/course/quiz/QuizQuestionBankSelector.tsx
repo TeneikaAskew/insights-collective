@@ -115,7 +115,7 @@ export const QuizQuestionBankSelector: React.FC<QuizQuestionBankSelectorProps> =
                 {banks?.map(bank => (
                   <Card
                     key={bank.id}
-                    className="cursor-pointer hover:bg-gray-50"
+                    className="cursor-pointer hover:bg-accent"
                     onClick={() => setSelectedBank(bank)}
                   >
                     <CardHeader className="py-3">
@@ -123,9 +123,9 @@ export const QuizQuestionBankSelector: React.FC<QuizQuestionBankSelectorProps> =
                     </CardHeader>
                     <CardContent className="pt-0">
                       {bank.description && (
-                        <p className="text-sm text-gray-600 mb-2">{bank.description}</p>
+                        <p className="text-sm text-muted-foreground mb-2">{bank.description}</p>
                       )}
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-muted-foreground">
                         {bank.question_count || 0} questions
                       </p>
                     </CardContent>
@@ -155,7 +155,7 @@ export const QuizQuestionBankSelector: React.FC<QuizQuestionBankSelectorProps> =
                 <TabsContent value="browse" className="space-y-4">
                   <div className="flex gap-3">
                     <div className="flex-1 relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
                         placeholder="Search questions..."
                         value={searchTerm}
@@ -195,7 +195,7 @@ export const QuizQuestionBankSelector: React.FC<QuizQuestionBankSelectorProps> =
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-muted-foreground">
                       {selectedQuestions.length} of {filteredQuestions.length} questions selected
                     </p>
                     <Button
@@ -270,7 +270,7 @@ export const QuizQuestionBankSelector: React.FC<QuizQuestionBankSelectorProps> =
                           min="1"
                           max={questions?.length || 1}
                         />
-                        <p className="text-sm text-gray-500 mt-1">
+                        <p className="text-sm text-muted-foreground mt-1">
                           Available: {questions?.length || 0} questions
                         </p>
                       </div>

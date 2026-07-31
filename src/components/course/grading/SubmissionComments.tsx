@@ -157,8 +157,8 @@ export const SubmissionComments: React.FC<SubmissionCommentsProps> = ({
       <Card>
         <CardContent className="pt-6">
           <div className="animate-pulse space-y-4">
-            <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-            <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+            <div className="h-4 bg-muted rounded w-3/4"></div>
+            <div className="h-4 bg-muted rounded w-1/2"></div>
           </div>
         </CardContent>
       </Card>
@@ -178,7 +178,7 @@ export const SubmissionComments: React.FC<SubmissionCommentsProps> = ({
       </CardHeader>
       <CardContent className="space-y-4">
         {filteredComments.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-8 text-muted-foreground">
             <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
             <p>No comments yet. Be the first to add feedback!</p>
           </div>
@@ -213,14 +213,14 @@ export const SubmissionComments: React.FC<SubmissionCommentsProps> = ({
                           </Badge>
                         )}
                         {comment.is_edited && (
-                          <Badge variant="outline" className="text-xs text-gray-500">
+                          <Badge variant="outline" className="text-xs text-muted-foreground">
                             Edited
                           </Badge>
                         )}
                       </div>
                       
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-500 flex items-center gap-1">
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
                           <Clock className="h-3 w-3" />
                           {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
                         </span>
@@ -245,7 +245,7 @@ export const SubmissionComments: React.FC<SubmissionCommentsProps> = ({
                             {canDeleteComment(comment) && (
                               <DropdownMenuItem 
                                 onClick={() => handleDeleteComment(comment.id)}
-                                className="text-red-600"
+                                className="text-ss-bad"
                               >
                                 <Trash2 className="h-4 w-4 mr-2" />
                                 Delete
@@ -284,13 +284,13 @@ export const SubmissionComments: React.FC<SubmissionCommentsProps> = ({
                         </div>
                       </div>
                     ) : (
-                      <div className="bg-gray-50 rounded-lg p-3">
+                      <div className="bg-muted rounded-lg p-3">
                         <p className="text-sm whitespace-pre-wrap">{comment.comment_text}</p>
                       </div>
                     )}
 
                     {comment.replies && comment.replies.length > 0 && (
-                      <div className="ml-4 space-y-2 border-l-2 border-gray-200 pl-4">
+                      <div className="ml-4 space-y-2 border-l-2 border-border pl-4">
                         {comment.replies.map((reply) => (
                           <div key={reply.id} className="flex items-start gap-2">
                             <Avatar className="h-6 w-6">
@@ -304,11 +304,11 @@ export const SubmissionComments: React.FC<SubmissionCommentsProps> = ({
                                 <span className="text-xs font-medium">
                                   {formatProfileName(reply.author)}
                                 </span>
-                                <span className="text-xs text-gray-500">
+                                <span className="text-xs text-muted-foreground">
                                   {formatDistanceToNow(new Date(reply.created_at), { addSuffix: true })}
                                 </span>
                               </div>
-                              <div className="bg-white rounded p-2 border">
+                              <div className="bg-card rounded p-2 border">
                                 <p className="text-xs">{reply.comment_text}</p>
                               </div>
                             </div>

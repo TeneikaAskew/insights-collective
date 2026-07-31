@@ -70,7 +70,7 @@ const CriteriaItem: React.FC<CriteriaItemProps> = ({ criteria, onUpdate, onDelet
       <CardHeader className="flex flex-row items-center justify-between p-4">
         <div className="flex items-center gap-2 flex-1">
           <div {...attributes} {...listeners} className="cursor-move">
-            <GripVertical className="h-5 w-5 text-gray-400" />
+            <GripVertical className="h-5 w-5 text-muted-foreground" />
           </div>
           {isEditing ? (
             <Input
@@ -82,7 +82,7 @@ const CriteriaItem: React.FC<CriteriaItemProps> = ({ criteria, onUpdate, onDelet
           ) : (
             <h4 className="font-medium flex-1">{criteria.title}</h4>
           )}
-          <span className="text-sm text-gray-500">{criteria.points} points</span>
+          <span className="text-sm text-muted-foreground">{criteria.points} points</span>
         </div>
         <div className="flex items-center gap-2">
           {isEditing ? (
@@ -236,7 +236,7 @@ export const RubricBuilder: React.FC<RubricBuilderProps> = ({ rubricId, onSave }
         <CardHeader>
           <CardTitle>{rubric.title}</CardTitle>
           {rubric.description && (
-            <p className="text-sm text-gray-500">{rubric.description}</p>
+            <p className="text-sm text-muted-foreground">{rubric.description}</p>
           )}
         </CardHeader>
         <CardContent>

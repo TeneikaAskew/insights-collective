@@ -233,9 +233,9 @@ const CourseCalendar = () => {
   };
 
   const getEventColor = (type: string) => {
-    if (type === 'assignment') return 'bg-blue-100 text-blue-800 border-blue-200';
-    if (type === 'quiz') return 'bg-purple-100 text-purple-800 border-purple-200';
-    return 'bg-cyan-50 text-cyan-800 border-cyan-200';
+    if (type === 'assignment') return 'bg-ss-teal-chip text-ss-teal border-ss-teal';
+    if (type === 'quiz') return 'bg-ss-lav-chip text-ss-lav-deep border-ss-lav';
+    return 'bg-ss-teal-chip text-ss-teal border-ss-teal';
   };
 
   const handleEventClick = (event: CourseCalendarEvent) => {
@@ -348,7 +348,7 @@ const CourseCalendar = () => {
                         >
                           <div className="flex items-start gap-2">
                             {event.zoom_meeting_id
-                              ? <Video className="h-4 w-4 text-blue-500 shrink-0" />
+                              ? <Video className="h-4 w-4 text-ss-teal shrink-0" />
                               : getEventIcon(event.type)
                             }
                             <div className="flex-1">
@@ -395,7 +395,7 @@ const CourseCalendar = () => {
                           >
                             <div className="flex items-start gap-2">
                               {event.zoom_meeting_id
-                                ? <Video className="h-4 w-4 text-blue-500 shrink-0" />
+                                ? <Video className="h-4 w-4 text-ss-teal shrink-0" />
                                 : getEventIcon(event.type)}
                               <div className="flex-1">
                                 <div className="flex items-center gap-1.5 flex-wrap">
@@ -462,8 +462,8 @@ const CourseCalendar = () => {
                     <CardContent className="pt-4">
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex items-start gap-3">
-                          <div className="p-2 rounded-lg bg-blue-50">
-                            <Video className="h-5 w-5 text-blue-600" />
+                          <div className="p-2 rounded-lg bg-ss-teal-chip">
+                            <Video className="h-5 w-5 text-ss-teal" />
                           </div>
                           <div>
                             <p className="font-semibold">{rec.topic}</p>
@@ -548,7 +548,7 @@ const CourseCalendar = () => {
               <div className="border rounded-lg p-4 space-y-3 bg-muted/30">
                 <div className="flex items-center justify-between">
                   <Label className="flex items-center gap-2 text-base font-medium">
-                    <Video className="h-4 w-4 text-blue-500" />
+                    <Video className="h-4 w-4 text-ss-teal" />
                     Zoom Meeting
                   </Label>
                   <Button type="button" size="sm" variant={zoomLink ? 'secondary' : 'outline'}
@@ -642,7 +642,7 @@ const CourseCalendar = () => {
                     <div className="flex items-center gap-2">
                       <Input value={zoomLink} readOnly className="text-xs bg-background" />
                       <Button type="button" size="sm" variant="ghost" onClick={copyZoomLink}>
-                        {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                        {copied ? <Check className="h-4 w-4 text-ss-good" /> : <Copy className="h-4 w-4" />}
                       </Button>
                     </div>
                     {isRecurring && (
@@ -691,7 +691,7 @@ const CourseCalendar = () => {
           <DialogContent>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                {selectedEvent?.zoom_meeting_id && <Video className="h-5 w-5 text-blue-500" />}
+                {selectedEvent?.zoom_meeting_id && <Video className="h-5 w-5 text-ss-teal" />}
                 {selectedEvent?.title}
               </DialogTitle>
               <DialogDescription>
@@ -716,7 +716,7 @@ const CourseCalendar = () => {
               )}
               {selectedEvent?.link && (
                 <a href={selectedEvent.link} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:underline">
+                  className="flex items-center gap-2 text-sm font-medium text-ss-teal hover:underline">
                   <Video className="h-4 w-4" />
                   Join Zoom Meeting
                   <ExternalLink className="h-3 w-3" />

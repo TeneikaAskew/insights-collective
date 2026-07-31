@@ -349,11 +349,11 @@ export const StudentInsightsDashboard: React.FC<StudentInsightsProps> = ({
   };
 
   const getPerformanceLevel = (score: number): { label: string; color: string } => {
-    if (score >= 90) return { label: 'Excellent', color: 'text-green-600' };
-    if (score >= 80) return { label: 'Good', color: 'text-blue-600' };
-    if (score >= 70) return { label: 'Average', color: 'text-yellow-600' };
-    if (score >= 60) return { label: 'Needs Improvement', color: 'text-orange-600' };
-    return { label: 'At Risk', color: 'text-red-600' };
+    if (score >= 90) return { label: 'Excellent', color: 'text-ss-good' };
+    if (score >= 80) return { label: 'Good', color: 'text-ss-teal' };
+    if (score >= 70) return { label: 'Average', color: 'text-ss-warn' };
+    if (score >= 60) return { label: 'Needs Improvement', color: 'text-ss-warn' };
+    return { label: 'At Risk', color: 'text-ss-bad' };
   };
 
   const getActivityIcon = (type: string) => {
@@ -607,7 +607,7 @@ export const StudentInsightsDashboard: React.FC<StudentInsightsProps> = ({
                         </p>
                       </div>
                       {activity.workflow_state === 'read' && (
-                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+                        <CheckCircle2 className="h-4 w-4 text-ss-good" />
                       )}
                     </div>
                   ))}

@@ -277,10 +277,10 @@ export function UnifiedExportReport({ courses }: Props) {
                         {r.progressPct}% <span className="text-xs text-muted-foreground">({r.itemsCompleted}/{r.totalItems})</span>
                       </td>
                       <td className="px-3 py-2 text-center">
-                        {r.fullyCompleted ? <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200" variant="outline">Yes</Badge> : <span className="text-muted-foreground">—</span>}
+                        {r.fullyCompleted ? <Badge className="bg-ss-good-chip text-ss-good border-ss-good" variant="outline">Yes</Badge> : <span className="text-muted-foreground">—</span>}
                       </td>
                       <td className="px-3 py-2 text-center">
-                        {r.certificateIssued ? <Badge className="bg-amber-100 text-amber-800 border-amber-200" variant="outline">Issued</Badge> : <span className="text-muted-foreground">—</span>}
+                        {r.certificateIssued ? <Badge className="bg-ss-warn-chip text-ss-warn border-ss-warn" variant="outline">Issued</Badge> : <span className="text-muted-foreground">—</span>}
                       </td>
                     </tr>
                   ))}
