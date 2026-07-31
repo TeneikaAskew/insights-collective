@@ -14,27 +14,27 @@ export function LayoutPreview({ layout, isSelected, onSelect }: LayoutPreviewPro
     switch (layout) {
       case 'sidebar':
         return (
-          <div className="w-full h-32 bg-white border rounded-md overflow-hidden relative">
-            <div className="absolute left-0 top-0 w-1/3 h-full bg-blue-50 border-r">
+          <div className="w-full h-32 bg-background border rounded-md overflow-hidden relative">
+            <div className="absolute left-0 top-0 w-1/3 h-full bg-ss-lav-chip border-r">
               <div className="p-2 space-y-2">
-                <div className="w-8 h-8 bg-blue-500 rounded-full mx-auto"></div>
-                <div className="h-2 bg-gray-300 rounded w-3/4 mx-auto"></div>
-                <div className="h-1 bg-gray-200 rounded w-1/2 mx-auto"></div>
+                <div className="w-8 h-8 bg-primary rounded-full mx-auto"></div>
+                <div className="h-2 bg-muted-foreground/30 rounded w-3/4 mx-auto"></div>
+                <div className="h-1 bg-muted-foreground/20 rounded w-1/2 mx-auto"></div>
                 <div className="space-y-1 mt-3">
-                  <div className="h-1 bg-gray-200 rounded w-2/3 mx-auto"></div>
-                  <div className="h-1 bg-gray-200 rounded w-1/2 mx-auto"></div>
+                  <div className="h-1 bg-muted-foreground/20 rounded w-2/3 mx-auto"></div>
+                  <div className="h-1 bg-muted-foreground/20 rounded w-1/2 mx-auto"></div>
                 </div>
               </div>
             </div>
             <div className="absolute left-1/3 top-0 right-0 h-full p-2">
               <div className="grid grid-cols-1 gap-2 h-full">
-                <div className="bg-gray-50 rounded border p-2">
-                  <div className="h-1 bg-gray-300 rounded mb-1"></div>
-                  <div className="h-1 bg-gray-200 rounded w-3/4"></div>
+                <div className="bg-card rounded border p-2">
+                  <div className="h-1 bg-muted-foreground/30 rounded mb-1"></div>
+                  <div className="h-1 bg-muted-foreground/20 rounded w-3/4"></div>
                 </div>
-                <div className="bg-gray-50 rounded border p-2">
-                  <div className="h-1 bg-gray-300 rounded mb-1"></div>
-                  <div className="h-1 bg-gray-200 rounded w-2/3"></div>
+                <div className="bg-card rounded border p-2">
+                  <div className="h-1 bg-muted-foreground/30 rounded mb-1"></div>
+                  <div className="h-1 bg-muted-foreground/20 rounded w-2/3"></div>
                 </div>
               </div>
             </div>
@@ -43,28 +43,28 @@ export function LayoutPreview({ layout, isSelected, onSelect }: LayoutPreviewPro
       
       case 'hero-timeline':
         return (
-          <div className="w-full h-32 bg-white border rounded-md overflow-hidden">
-            <div className="h-12 bg-gradient-to-r from-blue-400 to-purple-400 relative">
+          <div className="w-full h-32 bg-background border rounded-md overflow-hidden">
+            <div className="h-12 bg-gradient-to-r from-ss-lav to-ss-lav-deep relative">
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="text-center">
-                  <div className="w-6 h-6 bg-white rounded-full mx-auto mb-1"></div>
-                  <div className="h-1 bg-white/80 rounded w-16 mx-auto"></div>
+                  <div className="w-6 h-6 bg-primary-foreground rounded-full mx-auto mb-1"></div>
+                  <div className="h-1 bg-primary-foreground/80 rounded w-16 mx-auto"></div>
                 </div>
               </div>
             </div>
             <div className="p-2 space-y-2">
               <div className="flex items-start gap-2">
-                <div className="w-2 h-2 bg-blue-400 rounded-full mt-1 flex-shrink-0"></div>
+                <div className="w-2 h-2 bg-ss-lav rounded-full mt-1 flex-shrink-0"></div>
                 <div className="flex-1">
-                  <div className="h-2 bg-gray-200 rounded w-3/4 mb-1"></div>
-                  <div className="h-1 bg-gray-100 rounded w-1/2"></div>
+                  <div className="h-2 bg-muted-foreground/20 rounded w-3/4 mb-1"></div>
+                  <div className="h-1 bg-muted rounded w-1/2"></div>
                 </div>
               </div>
               <div className="flex items-start gap-2">
-                <div className="w-2 h-2 bg-blue-400 rounded-full mt-1 flex-shrink-0"></div>
+                <div className="w-2 h-2 bg-ss-lav rounded-full mt-1 flex-shrink-0"></div>
                 <div className="flex-1">
-                  <div className="h-2 bg-gray-200 rounded w-2/3 mb-1"></div>
-                  <div className="h-1 bg-gray-100 rounded w-1/3"></div>
+                  <div className="h-2 bg-muted-foreground/20 rounded w-2/3 mb-1"></div>
+                  <div className="h-1 bg-muted rounded w-1/3"></div>
                 </div>
               </div>
             </div>
@@ -73,36 +73,36 @@ export function LayoutPreview({ layout, isSelected, onSelect }: LayoutPreviewPro
       
       case 'grid':
         return (
-          <div className="w-full h-32 bg-white border rounded-md overflow-hidden">
-            <div className="h-6 bg-gray-100 border-b flex items-center px-2">
-              <div className="w-4 h-4 bg-gray-300 rounded-full mr-2"></div>
-              <div className="h-1 bg-gray-300 rounded flex-1"></div>
+          <div className="w-full h-32 bg-background border rounded-md overflow-hidden">
+            <div className="h-6 bg-muted border-b flex items-center px-2">
+              <div className="w-4 h-4 bg-muted-foreground/30 rounded-full mr-2"></div>
+              <div className="h-1 bg-muted-foreground/30 rounded flex-1"></div>
             </div>
             <div className="p-2">
               <div className="grid grid-cols-3 gap-1 h-20">
-                <div className="bg-gray-100 rounded p-1">
-                  <div className="h-1 bg-gray-300 rounded mb-1"></div>
-                  <div className="h-1 bg-gray-200 rounded w-2/3"></div>
+                <div className="bg-muted rounded p-1">
+                  <div className="h-1 bg-muted-foreground/30 rounded mb-1"></div>
+                  <div className="h-1 bg-muted-foreground/20 rounded w-2/3"></div>
                 </div>
-                <div className="bg-gray-100 rounded p-1">
-                  <div className="h-1 bg-gray-300 rounded mb-1"></div>
-                  <div className="h-1 bg-gray-200 rounded w-3/4"></div>
+                <div className="bg-muted rounded p-1">
+                  <div className="h-1 bg-muted-foreground/30 rounded mb-1"></div>
+                  <div className="h-1 bg-muted-foreground/20 rounded w-3/4"></div>
                 </div>
-                <div className="bg-gray-100 rounded p-1">
-                  <div className="h-1 bg-gray-300 rounded mb-1"></div>
-                  <div className="h-1 bg-gray-200 rounded w-1/2"></div>
+                <div className="bg-muted rounded p-1">
+                  <div className="h-1 bg-muted-foreground/30 rounded mb-1"></div>
+                  <div className="h-1 bg-muted-foreground/20 rounded w-1/2"></div>
                 </div>
-                <div className="bg-gray-50 rounded p-1">
-                  <div className="h-1 bg-gray-300 rounded mb-1"></div>
-                  <div className="h-1 bg-gray-200 rounded w-3/4"></div>
+                <div className="bg-muted/60 rounded p-1">
+                  <div className="h-1 bg-muted-foreground/30 rounded mb-1"></div>
+                  <div className="h-1 bg-muted-foreground/20 rounded w-3/4"></div>
                 </div>
-                <div className="bg-gray-50 rounded p-1">
-                  <div className="h-1 bg-gray-300 rounded mb-1"></div>
-                  <div className="h-1 bg-gray-200 rounded w-1/2"></div>
+                <div className="bg-muted/60 rounded p-1">
+                  <div className="h-1 bg-muted-foreground/30 rounded mb-1"></div>
+                  <div className="h-1 bg-muted-foreground/20 rounded w-1/2"></div>
                 </div>
-                <div className="bg-gray-50 rounded p-1">
-                  <div className="h-1 bg-gray-300 rounded mb-1"></div>
-                  <div className="h-1 bg-gray-200 rounded w-2/3"></div>
+                <div className="bg-muted/60 rounded p-1">
+                  <div className="h-1 bg-muted-foreground/30 rounded mb-1"></div>
+                  <div className="h-1 bg-muted-foreground/20 rounded w-2/3"></div>
                 </div>
               </div>
             </div>
@@ -111,21 +111,21 @@ export function LayoutPreview({ layout, isSelected, onSelect }: LayoutPreviewPro
       
       case 'classic':
         return (
-          <div className="w-full h-32 bg-white border rounded-md overflow-hidden">
-            <div className="h-8 bg-gray-100 border-b flex flex-col items-center justify-center">
-              <div className="w-4 h-4 bg-gray-300 rounded-full mb-1"></div>
-              <div className="h-1 bg-gray-300 rounded w-12"></div>
+          <div className="w-full h-32 bg-background border rounded-md overflow-hidden">
+            <div className="h-8 bg-muted border-b flex flex-col items-center justify-center">
+              <div className="w-4 h-4 bg-muted-foreground/30 rounded-full mb-1"></div>
+              <div className="h-1 bg-muted-foreground/30 rounded w-12"></div>
             </div>
             <div className="p-2 space-y-2">
-              <div className="h-2 bg-gray-200 rounded w-full"></div>
-              <div className="h-1 bg-gray-100 rounded w-3/4"></div>
-              <div className="h-1 bg-gray-100 rounded w-1/2"></div>
+              <div className="h-2 bg-muted-foreground/20 rounded w-full"></div>
+              <div className="h-1 bg-muted rounded w-3/4"></div>
+              <div className="h-1 bg-muted rounded w-1/2"></div>
               <div className="mt-2 space-y-1">
-                <div className="h-4 bg-gray-50 rounded border p-1">
-                  <div className="h-1 bg-gray-200 rounded w-2/3"></div>
+                <div className="h-4 bg-card rounded border p-1">
+                  <div className="h-1 bg-muted-foreground/20 rounded w-2/3"></div>
                 </div>
-                <div className="h-4 bg-gray-50 rounded border p-1">
-                  <div className="h-1 bg-gray-200 rounded w-3/4"></div>
+                <div className="h-4 bg-card rounded border p-1">
+                  <div className="h-1 bg-muted-foreground/20 rounded w-3/4"></div>
                 </div>
               </div>
             </div>
@@ -134,28 +134,28 @@ export function LayoutPreview({ layout, isSelected, onSelect }: LayoutPreviewPro
       
       case 'split':
         return (
-          <div className="w-full h-32 bg-white border rounded-md overflow-hidden">
+          <div className="w-full h-32 bg-background border rounded-md overflow-hidden">
             <div className="flex h-full">
-              <div className="w-1/2 bg-gray-50 border-r p-2">
+              <div className="w-1/2 bg-muted border-r p-2">
                 <div className="text-center space-y-1">
-                  <div className="w-6 h-6 bg-blue-400 rounded-full mx-auto"></div>
-                  <div className="h-1 bg-gray-300 rounded w-3/4 mx-auto"></div>
-                  <div className="h-1 bg-gray-200 rounded w-1/2 mx-auto"></div>
+                  <div className="w-6 h-6 bg-ss-lav rounded-full mx-auto"></div>
+                  <div className="h-1 bg-muted-foreground/30 rounded w-3/4 mx-auto"></div>
+                  <div className="h-1 bg-muted-foreground/20 rounded w-1/2 mx-auto"></div>
                   <div className="space-y-1 mt-2">
-                    <div className="h-1 bg-gray-200 rounded w-2/3 mx-auto"></div>
-                    <div className="h-1 bg-gray-200 rounded w-1/2 mx-auto"></div>
+                    <div className="h-1 bg-muted-foreground/20 rounded w-2/3 mx-auto"></div>
+                    <div className="h-1 bg-muted-foreground/20 rounded w-1/2 mx-auto"></div>
                   </div>
                 </div>
               </div>
               <div className="w-1/2 p-2 space-y-1">
-                <div className="h-4 bg-gray-100 rounded border p-1">
-                  <div className="h-1 bg-gray-300 rounded"></div>
+                <div className="h-4 bg-muted rounded border p-1">
+                  <div className="h-1 bg-muted-foreground/30 rounded"></div>
                 </div>
-                <div className="h-4 bg-gray-100 rounded border p-1">
-                  <div className="h-1 bg-gray-300 rounded w-3/4"></div>
+                <div className="h-4 bg-muted rounded border p-1">
+                  <div className="h-1 bg-muted-foreground/30 rounded w-3/4"></div>
                 </div>
-                <div className="h-4 bg-gray-100 rounded border p-1">
-                  <div className="h-1 bg-gray-300 rounded w-2/3"></div>
+                <div className="h-4 bg-muted rounded border p-1">
+                  <div className="h-1 bg-muted-foreground/30 rounded w-2/3"></div>
                 </div>
               </div>
             </div>
@@ -164,17 +164,17 @@ export function LayoutPreview({ layout, isSelected, onSelect }: LayoutPreviewPro
       
       case 'hero-focus':
         return (
-          <div className="w-full h-32 bg-white border rounded-md overflow-hidden">
-            <div className="h-20 bg-gradient-to-r from-blue-400 to-purple-400 relative">
+          <div className="w-full h-32 bg-background border rounded-md overflow-hidden">
+            <div className="h-20 bg-gradient-to-r from-ss-lav to-ss-lav-deep relative">
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <div className="w-8 h-8 bg-white rounded-full mb-2"></div>
-                <div className="h-1 bg-white/80 rounded w-20 mb-1"></div>
-                <div className="h-1 bg-white/60 rounded w-16"></div>
+                <div className="w-8 h-8 bg-primary-foreground rounded-full mb-2"></div>
+                <div className="h-1 bg-primary-foreground/80 rounded w-20 mb-1"></div>
+                <div className="h-1 bg-primary-foreground/60 rounded w-16"></div>
               </div>
             </div>
             <div className="p-2">
-              <div className="h-6 bg-gray-100 rounded border p-1">
-                <div className="h-1 bg-gray-300 rounded w-3/4"></div>
+              <div className="h-6 bg-muted rounded border p-1">
+                <div className="h-1 bg-muted-foreground/30 rounded w-3/4"></div>
               </div>
             </div>
           </div>
