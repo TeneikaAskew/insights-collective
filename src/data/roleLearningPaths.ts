@@ -27,7 +27,7 @@ export const roleLearningPaths: Record<string, LearningSubject[]> = {
 
   // Business Intelligence
   'bi-analyst': ['business-intelligence', 'data-visualization', 'sql', 'data-modeling', 'data-analysis'],
-  'data-visualization-specialist': ['data-visualization', 'business-intelligence', 'data-analysis', 'software-engineering'],
+  'data-visualization-specialist': ['data-visualization', 'business-intelligence', 'data-analysis', 'web-development'],
   'information-architect': ['data-modeling', 'data-governance', 'data-engineering', 'sql'],
   'intelligence-analyst': ['data-analysis', 'research', 'data-visualization', 'business-strategy'],
   'ai-governance-officer': ['ai-ethics', 'data-governance', 'business-strategy', 'machine-learning'],
@@ -39,7 +39,7 @@ export const roleLearningPaths: Record<string, LearningSubject[]> = {
   'metadata-specialist': ['data-governance', 'data-modeling', 'etl', 'data-engineering'],
   'cloud-engineer': ['cloud', 'software-engineering', 'security', 'data-engineering'],
   'cloud-security-engineer': ['security', 'cloud', 'data-governance', 'software-engineering'],
-  'full-stack-developer': ['software-engineering', 'sql', 'cloud'],
+  'full-stack-developer': ['web-development', 'software-engineering', 'sql', 'cloud'],
   'software-engineer-ai-ml': ['software-engineering', 'machine-learning', 'mlops', 'python', 'cloud'],
 
   // AI / ML

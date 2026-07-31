@@ -361,6 +361,45 @@ describe('data integrity', () => {
     }
   });
 
+  it('keeps browser work out of software-engineering', () => {
+    // Regression: `software-engineering` used to carry javascript/react/frontend
+    // keywords, so "HTML, CSS, and Javascript for Web Developers" was recommended to
+    // an MLOps Engineer and a Cloud Security Engineer.
+    const webTitles = [
+      'HTML, CSS, and Javascript for Web Developers',
+      'Meta Front-End Developer',
+      'React Basics',
+    ];
+    for (const title of webTitles) {
+      const subjects = inferSubjects(title);
+      expect(subjects, title).toContain('web-development');
+      expect(subjects, title).not.toContain('software-engineering');
+    }
+
+    // …while general engineering still lands on software-engineering.
+    for (const title of ['IBM DevOps and Software Engineering', 'Software Development Lifecycle']) {
+      const subjects = inferSubjects(title);
+      expect(subjects, title).toContain('software-engineering');
+      expect(subjects, title).not.toContain('web-development');
+    }
+  });
+
+  it('only gives web-development to roles that actually do browser work', () => {
+    const webRoles = Object.entries(roleLearningPaths)
+      .filter(([, subjects]) => subjects.includes('web-development'))
+      .map(([role]) => role);
+
+    // Full-stack is obvious; the visualization specialist's toolset is Tableau,
+    // Power BI and D3.js, and D3 is a browser library.
+    expect(new Set(webRoles)).toEqual(
+      new Set(['full-stack-developer', 'data-visualization-specialist']),
+    );
+    // The roles the bad recommendation actually reached must not list it.
+    for (const role of ['mlops-engineer', 'cloud-security-engineer', 'ai-test-engineer']) {
+      expect(roleLearningPaths[role]).not.toContain('web-development');
+    }
+  });
+
   it('labels every subject', () => {
     for (const subject of LEARNING_SUBJECTS) {
       expect(SUBJECT_LABELS[subject]).toBeTruthy();

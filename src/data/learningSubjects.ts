@@ -34,6 +34,7 @@ export type LearningSubject =
   | 'cloud'
   | 'security'
   | 'software-engineering'
+  | 'web-development'
   | 'research'
   | 'finance'
   | 'business-strategy';
@@ -61,6 +62,7 @@ export const LEARNING_SUBJECTS: LearningSubject[] = [
   'cloud',
   'security',
   'software-engineering',
+  'web-development',
   'research',
   'finance',
   'business-strategy',
@@ -90,6 +92,7 @@ export const SUBJECT_LABELS: Record<LearningSubject, string> = {
   cloud: 'Cloud Platforms',
   security: 'Security',
   'software-engineering': 'Software Engineering',
+  'web-development': 'Web Development',
   research: 'Research Methods',
   finance: 'Finance & Valuation',
   'business-strategy': 'Business Strategy',
