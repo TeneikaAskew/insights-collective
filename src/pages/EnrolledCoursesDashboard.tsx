@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
 import CourseErrorState from '@/components/course/CourseErrorState';
+import { CourseImage } from '@/components/common/CourseImage';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -300,13 +301,11 @@ export default function EnrolledCoursesDashboard() {
                     className="group flex flex-col overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all"
                   >
                     <div className="aspect-video overflow-hidden bg-muted relative">
-                      {course.thumbnail && (
-                        <img
-                          src={course.thumbnail}
-                          alt={course.title}
-                          className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform"
-                        />
-                      )}
+                      <CourseImage
+                        src={course.thumbnail}
+                        alt={course.title}
+                        className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform"
+                      />
                       <div className="absolute top-2 left-2 flex gap-1.5">
                         <Badge>{course.category}</Badge>
                         <Badge variant="outline" className="bg-background/80 backdrop-blur">

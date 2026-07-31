@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { getCategoryDisplayName } from '@/constants/courseCategories';
 import { motion } from 'framer-motion';
+import { CourseImage } from '@/components/common/CourseImage';
 
 /**
  * Only the fields this card actually renders.
@@ -96,18 +97,11 @@ const FeaturedCourses = ({ courses }: FeaturedCoursesProps) => {
               <Link to={`/courses/${course.id}`} className="block group">
                 <div className="rounded-xl overflow-hidden border border-border bg-card shadow-md hover:shadow-lg transition-shadow duration-300 h-full flex flex-col">
                   <div className="aspect-video overflow-hidden relative">
-                    {course.thumbnail ? (
-                      <img
-                        src={course.thumbnail}
-                        alt={course.title}
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      />
-                    ) : (
-                      <div
-                        className="w-full h-full bg-ss-lav-chip"
-                        aria-hidden="true"
-                      />
-                    )}
+                    <CourseImage
+                      src={course.thumbnail}
+                      alt={course.title}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
 
                     {/* NOTE: no "Top Rated" badge — courses have no rating
                         column in the database, so any rating shown here would
