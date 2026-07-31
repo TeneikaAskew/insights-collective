@@ -13,7 +13,7 @@ describe('BLS role mapping', () => {
   const migration = fs.readFileSync(
     path.resolve(
       __dirname,
-      '../../../supabase/migrations/20260729000000_bls_wage_reference.sql',
+      '../../../supabase/migrations/20260802000000_bls_wage_reference.sql',
     ),
     'utf-8',
   );

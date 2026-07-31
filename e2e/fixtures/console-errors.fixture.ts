@@ -1,5 +1,6 @@
 import { test as base, expect } from '@playwright/test';
 import type { ConsoleMessage } from '@playwright/test';
+import { installSupabaseBridge } from './supabase-bridge';
 
 /**
  * Known-noisy messages that are safe to ignore.
@@ -158,6 +159,10 @@ interface ConsoleFixtures {
 export const test = base.extend<ConsoleFixtures>({
   consoleErrors: [
     async ({ page }, use, testInfo) => {
+      // No-op unless E2E_SUPABASE_BRIDGE=1. See supabase-bridge.ts — only for
+      // sandboxes where the browser cannot reach the network but the shell can.
+      await installSupabaseBridge(page);
+
       const errors: ConsoleMessage[] = [];
 
       // Capture console.error() calls

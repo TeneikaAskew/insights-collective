@@ -28,6 +28,9 @@ const ROUTES: RouteSpec[] = [
   { name: 'calendar',             path: '/calendar',                      role: 'member' },
   { name: 'resume-analyzer',      path: '/resume-analyzer',               role: 'member' },
   { name: 'career-pathway',       path: '/career-pathway',                role: 'member' },
+  // Wage bands render async, so wait for one before shooting or the baseline
+  // captures a half-populated page and flakes.
+  { name: 'explore-data-careers',  path: '/explore-data-careers',          role: 'member', waitFor: '[data-testid="wage-band"]' },
 
   // Admin
   { name: 'admin-dashboard',       path: '/admin',                        role: 'admin' },

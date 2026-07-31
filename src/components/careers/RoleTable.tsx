@@ -35,6 +35,8 @@ export const RoleTable: React.FC<RoleTableProps> = ({ roles, wagesBySlug, onOpen
             <tr
               key={role.id}
               id={`role-${role.id}`}
+              data-testid="role-row"
+              data-role-id={role.id}
               tabIndex={0}
               role="button"
               onClick={() => onOpenRole(role.id)}

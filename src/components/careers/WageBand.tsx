@@ -42,13 +42,19 @@ const WageBand = ({ wage, showOccupation = true, showScale = true, className = '
     <div className={className}>
       <div className="flex justify-between gap-4 text-sm">
         <span className="text-muted-foreground">Typical pay</span>
-        <span className="font-semibold text-right tabular-nums">
+        <span className="font-semibold text-right tabular-nums" data-testid="wage-range">
           {formatWageShort(pct25)} – {formatWageShort(pct75)}
         </span>
       </div>
 
       <div
         className="relative h-[22px] mt-1"
+        data-testid="wage-band"
+        data-pct10={pct10}
+        data-pct25={pct25}
+        data-median={median}
+        data-pct75={pct75}
+        data-pct90={pct90}
         role="img"
         aria-label={`Pay distribution: 10th percentile ${formatWageShort(pct10)}, 25th ${formatWageShort(
           pct25,

@@ -183,7 +183,7 @@ const ExploreDataCareers = () => {
                 </h3>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="Search roles..." className="pl-10" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+                  <Input aria-label="Search roles" placeholder="Search roles..." className="pl-10" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
                 </div>
               </div>
 
@@ -213,7 +213,7 @@ const ExploreDataCareers = () => {
               <div className="space-y-3">
                 <h3 className="font-medium">Salary Range</h3>
                 <Select value={salaryFilter} onValueChange={setSalaryFilter}>
-                  <SelectTrigger>
+                  <SelectTrigger aria-label="Salary Range">
                     <SelectValue placeholder="All Salary Ranges" />
                   </SelectTrigger>
                   <SelectContent>
@@ -272,11 +272,11 @@ const ExploreDataCareers = () => {
             <div className="flex flex-col gap-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="Search roles..." className="pl-10" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+                <Input aria-label="Search roles (mobile)" placeholder="Search roles..." className="pl-10" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
               </div>
               <div className="flex justify-between gap-2">
                 <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                  <SelectTrigger>
+                  <SelectTrigger aria-label="Category">
                     <SelectValue placeholder="All Categories" />
                   </SelectTrigger>
                   <SelectContent>
@@ -286,7 +286,7 @@ const ExploreDataCareers = () => {
                   </SelectContent>
                 </Select>
                 <Select value={salaryFilter} onValueChange={setSalaryFilter}>
-                  <SelectTrigger>
+                  <SelectTrigger aria-label="Salary Range (mobile)">
                     <SelectValue placeholder="Salary" />
                   </SelectTrigger>
                   <SelectContent>
@@ -321,6 +321,7 @@ const ExploreDataCareers = () => {
                     variant={view === 'list' ? 'default' : 'ghost'}
                     className="gap-2"
                     aria-pressed={view === 'list'}
+                    data-testid="view-list"
                     onClick={() => setView('list')}
                   >
                     <List className="h-4 w-4" /> List
@@ -330,6 +331,7 @@ const ExploreDataCareers = () => {
                     variant={view === 'grid' ? 'default' : 'ghost'}
                     className="gap-2"
                     aria-pressed={view === 'grid'}
+                    data-testid="view-grid"
                     onClick={() => setView('grid')}
                   >
                     <LayoutGrid className="h-4 w-4" /> Grid
@@ -350,7 +352,7 @@ const ExploreDataCareers = () => {
                   </Select>
                 </div>
 
-                <span className="text-sm text-muted-foreground">
+                <span className="text-sm text-muted-foreground" data-testid="role-count">
                   {filteredRoles.length} role{filteredRoles.length !== 1 ? 's' : ''} found
                 </span>
               </div>

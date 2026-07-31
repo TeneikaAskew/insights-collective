@@ -29,7 +29,7 @@ export const RoleCard: React.FC<RoleCardProps> = ({ role, wage, onOpenRole }) =>
   const categoryLabel = formatCategoryLabel(role.category.split(',')[0].trim());
 
   return (
-    <Card id={`role-${role.id}`} className="hover:border-primary/50 transition-colors h-full flex flex-col">
+    <Card id={`role-${role.id}`} data-testid="role-card" data-role-id={role.id} className="hover:border-primary/50 transition-colors h-full flex flex-col">
       <CardHeader className="pb-2">
         <div className="flex justify-between items-start gap-2">
           <CardTitle className="text-xl">{role.title}</CardTitle>
