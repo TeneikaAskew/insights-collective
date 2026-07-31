@@ -76,8 +76,17 @@ const ROUTES: RouteSpec[] = [
   // and may not claim.
   { name: 'login',           path: '/login',           role: 'public', waitFor: 'form' },
   { name: 'blog-index',      path: '/blog',            role: 'public' },
-  // The calendar is a Dashboard tab now; /calendar no longer routes anywhere.
-  { name: 'calendar',        path: '/dashboard?tab=calendar', role: 'member' },
+  // calendar is removed for the same reason as dashboard above, which it is now part
+  // of. Repointing it at /dashboard?tab=calendar made it a screenshot of the
+  // Dashboard — stat tiles reading live enrollment counts, a course list, and the
+  // calendar's own event rows — and it failed at 2% of pixels against a baseline
+  // captured from the old standalone page. Re-recording the baseline would only bake
+  // in whatever the shared database held at capture time, which is exactly the
+  // failure mode that removed the other data-driven routes.
+  //
+  // Still covered behaviourally: e2e/calendar/calendar.spec.ts asserts the calendar
+  // renders and is reachable, and Dashboard.test.tsx covers the tab and its
+  // ?tab=calendar deep link.
   { name: 'resume-analyzer', path: '/resume-analyzer', role: 'member' },
 ];
 
