@@ -60,25 +60,44 @@ jobs:
     - uses: actions/checkout@v4
     
     # The exclusion in codeql-config.yml applies repo-wide, because CodeQL filters
-    # by rule and not by path. It is only defensible while the flow it covers stays
-    # confined to scripts/, so assert that before the scan rather than trusting it.
-    # Runs first: a failure here should read as "the exclusion no longer fits", not
-    # as a CodeQL result.
-    - name: Filesystem writes stay in scripts/
+    # by rule and not by path. It is only defensible while the write sites it covers
+    # stay the ones that were actually reviewed, so assert that before the scan
+    # rather than trusting it. Runs first: a failure here should read as "the
+    # exclusion no longer fits", not as a CodeQL result.
+    - name: Filesystem writes stay in reviewed locations
       run: |
-        # src/ ships to browsers and supabase/functions/ runs on Deno Deploy —
-        # neither has a filesystem to write to, so a hit here is either a mistake
-        # or a genuinely new network-data-to-disk flow that nobody has reviewed
-        # against the js/http-to-file-access exclusion.
-        if grep -rnE 'writeFile|writeFileSync|createWriteStream|appendFile|Deno\.write' \
-             src supabase/functions; then
-          echo "::error::Filesystem writes found outside scripts/. The"
+        # Allowlist, not a directory list. An earlier version of this step passed
+        # `src supabase/functions` as grep operands, which meant it only ever looked
+        # at two directories and reported the invariant held while e2e/ was writing
+        # failed network responses to an audit log. Enumerate the whole tracked tree
+        # and subtract what has been reviewed, so a new write site ANYWHERE fails.
+        #
+        #   scripts/                  the crawler's parsed-record cache — the flow the
+        #                             js/http-to-file-access exclusion exists for
+        #   console-errors.fixture.ts opt-in E2E audit log (E2E_AUDIT_CONSOLE=1); it
+        #                             records failed network responses, so it is a
+        #                             network-to-disk flow too
+        #
+        # mkdirSync is deliberately not matched: creating a directory puts no data on
+        # disk, and matching it would only force e2e/global-setup.ts onto this list.
+        ALLOWED='^(scripts/|e2e/fixtures/console-errors\.fixture\.ts$)'
+
+        hits=$(git ls-files '*.ts' '*.tsx' '*.js' '*.jsx' '*.mjs' '*.cjs' \
+          | grep -vE "$ALLOWED" \
+          | xargs -r grep -nE 'writeFile|writeFileSync|createWriteStream|appendFile|appendFileSync|Deno\.write' \
+          || true)
+
+        if [ -n "$hits" ]; then
+          echo "$hits"
+          echo "::error::Filesystem write found outside the reviewed locations. The"
           echo "::error::js/http-to-file-access exclusion in .github/codeql/codeql-config.yml"
-          echo "::error::was scoped on the assumption that only scripts/ writes to disk."
-          echo "::error::Review the code above, then either move it or narrow the exclusion."
+          echo "::error::suppresses that query repo-wide, so a new write site is covered by"
+          echo "::error::it without anyone having weighed the two together."
+          echo "::error::Review the code above, then either move it under scripts/ or add it"
+          echo "::error::to ALLOWED here and to the note in the CodeQL config."
           exit 1
         fi
-        echo "no filesystem writes outside scripts/ — exclusion scope holds"
+        echo "no filesystem writes outside the reviewed locations — exclusion scope holds"
 
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3

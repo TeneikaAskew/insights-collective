@@ -400,9 +400,16 @@ async function queueStatus(supabase: ReturnType<typeof serviceClient>) {
   // Language backfill progress. Rows crawled before `languages` existed still hold the
   // empty-array default, and the client treats empty as "unknown" and shows them — so
   // this is the only way to tell how much of the catalog the filter can actually act on.
+  //
+  // Scoped to active for the same reason the client is: this is read as a fraction of
+  // courses_active, and an unscoped numerator counts hidden and retired rows the
+  // catalog never serves. Nothing is retired yet, so today the two agree — but 404s
+  // retire rows continuously, and the ratio would drift past 100% while active rows
+  // were still unfilled.
   const { count: withLanguage } = await supabase
     .from('coursera_courses')
     .select('url', { count: 'exact', head: true })
+    .eq('status', 'active')
     .not('languages', 'eq', '{}');
   counts.courses_with_language = withLanguage ?? 0;
 
