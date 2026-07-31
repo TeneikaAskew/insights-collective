@@ -30,6 +30,14 @@ export interface DataCareerRole {
       timePeriod?: string;
     }[];
   };
+  /**
+   * @deprecated Placeholder course stubs from before the platform had a courses
+   * table. The ids here ("da101", "ml201", …) are not real course ids, so the
+   * links they used to render 404'd. Recommendations now come from
+   * `useRoleCourses`, which reads published platform courses and falls back to
+   * the Coursera catalog per subject. Kept only so nothing that still reads the
+   * field breaks; see `roleLearningPaths` to change what a role recommends.
+   */
   courses?: {
     id: string;
     title: string;

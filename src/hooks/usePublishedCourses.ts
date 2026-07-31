@@ -16,6 +16,8 @@ export interface PublishedCourse {
   image_url: string | null;
   thumbnail: string | null;
   estimated_hours: number | null;
+  /** Instructor-authored keywords. Used to match courses to career roles. */
+  tags: string[] | null;
 }
 
 /**
@@ -57,7 +59,7 @@ export function usePublishedCourses() {
     const load = async () => {
       const { data, error } = await supabase
         .from('courses')
-        .select('id, title, description, category, level, image_url, thumbnail, estimated_hours')
+        .select('id, title, description, category, level, image_url, thumbnail, estimated_hours, tags')
         .eq('published', true)
         .order('created_at', { ascending: false });
 
