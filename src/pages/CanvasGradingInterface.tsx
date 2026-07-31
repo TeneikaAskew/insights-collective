@@ -214,8 +214,8 @@ function CanvasGradingInterface() {
 
   const statusPill = (s: GradingSubmission) => {
     if (s.workflow_state === 'graded')
-      return <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">Graded</Badge>;
-    if (s.late) return <Badge className="bg-amber-100 text-amber-900 hover:bg-amber-100">Late</Badge>;
+      return <Badge className="bg-ss-good-chip text-ss-good hover:bg-ss-good-chip">Graded</Badge>;
+    if (s.late) return <Badge className="bg-ss-warn-chip text-ss-warn hover:bg-ss-warn-chip">Late</Badge>;
     if (s.missing) return <Badge variant="secondary">Missing</Badge>;
     return <Badge variant="outline">Needs grading</Badge>;
   };

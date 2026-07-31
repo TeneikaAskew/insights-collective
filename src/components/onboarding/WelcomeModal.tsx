@@ -66,8 +66,8 @@ const WelcomeModal: React.FC = () => {
               </Button>
 
               <CardHeader className="text-center pb-3 pt-6">
-                <div className="h-12 w-12 mx-auto bg-gradient-to-br from-blue-500 to-violet-600 rounded-full flex items-center justify-center mb-2">
-                  <Sparkles className="h-6 w-6 text-white" />
+                <div className="h-12 w-12 mx-auto bg-gradient-to-br from-ss-lav to-ss-lav-deep rounded-full flex items-center justify-center mb-2">
+                  <Sparkles className="h-6 w-6 text-primary-foreground" />
                 </div>
                 <CardTitle className="text-lg">Welcome to Insights Collective!</CardTitle>
                 <p className="text-muted-foreground text-xs">

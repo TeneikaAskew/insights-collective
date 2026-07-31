@@ -104,7 +104,7 @@ export function LessonAccordion({
                   <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2">
                       {isCompleted ? (
-                        <CheckCircle2 className="h-5 w-5 text-green-600" />
+                        <CheckCircle2 className="h-5 w-5 text-ss-good" />
                       ) : (
                         <PlayCircle className="h-5 w-5 text-muted-foreground" />
                       )}
@@ -187,11 +187,11 @@ export function LessonAccordion({
                   )}
                   
                   {lesson.completion_criteria && (
-                    <div className="bg-blue-50 rounded-lg p-4 mt-4">
-                      <h5 className="font-medium text-blue-900 mb-2">
+                    <div className="bg-ss-teal-chip rounded-lg p-4 mt-4">
+                      <h5 className="font-medium text-ss-teal mb-2">
                         Completion Requirements
                       </h5>
-                      <p className="text-sm text-blue-700 ">
+                      <p className="text-sm text-ss-teal ">
                         {lesson.completion_criteria.type === 'all_blocks' 
                           ? 'Complete all content items in this lesson'
                           : 'Custom completion criteria apply'

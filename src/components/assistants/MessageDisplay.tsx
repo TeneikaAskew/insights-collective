@@ -22,10 +22,10 @@ const MessageDisplay: React.FC<MessageDisplayProps> = ({ message }) => {
     >
       <div className={`max-w-3xl p-3 rounded-lg ${
         message.role === 'assistant' 
-          ? 'bg-slate-100 text-slate-800' 
+          ? 'bg-muted text-foreground' 
           : message.role === 'user'
-            ? 'bg-blue-600 text-white'
-            : 'bg-amber-50 border border-amber-200 text-amber-800 w-full'
+            ? 'bg-primary text-primary-foreground'
+            : 'bg-ss-warn-chip border text-ss-warn w-full'
       }`}>
         {message.role === 'system' && (
           <div className="flex items-center mb-2">

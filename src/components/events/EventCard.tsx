@@ -95,7 +95,7 @@ export function EventCard({
           </div>
         )}
         <Badge className="absolute top-2 right-2 bg-ss-warn-chip text-ss-warn">{event.type}</Badge>
-        {isRegistered && <Badge className="absolute top-2 left-2 bg-green-500 text-white">Registered</Badge>}
+        {isRegistered && <Badge className="absolute top-2 left-2 bg-ss-good text-primary-foreground">Registered</Badge>}
       </div>
       <CardHeader>
         <CardTitle className="line-clamp-2">{sanitizeUserInput(event.title, 200)}</CardTitle>
@@ -138,7 +138,7 @@ export function EventCard({
           isRegistered ? (
             <Button 
               disabled
-              className="w-full bg-gray-100 text-gray-600 cursor-not-allowed"
+              className="w-full bg-muted text-muted-foreground cursor-not-allowed"
               onClick={(e) => e.stopPropagation()}
             >
               Already Registered

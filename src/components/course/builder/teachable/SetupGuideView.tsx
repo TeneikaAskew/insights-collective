@@ -93,7 +93,7 @@ export function SetupGuideView({
             <h3 className="font-display text-xl sm:text-2xl lg:text-3xl">Create your curriculum</h3>
           </div>
 
-          <div className="rounded-xl bg-white overflow-hidden border border-border">
+          <div className="rounded-xl bg-card overflow-hidden border border-border">
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
               <h4 className="font-semibold text-sm">Curriculum Preview</h4>
               <div className="flex items-center gap-3 text-sm">
@@ -170,7 +170,7 @@ export function SetupGuideView({
             <h3 className="font-display text-xl sm:text-2xl lg:text-3xl">Customize your course</h3>
           </div>
 
-          <div className="rounded-xl bg-white p-5 border border-border">
+          <div className="rounded-xl bg-card p-5 border border-border">
             <div className="flex items-center justify-between mb-2">
               <h4 className="text-sm font-semibold">Course title</h4>
               {!editingTitle && (
@@ -225,7 +225,7 @@ export function SetupGuideView({
             )}
           </div>
 
-          <div className="rounded-xl bg-white p-5 border border-border">
+          <div className="rounded-xl bg-card p-5 border border-border">
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-sm font-semibold">Thumbnail</h4>
               <div className="flex items-center gap-3">

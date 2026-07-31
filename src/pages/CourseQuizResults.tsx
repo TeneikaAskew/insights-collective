@@ -237,7 +237,7 @@ const CourseQuizResults = () => {
                                 return (
                                   <div
                                     key={s.user_id}
-                                    className="flex justify-between text-neutral-700"
+                                    className="flex justify-between text-foreground"
                                   >
                                     <span className="truncate">
                                       {[p?.first_name, p?.last_name].filter(Boolean).join(' ') || s.user_id.slice(0, 8)}

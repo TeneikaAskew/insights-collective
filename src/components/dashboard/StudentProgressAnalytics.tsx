@@ -322,7 +322,7 @@ const StudentProgressAnalytics: React.FC = () => {
           <CardContent>
             <div className="flex items-baseline justify-between">
               <div className="text-2xl font-bold">{summary.graded}</div>
-              <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+              <CheckCircle2 className="h-5 w-5 text-ss-good" />
             </div>
             <p className="text-xs text-muted-foreground mt-1">of {summary.assignments} total</p>
           </CardContent>
@@ -336,7 +336,7 @@ const StudentProgressAnalytics: React.FC = () => {
           <CardContent>
             <div className="flex items-baseline justify-between">
               <div className="text-2xl font-bold">{summary.submitted}</div>
-              <Clock className="h-5 w-5 text-amber-500" />
+              <Clock className="h-5 w-5 text-ss-warn" />
             </div>
             <p className="text-xs text-muted-foreground mt-1">submitted, not yet graded</p>
           </CardContent>
@@ -424,11 +424,11 @@ const StudentProgressAnalytics: React.FC = () => {
             {c.assignments.total > 0 && (
               <div className="mt-4 pt-4 border-t flex flex-wrap gap-2 text-xs">
                 <Badge variant="outline" className="gap-1">
-                  <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+                  <CheckCircle2 className="h-3 w-3 text-ss-good" />
                   {c.assignments.graded} graded
                 </Badge>
                 <Badge variant="outline" className="gap-1">
-                  <Clock className="h-3 w-3 text-amber-500" />
+                  <Clock className="h-3 w-3 text-ss-warn" />
                   {c.assignments.submitted} awaiting feedback
                 </Badge>
                 <Badge variant="outline" className="gap-1">

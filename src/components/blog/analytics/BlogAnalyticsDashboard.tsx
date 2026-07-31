@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
+import { CHART_COLORS } from '@/lib/chartColors';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
   LineChart, 
@@ -28,12 +28,8 @@ import {
   Eye, 
   Clock, 
   MousePointer,
-  Globe,
-  Share2,
   MessageSquare,
-  Heart,
-  Calendar,
-  Filter
+  Heart
 } from 'lucide-react';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -281,7 +277,7 @@ export function BlogAnalyticsDashboard({ postId }: BlogAnalyticsDashboardProps) 
     return `${minutes}m ${remainingSeconds}s`;
   };
 
-  const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#6b7280'];
+  const COLORS = CHART_COLORS;
 
   if (loading) {
     return (
@@ -425,12 +421,12 @@ export function BlogAnalyticsDashboard({ postId }: BlogAnalyticsDashboardProps) 
                 <AreaChart data={analyticsData}>
                   <defs>
                     <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="hsl(var(--ss-lav-deep))" stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor="hsl(var(--ss-lav-deep))" stopOpacity={0}/>
                     </linearGradient>
                     <linearGradient id="colorVisitors" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="hsl(var(--ss-teal))" stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor="hsl(var(--ss-teal))" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" />
@@ -441,7 +437,7 @@ export function BlogAnalyticsDashboard({ postId }: BlogAnalyticsDashboardProps) 
                   <Area
                     type="monotone"
                     dataKey="views"
-                    stroke="#3b82f6"
+                    stroke="hsl(var(--ss-lav-deep))"
                     fillOpacity={1}
                     fill="url(#colorViews)"
                     name="Page Views"
@@ -449,7 +445,7 @@ export function BlogAnalyticsDashboard({ postId }: BlogAnalyticsDashboardProps) 
                   <Area
                     type="monotone"
                     dataKey="unique_visitors"
-                    stroke="#10b981"
+                    stroke="hsl(var(--ss-teal))"
                     fillOpacity={1}
                     fill="url(#colorVisitors)"
                     name="Unique Visitors"
@@ -481,14 +477,14 @@ export function BlogAnalyticsDashboard({ postId }: BlogAnalyticsDashboardProps) 
                     yAxisId="left"
                     type="monotone"
                     dataKey="avg_time_on_page"
-                    stroke="#8b5cf6"
+                    stroke="hsl(var(--ss-lav))"
                     name="Avg. Time (seconds)"
                   />
                   <Line
                     yAxisId="right"
                     type="monotone"
                     dataKey="bounce_rate"
-                    stroke="#ef4444"
+                    stroke="hsl(var(--ss-bad))"
                     name="Bounce Rate (%)"
                   />
                 </LineChart>
@@ -561,7 +557,7 @@ export function BlogAnalyticsDashboard({ postId }: BlogAnalyticsDashboardProps) 
                       labelLine={false}
                       label={({ percentage }) => `${percentage.toFixed(1)}%`}
                       outerRadius={80}
-                      fill="#8884d8"
+                      fill="hsl(var(--ss-lav))"
                       dataKey="visits"
                     >
                       {referrerData.map((entry, index) => (

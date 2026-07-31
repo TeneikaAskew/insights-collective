@@ -180,7 +180,7 @@ export default function SurveyFormEdit() {
               <CardDescription>We encountered a problem loading the form.</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-red-500">{error}</p>
+              <p className="text-destructive">{error}</p>
               <Button 
                 onClick={() => window.location.href = '/admin/forms'}
                 className="mt-4"

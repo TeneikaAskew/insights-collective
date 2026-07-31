@@ -75,7 +75,7 @@ const EnrollmentBadge = ({
   return <div className="flex flex-col space-y-2">
       {isInstructor ? <>
           <div className="flex items-center gap-2">
-            <Badge className="bg-amber-500 hover:bg-amber-600">Teaching</Badge>
+            <Badge className="bg-ss-warn hover:bg-ss-warn/90">Teaching</Badge>
             {canEdit && <Button variant="outline" size="sm" onClick={handleEdit}>
                 <Pencil className="h-4 w-4 mr-1" />
                 Edit Course

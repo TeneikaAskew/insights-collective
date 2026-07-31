@@ -224,11 +224,11 @@ export default function FormSubmissionDetail({ formId, submissionId, form }: For
                         >
                           <div className="flex items-center gap-2">
                             {isComplete ? (
-                              <CheckCircle className="h-4 w-4 text-green-500" />
+                              <CheckCircle className="h-4 w-4 text-ss-good" />
                             ) : completedFields > 0 ? (
-                              <AlertCircle className="h-4 w-4 text-amber-500" />
+                              <AlertCircle className="h-4 w-4 text-ss-warn" />
                             ) : (
-                              <Circle className="h-4 w-4 text-gray-300" />
+                              <Circle className="h-4 w-4 text-muted-foreground" />
                             )}
                             <span className="text-sm font-medium">
                               {section.title}

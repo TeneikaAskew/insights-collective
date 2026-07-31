@@ -72,33 +72,33 @@ const QuizSection: React.FC = () => {
   // Color mapping
   const colorMap = {
     blue: {
-      bg: "bg-blue-100",
-      text: "text-blue-600",
-      border: "border-blue-200",
-      shadow: "shadow-blue-100"
+      bg: "bg-ss-teal-chip",
+      text: "text-ss-teal",
+      border: "border-border",
+      shadow: ""
     },
     green: {
-      bg: "bg-green-100",
-      text: "text-green-600",
-      border: "border-green-200", 
-      shadow: "shadow-green-100"
+      bg: "bg-ss-good-chip",
+      text: "text-ss-good",
+      border: "border-border", 
+      shadow: ""
     },
     purple: {
-      bg: "bg-purple-100",
-      text: "text-purple-600",
-      border: "border-purple-200",
-      shadow: "shadow-purple-100"
+      bg: "bg-accent",
+      text: "text-primary",
+      border: "border-border",
+      shadow: ""
     },
     amber: {
-      bg: "bg-amber-100",
-      text: "text-amber-600",
-      border: "border-amber-200",
-      shadow: "shadow-amber-100"
+      bg: "bg-ss-warn-chip",
+      text: "text-ss-peach-deep",
+      border: "border-border",
+      shadow: ""
     }
   };
 
   return (
-    <section className="py-20 relative overflow-hidden bg-gradient-to-b from-white to-gray-50 " data-tour="quiz">
+    <section className="py-20 relative overflow-hidden bg-gradient-to-b from-background to-muted " data-tour="quiz">
       {/* Background pattern */}
       <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMSIgY3k9IjEiIHI9IjEiIGZpbGw9InJnYmEoMCwwLDAsMC4wNSkiLz48L3N2Zz4=')] bg-[length:20px_20px] opacity-50"></div>
       
@@ -109,7 +109,7 @@ const QuizSection: React.FC = () => {
       <div className="container mx-auto px-4 relative z-10">
         <div className="text-center max-w-3xl mx-auto mb-12">
           <h2 className="text-3xl md:text-4xl font-bold mb-4 font-display">Find Your Data Career Path</h2>
-          <p className="text-lg mb-8 text-gray-600 ">
+          <p className="text-lg mb-8 text-muted-foreground ">
             Take our interactive quiz to discover which data career path best matches your 
             interests, skills, and working style.
           </p>
@@ -126,7 +126,7 @@ const QuizSection: React.FC = () => {
                   <motion.div 
                     key={path.title}
                     variants={cardVariants}
-                    className={`relative p-5 md:p-6 rounded-xl bg-white/80 backdrop-blur-sm flex flex-col items-center border ${colorMap[path.color].border} ${colorMap[path.color].shadow} shadow-lg hover:shadow-xl transition-all duration-300 group`}
+                    className={`relative p-5 md:p-6 rounded-xl bg-card/80 backdrop-blur-sm flex flex-col items-center border ${colorMap[path.color].border} ${colorMap[path.color].shadow} shadow-lg hover:shadow-xl transition-all duration-300 group`}
                   >
                     <div className={`w-14 h-14 md:w-16 md:h-16 ${colorMap[path.color].bg} rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
                       <path.icon className={`h-7 w-7 ${colorMap[path.color].text}`} />
@@ -145,7 +145,7 @@ const QuizSection: React.FC = () => {
               <Button 
                 onClick={() => setShowQuiz(true)} 
                 size="lg"
-                className="bg-primary hover:bg-primary/90 text-white font-medium px-8 py-6 h-auto text-lg rounded-full shadow-lg hover:shadow-primary/20 transform transition-all duration-300 hover:-translate-y-1 group"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-8 py-6 h-auto text-lg rounded-full shadow-lg hover:shadow-primary/20 transform transition-all duration-300 hover:-translate-y-1 group"
               >
                 <span className="relative z-10 flex items-center">
                   Take the Career Quiz 
@@ -162,7 +162,7 @@ const QuizSection: React.FC = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="bg-white p-6 md:p-8 rounded-xl shadow-xl border border-gray-100 "
+            className="bg-card p-6 md:p-8 rounded-xl shadow-xl border "
           >
             <Quiz />
           </motion.div>

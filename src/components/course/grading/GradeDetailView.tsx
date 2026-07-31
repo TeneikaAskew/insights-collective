@@ -81,13 +81,13 @@ export const GradeDetailView: React.FC<GradeDetailViewProps> = ({
   };
 
   const getGradeColor = () => {
-    if (!grade?.percentage) return 'text-gray-600';
+    if (!grade?.percentage) return 'text-muted-foreground';
     
-    if (grade.percentage >= 90) return 'text-green-600';
-    if (grade.percentage >= 80) return 'text-blue-600';
-    if (grade.percentage >= 70) return 'text-yellow-600';
-    if (grade.percentage >= 60) return 'text-orange-600';
-    return 'text-red-600';
+    if (grade.percentage >= 90) return 'text-ss-good';
+    if (grade.percentage >= 80) return 'text-ss-teal';
+    if (grade.percentage >= 70) return 'text-ss-warn';
+    if (grade.percentage >= 60) return 'text-ss-warn';
+    return 'text-ss-bad';
   };
 
   return (
@@ -102,7 +102,7 @@ export const GradeDetailView: React.FC<GradeDetailViewProps> = ({
                 {grade?.assignment?.title || grade?.quiz?.title || 'Grade Details'}
               </CardTitle>
               {grade?.student && (
-                <div className="flex items-center gap-2 text-sm text-gray-600">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <User className="h-4 w-4" />
                   {formatProfileName(grade.student)}
                 </div>
@@ -114,7 +114,7 @@ export const GradeDetailView: React.FC<GradeDetailViewProps> = ({
                 {formatGradeDisplay()}
               </div>
               {grade?.graded_at && (
-                <div className="text-sm text-gray-500 flex items-center gap-1 mt-1">
+                <div className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
                   <Clock className="h-3 w-3" />
                   Graded {new Date(grade.graded_at).toLocaleDateString()}
                 </div>
@@ -127,13 +127,13 @@ export const GradeDetailView: React.FC<GradeDetailViewProps> = ({
           <CardContent>
             <div className="space-y-3">
               {grade?.comments && (
-                <div className="p-3 bg-blue-50 rounded-lg">
-                  <p className="text-sm font-medium text-blue-800 mb-1">Instructor Feedback</p>
-                  <p className="text-sm text-blue-700">{grade.comments}</p>
+                <div className="p-3 bg-ss-teal-chip rounded-lg">
+                  <p className="text-sm font-medium text-ss-teal mb-1">Instructor Feedback</p>
+                  <p className="text-sm text-ss-teal">{grade.comments}</p>
                 </div>
               )}
               
-              <div className="flex flex-wrap gap-4 text-sm text-gray-600">
+              <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
                 {grade?.assignment?.due_date && (
                   <div className="flex items-center gap-1">
                     <Clock className="h-4 w-4" />
@@ -198,21 +198,21 @@ export const GradeDetailView: React.FC<GradeDetailViewProps> = ({
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="text-center p-4 bg-gray-50 rounded-lg">
-                <div className="text-2xl font-bold text-blue-600">
+              <div className="text-center p-4 bg-muted rounded-lg">
+                <div className="text-2xl font-bold text-ss-teal">
                   {grade?.percentage || 0}%
                 </div>
-                <p className="text-sm text-gray-600">Current Score</p>
+                <p className="text-sm text-muted-foreground">Current Score</p>
               </div>
               
-              <div className="text-center p-4 bg-gray-50 rounded-lg">
-                <div className="text-2xl font-bold text-green-600">A</div>
-                <p className="text-sm text-gray-600">Class Average</p>
+              <div className="text-center p-4 bg-muted rounded-lg">
+                <div className="text-2xl font-bold text-ss-good">A</div>
+                <p className="text-sm text-muted-foreground">Class Average</p>
               </div>
               
-              <div className="text-center p-4 bg-gray-50 rounded-lg">
-                <div className="text-2xl font-bold text-purple-600">85%</div>
-                <p className="text-sm text-gray-600">Percentile</p>
+              <div className="text-center p-4 bg-muted rounded-lg">
+                <div className="text-2xl font-bold text-ss-lav-deep">85%</div>
+                <p className="text-sm text-muted-foreground">Percentile</p>
               </div>
             </div>
           </CardContent>

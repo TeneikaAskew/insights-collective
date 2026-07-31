@@ -603,21 +603,21 @@ export default function CodePractice() {
                   <span className="h-2.5 w-2.5 rounded-full bg-[#EC6A5E]" aria-hidden="true" />
                   <span className="h-2.5 w-2.5 rounded-full bg-[#F4BF4F]" aria-hidden="true" />
                   <span className="h-2.5 w-2.5 rounded-full bg-[#61C554]" aria-hidden="true" />
-                  <span className="ml-2 font-mono text-xs text-gray-400">
+                  <span className="ml-2 font-mono text-xs text-[#9CA3AF]">
                     {language === 'python' ? 'solution.py' : 'solution.js'}
                   </span>
                   <Tabs value={activeTab} onValueChange={setActiveTab} className="ml-auto">
                     <TabsList className="bg-transparent p-0 gap-1">
                       <TabsTrigger
                         value="code"
-                        className="rounded-full text-xs font-bold text-gray-400 data-[state=active]:bg-[#3A3644] data-[state=active]:text-white data-[state=active]:shadow-none"
+                        className="rounded-full text-xs font-bold text-[#9CA3AF] data-[state=active]:bg-[#3A3644] data-[state=active]:text-white data-[state=active]:shadow-none"
                       >
                         Code Editor
                       </TabsTrigger>
                       <TabsTrigger
                         value="feedback"
                         disabled={!feedback}
-                        className="rounded-full text-xs font-bold text-gray-400 data-[state=active]:bg-[#3A3644] data-[state=active]:text-white data-[state=active]:shadow-none"
+                        className="rounded-full text-xs font-bold text-[#9CA3AF] data-[state=active]:bg-[#3A3644] data-[state=active]:text-white data-[state=active]:shadow-none"
                       >
                         Feedback
                       </TabsTrigger>
@@ -644,13 +644,13 @@ export default function CodePractice() {
                   <div
                     data-testid="challenge-load-error"
                     role="alert"
-                    className="flex items-center gap-3 flex-wrap px-5 py-3 border-t border-[#3A3644] text-sm text-gray-300"
+                    className="flex items-center gap-3 flex-wrap px-5 py-3 border-t border-[#3A3644] text-sm text-[#D1D5DB]"
                   >
                     <span>Couldn’t load this challenge, so it can’t be evaluated yet.</span>
                     <Button
                       variant="outline"
                       onClick={() => setChallengeReloads((n) => n + 1)}
-                      className="rounded-full font-bold border-[#4A445C] bg-transparent text-gray-300 hover:bg-[#333333] hover:text-white"
+                      className="rounded-full font-bold border-[#4A445C] bg-transparent text-[#D1D5DB] hover:bg-[#333333] hover:text-white"
                     >
                       Try again
                     </Button>
@@ -661,7 +661,7 @@ export default function CodePractice() {
                   <Button
                     variant="outline"
                     onClick={handleReset}
-                    className="rounded-full font-bold border-[#4A445C] bg-transparent text-gray-300 hover:bg-[#333333] hover:text-white"
+                    className="rounded-full font-bold border-[#4A445C] bg-transparent text-[#D1D5DB] hover:bg-[#333333] hover:text-white"
                   >
                     <RotateCcw className="h-4 w-4 mr-2" />
                     Reset

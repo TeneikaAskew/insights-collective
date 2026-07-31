@@ -332,7 +332,7 @@ export function QuizContentEditor({ contentItemId }: QuizContentEditorProps) {
       )}
 
       {questions.map((q, qIdx) => (
-        <div key={q.id ?? `new-${qIdx}`} className="rounded-md border p-4 space-y-4 bg-white">
+        <div key={q.id ?? `new-${qIdx}`} className="rounded-md border p-4 space-y-4 bg-card">
           <div className="flex items-start justify-between gap-3">
             <div className="text-sm font-semibold">Q{qIdx + 1}</div>
             <div className="flex items-center gap-2">

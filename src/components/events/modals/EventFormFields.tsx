@@ -107,7 +107,7 @@ export function EventFormFields({
       {/* Title field */}
       <div className="grid grid-cols-4 items-center gap-4">
         <Label htmlFor="title" className="text-right">
-          Title <span className="text-red-500">*</span>
+          Title <span className="text-destructive">*</span>
         </Label>
         <Input
           id="title"
@@ -122,7 +122,7 @@ export function EventFormFields({
       {/* Description field */}
       <div className="grid grid-cols-4 items-center gap-4">
         <Label htmlFor="description" className="text-right">
-          Description <span className="text-red-500">*</span>
+          Description <span className="text-destructive">*</span>
         </Label>
         <Textarea
           id="description"
@@ -137,7 +137,7 @@ export function EventFormFields({
       {/* Event Type field */}
       <div className="grid grid-cols-4 items-center gap-4">
         <Label htmlFor="type" className="text-right">
-          Event Type <span className="text-red-500">*</span>
+          Event Type <span className="text-destructive">*</span>
         </Label>
         <Select value={type} onValueChange={setType} required>
           <SelectTrigger id="type" className="col-span-3">
@@ -156,7 +156,7 @@ export function EventFormFields({
       {/* Format field */}
       <div className="grid grid-cols-4 items-center gap-4">
         <Label htmlFor="format" className="text-right">
-          Format <span className="text-red-500">*</span>
+          Format <span className="text-destructive">*</span>
         </Label>
         <Select value={eventFormat} onValueChange={setEventFormat} required>
           <SelectTrigger id="format" className="col-span-3">
@@ -206,7 +206,7 @@ export function EventFormFields({
       
       {/* Date field */}
       <div className="grid grid-cols-4 items-center gap-4">
-        <Label className="text-right">Date <span className="text-red-500">*</span></Label>
+        <Label className="text-right">Date <span className="text-destructive">*</span></Label>
         <div className="col-span-3">
           <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
             <PopoverTrigger asChild>

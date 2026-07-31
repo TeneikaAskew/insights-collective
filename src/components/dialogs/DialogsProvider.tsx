@@ -112,7 +112,7 @@ export function DialogsProvider({ children }: { children: React.ReactNode }) {
               onClick={() => handleConfirm(true)}
               className={
                 confirmState?.destructive
-                  ? 'bg-red-600 hover:bg-red-700 text-white'
+                  ? 'bg-destructive hover:bg-destructive/90 text-destructive-foreground'
                   : undefined
               }
             >
@@ -137,7 +137,7 @@ export function DialogsProvider({ children }: { children: React.ReactNode }) {
           </DialogHeader>
           <div className="py-2">
             {promptState?.inputLabel && (
-              <label className="block text-xs font-medium text-gray-700 mb-1">
+              <label className="block text-xs font-medium text-foreground mb-1">
                 {promptState.inputLabel}
               </label>
             )}

@@ -95,8 +95,8 @@ export function CourseCalendarSync({ courseId, courseTitle }: CourseCalendarSync
   const webcalUrl = feedUrl ? buildWebcalUrl(feedUrl) : '';
 
   return (
-    <div className="border-t border-neutral-200 pt-5">
-      <p className="text-[11px] uppercase tracking-[0.15em] text-neutral-500 mb-3">
+    <div className="border-t border-border pt-5">
+      <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground mb-3">
         Sync calendar
       </p>
       <div className="space-y-2">
@@ -107,7 +107,7 @@ export function CourseCalendarSync({ courseId, courseTitle }: CourseCalendarSync
           onClick={handleDownloadICS}
           disabled={isLoading || downloading || !feedUrl}
         >
-          <Download className="h-4 w-4 text-neutral-500" />
+          <Download className="h-4 w-4 text-muted-foreground" />
           Download .ics file
         </Button>
 
@@ -119,9 +119,9 @@ export function CourseCalendarSync({ courseId, courseTitle }: CourseCalendarSync
             asChild
           >
             <a href={googleUrl} target="_blank" rel="noopener noreferrer">
-              <Calendar className="h-4 w-4 text-neutral-500" />
+              <Calendar className="h-4 w-4 text-muted-foreground" />
               Add to Google Calendar
-              <ExternalLink className="h-3 w-3 ml-auto text-neutral-400" />
+              <ExternalLink className="h-3 w-3 ml-auto text-muted-foreground" />
             </a>
           </Button>
         )}
@@ -134,7 +134,7 @@ export function CourseCalendarSync({ courseId, courseTitle }: CourseCalendarSync
             asChild
           >
             <a href={webcalUrl}>
-              <Calendar className="h-4 w-4 text-neutral-500" />
+              <Calendar className="h-4 w-4 text-muted-foreground" />
               Subscribe with Apple Calendar
             </a>
           </Button>
@@ -144,21 +144,21 @@ export function CourseCalendarSync({ courseId, courseTitle }: CourseCalendarSync
           <Button
             variant="ghost"
             size="sm"
-            className="w-full justify-start gap-2 text-sm font-normal text-neutral-600 hover:text-neutral-900"
+            className="w-full justify-start gap-2 text-sm font-normal text-muted-foreground hover:text-foreground"
             onClick={handleCopyFeed}
           >
-            {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4 text-neutral-500" />}
+            {copied ? <Check className="h-4 w-4 text-ss-good" /> : <Copy className="h-4 w-4 text-muted-foreground" />}
             {copied ? 'Copied feed URL' : 'Copy feed URL'}
           </Button>
         )}
       </div>
       {!feedUrl && !isLoading && (
-        <p className="text-xs text-neutral-500 mt-2">
+        <p className="text-xs text-muted-foreground mt-2">
           Calendar sync is available once you are enrolled in this course.
         </p>
       )}
       {events.length === 0 && !isLoading && (
-        <p className="text-xs text-neutral-500 mt-2">
+        <p className="text-xs text-muted-foreground mt-2">
           No events yet. Add assignments, quizzes, or events to populate the calendar.
         </p>
       )}

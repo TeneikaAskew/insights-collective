@@ -91,7 +91,7 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
           No bullet points found in your resume. Upload a resume with well-formatted bullet points to see detailed analysis.
         </CardDescription>
       </CardHeader>
-      <CardContent className="h-64 flex items-center justify-center text-gray-400">
+      <CardContent className="h-64 flex items-center justify-center text-muted-foreground">
         <p>No bullet points to analyze</p>
       </CardContent>
     </Card>;

@@ -20,13 +20,13 @@ const NotificationItem = ({ notification, onMarkAsRead }: NotificationItemProps)
   const getIcon = () => {
     switch (notification.type) {
       case 'assignment':
-        return <FileText className="h-5 w-5 text-blue-500" />;
+        return <FileText className="h-5 w-5 text-ss-teal" />;
       case 'quiz':
-        return <CheckCircle className="h-5 w-5 text-green-500" />;
+        return <CheckCircle className="h-5 w-5 text-ss-good" />;
       case 'announcement':
-        return <Bell className="h-5 w-5 text-yellow-500" />;
+        return <Bell className="h-5 w-5 text-ss-warn" />;
       case 'feedback':
-        return <MessageSquare className="h-5 w-5 text-purple-500" />;
+        return <MessageSquare className="h-5 w-5 text-primary" />;
       default:
         return <Bell className="h-5 w-5 text-primary" />;
     }

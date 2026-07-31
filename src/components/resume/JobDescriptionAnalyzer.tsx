@@ -1025,7 +1025,7 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                 }
               </Button>
               {!resumeText && (
-                <p className="text-sm text-amber-600 mt-2">
+                <p className="text-sm text-ss-warn mt-2">
                   <AlertCircle className="h-4 w-4 inline-block mr-1" />
                   You need to upload your resume first before analyzing
                 </p>
@@ -1180,8 +1180,8 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                             <div key={index} className={`flex justify-between items-center p-2 rounded-md ${skill.matched ? 'bg-ss-good-chip' : 'bg-muted/30'}`}>
                               <div className="flex items-center gap-2">
                                 {skill.matched ? 
-                                  <Check className="h-4 w-4 text-green-600" /> : 
-                                  <X className="h-4 w-4 text-red-600" />
+                                  <Check className="h-4 w-4 text-ss-good" /> : 
+                                  <X className="h-4 w-4 text-ss-bad" />
                                 }
                                 <span>{skill.skill}</span>
                               </div>
@@ -1219,8 +1219,8 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                             <div key={index} className={`flex justify-between items-center p-2 rounded-md ${skill.matched ? 'bg-ss-good-chip' : 'bg-muted/30'}`}>
                               <div className="flex items-center gap-2">
                                 {skill.matched ? 
-                                  <Check className="h-4 w-4 text-green-600" /> : 
-                                  <X className="h-4 w-4 text-red-600" />
+                                  <Check className="h-4 w-4 text-ss-good" /> : 
+                                  <X className="h-4 w-4 text-ss-bad" />
                                 }
                                 <span>{skill.skill}</span>
                               </div>
@@ -1258,8 +1258,8 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                             <div key={index} className={`flex justify-between items-center p-2 rounded-md ${resp.matched ? 'bg-ss-good-chip' : 'bg-muted/30'}`}>
                               <div className="flex items-center gap-2">
                                 {resp.matched ? 
-                                  <Check className="h-4 w-4 text-green-600" /> : 
-                                  <X className="h-4 w-4 text-red-600" />
+                                  <Check className="h-4 w-4 text-ss-good" /> : 
+                                  <X className="h-4 w-4 text-ss-bad" />
                                 }
                                 <span>{resp.skill}</span>
                               </div>
@@ -1286,7 +1286,7 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                   <ul className="space-y-3 list-none">
                     {analysisResult.improvementSuggestions.map((suggestion, index) => (
                       <li key={index} className="flex items-start gap-2">
-                        <span className="flex-shrink-0 rounded-full bg-white w-5 h-5 flex items-center justify-center mt-0.5">
+                        <span className="flex-shrink-0 rounded-full bg-card w-5 h-5 flex items-center justify-center mt-0.5">
                           {index + 1}
                         </span>
                         <span className="text-sm">{suggestion}</span>
@@ -1298,15 +1298,15 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
 
               {/* Pro Tip - Enhanced visual appeal */}
               <div className="ss-card-warm border border-ss-peach/40 rounded-2xl p-4 flex items-start space-x-3">
-                <Info className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                <Info className="h-5 w-5 text-ss-teal mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="text-sm text-blue-900">
+                  <p className="text-sm text-foreground">
                     <span className="font-medium">Pro Tip:</span> Tailoring your resume for each job application increases your chances of passing ATS filters by up to 60%. 
                     Focus on incorporating the missing keywords and skills identified above. <a 
                       href="https://docs.google.com/document/d/1CKGglaXyYad16IFiYSDpGd2ofro5dYmi4eD1JNeHkD4/edit?usp=sharing" 
                       target="_blank" 
                       rel="noopener noreferrer"
-                      className="text-blue-600 underline hover:text-blue-800"
+                      className="text-primary underline hover:text-ss-lav-deep"
                     > Use this 100% ATS-optimized resume template </a> to increase your chances further.
                   </p>
                 </div>

@@ -151,7 +151,7 @@ export function ProfileMenu() {
             )}
             
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={logout} className="text-red-600">
+            <DropdownMenuItem onClick={logout} className="text-destructive">
               Logout
             </DropdownMenuItem>
           </>

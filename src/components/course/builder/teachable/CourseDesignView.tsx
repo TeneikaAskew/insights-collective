@@ -60,7 +60,7 @@ export function CourseDesignView({ course, onSave }: CourseDesignViewProps) {
         <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl">Design templates</h2>
       </div>
 
-      <div className="space-y-8 bg-white rounded-xl border border-border p-6">
+      <div className="space-y-8 bg-card rounded-xl border border-border p-6">
         <section>
           <h3 className="text-sm font-semibold mb-3">Accent color</h3>
           <div className="grid grid-cols-3 md:grid-cols-6 gap-3">

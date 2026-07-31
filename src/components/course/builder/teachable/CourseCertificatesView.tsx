@@ -49,12 +49,12 @@ export function CourseCertificatesView({ course, onSave }: CourseCertificatesVie
         <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl">Certificates</h2>
       </div>
 
-      <div className="space-y-6 bg-white rounded-xl border border-border p-6">
+      <div className="space-y-6 bg-card rounded-xl border border-border p-6">
         {/* Persistent honesty notice: these settings save, but nothing consumes
             them yet — issuance is automatic and the issued PDF uses standard copy. */}
         <div
           role="note"
-          className="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900"
+          className="flex items-start gap-3 rounded-lg border border-ss-warn bg-ss-warn-chip p-4 text-sm text-ss-warn"
         >
           <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
           <div>

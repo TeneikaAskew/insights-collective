@@ -105,7 +105,7 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({ bank, 
           </Button>
           <h2 className="text-2xl font-bold">{bank.title}</h2>
           {bank.description && (
-            <p className="text-gray-600">{bank.description}</p>
+            <p className="text-muted-foreground">{bank.description}</p>
           )}
         </div>
         <div className="flex gap-2">
@@ -134,7 +134,7 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({ bank, 
               <div className="flex items-center gap-4">
                 <div className="flex-1">
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       placeholder="Search questions..."
                       value={searchTerm}
@@ -175,7 +175,7 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({ bank, 
           ) : filteredQuestions.length === 0 ? (
             <Card>
               <CardContent className="text-center py-8">
-                <p className="text-gray-500">No questions found. Create your first question to get started.</p>
+                <p className="text-muted-foreground">No questions found. Create your first question to get started.</p>
               </CardContent>
             </Card>
           ) : (
@@ -214,7 +214,7 @@ export const QuestionBankManager: React.FC<QuestionBankManagerProps> = ({ bank, 
                           </div>
                         )}
                         {(question.usage_count > 0 || question.success_rate !== null) && (
-                          <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
+                          <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
                             <span>Used {question.usage_count} times</span>
                             {question.success_rate !== null && (
                               <span>Success rate: {Math.round(question.success_rate * 100)}%</span>

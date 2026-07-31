@@ -5,7 +5,7 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist"] },
+  { ignores: ["dist", ".claude", "coverage"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],
@@ -83,6 +83,57 @@ export default tseslint.config(
             "An `if (await x.count())` guard passes whether or not the element exists — the body just does not run. Assert the expected state directly, or seed the data and assert unconditionally. See eslint.config.js for the alternatives.",
         },
       ],
+    },
+  },
+  {
+    // ── Design system: no raw Tailwind palette classes ───────────────────────
+    //
+    // Soft Studio tokens (bg-background, text-muted-foreground, bg-accent,
+    // ss-* colors) are the only sanctioned colors. Raw palette classes
+    // (bg-gray-100, text-blue-500, bg-white) bypass theming and break in
+    // Ink Studio dark. The sweep converted the whole backlog, so this is an
+    // error — new raw palette classes cannot land. The one exemption is the
+    // portfolio template block below.
+    files: ["src/**/*.tsx"],
+    ignores: ["src/**/__tests__/**"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "Literal[value=/(^|[ '\"`:])(bg|text|border|from|via|to|ring|fill|stroke|divide|outline|decoration|accent|caret|shadow)-(gray|slate|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-[0-9]/]",
+          message:
+            "Raw Tailwind palette class — use Soft Studio tokens instead (bg-background, bg-card, text-muted-foreground, border-border, bg-accent, ss-* colors). See src/index.css.",
+        },
+        {
+          selector:
+            "TemplateElement[value.raw=/(^|[ '\"`:])(bg|text|border|from|via|to|ring|fill|stroke)-(gray|slate|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-[0-9]/]",
+          message:
+            "Raw Tailwind palette class in template string — use Soft Studio tokens instead. See src/index.css.",
+        },
+        {
+          selector: "Literal[value=/(^|[ '\"`:])(bg-white|bg-black)([ '\"`]|$)/]",
+          message:
+            "bg-white/bg-black bypass theming — use bg-card / bg-background (or an overlay token) instead.",
+        },
+      ],
+    },
+  },
+  {
+    // ── Exemption: portfolio owner-facing templates ──────────────────────────
+    //
+    // These files render the portfolio OWNER's chosen theme on the public
+    // portfolio page: fixed-light template surfaces, per-theme color maps, and
+    // the theme-picker swatches that depict real stored colors. Tokenizing
+    // them would flip the owner's design with the app theme. App chrome in
+    // the portfolio editor is NOT exempt and stays converted.
+    files: [
+      "src/components/portfolio/layouts/**",
+      "src/components/portfolio/EnhancedProjectCard.tsx",
+      "src/components/portfolio/EnhancedPortfolioEditor.tsx",
+    ],
+    rules: {
+      "no-restricted-syntax": "off",
     },
   }
 );

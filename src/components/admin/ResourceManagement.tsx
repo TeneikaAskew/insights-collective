@@ -332,7 +332,7 @@ const ResourceManagement = () => {
                             </div>
                           )}
                           {resource.deadline && (
-                            <div className="flex items-center gap-1 text-xs text-orange-600">
+                            <div className="flex items-center gap-1 text-xs text-ss-warn">
                               <Calendar className="h-3 w-3" />
                               <span>Deadline: {formatDate(resource.deadline)}</span>
                             </div>

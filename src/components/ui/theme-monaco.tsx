@@ -9,7 +9,9 @@ interface ThemeMonacoProps {
 export function MonacoThemeProvider({ children, className }: ThemeMonacoProps) {
   return (
     <div className={cn(
-      "bg-[#1e1e1e] text-gray-200 rounded-lg min-h-screen",
+      // Deliberately single-theme: a code-editor surface stays dark in both
+      // themes, using Ink Studio's ground/text values rather than VS Code's.
+      "bg-[#17151C] text-[#F0EDE8] rounded-lg min-h-screen",
       className
     )}>
       {children}
@@ -20,7 +22,7 @@ export function MonacoThemeProvider({ children, className }: ThemeMonacoProps) {
 export function MonacoCard({ children, className }: ThemeMonacoProps) {
   return (
     <div className={cn(
-      "bg-[#252526] border border-[#323232] rounded-lg shadow-md",
+      "bg-[#211E28] border border-[#332F3D] rounded-lg shadow-md",
       className
     )}>
       {children}

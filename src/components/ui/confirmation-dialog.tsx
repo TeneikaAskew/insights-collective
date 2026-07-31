@@ -13,7 +13,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Button, ButtonProps } from "@/components/ui/button";
+import { ButtonProps } from "@/components/ui/button";
 
 interface ConfirmationDialogProps {
   /** The element that triggers the dialog */
@@ -81,7 +81,7 @@ export function ConfirmationDialog({
             {icon === "warning" ? (
               <AlertTriangle className="h-5 w-5 text-destructive" />
             ) : (
-              <Info className="h-5 w-5 text-blue-500" />
+              <Info className="h-5 w-5 text-ss-teal" />
             )}
             <AlertDialogTitle>{title}</AlertDialogTitle>
           </div>

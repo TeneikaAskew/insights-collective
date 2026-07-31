@@ -62,7 +62,7 @@ export const ModuleCompletionCard: React.FC<ModuleCompletionCardProps> = ({
           <div className="flex justify-between items-center text-sm">
             <span>Assignments</span>
             <span className="flex items-center gap-1">
-              {completedAssignments > 0 && <CheckCircle className="h-3 w-3 text-green-600" />}
+              {completedAssignments > 0 && <CheckCircle className="h-3 w-3 text-ss-good" />}
               {completedAssignments} / {assignmentCount}
             </span>
           </div>
@@ -70,7 +70,7 @@ export const ModuleCompletionCard: React.FC<ModuleCompletionCardProps> = ({
           <div className="flex justify-between items-center text-sm">
             <span>Quizzes</span>
             <span className="flex items-center gap-1">
-              {completedQuizzes > 0 && <CheckCircle className="h-3 w-3 text-green-600" />}
+              {completedQuizzes > 0 && <CheckCircle className="h-3 w-3 text-ss-good" />}
               {completedQuizzes} / {quizCount}
             </span>
           </div>
@@ -78,7 +78,7 @@ export const ModuleCompletionCard: React.FC<ModuleCompletionCardProps> = ({
           <div className="flex justify-between items-center text-sm">
             <span>Module Completion</span>
             <span className="flex items-center gap-1">
-              {isModuleCompleted && <CheckCircle className="h-3 w-3 text-green-600" />}
+              {isModuleCompleted && <CheckCircle className="h-3 w-3 text-ss-good" />}
               {isModuleCompleted ? 'Complete' : 'Pending'}
             </span>
           </div>
@@ -96,10 +96,10 @@ export const ModuleCompletionCard: React.FC<ModuleCompletionCardProps> = ({
               Mark Module Complete
             </Button>
           ) : (
-            <div className="text-center p-3 bg-green-50 rounded-lg border border-green-200">
-              <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-2" />
-              <p className="text-sm font-medium text-green-800">Module Completed!</p>
-              <p className="text-xs text-green-600">
+            <div className="text-center p-3 bg-ss-good-chip rounded-lg border border-ss-good">
+              <CheckCircle className="h-8 w-8 text-ss-good mx-auto mb-2" />
+              <p className="text-sm font-medium text-ss-good">Module Completed!</p>
+              <p className="text-xs text-ss-good">
                 {moduleProgress?.completed_at && 
                   `Completed on ${new Date(moduleProgress.completed_at).toLocaleDateString()}`
                 }

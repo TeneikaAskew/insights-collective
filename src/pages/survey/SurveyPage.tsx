@@ -300,7 +300,7 @@ export default function SurveyPage() {
           
           <CardContent>
             <div className="mb-6">
-              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+              <div className="w-full bg-ss-track h-2 rounded-full overflow-hidden">
                 <div 
                   className="bg-primary h-2 transition-all duration-300 ease-in-out"
                   style={{ width: `${((currentSectionIndex + 1) / formSections.length) * 100}%` }}

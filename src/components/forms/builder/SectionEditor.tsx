@@ -23,7 +23,7 @@ const SectionEditor: React.FC<SectionEditorProps> = ({
         <div 
           ref={provided.innerRef}
           {...provided.draggableProps}
-          className="border rounded-lg p-4 bg-white shadow-sm"
+          className="border rounded-lg p-4 bg-card shadow-sm"
         >
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center">

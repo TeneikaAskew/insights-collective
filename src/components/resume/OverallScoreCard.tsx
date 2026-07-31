@@ -1,17 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { MessageSquare, Download } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { useResumeAnalysis } from '@/hooks/useResumeAnalysis';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useAuth } from '@/contexts/AuthContext';
 
-import { createLogger } from '@/utils/logger';
 
-const logger = createLogger('handleButtonClick');
 
   interface OverallScoreCardProps {
     letterGrade: string;
@@ -35,42 +31,11 @@ const logger = createLogger('handleButtonClick');
     analysisDate
   }) => {
     const [hasBeenClicked, setHasBeenClicked] = useState(false);
-    const [hasRoast, setHasRoast] = useState(false);
     const { careerAlignments } = useResumeAnalysis();
     
-    // Get userId from the auth context
-    const { user } = useAuth();
-    const userId = user?.id;
     
-    // logger.log('[OverallScoreCard] User ID:', userId);
-    // logger.log('[OverallScoreCard] Resume analysis data:', localStorage.getItem(`resume_analysis_${userId}`));
-    // logger.log('[OverallScoreCard] Resume text data:', localStorage.getItem(`resume_text_${userId}`));
-    // logger.log('[OverallScoreCard] Resume data:', localStorage.getItem(`resume_data_${userId}`));
   
     
-  // Check for roast (keep existing functionality)
-  useEffect(() => {
-    logger.log("Checking if roast exists yet for: ", userId);
-    if (userId) {
-      const checkForRoast = async () => {
-        try {
-          const {
-            data,
-            error
-          } = await supabase.from('resumes').select('resume_roast').eq('user_id', userId).order('uploaded_at', {
-            ascending: false
-          }).limit(1).maybeSingle();
-          logger.log("user: ", userId, " - Roast data", data);
-          if (!error && data?.resume_roast) {
-            setHasRoast(true);
-          }
-        } catch (error) {
-          logger.error("Error checking for roast:", error);
-        }
-      };
-      checkForRoast();
-    }
-  }, [userId]);
 
   const handleButtonClick = () => {
     setHasBeenClicked(true);
@@ -138,7 +103,7 @@ const logger = createLogger('handleButtonClick');
                       </Alert>)}
                   </div>}
 
-        <Card className="rounded-[26px] border-0 bg-gradient-to-br from-ss-lav-deep via-[#8B72E0] to-[#A98BD9] text-white shadow-md">
+        <Card className="rounded-[26px] border-0 bg-gradient-to-br from-ss-lav-deep via-ss-lav to-ss-lav text-primary-foreground shadow-md">
           <CardContent className="p-5">
             <div className="flex flex-col items-center text-center gap-2">
               <MessageSquare className="h-6 w-6 text-white" />
@@ -152,7 +117,7 @@ const logger = createLogger('handleButtonClick');
                   className={`w-full gap-2 rounded-full font-bold transition-colors duration-300 ${
                     hasAnalysis && hasBeenClicked
                       ? 'bg-ss-good-chip text-ss-good hover:bg-ss-good-chip/90'
-                      : 'bg-white text-ss-lav-deep hover:bg-white/90'
+                      : 'bg-primary-foreground text-ss-lav-deep hover:bg-primary-foreground/90'
                   }`}
                 >
                   <MessageSquare className="h-4 w-4" />

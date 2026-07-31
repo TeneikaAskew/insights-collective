@@ -198,9 +198,9 @@ export function CourseProgressDashboard({ courses }: Props) {
   };
 
   const progressTone = (pct: number) => {
-    if (pct >= 75) return 'bg-emerald-500';
-    if (pct >= 40) return 'bg-amber-500';
-    return 'bg-rose-500';
+    if (pct >= 75) return 'bg-ss-good';
+    if (pct >= 40) return 'bg-ss-warn';
+    return 'bg-ss-bad';
   };
 
   const exportCsv = () => {
@@ -321,7 +321,7 @@ export function CourseProgressDashboard({ courses }: Props) {
                   <TableCell>
                     <Badge
                       variant="outline"
-                      className={r.published ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-muted text-muted-foreground'}
+                      className={r.published ? 'bg-ss-good-chip text-ss-good border-ss-good' : 'bg-muted text-muted-foreground'}
                     >
                       {r.published ? 'Published' : 'Draft'}
                     </Badge>

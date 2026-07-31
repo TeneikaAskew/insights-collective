@@ -265,11 +265,11 @@ export const Gradebook: React.FC<GradebookProps> = ({
   };
 
   const getGradeColor = (percentage: number): string => {
-    if (percentage >= 90) return 'text-green-600';
-    if (percentage >= 80) return 'text-blue-600';
-    if (percentage >= 70) return 'text-yellow-600';
-    if (percentage >= 60) return 'text-orange-600';
-    return 'text-red-600';
+    if (percentage >= 90) return 'text-ss-good';
+    if (percentage >= 80) return 'text-ss-teal';
+    if (percentage >= 70) return 'text-ss-warn';
+    if (percentage >= 60) return 'text-ss-warn';
+    return 'text-ss-bad';
   };
 
   const exportGrades = () => {
@@ -360,7 +360,7 @@ export const Gradebook: React.FC<GradebookProps> = ({
             <CardTitle className="text-sm font-medium">Missing Work</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">
+            <div className="text-2xl font-bold text-ss-bad">
               {Object.values(gradeData).filter(cell => cell.status === 'missing').length}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
@@ -478,7 +478,7 @@ export const Gradebook: React.FC<GradebookProps> = ({
                             className="h-8 w-8 rounded-full"
                           />
                         ) : (
-                          <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center">
+                          <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
                             <Users className="h-4 w-4" />
                           </div>
                         )}

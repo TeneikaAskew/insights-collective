@@ -32,7 +32,6 @@ describe('QuizResults Coursera block', () => {
     const internal = screen.getAllByText('Recommended Courses');
     expect(internal.length).toBe(3);
     const position = internal[0].compareDocumentPosition(sections[0]);
-    // eslint-disable-next-line no-bitwise
     expect(position & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 

@@ -48,10 +48,10 @@ const CriteriaGrading: React.FC<CriteriaGradingProps> = ({
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-base">{criteria.title}</CardTitle>
-          <span className="text-sm text-gray-500">{criteria.points} points</span>
+          <span className="text-sm text-muted-foreground">{criteria.points} points</span>
         </div>
         {criteria.description && (
-          <p className="text-sm text-gray-600 mt-1">{criteria.description}</p>
+          <p className="text-sm text-muted-foreground mt-1">{criteria.description}</p>
         )}
       </CardHeader>
       <CardContent>
@@ -69,7 +69,7 @@ const CriteriaGrading: React.FC<CriteriaGradingProps> = ({
               <div
                 key={index}
                 className={`border rounded-lg p-3 transition-colors ${
-                  selectedLevelIndex === index ? 'border-primary bg-primary/5' : 'border-gray-200'
+                  selectedLevelIndex === index ? 'border-primary bg-primary/5' : 'border-border'
                 }`}
               >
                 <div className="flex items-start space-x-2">
@@ -80,10 +80,10 @@ const CriteriaGrading: React.FC<CriteriaGradingProps> = ({
                       className="flex items-center justify-between cursor-pointer"
                     >
                       <span className="font-medium">{level.title}</span>
-                      <span className="text-sm text-gray-500">{level.points} pts</span>
+                      <span className="text-sm text-muted-foreground">{level.points} pts</span>
                     </Label>
                     {level.description && (
-                      <p className="text-sm text-gray-600 mt-1">{level.description}</p>
+                      <p className="text-sm text-muted-foreground mt-1">{level.description}</p>
                     )}
                   </div>
                 </div>
@@ -190,7 +190,7 @@ export const RubricGrading: React.FC<RubricGradingProps> = ({
         <CardHeader>
           <CardTitle>{rubric.title}</CardTitle>
           {rubric.description && (
-            <p className="text-sm text-gray-600">{rubric.description}</p>
+            <p className="text-sm text-muted-foreground">{rubric.description}</p>
           )}
         </CardHeader>
       </Card>
@@ -226,13 +226,13 @@ export const RubricGrading: React.FC<RubricGradingProps> = ({
         <CardContent className="pt-6">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <p className="text-sm text-gray-600">Total Score</p>
+              <p className="text-sm text-muted-foreground">Total Score</p>
               <p className="text-2xl font-bold">
                 {calculateTotalScore()} / {calculateMaxScore()} points
               </p>
             </div>
             <div className="text-right">
-              <p className="text-sm text-gray-600">Percentage</p>
+              <p className="text-sm text-muted-foreground">Percentage</p>
               <p className="text-2xl font-bold">
                 {calculateMaxScore() > 0 
                   ? Math.round((calculateTotalScore() / calculateMaxScore()) * 100)
@@ -244,7 +244,7 @@ export const RubricGrading: React.FC<RubricGradingProps> = ({
           {!readonly && (
             <>
               {!isComplete() && (
-                <div className="flex items-center gap-2 mb-4 text-amber-600">
+                <div className="flex items-center gap-2 mb-4 text-ss-warn">
                   <AlertCircle className="h-4 w-4" />
                   <p className="text-sm">Please score all criteria before submitting.</p>
                 </div>

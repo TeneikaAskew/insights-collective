@@ -462,7 +462,7 @@ export function InlineQuizPlayer({ item, quiz, onCompleted }: InlineQuizPlayerPr
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            <p className="text-2xl font-semibold text-neutral-900">
+            <p className="text-2xl font-semibold text-foreground">
               {scored} / {totalPossible} {totalPossible === 1 ? 'point' : 'points'}
             </p>
             <p className="text-sm text-muted-foreground">
@@ -520,19 +520,19 @@ export function InlineQuizPlayer({ item, quiz, onCompleted }: InlineQuizPlayerPr
                 {!correct && correctOptions.length > 0 && (
                   <p>
                     <span className="text-muted-foreground">Correct answer: </span>
-                    <span className="font-medium text-neutral-900">
+                    <span className="font-medium text-foreground">
                       {correctOptions.map((o) => o.text).join(', ')}
                     </span>
                   </p>
                 )}
                 {explanation && (
-                  <div className="mt-2 rounded-md bg-muted/60 p-3 text-neutral-800">
+                  <div className="mt-2 rounded-md bg-muted/60 p-3 text-foreground">
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Explanation</p>
                     <p>{explanation}</p>
                   </div>
                 )}
                 {feedback && !explanation && (
-                  <div className="mt-2 rounded-md bg-muted/60 p-3 text-neutral-800">
+                  <div className="mt-2 rounded-md bg-muted/60 p-3 text-foreground">
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Feedback</p>
                     <p>{feedback}</p>
                   </div>

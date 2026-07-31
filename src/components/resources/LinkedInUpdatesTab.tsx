@@ -55,7 +55,7 @@ export const LinkedInUpdatesTab: React.FC<LinkedInUpdatesTabProps> = ({
         {[...Array(2)].map((_, categoryIndex) => (
           <div key={`category-${categoryIndex}`} className="space-y-4">
             <div className="flex items-center space-x-2">
-              <Linkedin className="h-5 w-5 text-blue-600" />
+              <Linkedin className="h-5 w-5 text-ss-teal" />
               <Skeleton className="h-6 w-32" />
             </div>
             
@@ -72,7 +72,7 @@ export const LinkedInUpdatesTab: React.FC<LinkedInUpdatesTabProps> = ({
 
   if (visibleLinkedIn.length === 0) {
     return (
-      <div className="text-center py-12 bg-gray-50 rounded-lg w-full">
+      <div className="text-center py-12 bg-muted rounded-lg w-full">
         <h3 className="text-xl font-medium mb-2">No LinkedIn posts found</h3>
         <p className="text-muted-foreground mb-4">
           Try adjusting your search or filter criteria
@@ -100,7 +100,7 @@ export const LinkedInUpdatesTab: React.FC<LinkedInUpdatesTabProps> = ({
       {Object.entries(categorizedPosts).map(([category, resources]) => (
         <div key={category} className="space-y-4">
           <div className="flex items-center space-x-2">
-            <Linkedin className="h-5 w-5 text-blue-600" />
+            <Linkedin className="h-5 w-5 text-ss-teal" />
             <h3 className="text-lg font-medium">{category}</h3>
           </div>
           <div className="space-y-4">

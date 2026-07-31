@@ -32,9 +32,9 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
           <Card key={i}>
             <CardContent className="p-6">
               <div className="animate-pulse space-y-4">
-                <div className="h-4 bg-gray-200 rounded w-1/3"></div>
-                <div className="h-2 bg-gray-200 rounded"></div>
-                <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+                <div className="h-4 bg-muted rounded w-1/3"></div>
+                <div className="h-2 bg-muted rounded"></div>
+                <div className="h-4 bg-muted rounded w-1/4"></div>
               </div>
             </CardContent>
           </Card>
@@ -47,7 +47,7 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
     return (
       <Card>
         <CardContent className="text-center py-8">
-          <p className="text-gray-500">No progress data available</p>
+          <p className="text-muted-foreground">No progress data available</p>
         </CardContent>
       </Card>
     );
@@ -64,9 +64,9 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
   };
 
   const getProgressColor = (percentage: number): string => {
-    if (percentage >= 80) return 'text-green-600';
-    if (percentage >= 60) return 'text-yellow-600';
-    return 'text-red-600';
+    if (percentage >= 80) return 'text-ss-good';
+    if (percentage >= 60) return 'text-ss-warn';
+    return 'text-ss-bad';
   };
 
   const getProgressBadgeVariant = (percentage: number) => {
@@ -95,7 +95,7 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
         </CardHeader>
         <CardContent className="space-y-6">
           <div>
-            <div className="flex justify-between text-sm text-gray-600 mb-2">
+            <div className="flex justify-between text-sm text-muted-foreground mb-2">
               <span>Overall Completion</span>
               <span className={getProgressColor(courseProgress.overall_completion)}>
                 {courseProgress.overall_completion}%
@@ -107,42 +107,42 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center">
               <div className="flex items-center justify-center mb-2">
-                <BookOpen className="h-5 w-5 text-blue-600" />
+                <BookOpen className="h-5 w-5 text-primary" />
               </div>
               <div className="text-2xl font-bold">{courseProgress.completed_modules}</div>
-              <div className="text-sm text-gray-600">
+              <div className="text-sm text-muted-foreground">
                 of {courseProgress.total_modules} modules
               </div>
             </div>
 
             <div className="text-center">
               <div className="flex items-center justify-center mb-2">
-                <Clock className="h-5 w-5 text-purple-600" />
+                <Clock className="h-5 w-5 text-ss-lav-deep" />
               </div>
               <div className="text-2xl font-bold">
                 {formatTime(courseProgress.total_time_spent)}
               </div>
-              <div className="text-sm text-gray-600">time spent</div>
+              <div className="text-sm text-muted-foreground">time spent</div>
             </div>
 
             <div className="text-center">
               <div className="flex items-center justify-center mb-2">
-                <CheckCircle className="h-5 w-5 text-green-600" />
+                <CheckCircle className="h-5 w-5 text-ss-good" />
               </div>
               <div className="text-2xl font-bold">
                 {courseProgress.modules.reduce((sum, m) => sum + m.completed_blocks, 0)}
               </div>
-              <div className="text-sm text-gray-600">content completed</div>
+              <div className="text-sm text-muted-foreground">content completed</div>
             </div>
 
             <div className="text-center">
               <div className="flex items-center justify-center mb-2">
-                <Target className="h-5 w-5 text-orange-600" />
+                <Target className="h-5 w-5 text-ss-peach-deep" />
               </div>
               <div className="text-2xl font-bold">
                 {courseProgress.modules.reduce((sum, m) => sum + m.total_blocks, 0)}
               </div>
-              <div className="text-sm text-gray-600">total content</div>
+              <div className="text-sm text-muted-foreground">total content</div>
             </div>
           </div>
         </CardContent>
@@ -172,14 +172,14 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
                         {module.completion_percentage}%
                       </Badge>
                       {module.completion_percentage === 100 && (
-                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <CheckCircle className="h-4 w-4 text-ss-good" />
                       )}
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
-                    <div className="flex justify-between text-sm text-gray-600 mb-2">
+                    <div className="flex justify-between text-sm text-muted-foreground mb-2">
                       <span>Progress</span>
                       <span className={getProgressColor(module.completion_percentage)}>
                         {module.completed_blocks} of {module.total_blocks} completed
@@ -190,15 +190,15 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
 
                   <div className="flex justify-between text-sm">
                     <div className="flex items-center space-x-1">
-                      <Clock className="h-4 w-4 text-gray-500" />
-                      <span className="text-gray-600">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">
                         {formatTime(module.time_spent)} spent
                       </span>
                     </div>
                     {module.last_accessed && (
                       <div className="flex items-center space-x-1">
-                        <Calendar className="h-4 w-4 text-gray-500" />
-                        <span className="text-gray-600">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-muted-foreground">
                           Last accessed {formatDistanceToNow(new Date(module.last_accessed), { addSuffix: true })}
                         </span>
                       </div>
@@ -220,7 +220,7 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
           <div className="space-y-3 text-sm">
             {courseProgress.overall_completion > 0 && (
               <div className="flex justify-between">
-                <span className="text-gray-600">Average time per content:</span>
+                <span className="text-muted-foreground">Average time per content:</span>
                 <span className="font-medium">
                   {formatTime(Math.round(
                     courseProgress.total_time_spent / 
@@ -231,7 +231,7 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
             )}
             
             <div className="flex justify-between">
-              <span className="text-gray-600">Completion rate:</span>
+              <span className="text-muted-foreground">Completion rate:</span>
               <span className={`font-medium ${getProgressColor(courseProgress.overall_completion)}`}>
                 {courseProgress.overall_completion}%
               </span>
@@ -239,8 +239,8 @@ const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
 
             {courseProgress.completed_modules > 0 && (
               <div className="flex justify-between">
-                <span className="text-gray-600">Modules completed:</span>
-                <span className="font-medium text-green-600">
+                <span className="text-muted-foreground">Modules completed:</span>
+                <span className="font-medium text-ss-good">
                   {courseProgress.completed_modules} / {courseProgress.total_modules}
                 </span>
               </div>

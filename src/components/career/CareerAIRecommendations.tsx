@@ -42,7 +42,7 @@ export default function CareerAIRecommendations({ careerPath, userSkills = [] }:
 
   return (
     <Card className="w-full mt-6">
-      <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 ">
+      <CardHeader className="bg-accent ">
         <div className="flex items-center gap-2">
           <SparklesIcon className="h-5 w-5 text-primary" />
           <CardTitle>AI Career Recommendations</CardTitle>
@@ -88,13 +88,13 @@ export default function CareerAIRecommendations({ careerPath, userSkills = [] }:
         )}
         
         {error && (
-          <div className="bg-red-50 p-4 rounded-md mb-4 text-red-600 ">
+          <div className="bg-ss-bad-chip p-4 rounded-md mb-4 text-ss-bad ">
             Error: {error}
           </div>
         )}
         
         {recommendation && (
-          <div className="bg-blue-50 p-4 rounded-lg mt-4">
+          <div className="bg-accent p-4 rounded-lg mt-4">
             <h3 className="font-semibold mb-2">Your Career Recommendations:</h3>
             <div className="whitespace-pre-line text-sm">
               {recommendation}

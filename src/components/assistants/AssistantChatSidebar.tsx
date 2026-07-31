@@ -118,8 +118,8 @@ const AssistantChatSidebar = ({
               <div
                 key={chat.id}
                 onClick={() => onChatSelect(chat.id)}
-                className={`p-3 rounded-md cursor-pointer hover:bg-slate-100 flex justify-between items-start ${
-                  currentChat?.id === chat.id ? 'bg-slate-100' : ''
+                className={`p-3 rounded-md cursor-pointer hover:bg-accent flex justify-between items-start ${
+                  currentChat?.id === chat.id ? 'bg-accent' : ''
                 }`}
               >
                 <div className="truncate">

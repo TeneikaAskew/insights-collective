@@ -40,19 +40,19 @@ export const AssistantCard = ({ assistant, featured = false, onLaunch }: Assista
       <div className={`p-4 ${featured ? 'border-b border-ss-warn/30' : ''}`}>
         <div className="flex justify-between items-start">
           <div className="flex items-center gap-2">
-            <div className={`p-2 rounded-full ${featured ? 'bg-blue-100' : 'bg-slate-100'}`}>
+            <div className={`p-2 rounded-full ${featured ? 'bg-accent' : 'bg-muted'}`}>
               <IconComponent {...assistant.icon.props} />
             </div>
             <h3 className="text-lg font-medium">{assistant.name}</h3>
           </div>
           {assistant.popular && (
-            <Badge className="bg-blue-50 text-blue-600 hover:bg-blue-50 border border-blue-200">Popular</Badge>
+            <Badge className="bg-accent text-accent-foreground hover:bg-accent border">Popular</Badge>
           )}
           {featured && (
-            <Badge className="bg-blue-50 text-blue-600 hover:bg-blue-50 border border-blue-200">Featured</Badge>
+            <Badge className="bg-accent text-accent-foreground hover:bg-accent border">Featured</Badge>
           )}
         </div>
-        <p className="mt-2 text-gray-600 text-sm">{assistant.description}</p>
+        <p className="mt-2 text-muted-foreground text-sm">{assistant.description}</p>
       </div>
       
       <div className="p-4 space-y-4">
@@ -96,10 +96,10 @@ export const AssistantCard = ({ assistant, featured = false, onLaunch }: Assista
         
         <button 
           onClick={handleLaunch}
-          className={`w-full py-2 px-4 rounded-md font-medium text-white text-center ${
+          className={`w-full py-2 px-4 rounded-md font-medium text-primary-foreground text-center ${
             featured 
               ? 'bg-primary hover:bg-primary/90' 
-              : 'bg-gradient-to-r from-blue-400 to-teal-400 hover:opacity-90'
+              : 'bg-gradient-to-r from-ss-lav to-ss-lav-deep hover:opacity-90'
           }`}
         >
           Launch Assistant

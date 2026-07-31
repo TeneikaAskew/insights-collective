@@ -45,7 +45,7 @@ export default function CourseRubrics() {
         </Button>
         
         <h1 className="text-3xl font-bold">{course.title} - Rubrics</h1>
-        <p className="text-gray-600 mt-2">
+        <p className="text-muted-foreground mt-2">
           Create and manage rubrics for consistent grading across assignments
         </p>
       </div>

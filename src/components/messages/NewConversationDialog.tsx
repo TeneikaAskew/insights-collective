@@ -176,7 +176,7 @@ export function NewConversationDialog({ open, onOpenChange }: NewConversationDia
             type="button"
             onClick={handleStartConversation}
             disabled={!selectedUser || isCreating}
-            className="bg-amber-600 hover:bg-amber-700"
+            className="bg-ss-peach-deep hover:bg-ss-peach-deep/90"
           >
             {isCreating ? (
               <>

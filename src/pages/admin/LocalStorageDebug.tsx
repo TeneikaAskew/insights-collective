@@ -312,7 +312,7 @@ const LocalStorageDebugPage: React.FC = () => {
                 <div 
                   key={key} 
                   className={`text-sm break-all border-b pb-2 last:border-0 ${
-                    testKey === key ? 'bg-green-100/10 border-green-200' : ''
+                    testKey === key ? 'bg-ss-good-chip border-ss-good' : ''
                   }`}
                 >
                   <div className="flex justify-between items-center">

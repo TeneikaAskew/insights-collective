@@ -72,9 +72,9 @@ export default function VerifyCertificate() {
   }, [code]);
 
   return (
-    <div className="min-h-screen bg-neutral-50 py-16 px-4">
+    <div className="min-h-screen bg-background py-16 px-4">
       <div className="max-w-2xl mx-auto">
-        <Link to="/" className="inline-flex items-center gap-2 text-sm text-neutral-600 hover:text-neutral-900 mb-6">
+        <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-6">
           <ArrowLeft className="h-4 w-4" /> Back home
         </Link>
 
@@ -89,9 +89,9 @@ export default function VerifyCertificate() {
                 <ShieldAlert className="h-5 w-5" /> Invalid verification code
               </CardTitle>
             </CardHeader>
-            <CardContent className="text-neutral-600 space-y-2">
+            <CardContent className="text-muted-foreground space-y-2">
               <p>Verification codes are 6–32 letters and numbers only.</p>
-              <p>The code <code className="font-mono bg-neutral-100 px-1.5 py-0.5 rounded">{code}</code> doesn't match that format — please check the link you were sent.</p>
+              <p>The code <code className="font-mono bg-muted px-1.5 py-0.5 rounded">{code}</code> doesn't match that format — please check the link you were sent.</p>
             </CardContent>
           </Card>
         )}
@@ -103,21 +103,21 @@ export default function VerifyCertificate() {
                 <XCircle className="h-5 w-5" /> Certificate not found
               </CardTitle>
             </CardHeader>
-            <CardContent className="text-neutral-600">
-              No certificate matches code <code className="font-mono bg-neutral-100 px-1.5 py-0.5 rounded">{code}</code>.
+            <CardContent className="text-muted-foreground">
+              No certificate matches code <code className="font-mono bg-muted px-1.5 py-0.5 rounded">{code}</code>.
               Double-check the code or ask the certificate holder to re-share the link.
             </CardContent>
           </Card>
         )}
 
         {state.kind === 'rate_limited' && (
-          <Card className="border-amber-300">
+          <Card className="border-ss-warn">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-amber-700">
+              <CardTitle className="flex items-center gap-2 text-ss-warn">
                 <Clock className="h-5 w-5" /> Too many attempts
               </CardTitle>
             </CardHeader>
-            <CardContent className="text-neutral-600 space-y-3">
+            <CardContent className="text-muted-foreground space-y-3">
               <p>We've received a lot of verification requests from your network in the last minute.</p>
               <p>Please wait about {state.retryIn} seconds and try again.</p>
               <Button variant="outline" onClick={() => window.location.reload()}>Try again</Button>
@@ -132,7 +132,7 @@ export default function VerifyCertificate() {
                 <ShieldAlert className="h-5 w-5" /> Verification unavailable
               </CardTitle>
             </CardHeader>
-            <CardContent className="text-neutral-600 space-y-3">
+            <CardContent className="text-muted-foreground space-y-3">
               <p>{state.message}</p>
               <Button variant="outline" onClick={() => window.location.reload()}>Try again</Button>
             </CardContent>
@@ -140,15 +140,15 @@ export default function VerifyCertificate() {
         )}
 
         {state.kind === 'verified' && (
-          <Card className="border-emerald-200">
-            <CardHeader className="border-b bg-gradient-to-br from-primary/5 to-emerald-50">
+          <Card className="border-ss-good">
+            <CardHeader className="border-b bg-gradient-to-br from-primary/5 to-ss-good-chip">
               <div className="flex items-center gap-3">
                 <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
                   <Award className="h-6 w-6 text-primary" />
                 </div>
                 <div>
                   <CardTitle className="text-2xl">Verified certificate</CardTitle>
-                  <p className="text-sm text-emerald-700 flex items-center gap-1.5 mt-1">
+                  <p className="text-sm text-ss-good flex items-center gap-1.5 mt-1">
                     <CheckCircle2 className="h-4 w-4" /> This certificate is authentic
                   </p>
                 </div>
@@ -156,12 +156,12 @@ export default function VerifyCertificate() {
             </CardHeader>
             <CardContent className="pt-6 space-y-5">
               <div>
-                <p className="text-xs uppercase tracking-wide text-neutral-500 mb-1">Awarded to</p>
-                <p className="text-xl font-semibold text-neutral-900">{state.cert.student_name}</p>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Awarded to</p>
+                <p className="text-xl font-semibold text-foreground">{state.cert.student_name}</p>
               </div>
               <div>
-                <p className="text-xs uppercase tracking-wide text-neutral-500 mb-1">Course</p>
-                <p className="text-lg text-neutral-900">{state.cert.course_title ?? 'Course'}</p>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Course</p>
+                <p className="text-lg text-foreground">{state.cert.course_title ?? 'Course'}</p>
                 <div className="flex flex-wrap gap-2 mt-2">
                   {state.cert.course_category && <Badge variant="secondary">{state.cert.course_category}</Badge>}
                   {state.cert.course_level && <Badge variant="outline">{state.cert.course_level}</Badge>}
@@ -170,22 +170,22 @@ export default function VerifyCertificate() {
               </div>
               <div className="grid grid-cols-2 gap-4 pt-2 border-t">
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-neutral-500 mb-1">Type</p>
-                  <p className="capitalize text-neutral-900">{state.cert.certificate_type}</p>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Type</p>
+                  <p className="capitalize text-foreground">{state.cert.certificate_type}</p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-neutral-500 mb-1">Issued</p>
-                  <p className="text-neutral-900">{new Date(state.cert.issued_at).toLocaleDateString()}</p>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Issued</p>
+                  <p className="text-foreground">{new Date(state.cert.issued_at).toLocaleDateString()}</p>
                 </div>
                 {state.cert.certificate_data?.completion_percentage !== undefined && (
                   <div>
-                    <p className="text-xs uppercase tracking-wide text-neutral-500 mb-1">Completion</p>
-                    <p className="text-neutral-900">{state.cert.certificate_data.completion_percentage}%</p>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Completion</p>
+                    <p className="text-foreground">{state.cert.certificate_data.completion_percentage}%</p>
                   </div>
                 )}
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-neutral-500 mb-1">Verification code</p>
-                  <p className="font-mono text-sm text-neutral-900">{state.cert.verification_code}</p>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Verification code</p>
+                  <p className="font-mono text-sm text-foreground">{state.cert.verification_code}</p>
                 </div>
               </div>
               {state.cert.course_id && (

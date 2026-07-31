@@ -322,22 +322,22 @@ const CertificationSystem: React.FC<CertificationSystemProps> = ({
   const getCertificateIcon = (type: string) => {
     switch (type) {
       case 'mastery':
-        return <Star className="h-6 w-6 text-yellow-500" />;
+        return <Star className="h-6 w-6 text-ss-warn" />;
       case 'achievement':
-        return <Award className="h-6 w-6 text-blue-500" />;
+        return <Award className="h-6 w-6 text-primary" />;
       default:
-        return <GraduationCap className="h-6 w-6 text-green-500" />;
+        return <GraduationCap className="h-6 w-6 text-ss-good" />;
     }
   };
 
   const getCertificateColor = (type: string) => {
     switch (type) {
       case 'mastery':
-        return 'border-yellow-200 bg-yellow-50';
+        return 'bg-ss-warn-chip';
       case 'achievement':
-        return 'border-blue-200 bg-blue-50';
+        return 'bg-accent';
       default:
-        return 'border-green-200 bg-green-50';
+        return 'bg-ss-good-chip';
     }
   };
 
@@ -356,8 +356,8 @@ const CertificationSystem: React.FC<CertificationSystemProps> = ({
       <Card>
         <CardContent className="p-6">
           <div className="animate-pulse space-y-4">
-            <div className="h-4 bg-gray-200 rounded w-1/3"></div>
-            <div className="h-32 bg-gray-200 rounded"></div>
+            <div className="h-4 bg-muted rounded w-1/3"></div>
+            <div className="h-32 bg-muted rounded"></div>
           </div>
         </CardContent>
       </Card>
@@ -391,32 +391,32 @@ const CertificationSystem: React.FC<CertificationSystemProps> = ({
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="text-center space-y-4">
-            <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
-              <GraduationCap className="h-8 w-8 text-blue-600" />
+            <div className="mx-auto w-16 h-16 bg-accent rounded-full flex items-center justify-center">
+              <GraduationCap className="h-8 w-8 text-primary" />
             </div>
             
             <div>
               <h3 className="text-xl font-semibold mb-2">
                 {course?.title} Certification
               </h3>
-              <p className="text-gray-600">
+              <p className="text-muted-foreground">
                 Complete the course to earn your certificate
               </p>
             </div>
 
-            <div className="bg-gray-50 rounded-lg p-4">
+            <div className="bg-muted rounded-lg p-4">
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div className="text-center">
                   <div className="font-semibold text-lg">
                     {courseProgress.overall_completion}%
                   </div>
-                  <div className="text-gray-600">Completed</div>
+                  <div className="text-muted-foreground">Completed</div>
                 </div>
                 <div className="text-center">
                   <div className="font-semibold text-lg">
                     {formatTime(courseProgress.total_time_spent)}
                   </div>
-                  <div className="text-gray-600">Time Spent</div>
+                  <div className="text-muted-foreground">Time Spent</div>
                 </div>
               </div>
             </div>
@@ -424,8 +424,8 @@ const CertificationSystem: React.FC<CertificationSystemProps> = ({
             {courseProgress.overall_completion === 100 ? (
               certificates.length > 0 ? (
                 <div className="space-y-2">
-                  <CheckCircle className="h-8 w-8 text-green-600 mx-auto" />
-                  <p className="text-green-600 font-medium">
+                  <CheckCircle className="h-8 w-8 text-ss-good mx-auto" />
+                  <p className="text-ss-good font-medium">
                     Certificate already issued!
                   </p>
                 </div>
@@ -433,7 +433,7 @@ const CertificationSystem: React.FC<CertificationSystemProps> = ({
                 <Button 
                   onClick={generateCertificate}
                   disabled={generating}
-                  className="bg-green-600 hover:bg-green-700"
+                  className="bg-ss-good hover:bg-ss-good/90"
                 >
                   <Award className="h-4 w-4 mr-2" />
                   {generating ? 'Checking...' : 'View my certificate'}
@@ -441,8 +441,8 @@ const CertificationSystem: React.FC<CertificationSystemProps> = ({
               )
             ) : (
               <div className="space-y-2">
-                <Clock className="h-8 w-8 text-yellow-600 mx-auto" />
-                <p className="text-yellow-600 font-medium">
+                <Clock className="h-8 w-8 text-ss-warn mx-auto" />
+                <p className="text-ss-warn font-medium">
                   Complete the course to unlock certification
                 </p>
               </div>
@@ -467,8 +467,8 @@ const CertificationSystem: React.FC<CertificationSystemProps> = ({
         <CardContent>
           {certificates.length === 0 ? (
             <div className="text-center py-8">
-              <Award className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500">
+              <Award className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">
                 {mode === 'verify' ? 'Invalid verification code' : 'No certificates earned yet'}
               </p>
             </div>
@@ -490,7 +490,7 @@ const CertificationSystem: React.FC<CertificationSystemProps> = ({
                           </Badge>
                         </div>
                       </div>
-                      <div className="text-right text-sm text-gray-600">
+                      <div className="text-right text-sm text-muted-foreground">
                         <div className="flex items-center space-x-1">
                           <Calendar className="h-4 w-4" />
                           <span>{new Date(certificate.issued_at).toLocaleDateString()}</span>
@@ -501,33 +501,33 @@ const CertificationSystem: React.FC<CertificationSystemProps> = ({
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                       <div className="text-center">
-                        <div className="font-semibold text-lg text-green-600">
+                        <div className="font-semibold text-lg text-ss-good">
                           {certificate.certificate_data.completion_percentage ?? 100}%
                         </div>
-                        <div className="text-gray-600">Completion</div>
+                        <div className="text-muted-foreground">Completion</div>
                       </div>
                       <div className="text-center">
-                        <div className="font-semibold text-lg text-blue-600">
+                        <div className="font-semibold text-lg text-ss-teal">
                           {typeof certificate.certificate_data.time_spent === 'number' && certificate.certificate_data.time_spent > 0
                             ? formatTime(certificate.certificate_data.time_spent)
                             : '—'}
                         </div>
-                        <div className="text-gray-600">Study Time</div>
+                        <div className="text-muted-foreground">Study Time</div>
                       </div>
                       <div className="text-center">
-                        <div className="font-semibold text-lg text-purple-600">
+                        <div className="font-semibold text-lg text-primary">
                           {certificate.certificate_data.achievements?.length ?? certificate.certificate_data.total_items ?? 0}
                         </div>
-                        <div className="text-gray-600">
+                        <div className="text-muted-foreground">
                           {certificate.certificate_data.achievements?.length ? 'Achievements' : 'Items Completed'}
                         </div>
                       </div>
                     </div>
 
                     <div className="border-t pt-4">
-                      <div className="text-sm text-gray-600 mb-2">
+                      <div className="text-sm text-muted-foreground mb-2">
                         Verification Code: 
-                        <code className="ml-2 bg-gray-100 px-2 py-1 rounded text-xs">
+                        <code className="ml-2 bg-muted px-2 py-1 rounded text-xs">
                           {certificate.verification_code}
                         </code>
                       </div>

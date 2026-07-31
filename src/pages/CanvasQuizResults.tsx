@@ -289,7 +289,7 @@ export default function CanvasQuizResults() {
               <Card>
                 <CardContent className="pt-6">
                   <div className="text-center">
-                    <Clock className="h-12 w-12 mx-auto mb-2 text-blue-600" />
+                    <Clock className="h-12 w-12 mx-auto mb-2 text-ss-teal" />
                     <div className="text-3xl font-bold">
                       {Math.floor((submission.time_spent || 0) / 60)}:{String((submission.time_spent || 0) % 60).padStart(2, '0')}
                     </div>
@@ -304,7 +304,7 @@ export default function CanvasQuizResults() {
               <Card>
                 <CardContent className="pt-6">
                   <div className="text-center">
-                    <FileText className="h-12 w-12 mx-auto mb-2 text-purple-600" />
+                    <FileText className="h-12 w-12 mx-auto mb-2 text-ss-lav-deep" />
                     <div className="text-3xl font-bold">
                       {submission.answers.filter(a => a.correct).length}/{questions.length}
                     </div>
@@ -367,9 +367,9 @@ export default function CanvasQuizResults() {
                     <div className="flex justify-between items-start">
                       <div className="flex items-center gap-2">
                         {isCorrect ? (
-                          <CheckCircle className="h-5 w-5 text-green-600" />
+                          <CheckCircle className="h-5 w-5 text-ss-good" />
                         ) : (
-                          <XCircle className="h-5 w-5 text-red-600" />
+                          <XCircle className="h-5 w-5 text-ss-bad" />
                         )}
                         <CardTitle className="text-lg">
                           Question {index + 1}
@@ -397,7 +397,7 @@ export default function CanvasQuizResults() {
                         <div className="text-sm font-medium text-muted-foreground mb-1">
                           Your Answer:
                         </div>
-                        <div className={isCorrect ? 'text-green-600' : 'text-red-600'}>
+                        <div className={isCorrect ? 'text-ss-good' : 'text-ss-bad'}>
                           {getAnswerDisplay(question, submissionAnswer)}
                         </div>
                       </div>
@@ -408,7 +408,7 @@ export default function CanvasQuizResults() {
                           <div className="text-sm font-medium text-muted-foreground mb-1">
                             Correct Answer:
                           </div>
-                          <div className="text-green-600">
+                          <div className="text-ss-good">
                             {getCorrectAnswerDisplay(question)}
                           </div>
                         </div>

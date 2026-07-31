@@ -91,7 +91,7 @@ export function AssistantChat({ assistant, onClose }: AssistantChatProps) {
                 <div className={`inline-block max-w-[80%] p-3 rounded-lg ${
                   message.role === 'user' 
                     ? 'bg-primary text-primary-foreground' 
-                    : 'bg-slate-100 text-slate-800'
+                    : 'bg-muted text-foreground'
                 }`}>
                   {message.content}
                 </div>

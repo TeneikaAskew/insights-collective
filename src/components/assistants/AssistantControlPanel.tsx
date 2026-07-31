@@ -126,7 +126,7 @@ const AssistantControlPanel = ({
         </div>
         
         {/* Additional sections could be added here */}
-        <div className="p-4 bg-slate-50 rounded-lg">
+        <div className="p-4 bg-muted rounded-lg">
           <h3 className="text-sm font-medium">Personalization Tips</h3>
           <p className="text-xs text-muted-foreground mt-2">
             Adjusting these settings helps the AI assistant provide more relevant career recommendations tailored to your preferences.

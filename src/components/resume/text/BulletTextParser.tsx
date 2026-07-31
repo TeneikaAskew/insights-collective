@@ -234,15 +234,15 @@ export const HighlightedBulletText: React.FC<{ text: string }> = ({ text }) => {
             className={`transition-colors duration-200 ${
               // Highlight colors mirror the chart palette in BulletChartData.tsx
               part.category === BULLET_CATEGORIES.industry.label
-                ? 'text-[#624EBE] font-bold' :
+                ? 'text-ss-lav-deep font-bold' :
               part.category === BULLET_CATEGORIES.action.label
-                ? 'text-[#B97143] font-bold' :
+                ? 'text-ss-peach-deep font-bold' :
               part.category === BULLET_CATEGORIES.metrics.label
-                ? 'text-[#3FA391] font-bold' :
+                ? 'text-ss-teal font-bold' :
               part.category === BULLET_CATEGORIES.clarity.label
-                ? 'text-[#A794EB] font-bold' :
+                ? 'text-ss-lav font-bold' :
               part.category === BULLET_CATEGORIES.achievement.label
-                ? 'text-[#4E9B70] font-bold' :
+                ? 'text-ss-good font-bold' :
               'text-muted-foreground'
             }`}
           >

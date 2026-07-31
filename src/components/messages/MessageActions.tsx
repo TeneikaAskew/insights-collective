@@ -214,7 +214,7 @@ const MessageActions: React.FC<MessageActionsProps> = ({
             size="sm"
             onClick={handleRestore}
             disabled={loading !== null}
-            className="text-gray-600 hover:text-amber-600"
+            className="text-muted-foreground hover:text-ss-peach-deep"
           >
             {loading === 'restore' ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -235,7 +235,7 @@ const MessageActions: React.FC<MessageActionsProps> = ({
             size="sm"
             onClick={handleMarkAsUnread}
             disabled={loading !== null}
-            className="text-gray-600 hover:text-amber-600"
+            className="text-muted-foreground hover:text-ss-peach-deep"
           >
             {loading === 'unread' ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -250,7 +250,7 @@ const MessageActions: React.FC<MessageActionsProps> = ({
             size="sm"
             onClick={handleUnarchive}
             disabled={loading !== null}
-            className="text-gray-600 hover:text-amber-600"
+            className="text-muted-foreground hover:text-ss-peach-deep"
           >
             {loading === 'unarchive' ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -265,7 +265,7 @@ const MessageActions: React.FC<MessageActionsProps> = ({
             size="sm"
             onClick={handleDelete}
             disabled={loading !== null}
-            className="text-gray-600 hover:text-amber-600"
+            className="text-muted-foreground hover:text-ss-peach-deep"
           >
             {loading === 'delete' ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -286,7 +286,7 @@ const MessageActions: React.FC<MessageActionsProps> = ({
           size="sm"
           onClick={handleMarkAsUnread}
           disabled={loading !== null}
-          className="text-gray-600 hover:text-amber-600"
+          className="text-muted-foreground hover:text-ss-peach-deep"
         >
           {loading === 'unread' ? (
             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -301,7 +301,7 @@ const MessageActions: React.FC<MessageActionsProps> = ({
           size="sm"
           onClick={handleArchive}
           disabled={loading !== null}
-          className="text-gray-600 hover:text-amber-600"
+          className="text-muted-foreground hover:text-ss-peach-deep"
         >
           {loading === 'archive' ? (
             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -316,7 +316,7 @@ const MessageActions: React.FC<MessageActionsProps> = ({
           size="sm"
           onClick={handleDelete}
           disabled={loading !== null}
-          className="text-gray-600 hover:text-amber-600"
+          className="text-muted-foreground hover:text-ss-peach-deep"
         >
           {loading === 'delete' ? (
             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -375,7 +375,7 @@ const MessageActions: React.FC<MessageActionsProps> = ({
   };
 
   return (
-    <div className="flex items-center justify-between p-2 border-b bg-gray-50">
+    <div className="flex items-center justify-between p-2 border-b bg-muted">
       <div className="flex space-x-1">
         {/* Desktop view - buttons */}
         <div className="hidden md:flex space-x-1">
@@ -399,7 +399,7 @@ const MessageActions: React.FC<MessageActionsProps> = ({
         </div>
       </div>
       
-      <div className="text-sm text-gray-500">
+      <div className="text-sm text-muted-foreground">
         {/* Conversation info could go here */}
       </div>
     </div>
