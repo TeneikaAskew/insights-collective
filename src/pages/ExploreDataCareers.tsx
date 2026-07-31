@@ -203,7 +203,7 @@ const ExploreDataCareers = () => {
           }} transition={{
             duration: 0.5,
             delay: 0.2
-          }} className="hidden md:block space-y-6">
+          }} className="hidden md:block min-w-0 space-y-6">
               <div className="ss-card bg-card p-5 space-y-5">
                 <div className="space-y-3">
                   <h3 className={railLabel}>Search &amp; Filter</h3>
@@ -343,7 +343,7 @@ const ExploreDataCareers = () => {
           }} transition={{
             duration: 0.5,
             delay: 0.4
-          }} className="md:col-span-4">
+          }} className="md:col-span-4 min-w-0">
               <Tabs defaultValue="list" className="space-y-6">
                 <div className="flex flex-wrap justify-between items-center gap-3">
                   <TabsList className="bg-transparent gap-1 p-0">

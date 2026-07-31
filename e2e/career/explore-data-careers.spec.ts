@@ -11,8 +11,15 @@ const TOTAL_ROLES = 33;
 const FIRST_PAGE = 9;
 
 const countText = (page) => page.getByTestId('role-count').textContent();
-const rows = (page) => page.getByTestId('role-row');
-const cards = (page) => page.getByTestId('role-card');
+/**
+ * `:visible`, not getByTestId, because the List view ships two presentations of
+ * the same rows — a table from `sm` up and stacked cards below it — and CSS
+ * decides which one shows. Both are in the DOM at every width, and
+ * `locator.count()` counts hidden elements too, so the plain testid returns 18
+ * where 9 are on screen.
+ */
+const rows = (page) => page.locator('[data-testid="role-row"]:visible');
+const cards = (page) => page.locator('[data-testid="role-card"]:visible');
 
 /**
  * Platform courses always outrank Coursera, so which subjects fall through
@@ -93,8 +100,12 @@ test.describe('Explore Careers', () => {
     expect(shown).toBeGreaterThan(0);
     expect(shown).toBeLessThan(TOTAL_ROLES);
 
-    // Every visible row must actually belong to the selected track.
-    const tracks = await rows(page).locator('td:nth-child(2)').allTextContents();
+    // Every visible row must actually belong to the selected track. Read the
+    // testid rather than `td:nth-child(2)` — below `sm` the list renders as
+    // stacked cards with no cells, and the cell selector would quietly match
+    // nothing and assert nothing.
+    const tracks = await page.locator('[data-testid="role-track"]:visible').allTextContents();
+    expect(tracks.length).toBeGreaterThan(0);
     for (const t of tracks) expect(t.trim()).toBe('Data Engineering');
   });
 

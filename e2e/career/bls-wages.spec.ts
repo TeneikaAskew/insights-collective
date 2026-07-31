@@ -7,6 +7,13 @@ import { Routes } from '../helpers/route-helpers';
 const TOTAL_ROLES = 33;
 const FIRST_PAGE = 9;
 
+/**
+ * `:visible` throughout. The List view ships a table from `sm` up and stacked
+ * cards below it, both in the DOM at every width with CSS choosing between them,
+ * and `locator.count()` counts hidden elements — so a plain testid returns twice
+ * the number of rows actually on screen.
+ */
+
 test.describe('BLS wage data', () => {
   test.beforeEach(async ({ page }) => {
     await goto(page, Routes.exploreDataCareers);
@@ -15,7 +22,7 @@ test.describe('BLS wage data', () => {
     // Wage data arrives after first paint. Locator.all() and evaluateAll() do
     // not auto-retry, so anything reading attributes must wait for the bands
     // first or it races the query.
-    await expect(page.getByTestId('wage-band')).toHaveCount(FIRST_PAGE);
+    await expect(page.locator('[data-testid="wage-band"]:visible')).toHaveCount(FIRST_PAGE);
   });
 
   /** The sidebar uses Radix Selects, so selectOption() does not apply. */
@@ -29,19 +36,19 @@ test.describe('BLS wage data', () => {
   test('every visible role carries a wage band', async ({ page }) => {
     // If `career_role_wages` is missing or RLS blocks the read, this is 0 and
     // the page silently shows no pay at all. That is the failure to catch.
-    await expect(page.getByTestId('wage-band')).toHaveCount(FIRST_PAGE);
+    await expect(page.locator('[data-testid="wage-band"]:visible')).toHaveCount(FIRST_PAGE);
   });
 
   test('the grid prints the range beside the band', async ({ page }) => {
     // The list table has its own Typical pay column, so the band suppresses its
     // range there; the cards carry it, and this is where it is asserted.
     await page.getByTestId('view-grid').click();
-    await expect(page.getByTestId('role-card')).toHaveCount(FIRST_PAGE);
-    await expect(page.getByTestId('wage-range')).toHaveCount(FIRST_PAGE);
+    await expect(page.locator('[data-testid="role-card"]:visible')).toHaveCount(FIRST_PAGE);
+    await expect(page.locator('[data-testid="wage-range"]:visible')).toHaveCount(FIRST_PAGE);
   });
 
   test('percentiles are present and correctly ordered', async ({ page }) => {
-    const bands = await page.getByTestId('wage-band').all();
+    const bands = await page.locator('[data-testid="wage-band"]:visible').all();
     expect(bands.length).toBe(FIRST_PAGE);
 
     for (const band of bands) {
@@ -64,13 +71,13 @@ test.describe('BLS wage data', () => {
 
   test('the printed range matches the underlying percentiles', async ({ page }) => {
     await page.getByTestId('view-grid').click();
-    await expect(page.getByTestId('role-card')).toHaveCount(FIRST_PAGE);
+    await expect(page.locator('[data-testid="role-card"]:visible')).toHaveCount(FIRST_PAGE);
 
-    const band = page.getByTestId('wage-band').first();
+    const band = page.locator('[data-testid="wage-band"]:visible').first();
     const p25 = Number(await band.getAttribute('data-pct25'));
     const p75 = Number(await band.getAttribute('data-pct75'));
 
-    const printed = (await page.getByTestId('wage-range').first().textContent())!;
+    const printed = (await page.locator('[data-testid="wage-range"]:visible').first().textContent())!;
     expect(printed).toContain(`$${Math.round(p25 / 1000)}k`);
     expect(printed).toContain(`$${Math.round(p75 / 1000)}k`);
   });
@@ -86,7 +93,7 @@ test.describe('BLS wage data', () => {
 
   test('sorting by median pay orders rows by their real figures', async ({ page }) => {
     await chooseFromSelect(page, 'Sort', 'Median pay');
-    await expect(page.getByTestId('role-row')).toHaveCount(FIRST_PAGE);
+    await expect(page.locator('[data-testid="role-row"]:visible')).toHaveCount(FIRST_PAGE);
 
     const medians = await page
       .getByTestId('wage-band')
