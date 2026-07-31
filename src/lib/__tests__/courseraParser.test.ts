@@ -29,6 +29,9 @@ function makePage(overrides: Record<string, unknown> = {}): string {
       // brace-matched with string awareness rather than regex-captured.
       description: 'Build ML models in Python. Uses {curly braces} and "quotes" inline.',
       difficultyLevel: 'BEGINNER',
+      primaryLanguages: ['en'],
+      // Availability, not the teaching language — must be ignored.
+      subtitleLanguages: ['es', 'fr', 'zh-CN'],
       totalEnrollmentCount: 1219611,
       ratings: { __ref: 'Ratings:abc' },
       partners: [{ __ref: 'DescriptionPage_Partner:475' }],
@@ -158,6 +161,7 @@ describe('parseCoursePage', () => {
       estimatedHours: 7.1,
     });
     expect(result.course.skills).toEqual(['Python Programming', 'Machine Learning']);
+    expect(result.course.languages).toEqual(['en']);
     expect(result.course.topReviews[0].comment).toBe('Excellent course, well paced.');
   });
 
@@ -168,6 +172,19 @@ describe('parseCoursePage', () => {
     const result = parseCoursePage(page.replace(/"partners":\[[^\]]*\]/, '"partners":[]'), URL);
     if (!('course' in result)) throw new Error('expected a parsed course');
     expect(result.course.partner).toBe('');
+  });
+
+  it('reads the teaching language, not the subtitle list', () => {
+    // A popular English course lists dozens of subtitle languages; using those would
+    // make every course look multilingual and defeat the filter.
+    const spanish = parseCoursePage(makePage({ primaryLanguages: ['es'] }), URL);
+    if (!('course' in spanish)) throw new Error('expected a parsed course');
+    expect(spanish.course.languages).toEqual(['es']);
+
+    const unknown = parseCoursePage(makePage({ primaryLanguages: null }), URL);
+    if (!('course' in unknown)) throw new Error('expected a parsed course');
+    // Empty means unknown — the caller keeps the row rather than hiding it.
+    expect(unknown.course.languages).toEqual([]);
   });
 
   it('defaults an unlabelled level to Intermediate', () => {
@@ -204,6 +221,7 @@ describe('parser equivalence with scripts/fetch-coursera-courses.mjs', () => {
     expect(node.estimatedHours).toBe(edge.course.estimatedHours);
     expect(node.skills).toEqual(edge.course.skills);
     expect(node.reviewComments).toEqual(edge.course.topReviews);
+    expect(node.languages).toEqual(edge.course.languages);
     // The script keeps Coursera's raw casing; the Edge Function normalizes it.
     expect(String(node.level).toLowerCase()).toContain(edge.course.level.toLowerCase());
   });

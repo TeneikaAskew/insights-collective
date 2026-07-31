@@ -115,6 +115,10 @@ for (const row of rows) {
     subjects: inferSubjects(patterns, title, skillsText),
     primary_subjects: inferSubjects(patterns, title),
     top_reviews: safeJson(row.top_reviews),
+    languages: String(row.languages ?? '')
+      .split('|')
+      .map((code) => code.trim().toLowerCase())
+      .filter(Boolean),
     last_fetched_at: new Date().toISOString(),
     last_verified_at: new Date().toISOString(),
     last_http_status: 200,

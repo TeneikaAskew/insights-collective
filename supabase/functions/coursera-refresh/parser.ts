@@ -18,6 +18,13 @@ export interface ParsedCourse {
   skills: string[];
   description: string;
   topReviews: Array<{ rating: number | null; comment: string }>;
+  /**
+   * The language(s) the course is actually taught in, as ISO codes from Coursera's
+   * `primaryLanguages` — NOT its subtitle or translation list, which for a popular
+   * English course runs to dozens of entries and would make everything look
+   * multilingual. Empty when the page did not say.
+   */
+  languages: string[];
 }
 
 /** How many skill tags to keep. Subjects are inferred from exactly these. */
@@ -213,6 +220,12 @@ export function parseCoursePage(
     0,
   );
 
+  // primaryLanguages is what the course is taught in. subtitleLanguages,
+  // translatedLanguages and dubbedLanguages describe availability, not the course.
+  const languages = (Array.isArray(page.primaryLanguages) ? page.primaryLanguages : [])
+    .map((code: unknown) => String(code ?? '').trim().toLowerCase())
+    .filter(Boolean);
+
   const topReviews = nodesOfType(state, 'DescriptionPage_Review')
     .map((review) => ({
       rating: review.rating ?? null,
@@ -234,6 +247,7 @@ export function parseCoursePage(
       skills,
       description: truncate(page.description, MAX_DESCRIPTION),
       topReviews,
+      languages,
     },
   };
 }

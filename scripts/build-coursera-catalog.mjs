@@ -25,6 +25,13 @@ const MIN_RATING = 4.3;
 const MIN_REVIEWS = 50;
 /** Truncate descriptions to keep the shipped bundle small. */
 const MAX_DESCRIPTION = 180;
+/**
+ * Only courses taught in this language are kept. A well-reviewed Spanish or
+ * Portuguese course is a bad recommendation on an English-language platform however
+ * good it is. Rows with no language recorded are KEPT — empty means unknown, not
+ * non-English, and CSVs produced before language capture have none.
+ */
+const PLATFORM_LANGUAGE = 'en';
 
 // ---------------------------------------------------------------------------
 // CSV parsing (RFC 4180: quoted fields, embedded commas, newlines, "" escapes)
@@ -232,7 +239,7 @@ async function main() {
 
   const normalized = [];
   const seenUrls = new Set();
-  const rejected = { badUrl: 0, lowRated: 0, noSubjects: 0, duplicate: 0, denied: 0, noPartner: 0 };
+  const rejected = { badUrl: 0, lowRated: 0, noSubjects: 0, duplicate: 0, denied: 0, noPartner: 0, wrongLanguage: 0 };
 
   for (const row of rows) {
     const parsedUrl = parseUrl(row.URL);
@@ -318,7 +325,8 @@ async function main() {
     `Kept ${normalized.length} candidates ` +
       `(dropped ${rejected.badUrl} unparseable URL, ${rejected.lowRated} below the quality bar, ` +
       `${rejected.noSubjects} with no recognised subject, ${rejected.duplicate} duplicate, ` +
-      `${rejected.denied} denylisted, ${rejected.noPartner} missing a partner)`,
+      `${rejected.denied} denylisted, ${rejected.noPartner} missing a partner, ` +
+      `${rejected.wrongLanguage} not in ${PLATFORM_LANGUAGE})`,
   );
 
   // Take the best PER_SUBJECT_LIMIT for each subject, preferring courses the subject

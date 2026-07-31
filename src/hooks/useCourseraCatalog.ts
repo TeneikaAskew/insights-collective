@@ -28,8 +28,15 @@ export const MIN_REVIEWS = 50;
  */
 const ROW_LIMIT = 120;
 
+/**
+ * Language the platform teaches in. Courses taught in anything else are filtered out
+ * server-side — a well-reviewed Spanish Python course is a bad recommendation here
+ * however good the course is.
+ */
+export const PLATFORM_LANGUAGE = 'en';
+
 const COLUMNS =
-  'slug, url, title, partner, format, level, rating, reviews, subjects, primary_subjects, skills, description';
+  'slug, url, title, partner, format, level, rating, reviews, subjects, primary_subjects, skills, description, languages';
 
 interface CourseraCourseRow {
   slug: string;
@@ -44,6 +51,7 @@ interface CourseraCourseRow {
   primary_subjects: string[] | null;
   skills: string[] | null;
   description: string | null;
+  languages: string[] | null;
 }
 
 function toCourse(row: CourseraCourseRow): CourseraCourse {
@@ -60,6 +68,7 @@ function toCourse(row: CourseraCourseRow): CourseraCourse {
     primarySubjects: (row.primary_subjects ?? []) as LearningSubject[],
     skills: row.skills ?? [],
     description: row.description ?? '',
+    languages: row.languages ?? [],
   };
 }
 
@@ -99,6 +108,10 @@ export function useCourseraCatalog(subjects: LearningSubject[]): UseCourseraCata
         .overlaps('subjects', key)
         .gte('rating', MIN_RATING)
         .gte('reviews', MIN_REVIEWS)
+        // English, or not yet known. Empty is unknown rather than non-English: rows
+        // crawled before language capture have none, and excluding them would empty
+        // the catalog until the backfill completes.
+        .or(`languages.cs.{${PLATFORM_LANGUAGE}},languages.eq.{}`)
         .order('rating', { ascending: false })
         .limit(ROW_LIMIT);
 

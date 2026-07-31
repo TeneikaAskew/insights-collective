@@ -2201,6 +2201,7 @@ export type Database = {
           estimated_hours: number | null
           format: string
           is_featured: boolean
+          languages: string[]
           last_fetched_at: string | null
           last_http_status: number | null
           last_verified_at: string | null
@@ -2226,6 +2227,7 @@ export type Database = {
           estimated_hours?: number | null
           format: string
           is_featured?: boolean
+          languages?: string[]
           last_fetched_at?: string | null
           last_http_status?: number | null
           last_verified_at?: string | null
@@ -2251,6 +2253,7 @@ export type Database = {
           estimated_hours?: number | null
           format?: string
           is_featured?: boolean
+          languages?: string[]
           last_fetched_at?: string | null
           last_http_status?: number | null
           last_verified_at?: string | null
@@ -5712,6 +5715,16 @@ export type Database = {
         }
         Relationships: []
       }
+      coursera_crawl_progress: {
+        Row: {
+          newest_processed_at: string | null
+          oldest_enqueued_at: string | null
+          source: string | null
+          state: string | null
+          urls: number | null
+        }
+        Relationships: []
+      }
       quiz_analytics: {
         Row: {
           ai_ml_recommendations: number | null
@@ -5841,6 +5854,16 @@ export type Database = {
           course_id: string
           enrolled: number
         }[]
+      }
+      coursera_call_refresh: {
+        Args: { p_action: string; p_batch?: number }
+        Returns: number
+      }
+      coursera_kick_refresh: { Args: never; Returns: number }
+      coursera_kw_pattern: { Args: { p_keyword: string }; Returns: string }
+      coursera_verify_refresh_secret: {
+        Args: { p_secret: string }
+        Returns: boolean
       }
       delete_all_user_resumes: {
         Args: { user_id_param: string }

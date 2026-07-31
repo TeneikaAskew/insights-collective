@@ -256,6 +256,12 @@ function parseCoursePage(html, url) {
     0,
   );
 
+  // primaryLanguages is what the course is taught in; subtitle/translated/dubbed
+  // describe availability. Mirrors parser.ts — an equivalence test checks it.
+  const languages = (Array.isArray(page.primaryLanguages) ? page.primaryLanguages : [])
+    .map((code) => String(code ?? '').trim().toLowerCase())
+    .filter(Boolean);
+
   const reviewComments = nodesOfType(state, 'DescriptionPage_Review')
     .map((review) => ({
       rating: review.rating ?? null,
@@ -276,6 +282,7 @@ function parseCoursePage(html, url) {
     enrolled: page.totalEnrollmentCount ? Number(page.totalEnrollmentCount) : null,
     estimatedHours: totalHours && totalHours > 0 ? Math.round(totalHours * 10) / 10 : null,
     reviewComments,
+    languages,
   };
 }
 
@@ -385,6 +392,7 @@ function toCsv(courses) {
     'enrolled',
     'estimated_hours',
     'top_reviews',
+    'languages',
   ];
 
   const rows = courses.map((course) =>
@@ -401,6 +409,7 @@ function toCsv(courses) {
       course.enrolled ?? '',
       course.estimatedHours ?? '',
       JSON.stringify(course.reviewComments ?? []),
+      (course.languages ?? []).join('|'),
     ]
       .map(csvCell)
       .join(','),

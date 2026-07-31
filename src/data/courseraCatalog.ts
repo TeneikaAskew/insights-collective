@@ -42,6 +42,13 @@ export interface CourseraCourse {
   /** Coursera's own skill tags, kept for display and for future re-inference. */
   skills: string[];
   description: string;
+  /**
+   * ISO codes the course is taught in, from Coursera's `primaryLanguages`.
+   *
+   * Empty means UNKNOWN, not "not English" — rows crawled before language capture
+   * have none, so readers must keep them rather than hide them.
+   */
+  languages?: string[];
 }
 
 export const courseraCatalog: CourseraCourse[] = generatedCourseraCatalog;

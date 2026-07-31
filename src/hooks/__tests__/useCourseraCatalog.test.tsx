@@ -7,7 +7,12 @@ import React from 'react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useCourseraCatalog, MIN_RATING, MIN_REVIEWS } from '../useCourseraCatalog';
+import {
+  useCourseraCatalog,
+  MIN_RATING,
+  MIN_REVIEWS,
+  PLATFORM_LANGUAGE,
+} from '../useCourseraCatalog';
 import { mockSupabaseClient } from '@/test/mocks/supabase';
 import type { LearningSubject } from '@/data/learningSubjects';
 
@@ -19,7 +24,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
 /** Thenable stub matching the PostgREST builder chain the hook uses. */
 function makeTableBuilder(result: any = { data: null, error: null }) {
   const builder: any = { result, calls: {} as Record<string, unknown[]> };
-  for (const method of ['select', 'eq', 'overlaps', 'gte', 'order', 'limit']) {
+  for (const method of ['select', 'eq', 'overlaps', 'gte', 'or', 'order', 'limit']) {
     builder[method] = vi.fn().mockImplementation((...args: unknown[]) => {
       builder.calls[method] = args;
       return builder;
@@ -43,6 +48,7 @@ const row = {
   primary_subjects: ['machine-learning'],
   skills: ['Machine Learning', 'Python Programming'],
   description: 'Regression, classification and recommenders in Python.',
+  languages: ['en'],
 };
 
 const subjects: LearningSubject[] = ['machine-learning', 'python'];
@@ -69,6 +75,7 @@ describe('useCourseraCatalog', () => {
       partner: 'DeepLearning.AI',
       // snake_case column becomes camelCase, which the ranking logic reads.
       primarySubjects: ['machine-learning'],
+      languages: ['en'],
     });
     expect(result.current.usedFallback).toBe(false);
   });
@@ -84,6 +91,19 @@ describe('useCourseraCatalog', () => {
     expect(table.gte).toHaveBeenCalledWith('rating', MIN_RATING);
     expect(table.gte).toHaveBeenCalledWith('reviews', MIN_REVIEWS);
     expect(table.overlaps).toHaveBeenCalledWith('subjects', ['machine-learning', 'python']);
+  });
+
+  it('filters to the platform language, keeping rows with none recorded', () => {
+    table.result = { data: [row], error: null };
+
+    renderHook(() => useCourseraCatalog(subjects), { wrapper });
+
+    // A well-reviewed Spanish course is a bad recommendation here, but an empty
+    // language means "not crawled since language capture" — excluding those would
+    // blank the catalog mid-backfill.
+    expect(table.or).toHaveBeenCalledWith(
+      `languages.cs.{${PLATFORM_LANGUAGE}},languages.eq.{}`,
+    );
   });
 
   it('sorts the subject list so two roles with the same subjects share a cache entry', async () => {
