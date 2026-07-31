@@ -2,6 +2,7 @@
 // ABOUTME: Teachable/Podia-style light card grid with serif titles and yellow CTAs.
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { CourseImage } from '@/components/common/CourseImage';
 import AppLayout from '@/components/layout/AppLayout';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -210,15 +211,11 @@ const CourseList = () => {
                     {/* Media (outer keeps rounded top; inner clips the image; avatar sits above) */}
                     <div className="relative">
                       <div className="relative aspect-[16/10] overflow-hidden rounded-t-2xl bg-ss-teal-chip">
-                        {course.thumbnail ? (
-                          <img
-                            src={course.thumbnail}
-                            alt={course.title}
-                            className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500"
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-muted" aria-hidden="true" />
-                        )}
+                        <CourseImage
+                          src={course.thumbnail}
+                          alt={course.title}
+                          className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500"
+                        />
                       </div>
                       {/* Circular logo badge overlapping bottom-left, above the image */}
                       <div className="absolute -bottom-6 left-5 z-10 h-14 w-14 rounded-full bg-card border-4 border-card shadow-md flex items-center justify-center overflow-hidden">
