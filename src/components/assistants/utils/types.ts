@@ -4,9 +4,13 @@ import { CareerReportData as CareerReportDataType } from "../../assistants/types
 
 // Define missing types that are used in CareerReportParser.ts
 export interface RecommendedRole {
-  title: string;
+  /**
+   * Key into `career_roles`. The report no longer carries a title or a salary:
+   * both are resolved from `career_role_wages` at render time, so the pay shown
+   * traces to a BLS occupation instead of to whatever the model wrote.
+   */
+  roleSlug: string;
   description: string;
-  salaryRange: string;
   focusAreas?: string[];
   responsibilities?: string[];
   requirements?: string[];

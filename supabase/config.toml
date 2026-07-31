@@ -134,3 +134,10 @@ verify_jwt = true
 # Grades a submission server-side. Authenticates the caller itself and refuses
 # submissions that are not theirs.
 verify_jwt = true
+
+[functions.bls-wages]
+# Stays false so the public wage bands stay readable signed out — the landing
+# page renders them before anyone logs in. The write paths gate themselves:
+# lookup calls requireUser(), refresh compares the presented bearer token
+# against the service-role key.
+verify_jwt = false

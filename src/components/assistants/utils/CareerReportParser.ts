@@ -86,6 +86,31 @@ const extractCareerPathSteps = (text: string): CareerPathStep[] => {
   return careerPathSteps;
 };
 
+/**
+ * The single place a model-supplied role becomes a report role.
+ *
+ * Builds an explicit object rather than spreading the input, so a field the
+ * model volunteers cannot reach the page just because nobody thought to strip
+ * it. A `salaryRange` is exactly that case: pay is resolved from
+ * `career_role_wages` by slug, and a figure arriving from the LLM has no source
+ * behind it.
+ *
+ * Roles with no slug are dropped. The old code defaulted them to 'Unknown Role'
+ * and 'Not specified', which rendered as an ordinary recommendation carrying no
+ * information and no way to tell it apart from a real one.
+ */
+const normalizeRecommendedRoles = (roles: any): RecommendedRole[] =>
+  (Array.isArray(roles) ? roles : [])
+    .filter((role: any) => typeof (role?.roleSlug ?? role?.role_slug) === 'string')
+    .map((role: any) => ({
+      roleSlug: role.roleSlug ?? role.role_slug,
+      description: role.description || '',
+      focusAreas: cleanFocusAreas(role.focus_areas || role.focusAreas || []),
+      responsibilities: role.responsibilities || [],
+      requirements: role.requirements || [],
+      matchPercentage: role.matchPercentage || role.match_percentage || 0,
+    }));
+
 export const parseCareerReport = (reportText: string): CareerReportData => {
   logger.log("Starting to parse career report...");
   
@@ -96,14 +121,14 @@ export const parseCareerReport = (reportText: string): CareerReportData => {
     
     // If it's already in the correct format, clean focus areas and return
     if (jsonData.recommendedRoles) {
-      // Clean focus areas for each recommended role
+      // Normalised through the same helper as the other branch. This used to
+      // spread `...role` straight through, so anything extra the model emitted
+      // — an invented title, a `salaryRange` — survived into the rendered
+      // report on this path while being stripped on the other.
       if (Array.isArray(jsonData.recommendedRoles)) {
-        jsonData.recommendedRoles = jsonData.recommendedRoles.map((role: any) => ({
-          ...role,
-          focusAreas: Array.isArray(role.focusAreas) ? cleanFocusAreas(role.focusAreas) : []
-        }));
+        jsonData.recommendedRoles = normalizeRecommendedRoles(jsonData.recommendedRoles);
       }
-      
+
       // Clean focus areas for potential roles too
       if (Array.isArray(jsonData.potentialRoles)) {
         jsonData.potentialRoles = jsonData.potentialRoles.map((role: any) => ({
@@ -128,15 +153,9 @@ export const formatCareerPathwayReport = (reportData: any): CareerReportData => 
 };
 
 const extractDataFromJSON = (data: any): CareerReportData => {
-  const recommendedRoles = (data.recommended_roles || data.recommendedRoles || []).map((role: any) => ({
-    title: role.title || role.role || 'Unknown Role',
-    description: role.description || '',
-    salaryRange: role.salary_range || role.salaryRange || role.salary || 'Not specified',
-    focusAreas: cleanFocusAreas(role.focus_areas || role.focusAreas || []),
-    responsibilities: role.responsibilities || [],
-    requirements: role.requirements || [],
-    matchPercentage: role.matchPercentage || role.match_percentage || 0
-  }));
+  const recommendedRoles = normalizeRecommendedRoles(
+    data.recommended_roles || data.recommendedRoles || [],
+  );
 
   const potentialRoles = (data.potential_roles || data.potentialRoles || []).map((role: string) => role);
 
