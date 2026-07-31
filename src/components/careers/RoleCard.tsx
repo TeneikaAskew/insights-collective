@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
 import { DataCareerRole } from '@/data/dataCareerRoles';
-import { Dialog, DialogTrigger, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogTrigger, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { CareerRoleDetails } from './CareerRoleDetails';
 
 interface RoleCardProps {
@@ -62,6 +62,11 @@ export const RoleCard: React.FC<RoleCardProps> = ({
             </Button>
           </DialogTrigger>
           <DialogContent className="p-0 border-none bg-transparent shadow-none max-w-4xl w-[95vw]">
+            {/* The visible title lives inside CareerRoleDetails' own header;
+                Radix still needs an accessible name and description on the
+                dialog itself. */}
+            <DialogTitle className="sr-only">{role.title}</DialogTitle>
+            <DialogDescription className="sr-only">{role.shortDescription}</DialogDescription>
             <CareerRoleDetails role={role} onClose={() => setOpen(false)} />
           </DialogContent>
         </Dialog>
