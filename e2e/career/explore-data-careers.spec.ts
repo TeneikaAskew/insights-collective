@@ -1,86 +1,158 @@
+// ABOUTME: End-to-end coverage for the Explore Careers page — roles, filters, views, detail.
+// ABOUTME: Every assertion is unconditional; a guarded assertion passes when the feature is gone.
 import { test, expect } from '../fixtures/page-helpers';
 import { goto, waitForPageLoad } from '../fixtures/page-helpers';
-import { Sel } from '../fixtures/test-ids';
 import { Routes } from '../helpers/route-helpers';
 import { stubCourseraCatalog } from '../helpers/coursera-helpers';
 
-test.describe('Explore Data Careers', () => {
+/** The catalogue in src/data/dataCareerRoles.ts. Pinned so a silent truncation fails. */
+const TOTAL_ROLES = 33;
+/** ExploreDataCareers paginates at 9 and Load More adds 6. */
+const FIRST_PAGE = 9;
+
+const countText = (page) => page.getByTestId('role-count').textContent();
+const rows = (page) => page.getByTestId('role-row');
+const cards = (page) => page.getByTestId('role-card');
+
+/**
+ * Platform courses always outrank Coursera, so which subjects fall through
+ * to the external list depends on what's published in the live database.
+ * Stubbing the published list empty makes every subject uncovered — the
+ * Coursera picks then come one-per-subject from the fixture, deterministically.
+ * (The glob does not match coursera_courses: that path segment starts with
+ * "coursera", not "courses".)
+ */
+const stubNoPlatformCourses = (page: import('@playwright/test').Page) =>
+  page.route('**/rest/v1/courses?*', (route) =>
+    route.request().method() === 'GET'
+      ? route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+      : route.continue(),
+  );
+
+test.describe('Explore Careers', () => {
   test.beforeEach(async ({ page }) => {
     await goto(page, Routes.exploreDataCareers);
-  });
-
-  test('renders explore data careers page', async ({ page }) => {
-    await expect(page.locator('main, [role="main"]')).toBeVisible();
-  });
-
-  test('spinner resolves on load', async ({ page }) => {
-    await page.goto(Routes.exploreDataCareers);
     await waitForPageLoad(page);
-    await expect(page.locator('.animate-spin')).toHaveCount(0);
+    await expect(page.getByTestId('role-count')).toBeVisible();
   });
 
-  test('page heading is visible', async ({ page }) => {
-    await expect(page.locator('h1, h2').first()).toBeVisible();
+  test('lists the whole role catalogue', async ({ page }) => {
+    // The count reflects the filtered set; the rows reflect the current page.
+    expect(await countText(page)).toContain(`${TOTAL_ROLES} roles found`);
+    await expect(rows(page)).toHaveCount(FIRST_PAGE);
   });
 
-  test('career role cards are visible', async ({ page }) => {
-    const cards = page.locator('[class*="Card"], article, [class*="role"]').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await cards.count() > 0) {
-      await expect(cards).toBeVisible();
+  test('Load More extends the list', async ({ page }) => {
+    await expect(rows(page)).toHaveCount(FIRST_PAGE);
+    await page.getByRole('button', { name: 'Load More' }).click();
+    await expect(rows(page)).toHaveCount(FIRST_PAGE + 6);
+  });
+
+  test('the view tabs swap the rendering over the same filtered set', async ({ page }) => {
+    await expect(rows(page)).toHaveCount(FIRST_PAGE);
+    await expect(cards(page)).toHaveCount(0);
+
+    await page.getByTestId('view-grid').click();
+    await expect(cards(page)).toHaveCount(FIRST_PAGE);
+    await expect(rows(page)).toHaveCount(0);
+    // Same filtered set, different reading of it.
+    expect(await countText(page)).toContain(`${TOTAL_ROLES} roles found`);
+
+    // By Category groups the whole catalogue rather than the current page.
+    await page.getByTestId('view-categories').click();
+    await expect(cards(page)).toHaveCount(TOTAL_ROLES);
+
+    await page.getByTestId('view-list').click();
+    await expect(rows(page)).toHaveCount(FIRST_PAGE);
+  });
+
+  test('search narrows the set to matching roles', async ({ page }) => {
+    await page.getByLabel('Search roles', { exact: true }).fill('cloud');
+    // Cloud Data Engineer, Cloud Engineer, Cloud Security Engineer.
+    await expect(rows(page)).toHaveCount(3);
+    expect(await countText(page)).toContain('3 roles found');
+
+    for (const title of ['Cloud Data Engineer', 'Cloud Engineer', 'Cloud Security Engineer']) {
+      await expect(page.getByText(title, { exact: true })).toBeVisible();
     }
   });
 
-  test('search input filters roles', async ({ page }) => {
-    const searchInput = page.locator(Sel.searchInput).first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await searchInput.count() > 0) {
-      await searchInput.fill('analyst');
-      await page.waitForTimeout(400);
+  test('search with no matches shows the empty state, and Clear All restores', async ({ page }) => {
+    await page.getByLabel('Search roles', { exact: true }).fill('zzzznotarole');
+    await expect(rows(page)).toHaveCount(0);
+    await expect(page.getByText('No roles match your search')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Clear All Filters' }).first().click();
+    expect(await countText(page)).toContain(`${TOTAL_ROLES} roles found`);
+  });
+
+  test('category filter narrows to that track only', async ({ page }) => {
+    await page.getByRole('button', { name: 'Data Engineering', exact: true }).click();
+
+    const shown = Number((await countText(page))!.match(/^(\d+)/)![1]);
+    expect(shown).toBeGreaterThan(0);
+    expect(shown).toBeLessThan(TOTAL_ROLES);
+
+    // Every visible row must actually belong to the selected track.
+    const tracks = await rows(page).locator('td:nth-child(2)').allTextContents();
+    for (const t of tracks) expect(t.trim()).toBe('Data Engineering');
+  });
+
+  test('opening a role shows all four tabs with real content', async ({ page }) => {
+    await page.getByLabel('Search roles', { exact: true }).fill('AI Consultant');
+    await expect(rows(page)).toHaveCount(1);
+    await rows(page).first().click();
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    for (const tab of ['Overview', 'Day in the Life', 'Month in the Life', 'Career Path']) {
+      await expect(dialog.getByRole('tab', { name: tab })).toBeVisible();
+    }
+
+    // AI Consultant had no schedule before the content pass; it now has seven
+    // timed entries, so this fails if that content is ever dropped.
+    await dialog.getByRole('tab', { name: 'Day in the Life' }).click();
+    const times = await dialog.getByRole('tabpanel').textContent();
+    expect(times!.match(/\d{1,2}:\d{2}\s?(AM|PM)/g)!.length).toBe(7);
+  });
+
+  test('a ?role= deep link opens that role, even when it is off the first page', async ({ page }) => {
+    // The quiz results link here as /explore-data-careers?role=data-analyst.
+    // Sorted alphabetically and paginated at nine, "Data Analyst" is not
+    // rendered on load, so the old scrollIntoView found nothing and the user
+    // landed at the top of an unrelated list with no sign anything happened.
+    await goto(page, `${Routes.exploreDataCareers}?role=data-analyst`);
+    await waitForPageLoad(page);
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole('tab', { name: 'Overview' })).toBeVisible();
+    await expect(dialog.getByText('Data Analyst').first()).toBeVisible();
+
+    // Proves the premise: the role is genuinely absent from the rendered page.
+    await expect(page.locator('#role-data-analyst')).toHaveCount(0);
+  });
+
+  test('the Career Resources links point at routes that exist', async ({ page }) => {
+    // All four previously pointed at routes with no <Route>, falling through to
+    // NotFound: /resources/salary-guide, /career-pathway/skills-assessment,
+    // /career-pathway/planner, /resources/interview-prep.
+    for (const [name, href] of [
+      ['Take the Career Assessment', '/career-agent'],
+      ['Your Career Report', '/career-pathway'],
+      ['Interview Preparation', '/interview-prep'],
+      ['All Resources', '/resources'],
+    ]) {
+      await expect(page.getByRole('link', { name })).toHaveAttribute('href', href);
     }
   });
-
-  test('category tabs filter careers', async ({ page }) => {
-    const tabs = page.locator('[role="tab"]');
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await tabs.count() > 0) {
-      await tabs.first().click();
-      await page.waitForTimeout(300);
-    }
-  });
-
-  test('category filter via URL query param works', async ({ page }) => {
-    await goto(page, `${Routes.exploreDataCareers}?category=Analytics`);
-    await expect(page.locator('main, [role="main"]')).toBeVisible();
-  });
-
-  test('sidebar is visible', async ({ page }) => {
-    await expect(page.locator('[data-sidebar="sidebar"]')).toBeVisible();
-  });
-
-  /**
-   * Platform courses always outrank Coursera, so which subjects fall through
-   * to the external list depends on what's published in the live database.
-   * Stubbing the published list empty makes every subject uncovered — the
-   * Coursera picks then come one-per-subject from the fixture, deterministically.
-   * (The glob does not match coursera_courses: that path segment starts with
-   * "coursera", not "courses".)
-   */
-  const stubNoPlatformCourses = (page: import('@playwright/test').Page) =>
-    page.route('**/rest/v1/courses?*', (route) =>
-      route.request().method() === 'GET'
-        ? route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
-        : route.continue(),
-    );
 
   test('role detail career path recommends stubbed Coursera courses safely', async ({ page }) => {
     await stubCourseraCatalog(page);
     await stubNoPlatformCourses(page);
     await goto(page, Routes.exploreDataCareers);
 
+    await page.getByTestId('view-grid').click();
     await page.getByRole('button', { name: /Explore role/ }).first().click();
     await page.getByRole('tab', { name: 'Career Path' }).click();
 
@@ -98,6 +170,7 @@ test.describe('Explore Data Careers', () => {
     await stubNoPlatformCourses(page);
     await goto(page, Routes.exploreDataCareers);
 
+    await page.getByTestId('view-grid').click();
     await page.getByRole('button', { name: /Explore role/ }).first().click();
     await page.getByRole('tab', { name: 'Career Path' }).click();
 
@@ -105,5 +178,37 @@ test.describe('Explore Data Careers', () => {
     // coursera.org links still render — just from the bundled copy.
     const external = page.locator('a[href^="https://www.coursera.org/"]');
     await expect(external.first()).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('the career path tab links only to courses that exist', async ({ page }) => {
+    await page.getByLabel('Search roles', { exact: true }).fill('Data Analyst');
+    await rows(page).first().click();
+
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('tab', { name: 'Career Path' }).click();
+
+    const panel = dialog.getByRole('tabpanel');
+    await expect(panel).toBeVisible();
+
+    // Recommendations come from published platform courses with a Coursera
+    // fallback, so the titles vary. What must never come back are the
+    // placeholder ids the legacy `courses` field carried — every /courses/da101
+    // link 404'd. Assert on the hrefs rather than the copy.
+    const hrefs = await panel.getByRole('link').evaluateAll((els) =>
+      els.map((e) => e.getAttribute('href') ?? ''),
+    );
+    expect(hrefs.length).toBeGreaterThan(0);
+
+    for (const href of hrefs) {
+      expect(href, `${href} is a legacy placeholder course id`).not.toMatch(
+        /\/courses\/(da|ml|de|bi|sql)\d{3}$/,
+      );
+      // Anything internal must be a real route: /courses, or /courses/<uuid>.
+      if (href.startsWith('/courses/')) {
+        expect(href).toMatch(
+          /^\/courses\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+        );
+      }
+    }
   });
 });

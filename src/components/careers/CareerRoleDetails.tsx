@@ -3,6 +3,7 @@ import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DataCareerRole } from '@/data/dataCareerRoles';
+import { CareerRoleWage } from '@/hooks/useCareerRoleWages';
 
 import { RoleHeader } from './details/RoleHeader';
 import { OverviewTab } from './details/OverviewTab';
@@ -13,12 +14,14 @@ import { CareerPathTab } from './details/CareerPathTab';
 interface CareerRoleDetailsProps {
   role: DataCareerRole;
   onClose: () => void;
+  /** BLS row for this role; the header draws the full distribution from it. */
+  wage?: CareerRoleWage;
 }
 
-export const CareerRoleDetails: React.FC<CareerRoleDetailsProps> = ({ role, onClose }) => {
+export const CareerRoleDetails: React.FC<CareerRoleDetailsProps> = ({ role, onClose, wage }) => {
   return (
     <Card className="ss-card animate-fade-in w-full max-h-[90vh] overflow-y-auto bg-card">
-      <RoleHeader role={role} onClose={onClose} />
+      <RoleHeader role={role} onClose={onClose} wage={wage} />
 
       <CardContent className="pt-4">
         <Tabs defaultValue="overview" className="space-y-4">
