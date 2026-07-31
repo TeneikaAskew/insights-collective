@@ -35,7 +35,6 @@ const logger = createLogger('handleButtonClick');
     analysisDate
   }) => {
     const [hasBeenClicked, setHasBeenClicked] = useState(false);
-    const [hasRoast, setHasRoast] = useState(false);
     const { careerAlignments } = useResumeAnalysis();
     
     // Get userId from the auth context
@@ -48,29 +47,6 @@ const logger = createLogger('handleButtonClick');
     // logger.log('[OverallScoreCard] Resume data:', localStorage.getItem(`resume_data_${userId}`));
   
     
-  // Check for roast (keep existing functionality)
-  useEffect(() => {
-    logger.log("Checking if roast exists yet for: ", userId);
-    if (userId) {
-      const checkForRoast = async () => {
-        try {
-          const {
-            data,
-            error
-          } = await supabase.from('resumes').select('resume_roast').eq('user_id', userId).order('uploaded_at', {
-            ascending: false
-          }).limit(1).maybeSingle();
-          logger.log("user: ", userId, " - Roast data", data);
-          if (!error && data?.resume_roast) {
-            setHasRoast(true);
-          }
-        } catch (error) {
-          logger.error("Error checking for roast:", error);
-        }
-      };
-      checkForRoast();
-    }
-  }, [userId]);
 
   const handleButtonClick = () => {
     setHasBeenClicked(true);

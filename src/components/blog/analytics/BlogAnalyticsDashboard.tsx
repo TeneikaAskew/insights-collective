@@ -3,7 +3,6 @@ import { CHART_COLORS } from '@/lib/chartColors';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
   LineChart, 
@@ -29,11 +28,8 @@ import {
   Eye, 
   Clock, 
   MousePointer,
-  Globe,
-  Share2,
   MessageSquare,
   Heart,
-  Calendar,
   Filter
 } from 'lucide-react';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
@@ -430,8 +426,8 @@ export function BlogAnalyticsDashboard({ postId }: BlogAnalyticsDashboardProps) 
                       <stop offset="95%" stopColor="hsl(var(--ss-lav-deep))" stopOpacity={0}/>
                     </linearGradient>
                     <linearGradient id="colorVisitors" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="hsl(var(--ss-teal))" stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor="hsl(var(--ss-teal))" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" />

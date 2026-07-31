@@ -2,7 +2,6 @@
 import React from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { CheckCircle, AlertTriangle } from 'lucide-react';
-import { BULLET_CATEGORIES } from './BulletChartData';
 
 // Helper function to determine if target is met
 export const isTargetMet = (score: number) => {

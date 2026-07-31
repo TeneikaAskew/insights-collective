@@ -101,18 +101,18 @@ export default tseslint.config(
         "error",
         {
           selector:
-            "Literal[value=/(^|[ '\"`])(bg|text|border|from|via|to|ring|fill|stroke|divide|outline|decoration|accent|caret|shadow)-(gray|slate|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-[0-9]/]",
+            "Literal[value=/(^|[ '\"`:])(bg|text|border|from|via|to|ring|fill|stroke|divide|outline|decoration|accent|caret|shadow)-(gray|slate|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-[0-9]/]",
           message:
             "Raw Tailwind palette class — use Soft Studio tokens instead (bg-background, bg-card, text-muted-foreground, border-border, bg-accent, ss-* colors). See src/index.css.",
         },
         {
           selector:
-            "TemplateElement[value.raw=/(^|[ '\"`])(bg|text|border|from|via|to|ring|fill|stroke)-(gray|slate|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-[0-9]/]",
+            "TemplateElement[value.raw=/(^|[ '\"`:])(bg|text|border|from|via|to|ring|fill|stroke)-(gray|slate|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-[0-9]/]",
           message:
             "Raw Tailwind palette class in template string — use Soft Studio tokens instead. See src/index.css.",
         },
         {
-          selector: "Literal[value=/(^|[ '\"`])(bg-white|bg-black)([ '\"`]|$)/]",
+          selector: "Literal[value=/(^|[ '\"`:])(bg-white|bg-black)([ '\"`]|$)/]",
           message:
             "bg-white/bg-black bypass theming — use bg-card / bg-background (or an overlay token) instead.",
         },

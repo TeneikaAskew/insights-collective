@@ -4,7 +4,6 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { CHART_COLORS } from '@/lib/chartColors';
 import { useParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -72,7 +71,6 @@ interface ActivityData {
   activitiesCompleted: number;
 }
 
-const COLORS = CHART_COLORS;
 
 export const StudentInsightsDashboard: React.FC<StudentInsightsProps> = ({
   studentId: propStudentId,
