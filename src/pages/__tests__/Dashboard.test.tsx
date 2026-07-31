@@ -10,6 +10,7 @@ import { mockSupabaseClient } from '@/test/mocks/supabase';
 import { createMockAuthProvider } from '@/test/mocks/authMocks';
 import { useAuth } from '@/contexts/AuthContext';
 import { makeCourse } from '@/test/utils/course-fixtures';
+import { Routes, Route } from 'react-router-dom';
 import Dashboard from '@/pages/Dashboard';
 
 // The app shell and analytics widgets are out of scope here.
@@ -167,6 +168,31 @@ describe('Dashboard', () => {
 
       expect(await screen.findByRole('tab', { name: 'Selected Day' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Quizzes & Exams/ })).toBeInTheDocument();
+    });
+
+    it('carries the tab through the login redirect when signed out', async () => {
+      // REGRESSION: the redirect was hardcoded to "/login?redirect=/dashboard", which
+      // dropped the query string — a signed-out user following a calendar link came
+      // back to My Courses. Login's safeInternalPath preserves search, so the tab only
+      // survives if the path it is handed still carries it.
+      vi.mocked(useAuth).mockReturnValue(
+        createMockAuthProvider({ user: null, isAuthenticated: false }) as any
+      );
+      window.history.pushState({}, '', '/dashboard?tab=calendar');
+
+      // Rendered under Routes, as in App.tsx. That matters: navigating to /login has
+      // to unmount Dashboard. Rendered bare, it stays mounted, recomputes the redirect
+      // from the location it just moved to, and redirects forever.
+      render(
+        <Routes>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/login" element={<div data-testid="login-stub" />} />
+        </Routes>
+      );
+
+      expect(await screen.findByTestId('login-stub')).toBeInTheDocument();
+      const redirect = new URLSearchParams(window.location.search).get('redirect');
+      expect(redirect).toBe('/dashboard?tab=calendar');
     });
 
     it('opens the calendar directly from ?tab=calendar', async () => {

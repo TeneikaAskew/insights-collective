@@ -13,7 +13,7 @@ import StudentProgressAnalytics from '@/components/dashboard/StudentProgressAnal
 import { useCoursesManagement } from '@/hooks/useCoursesManagement';
 import { useToast } from '@/hooks/use-toast';
 import { Course } from '@/types';
-import { Navigate, Link, useSearchParams } from 'react-router-dom';
+import { Navigate, Link, useSearchParams, useLocation } from 'react-router-dom';
 import { computeDashboardMetrics } from '@/utils/dashboardMetrics';
 import { CalendarPanel } from '@/components/calendar/CalendarPanel';
 
@@ -30,6 +30,7 @@ const Dashboard = () => {
   // menu, the notifications dropdown — need a destination that opens it directly.
   // `replace` keeps tab switching out of the back-stack, so Back still leaves the
   // Dashboard rather than walking through every tab the user tried.
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') ?? 'courses';
   const setActiveTab = (tab: string) => {
@@ -49,9 +50,16 @@ const Dashboard = () => {
   const [teachingCourses, setTeachingCourses] = useState<Course[]>([]);
   const [inProgressCount, setInProgressCount] = useState(0);
   
-  // Redirect to login if not authenticated
+  // Redirect to login if not authenticated.
+  //
+  // Built from the current location rather than hardcoded to "/dashboard": the tab now
+  // lives in the query string, so a hardcoded path silently dropped it and returned a
+  // signed-out user following a ?tab=calendar link to My Courses after logging in.
+  // Encoded because the value itself contains a query string. safeInternalPath on the
+  // Login side preserves search and hash, so the tab survives the round trip.
   if (!isAuthenticated) {
-    return <Navigate to="/login?redirect=/dashboard" replace />;
+    const returnTo = encodeURIComponent(`${location.pathname}${location.search}`);
+    return <Navigate to={`/login?redirect=${returnTo}`} replace />;
   }
   
   useEffect(() => {
