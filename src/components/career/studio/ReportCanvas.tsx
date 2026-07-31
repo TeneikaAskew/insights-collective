@@ -2,6 +2,7 @@ import React from 'react';
 import { CareerReportData } from '@/components/assistants/types';
 import { useSkillCourses } from '@/hooks/useSkillCourses';
 import { CourseraCourseRow } from '@/components/learning/CourseraCourseRow';
+import { useCareerRoleWages, formatWageShort } from '@/hooks/useCareerRoleWages';
 
 /** Reveal order for the canvas cards during generation. */
 export const CANVAS_STAGES = ['summary', 'match', 'skills', 'path', 'roles', 'takeaways'] as const;
@@ -73,7 +74,9 @@ interface ReportCanvasProps {
 const ReportCanvas: React.FC<ReportCanvasProps> = ({ report, revealStage }) => {
   const live = (stage: CanvasStage) => !!report && revealStage > CANVAS_STAGES.indexOf(stage);
 
+  const { bySlug: wagesBySlug } = useCareerRoleWages();
   const topRole = report?.recommendedRoles?.[0];
+  const topWage = topRole ? wagesBySlug.get(topRole.roleSlug) : undefined;
   const pathSteps = (report?.futureCareerPath?.length ? report.futureCareerPath : report?.careerPathSteps) ?? [];
   const otherRoles = report?.potentialRoles ?? [];
 
@@ -101,8 +104,17 @@ const ReportCanvas: React.FC<ReportCanvasProps> = ({ report, revealStage }) => {
         <CanvasCard>
           <CardLabel>Top match</CardLabel>
           <div className="flex items-baseline gap-2 flex-wrap">
-            <span className="text-lg font-bold tracking-tight">{topRole.title}</span>
-            {topRole.salaryRange && <span className="ss-chip">{topRole.salaryRange}</span>}
+            {/* Title and pay both come from `career_role_wages`, keyed by the
+                slug the model chose. The report itself carries neither, so a
+                figure can never appear here without a BLS occupation behind it. */}
+            <span className="text-lg font-bold tracking-tight">
+              {topWage?.title ?? topRole.roleSlug}
+            </span>
+            {topWage && (
+              <span className="ss-chip" title={`${topWage.occupation_title} (${topWage.soc_code}), ${topWage.reference_period}`}>
+                {formatWageShort(topWage.pct25)}–{formatWageShort(topWage.pct75)}
+              </span>
+            )}
           </div>
           {typeof topRole.matchPercentage === 'number' && topRole.matchPercentage > 0 && (
             <div className="mt-3">
@@ -145,7 +157,7 @@ const ReportCanvas: React.FC<ReportCanvasProps> = ({ report, revealStage }) => {
 
       {live('path') && pathSteps.length ? (
         <CanvasCard>
-          <CardLabel>Path to {topRole?.title || 'your aspirational role'}</CardLabel>
+          <CardLabel>Path to {topWage?.title || 'your aspirational role'}</CardLabel>
           <ol className="m-0 p-0 list-none">
             {pathSteps.map((step: any, idx: number) => (
               <li key={idx} className="relative flex gap-3.5 pb-4 last:pb-0">

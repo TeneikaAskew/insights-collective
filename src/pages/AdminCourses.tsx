@@ -14,6 +14,7 @@ import {
   FileSpreadsheet, GraduationCap, CheckCircle, ArrowUpDown, ArrowUp, ArrowDown, X,
 } from 'lucide-react';
 import { Hint } from '@/components/ui/hint';
+import { CourseImage } from '@/components/common/CourseImage';
 import { CourseProgressDashboard } from '@/components/admin/CourseProgressDashboard';
 import { UnifiedExportReport } from '@/components/admin/UnifiedExportReport';
 import {
@@ -314,11 +315,7 @@ export default function AdminCourses() {
                           <TableCell>
                             <div className="flex items-center gap-3">
                               <div className="h-10 w-10 rounded-lg bg-muted overflow-hidden flex items-center justify-center text-ss-lav-deep shrink-0">
-                                {thumb ? (
-                                  <img src={thumb} alt={course.title} className="h-full w-full object-cover" />
-                                ) : (
-                                  <BookOpenIcon />
-                                )}
+                                <CourseImage src={thumb} alt={course.title} className="h-full w-full object-cover" />
                               </div>
                               <div className="min-w-0">
                                 <p className="font-semibold truncate">{course.title}</p>

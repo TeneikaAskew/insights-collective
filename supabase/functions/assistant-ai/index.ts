@@ -36,54 +36,92 @@ DATA BLUEPRINT SERIES KNOWLEDGE:
 - Lead: Lead Data Scientist/Analytics Manager (8+ years)
 - Executive: Director of Analytics/Chief Data Officer (10+ years)
 
-4. SALARY RANGES (USD):
-- Junior roles: $60,000-$85,000
-- Mid-level roles: $85,000-$120,000
-- Senior roles: $120,000-$165,000
-- Lead/Management: $150,000-$200,000
-- Executive: $200,000-$350,000+
-
-5. EDUCATION AND CERTIFICATION:
+4. EDUCATION AND CERTIFICATION:
 - Bachelor's degree: Minimum requirement for most entry-level positions
 - Master's/PhD: Often preferred for Data Scientist and research roles
 - Certifications: AWS/Azure/GCP cloud certifications, Tableau, Microsoft Power BI
 - Boot camps: Accelerated learning for career changers (3-6 months)
 
-6. INDUSTRY DEMAND:
+5. INDUSTRY DEMAND:
 - Healthcare: Growing need for data professionals in medical research, patient care optimization
 - Finance: High demand for risk modeling, fraud detection, algorithmic trading
 - Retail: Customer analytics, supply chain optimization, recommendation systems
 - Technology: Product analytics, user behavior analysis, platform optimization
 - Manufacturing: Process optimization, predictive maintenance, quality control
 
-7. EMERGING TRENDS:
+6. EMERGING TRENDS:
 - MLOps: Growing importance of operationalizing machine learning models
 - AutoML: Automation of model selection and hyperparameter tuning
 - Responsible AI: Focus on ethical AI, fairness, and removing bias
 - Data Mesh: Decentralized data ownership and governance
 - Real-time Analytics: Increasing demand for streaming data processing
 
-8. PORTFOLIO DEVELOPMENT:
+7. PORTFOLIO DEVELOPMENT:
 - Projects should demonstrate problem-solving abilities and technical skills
 - Include 3-5 substantial projects showing different aspects of data work
 - Document methodology, challenges faced, and business impact
 - Share code through GitHub with clear documentation
 - Consider contributing to open-source projects
 
-9. JOB SEARCH STRATEGIES:
+8. JOB SEARCH STRATEGIES:
 - Tailor resume to highlight relevant skills and projects for each application
 - Network through data conferences, meetups, and online communities
 - Prepare for technical interviews with coding practice and case studies
 - Follow companies of interest on LinkedIn and engage with their content
 - Consider contract roles as entry points to desirable companies
 
-10. CONTINUOUS LEARNING RESOURCES:
+9. CONTINUOUS LEARNING RESOURCES:
 - Academic courses: Coursera, edX, Udacity
 - Technical skills: DataCamp, Pluralsight, LeetCode
 - Books: "Python for Data Analysis", "The Data Warehouse Toolkit"
 - Blogs: Towards Data Science, KDnuggets, Analytics Vidhya
 - Podcasts: Data Skeptic, DataFramed, The O'Reilly Data Show
 `
+
+/**
+ * Real pay figures for the roles the platform knows about, formatted for the
+ * system prompt.
+ *
+ * KNOWLEDGE_BASE used to carry a hardcoded salary ladder — "Junior roles:
+ * $60,000-$85,000" and so on — with no source and no date. The model answered
+ * every pay question from it, so the numbers users saw were as old as whenever
+ * that block was typed. These come from `career_role_wages`, which is BLS OEWS
+ * data with a reference period attached.
+ *
+ * Returns an empty string on failure, and the prompt below then tells the model
+ * it has no wage data and must say so. That is the one place a fallback is
+ * right: the alternative is the model filling the silence from its training
+ * data, which is exactly the undated-guess problem being removed.
+ */
+async function fetchWageContext(supabaseClient: any): Promise<string> {
+  const { data, error } = await supabaseClient
+    .from('career_role_wages')
+    .select('title, occupation_title, soc_code, pct10, median, pct90, reference_period, source_name')
+    .order('median', { ascending: false });
+
+  if (error || !data?.length) {
+    console.error('fetchWageContext: no wage data available', error?.message);
+    return '';
+  }
+
+  const usd = (n: number) => `$${n.toLocaleString('en-US')}`;
+  const lines = data.map(
+    (r: any) =>
+      `- ${r.title}: 10th ${usd(r.pct10)}, median ${usd(r.median)}, 90th ${usd(r.pct90)} ` +
+      `(BLS occupation: ${r.occupation_title}, ${r.soc_code})`,
+  );
+
+  return `
+CURRENT WAGE DATA — ${data[0].source_name}, ${data[0].reference_period}:
+National, cross-industry annual wage estimates. Figures describe the BLS
+occupation each role maps to, not the role title itself.
+
+${lines.join('\n')}
+
+When asked about pay, quote only these figures and name the reference period.
+Do not estimate, adjust for cost of living, or offer a range that is not above.
+`;
+}
 
 interface AIRequest {
   query: string;
@@ -376,7 +414,16 @@ serve(async (req) => {
     if (context) {
       userContext += `\n\nADDITIONAL CONTEXT:\n${context}`;
     }
-    
+
+    // Real, dated pay figures replacing the hardcoded ladder that used to live
+    // in KNOWLEDGE_BASE.
+    //
+    // `auth.asUser` rather than the `supabase` above: that one is scoped to the
+    // else-branch of the credentials check, so referencing it here throws
+    // ReferenceError on every request. `career_role_wages` is public reference
+    // data, so the caller's own client can read it.
+    const wageContext = await fetchWageContext(auth.asUser);
+
     // Prepare the API call to GROQ
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
@@ -394,12 +441,17 @@ serve(async (req) => {
           messages: [
             {
               role: 'system',
-              content: `You are a helpful data career assistant with expertise in the data industry. 
-                       Use the following knowledge base to inform your responses: 
+              content: `You are a helpful data career assistant with expertise in the data industry.
+                       Use the following knowledge base to inform your responses:
                        ${KNOWLEDGE_BASE}
-                       
+                       ${wageContext || `
+NO WAGE DATA IS AVAILABLE for this conversation. If the user asks about salary,
+pay or compensation, say you cannot look up current figures right now and point
+them at the Explore Careers page. Do not answer from memory — any number you
+produce would be undated and unsourced.`}
+
                        ${userContext}
-                       
+
                        Focus on providing accurate, actionable advice based on the knowledge base above.
                        If you're unsure about something or if the information isn't in the knowledge base,
                        acknowledge the limitations of your knowledge rather than making up information.`

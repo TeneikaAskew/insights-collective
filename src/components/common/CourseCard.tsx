@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { CourseImage } from '@/components/common/CourseImage';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -172,16 +173,11 @@ const CourseCard: React.FC<CourseCardProps> = ({
       <Link to={`/courses/${course.id}`} className="block">
         <div className="relative">
           <div className="aspect-video overflow-hidden">
-            {course.thumbnail ? (
-              <img
-                src={course.thumbnail}
-                alt={course.title}
-                className="w-full h-full object-cover transition-transform hover:scale-105"
-              />
-            ) : (
-              // No artwork — neutral placeholder, never a stock photo.
-              <div className="w-full h-full bg-muted" aria-hidden="true" />
-            )}
+            <CourseImage
+              src={course.thumbnail}
+              alt={course.title}
+              className="w-full h-full object-cover transition-transform hover:scale-105"
+            />
           </div>
           <button 
             onClick={handleWishlist}

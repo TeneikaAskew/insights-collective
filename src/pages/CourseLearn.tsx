@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import CourseErrorState from '@/components/course/CourseErrorState';
+import { CourseImage } from '@/components/common/CourseImage';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCoursePermissions } from '@/hooks/useCoursePermissions';
@@ -545,17 +546,7 @@ const CourseLearn = () => {
                 </div>
                 <div className="flex items-center gap-4 pt-6 border-t border-border">
                   <div className="w-16 h-16 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 bg-primary text-primary-foreground">
-                    {course.thumbnail ? (
-                      <img
-                        src={course.thumbnail}
-                        alt={course.title}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <span className="font-bold text-2xl">
-                        {course.title.charAt(0).toUpperCase()}
-                      </span>
-                    )}
+                    <CourseImage src={course.thumbnail} alt={course.title} className="w-full h-full object-cover" />
                   </div>
                   <div className="font-sans text-xl">{course.title}</div>
                 </div>

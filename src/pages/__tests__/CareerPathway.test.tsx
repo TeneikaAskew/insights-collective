@@ -68,7 +68,9 @@ vi.mock('@/components/career/studio/ActionPlanSection', () => {
 
 const REPORT = {
   summary: 'A seasoned executive moving into data science leadership.',
-  recommendedRoles: [{ title: 'Data Science Leader', description: 'Lead data science teams.', matchPercentage: 92 }],
+  // Reports carry a slug, not a title — the title and pay are resolved from
+  // career_role_wages at render time so neither can be model-invented.
+  recommendedRoles: [{ roleSlug: 'data-scientist', description: 'Lead data science teams.', matchPercentage: 92 }],
   keyTakeaways: ['Develop technical skills in machine learning, data visualization, and SQL'],
   potentialRoles: [],
   skillsAndCourses: [],

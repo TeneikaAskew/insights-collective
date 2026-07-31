@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { htmlToPlainText } from '@/utils/htmlToPlainText';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
+import { CourseImage } from '@/components/common/CourseImage';
 import AppLayout from '@/components/layout/AppLayout';
 import { CourseLayout } from '@/components/course/CourseLayout';
 import CourseErrorState from '@/components/course/CourseErrorState';
@@ -1080,11 +1081,7 @@ const CourseDetail = () => {
                   </div>
                   <div className="hidden md:block">
                     <div className="aspect-[16/10] rounded-xl overflow-hidden bg-background/10">
-                      {course.thumbnail ? (
-                        <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full bg-muted" aria-hidden="true" />
-                      )}
+                      <CourseImage src={course.thumbnail} alt={course.title} />
                     </div>
                   </div>
                 </div>
@@ -1097,11 +1094,7 @@ const CourseDetail = () => {
                   <h2 className="font-display text-3xl text-foreground mb-6">Jump back in</h2>
                   <div className="grid sm:grid-cols-[220px_minmax(0,1fr)] gap-6 items-center">
                     <div className="aspect-video rounded-xl overflow-hidden bg-muted">
-                      {course.thumbnail ? (
-                        <img src={course.thumbnail} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full bg-muted" aria-hidden="true" />
-                      )}
+                      <CourseImage src={course.thumbnail} alt="" />
                     </div>
                     <div>
                       <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground mb-1">
@@ -1361,11 +1354,7 @@ const CourseDetail = () => {
                 <div className="xl:sticky xl:top-6">
 
                   <div className="aspect-[16/9] rounded-xl overflow-hidden mb-6 bg-muted">
-                    {course.thumbnail ? (
-                      <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full bg-muted" aria-hidden="true" />
-                    )}
+                    <CourseImage src={course.thumbnail} alt={course.title} />
                   </div>
                   {enrollmentCheckError ? (
                     <CourseErrorState
