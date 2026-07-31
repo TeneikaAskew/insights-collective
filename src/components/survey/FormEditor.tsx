@@ -494,7 +494,7 @@ export default function FormEditor({ initialFormData }: FormEditorProps) {
                         <div 
                           ref={provided.innerRef}
                           {...provided.draggableProps}
-                          className="border rounded-lg p-4 bg-white shadow-sm"
+                          className="border rounded-lg p-4 bg-card shadow-sm"
                         >
                           <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center">
@@ -539,13 +539,13 @@ export default function FormEditor({ initialFormData }: FormEditorProps) {
                                         <div 
                                           ref={provided.innerRef}
                                           {...provided.draggableProps}
-                                          className="border rounded-md p-4 bg-gray-50"
+                                          className="border rounded-md p-4 bg-muted"
                                         >
                                           
                                           <div className="flex items-center justify-between mb-3">
                                             <div className="flex items-center flex-1">
                                               <div {...provided.dragHandleProps} className="mr-2 cursor-grab">
-                                                <GripVertical className="h-5 w-5 text-gray-400" />
+                                                <GripVertical className="h-5 w-5 text-muted-foreground" />
                                               </div>
                                               <Input
                                                 value={field.label || ''}

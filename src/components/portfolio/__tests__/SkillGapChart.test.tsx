@@ -84,7 +84,6 @@ describe('SkillGapChart Coursera section', () => {
     const internal = screen.getByText('Read the platform SQL primer');
     const external = screen.getByText(/From Coursera/);
     const position = internal.compareDocumentPosition(external);
-    // eslint-disable-next-line no-bitwise
     expect(position & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(container).toBeInTheDocument();
   });

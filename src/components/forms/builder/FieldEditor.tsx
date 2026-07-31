@@ -239,7 +239,7 @@ const FieldEditor: React.FC<FieldEditorProps> = ({
             <CardContent className="p-4">
               <div className="flex flex-col sm:flex-row gap-4 mb-4">
                 <div {...provided.dragHandleProps} className="flex items-center cursor-grab">
-                  <GripVertical className="h-6 w-6 text-gray-400" />
+                  <GripVertical className="h-6 w-6 text-muted-foreground" />
                 </div>
 
                 <div className="flex-1 space-y-4">
@@ -304,7 +304,7 @@ const FieldEditor: React.FC<FieldEditorProps> = ({
                     </TabsList>
                     <TabsContent value="basic" className="mt-2">
                       {['dropdown', 'radio', 'checkbox', 'multi_select'].includes(field.type) && (
-                        <div className="border border-gray-200 rounded-lg p-4">
+                        <div className="border rounded-lg p-4">
                           <Label className="mb-2 block">Options</Label>
                           <ScrollArea className="h-[200px] border rounded p-2">
                             <div className="space-y-2 pr-4">
@@ -345,7 +345,7 @@ const FieldEditor: React.FC<FieldEditorProps> = ({
                       )}
 
                       {field.type === 'slider' && (
-                        <div className="border border-gray-200 rounded-lg p-4">
+                        <div className="border rounded-lg p-4">
                           <div className="grid grid-cols-2 gap-4">
                             <div>
                               <Label htmlFor={`field-min-${field.id}`} className="mb-2 block">Minimum Value</Label>
@@ -385,7 +385,7 @@ const FieldEditor: React.FC<FieldEditorProps> = ({
                       )}
 
                       {field.type === 'file_upload' && (
-                        <div className="border border-gray-200 rounded-lg p-4">
+                        <div className="border rounded-lg p-4">
                           <div className="mb-4">
                             <Label htmlFor={`field-max-size-${field.id}`} className="mb-2 block">Max File Size (MB)</Label>
                             <Input
@@ -466,7 +466,7 @@ const FieldEditor: React.FC<FieldEditorProps> = ({
                       )}
                     </TabsContent>
                     <TabsContent value="validation" className="mt-2">
-                      <div className="border border-gray-200 rounded-lg p-4">
+                      <div className="border rounded-lg p-4">
                         {renderValidationOptions()}
                       </div>
                     </TabsContent>
@@ -477,7 +477,7 @@ const FieldEditor: React.FC<FieldEditorProps> = ({
                   <Button 
                     variant="ghost" 
                     size="icon"
-                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                    className="text-destructive hover:text-destructive hover:bg-ss-bad-chip"
                     type="button"
                     onClick={() => setShowDeleteDialog(true)}
                   >
@@ -500,7 +500,7 @@ const FieldEditor: React.FC<FieldEditorProps> = ({
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction 
                   onClick={() => onRemoveField(sectionId, field.id)}
-                  className="bg-red-600 hover:bg-red-700"
+                  className="bg-destructive hover:bg-destructive/90"
                 >
                   Delete
                 </AlertDialogAction>

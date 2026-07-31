@@ -5,7 +5,7 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", ".claude"] },
+  { ignores: ["dist", ".claude", "coverage"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],
@@ -91,13 +91,14 @@ export default tseslint.config(
     // Soft Studio tokens (bg-background, text-muted-foreground, bg-accent,
     // ss-* colors) are the only sanctioned colors. Raw palette classes
     // (bg-gray-100, text-blue-500, bg-white) bypass theming and break in
-    // Ink Studio dark. "warn" while the legacy backlog is being converted;
-    // flipped to "error" when the sweep lands so the backlog can never grow.
+    // Ink Studio dark. The sweep converted the whole backlog, so this is an
+    // error — new raw palette classes cannot land. The one exemption is the
+    // portfolio template block below.
     files: ["src/**/*.tsx"],
     ignores: ["src/**/__tests__/**"],
     rules: {
       "no-restricted-syntax": [
-        "warn",
+        "error",
         {
           selector:
             "Literal[value=/(^|[ '\"`])(bg|text|border|from|via|to|ring|fill|stroke|divide|outline|decoration|accent|caret|shadow)-(gray|slate|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-[0-9]/]",
@@ -116,6 +117,23 @@ export default tseslint.config(
             "bg-white/bg-black bypass theming — use bg-card / bg-background (or an overlay token) instead.",
         },
       ],
+    },
+  },
+  {
+    // ── Exemption: portfolio owner-facing templates ──────────────────────────
+    //
+    // These files render the portfolio OWNER's chosen theme on the public
+    // portfolio page: fixed-light template surfaces, per-theme color maps, and
+    // the theme-picker swatches that depict real stored colors. Tokenizing
+    // them would flip the owner's design with the app theme. App chrome in
+    // the portfolio editor is NOT exempt and stays converted.
+    files: [
+      "src/components/portfolio/layouts/**",
+      "src/components/portfolio/EnhancedProjectCard.tsx",
+      "src/components/portfolio/EnhancedPortfolioEditor.tsx",
+    ],
+    rules: {
+      "no-restricted-syntax": "off",
     },
   }
 );

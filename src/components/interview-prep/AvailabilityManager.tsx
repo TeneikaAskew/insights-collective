@@ -296,13 +296,13 @@ export function AvailabilityManager({ timeBlocks, onAvailabilityChange }: Availa
                 className={`
                   relative flex flex-col items-center justify-center p-2 sm:p-3 border rounded-md cursor-pointer
                   ${activeDays.includes(day.id) 
-                    ? 'border-blue-500 bg-blue-50 text-blue-600 ' 
-                    : 'border-gray-200 hover:border-gray-300 '}
+                    ? 'border-primary bg-accent text-accent-foreground ' 
+                    : 'border-border hover:border-muted-foreground '}
                 `}
               >
                 {activeDays.includes(day.id) && (
                   <div className="absolute top-1 right-1">
-                    <Check className="h-3 w-3 sm:h-4 sm:w-4 text-blue-500" />
+                    <Check className="h-3 w-3 sm:h-4 sm:w-4 text-primary" />
                   </div>
                 )}
                 <span className="text-xs sm:text-sm font-medium">{day.name.substring(0, 3)}</span>

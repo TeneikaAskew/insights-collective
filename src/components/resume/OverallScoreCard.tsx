@@ -152,7 +152,7 @@ const logger = createLogger('handleButtonClick');
                   className={`w-full gap-2 rounded-full font-bold transition-colors duration-300 ${
                     hasAnalysis && hasBeenClicked
                       ? 'bg-ss-good-chip text-ss-good hover:bg-ss-good-chip/90'
-                      : 'bg-white text-ss-lav-deep hover:bg-white/90'
+                      : 'bg-primary-foreground text-ss-lav-deep hover:bg-primary-foreground/90'
                   }`}
                 >
                   <MessageSquare className="h-4 w-4" />

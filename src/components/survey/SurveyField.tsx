@@ -334,7 +334,7 @@ const SurveyField: React.FC<SurveyFieldProps> = ({ field, fieldName, defaultValu
               <FormItem>
                 <FormLabel className="flex items-start gap-2">
                   {field.label}
-                  {field.required && <span className="text-red-500">*</span>}
+                  {field.required && <span className="text-destructive">*</span>}
                 </FormLabel>
                 <FormControl>
                   <Input placeholder={`Enter ${field.label.toLowerCase()}`} {...formField} />
@@ -355,7 +355,7 @@ const SurveyField: React.FC<SurveyFieldProps> = ({ field, fieldName, defaultValu
               <FormItem>
                 <FormLabel className="flex items-start gap-2">
                   {field.label}
-                  {field.required && <span className="text-red-500">*</span>}
+                  {field.required && <span className="text-destructive">*</span>}
                 </FormLabel>
                 <FormControl>
                   <Textarea placeholder={`Enter ${field.label.toLowerCase()}`} {...formField} />
@@ -376,7 +376,7 @@ const SurveyField: React.FC<SurveyFieldProps> = ({ field, fieldName, defaultValu
               <FormItem>
                 <FormLabel className="flex items-start gap-2">
                   {field.label}
-                  {field.required && <span className="text-red-500">*</span>}
+                  {field.required && <span className="text-destructive">*</span>}
                 </FormLabel>
                 <Select 
                   onValueChange={formField.onChange} 
@@ -415,7 +415,7 @@ const SurveyField: React.FC<SurveyFieldProps> = ({ field, fieldName, defaultValu
               <FormItem className="space-y-3">
                 <FormLabel className="flex items-start gap-2">
                   {field.label}
-                  {field.required && <span className="text-red-500">*</span>}
+                  {field.required && <span className="text-destructive">*</span>}
                 </FormLabel>
                 <FormControl>
                   <RadioGroup
@@ -456,7 +456,7 @@ const SurveyField: React.FC<SurveyFieldProps> = ({ field, fieldName, defaultValu
                 {field.options && (
                   <FormLabel className="flex items-start gap-2">
                     {field.label}
-                    {field.required && <span className="text-red-500">*</span>}
+                    {field.required && <span className="text-destructive">*</span>}
                   </FormLabel>
                 )}
                 <FormControl>
@@ -514,7 +514,7 @@ const SurveyField: React.FC<SurveyFieldProps> = ({ field, fieldName, defaultValu
               <FormItem>
                 <FormLabel className="flex items-start gap-2">
                   {field.label}
-                  {field.required && <span className="text-red-500">*</span>}
+                  {field.required && <span className="text-destructive">*</span>}
                 </FormLabel>
                 <FormControl>
                   <Input type="date" {...formField} />
@@ -535,7 +535,7 @@ const SurveyField: React.FC<SurveyFieldProps> = ({ field, fieldName, defaultValu
               <FormItem className="space-y-3">
                 <FormLabel className="flex items-start gap-2">
                   {field.label}
-                  {field.required && <span className="text-red-500">*</span>}
+                  {field.required && <span className="text-destructive">*</span>}
                 </FormLabel>
                 <FormControl>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -573,7 +573,7 @@ const SurveyField: React.FC<SurveyFieldProps> = ({ field, fieldName, defaultValu
               <FormItem className="space-y-4">
                 <FormLabel className="flex items-start gap-2">
                   {field.label}
-                  {field.required && <span className="text-red-500">*</span>}
+                  {field.required && <span className="text-destructive">*</span>}
                 </FormLabel>
                 {field.subtitle && (
                   <p className="text-sm text-muted-foreground -mt-2">{field.subtitle}</p>
@@ -612,7 +612,7 @@ const SurveyField: React.FC<SurveyFieldProps> = ({ field, fieldName, defaultValu
               <FormItem>
                 <FormLabel className="flex items-start gap-2">
                   {field.label}
-                  {field.required && <span className="text-red-500">*</span>}
+                  {field.required && <span className="text-destructive">*</span>}
                 </FormLabel>
                 
                 {/* If this is a resume field and user has an existing resume, show option to use it */}
@@ -686,7 +686,7 @@ const SurveyField: React.FC<SurveyFieldProps> = ({ field, fieldName, defaultValu
               <FormItem>
                 <FormLabel className="flex items-start gap-2">
                   {field.label}
-                  {field.required && <span className="text-red-500">*</span>}
+                  {field.required && <span className="text-destructive">*</span>}
                 </FormLabel>
                 <FormControl>
                   <div className="relative">
