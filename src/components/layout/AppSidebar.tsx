@@ -190,7 +190,7 @@ const AppSidebar = () => {
         <div className={`flex items-center ${open ? 'space-x-2' : 'justify-center'} p-2`}>
           <Link to="/" className={`flex items-center ${open ? 'space-x-2' : ''}`}>
             <div className="relative w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-md bg-gradient-to-tr from-ss-lav to-ss-lav-deep">
-              <GraduationCap className="h-4 w-4 text-white" />
+              <GraduationCap className="h-4 w-4 text-primary-foreground" />
             </div>
             {open && <span className="font-bold text-base">Insights Collective</span>}
           </Link>

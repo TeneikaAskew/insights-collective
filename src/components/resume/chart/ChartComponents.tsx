@@ -24,17 +24,17 @@ export interface ChartDataItem {
 export const getCategoryColorClass = (category: string): string => {
   switch (category) {
     case 'action':
-      return 'bg-[#B97143]'; // ss-peach-deep
+      return 'bg-ss-peach-deep'; // ss-peach-deep
     case 'metrics':
-      return 'bg-[#3FA391]'; // ss-teal
+      return 'bg-ss-teal'; // ss-teal
     case 'clarity':
-      return 'bg-[#A794EB]'; // ss-lav
+      return 'bg-ss-lav'; // ss-lav
     case 'industry':
-      return 'bg-[#624EBE]'; // ss-lav-deep
+      return 'bg-ss-lav-deep'; // ss-lav-deep
     case 'achievement':
-      return 'bg-[#4E9B70]'; // ss-good
+      return 'bg-ss-good'; // ss-good
     default:
-      return 'bg-[#837E8C]'; // ss-muted
+      return 'bg-muted-foreground'; // ss-muted
   }
 };
 
@@ -42,17 +42,17 @@ export const getCategoryColorClass = (category: string): string => {
 export const getCategoryTextColorClass = (category: string): string => {
   switch (category) {
     case 'action':
-      return 'text-[#B97143]'; // ss-peach-deep
+      return 'text-ss-peach-deep'; // ss-peach-deep
     case 'metrics':
-      return 'text-[#3FA391]'; // ss-teal
+      return 'text-ss-teal'; // ss-teal
     case 'clarity':
-      return 'text-[#A794EB]'; // ss-lav
+      return 'text-ss-lav'; // ss-lav
     case 'industry':
-      return 'text-[#624EBE]'; // ss-lav-deep
+      return 'text-ss-lav-deep'; // ss-lav-deep
     case 'achievement':
-      return 'text-[#4E9B70]'; // ss-good
+      return 'text-ss-good'; // ss-good
     default:
-      return 'text-[#837E8C]'; // ss-muted
+      return 'text-muted-foreground'; // ss-muted
   }
 };
 

@@ -138,7 +138,7 @@ const logger = createLogger('handleButtonClick');
                       </Alert>)}
                   </div>}
 
-        <Card className="rounded-[26px] border-0 bg-gradient-to-br from-ss-lav-deep via-[#8B72E0] to-[#A98BD9] text-white shadow-md">
+        <Card className="rounded-[26px] border-0 bg-gradient-to-br from-ss-lav-deep via-ss-lav to-ss-lav text-primary-foreground shadow-md">
           <CardContent className="p-5">
             <div className="flex flex-col items-center text-center gap-2">
               <MessageSquare className="h-6 w-6 text-white" />

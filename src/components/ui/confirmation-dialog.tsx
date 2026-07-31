@@ -81,7 +81,7 @@ export function ConfirmationDialog({
             {icon === "warning" ? (
               <AlertTriangle className="h-5 w-5 text-destructive" />
             ) : (
-              <Info className="h-5 w-5 text-blue-500" />
+              <Info className="h-5 w-5 text-ss-teal" />
             )}
             <AlertDialogTitle>{title}</AlertDialogTitle>
           </div>
