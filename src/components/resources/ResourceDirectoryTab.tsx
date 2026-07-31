@@ -38,7 +38,7 @@ const ResourceCardSkeleton = ({ isListView = false }: { isListView?: boolean }) 
               <Skeleton className="h-6 w-14 rounded" />
             </div>
           </div>
-          <div className="md:w-1/3 bg-gray-50 p-4 flex flex-col justify-between">
+          <div className="md:w-1/3 bg-muted p-4 flex flex-col justify-between">
             <Skeleton className="h-4 w-32" />
             <Skeleton className="h-10 w-full mt-2" />
           </div>
@@ -84,7 +84,7 @@ export const ResourceDirectoryTab: React.FC<ResourceDirectoryTabProps> = ({
     return (
       <div className="w-full">
         <div className="flex justify-end space-x-2 mb-6">
-          <div className="bg-gray-100 rounded-lg p-1 flex">
+          <div className="bg-muted rounded-lg p-1 flex">
             <Button 
               variant={viewMode === 'grid' ? 'default' : 'ghost'} 
               size="sm"
@@ -123,7 +123,7 @@ export const ResourceDirectoryTab: React.FC<ResourceDirectoryTabProps> = ({
 
   if (visibleDirectoryResources.length === 0) {
     return (
-      <div className="text-center py-12 bg-gray-50 rounded-lg">
+      <div className="text-center py-12 bg-muted rounded-lg">
         <h3 className="text-xl font-medium mb-2">No resources found</h3>
         <p className="text-muted-foreground mb-4">Try adjusting your search or filter criteria</p>
         <Button variant="outline" onClick={() => window.location.reload()}>
@@ -136,7 +136,7 @@ export const ResourceDirectoryTab: React.FC<ResourceDirectoryTabProps> = ({
   return (
     <div className="space-y-6 w-full">
       <div className="flex justify-end space-x-2">
-        <div className="bg-gray-100 rounded-lg p-1 flex">
+        <div className="bg-muted rounded-lg p-1 flex">
           <Button 
             variant={viewMode === 'grid' ? 'default' : 'ghost'} 
             size="sm"

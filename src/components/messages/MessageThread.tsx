@@ -23,10 +23,10 @@ const MessageThread: React.FC<MessageThreadProps> = ({ messages, loading }) => {
       <div className="p-4 space-y-4">
         {[1, 2, 3].map((i) => (
           <div key={i} className={`flex items-start gap-2 ${i % 2 === 0 ? 'justify-end' : ''}`}>
-            {i % 2 !== 0 && <div className="h-8 w-8 bg-gray-200 rounded-full" />}
-            <div className={`animate-pulse p-3 rounded-md max-w-[70%] ${i % 2 === 0 ? 'bg-amber-100' : 'bg-gray-100'}`}>
-              <div className="h-4 w-32 bg-gray-300 rounded mb-2" />
-              <div className="h-3 w-40 bg-gray-300 rounded" />
+            {i % 2 !== 0 && <div className="h-8 w-8 bg-muted rounded-full" />}
+            <div className={`animate-pulse p-3 rounded-md max-w-[70%] ${i % 2 === 0 ? 'bg-ss-warn-chip' : 'bg-muted'}`}>
+              <div className="h-4 w-32 bg-ss-track rounded mb-2" />
+              <div className="h-3 w-40 bg-ss-track rounded" />
             </div>
           </div>
         ))}
@@ -37,7 +37,7 @@ const MessageThread: React.FC<MessageThreadProps> = ({ messages, loading }) => {
   if (messages.length === 0) {
     return (
       <div className="h-full flex items-center justify-center">
-        <p className="text-center text-gray-600">
+        <p className="text-center text-muted-foreground">
           No messages yet. Start the conversation!
         </p>
       </div>
@@ -76,7 +76,7 @@ const MessageThread: React.FC<MessageThreadProps> = ({ messages, loading }) => {
       {groupedMessages.map((group, groupIndex) => (
         <div key={group.date} className="mb-4">
           <div className="flex justify-center mb-4">
-            <div className="bg-gray-100 text-gray-600 text-xs px-3 py-1 rounded-full">
+            <div className="bg-muted text-muted-foreground text-xs px-3 py-1 rounded-full">
               {format(new Date(group.date), 'MMMM d, yyyy')}
             </div>
           </div>
@@ -92,21 +92,21 @@ const MessageThread: React.FC<MessageThreadProps> = ({ messages, loading }) => {
                 {!isCurrentUser && (
                   <Avatar className="h-8 w-8 mr-2">
                     <AvatarImage src={message.sender?.avatar_url || ''} />
-                    <AvatarFallback className="bg-gray-200 text-gray-800">{getInitials(message)}</AvatarFallback>
+                    <AvatarFallback className="bg-muted text-foreground">{getInitials(message)}</AvatarFallback>
                   </Avatar>
                 )}
                 
                 <div className={`max-w-[70%] ${isCurrentUser ? 'order-1' : 'order-2'}`}>
                   <div 
                     className={`p-3 rounded-lg ${
-                      isCurrentUser 
-                        ? 'bg-amber-500 text-white rounded-br-none' 
-                        : 'bg-gray-100 text-gray-800 rounded-bl-none'
+                      isCurrentUser
+                        ? 'bg-ss-peach-deep text-white rounded-br-none'
+                        : 'bg-muted text-foreground rounded-bl-none'
                     }`}
                   >
                     {message.content}
                   </div>
-                  <p className={`text-xs text-gray-500 mt-1 ${isCurrentUser ? 'text-right' : ''}`}>
+                  <p className={`text-xs text-muted-foreground mt-1 ${isCurrentUser ? 'text-right' : ''}`}>
                     {formatMessageDate(message.created_at)}
                   </p>
                 </div>
@@ -114,7 +114,7 @@ const MessageThread: React.FC<MessageThreadProps> = ({ messages, loading }) => {
                 {isCurrentUser && (
                   <Avatar className="h-8 w-8 ml-2">
                     <AvatarImage src={user?.user_metadata?.avatar_url} />
-                    <AvatarFallback className="bg-amber-100 text-amber-800">{user?.email?.charAt(0).toUpperCase()}</AvatarFallback>
+                    <AvatarFallback className="bg-ss-warn-chip text-ss-warn">{user?.email?.charAt(0).toUpperCase()}</AvatarFallback>
                   </Avatar>
                 )}
               </div>

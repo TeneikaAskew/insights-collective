@@ -50,7 +50,7 @@ export const ResourceFilters: React.FC<ResourceFiltersProps> = ({
   ].filter(Boolean).length;
 
   return (
-    <div className="space-y-4 w-full bg-white rounded-lg shadow-sm p-4">
+    <div className="space-y-4 w-full bg-card rounded-lg shadow-sm p-4">
       <div className="flex flex-col md:flex-row gap-4">
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

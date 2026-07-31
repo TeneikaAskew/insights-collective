@@ -5,7 +5,7 @@ import { NewConversationDialog } from './NewConversationDialog';
 export function NewConversationButton() {
   const [open, setOpen] = useState(false);
   return <>
-      <Button onClick={() => setOpen(true)} className="flex items-right gap-2 bg-amber-600 hover:bg-amber-700 mx-[130px]">
+      <Button onClick={() => setOpen(true)} className="flex items-right gap-2 bg-ss-peach-deep hover:bg-ss-peach-deep/90 mx-[130px]">
         <Plus className="h-4 w-4" />
         New Conversation
       </Button>

@@ -34,40 +34,40 @@ export const TweetCard = ({ tweet, highlighted = false }: TweetCardProps) => {
   };
 
   const backgroundClass = highlighted
-    ? 'bg-white shadow-md border-2 border-blue-200 '
-    : 'bg-white shadow-sm';
+    ? 'bg-card shadow-md border-2 border-ss-teal '
+    : 'bg-card shadow-sm';
 
   return (
     <Card className={`hover:shadow-md transition-shadow overflow-hidden ${backgroundClass}`}>
       <CardContent className="p-4">
         <div className="flex items-start space-x-3">
           <div className="flex-shrink-0">
-            <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-700">
+            <div className="h-10 w-10 bg-ss-teal-chip rounded-full flex items-center justify-center text-ss-teal">
               <Twitter className="h-5 w-5" />
             </div>
           </div>
           <div className="flex-grow">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center">
-                <span className="font-semibold text-gray-900">Top Tweet</span>
+                <span className="font-semibold text-foreground">Top Tweet</span>
                 {tweet.date && (
                   <>
-                    <span className="text-gray-500 mx-2">·</span>
-                    <span className="text-gray-500 text-sm">{formatTimeAgo(tweet.date)}</span>
+                    <span className="text-muted-foreground mx-2">·</span>
+                    <span className="text-muted-foreground text-sm">{formatTimeAgo(tweet.date)}</span>
                   </>
                 )}
               </div>
             </div>
-            <p className="text-gray-800 mb-3">{tweet.content}</p>
+            <p className="text-foreground mb-3">{tweet.content}</p>
             
             <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center space-x-6 text-gray-500">
+              <div className="flex items-center space-x-6 text-muted-foreground">
                 <div className="flex items-center">
-                  <Heart className="h-4 w-4 mr-1 text-red-500" />
+                  <Heart className="h-4 w-4 mr-1 text-ss-bad" />
                   <span className="text-sm">{formatMetric(tweet.likes)}</span>
                 </div>
                 <div className="flex items-center">
-                  <Repeat className="h-4 w-4 mr-1 text-green-500" />
+                  <Repeat className="h-4 w-4 mr-1 text-ss-good" />
                   <span className="text-sm">{formatMetric(tweet.retweets)}</span>
                 </div>
               </div>

@@ -70,9 +70,9 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
 
   if (!conversations || conversations.length === 0) {
     return (
-      <div className="text-center p-6 border rounded-md bg-amber-50 border-amber-200">
-        <p className="text-amber-800 mb-2 font-medium">No conversations yet</p>
-        <p className="text-sm text-amber-700">Start a new conversation to connect with instructors and classmates.</p>
+      <div className="text-center p-6 border rounded-md bg-ss-card-warm">
+        <p className="text-ss-peach-deep mb-2 font-medium">No conversations yet</p>
+        <p className="text-sm text-muted-foreground">Start a new conversation to connect with instructors and classmates.</p>
       </div>
     );
   }
@@ -206,10 +206,10 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
         return (
           <Card
             key={conversation.id}
-            className={`hover:bg-amber-50/50 cursor-pointer transition-colors ${
-              isUnread ? 'border-amber-500 bg-amber-50/80' : ''
+            className={`hover:bg-ss-card-warm cursor-pointer transition-colors ${
+              isUnread ? 'border-ss-peach-deep bg-ss-card-warm' : ''
             } ${
-              conversationId === conversation.id ? 'bg-amber-50 border-amber-200' : ''
+              conversationId === conversation.id ? 'bg-ss-card-warm border-ss-peach' : ''
             }`}
           >
             <Link
@@ -227,13 +227,13 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
                          <Avatar className="h-10 w-10">
                             {/* Generic Group Icon or Creator Avatar */}
                             <AvatarImage src={avatarUrl || "https://api.dicebear.com/6.x/initials/svg?seed=Group"} />
-                            <AvatarFallback className="bg-amber-100 text-amber-800">{avatarFallback}</AvatarFallback>
+                            <AvatarFallback className="bg-ss-warn-chip text-ss-warn">{avatarFallback}</AvatarFallback>
                           </Avatar>
                           {/* Optional: Small avatar for first other participant */}
                           {displayProfile && (
                             <Avatar className="h-6 w-6 absolute -bottom-1 -right-1 border-2 border-background">
                               <AvatarImage src={displayProfile.avatar_url} />
-                              <AvatarFallback className="bg-amber-200 text-amber-800 text-xs">
+                              <AvatarFallback className="bg-ss-warn-chip text-ss-warn text-xs">
                                 {getInitials(displayProfile)}
                               </AvatarFallback>
                             </Avatar>
@@ -242,24 +242,24 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
                     ) : (
                        <Avatar className="h-10 w-10 shrink-0">
                          <AvatarImage src={avatarUrl} />
-                         <AvatarFallback className="bg-amber-100 text-amber-800">
+                         <AvatarFallback className="bg-ss-warn-chip text-ss-warn">
                            {avatarFallback}
                          </AvatarFallback>
                        </Avatar>
                     )}
                     <div className="space-y-1 flex-1 min-w-0 text-left">
-                      <p className={`font-medium line-clamp-1 text-gray-800 text-left ${isUnread ? 'font-semibold' : ''}`}>
+                      <p className={`font-medium line-clamp-1 text-foreground text-left ${isUnread ? 'font-semibold' : ''}`}>
                         {displayName}
                       </p>
-                      <p className={`text-sm text-gray-600 line-clamp-1 text-left ${isUnread ? 'font-medium' : ''}`}>
+                      <p className={`text-sm text-muted-foreground line-clamp-1 text-left ${isUnread ? 'font-medium' : ''}`}>
                         {conversation.last_message?.content || 'Start a conversation'}
                       </p>
                     </div>
                   </div>
                   <div className="flex flex-col items-end shrink-0"> {/* Prevent shrinking */}
-                    <span className="text-xs text-gray-500 whitespace-nowrap">{timeAgo}</span> {/* Prevent wrapping */}
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">{timeAgo}</span> {/* Prevent wrapping */}
                     {isUnread && (
-                      <span className="bg-amber-500 text-white text-xs rounded-full px-2 py-0.5 mt-1">
+                      <span className="bg-ss-peach-deep text-white text-xs rounded-full px-2 py-0.5 mt-1">
                         New
                       </span>
                     )}
