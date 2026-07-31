@@ -97,15 +97,36 @@ async function loadKeywords(supabase: ReturnType<typeof serviceClient>) {
 // Actions
 // ---------------------------------------------------------------------------
 
+/**
+ * PostgREST caps every response at `db-max-rows` (1,000 on this project) regardless of
+ * the `.limit()` asked for. A single select therefore returns 1,000 rows and reports
+ * success, which silently truncated a 7,453-course refresh to 1,000. Page explicitly.
+ */
+const PAGE = 1000;
+
+async function selectAllCourses(supabase: ReturnType<typeof serviceClient>, limit: number) {
+  const all: Array<{ slug: string; url: string }> = [];
+  for (let from = 0; all.length < limit; from += PAGE) {
+    const { data, error } = await supabase
+      .from('coursera_courses')
+      .select('slug, url')
+      .neq('status', 'retired')
+      // Stalest first, so a partially-completed month still improves the oldest rows.
+      .order('last_fetched_at', { ascending: true, nullsFirst: true })
+      .range(from, from + PAGE - 1);
+    if (error) throw new Error(error.message);
+
+    const page = data ?? [];
+    all.push(...page);
+    // A short page is the last page. Without this the loop cannot terminate, because
+    // `limit` may exceed the number of courses that exist.
+    if (page.length < PAGE) break;
+  }
+  return all.slice(0, limit);
+}
+
 async function enqueueRefresh(supabase: ReturnType<typeof serviceClient>, limit: number) {
-  // Stalest first, so a partially-completed month still improves the oldest rows.
-  const { data, error } = await supabase
-    .from('coursera_courses')
-    .select('slug, url')
-    .neq('status', 'retired')
-    .order('last_fetched_at', { ascending: true, nullsFirst: true })
-    .limit(limit);
-  if (error) throw new Error(error.message);
+  const data = await selectAllCourses(supabase, limit);
 
   const rows = (data ?? []).map((course) => ({
     url: course.url,
