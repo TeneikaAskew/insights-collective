@@ -29,8 +29,7 @@ import {
   Clock, 
   MousePointer,
   MessageSquare,
-  Heart,
-  Filter
+  Heart
 } from 'lucide-react';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
