@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { usePortfolio } from '@/hooks/usePortfolio';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, Check, ArrowRight } from 'lucide-react';
+import { Loader2, Check, ArrowRight, ExternalLink } from 'lucide-react';
 
 import { createLogger } from '@/utils/logger';
 
@@ -436,7 +436,19 @@ const ActionPlanSection: React.FC<ActionPlanSectionProps> = ({ initialActionPlan
                   return (
                     <div key={cIdx} className="flex items-baseline gap-2 py-0.5 text-sm">
                       <span className="flex-none w-1.5 h-1.5 rounded-full bg-ss-lav self-center" aria-hidden />
-                      <span>{c.title}</span>
+                      {c.url ? (
+                        <a
+                          href={c.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium text-primary hover:underline"
+                        >
+                          {c.title}
+                          <ExternalLink className="ml-1 inline h-3 w-3 align-[-1px]" aria-hidden="true" />
+                        </a>
+                      ) : (
+                        <span>{c.title}</span>
+                      )}
                       {c.provider && <span className="text-xs text-muted-foreground whitespace-nowrap">{c.provider}</span>}
                     </div>
                   );

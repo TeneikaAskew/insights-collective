@@ -171,6 +171,109 @@ function normalizeActionPlan(rawPlan) {
   return normalized;
 }
 
+// ── Coursera grounding ──────────────────────────────────────────────────────
+// The LLM invents course names. Replace them with real catalog rows where a
+// skill matches the catalog; skills nothing matches keep the LLM's suggestion
+// verbatim. Mirrors the frontend pipeline: subject inference uses the
+// coursera_subject_keywords table (the DB copy of src/data/subjectKeywords.json)
+// and the read applies useCourseraCatalog's exact quality bar. Self-contained
+// like the rest of this function — no imports from src/.
+
+const COURSERA_MIN_RATING = 4.3;
+const COURSERA_MIN_REVIEWS = 50;
+const COURSERA_ROW_LIMIT = 120;
+const COURSERA_COURSES_PER_SKILL = 2;
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Mutates `plan` in place; any failure leaves it exactly as generated.
+async function enrichWithCourseraCourses(plan, supabase) {
+  const { data: keywordRows, error: keywordError } = await supabase
+    .from('coursera_subject_keywords')
+    .select('subject, keyword');
+  if (keywordError) throw keywordError;
+  if (!keywordRows?.length) return;
+
+  // Word-boundary containment, same as inferSubjects in learningSubjects.ts.
+  const patternsBySubject = new Map();
+  for (const row of keywordRows) {
+    if (!patternsBySubject.has(row.subject)) patternsBySubject.set(row.subject, []);
+    patternsBySubject
+      .get(row.subject)
+      .push(new RegExp(`(^|[^a-z0-9])${escapeRegExp(row.keyword)}([^a-z0-9]|$)`, 'i'));
+  }
+  const inferSubjects = (text) => {
+    const out: string[] = [];
+    for (const [subject, patterns] of patternsBySubject) {
+      if (patterns.some((p) => p.test(text))) out.push(subject);
+    }
+    return out;
+  };
+
+  const subjectsBySkill = new Map();
+  const allSubjects = new Set<string>();
+  for (const timeframe of Object.values(plan)) {
+    for (const skill of (timeframe as { skills?: { name?: string }[] }).skills ?? []) {
+      if (!skill?.name || subjectsBySkill.has(skill.name)) continue;
+      const subjects = inferSubjects(skill.name);
+      subjectsBySkill.set(skill.name, subjects);
+      for (const subject of subjects) allSubjects.add(subject);
+    }
+  }
+  if (allSubjects.size === 0) return;
+
+  const { data: courses, error: coursesError } = await supabase
+    .from('coursera_courses')
+    .select('url, title, partner, rating, reviews, subjects, primary_subjects')
+    .eq('status', 'active')
+    .overlaps('subjects', [...allSubjects])
+    .gte('rating', COURSERA_MIN_RATING)
+    .gte('reviews', COURSERA_MIN_REVIEWS)
+    // English or unknown — empty means "not yet crawled", not "not English".
+    .or('languages.cs.{en},languages.eq.{}')
+    .order('rating', { ascending: false })
+    .limit(COURSERA_ROW_LIMIT);
+  if (coursesError) throw coursesError;
+  if (!courses?.length) return;
+
+  // Per-subject lists: primary-subject courses first; sort is stable, so the
+  // rating order from the query is preserved within each group.
+  const coursesBySubject = new Map();
+  for (const course of courses) {
+    for (const subject of course.subjects ?? []) {
+      if (!coursesBySubject.has(subject)) coursesBySubject.set(subject, []);
+      coursesBySubject.get(subject).push(course);
+    }
+  }
+  for (const [subject, list] of coursesBySubject) {
+    list.sort(
+      (a, b) =>
+        Number((b.primary_subjects ?? []).includes(subject)) -
+        Number((a.primary_subjects ?? []).includes(subject)),
+    );
+  }
+
+  for (const timeframe of Object.values(plan)) {
+    for (const skill of (timeframe as { skills?: { name?: string; courses?: unknown[] }[] }).skills ?? []) {
+      const subjects = subjectsBySkill.get(skill?.name) ?? [];
+      const seen = new Set();
+      const picks: { title: string; provider: string; url: string }[] = [];
+      for (const subject of subjects) {
+        for (const course of coursesBySubject.get(subject) ?? []) {
+          if (picks.length >= COURSERA_COURSES_PER_SKILL) break;
+          if (seen.has(course.url)) continue;
+          seen.add(course.url);
+          picks.push({ title: course.title, provider: course.partner, url: course.url });
+        }
+        if (picks.length >= COURSERA_COURSES_PER_SKILL) break;
+      }
+      if (picks.length > 0) skill.courses = picks;
+    }
+  }
+}
+
 // Edge function handler
 Deno.serve(async (req) => {
   const preflight = handleCors(req);
@@ -202,6 +305,13 @@ Deno.serve(async (req) => {
     const userData = await getUserCareerData(supabase, userId);
     const rawPlan = await generateActionPlan(userData);
     const actionPlan = normalizeActionPlan(rawPlan);
+    // Ground the invented course names in the real Coursera catalog. Never
+    // fatal: a failed enrichment returns the plan exactly as generated.
+    try {
+      await enrichWithCourseraCourses(actionPlan, supabase);
+    } catch (enrichError) {
+      console.error('Coursera enrichment skipped:', enrichError);
+    }
     console.log(`generate-career-action-plan: user=${userId} timeframes=${Object.keys(actionPlan).length}`);
 
     // Persist the plan onto the latest pathway session; a save failure is
