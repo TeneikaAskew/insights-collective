@@ -1,63 +1,16 @@
 
 import React from 'react';
-import { Users, ArrowRight, ExternalLink, Star } from 'lucide-react';
+import { Users, ArrowRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { DataCareerRole } from '@/data/dataCareerRoles';
-import { SUBJECT_LABELS } from '@/data/learningSubjects';
 import { useRoleCourses } from '@/hooks/useRoleCourses';
-import type { ResolvedCourse } from '@/lib/roleCourseResolver';
+import { CourseraCourseRow } from '@/components/learning/CourseraCourseRow';
 
 interface CareerPathTabProps {
   role: DataCareerRole;
 }
-
-const CourseRow: React.FC<{ course: ResolvedCourse }> = ({ course }) => {
-  const body = (
-    <>
-      <div className="flex items-start justify-between gap-2">
-        <span className="font-medium">{course.title}</span>
-        {course.external && (
-          <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-        )}
-      </div>
-      <div className="text-sm text-muted-foreground">{course.description}</div>
-      <div className="mt-2 flex flex-wrap items-center gap-1">
-        {course.external && <Badge variant="secondary">{course.provider}</Badge>}
-        {course.level && <Badge variant="outline">{course.level}</Badge>}
-        {course.rating !== null && (
-          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-            <Star className="h-3 w-3 fill-current" aria-hidden="true" />
-            {course.rating.toFixed(1)}
-            {course.reviews ? ` (${course.reviews.toLocaleString()})` : ''}
-          </span>
-        )}
-        {course.matchedSubjects.slice(0, 3).map((subject) => (
-          <Badge key={subject} variant="outline">
-            {SUBJECT_LABELS[subject]}
-          </Badge>
-        ))}
-      </div>
-    </>
-  );
-
-  const className = 'block p-3 border rounded-md hover:bg-primary/5 transition-colors';
-
-  if (course.external) {
-    return (
-      <a href={course.href} target="_blank" rel="noopener noreferrer" className={className}>
-        {body}
-      </a>
-    );
-  }
-
-  return (
-    <Link to={course.href} className={className}>
-      {body}
-    </Link>
-  );
-};
 
 export const CareerPathTab: React.FC<CareerPathTabProps> = ({ role }) => {
   const { platform, coursera, platformIsEmpty } = useRoleCourses(role);
@@ -102,7 +55,7 @@ export const CareerPathTab: React.FC<CareerPathTabProps> = ({ role }) => {
           <h4 className="font-medium mb-3">Courses on Insights Collective</h4>
           <div className="grid gap-2">
             {platform.map((course) => (
-              <CourseRow key={course.id} course={course} />
+              <CourseraCourseRow key={course.id} course={course} showDescription showSubjects />
             ))}
           </div>
           <div className="mt-4">
@@ -125,7 +78,7 @@ export const CareerPathTab: React.FC<CareerPathTabProps> = ({ role }) => {
           </p>
           <div className="grid gap-2">
             {coursera.map((course) => (
-              <CourseRow key={course.id} course={course} />
+              <CourseraCourseRow key={course.id} course={course} showDescription showSubjects />
             ))}
           </div>
           {platformIsEmpty && (

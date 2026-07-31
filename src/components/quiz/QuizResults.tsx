@@ -195,10 +195,64 @@ import { storeQuizAttempt } from '@/services/quizService';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useNavigate } from 'react-router-dom';
+import { subjectsForRole } from '@/data/roleLearningPaths';
+import { courseraCoursesForSubject, subjectIndexFor } from '@/data/courseraCatalog';
+import { useCourseraCatalog } from '@/hooks/useCourseraCatalog';
+import { resolvedFromCoursera } from '@/lib/skillCourseResolver';
+import { CourseraCourseRow } from '@/components/learning/CourseraCourseRow';
 
 import { createLogger } from '@/utils/logger';
 
 const logger = createLogger('getTrackIcon');
+
+/**
+ * Top Coursera courses for a quiz track, rendered below the internal
+ * Recommended Courses block. The track name is a category, and the role
+ * paths' category fallback maps all four tracks to sensible subject lists —
+ * no separate track table needed. One course per subject first (breadth),
+ * then backfill by subject priority.
+ */
+const TrackCourseraCourses: React.FC<{ track: CareerTrack }> = ({ track }) => {
+  const subjects = React.useMemo(() => subjectsForRole('quiz-track', track), [track]);
+  const { catalog } = useCourseraCatalog(subjects);
+
+  const courses = React.useMemo(() => {
+    const index = subjectIndexFor(catalog);
+    const seen = new Set<string>();
+    const picks = [];
+    for (const subject of subjects) {
+      if (picks.length >= 3) break;
+      const course = courseraCoursesForSubject(subject, index).find((c) => !seen.has(c.url));
+      if (!course) continue;
+      seen.add(course.url);
+      picks.push(resolvedFromCoursera(course, course.subjects.filter((s) => subjects.includes(s))));
+    }
+    if (picks.length < 3) {
+      for (const course of courseraCoursesForSubject(subjects[0], index)) {
+        if (picks.length >= 3) break;
+        if (seen.has(course.url)) continue;
+        seen.add(course.url);
+        picks.push(resolvedFromCoursera(course, course.subjects.filter((s) => subjects.includes(s))));
+      }
+    }
+    return picks;
+  }, [catalog, subjects]);
+
+  if (courses.length === 0) return null;
+
+  return (
+    <div className="mt-4">
+      <h4 className="font-semibold mb-1">
+        From Coursera <span className="text-sm font-normal text-muted-foreground">· external</span>
+      </h4>
+      <div className="space-y-2 mt-2">
+        {courses.map((course) => (
+          <CourseraCourseRow key={course.id} course={course} />
+        ))}
+      </div>
+    </div>
+  );
+};
 interface QuizResultsProps {
   scores: Record<CareerTrack, number>;
   answers: Record<number, number | string>;
@@ -389,6 +443,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
                           <p className="text-sm">{course.description}</p>
                         </div>)}
                     </div>
+                    <TrackCourseraCourses track={result.track} />
                   </div>
                 </div>
               </CardContent>

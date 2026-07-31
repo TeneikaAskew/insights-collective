@@ -6,6 +6,8 @@ import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { SkillGap } from '@/types/portfolio';
 import { ExternalLink } from 'lucide-react';
+import { useSkillCourses } from '@/hooks/useSkillCourses';
+import { CourseraCourseRow } from '@/components/learning/CourseraCourseRow';
 
 interface SkillGapChartProps {
   userSkills: string[];
@@ -18,6 +20,12 @@ export function SkillGapChart({ userSkills, missingSkills, learningResources }: 
   const totalSkills = [...new Set([...userSkills, ...missingSkills])].length;
   const userSkillsCount = userSkills.length;
   const completionPercentage = Math.round((userSkillsCount / totalSkills) * 100) || 0;
+
+  // Real catalog courses for each missing skill. Skills the catalog has
+  // nothing for simply don't get a block — the browse-all button below is
+  // the fallback for those.
+  const { coursesBySkill } = useSkillCourses(missingSkills);
+  const matchedSkills = missingSkills.filter((skill) => (coursesBySkill.get(skill) ?? []).length > 0);
 
   return (
     <Card>
@@ -98,12 +106,43 @@ export function SkillGapChart({ userSkills, missingSkills, learningResources }: 
             </>
           )}
           
-          <Button variant="outline" className="w-full mt-4" asChild>
-            <a href="https://www.coursera.org/browse/data-science" target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="h-4 w-4 mr-2" />
-              Explore More Learning Resources
-            </a>
-          </Button>
+          {matchedSkills.length > 0 && (
+            <>
+              <Separator />
+
+              <div>
+                <h4 className="text-sm font-medium mb-1">
+                  From Coursera <span className="font-normal text-muted-foreground">· external</span>
+                </h4>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Well-reviewed courses matched to the skills you're missing.
+                </p>
+                <div className="space-y-4">
+                  {matchedSkills.map((skill) => (
+                    <div key={skill}>
+                      <h5 className="text-sm font-medium mb-1.5">{skill}</h5>
+                      <div className="space-y-1.5">
+                        {coursesBySkill.get(skill)!.map((course) => (
+                          <CourseraCourseRow key={course.id} course={course} variant="compact" />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Generic browse link only when nothing above matched — matched
+              skills already link to specific courses. */}
+          {matchedSkills.length === 0 && missingSkills.length > 0 && (
+            <Button variant="outline" className="w-full mt-4" asChild>
+              <a href="https://www.coursera.org/browse/data-science" target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Explore More Learning Resources
+              </a>
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>
