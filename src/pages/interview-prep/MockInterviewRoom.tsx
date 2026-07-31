@@ -277,7 +277,7 @@ export default function MockInterviewRoom() {
   const videoStage = (
     <div className="overflow-hidden rounded-[26px] border border-[#3A3644] bg-[#242130] shadow-[0_14px_34px_-18px_rgba(90,80,120,0.55)]">
       <div className="p-4 sm:p-5">
-        <div className="relative aspect-video overflow-hidden rounded-2xl bg-black">
+        <div className="relative aspect-video overflow-hidden rounded-2xl bg-[#000000]">
           <video
             ref={remoteVideoRef}
             autoPlay
@@ -285,7 +285,7 @@ export default function MockInterviewRoom() {
             className="h-full w-full object-cover"
           />
           {/* Self view, picture-in-picture */}
-          <div className="absolute bottom-3 right-3 w-1/4 overflow-hidden rounded-xl border-2 border-white/40 bg-black shadow-lg">
+          <div className="absolute bottom-3 right-3 w-1/4 overflow-hidden rounded-xl border-2 border-white/40 bg-[#000000] shadow-lg">
             <video
               ref={localVideoRef}
               autoPlay
@@ -298,7 +298,7 @@ export default function MockInterviewRoom() {
             </span>
           </div>
         </div>
-        <p className="mt-3 text-center text-xs text-gray-400">
+        <p className="mt-3 text-center text-xs text-[#9CA3AF]">
           Camera check — the interview itself runs on{' '}
           {session.video_platform || 'your meeting link'}. Use Join video call below.
         </p>
@@ -315,7 +315,7 @@ export default function MockInterviewRoom() {
           variant="outline"
           onClick={toggleVideo}
           aria-label={isVideoEnabled ? 'Turn camera off' : 'Turn camera on'}
-          className="rounded-full font-bold border-[#4A445C] bg-transparent text-gray-300 hover:bg-[#333333] hover:text-white"
+          className="rounded-full font-bold border-[#4A445C] bg-transparent text-[#D1D5DB] hover:bg-[#333333] hover:text-white"
         >
           {isVideoEnabled ? <Video className="h-4 w-4 mr-2" /> : <VideoOff className="h-4 w-4 mr-2" />}
           Camera
@@ -324,7 +324,7 @@ export default function MockInterviewRoom() {
           variant="outline"
           onClick={toggleAudio}
           aria-label={isAudioEnabled ? 'Mute microphone' : 'Unmute microphone'}
-          className="rounded-full font-bold border-[#4A445C] bg-transparent text-gray-300 hover:bg-[#333333] hover:text-white"
+          className="rounded-full font-bold border-[#4A445C] bg-transparent text-[#D1D5DB] hover:bg-[#333333] hover:text-white"
         >
           {isAudioEnabled ? <Mic className="h-4 w-4 mr-2" /> : <MicOff className="h-4 w-4 mr-2" />}
           Mic

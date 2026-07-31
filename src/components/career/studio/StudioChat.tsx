@@ -27,7 +27,7 @@ export const ActsStepper: React.FC<{ currentAct: number; allDone?: boolean }> = 
                 ? 'bg-ss-good-chip text-ss-good border-transparent'
                 : now
                   ? 'bg-foreground text-background border-foreground'
-                  : 'bg-white/70 text-muted-foreground border-border'
+                  : 'bg-card/70 text-muted-foreground border-border'
             }`}
           >
             {act.name}

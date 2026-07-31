@@ -32,7 +32,7 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
       </Button>
       
       <div className="flex items-center space-x-2">
-        <div className="p-1.5 bg-slate-100 rounded-full">
+        <div className="p-1.5 bg-muted rounded-full">
           <IconComponent {...assistant.icon.props} />
         </div>
         <Select 

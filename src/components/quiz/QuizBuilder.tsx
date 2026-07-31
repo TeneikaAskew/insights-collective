@@ -241,7 +241,7 @@ const QuizBuilder: React.FC<QuizBuilderProps> = ({
               size="sm"
               onClick={() => removeQuestion(index)}
             >
-              <Trash2 className="h-4 w-4 text-red-500" />
+              <Trash2 className="h-4 w-4 text-destructive" />
             </Button>
           </div>
         </div>
@@ -297,7 +297,7 @@ const QuizBuilder: React.FC<QuizBuilderProps> = ({
                     name={`correct-${index}`}
                     checked={question.correct_answer === optionIndex}
                     onChange={() => updateQuestion(index, 'correct_answer', optionIndex)}
-                    className="text-blue-600"
+                    className="text-primary"
                   />
                   <Input
                     value={option}
@@ -458,7 +458,7 @@ const QuizBuilder: React.FC<QuizBuilderProps> = ({
         {questions.length === 0 ? (
           <Card>
             <CardContent className="text-center py-8">
-              <p className="text-gray-500 mb-4">No questions added yet</p>
+              <p className="text-muted-foreground mb-4">No questions added yet</p>
               <Button onClick={addQuestion}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Your First Question

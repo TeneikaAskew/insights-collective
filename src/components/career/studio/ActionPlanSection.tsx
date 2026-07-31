@@ -407,7 +407,7 @@ const ActionPlanSection: React.FC<ActionPlanSectionProps> = ({ initialActionPlan
             className={`text-sm font-bold rounded-full px-4 py-2 border transition-colors ${
               key === active
                 ? 'bg-foreground text-background border-foreground'
-                : 'bg-white/70 text-muted-foreground border-border hover:text-foreground'
+                : 'bg-card/70 text-muted-foreground border-border hover:text-foreground'
             }`}
           >
             {TIMEFRAME_LABELS[key]}

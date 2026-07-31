@@ -184,7 +184,7 @@ export function SpotlightTour({
         role="dialog"
         aria-modal="true"
         aria-labelledby={`spotlight-title-${dismissKey}`}
-        className="pointer-events-auto absolute bg-white text-neutral-900 rounded-2xl shadow-2xl border border-neutral-200"
+        className="pointer-events-auto absolute bg-card text-foreground rounded-2xl shadow-2xl border"
         style={
           cardPos
             ? { left: cardPos.left, top: cardPos.top, width: cardPos.width }
@@ -206,7 +206,7 @@ export function SpotlightTour({
             <button
               type="button"
               onClick={() => finish(true)}
-              className="p-1 rounded-md hover:bg-neutral-100 text-neutral-500"
+              className="p-1 rounded-md hover:bg-accent text-muted-foreground"
               aria-label="Skip walkthrough"
             >
               <X className="w-4 h-4" />
@@ -218,14 +218,14 @@ export function SpotlightTour({
           >
             {step.title}
           </h2>
-          <p className="text-sm text-neutral-600 mb-5 leading-relaxed">{step.body}</p>
+          <p className="text-sm text-muted-foreground mb-5 leading-relaxed">{step.body}</p>
 
           <div className="flex items-center gap-1.5 mb-4" aria-hidden>
             {steps.map((_, i) => (
               <span
                 key={i}
                 className={`h-1.5 rounded-full transition-all ${
-                  i === stepIdx ? 'w-6 bg-primary' : 'w-1.5 bg-neutral-300'
+                  i === stepIdx ? 'w-6 bg-primary' : 'w-1.5 bg-muted'
                 }`}
               />
             ))}
@@ -235,7 +235,7 @@ export function SpotlightTour({
             <button
               type="button"
               onClick={() => finish(true)}
-              className="text-xs font-semibold text-neutral-500 hover:text-neutral-900 px-2 py-1"
+              className="text-xs font-semibold text-muted-foreground hover:text-foreground px-2 py-1"
             >
               Skip tour
             </button>
@@ -244,7 +244,7 @@ export function SpotlightTour({
                 <button
                   type="button"
                   onClick={() => setStepIdx((i) => Math.max(0, i - 1))}
-                  className="inline-flex items-center gap-1 text-sm font-semibold text-neutral-700 hover:text-neutral-900 px-3 py-2 rounded-full hover:bg-neutral-100"
+                  className="inline-flex items-center gap-1 text-sm font-semibold text-foreground hover:text-foreground px-3 py-2 rounded-full hover:bg-accent"
                 >
                   <ArrowLeft className="w-4 h-4" />
                   Back

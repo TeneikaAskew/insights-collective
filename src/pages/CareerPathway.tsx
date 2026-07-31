@@ -493,7 +493,7 @@ const CareerPathway: React.FC = () => {
                           type="button"
                           data-testid="quick-reply"
                           onClick={() => void handleAnswer(reply)}
-                          className="text-left text-sm text-ss-lav-deep border-[1.5px] border-ss-lav rounded-3xl px-4 py-2.5 bg-white/70 transition-colors hover:bg-ss-lav-chip focus:outline-none focus-visible:ring-2 focus-visible:ring-ss-lav"
+                          className="text-left text-sm text-ss-lav-deep border-[1.5px] border-ss-lav rounded-3xl px-4 py-2.5 bg-card/70 transition-colors hover:bg-ss-lav-chip focus:outline-none focus-visible:ring-2 focus-visible:ring-ss-lav"
                         >
                           {reply}
                         </button>
@@ -509,7 +509,7 @@ const CareerPathway: React.FC = () => {
                           coach.addUser('Use my resume on file');
                           void generateReport(resumeTextRef.current);
                         }}
-                        className="text-left text-sm text-ss-lav-deep border-[1.5px] border-ss-lav rounded-3xl px-4 py-2.5 bg-white/70 transition-colors hover:bg-ss-lav-chip"
+                        className="text-left text-sm text-ss-lav-deep border-[1.5px] border-ss-lav rounded-3xl px-4 py-2.5 bg-card/70 transition-colors hover:bg-ss-lav-chip"
                       >
                         Use my resume on file
                       </button>
@@ -519,7 +519,7 @@ const CareerPathway: React.FC = () => {
                           coach.addUser('Upload a new resume');
                           setPhase('resume-upload');
                         }}
-                        className="text-left text-sm text-ss-lav-deep border-[1.5px] border-ss-lav rounded-3xl px-4 py-2.5 bg-white/70 transition-colors hover:bg-ss-lav-chip"
+                        className="text-left text-sm text-ss-lav-deep border-[1.5px] border-ss-lav rounded-3xl px-4 py-2.5 bg-card/70 transition-colors hover:bg-ss-lav-chip"
                       >
                         Upload a new resume
                       </button>
@@ -527,7 +527,7 @@ const CareerPathway: React.FC = () => {
                   )}
 
                   {phase === 'resume-upload' && (
-                    <div className="ml-10 mt-1 rounded-[18px] border-2 border-dashed border-ss-lav bg-white/60 p-4">
+                    <div className="ml-10 mt-1 rounded-[18px] border-2 border-dashed border-ss-lav bg-card/60 p-4">
                       <label htmlFor="resume-upload-input" className="block text-sm font-bold mb-2">
                         Upload your resume (PDF or DOCX)
                       </label>

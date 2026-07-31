@@ -26,11 +26,11 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading }) => {
       
       {isLoading && (
         <div className="flex justify-start">
-          <div className="max-w-3xl p-3 rounded-lg bg-slate-100 text-slate-800">
+          <div className="max-w-3xl p-3 rounded-lg bg-muted text-foreground">
             <div className="flex space-x-2">
-              <div className="w-2 h-2 rounded-full bg-slate-400 animate-pulse"></div>
-              <div className="w-2 h-2 rounded-full bg-slate-400 animate-pulse delay-75"></div>
-              <div className="w-2 h-2 rounded-full bg-slate-400 animate-pulse delay-150"></div>
+              <div className="w-2 h-2 rounded-full bg-muted-foreground animate-pulse"></div>
+              <div className="w-2 h-2 rounded-full bg-muted-foreground animate-pulse delay-75"></div>
+              <div className="w-2 h-2 rounded-full bg-muted-foreground animate-pulse delay-150"></div>
             </div>
           </div>
         </div>

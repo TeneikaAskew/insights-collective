@@ -32,10 +32,10 @@ export const ContentLock = ({ children }: ContentLockProps) => {
   }
   
   return (
-    <div className="p-8 bg-white/90 backdrop-blur-sm border rounded-lg shadow-lg">
+    <div className="p-8 bg-card/90 backdrop-blur-sm border rounded-lg shadow-lg">
       <div className="text-center space-y-4">
-        <div className="mx-auto bg-orange-100 w-20 h-20 rounded-full flex items-center justify-center">
-          <LockKeyhole className="h-10 w-10 text-orange-600" />
+        <div className="mx-auto bg-ss-warn-chip w-20 h-20 rounded-full flex items-center justify-center">
+          <LockKeyhole className="h-10 w-10 text-ss-peach-deep" />
         </div>
         <h3 className="text-xl font-bold">Premium Content</h3>
         <p className="text-muted-foreground max-w-md mx-auto">
@@ -45,7 +45,7 @@ export const ContentLock = ({ children }: ContentLockProps) => {
           <Button asChild variant="outline">
             <Link to="/login">Log In</Link>
           </Button>
-          <Button asChild className="bg-purple-600 hover:bg-purple-700 text-white">
+          <Button asChild className="bg-primary hover:bg-primary/90 text-primary-foreground">
             <Link to="/register">Create Free Account</Link>
           </Button>
         </div>

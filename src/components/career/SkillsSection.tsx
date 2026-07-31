@@ -24,7 +24,7 @@ const SkillsSection: FC<SkillsSectionProps> = ({ skills = [] }) => {
           <div key={index} className="bg-card rounded-lg p-6 shadow-sm border">
             <h3 className="text-lg font-semibold mb-2">{skill.name}</h3>
             <div className="mb-4">
-              <span className={`inline-block ${skill.type === 'soft' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'} text-sm font-medium rounded-full px-3 py-1`}>
+              <span className={`inline-block ${skill.type === 'soft' ? 'bg-accent text-accent-foreground' : 'bg-ss-warn-chip text-ss-peach-deep'} text-sm font-medium rounded-full px-3 py-1`}>
                 {skill.category}
               </span>
             </div>

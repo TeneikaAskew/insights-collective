@@ -26,25 +26,25 @@ const getDifficultyConfig = (difficulty?: CourseDifficulty | string) => {
     case 'beginner':
       return {
         icon: Target,
-        color: 'bg-green-100 text-green-800 ',
+        color: 'bg-ss-good-chip text-ss-good ',
         label: 'Beginner'
       };
     case 'intermediate':
       return {
         icon: TrendingUp,
-        color: 'bg-yellow-100 text-yellow-800 ',
+        color: 'bg-ss-warn-chip text-ss-warn ',
         label: 'Intermediate'
       };
     case 'advanced':
       return {
         icon: Award,
-        color: 'bg-red-100 text-red-800 ',
+        color: 'bg-ss-bad-chip text-ss-bad ',
         label: 'Advanced'
       };
     default:
       return {
         icon: Target,
-        color: 'bg-gray-100 text-gray-800 ',
+        color: 'bg-muted text-foreground ',
         label: difficulty || 'Not specified'
       };
   }
@@ -182,10 +182,10 @@ const CourseCard: React.FC<CourseCardProps> = ({
           <button 
             onClick={handleWishlist}
             disabled={isLoading}
-            className="absolute top-2 right-2 bg-white/80 backdrop-blur-sm p-2 rounded-full hover:bg-white transition-colors z-10"
+            className="absolute top-2 right-2 bg-card/80 backdrop-blur-sm p-2 rounded-full hover:bg-card transition-colors z-10"
           >
             <Heart 
-              className={`h-5 w-5 ${wishlisted ? 'fill-red-500 text-red-500' : 'text-muted-foreground'}`} 
+              className={`h-5 w-5 ${wishlisted ? 'fill-ss-bad text-ss-bad' : 'text-muted-foreground'}`} 
             />
           </button>
         </div>
@@ -200,7 +200,7 @@ const CourseCard: React.FC<CourseCardProps> = ({
               <div className="flex items-center">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 w-4 text-yellow-500 mr-1"
+                  className="h-4 w-4 text-ss-warn mr-1"
                   viewBox="0 0 20 20"
                   fill="currentColor"
                 >
