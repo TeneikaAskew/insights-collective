@@ -2,9 +2,11 @@ import { test, expect } from '../fixtures/page-helpers';
 import { goto, expectRedirectToLogin, waitForPageLoad } from '../fixtures/page-helpers';
 import { Routes } from '../helpers/route-helpers';
 
-test.describe('Calendar Page', () => {
-  test.skip('unauthenticated user is redirected to login', async ({ browser }) => {
-    // Calendar page has no client-side auth guard; skipped pending guard addition
+// The calendar lives in the Dashboard's Calendar tab; Routes.calendar deep-links to it.
+test.describe('Calendar (Dashboard tab)', () => {
+  test('unauthenticated user is redirected to login', async ({ browser }) => {
+    // Previously skipped: the standalone /calendar page had no client-side auth guard.
+    // The Dashboard does — it redirects to /login — so this is now assertable.
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
     await page.goto(Routes.calendar);

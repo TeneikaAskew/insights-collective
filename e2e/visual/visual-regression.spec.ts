@@ -76,7 +76,8 @@ const ROUTES: RouteSpec[] = [
   // and may not claim.
   { name: 'login',           path: '/login',           role: 'public', waitFor: 'form' },
   { name: 'blog-index',      path: '/blog',            role: 'public' },
-  { name: 'calendar',        path: '/calendar',        role: 'member' },
+  // The calendar is a Dashboard tab now; /calendar no longer routes anywhere.
+  { name: 'calendar',        path: '/dashboard?tab=calendar', role: 'member' },
   { name: 'resume-analyzer', path: '/resume-analyzer', role: 'member' },
 ];
 

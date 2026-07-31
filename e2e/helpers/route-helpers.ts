@@ -67,7 +67,8 @@ export const Routes = {
   userDashboard: '/user-dashboard',
   profile: '/profile',
   notifications: '/notifications',
-  calendar: '/calendar',
+  // Calendar is a Dashboard tab now, not a page of its own.
+  calendar: '/dashboard?tab=calendar',
   resources: '/resources',
   teneikaLinkedIn: '/teneika-linkedin',
   teneikaTweets: '/teneika-tweets',

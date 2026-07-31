@@ -13,8 +13,9 @@ import StudentProgressAnalytics from '@/components/dashboard/StudentProgressAnal
 import { useCoursesManagement } from '@/hooks/useCoursesManagement';
 import { useToast } from '@/hooks/use-toast';
 import { Course } from '@/types';
-import { Navigate, Link } from 'react-router-dom';
+import { Navigate, Link, useSearchParams } from 'react-router-dom';
 import { computeDashboardMetrics } from '@/utils/dashboardMetrics';
+import { CalendarPanel } from '@/components/calendar/CalendarPanel';
 
 import { createLogger } from '@/utils/logger';
 
@@ -22,8 +23,25 @@ const logger = createLogger('Dashboard');
 
 const Dashboard = () => {
   const { user, isAuthenticated } = useAuth();
-  const [activeTab, setActiveTab] = useState('courses');
   const { toast } = useToast();
+
+  // Tab lives in the URL so it can be linked to. The Calendar tab replaced the former
+  // standalone /calendar page, and the places that used to link there — the profile
+  // menu, the notifications dropdown — need a destination that opens it directly.
+  // `replace` keeps tab switching out of the back-stack, so Back still leaves the
+  // Dashboard rather than walking through every tab the user tried.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') ?? 'courses';
+  const setActiveTab = (tab: string) => {
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.set('tab', tab);
+        return next;
+      },
+      { replace: true },
+    );
+  };
   
   const [enrolledCourses, setEnrolledCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
@@ -421,6 +439,10 @@ const Dashboard = () => {
             )}
             <TabsTrigger value="deadlines">Upcoming Deadlines</TabsTrigger>
             <TabsTrigger value="notifications">Notifications</TabsTrigger>
+            <TabsTrigger value="calendar">
+              <Calendar className="h-4 w-4 mr-1.5" />
+              Calendar
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="progress" className="space-y-6">
@@ -498,7 +520,10 @@ const Dashboard = () => {
           <TabsContent value="deadlines" className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold">Upcoming Deadlines</h2>
-              <Button variant="outline" size="sm" onClick={() => window.location.href = '/calendar'}>
+              {/* Switches tabs in place. This used to be a window.location.href to
+                  /calendar, which threw away the whole SPA state to reach a page that
+                  now lives one tab over. */}
+              <Button variant="outline" size="sm" onClick={() => setActiveTab('calendar')}>
                 View Calendar
               </Button>
             </div>
@@ -599,6 +624,16 @@ const Dashboard = () => {
                 </CardContent>
               </Card>
             )}
+          </TabsContent>
+
+          <TabsContent value="calendar" className="space-y-6">
+            <div>
+              <h2 className="text-xl font-semibold">Calendar</h2>
+              <p className="text-sm text-muted-foreground">
+                View and manage your upcoming events, assignments, and deadlines.
+              </p>
+            </div>
+            <CalendarPanel />
           </TabsContent>
         </Tabs>
       </div>

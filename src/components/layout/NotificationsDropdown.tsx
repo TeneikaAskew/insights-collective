@@ -94,7 +94,8 @@ const NotificationsDropdown = () => {
   };
   
   const handleViewCalendar = () => {
-    navigate('/calendar');
+    // The calendar is a Dashboard tab now, not its own page.
+    navigate('/dashboard?tab=calendar');
   };
 
   const handleNotificationClick = (notification: DbNotification) => {
