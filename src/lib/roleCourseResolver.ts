@@ -16,7 +16,12 @@ import type { PublishedCourse } from '@/hooks/usePublishedCourses';
 export interface ResolvedCourse {
   /** Which shelf this came from. Drives routing and the "on Coursera" badge. */
   source: 'platform' | 'coursera';
-  /** Platform course UUID, or Coursera slug. */
+  /**
+   * Platform course UUID, or Coursera course URL.
+   *
+   * The URL rather than the slug, because slugs are not unique across Coursera's
+   * path prefixes — using one as a React key produced duplicates.
+   */
   id: string;
   title: string;
   description: string;
@@ -177,7 +182,7 @@ function toResolvedCourseraCourse(
 ): ResolvedCourse {
   return {
     source: 'coursera',
-    id: course.slug,
+    id: course.url,
     title: course.title,
     description: course.description,
     href: courseraUrl(course),
@@ -230,17 +235,17 @@ export function resolveRoleCourses(
   const uncoveredSubjects = roleSubjects.filter((subject) => !covered.has(subject));
 
   const coursera: ResolvedCourse[] = [];
-  const usedSlugs = new Set<string>();
+  const usedUrls = new Set<string>();
 
   for (const subject of uncoveredSubjects) {
     if (coursera.length >= courseraLimit) break;
 
     const candidate = courseraCoursesForSubject(subject, subjectIndex).find(
-      (course) => !usedSlugs.has(course.slug),
+      (course) => !usedUrls.has(course.url),
     );
     if (!candidate) continue;
 
-    usedSlugs.add(candidate.slug);
+    usedUrls.add(candidate.url);
     coursera.push(
       toResolvedCourseraCourse(
         candidate,

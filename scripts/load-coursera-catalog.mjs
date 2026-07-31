@@ -57,7 +57,7 @@ const patterns = await loadSubjectPatterns();
 const rows = parseCsv(await readFile(resolve(process.cwd(), csvPath), 'utf8'));
 console.log(`Parsed ${rows.length} rows`);
 
-const seen = new Set();
+const seenUrls = new Set();
 const records = [];
 const skipped = { badUrl: 0, noPartner: 0, noTitle: 0, duplicate: 0 };
 
@@ -69,7 +69,8 @@ for (const row of rows) {
     skipped.badUrl += 1;
     continue;
   }
-  if (seen.has(parsedUrl.slug)) {
+  // URL, not slug — /learn/x and /specializations/x are different courses.
+  if (seenUrls.has(parsedUrl.url)) {
     skipped.duplicate += 1;
     continue;
   }
@@ -89,7 +90,7 @@ for (const row of rows) {
     continue;
   }
 
-  seen.add(parsedUrl.slug);
+  seenUrls.add(parsedUrl.url);
 
   // Slice before inferring: subjects must be explainable from the skills stored.
   const skills = parseSkills(row.Skills).slice(0, MAX_SKILLS);
@@ -155,7 +156,7 @@ for (let i = 0; i < records.length; i += CHUNK) {
   const chunk = records.slice(i, i + CHUNK);
   const { error } = await supabase
     .from('coursera_courses')
-    .upsert(chunk, { onConflict: 'slug' });
+    .upsert(chunk, { onConflict: 'url' });
 
   if (error) {
     console.error(`\nChunk at ${i} failed: ${error.message}`);
@@ -171,7 +172,7 @@ for (let i = 0; i < records.length; i += CHUNK) {
 
 const { count } = await supabase
   .from('coursera_courses')
-  .select('slug', { count: 'exact', head: true });
+  .select('url', { count: 'exact', head: true });
 
 console.log(`\nUpserted ${written} rows. Table now holds ${count ?? '?'} courses.`);
 console.log('\nNext: npm run emit:coursera-seed -- <migration.sql> to refresh the committed seed.');

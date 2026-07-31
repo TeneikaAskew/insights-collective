@@ -7,7 +7,7 @@ import { resolveRoleCourses, scorePlatformCourse } from '../roleCourseResolver';
 import type { PublishedCourse } from '@/hooks/usePublishedCourses';
 import {
   courseraCatalog,
-  courseraCatalogBySlug,
+  courseraCatalogByUrl,
   courseraCoursesForSubject,
   courseraUrl,
   indexCatalogBySubject,
@@ -121,7 +121,7 @@ describe('resolveRoleCourses', () => {
       expect(course.reviews).toBeNull();
     }
     for (const course of result.coursera) {
-      const source = courseraCatalogBySlug[course.id];
+      const source = courseraCatalogByUrl[course.id];
       expect(course.rating).toBe(source.rating);
       expect(course.reviews).toBe(source.reviews);
     }
@@ -136,8 +136,8 @@ describe('resolveRoleCourses', () => {
   it('never repeats a Coursera course within one role', () => {
     for (const roleId of Object.keys(roleLearningPaths)) {
       const { coursera } = resolveRoleCourses({ id: roleId }, []);
-      const slugs = coursera.map((c) => c.id);
-      expect(new Set(slugs).size).toBe(slugs.length);
+      const ids = coursera.map((c) => c.id);
+      expect(new Set(ids).size).toBe(ids.length);
     }
   });
 
@@ -202,9 +202,11 @@ describe('resolveRoleCourses', () => {
 });
 
 describe('data integrity', () => {
-  it('has a unique slug for every Coursera entry', () => {
-    const slugs = courseraCatalog.map((c) => c.slug);
-    expect(new Set(slugs).size).toBe(slugs.length);
+  it('has a unique URL for every Coursera entry', () => {
+    // URL, not slug: /learn/<slug> and /specializations/<slug> are different courses
+    // that share a slug, so slug uniqueness is not a property this data has.
+    const urls = courseraCatalog.map((c) => c.url);
+    expect(new Set(urls).size).toBe(urls.length);
   });
 
   it('uses the stored URL verbatim rather than rebuilding it', () => {

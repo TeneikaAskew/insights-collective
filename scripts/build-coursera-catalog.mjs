@@ -231,7 +231,7 @@ async function main() {
   console.log(`Parsed ${rows.length} rows from ${basename(csvPath)}`);
 
   const normalized = [];
-  const seenSlugs = new Set();
+  const seenUrls = new Set();
   const rejected = { badUrl: 0, lowRated: 0, noSubjects: 0, duplicate: 0, denied: 0, noPartner: 0 };
 
   for (const row of rows) {
@@ -246,7 +246,10 @@ async function main() {
       rejected.denied += 1;
       continue;
     }
-    if (seenSlugs.has(parsedUrl.slug)) {
+    // Keyed on URL, not slug: /learn/<slug> and /specializations/<slug> are
+    // different courses that share a slug (56 such pairs in the live catalog).
+    // Deduping by slug silently dropped one of every pair.
+    if (seenUrls.has(parsedUrl.url)) {
       rejected.duplicate += 1;
       continue;
     }
@@ -295,7 +298,7 @@ async function main() {
     // counts) and the `generative-ai` slot to a social media marketing certificate.
     const primarySubjects = inferSubjects(patterns, title);
 
-    seenSlugs.add(parsedUrl.slug);
+    seenUrls.add(parsedUrl.url);
     normalized.push({
       ...parsedUrl,
       title,

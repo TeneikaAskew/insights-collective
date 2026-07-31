@@ -7,7 +7,10 @@ import type { LearningSubject } from './learningSubjects';
 import { generatedCourseraCatalog } from './courseraCatalog.generated';
 
 export interface CourseraCourse {
-  /** Coursera URL slug. Also this entry's stable id. */
+  /**
+   * Coursera URL slug. NOT unique — /learn/<slug> and /specializations/<slug> are
+   * different courses that share one. `url` is the identity.
+   */
   slug: string;
   /**
    * Canonical course URL, taken from the source data rather than derived.
@@ -43,9 +46,15 @@ export interface CourseraCourse {
 
 export const courseraCatalog: CourseraCourse[] = generatedCourseraCatalog;
 
-/** Catalog indexed by slug, for O(1) lookup and duplicate detection in tests. */
-export const courseraCatalogBySlug: Record<string, CourseraCourse> = Object.fromEntries(
-  courseraCatalog.map((course) => [course.slug, course]),
+/**
+ * Catalog indexed by URL — the identity, not the slug.
+ *
+ * /learn/<slug> and /specializations/<slug> are different courses that share a slug
+ * (56 such pairs in the live catalog), so a slug-keyed map silently collapsed one of
+ * every pair into the other.
+ */
+export const courseraCatalogByUrl: Record<string, CourseraCourse> = Object.fromEntries(
+  courseraCatalog.map((course) => [course.url, course]),
 );
 
 /**
@@ -57,14 +66,13 @@ export function courseraUrl(course: CourseraCourse): string {
 }
 
 /**
- * Rating weighted by audience size.
+ * Rating weighted by audience size, with a boost for multi-course programs.
  *
  * Rating alone puts a 5.0-from-12-reviews course above a 4.8-from-300,000 one, so
- * damp it by the log of the review count — the standard fix for sparse-rating
- * bias. Mirrors `qualityScore` in scripts/build-coursera-catalog.mjs so the courses
- * the generator chose to keep are ranked the same way when displayed.
- */
-/**
+ * damp it by the log of the review count. Mirrors `qualityScore` in
+ * scripts/build-coursera-catalog.mjs so the courses the generator kept are ranked the
+ * same way when displayed.
+ *
  * Multi-course programs are worth a modest boost over single courses.
  *
  * Coursera's catalog lists a specialization AND each of its member courses. The
@@ -86,7 +94,7 @@ function qualityScore(course: CourseraCourse): number {
 
 /**
  * Ranks courses for one subject: the ones the subject is central to first, then by
- * quality, with slug as a stable tie-break.
+ * quality, with url as a stable tie-break.
  *
  * Centrality has to outrank popularity. A wildly popular course that merely
  * touches a subject is a worse recommendation than a good course built around it,
@@ -96,7 +104,7 @@ function rankForSubject(subject: LearningSubject) {
   return (a: CourseraCourse, b: CourseraCourse): number => {
     const aPrimary = a.primarySubjects.includes(subject) ? 1 : 0;
     const bPrimary = b.primarySubjects.includes(subject) ? 1 : 0;
-    return bPrimary - aPrimary || qualityScore(b) - qualityScore(a) || a.slug.localeCompare(b.slug);
+    return bPrimary - aPrimary || qualityScore(b) - qualityScore(a) || a.url.localeCompare(b.url);
   };
 }
 
