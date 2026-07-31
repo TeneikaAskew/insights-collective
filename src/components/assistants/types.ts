@@ -81,9 +81,9 @@ export interface CareerReportData {
   userName: string;
   summary: string;
   recommendedRoles: Array<{
-    title: string;
+    /** See RecommendedRole in ./utils/types — title and pay come from the slug. */
+    roleSlug: string;
     description: string;
-    salaryRange: string;
     matchPercentage: number;
     focusAreas?: string[];
     responsibilities?: string[];
