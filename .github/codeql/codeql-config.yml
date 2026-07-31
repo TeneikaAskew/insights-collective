@@ -1,0 +1,41 @@
+# ABOUTME: CodeQL scan configuration. Exists to carry one deliberate query
+# ABOUTME: exclusion, documented below, without weakening the rest of the scan.
+name: "insights-collective CodeQL config"
+
+# Unchanged from what the workflow used to pass inline. Declared here instead so
+# the query set and the exclusion below live in one place.
+queries:
+  - uses: security-and-quality
+
+query-filters:
+  # js/http-to-file-access — "Network data written to file".
+  #
+  # Motivated by scripts/fetch-coursera-courses.mjs, whose entire purpose is to
+  # fetch Coursera course pages and cache the parsed result on disk so a monthly
+  # crawl over 7,000+ pages can resume instead of restarting. The flow the query
+  # describes is the feature; it cannot be refactored away without deleting the
+  # cache.
+  #
+  # What the query is really warning about is untrusted bytes reaching the
+  # filesystem unchecked. Both halves of that are handled at the mechanism, which
+  # is why this is an exclusion and not a dismissal-by-fatigue:
+  #
+  #   * Path — the filename is a SHA-1 of the URL (cachePathFor), so no part of a
+  #     fetched response reaches the path. Traversal is not expressible.
+  #   * Content — cacheableRecord() whitelists an explicit field list and coerces
+  #     every one to a primitive before writing. An unexpected field on a changed
+  #     Coursera page cannot reach disk at all.
+  #
+  # CodeQL filters by rule, not by path, so this necessarily applies repo-wide —
+  # including to the OTHER network-to-disk write in the tree, the opt-in E2E audit
+  # log in e2e/fixtures/console-errors.fixture.ts, which appends failed network
+  # responses to .e2e-audit/ when E2E_AUDIT_CONSOLE=1. That one is test-only, off
+  # by default, and writes to a fixed path, but it is covered by this exclusion and
+  # should be named rather than discovered later.
+  #
+  # Those two are the whole reviewed set. The "Filesystem writes stay in reviewed
+  # locations" step in security.yml is what keeps it that way: it enumerates every
+  # tracked source file, subtracts those two, and fails the build on anything left.
+  # Remove that step and this exclusion stops being narrow.
+  - exclude:
+      id: js/http-to-file-access
