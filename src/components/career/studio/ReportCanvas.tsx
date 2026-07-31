@@ -1,5 +1,7 @@
 import React from 'react';
 import { CareerReportData } from '@/components/assistants/types';
+import { useSkillCourses } from '@/hooks/useSkillCourses';
+import { CourseraCourseRow } from '@/components/learning/CourseraCourseRow';
 
 /** Reveal order for the canvas cards during generation. */
 export const CANVAS_STAGES = ['summary', 'match', 'skills', 'path', 'roles', 'takeaways'] as const;
@@ -75,6 +77,11 @@ const ReportCanvas: React.FC<ReportCanvasProps> = ({ report, revealStage }) => {
   const pathSteps = (report?.futureCareerPath?.length ? report.futureCareerPath : report?.careerPathSteps) ?? [];
   const otherRoles = report?.potentialRoles ?? [];
 
+  // Ground each skill row in the real catalog. The LLM's `course · provider`
+  // text stays as the fallback for skills nothing matched.
+  const skillItems = report?.skillsAndCourses?.slice(0, 5) ?? [];
+  const { coursesBySkill } = useSkillCourses(skillItems.map((item) => item.skill));
+
   return (
     <div className="flex flex-col gap-4" data-testid="report-canvas">
       <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground pl-1">
@@ -110,18 +117,27 @@ const ReportCanvas: React.FC<ReportCanvasProps> = ({ report, revealStage }) => {
         <Ghost>Top career match — appears when your report is generated</Ghost>
       )}
 
-      {live('skills') && report?.skillsAndCourses?.length ? (
+      {live('skills') && skillItems.length ? (
         <CanvasCard>
           <CardLabel>Skills &amp; courses</CardLabel>
-          {report.skillsAndCourses.slice(0, 5).map((item, idx) => (
-            <Meter
-              key={idx}
-              label={item.skill}
-              sub={[item.course, item.provider].filter(Boolean).join(' · ')}
-              pct={levelToPct(item.level)}
-              warm={idx % 2 === 1}
-            />
-          ))}
+          {skillItems.map((item, idx) => {
+            const match = coursesBySkill.get(item.skill)?.[0];
+            return (
+              <div key={idx} className="mb-3 last:mb-0">
+                <Meter
+                  label={item.skill}
+                  sub={match ? undefined : [item.course, item.provider].filter(Boolean).join(' · ')}
+                  pct={levelToPct(item.level)}
+                  warm={idx % 2 === 1}
+                />
+                {match && (
+                  <div className="mt-1.5">
+                    <CourseraCourseRow course={match} variant="compact" />
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </CanvasCard>
       ) : (
         <Ghost>Skills &amp; matching courses — appears when your report is generated</Ghost>
