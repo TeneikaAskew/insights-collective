@@ -74,7 +74,7 @@ export const RoleTable: React.FC<RoleTableProps> = ({ roles, wagesBySlug, onOpen
                 )}
               </td>
               <td className="px-4 py-3 align-middle min-w-[230px]">
-                {wage && <WageBand wage={wage} showOccupation={false} showScale={false} />}
+                {wage && <WageBand wage={wage} showOccupation={false} showScale={false} showRange={false} />}
               </td>
               <td className="px-4 py-3 align-middle text-[13px] text-muted-foreground tabular-nums">
                 {wage?.employment.toLocaleString()}

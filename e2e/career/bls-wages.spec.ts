@@ -30,6 +30,13 @@ test.describe('BLS wage data', () => {
     // If `career_role_wages` is missing or RLS blocks the read, this is 0 and
     // the page silently shows no pay at all. That is the failure to catch.
     await expect(page.getByTestId('wage-band')).toHaveCount(FIRST_PAGE);
+  });
+
+  test('the grid prints the range beside the band', async ({ page }) => {
+    // The list table has its own Typical pay column, so the band suppresses its
+    // range there; the cards carry it, and this is where it is asserted.
+    await page.getByTestId('view-grid').click();
+    await expect(page.getByTestId('role-card')).toHaveCount(FIRST_PAGE);
     await expect(page.getByTestId('wage-range')).toHaveCount(FIRST_PAGE);
   });
 
@@ -56,6 +63,9 @@ test.describe('BLS wage data', () => {
   });
 
   test('the printed range matches the underlying percentiles', async ({ page }) => {
+    await page.getByTestId('view-grid').click();
+    await expect(page.getByTestId('role-card')).toHaveCount(FIRST_PAGE);
+
     const band = page.getByTestId('wage-band').first();
     const p25 = Number(await band.getAttribute('data-pct25'));
     const p75 = Number(await band.getAttribute('data-pct75'));

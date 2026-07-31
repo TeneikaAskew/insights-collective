@@ -18,6 +18,12 @@ type Props = {
   showOccupation?: boolean;
   /** Print the $40k / median / $300k scale under the strip. */
   showScale?: boolean;
+  /**
+   * Print the "Typical pay — $91k – $151k" line above the strip. Off inside the
+   * list table, which already has its own Typical pay column; leaving it on
+   * printed the same range twice on every row.
+   */
+  showRange?: boolean;
   className?: string;
 };
 
@@ -30,7 +36,13 @@ type Props = {
  * No absent-data branch: `career_role_wages` inner-joins a NOT NULL FK and a
  * CHECK keeps the percentiles ordered, so every row here has a complete band.
  */
-const WageBand = ({ wage, showOccupation = true, showScale = true, className = '' }: Props) => {
+const WageBand = ({
+  wage,
+  showOccupation = true,
+  showScale = true,
+  showRange = true,
+  className = '',
+}: Props) => {
   const { pct10, pct25, median, pct75, pct90 } = wage;
 
   const lo = pct(pct10);
@@ -40,12 +52,14 @@ const WageBand = ({ wage, showOccupation = true, showScale = true, className = '
 
   return (
     <div className={className}>
-      <div className="flex justify-between gap-4 text-sm">
-        <span className="text-muted-foreground">Typical pay</span>
-        <span className="font-semibold text-right tabular-nums" data-testid="wage-range">
-          {formatWageShort(pct25)} – {formatWageShort(pct75)}
-        </span>
-      </div>
+      {showRange && (
+        <div className="flex justify-between gap-4 text-sm">
+          <span className="text-muted-foreground">Typical pay</span>
+          <span className="font-semibold text-right tabular-nums" data-testid="wage-range">
+            {formatWageShort(pct25)} – {formatWageShort(pct75)}
+          </span>
+        </div>
+      )}
 
       <div
         className="relative h-[22px] mt-1"
