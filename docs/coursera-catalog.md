@@ -82,8 +82,8 @@ Everything below is applied and running on the project. No manual step is outsta
 | Schema, RLS, indexes | applied |
 | `coursera_verify_refresh_secret` auth RPC | applied |
 | Vault secrets (`coursera_refresh_url`, `coursera_refresh_secret`) | set |
-| Keyword table | 264 rows, 25 subjects |
-| `coursera-refresh` Edge Function | deployed, v1, `verify_jwt: false` |
+| Keyword table | 293 rows, 26 subjects |
+| `coursera-refresh` Edge Function | deployed, v2, `verify_jwt: false` |
 | `coursera_call_refresh` / `coursera_kick_refresh` | applied |
 | Cron: `coursera-discover-monthly` (`0 3 1 * *`) | active |
 | Cron: `coursera-drain-queue` (`*/5 * * * *`) | active |
@@ -102,6 +102,17 @@ Edge Function cannot read it back — it can only ask whether a presented value 
 
 To rotate, generate a new value and `vault.update_secret` it. Nothing needs
 redeploying, because both the caller and the verifier read Vault at call time.
+
+### Migration ledger
+
+The migrations were applied through the Supabase MCP connector, which assigns its own
+version stamps, so the repo's `20260801000600`–`001200` versions were absent from
+`supabase_migrations.schema_migrations` even though every effect was live. They have
+been recorded as applied — the equivalent of `supabase migration repair --status
+applied` — so `supabase db push` is a no-op here rather than an attempt to re-run seven
+migrations against a database that already has them.
+
+A fresh database still gets the full sequence, in order, and ends in the same state.
 
 ### One caveat: the deployed function is comment-stripped
 
@@ -147,7 +158,7 @@ rather than an argument (so it stays out of shell history), and it is a one-off 
 run rather than a stored credential. The recurring refresh needs none of that, which
 is the argument for keeping it in the Edge Function.
 
-The loader upserts on `slug` and omits `status`, `curator_note` and `is_featured`, so
+The loader upserts on `url` and omits `status`, `curator_note` and `is_featured`, so
 re-running it never overwrites curation. Interrupting it is safe — rerun and it
 resumes by upserting the same rows.
 
@@ -340,6 +351,10 @@ Fundamentals as `data-analysis`.
 - **`software-engineering` is a coarse subject.** It cannot distinguish "learn to
   program" from "learn full-stack", so a broad intro course can win the slot for a
   full-stack role. Splitting the subject would fix it if that matters.
+- **`slug` is not unique.** `/learn/<slug>` and `/specializations/<slug>` are different
+  courses that share one — 56 such pairs. `url` is the identity everywhere: the primary
+  key, the upsert target, the dedupe key, and `ResolvedCourse.id`. Do not reintroduce a
+  slug-keyed map or `onConflict: 'slug'`; both silently lose rows rather than failing.
 - **The crawl queue has no lease.** `process` claims rows by selecting them, so two
   overlapping invocations could fetch the same page twice. Harmless at a 5-minute
   cadence with a batch that finishes in well under a minute; it would need a real

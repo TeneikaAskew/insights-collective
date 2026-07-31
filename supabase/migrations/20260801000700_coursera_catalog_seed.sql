@@ -10,6 +10,10 @@
 -- source and a stale keyword would mean a stale classification. Courses use DO
 -- NOTHING: after the first run the Edge Function owns these rows, and re-running a
 -- migration must never roll a live catalog back to its seed values.
+--
+-- ON CONFLICT with no target on purpose. Naming a column would pin this file to
+-- whichever constraint happens to be the identity when it runs, and that changed
+-- once already (slug -> url). Untargeted DO NOTHING is correct under either.
 
 -- ── Subject keywords ────────────────────────────────────────────────────────
 DELETE FROM public.coursera_subject_keywords;
@@ -492,4 +496,4 @@ VALUES
   ('wharton-accounting', 'https://www.coursera.org/learn/wharton-accounting', 'Introduction to Financial Accounting', 'University of Pennsylvania', 'Course', 'Intermediate', 4.73, 8530, ARRAY['data-analysis', 'finance']::text[], ARRAY['finance']::text[], ARRAY['Accruals', 'Accounting', 'Financial Statement Analysis', 'Financial Analysis', 'Financial Accounting', 'Accounting Records', 'Performance Measurement', 'Bookkeeping']::text[], 'Master the technical skills needed to analyze financial statements and disclosures for use in financial analysis, and learn how accounting standards and managerial incentives…'),
   ('wharton-business-financial-modeling', 'https://www.coursera.org/specializations/wharton-business-financial-modeling', 'Business and Financial Modeling', 'University of Pennsylvania', 'Specialization', 'Beginner', 4.53, 11454, ARRAY['data-analysis', 'excel', 'finance']::text[], ARRAY['finance']::text[], ARRAY['Presentations', 'Risk Modeling', 'Data-Driven Decision-Making', 'Portfolio Management', 'Risk Analysis', 'Spreadsheet Software', 'Quantitative Research', 'Financial Modeling']::text[], 'Wharton''s Business and Financial Modeling Specialization is designed to help you make informed business and financial decisions. These foundational courses will introduce you to…'),
   ('wharton-customer-analytics', 'https://www.coursera.org/learn/wharton-customer-analytics', 'Customer Analytics', 'University of Pennsylvania', 'Course', 'Intermediate', 4.58, 11983, ARRAY['data-analysis', 'business-intelligence', 'product-analytics']::text[], ARRAY['data-analysis', 'product-analytics']::text[], ARRAY['Data-Driven Marketing', 'Business Marketing', 'Data-Driven Decision-Making', 'Advanced Analytics', 'Model Optimization', 'Correlation Analysis', 'Data Collection', 'Business Analytics']::text[], 'Data about our browsing and buying patterns are everywhere. From credit card transactions and online shopping carts, to customer loyalty programs and user-generated…')
-ON CONFLICT (slug) DO NOTHING;
+ON CONFLICT DO NOTHING;

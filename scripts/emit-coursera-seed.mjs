@@ -108,6 +108,10 @@ const sql = `-- ABOUTME: GENERATED FILE — do not edit by hand. Regenerate with
 -- source and a stale keyword would mean a stale classification. Courses use DO
 -- NOTHING: after the first run the Edge Function owns these rows, and re-running a
 -- migration must never roll a live catalog back to its seed values.
+--
+-- ON CONFLICT with no target on purpose. Naming a column would pin this file to
+-- whichever constraint happens to be the identity when it runs, and that changed
+-- once already (slug -> url). Untargeted DO NOTHING is correct under either.
 
 -- ── Subject keywords ────────────────────────────────────────────────────────
 DELETE FROM public.coursera_subject_keywords;
@@ -120,7 +124,7 @@ INSERT INTO public.coursera_courses
   (slug, url, title, partner, format, level, rating, reviews, subjects, primary_subjects, skills, description)
 VALUES
 ${courseValues}
-ON CONFLICT (slug) DO NOTHING;
+ON CONFLICT DO NOTHING;
 `;
 
 await writeFile(resolve(process.cwd(), outPath), sql, 'utf8');
