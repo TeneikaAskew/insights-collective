@@ -1144,6 +1144,60 @@ export type Database = {
         }
         Relationships: []
       }
+      bls_occupations: {
+        Row: {
+          annual_mean: number | null
+          employment: number | null
+          median: number | null
+          occupation_title: string
+          pct10: number | null
+          pct25: number | null
+          pct75: number | null
+          pct90: number | null
+          reference_period: string
+          retrieved_at: string
+          soc_code: string
+          source: string
+          source_name: string
+          source_url: string
+          updated_at: string
+        }
+        Insert: {
+          annual_mean?: number | null
+          employment?: number | null
+          median?: number | null
+          occupation_title: string
+          pct10?: number | null
+          pct25?: number | null
+          pct75?: number | null
+          pct90?: number | null
+          reference_period?: string
+          retrieved_at?: string
+          soc_code: string
+          source?: string
+          source_name?: string
+          source_url?: string
+          updated_at?: string
+        }
+        Update: {
+          annual_mean?: number | null
+          employment?: number | null
+          median?: number | null
+          occupation_title?: string
+          pct10?: number | null
+          pct25?: number | null
+          pct75?: number | null
+          pct90?: number | null
+          reference_period?: string
+          retrieved_at?: string
+          soc_code?: string
+          source?: string
+          source_name?: string
+          source_url?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       career_pathway_answers: {
         Row: {
           answer: string
@@ -1281,6 +1335,60 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      career_roles: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          mapping_note: string | null
+          requested_title: string | null
+          slug: string
+          soc_code: string
+          source: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          id?: string
+          mapping_note?: string | null
+          requested_title?: string | null
+          slug: string
+          soc_code: string
+          source?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          mapping_note?: string | null
+          requested_title?: string | null
+          slug?: string
+          soc_code?: string
+          source?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "career_roles_soc_code_fkey"
+            columns: ["soc_code"]
+            isOneToOne: false
+            referencedRelation: "bls_occupations"
+            referencedColumns: ["soc_code"]
+          },
+          {
+            foreignKeyName: "career_roles_soc_code_fkey"
+            columns: ["soc_code"]
+            isOneToOne: false
+            referencedRelation: "career_role_wages"
+            referencedColumns: ["soc_code"]
+          },
+        ]
       }
       certificate_verification_attempts: {
         Row: {
@@ -5694,6 +5802,28 @@ export type Database = {
         Row: {
           args: string | null
           name: string | null
+        }
+        Relationships: []
+      }
+      career_role_wages: {
+        Row: {
+          annual_mean: number | null
+          category: string | null
+          employment: number | null
+          mapping_note: string | null
+          median: number | null
+          occupation_title: string | null
+          pct10: number | null
+          pct25: number | null
+          pct75: number | null
+          pct90: number | null
+          reference_period: string | null
+          slug: string | null
+          soc_code: string | null
+          source: string | null
+          source_name: string | null
+          source_url: string | null
+          title: string | null
         }
         Relationships: []
       }
