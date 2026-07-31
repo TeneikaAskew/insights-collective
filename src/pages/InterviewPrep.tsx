@@ -224,7 +224,7 @@ export default function InterviewPrep() {
   if (loading) {
     return (
       <AppLayout fullWidth>
-        <div className="soft-studio ss-wash min-h-full px-6 py-8">
+        <div className="ss-wash min-h-full px-6 py-8">
           <div className="mx-auto max-w-7xl">
             <Card className="ss-card">
               <CardContent className="flex items-center justify-center py-8">
@@ -282,7 +282,7 @@ export default function InterviewPrep() {
 
   return (
     <AppLayout fullWidth>
-      <div className="soft-studio ss-wash min-h-full px-4 sm:px-6 py-8">
+      <div className="ss-wash min-h-full px-4 sm:px-6 py-8">
         <div className="mx-auto max-w-7xl space-y-8">
           <div>
             <h1 className="text-3xl sm:text-4xl font-bold mb-2">Interview Preparation</h1>

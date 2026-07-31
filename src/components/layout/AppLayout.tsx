@@ -2,8 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { SidebarProvider } from '@/components/ui/sidebar';
 import AppSidebar from './AppSidebar';
 import Navbar from './Navbar';
-import { UserPresenceBar } from '@/components/presence/UserPresenceBar';
-import { useAuth } from '@/contexts/AuthContext';
 import { useLocation } from 'react-router-dom';
 
 type AppLayoutProps = {
@@ -30,7 +28,6 @@ function writeSidebarCookie(cookieName: string, value: boolean) {
 }
 
 const AppLayout = ({ children, fullWidth = false }: AppLayoutProps) => {
-  const { isAuthenticated, isAdmin } = useAuth();
   const location = useLocation();
   const cookieName = useMemo(() => 'app-sidebar:state', []);
 
@@ -77,8 +74,6 @@ const AppLayout = ({ children, fullWidth = false }: AppLayoutProps) => {
         <AppSidebar />
         <div className="flex flex-col flex-1 w-full h-full overflow-hidden">
           <Navbar />
-          {/* Only show UserPresenceBar for admin users */}
-          {isAuthenticated && isAdmin && <UserPresenceBar />}
           <main data-component-name="main" className={`flex-1 w-full overflow-auto ${fullWidth ? 'p-0' : 'p-4'}`}>
             {children}
           </main>

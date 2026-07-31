@@ -38,7 +38,7 @@ export function PublicPortfolioView() {
       <div className="container mx-auto px-4 py-12 max-w-3xl">
         <div className="p-8 text-center" role="alert">
           <h2 className="text-2xl font-bold mb-4">Failed to load portfolio</h2>
-          <p className="text-gray-600 mb-6">
+          <p className="text-muted-foreground mb-6">
             Something went wrong loading this portfolio. Please try again.
           </p>
           <button
@@ -57,7 +57,7 @@ export function PublicPortfolioView() {
       <div className="container mx-auto px-4 py-12 max-w-3xl">
         <div className="p-8 text-center">
           <h2 className="text-2xl font-bold mb-4">Portfolio not found</h2>
-          <p className="text-gray-600 mb-6">
+          <p className="text-muted-foreground mb-6">
             The portfolio you're looking for may have been removed or is private.
           </p>
         </div>

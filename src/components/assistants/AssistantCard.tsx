@@ -36,8 +36,8 @@ export const AssistantCard = ({ assistant, featured = false, onLaunch }: Assista
   };
   
   return (
-    <div className={`bg-white rounded-lg border ${featured ? 'border-energeticAmber' : 'border-gray-200'} overflow-hidden`}>
-      <div className={`p-4 ${featured ? 'border-b border-energeticAmber/20' : ''}`}>
+    <div className={`bg-card rounded-lg border ${featured ? 'border-ss-warn' : 'border-border'} overflow-hidden`}>
+      <div className={`p-4 ${featured ? 'border-b border-ss-warn/30' : ''}`}>
         <div className="flex justify-between items-start">
           <div className="flex items-center gap-2">
             <div className={`p-2 rounded-full ${featured ? 'bg-blue-100' : 'bg-slate-100'}`}>
@@ -98,7 +98,7 @@ export const AssistantCard = ({ assistant, featured = false, onLaunch }: Assista
           onClick={handleLaunch}
           className={`w-full py-2 px-4 rounded-md font-medium text-white text-center ${
             featured 
-              ? 'bg-gradient-to-r from-energeticAmber to-blue-500 hover:opacity-90' 
+              ? 'bg-primary hover:bg-primary/90' 
               : 'bg-gradient-to-r from-blue-400 to-teal-400 hover:opacity-90'
           }`}
         >

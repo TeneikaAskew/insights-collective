@@ -9,11 +9,11 @@ import { BarChart2, PieChart as PieIcon, LineChart as LineIcon, ArrowRight } fro
 
 // Sample data for charts
 const barData = [
-  { name: 'Python', value: 85, color: '#3b82f6' },
-  { name: 'SQL', value: 75, color: '#8b5cf6' },
-  { name: 'R', value: 55, color: '#ec4899' },
-  { name: 'Tableau', value: 65, color: '#f59e0b' },
-  { name: 'Excel', value: 80, color: '#10b981' },
+  { name: 'Python', value: 85, color: 'hsl(var(--ss-teal))' },
+  { name: 'SQL', value: 75, color: 'hsl(var(--ss-lav-deep))' },
+  { name: 'R', value: 55, color: 'hsl(var(--ss-bad))' },
+  { name: 'Tableau', value: 65, color: 'hsl(var(--ss-warn))' },
+  { name: 'Excel', value: 80, color: 'hsl(var(--ss-good))' },
 ];
 
 const lineData = [
@@ -27,17 +27,17 @@ const lineData = [
 ];
 
 const pieData = [
-  { name: 'Data Engineer', value: 40, color: '#3b82f6' },
-  { name: 'Data Analyst', value: 30, color: '#8b5cf6' },
-  { name: 'Data Scientist', value: 20, color: '#ec4899' },
-  { name: 'ML Engineer', value: 10, color: '#10b981' },
+  { name: 'Data Engineer', value: 40, color: 'hsl(var(--ss-teal))' },
+  { name: 'Data Analyst', value: 30, color: 'hsl(var(--ss-lav-deep))' },
+  { name: 'Data Scientist', value: 20, color: 'hsl(var(--ss-bad))' },
+  { name: 'ML Engineer', value: 10, color: 'hsl(var(--ss-good))' },
 ];
 
 const InteractiveShowcase = () => {
   const [activeTab, setActiveTab] = useState('skills');
 
   return (
-    <section className="py-20 bg-white dark:bg-gray-900">
+    <section className="py-20 bg-background">
       <div className="container mx-auto px-4">
         <div className="text-center mb-10">
           <h2 className="text-3xl md:text-4xl font-bold mb-4 font-display">Data Skills In Demand</h2>
@@ -101,8 +101,8 @@ const InteractiveShowcase = () => {
                       <YAxis />
                       <Tooltip />
                       <Legend />
-                      <Line type="monotone" dataKey="learners" stroke="#3b82f6" strokeWidth={2} dot={{ r: 4 }} />
-                      <Line type="monotone" dataKey="completions" stroke="#8b5cf6" strokeWidth={2} dot={{ r: 4 }} />
+                      <Line type="monotone" dataKey="learners" stroke="hsl(var(--ss-teal))" strokeWidth={2} dot={{ r: 4 }} />
+                      <Line type="monotone" dataKey="completions" stroke="hsl(var(--ss-lav-deep))" strokeWidth={2} dot={{ r: 4 }} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
@@ -122,7 +122,7 @@ const InteractiveShowcase = () => {
                         cy="50%"
                         labelLine={false}
                         outerRadius={100}
-                        fill="#8884d8"
+                        fill="hsl(var(--ss-lav))"
                         dataKey="value"
                         label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                       >

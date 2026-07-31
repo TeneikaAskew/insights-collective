@@ -105,7 +105,7 @@ QueryClientProvider (TanStack Query)
 
 - **AuthContext**: User session, roles, login/logout functionality
 - **OnboardingContext**: First-time user guidance and tours
-- **PageVisibilityContext**: Page-level access control and user presence tracking
+- **PageVisibilityContext**: Page-level access control (page catalog lives in `src/config/pageManifest.ts`; enforcement is the `VisibilityGate` layout route)
 
 ### Supabase Edge Functions
 

@@ -9,7 +9,7 @@ export default function EditBlogPost() {
   }
 
   return (
-    <div className="container max-w-7xl mx-auto p-6">
+    <div className="space-y-6">
       <BlogPostForm postId={id} />
     </div>
   );

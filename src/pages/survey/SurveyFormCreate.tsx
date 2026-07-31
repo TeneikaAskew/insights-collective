@@ -158,7 +158,7 @@ export default function SurveyFormCreate() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => navigate('/admin/unified-form-management')}
+                onClick={() => navigate('/admin/forms')}
               >
                 Cancel
               </Button>

@@ -1057,18 +1057,18 @@ const CourseDetail = () => {
 
         if (isEnrolled) {
           return (
-            <div className="teachable-workspace space-y-8">
+            <div className="space-y-8">
               {/* Dark hero */}
-              <section className="relative rounded-2xl overflow-hidden bg-neutral-900 text-white p-8 md:p-12">
+              <section className="relative rounded-2xl overflow-hidden bg-foreground text-background p-8 md:p-12">
                 <div className="grid md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] gap-8 items-center">
                   <div>
-                    <p className="text-xs uppercase tracking-[0.18em] text-white/50 mb-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-background/60 mb-4">
                       {course.category || 'Course'}{course.level ? ` · ${course.level}` : ''}
                     </p>
                     <h1 className="font-display text-4xl md:text-5xl leading-tight mb-4">
                       {course.title}
                     </h1>
-                    <p className="text-white/70 text-base md:text-lg leading-relaxed mb-6 max-w-xl">
+                    <p className="text-background/70 text-base md:text-lg leading-relaxed mb-6 max-w-xl">
                       {course.description}
                     </p>
                     <Button
@@ -1079,7 +1079,7 @@ const CourseDetail = () => {
                     </Button>
                   </div>
                   <div className="hidden md:block">
-                    <div className="aspect-[16/10] rounded-xl overflow-hidden bg-white/5">
+                    <div className="aspect-[16/10] rounded-xl overflow-hidden bg-background/10">
                       {course.thumbnail ? (
                         <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover" />
                       ) : (
@@ -1093,10 +1093,10 @@ const CourseDetail = () => {
               {/* Two-column: Jump back in + Additional links */}
               <div className="grid 2xl:grid-cols-[minmax(0,1fr)_340px] gap-6">
                 {/* Jump back in */}
-                <section className="rounded-2xl bg-white border border-neutral-200 p-6 md:p-8">
-                  <h2 className="font-display text-3xl text-neutral-900 mb-6">Jump back in</h2>
+                <section className="rounded-2xl bg-card border border-border p-6 md:p-8">
+                  <h2 className="font-display text-3xl text-foreground mb-6">Jump back in</h2>
                   <div className="grid sm:grid-cols-[220px_minmax(0,1fr)] gap-6 items-center">
-                    <div className="aspect-video rounded-xl overflow-hidden bg-neutral-100">
+                    <div className="aspect-video rounded-xl overflow-hidden bg-muted">
                       {course.thumbnail ? (
                         <img src={course.thumbnail} alt="" className="w-full h-full object-cover" />
                       ) : (
@@ -1104,23 +1104,23 @@ const CourseDetail = () => {
                       )}
                     </div>
                     <div>
-                      <p className="text-[11px] uppercase tracking-[0.15em] text-neutral-500 mb-1">
+                      <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground mb-1">
                         {nextModule?.week ? `Week ${nextModule.week}` : 'Up next'}
                       </p>
-                      <h3 className="font-display text-2xl text-neutral-900 mb-2 leading-tight">
+                      <h3 className="font-display text-2xl text-foreground mb-2 leading-tight">
                         {nextModule?.title || 'Get started'}
                       </h3>
-                      <p className="text-sm text-neutral-500 mb-4">Next lesson: {nextLessonTitle}</p>
+                      <p className="text-sm text-muted-foreground mb-4">Next lesson: {nextLessonTitle}</p>
                       <div className="flex items-center gap-4 mb-5">
                         <Progress value={overallProgress} className="h-1.5 flex-1" />
-                        <span className="text-sm font-medium text-neutral-700 tabular-nums">
+                        <span className="text-sm font-medium text-foreground tabular-nums">
                           {Math.round(overallProgress)}%
                         </span>
                       </div>
                       <Button
                         asChild
                         variant="outline"
-                        className="rounded-full border-neutral-900 text-neutral-900 hover:bg-neutral-900 hover:text-white"
+                        className="rounded-full border-foreground text-foreground hover:bg-foreground hover:text-background"
                       >
                         <Link to={`/courses/${courseId}/learn`}>Learn more</Link>
                       </Button>
@@ -1129,64 +1129,64 @@ const CourseDetail = () => {
                 </section>
 
                 {/* Additional links / curriculum outline */}
-                <aside className="rounded-2xl bg-white border border-neutral-200 p-6 md:p-8">
-                  <h3 className="font-display text-2xl text-neutral-900 mb-1">Course compass</h3>
-                  <p className="text-sm text-neutral-500 mb-5">
+                <aside className="rounded-2xl bg-card border border-border p-6 md:p-8">
+                  <h3 className="font-display text-2xl text-foreground mb-1">Course compass</h3>
+                  <p className="text-sm text-muted-foreground mb-5">
                     Explore modules, discussions, and course info.
                   </p>
 
                   <Link
                     to={`/courses/${courseId}/learn`}
-                    className="inline-flex items-center gap-2 text-sm font-semibold text-neutral-900 hover:underline mb-6"
+                    className="inline-flex items-center gap-2 text-sm font-semibold text-foreground hover:underline mb-6"
                   >
                     <PlayCircle className="h-4 w-4" /> Open course player
                   </Link>
 
-                  <div className="border-t border-neutral-200 pt-5">
-                    <p className="text-[11px] uppercase tracking-[0.15em] text-neutral-500 mb-3">
+                  <div className="border-t border-border pt-5">
+                    <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground mb-3">
                       Additional links
                     </p>
                     <ul className="space-y-3 text-sm">
                       <li>
-                        <Link to={`/courses/${courseId}/modules`} className="flex items-center gap-2 text-neutral-800 hover:text-neutral-900 hover:underline">
-                          <BookOpen className="h-4 w-4 text-neutral-400" /> Modules
+                        <Link to={`/courses/${courseId}/modules`} className="flex items-center gap-2 text-foreground hover:text-foreground hover:underline">
+                          <BookOpen className="h-4 w-4 text-muted-foreground" /> Modules
                         </Link>
                       </li>
                       <li>
-                        <Link to={`/courses/${courseId}/assignments`} className="flex items-center gap-2 text-neutral-800 hover:text-neutral-900 hover:underline">
-                          <FileText className="h-4 w-4 text-neutral-400" /> Assignments
+                        <Link to={`/courses/${courseId}/assignments`} className="flex items-center gap-2 text-foreground hover:text-foreground hover:underline">
+                          <FileText className="h-4 w-4 text-muted-foreground" /> Assignments
                         </Link>
                       </li>
                       <li>
-                        <Link to={`/courses/${courseId}/announcements`} className="flex items-center gap-2 text-neutral-800 hover:text-neutral-900 hover:underline">
-                          <Bell className="h-4 w-4 text-neutral-400" /> Announcements
+                        <Link to={`/courses/${courseId}/announcements`} className="flex items-center gap-2 text-foreground hover:text-foreground hover:underline">
+                          <Bell className="h-4 w-4 text-muted-foreground" /> Announcements
                         </Link>
                       </li>
                       <li>
-                        <Link to={`/courses/${courseId}/calendar`} className="flex items-center gap-2 text-neutral-800 hover:text-neutral-900 hover:underline">
-                          <Calendar className="h-4 w-4 text-neutral-400" /> Calendar
+                        <Link to={`/courses/${courseId}/calendar`} className="flex items-center gap-2 text-foreground hover:text-foreground hover:underline">
+                          <Calendar className="h-4 w-4 text-muted-foreground" /> Calendar
                         </Link>
                       </li>
                       <li>
-                        <Link to={`/courses/${courseId}/materials`} className="flex items-center gap-2 text-neutral-800 hover:text-neutral-900 hover:underline">
-                          <FileText className="h-4 w-4 text-neutral-400" /> Materials
+                        <Link to={`/courses/${courseId}/materials`} className="flex items-center gap-2 text-foreground hover:text-foreground hover:underline">
+                          <FileText className="h-4 w-4 text-muted-foreground" /> Materials
                         </Link>
                       </li>
                       <li>
-                        <Link to={`/courses/${courseId}/quiz-results`} className="flex items-center gap-2 text-neutral-800 hover:text-neutral-900 hover:underline">
-                          <BarChart3 className="h-4 w-4 text-neutral-400" /> Quiz results
+                        <Link to={`/courses/${courseId}/quiz-results`} className="flex items-center gap-2 text-foreground hover:text-foreground hover:underline">
+                          <BarChart3 className="h-4 w-4 text-muted-foreground" /> Quiz results
                         </Link>
                       </li>
                       {(canEdit || isInstructor || isAdmin) && (
                         <>
                           <li>
-                            <Link to={`/courses/${courseId}/manage/assignments`} className="flex items-center gap-2 text-neutral-800 hover:text-neutral-900 hover:underline">
-                              <ClipboardCheck className="h-4 w-4 text-neutral-400" /> Grade assignments
+                            <Link to={`/courses/${courseId}/manage/assignments`} className="flex items-center gap-2 text-foreground hover:text-foreground hover:underline">
+                              <ClipboardCheck className="h-4 w-4 text-muted-foreground" /> Grade assignments
                             </Link>
                           </li>
                           <li>
-                            <Link to={`/courses/${courseId}/gradebook`} className="flex items-center gap-2 text-neutral-800 hover:text-neutral-900 hover:underline">
-                              <BarChart3 className="h-4 w-4 text-neutral-400" /> Gradebook
+                            <Link to={`/courses/${courseId}/gradebook`} className="flex items-center gap-2 text-foreground hover:text-foreground hover:underline">
+                              <BarChart3 className="h-4 w-4 text-muted-foreground" /> Gradebook
                             </Link>
                           </li>
                         </>
@@ -1197,9 +1197,9 @@ const CourseDetail = () => {
                             type="button"
                             disabled={openingThread}
                             onClick={() => openThread(courseId!, course.instructor.id)}
-                            className="flex items-center gap-2 text-neutral-800 hover:text-neutral-900 hover:underline disabled:opacity-60"
+                            className="flex items-center gap-2 text-foreground hover:text-foreground hover:underline disabled:opacity-60"
                           >
-                            <MessageSquare className="h-4 w-4 text-neutral-400" /> Message instructor
+                            <MessageSquare className="h-4 w-4 text-muted-foreground" /> Message instructor
                           </button>
                         </li>
                       )}
@@ -1227,22 +1227,22 @@ const CourseDetail = () => {
                   headerRight={
                     <Link
                       to={`/courses/${courseId}/learn`}
-                      className="inline-flex items-center gap-1 text-sm font-medium text-neutral-700 hover:text-neutral-900 hover:underline"
+                      className="inline-flex items-center gap-1 text-sm font-medium text-foreground hover:text-foreground hover:underline"
                     >
                       View all <ArrowRight className="h-3.5 w-3.5" />
                     </Link>
                   }
                 />
               ) : (
-                <section className="rounded-2xl bg-white border border-neutral-200 p-6 md:p-8">
+                <section className="rounded-2xl bg-card border border-border p-6 md:p-8">
                   <div className="flex items-end justify-between mb-6">
-                    <h2 className="font-display text-3xl text-neutral-900">Course curriculum</h2>
-                    <Link to={`/courses/${courseId}/learn`} className="inline-flex items-center gap-1 text-sm font-medium text-neutral-700 hover:text-neutral-900 hover:underline">
+                    <h2 className="font-display text-3xl text-foreground">Course curriculum</h2>
+                    <Link to={`/courses/${courseId}/learn`} className="inline-flex items-center gap-1 text-sm font-medium text-foreground hover:text-foreground hover:underline">
                       View all <ArrowRight className="h-3.5 w-3.5" />
                     </Link>
                   </div>
                   {modules.length === 0 ? (
-                    <p className="text-sm text-neutral-500">Curriculum coming soon.</p>
+                    <p className="text-sm text-muted-foreground">Curriculum coming soon.</p>
                   ) : (
                     <div className="space-y-3">
                       {(modules as any[]).map((m: any, idx: number) => {
@@ -1252,20 +1252,20 @@ const CourseDetail = () => {
                           <Link
                             key={m.id}
                             to={`/courses/${courseId}/learn`}
-                            className="flex items-center justify-between px-5 py-4 border border-neutral-200 rounded-lg hover:border-neutral-900 transition-colors"
+                            className="flex items-center justify-between px-5 py-4 border border-border rounded-lg hover:border-foreground transition-colors"
                           >
                             <div className="min-w-0">
-                              <p className="text-[11px] uppercase tracking-[0.15em] text-neutral-500 mb-1">
+                              <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground mb-1">
                                 {m.week ? `Week ${m.week}` : `Section ${idx + 1}`}
                               </p>
-                              <h3 className="font-semibold text-neutral-900 truncate">{m.title}</h3>
+                              <h3 className="font-semibold text-foreground truncate">{m.title}</h3>
                               {m.description && (
-                                <p className="mt-1 text-sm text-neutral-600 line-clamp-2">
+                                <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
                                   {htmlToPlainText(String(m.description))}
                                 </p>
                               )}
                             </div>
-                            <span className="text-xs text-neutral-500 whitespace-nowrap ml-4">
+                            <span className="text-xs text-muted-foreground whitespace-nowrap ml-4">
                               {lessonCount} {lessonCount === 1 ? 'lesson' : 'lessons'}
                             </span>
                           </Link>
@@ -1281,17 +1281,17 @@ const CourseDetail = () => {
 
         // Non-enrolled landing (kept close to previous pre-enroll layout)
         return (
-          <div className="teachable-workspace bg-white rounded-2xl border border-neutral-200 overflow-hidden">
+          <div className="bg-card rounded-2xl border border-border overflow-hidden">
             <div className="grid 2xl:grid-cols-[minmax(0,1fr)_340px] gap-0">
               <div className="p-6 sm:p-8 2xl:p-12 min-w-0">
 
-                <p className="text-xs uppercase tracking-[0.15em] text-neutral-500 mb-3">
+                <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground mb-3">
                   {course.category || 'Course'}{course.level ? ` • ${course.level}` : ''}
                 </p>
-                <h1 className="font-display text-4xl md:text-5xl text-neutral-900 mb-4 leading-tight">
+                <h1 className="font-display text-4xl md:text-5xl text-foreground mb-4 leading-tight">
                   {course.title}
                 </h1>
-                <p className="text-neutral-700 text-lg leading-relaxed mb-6 max-w-2xl">
+                <p className="text-foreground text-lg leading-relaxed mb-6 max-w-2xl">
                   {course.description}
                 </p>
 
@@ -1301,12 +1301,12 @@ const CourseDetail = () => {
                     <AvatarFallback>{course.instructor.name.charAt(0)}</AvatarFallback>
                   </Avatar>
                   <div>
-                    <p className="text-sm font-medium text-neutral-900">{course.instructor.name}</p>
-                    <p className="text-xs text-neutral-500">Instructor</p>
+                    <p className="text-sm font-medium text-foreground">{course.instructor.name}</p>
+                    <p className="text-xs text-muted-foreground">Instructor</p>
                   </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-6 text-sm text-neutral-600 mb-10 pb-8 border-b border-neutral-200">
+                <div className="flex flex-wrap items-center gap-6 text-sm text-muted-foreground mb-10 pb-8 border-b border-border">
                   {course.duration && (
                     <span className="inline-flex items-center gap-2">
                       <Clock className="h-4 w-4" /> {course.duration}
@@ -1323,29 +1323,29 @@ const CourseDetail = () => {
                 </div>
 
                 <div>
-                  <h2 className="font-display text-2xl text-neutral-900 mb-5">Course curriculum</h2>
+                  <h2 className="font-display text-2xl text-foreground mb-5">Course curriculum</h2>
                   {modules.length === 0 ? (
-                    <p className="text-sm text-neutral-500">Curriculum coming soon.</p>
+                    <p className="text-sm text-muted-foreground">Curriculum coming soon.</p>
                   ) : (
                     <div className="space-y-3">
                       {(modules as any[]).map((m: any, idx: number) => {
                         const lessonCount =
                           (m.lessons?.length || 0) + (m.assignments?.length || 0) + (m.quizzes?.length || 0);
                         return (
-                          <div key={m.id} className="border border-neutral-200 rounded-lg bg-white overflow-hidden">
+                          <div key={m.id} className="border border-border rounded-lg bg-card overflow-hidden">
                             <div className="flex items-center justify-between px-5 py-4">
                               <div className="min-w-0">
-                                <p className="text-[11px] uppercase tracking-[0.15em] text-neutral-500 mb-1">
+                                <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground mb-1">
                                   {m.week ? `Week ${m.week}` : `Section ${idx + 1}`}
                                 </p>
-                                <h3 className="font-semibold text-neutral-900 truncate">{m.title}</h3>
+                                <h3 className="font-semibold text-foreground truncate">{m.title}</h3>
                                 {m.description && (
-                                  <p className="mt-1 text-sm text-neutral-600 line-clamp-2">
+                                  <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
                                     {htmlToPlainText(String(m.description))}
                                   </p>
                                 )}
                               </div>
-                              <span className="text-xs text-neutral-500 whitespace-nowrap ml-4">
+                              <span className="text-xs text-muted-foreground whitespace-nowrap ml-4">
                                 {lessonCount} {lessonCount === 1 ? 'lesson' : 'lessons'}
                               </span>
                             </div>
@@ -1357,10 +1357,10 @@ const CourseDetail = () => {
                 </div>
               </div>
 
-              <aside className="bg-neutral-50 border-t xl:border-t-0 xl:border-l border-neutral-200 p-6 sm:p-8 xl:p-10 min-w-0">
+              <aside className="bg-background border-t xl:border-t-0 xl:border-l border-border p-6 sm:p-8 xl:p-10 min-w-0">
                 <div className="xl:sticky xl:top-6">
 
-                  <div className="aspect-[16/9] rounded-xl overflow-hidden mb-6 bg-neutral-200">
+                  <div className="aspect-[16/9] rounded-xl overflow-hidden mb-6 bg-muted">
                     {course.thumbnail ? (
                       <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover" />
                     ) : (
@@ -1386,24 +1386,24 @@ const CourseDetail = () => {
                     variant="outline"
                     onClick={handleWishlist}
                     disabled={addingToWishlist}
-                    className="w-full h-11 rounded-full mt-3 border-neutral-300"
+                    className="w-full h-11 rounded-full mt-3 border-border"
                   >
                     {isWishlisted ? 'Saved to wishlist' : 'Save for later'}
                   </Button>
-                  <div className="mt-8 space-y-3 text-sm text-neutral-700">
+                  <div className="mt-8 space-y-3 text-sm text-foreground">
                     <div className="flex items-center gap-3">
-                      <BookOpen className="h-4 w-4 text-neutral-500" />
+                      <BookOpen className="h-4 w-4 text-muted-foreground" />
                       <span>{modules.length} modules</span>
                     </div>
                     {course.duration && (
                       <div className="flex items-center gap-3">
-                        <Clock className="h-4 w-4 text-neutral-500" />
+                        <Clock className="h-4 w-4 text-muted-foreground" />
                         <span>{course.duration}</span>
                       </div>
                     )}
                     {course.enrollmentCount !== undefined && (
                       <div className="flex items-center gap-3">
-                        <Users className="h-4 w-4 text-neutral-500" />
+                        <Users className="h-4 w-4 text-muted-foreground" />
                         <span>{course.enrollmentCount} enrolled</span>
                       </div>
                     )}

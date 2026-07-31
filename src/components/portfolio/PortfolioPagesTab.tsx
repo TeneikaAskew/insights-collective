@@ -51,9 +51,9 @@ export function PortfolioPagesTab() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center space-x-2">
-              <FileText className="h-5 w-5 text-[#9b87f5]" />
+              <FileText className="h-5 w-5 text-ss-lav-deep" />
               <div>
-                <p className="text-sm text-gray-500">Total Portfolios</p>
+                <p className="text-sm text-muted-foreground">Total Portfolios</p>
                 <p className="text-2xl font-bold">{portfolioPages?.length || 0}</p>
               </div>
             </div>
@@ -63,9 +63,9 @@ export function PortfolioPagesTab() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center space-x-2">
-              <Globe className="h-5 w-5 text-green-500" />
+              <Globe className="h-5 w-5 text-ss-good" />
               <div>
-                <p className="text-sm text-gray-500">Public</p>
+                <p className="text-sm text-muted-foreground">Public</p>
                 <p className="text-2xl font-bold">{publicPortfolios.length}</p>
               </div>
             </div>
@@ -75,9 +75,9 @@ export function PortfolioPagesTab() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center space-x-2">
-              <Users className="h-5 w-5 text-blue-500" />
+              <Users className="h-5 w-5 text-ss-teal" />
               <div>
-                <p className="text-sm text-gray-500">Private</p>
+                <p className="text-sm text-muted-foreground">Private</p>
                 <p className="text-2xl font-bold">{privatePortfolios.length}</p>
               </div>
             </div>
@@ -87,9 +87,9 @@ export function PortfolioPagesTab() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center space-x-2">
-              <Share className="h-5 w-5 text-purple-500" />
+              <Share className="h-5 w-5 text-ss-lav-deep" />
               <div>
-                <p className="text-sm text-gray-500">Shared Links</p>
+                <p className="text-sm text-muted-foreground">Shared Links</p>
                 <p className="text-2xl font-bold">{publicPortfolios.filter(p => p.custom_url).length}</p>
               </div>
             </div>

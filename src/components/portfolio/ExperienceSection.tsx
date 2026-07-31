@@ -229,19 +229,19 @@ function ExperienceCard({ experience, isEditing, onEdit, onDelete, onStartEdit, 
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <h3 className="font-semibold">{experience.role}</h3>
-          <p className="text-gray-600">{experience.company}</p>
-          <p className="text-sm text-gray-500">
+          <p className="text-muted-foreground">{experience.company}</p>
+          <p className="text-sm text-muted-foreground">
             {experience.startDate} - {experience.endDate || 'Present'}
           </p>
           {experience.description && (
-            <p className="text-sm text-gray-700 mt-2">{experience.description}</p>
+            <p className="text-sm text-foreground mt-2">{experience.description}</p>
           )}
         </div>
         <div className="flex gap-2">
           <Button onClick={onStartEdit} variant="ghost" size="sm">
             <Edit className="h-4 w-4" />
           </Button>
-          <Button onClick={onDelete} variant="ghost" size="sm" className="text-red-500 hover:text-red-700">
+          <Button onClick={onDelete} variant="ghost" size="sm" className="text-ss-bad hover:text-ss-bad hover:bg-ss-bad-chip">
             <X className="h-4 w-4" />
           </Button>
         </div>

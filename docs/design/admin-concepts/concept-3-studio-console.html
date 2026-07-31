@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin Concept 3 — Studio Console</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Lora:ital,wght@1,400;1,500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --plaster:#FAF8F5; --ink:#2C2A33; --ink-deep:#232128; --muted:#837E8C;
+    --lav:#A794EB; --lav-deep:#624EBE; --lav-chip:#F3EFFC;
+    --peach:#F0BE96; --peach-deep:#B97143; --card-warm:#FFF9F3;
+    --track:#EDE9F3; --good:#4E9B70; --good-chip:#E7F3EC;
+    --warn:#C97F3D; --warn-chip:#FBEEDF; --bad:#C25B49; --bad-chip:#F9E8E4;
+    --teal:#3FA391; --teal-chip:#E4F3F0;
+    --shadow:0 14px 34px -18px rgba(90,80,120,.35);
+    --border:rgba(44,42,51,.12);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Outfit',sans-serif;background:var(--plaster);color:var(--ink);
+    background-image:radial-gradient(55% 45% at 90% -5%,rgba(167,148,235,.13),transparent)}
+  .serif{font-family:'Lora',serif;font-style:italic}
+  .shell{display:grid;grid-template-columns:225px 1fr;min-height:100vh}
+
+  /* ---- Ink rail ---- */
+  .rail{background:var(--ink);color:var(--plaster);padding:26px 14px;display:flex;flex-direction:column}
+  .rail .brand{padding:0 12px;margin-bottom:26px}
+  .rail .brand .t{font-weight:600;font-size:14.5px;letter-spacing:.02em}
+  .rail .brand .serif{color:var(--peach);font-size:12.5px}
+  .rail a{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:12px;
+    color:rgba(250,248,245,.72);text-decoration:none;font-size:13.5px;margin-bottom:2px}
+  .rail a.active{background:rgba(167,148,235,.16);color:#fff;font-weight:600;
+    box-shadow:inset 2.5px 0 0 var(--lav)}
+  .rail a:hover:not(.active){background:rgba(250,248,245,.06);color:#fff}
+  .rail .grp{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:rgba(250,248,245,.38);
+    padding:18px 12px 6px}
+  .rail .foot{margin-top:auto;padding:12px;font-size:12px;color:rgba(250,248,245,.5)}
+
+  /* ---- Content: master-detail ---- */
+  .content{padding:30px 34px;display:grid;grid-template-columns:340px 1fr;gap:22px;align-items:start;max-width:1150px}
+  .colhead{grid-column:1 / -1;margin-bottom:4px}
+  .colhead h2{font-size:26px;font-weight:600;display:inline}
+  .colhead .serif{color:var(--peach-deep);font-size:15px;margin-left:10px}
+  .colhead p{color:var(--muted);font-size:13.5px;margin-top:6px;max-width:600px}
+
+  .list{background:#fff;border:1px solid var(--border);border-radius:26px;box-shadow:var(--shadow);overflow:hidden}
+  .list .search{padding:13px 18px;border-bottom:1px solid var(--border);color:var(--muted);font-size:13px}
+  .item{display:flex;align-items:center;justify-content:space-between;padding:13px 18px;
+    border-bottom:1px solid rgba(44,42,51,.06);font-size:14px;cursor:pointer}
+  .item:last-child{border-bottom:none}
+  .item .p{display:block;font-size:11.5px;color:var(--muted);font-family:ui-monospace,monospace;margin-top:1px}
+  .item.sel{background:var(--lav-chip)}
+  .item.sel .n{font-weight:600;color:var(--lav-deep)}
+  .dot{width:9px;height:9px;border-radius:50%;flex:none}
+  .dot.live{background:var(--good)} .dot.off{background:var(--bad)} .dot.partial{background:var(--warn)}
+
+  .detail{display:flex;flex-direction:column;gap:16px}
+  .dcard{background:#fff;border:1px solid var(--border);border-radius:26px;box-shadow:var(--shadow);padding:24px 26px}
+  .dcard h3{font-size:19px;font-weight:600;display:flex;align-items:center;gap:10px}
+  .dcard .path{font-size:12.5px;color:var(--muted);font-family:ui-monospace,monospace;margin:3px 0 16px}
+  .chip{display:inline-flex;border-radius:999px;padding:3px 10px;font-size:11px;font-weight:700}
+  .chip-bad{background:var(--bad-chip);color:var(--bad)}
+  .chip-good{background:var(--good-chip);color:var(--good)}
+
+  .rolegrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:6px}
+  .roletile{border:1px solid var(--border);border-radius:20px;padding:14px 16px}
+  .roletile .rl{font-size:12px;color:var(--muted);margin-bottom:8px}
+  .sw{width:38px;height:22px;border-radius:999px;background:var(--track);position:relative;display:inline-block}
+  .sw::after{content:'';position:absolute;top:2.5px;left:3px;width:17px;height:17px;border-radius:50%;
+    background:#fff;box-shadow:0 1px 3px rgba(44,42,51,.3)}
+  .sw.on{background:var(--lav-deep)}
+  .sw.on::after{left:18px}
+  .roletile .state{font-size:13px;font-weight:600;margin-left:9px}
+  .roletile.always{background:var(--card-warm)}
+  .roletile.always .state{color:var(--muted);font-weight:400;margin-left:0}
+
+  .subs{border-top:1px dashed var(--border);margin-top:14px;padding-top:12px}
+  .subs .sh{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+  .subrow{display:flex;align-items:center;justify-content:space-between;padding:8px 0;font-size:13.5px}
+  .subrow .sws{display:flex;gap:14px}
+
+  .preview{background:var(--card-warm);border:1px solid var(--border);border-radius:26px;padding:22px 26px}
+  .preview .ph{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+  .preview .mock{background:var(--plaster);border:1px solid var(--border);border-radius:18px;padding:26px;text-align:center}
+  .preview .lock{width:44px;height:44px;border-radius:50%;background:var(--lav-chip);color:var(--lav-deep);
+    display:inline-flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:10px}
+  .preview h4{font-size:19px;margin-bottom:4px}
+  .preview p{font-size:12.5px;color:var(--muted)}
+  .preview .note{font-size:12px;color:var(--muted);margin-top:12px}
+  .preview .note b{color:var(--good)}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="rail">
+    <div class="brand"><div class="t">Insights Collective</div><div class="serif">admin console</div></div>
+    <a href="#">▦ Dashboard</a>
+    <a href="#">👥 Users</a>
+    <a href="#">🎓 Courses</a>
+    <a href="#">📅 Events</a>
+    <a href="#">✎ Blog</a>
+    <a href="#">🗂 Forms</a>
+    <a href="#">⏱ Activity</a>
+    <div class="grp">Platform</div>
+    <a class="active" href="#">👁 Page visibility</a>
+    <a href="#">🧰 Debug tools</a>
+    <div class="foot">Signed in as Teneika<br>admin</div>
+  </aside>
+
+  <main class="content">
+    <div class="colhead">
+      <h2>Page visibility</h2><span class="serif">pick a page, shape its audience</span>
+      <p>Left: every top-level page and its live state. Right: role switches, sub-pages, and a
+        live preview of exactly what a locked-out visitor gets.</p>
+    </div>
+
+    <div class="list">
+      <div class="search">⌕ &nbsp;Filter pages…</div>
+      <div class="item"><span><span class="n">Home</span><span class="p">/</span></span><span class="dot live"></span></div>
+      <div class="item"><span><span class="n">Courses</span><span class="p">/courses · subtree</span></span><span class="dot live"></span></div>
+      <div class="item"><span><span class="n">Interview Prep</span><span class="p">/interview-prep · 5 sub-pages</span></span><span class="dot partial"></span></div>
+      <div class="item sel"><span><span class="n">Portfolio Explorer</span><span class="p">/portfolio-explorer</span></span><span class="dot off"></span></div>
+      <div class="item"><span><span class="n">Blog</span><span class="p">/blog</span></span><span class="dot live"></span></div>
+      <div class="item"><span><span class="n">Resume Analyzer</span><span class="p">/resume</span></span><span class="dot live"></span></div>
+      <div class="item"><span><span class="n">Events</span><span class="p">/events</span></span><span class="dot live"></span></div>
+      <div class="item"><span><span class="n">Surveys</span><span class="p">/survey</span></span><span class="dot live"></span></div>
+    </div>
+
+    <div class="detail">
+      <div class="dcard">
+        <h3>Portfolio Explorer <span class="chip chip-bad">Hidden</span></h3>
+        <div class="path">/portfolio-explorer — no sub-pages</div>
+        <div class="rolegrid">
+          <div class="roletile"><div class="rl">All users</div><span class="sw"></span><span class="state" style="color:var(--bad)">Hidden</span></div>
+          <div class="roletile"><div class="rl">Instructors</div><span class="sw"></span><span class="state" style="color:var(--bad)">Hidden</span></div>
+          <div class="roletile always"><div class="rl">Admins</div><span class="state">Always visible</span></div>
+        </div>
+        <div class="subs">
+          <div class="sh">Related</div>
+          <div class="subrow"><span>Portfolio Editor <span style="color:var(--muted);font-size:11.5px">/portfolio-editor</span></span>
+            <span class="sws"><span class="sw"></span><span class="sw"></span></span></div>
+          <div class="subrow" style="color:var(--muted);font-size:12.5px">Public portfolios (/portfolio/:url) are never gated.</div>
+        </div>
+      </div>
+
+      <div class="preview">
+        <div class="ph">What a locked-out visitor sees</div>
+        <div class="mock">
+          <div class="lock">🔒</div>
+          <h4>Coming Soon</h4>
+          <p>This page will be available to your account soon.</p>
+        </div>
+        <div class="note"><b>Enforced:</b> the page never loads — no data is fetched, no code runs.
+          Direct links, bookmarks, and sub-pages all land here.</div>
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

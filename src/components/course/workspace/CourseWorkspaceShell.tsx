@@ -17,27 +17,15 @@ export function CourseWorkspaceShell({
   footer,
 }: CourseWorkspaceShellProps) {
   return (
-    <div
-      className="course-workspace fixed inset-0 flex font-sans"
-      style={{
-        background: 'hsl(var(--cw-bg))',
-        color: 'hsl(var(--cw-text))',
-      }}
-    >
+    <div className="fixed inset-0 flex font-sans bg-background text-foreground">
       {/* Left curriculum rail */}
-      <aside
-        className="w-80 flex-shrink-0 flex flex-col bg-white"
-        style={{ borderRight: '1px solid hsl(var(--cw-border))' }}
-      >
+      <aside className="w-80 flex-shrink-0 flex flex-col bg-card border-r border-border">
         {sidebar}
       </aside>
 
       {/* Main workspace column */}
       <main className="flex-1 flex flex-col min-w-0 relative">
-        <header
-          className="h-16 bg-white px-6 md:px-8 flex items-center justify-between sticky top-0 z-10"
-          style={{ borderBottom: '1px solid hsl(var(--cw-border))' }}
-        >
+        <header className="h-16 bg-card px-6 md:px-8 flex items-center justify-between sticky top-0 z-10 border-b border-border">
           {header}
         </header>
 

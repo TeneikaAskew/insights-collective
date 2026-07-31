@@ -14,7 +14,7 @@ test.describe('Interview prep hub (Soft Studio, Concept D)', () => {
   });
 
   test('applies the Soft Studio theme', async ({ page }) => {
-    const wrapper = page.locator('.soft-studio').first();
+    const wrapper = page.locator('.ss-wash').first();
     await expect(wrapper).toBeVisible();
     const { background, fontFamily } = await wrapper.evaluate((el) => {
       const s = getComputedStyle(el);
@@ -86,7 +86,7 @@ test.describe('Job description page (Soft Studio, Split Desk)', () => {
   });
 
   test('applies the Soft Studio theme with the split layout', async ({ page }) => {
-    const wrapper = page.locator('.soft-studio').first();
+    const wrapper = page.locator('.ss-wash').first();
     await expect(wrapper).toBeVisible();
     expect(await wrapper.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgb(250, 248, 245)');
 
@@ -131,7 +131,7 @@ test.describe('Code practice page (Soft Studio, Problem Book)', () => {
   });
 
   test('applies the Soft Studio theme with the problem-book layout', async ({ page }) => {
-    const wrapper = page.locator('.soft-studio').first();
+    const wrapper = page.locator('.ss-wash').first();
     await expect(wrapper).toBeVisible();
     expect(await wrapper.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgb(250, 248, 245)');
 
@@ -217,7 +217,7 @@ test.describe('Mock interviews page (Soft Studio, Split Desk)', () => {
   });
 
   test('renders themed with no spinner when logged out', async ({ page }) => {
-    const wrapper = page.locator('.soft-studio').first();
+    const wrapper = page.locator('.ss-wash').first();
     await expect(wrapper).toBeVisible();
     expect(await wrapper.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgb(250, 248, 245)');
 
@@ -252,7 +252,7 @@ test.describe('STAR practice page (Soft Studio, Guided Coach)', () => {
     await page.goto('/interview-prep/star-practice', { waitUntil: 'domcontentloaded' });
     await expect(page.getByText('No Questions Available')).toBeVisible({ timeout: 15_000 });
 
-    const wrapper = page.locator('.soft-studio').first();
+    const wrapper = page.locator('.ss-wash').first();
     await expect(wrapper).toBeVisible();
     expect(await wrapper.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgb(250, 248, 245)');
     await expect(page.getByRole('button', { name: /go back/i })).toBeVisible();

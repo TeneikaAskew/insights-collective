@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import AppLayout from '@/components/layout/AppLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import FormSubmissionsList from '@/components/admin/forms/FormSubmissionsList';
 import FormSubmissionDetail from '@/components/admin/forms/FormSubmissionDetail';
@@ -91,43 +90,38 @@ export default function FormManagement() {
 
   if (loading) {
     return (
-      <AppLayout>
-        <div className="container py-8 space-y-6">
-          <Skeleton className="h-10 w-1/3" />
-          <Skeleton className="h-6 w-1/2" />
-          <div className="h-4" />
-          <Skeleton className="h-[500px] w-full" />
-        </div>
-      </AppLayout>
+      <div className="space-y-6">
+        <Skeleton className="h-10 w-1/3" />
+        <Skeleton className="h-6 w-1/2" />
+        <div className="h-4" />
+        <Skeleton className="h-[500px] w-full" />
+      </div>
     );
   }
 
   if (error) {
     return (
-      <AppLayout>
-        <div className="container py-8">
-          <Alert variant="destructive">
-            <AlertDescription>
-              {error} <Button variant="link" onClick={() => navigate("/admin/unified-form-management")}>Return to forms</Button>
-            </AlertDescription>
-          </Alert>
-        </div>
-      </AppLayout>
+      <div className="space-y-6">
+        <Alert variant="destructive">
+          <AlertDescription>
+            {error} <Button variant="link" onClick={() => navigate("/admin/forms")}>Return to forms</Button>
+          </AlertDescription>
+        </Alert>
+      </div>
     );
   }
 
   if (!form) {
-    return <Navigate to="/admin/unified-form-management" replace />;
+    return <Navigate to="/admin/forms" replace />;
   }
 
   return (
-    <AppLayout>
-      <div className="container py-8 space-y-6">
+    <div className="space-y-6">
         <div className="flex items-center gap-2">
           <Button 
             variant="ghost" 
             size="sm" 
-            onClick={() => navigate("/admin/unified-form-management")}
+            onClick={() => navigate("/admin/forms")}
             className="hover:bg-transparent p-0 h-auto"
           >
             <ArrowLeft className="h-5 w-5 mr-1" />
@@ -145,7 +139,7 @@ export default function FormManagement() {
             <div className="flex items-center justify-between">
               <Button 
                 variant="outline" 
-                onClick={() => navigate(`/admin/unified-form-management/submissions/${form.slug}`)}
+                onClick={() => navigate(`/admin/forms/submissions/${form.slug}`)}
               >
                 <ArrowLeft className="h-4 w-4 mr-2" /> Back to all responses
               </Button>
@@ -159,10 +153,10 @@ export default function FormManagement() {
         ) : (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
             <TabsList>
-              <TabsTrigger value="submissions" onClick={() => navigate(`/admin/unified-form-management/submissions/${form.slug}?tab=submissions`, { replace: true })}>
+              <TabsTrigger value="submissions" onClick={() => navigate(`/admin/forms/submissions/${form.slug}?tab=submissions`, { replace: true })}>
                 <FileText className="h-4 w-4 mr-2" /> Submissions
               </TabsTrigger>
-              <TabsTrigger value="analytics" onClick={() => navigate(`/admin/unified-form-management/submissions/${form.slug}?tab=analytics`, { replace: true })}>
+              <TabsTrigger value="analytics" onClick={() => navigate(`/admin/forms/submissions/${form.slug}?tab=analytics`, { replace: true })}>
                 <BarChart className="h-4 w-4 mr-2" /> Analytics
               </TabsTrigger>
             </TabsList>
@@ -174,7 +168,6 @@ export default function FormManagement() {
             </TabsContent>
           </Tabs>
         )}
-      </div>
-    </AppLayout>
+    </div>
   );
 }

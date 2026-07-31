@@ -3,7 +3,6 @@ import { useMemo, useState } from 'react';
 import { downloadCsv } from '@/utils/csv';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import AdminSoftStudio from '@/components/admin/AdminSoftStudio';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -158,11 +157,9 @@ export default function AdminCourses() {
 
   if (coursesLoading) {
     return (
-      <AdminSoftStudio>
-        <div className="flex justify-center items-center h-[50vh]">
-          <Spinner size="lg" />
-        </div>
-      </AdminSoftStudio>
+      <div className="flex justify-center items-center h-[50vh]">
+        <Spinner size="lg" />
+      </div>
     );
   }
 
@@ -170,22 +167,20 @@ export default function AdminCourses() {
   // this page depends on the course list, so surface the failure with a retry.
   if (coursesError) {
     return (
-      <AdminSoftStudio>
-        <div className="max-w-3xl mx-auto py-16 px-4">
-          <CourseErrorState
-            title="Failed to load courses"
-            error={coursesError}
-            onRetry={() => refetchCourses()}
-          />
-        </div>
-      </AdminSoftStudio>
+      <div className="max-w-3xl mx-auto py-16 px-4">
+        <CourseErrorState
+          title="Failed to load courses"
+          error={coursesError}
+          onRetry={() => refetchCourses()}
+        />
+      </div>
     );
   }
 
   const tabTrigger = 'rounded-xl px-4 py-2 data-[state=active]:bg-card data-[state=active]:text-ss-lav-deep data-[state=active]:shadow-[var(--ss-shadow)]';
 
   return (
-    <AdminSoftStudio>
+    <>
       {/* Header */}
       <header className="flex flex-col md:flex-row md:justify-between md:items-end gap-4 mb-7">
         <div>
@@ -233,7 +228,7 @@ export default function AdminCourses() {
               <SelectTrigger className="w-full md:w-[200px] rounded-xl bg-card">
                 <SelectValue placeholder="Category" />
               </SelectTrigger>
-              <SelectContent className="soft-studio">
+              <SelectContent>
                 <SelectItem value="all">All categories</SelectItem>
                 {categories.map((c) => (
                   <SelectItem key={c} value={c}>{c}</SelectItem>
@@ -244,7 +239,7 @@ export default function AdminCourses() {
               <SelectTrigger className="w-full md:w-[180px] rounded-xl bg-card">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
-              <SelectContent className="soft-studio">
+              <SelectContent>
                 <SelectItem value="all">All statuses</SelectItem>
                 <SelectItem value="published">Published</SelectItem>
                 <SelectItem value="draft">Draft</SelectItem>
@@ -376,7 +371,7 @@ export default function AdminCourses() {
                                     </Button>
                                   </Hint>
                                 </AlertDialogTrigger>
-                                <AlertDialogContent className="soft-studio">
+                                <AlertDialogContent>
                                   <AlertDialogHeader>
                                     <AlertDialogTitle>Delete this course?</AlertDialogTitle>
                                     <AlertDialogDescription>
@@ -425,7 +420,7 @@ export default function AdminCourses() {
 
       {/* Course detail drawer — hooks live inside so they only run when open */}
       <Sheet open={!!selectedCourse} onOpenChange={(open) => { if (!open) setSelectedCourse(null); }}>
-        <SheetContent className="soft-studio bg-background w-full sm:max-w-lg overflow-y-auto">
+        <SheetContent className="bg-background w-full sm:max-w-lg overflow-y-auto">
           {selectedCourse && (
             <CourseDetailDrawer
               course={selectedCourse}
@@ -438,7 +433,7 @@ export default function AdminCourses() {
           )}
         </SheetContent>
       </Sheet>
-    </AdminSoftStudio>
+    </>
   );
 }
 
@@ -536,7 +531,7 @@ function CourseDetailDrawer({
                   <Trash2 className="h-4 w-4 mr-2" /> Delete
                 </Button>
               </AlertDialogTrigger>
-              <AlertDialogContent className="soft-studio">
+              <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Delete this course?</AlertDialogTitle>
                   <AlertDialogDescription>
@@ -647,7 +642,7 @@ function CourseDetailDrawer({
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </AlertDialogTrigger>
-                      <AlertDialogContent className="soft-studio">
+                      <AlertDialogContent>
                         <AlertDialogHeader>
                           <AlertDialogTitle>Revoke this certificate?</AlertDialogTitle>
                           <AlertDialogDescription>

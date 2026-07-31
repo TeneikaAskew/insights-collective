@@ -32,12 +32,12 @@ const savedCareers = [
 const UserDashboard: React.FC = () => {
   return (
     <div className="container mx-auto p-6 max-w-4xl space-y-8 min-h-screen">
-      <h1 className="text-4xl font-bold text-amber-600 mb-4">Dashboard</h1>
+      <h1 className="text-4xl font-bold text-foreground mb-4">Dashboard</h1>
       {/* This page is a static product preview: none of the content below is
           loaded from the signed-in user's account. Label it so hardcoded
           goals/roadmaps are not mistaken for real data. */}
       <div
-        className="rounded-md border border-amber-300 bg-amber-50 text-amber-900 px-4 py-2 text-sm"
+        className="rounded-md border border-border bg-ss-warn-chip text-ss-warn px-4 py-2 text-sm"
         role="note"
       >
         Sample preview — the goals, roadmap, and saved careers below are example
@@ -61,10 +61,10 @@ const UserDashboard: React.FC = () => {
 
       <section>
         <h2 className="text-2xl font-semibold mb-2">Roadmap Timeline</h2>
-        <div className="bg-white border rounded-lg p-4 shadow-inner">
+        <div className="bg-card border border-border rounded-lg p-4 shadow-inner">
           <ul className="space-y-4">
             {roadmap.map(item => (
-              <li key={item.id} className="flex justify-between border border-amber-300 rounded-md p-3 bg-amber-50">
+              <li key={item.id} className="flex justify-between border border-border rounded-md p-3 bg-ss-card-warm">
                 <span className="font-medium">{item.label}</span>
                 <span className="text-muted-foreground">{item.date}</span>
               </li>
@@ -77,9 +77,9 @@ const UserDashboard: React.FC = () => {
         <h2 className="text-2xl font-semibold mb-2">Next Steps</h2>
         <ul className="space-y-3">
           {nextSteps.map(step => (
-            <li key={step.id} className="flex justify-between items-center border border-gray-300 rounded-md p-3 hover:bg-amber-50 transition">
+            <li key={step.id} className="flex justify-between items-center border border-border rounded-md p-3 hover:bg-ss-card-warm transition">
               <span>{step.title}</span>
-              <Button size="sm" variant="ghost" className="text-amber-500 hover:text-amber-600">
+              <Button size="sm" variant="ghost" className="text-primary hover:text-primary">
                 {step.action} <ChevronRight />
               </Button>
             </li>
@@ -91,7 +91,7 @@ const UserDashboard: React.FC = () => {
         <h2 className="text-2xl font-semibold mb-2">Saved Careers & Resources</h2>
         <ul className="space-y-3">
           {savedCareers.map(career => (
-            <li key={career.id} className="border border-gray-300 rounded-md p-4 hover:bg-amber-50 transition cursor-pointer">
+            <li key={career.id} className="border border-border rounded-md p-4 hover:bg-ss-card-warm transition cursor-pointer">
               {career.title}
             </li>
           ))}

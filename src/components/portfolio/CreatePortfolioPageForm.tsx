@@ -189,9 +189,9 @@ export function CreatePortfolioPageForm({ onSuccess }: CreatePortfolioPageFormPr
           value={formData.title} 
           onChange={(e) => handleChange('title', e.target.value)}
           placeholder="My Professional Portfolio"
-          className={errors.title ? "border-red-500" : ""}
+          className={errors.title ? "border-destructive" : ""}
         />
-        {errors.title && <p className="text-xs text-red-500">{errors.title}</p>}
+        {errors.title && <p className="text-xs text-destructive">{errors.title}</p>}
       </div>
       
       <div className="space-y-2">
@@ -231,7 +231,7 @@ export function CreatePortfolioPageForm({ onSuccess }: CreatePortfolioPageFormPr
           />
           <Label htmlFor="is_public">Make this portfolio public</Label>
         </div>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-muted-foreground">
           Public portfolios can be viewed by anyone with the link.
         </p>
       </div>
@@ -239,24 +239,24 @@ export function CreatePortfolioPageForm({ onSuccess }: CreatePortfolioPageFormPr
       <div className="space-y-2">
         <Label htmlFor="custom_url">Custom URL</Label>
         <div className="flex gap-2 items-center">
-          <span className="text-sm text-gray-500">/portfolio/</span>
+          <span className="text-sm text-muted-foreground">/portfolio/</span>
           <Input 
             id="custom_url" 
             value={formData.custom_url} 
             onChange={(e) => handleChange('custom_url', e.target.value)}
             onBlur={handleUrlBlur}
             placeholder="my-portfolio"
-            className={errors.custom_url ? "border-red-500" : ""}
+            className={errors.custom_url ? "border-destructive" : ""}
             disabled={isCheckingUrl}
           />
         </div>
         {isCheckingUrl && (
-          <p className="text-xs text-blue-500">Checking URL availability...</p>
+          <p className="text-xs text-ss-teal">Checking URL availability...</p>
         )}
         {errors.custom_url ? (
-          <p className="text-xs text-red-500">{errors.custom_url}</p>
+          <p className="text-xs text-destructive">{errors.custom_url}</p>
         ) : (
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-muted-foreground">
             Use only letters, numbers, and hyphens. No spaces or special characters.
           </p>
         )}
@@ -273,7 +273,6 @@ export function CreatePortfolioPageForm({ onSuccess }: CreatePortfolioPageFormPr
         </Button>
         <Button 
           type="submit"
-          className="bg-[#9b87f5] hover:bg-[#8B5CF6]"
           disabled={isLoading || isCheckingUrl}
         >
           {isLoading ? 'Creating...' : 'Create Portfolio Page'}

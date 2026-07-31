@@ -72,7 +72,7 @@ export const LinkedInUpdatesTab: React.FC<LinkedInUpdatesTabProps> = ({
 
   if (visibleLinkedIn.length === 0) {
     return (
-      <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg w-full">
+      <div className="text-center py-12 bg-gray-50 rounded-lg w-full">
         <h3 className="text-xl font-medium mb-2">No LinkedIn posts found</h3>
         <p className="text-muted-foreground mb-4">
           Try adjusting your search or filter criteria

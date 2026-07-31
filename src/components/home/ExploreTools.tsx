@@ -11,38 +11,38 @@ const ExploreTools = () => {
       title: "Course Library",
       description: "Access comprehensive courses in data science, analytics, and machine learning with hands-on projects.",
       icon: BookOpen,
-      bgColor: "bg-blue-500/10",
-      iconColor: "text-blue-500",
+      bgColor: "bg-ss-teal-chip",
+      iconColor: "text-ss-teal",
       path: "/courses"
     },
     {
       title: "Interview Prep",
       description: "Practice technical interviews, coding challenges, and behavioral questions with AI-powered feedback.",
       icon: MessageSquare,
-      bgColor: "bg-green-500/10",
-      iconColor: "text-green-500",
+      bgColor: "bg-ss-good-chip",
+      iconColor: "text-ss-good",
       path: "/interview-prep"
     },
     {
       title: "Portfolio Explorer",
       description: "Build and showcase your data science portfolio with professional templates and project ideas.",
       icon: User,
-      bgColor: "bg-purple-500/10",
-      iconColor: "text-purple-500",
+      bgColor: "bg-ss-lav-chip",
+      iconColor: "text-ss-lav-deep",
       path: "/portfolio-explorer"
     },
     {
       title: "Resume Analyzer",
       description: "Get AI-powered resume feedback and optimization suggestions tailored for data science roles.",
       icon: FileText,
-      bgColor: "bg-orange-500/10",
-      iconColor: "text-orange-500",
+      bgColor: "bg-ss-warn-chip",
+      iconColor: "text-ss-peach-deep",
       path: "/resume"
     }
   ];
 
   return (
-    <section className="py-16 bg-secondary/30" data-tour="tools">
+    <section className="py-16 bg-ss-lav-chip/60" data-tour="tools">
       <div className="container mx-auto px-4">
         <div className="text-center mb-12">
           <div className="inline-flex items-center justify-center mb-4 px-4 py-1 bg-primary/10 rounded-full">
@@ -59,7 +59,7 @@ const ExploreTools = () => {
           {tools.map((tool, index) => (
             <div 
               key={index}
-              className="flex flex-col items-center p-6 bg-card rounded-lg shadow-sm text-center hover:shadow-md transition-shadow cursor-pointer group"
+              className="flex flex-col items-center p-6 ss-tile hover:shadow-md transition-shadow cursor-pointer group"
               onClick={() => navigate(tool.path)}
             >
               <div className={`w-16 h-16 rounded-full ${tool.bgColor} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
@@ -77,7 +77,7 @@ const ExploreTools = () => {
           <Button 
             variant="outline" 
             size="lg" 
-            className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+            className="rounded-full border-primary text-primary hover:bg-primary hover:text-primary-foreground"
             onClick={() => navigate('/dashboard')}
           >
             Explore All Features <ArrowRight className="ml-2 h-4 w-4" />

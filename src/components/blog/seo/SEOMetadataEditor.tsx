@@ -145,9 +145,9 @@ export function SEOMetadataEditor({ metadata, onChange, title, content }: SEOMet
   };
 
   const getScoreColor = () => {
-    if (seoScore >= 80) return 'text-green-600';
-    if (seoScore >= 60) return 'text-yellow-600';
-    return 'text-red-600';
+    if (seoScore >= 80) return 'text-ss-good';
+    if (seoScore >= 60) return 'text-ss-warn';
+    return 'text-ss-bad';
   };
 
   const getScoreIcon = () => {
@@ -177,7 +177,7 @@ export function SEOMetadataEditor({ metadata, onChange, title, content }: SEOMet
           
           {seoIssues.length > 0 && (
             <div className="space-y-2">
-              <p className="text-sm font-medium text-red-600">Issues to fix:</p>
+              <p className="text-sm font-medium text-ss-bad">Issues to fix:</p>
               {seoIssues.map((issue, index) => (
                 <Alert key={index} variant="destructive">
                   <AlertCircle className="h-4 w-4" />
@@ -189,7 +189,7 @@ export function SEOMetadataEditor({ metadata, onChange, title, content }: SEOMet
 
           {seoSuggestions.length > 0 && (
             <div className="space-y-2">
-              <p className="text-sm font-medium text-yellow-600">Suggestions:</p>
+              <p className="text-sm font-medium text-ss-warn">Suggestions:</p>
               {seoSuggestions.map((suggestion, index) => (
                 <Alert key={index}>
                   <AlertTriangle className="h-4 w-4" />
@@ -350,13 +350,13 @@ export function SEOMetadataEditor({ metadata, onChange, title, content }: SEOMet
             <TabsContent value="google" className="space-y-2">
               <div className={previewDevice === 'mobile' ? 'max-w-sm' : 'max-w-2xl'}>
                 <div className="space-y-1">
-                  <h3 className="text-blue-600 text-xl line-clamp-1">
+                  <h3 className="text-ss-teal text-xl line-clamp-1">
                     {metadata.meta_title || title || 'Untitled Post'}
                   </h3>
-                  <p className="text-green-700 text-sm">
+                  <p className="text-ss-good text-sm">
                     example.com › blog › {metadata.custom_slug || 'untitled'}
                   </p>
-                  <p className="text-gray-600 text-sm line-clamp-2">
+                  <p className="text-muted-foreground text-sm line-clamp-2">
                     {metadata.meta_description || 'No description provided'}
                   </p>
                 </div>
@@ -374,11 +374,11 @@ export function SEOMetadataEditor({ metadata, onChange, title, content }: SEOMet
                     />
                   )}
                   <div className="p-4 space-y-1">
-                    <p className="text-xs text-gray-500 uppercase">example.com</p>
+                    <p className="text-xs text-muted-foreground uppercase">example.com</p>
                     <h3 className="font-semibold line-clamp-1">
                       {metadata.meta_title || title || 'Untitled Post'}
                     </h3>
-                    <p className="text-sm text-gray-600 line-clamp-2">
+                    <p className="text-sm text-muted-foreground line-clamp-2">
                       {metadata.meta_description || 'No description provided'}
                     </p>
                   </div>

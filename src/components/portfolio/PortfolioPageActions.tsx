@@ -96,7 +96,7 @@ export function PortfolioPageActions({ portfolioPage }: PortfolioPageActionsProp
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
-        <Button onClick={openPortfolio} className="bg-[#9b87f5] hover:bg-[#8B5CF6]">
+        <Button onClick={openPortfolio}>
           <Eye className="h-4 w-4 mr-2" />
           View Portfolio
         </Button>

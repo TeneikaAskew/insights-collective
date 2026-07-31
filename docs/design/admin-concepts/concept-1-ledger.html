@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin Concept 1 — Ledger</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Lora:ital,wght@1,400;1,500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --plaster:#FAF8F5; --ink:#2C2A33; --muted:#837E8C;
+    --lav:#A794EB; --lav-deep:#624EBE; --lav-chip:#F3EFFC;
+    --peach:#F0BE96; --peach-deep:#B97143; --card-warm:#FFF9F3;
+    --track:#EDE9F3; --good:#4E9B70; --good-chip:#E7F3EC;
+    --warn:#C97F3D; --warn-chip:#FBEEDF; --bad:#C25B49; --bad-chip:#F9E8E4;
+    --teal:#3FA391; --teal-chip:#E4F3F0;
+    --shadow:0 14px 34px -18px rgba(90,80,120,.35);
+    --border:rgba(44,42,51,.12);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Outfit',sans-serif;background:var(--plaster);color:var(--ink);
+    background-image:radial-gradient(60% 50% at 85% -10%,rgba(167,148,235,.14),transparent),
+                     radial-gradient(50% 40% at 0% 110%,rgba(240,190,150,.12),transparent);}
+  .serif{font-family:'Lora',serif;font-style:italic}
+  .shell{display:grid;grid-template-columns:236px 1fr;min-height:100vh;max-width:1280px;margin:0 auto}
+
+  /* ---- Section rail ---- */
+  .rail{padding:28px 16px;border-right:1px solid var(--border)}
+  .rail h1{font-size:15px;font-weight:600;letter-spacing:.02em;padding:0 12px;margin-bottom:4px}
+  .rail .sub{font-size:12px;color:var(--muted);padding:0 12px;margin-bottom:22px}
+  .rail nav a{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:999px;
+    color:var(--ink);text-decoration:none;font-size:13.5px;margin-bottom:2px}
+  .rail nav a .ico{width:17px;height:17px;opacity:.55}
+  .rail nav a.active{background:var(--lav-chip);color:var(--lav-deep);font-weight:600}
+  .rail nav a.active .ico{opacity:1}
+  .rail nav a:hover:not(.active){background:rgba(44,42,51,.045)}
+  .rail .group-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);
+    padding:18px 12px 6px}
+
+  /* ---- Content ---- */
+  .content{padding:30px 34px 60px}
+  .crumbs{font-size:12px;color:var(--muted);margin-bottom:6px}
+  .head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:8px}
+  .head h2{font-size:27px;font-weight:600;letter-spacing:-.01em}
+  .head .serif{color:var(--peach-deep);font-size:15px}
+  .lede{color:var(--muted);font-size:13.5px;max-width:560px;margin-bottom:22px}
+
+  .toolbar{display:flex;gap:10px;align-items:center;margin-bottom:16px}
+  .search{flex:1;max-width:320px;display:flex;align-items:center;gap:8px;background:#fff;
+    border:1px solid var(--border);border-radius:999px;padding:8px 14px;font-size:13px;color:var(--muted)}
+  .btn{border:none;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;
+    border-radius:999px;padding:9px 16px}
+  .btn-primary{background:var(--lav-deep);color:#fff}
+  .btn-ghost{background:transparent;border:1px solid var(--border);color:var(--ink)}
+  .chip{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:3px 10px;
+    font-size:11.5px;font-weight:600}
+  .chip-good{background:var(--good-chip);color:var(--good)}
+  .chip-warn{background:var(--warn-chip);color:var(--warn)}
+  .chip-bad{background:var(--bad-chip);color:var(--bad)}
+  .chip-lav{background:var(--lav-chip);color:var(--lav-deep)}
+
+  /* ---- Ledger card ---- */
+  .card{background:#fff;border:1px solid var(--border);border-radius:26px;box-shadow:var(--shadow);overflow:hidden}
+  .cols{display:grid;grid-template-columns:1fr 190px 110px 110px 90px;align-items:center;
+    padding:12px 24px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
+    border-bottom:1px solid var(--border);background:var(--card-warm)}
+  .row{display:grid;grid-template-columns:1fr 190px 110px 110px 90px;align-items:center;
+    padding:13px 24px;border-bottom:1px solid rgba(44,42,51,.06);font-size:14px}
+  .row:last-child{border-bottom:none}
+  .row .path{font-size:12px;color:var(--muted);font-family:ui-monospace,monospace}
+  .row.section{background:rgba(243,239,252,.35)}
+  .row.section .name{font-weight:600;display:flex;align-items:center;gap:9px}
+  .caret{width:16px;height:16px;border-radius:5px;background:var(--lav-chip);color:var(--lav-deep);
+    display:inline-flex;align-items:center;justify-content:center;font-size:10px}
+  .row.child{padding-left:56px}
+  .row.child .name{color:var(--ink);font-size:13.5px}
+  .count{font-size:11.5px;color:var(--muted);font-weight:400;margin-left:4px}
+
+  /* switch */
+  .sw{width:36px;height:21px;border-radius:999px;background:var(--track);position:relative;display:inline-block}
+  .sw::after{content:'';position:absolute;top:2.5px;left:3px;width:16px;height:16px;border-radius:50%;
+    background:#fff;box-shadow:0 1px 3px rgba(44,42,51,.3)}
+  .sw.on{background:var(--lav-deep)}
+  .sw.on::after{left:17px}
+  .always{font-size:12px;color:var(--muted)}
+
+  .stale{margin-top:20px}
+  .stale .card{border-style:dashed;box-shadow:none}
+  .stale h3{font-size:13px;font-weight:600;margin:0 0 2px}
+  .stale .hint{font-size:12px;color:var(--muted)}
+  .stale .row{grid-template-columns:1fr 190px 200px}
+  .btn-danger{background:var(--bad-chip);color:var(--bad);padding:6px 13px;font-size:12px}
+  .footnote{margin-top:14px;font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="rail">
+    <h1>Insights Collective</h1>
+    <div class="sub">Admin</div>
+    <nav>
+      <a href="#"><span class="ico">▦</span> Dashboard</a>
+      <a href="#"><span class="ico">👥</span> Users</a>
+      <a href="#"><span class="ico">🎓</span> Courses</a>
+      <a href="#"><span class="ico">📅</span> Events</a>
+      <a href="#"><span class="ico">✎</span> Blog</a>
+      <a href="#"><span class="ico">🗂</span> Forms</a>
+      <a href="#"><span class="ico">⏱</span> Activity</a>
+      <div class="group-label">Platform</div>
+      <a class="active" href="#"><span class="ico">👁</span> Page visibility</a>
+      <a href="#"><span class="ico">🧰</span> Debug tools</a>
+    </nav>
+  </aside>
+
+  <main class="content">
+    <div class="crumbs">Admin / Platform</div>
+    <div class="head">
+      <h2>Page visibility</h2>
+      <span class="serif">every page, one ledger</span>
+    </div>
+    <p class="lede">Hide a section and its whole subtree goes with it — a hidden page never
+      loads for the roles you switch off; visitors see Coming&nbsp;Soon instead.</p>
+
+    <div class="toolbar">
+      <div class="search">⌕ &nbsp;Filter pages or paths…</div>
+      <span class="chip chip-lav">24 pages</span>
+      <span class="chip chip-warn">3 hidden</span>
+      <button class="btn btn-ghost">Sync from manifest</button>
+    </div>
+
+    <div class="card">
+      <div class="cols"><span>Page</span><span>Path</span><span>All users</span><span>Instructors</span><span>Admins</span></div>
+
+      <div class="row section">
+        <span class="name"><span class="caret">▾</span> Interview Prep <span class="count">5 sub-pages</span></span>
+        <span class="path">/interview-prep</span>
+        <span class="sw on"></span><span class="sw on"></span><span class="always">Always</span>
+      </div>
+      <div class="row child"><span class="name">Code Practice</span><span class="path">/interview-prep/code-practice</span>
+        <span class="sw on"></span><span class="sw on"></span><span class="always">Always</span></div>
+      <div class="row child"><span class="name">Mock Interview Room</span><span class="path">/interview-prep/mock-interview-room</span>
+        <span class="sw"></span><span class="sw on"></span><span class="always">Always</span></div>
+      <div class="row child"><span class="name">STAR Practice</span><span class="path">/interview-prep/star-practice</span>
+        <span class="sw on"></span><span class="sw on"></span><span class="always">Always</span></div>
+
+      <div class="row section">
+        <span class="name"><span class="caret">▸</span> Courses <span class="count">governs /courses/*</span></span>
+        <span class="path">/courses</span>
+        <span class="sw on"></span><span class="sw on"></span><span class="always">Always</span>
+      </div>
+
+      <div class="row section">
+        <span class="name"><span class="caret">▸</span> Portfolio Explorer</span>
+        <span class="path">/portfolio-explorer</span>
+        <span class="sw"></span><span class="sw"></span><span class="always">Always</span>
+      </div>
+
+      <div class="row section">
+        <span class="name"><span class="caret">▸</span> Blog</span>
+        <span class="path">/blog</span>
+        <span class="sw on"></span><span class="sw on"></span><span class="always">Always</span>
+      </div>
+
+      <div class="row section">
+        <span class="name"><span class="caret">▸</span> Resume Analyzer</span>
+        <span class="path">/resume</span>
+        <span class="sw on"></span><span class="sw on"></span><span class="always">Always</span>
+      </div>
+    </div>
+
+    <div class="stale">
+      <div class="card">
+        <div class="row" style="border-bottom:1px solid rgba(44,42,51,.06)">
+          <div><h3>Stale entries <span class="chip chip-bad" style="margin-left:6px">2</span></h3>
+          <div class="hint">Rows for paths the app no longer manages — their toggles do nothing.</div></div>
+          <span></span><span style="text-align:right"><button class="btn btn-danger">Remove all</button></span>
+        </div>
+        <div class="row"><span class="name">Forum</span><span class="path">/forum</span>
+          <span style="text-align:right"><button class="btn btn-danger">Remove</button></span></div>
+        <div class="row"><span class="name">Code Practice (legacy)</span><span class="path">/code-practice</span>
+          <span style="text-align:right"><button class="btn btn-danger">Remove</button></span></div>
+      </div>
+    </div>
+
+    <p class="footnote">Admins always see every page. Section toggle cascades to sub-pages;
+      a sub-page can be visible only while its section is.</p>
+  </main>
+</div>
+</body>
+</html>

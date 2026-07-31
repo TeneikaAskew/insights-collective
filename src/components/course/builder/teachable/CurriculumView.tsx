@@ -111,11 +111,7 @@ export function CurriculumView(props: CurriculumViewProps) {
         <button
           type="button"
           onClick={onAddModule}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-bold rounded-md shrink-0"
-          style={{
-            background: 'hsl(var(--tw-accent))',
-            color: 'hsl(var(--tw-accent-ink))',
-          }}
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-bold rounded-md shrink-0 bg-primary text-primary-foreground hover:bg-primary/90"
         >
           <Plus className="h-4 w-4" />
           New section
@@ -123,19 +119,12 @@ export function CurriculumView(props: CurriculumViewProps) {
       </div>
 
       {modules.length === 0 ? (
-        <div
-          className="rounded-xl bg-white p-16 text-center"
-          style={{ border: '1px dashed hsl(var(--tw-border))' }}
-        >
-          <p className="text-gray-500 mb-4">No sections yet</p>
+        <div className="rounded-xl bg-card p-16 text-center border border-dashed border-border">
+          <p className="text-muted-foreground mb-4">No sections yet</p>
           <button
             type="button"
             onClick={onAddModule}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-bold rounded-md"
-            style={{
-              background: 'hsl(var(--tw-accent))',
-              color: 'hsl(var(--tw-accent-ink))',
-            }}
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-bold rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
           >
             <Plus className="h-4 w-4" />
             Add your first section
@@ -278,16 +267,13 @@ function SectionCard({
     <div
       ref={setNodeRef}
       style={style}
-      className="rounded-xl bg-white"
+      className="rounded-xl bg-card border border-border"
     >
-      <div
-        className="flex items-center gap-3 px-5 py-4 rounded-t-xl"
-        style={{ background: '#FAFAFA', borderBottom: '1px solid hsl(var(--tw-border))' }}
-      >
+      <div className="flex items-center gap-3 px-5 py-4 rounded-t-xl bg-muted/50 border-b border-border">
         <Hint label="Drag to reorder sections">
           <button
             type="button"
-            className="cursor-grab text-gray-400 hover:text-gray-700"
+            className="cursor-grab text-muted-foreground/60 hover:text-foreground"
             {...attributes}
             {...listeners}
             aria-label="Reorder section"
@@ -298,7 +284,7 @@ function SectionCard({
         {editing ? (
           <input
             autoFocus
-            className="flex-1 font-display text-2xl bg-transparent outline-none focus:ring-2 focus:ring-yellow-300 rounded px-1"
+            className="flex-1 font-display text-2xl bg-transparent outline-none focus:ring-2 focus:ring-ring rounded px-1"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onBlur={commit}
@@ -320,10 +306,7 @@ function SectionCard({
           </h3>
         )}
         <Hint label="Content is released on a schedule instead of all at once">
-          <span
-            className="text-[10px] uppercase tracking-widest font-bold px-2 py-1 rounded cursor-help"
-            style={{ background: '#EDEDED', color: '#333' }}
-          >
+          <span className="text-[10px] uppercase tracking-widest font-bold px-2 py-1 rounded cursor-help bg-muted text-muted-foreground">
             Drip
           </span>
         </Hint>
@@ -331,24 +314,21 @@ function SectionCard({
           <button
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
-            className="relative p-1.5 rounded hover:bg-gray-200 text-gray-600"
+            className="relative p-1.5 rounded hover:bg-muted text-muted-foreground"
             aria-label="Section actions"
           >
-            <div className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 border rounded"
-              style={{ borderColor: 'hsl(var(--tw-border))' }}
-            >
+            <div className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 border border-border rounded">
               Quick actions
               <ChevronDown className="h-3 w-3" />
             </div>
           {menuOpen && (
             <div
-              className="absolute right-0 top-full mt-1 min-w-[180px] rounded-md bg-white shadow-lg z-10 py-1 text-left"
-              style={{ border: '1px solid hsl(var(--tw-border))' }}
+              className="absolute right-0 top-full mt-1 min-w-[180px] rounded-md bg-card border border-border shadow-lg z-10 py-1 text-left"
               onClick={(e) => e.stopPropagation()}
             >
               <button
                 type="button"
-                className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-gray-50"
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-muted"
                 onClick={() => {
                   setMenuOpen(false);
                   setEditing(true);
@@ -358,7 +338,7 @@ function SectionCard({
               </button>
               <button
                 type="button"
-                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-600 hover:bg-red-50"
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-destructive hover:bg-ss-bad-chip"
                 onClick={() => {
                   setMenuOpen(false);
                   setConfirmDeleteOpen(true);
@@ -375,15 +355,11 @@ function SectionCard({
 
       {/* Section summary (shown to students on the course page) */}
       {onUpdateModuleDescription && (
-        <div
-          className="px-5 py-3"
-          style={{ borderBottom: '1px solid hsl(var(--tw-border))' }}
-        >
+        <div className="px-5 py-3 border-b border-border">
           {descEditing ? (
             <textarea
               autoFocus
-              className="w-full text-sm bg-transparent outline-none focus:ring-2 focus:ring-primary/40 rounded p-2 min-h-[64px] resize-y"
-              style={{ border: '1px solid hsl(var(--tw-border))' }}
+              className="w-full text-sm bg-transparent outline-none focus:ring-2 focus:ring-primary/40 rounded p-2 min-h-[64px] resize-y border border-border"
               value={descDraft}
               onChange={(e) => setDescDraft(e.target.value)}
               onBlur={commitDesc}
@@ -393,7 +369,7 @@ function SectionCard({
             <button
               type="button"
               onClick={beginEditDesc}
-              className="w-full text-left text-sm text-gray-600 hover:text-black cursor-text px-1 py-1 rounded"
+              className="w-full text-left text-sm text-muted-foreground hover:text-foreground cursor-text px-1 py-1 rounded"
               title="Click to edit section summary"
             >
               {module.description?.trim() ? (
@@ -406,7 +382,7 @@ function SectionCard({
                   <span className="whitespace-pre-wrap">{module.description}</span>
                 )
               ) : (
-                <span className="text-gray-400 italic">
+                <span className="text-muted-foreground italic">
                   + Add a section summary students will see on the course page
                 </span>
               )}
@@ -418,7 +394,7 @@ function SectionCard({
       {/* Lessons */}
 
       {module.items.length === 0 ? (
-        <div className="px-5 py-6 text-center text-sm text-gray-400">
+        <div className="px-5 py-6 text-center text-sm text-muted-foreground">
           No lessons yet. Add one below.
         </div>
       ) : (
@@ -441,21 +417,18 @@ function SectionCard({
       )}
 
       {/* Section footer actions */}
-      <div
-        className="flex items-center gap-6 px-5 py-3 rounded-b-xl"
-        style={{ borderTop: '1px solid hsl(var(--tw-border))' }}
-      >
+      <div className="flex items-center gap-6 px-5 py-3 rounded-b-xl border-t border-border">
         <button
           type="button"
           onClick={() => onAddLesson(module.id)}
-          className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-700 hover:text-black"
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground hover:text-primary"
         >
           <Plus className="h-4 w-4" />
           New lesson
         </button>
         <button
           type="button"
-          className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-500 hover:text-black"
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-foreground"
           disabled
           title="Coming soon"
         >
@@ -530,7 +503,7 @@ function LessonRow({ item, onRename, onDelete, onTogglePublish, onSelect }: Less
     >
       <button
         type="button"
-        className="cursor-grab text-gray-300 hover:text-gray-600"
+        className="cursor-grab text-muted-foreground/50 hover:text-muted-foreground"
         {...attributes}
         {...listeners}
         aria-label="Reorder lesson"
@@ -542,7 +515,7 @@ function LessonRow({ item, onRename, onDelete, onTogglePublish, onSelect }: Less
         {editing ? (
           <input
             autoFocus
-            className="w-full text-sm font-semibold bg-transparent outline-none focus:ring-2 focus:ring-yellow-300 rounded px-1"
+            className="w-full text-sm font-semibold bg-transparent outline-none focus:ring-2 focus:ring-ring rounded px-1"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onBlur={commit}
@@ -558,12 +531,12 @@ function LessonRow({ item, onRename, onDelete, onTogglePublish, onSelect }: Less
           <button
             type="button"
             onClick={() => onSelect(item.id)}
-            className="text-sm font-semibold underline underline-offset-2 hover:text-black text-left truncate w-full"
+            className="text-sm font-semibold underline underline-offset-2 hover:text-primary text-left truncate w-full"
           >
             {item.title || 'Untitled lesson'}
           </button>
         )}
-        <div className="text-[11px] text-gray-500 mt-0.5">1 {contentLabel(item.type)}</div>
+        <div className="text-[11px] text-muted-foreground mt-0.5">1 {contentLabel(item.type)}</div>
       </div>
 
       <Hint label={item.published ? 'Hide this lesson from students' : 'Make this lesson visible to students'}>
@@ -574,7 +547,7 @@ function LessonRow({ item, onRename, onDelete, onTogglePublish, onSelect }: Less
             'text-xs font-bold px-3 py-1.5 rounded border transition-colors',
             item.published
               ? 'bg-primary text-primary-foreground border-primary hover:bg-primary/90'
-              : 'bg-white text-gray-800 border-gray-300 hover:bg-gray-50',
+              : 'bg-card text-foreground border-border hover:bg-muted',
           )}
         >
           {item.published ? 'Unpublish' : 'Publish'}
@@ -586,7 +559,7 @@ function LessonRow({ item, onRename, onDelete, onTogglePublish, onSelect }: Less
           <button
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
-            className="p-1.5 rounded hover:bg-gray-100 text-gray-500"
+            className="p-1.5 rounded hover:bg-muted text-muted-foreground"
             aria-label="Lesson actions"
           >
             <MoreHorizontal className="h-4 w-4" />
@@ -594,12 +567,11 @@ function LessonRow({ item, onRename, onDelete, onTogglePublish, onSelect }: Less
         </Hint>
         {menuOpen && (
           <div
-            className="absolute right-0 top-full mt-1 min-w-[160px] rounded-md bg-white shadow-lg z-10 py-1 text-left"
-            style={{ border: '1px solid hsl(var(--tw-border))' }}
+            className="absolute right-0 top-full mt-1 min-w-[160px] rounded-md bg-card border border-border shadow-lg z-10 py-1 text-left"
           >
             <button
               type="button"
-              className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-gray-50"
+              className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-muted"
               onClick={() => {
                 setMenuOpen(false);
                 setEditing(true);
@@ -609,7 +581,7 @@ function LessonRow({ item, onRename, onDelete, onTogglePublish, onSelect }: Less
             </button>
             <button
               type="button"
-              className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-gray-50"
+              className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-muted"
               onClick={() => {
                 setMenuOpen(false);
                 onSelect(item.id);
@@ -619,7 +591,7 @@ function LessonRow({ item, onRename, onDelete, onTogglePublish, onSelect }: Less
             </button>
             <button
               type="button"
-              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-600 hover:bg-red-50"
+              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-destructive hover:bg-ss-bad-chip"
               onClick={() => {
                 setMenuOpen(false);
                 setConfirmDeleteOpen(true);

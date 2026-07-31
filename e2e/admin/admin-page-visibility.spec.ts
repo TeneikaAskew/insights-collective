@@ -40,19 +40,42 @@ test.describe('Admin Page Visibility', () => {
   });
 
   test('toggling visibility updates state', async ({ page }) => {
+    // Stub reads AND writes: this test must never mutate the shared
+    // database. A previous version clicked the first live switch — Home's
+    // "All users" toggle in the ledger — and left the landing page hidden
+    // for every visitor whenever cleanup didn't run.
+    let patched: Record<string, unknown> | null = null;
+    await page.route('**/rest/v1/page_visibility*', async route => {
+      const req = route.request();
+      if (req.method() === 'GET') {
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify([
+            {
+              id: 'e2e-row-resume',
+              page_path: '/resume',
+              page_name: 'Resume Analyzer',
+              visible_to_users: true,
+              visible_to_instructors: true,
+            },
+          ]),
+        });
+      }
+      if (req.method() === 'PATCH') {
+        patched = req.postDataJSON();
+        return route.fulfill({ status: 204, body: '' });
+      }
+      return route.continue();
+    });
+
     await goto(page, Routes.adminPageVisibility);
-    const toggle = page.locator('[role="switch"]').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await toggle.count() > 0) {
-      const initialState = await toggle.getAttribute('data-state') || await toggle.getAttribute('aria-checked');
-      await toggle.click();
-      await page.waitForTimeout(500);
-      const newState = await toggle.getAttribute('data-state') || await toggle.getAttribute('aria-checked');
-      // State should have changed or a save button appeared
-      const saveBtn = page.locator('button:has-text("Save"), button:has-text("Apply")').first();
-      const changed = initialState !== newState || (await saveBtn.count()) > 0;
-      expect(changed).toBe(true);
-    }
+    const row = page.getByTestId('visibility-row-/resume');
+    const toggle = row.locator('[role="switch"]').first();
+    await expect(toggle).toHaveAttribute('data-state', 'checked');
+    await toggle.click();
+    // Optimistic update flips immediately; the PATCH carried the new flag
+    await expect(toggle).toHaveAttribute('data-state', 'unchecked');
+    expect(patched).toEqual({ visible_to_users: false });
   });
 });

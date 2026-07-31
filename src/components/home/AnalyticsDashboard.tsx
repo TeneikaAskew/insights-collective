@@ -11,9 +11,9 @@ const AnalyticsDashboard = () => {
       <div className="container mx-auto px-4">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           <div className="text-left">
-            <div className="inline-flex items-center mb-4 px-4 py-1 bg-amber-100 rounded-full">
-              <BarChart className="w-4 h-4 mr-2 text-amber-600" />
-              <span className="text-sm font-medium text-amber-600">Intuitive Dashboard</span>
+            <div className="inline-flex items-center mb-4 px-4 py-1 bg-ss-warn-chip rounded-full">
+              <BarChart className="w-4 h-4 mr-2 text-ss-warn" />
+              <span className="text-sm font-medium text-ss-warn">Intuitive Dashboard</span>
             </div>
             <h2 className="text-3xl font-bold mb-6">Powerful Analytics</h2>
             <h3 className="text-2xl font-semibold mb-6 text-primary">Monitor Your Learning Progress</h3>
@@ -62,14 +62,14 @@ const AnalyticsDashboard = () => {
             </div>
             
             <div className="mt-8">
-              <Button className="bg-primary hover:bg-primary/90" asChild>
+              <Button className="rounded-full" asChild>
                 <Link to="/login">Log in to view Dashboard</Link>
               </Button>
             </div>
           </div>
           
           <div className="relative">
-            <Card className="bg-card/90 backdrop-blur border shadow-lg overflow-hidden rounded-lg">
+            <Card className="ss-card bg-card overflow-hidden">
               <div className="p-6">
                 <div className="mb-4 flex justify-between items-center">
                   <h3 className="text-lg font-semibold">Learning Performance Overview</h3>
@@ -85,7 +85,7 @@ const AnalyticsDashboard = () => {
                     <div className="text-sm text-muted-foreground mb-1">Courses Completed</div>
                     <div className="flex items-baseline">
                       <span className="text-2xl font-bold">4</span>
-                      <span className="text-xs text-green-500 ml-2">+1 this month</span>
+                      <span className="text-xs text-ss-good ml-2">+1 this month</span>
                     </div>
                   </div>
                   
@@ -93,7 +93,7 @@ const AnalyticsDashboard = () => {
                     <div className="text-sm text-muted-foreground mb-1">Skills Acquired</div>
                     <div className="flex items-baseline">
                       <span className="text-2xl font-bold">12</span>
-                      <span className="text-xs text-green-500 ml-2">+3 this month</span>
+                      <span className="text-xs text-ss-good ml-2">+3 this month</span>
                     </div>
                   </div>
                   
@@ -101,7 +101,7 @@ const AnalyticsDashboard = () => {
                     <div className="text-sm text-muted-foreground mb-1">Avg. Quiz Score</div>
                     <div className="flex items-baseline">
                       <span className="text-2xl font-bold">87%</span>
-                      <span className="text-xs text-green-500 ml-2">+5.3%</span>
+                      <span className="text-xs text-ss-good ml-2">+5.3%</span>
                     </div>
                   </div>
                   
@@ -109,7 +109,7 @@ const AnalyticsDashboard = () => {
                     <div className="text-sm text-muted-foreground mb-1">Learning Streak</div>
                     <div className="flex items-baseline">
                       <span className="text-2xl font-bold">8 days</span>
-                      <span className="text-xs text-amber-500 ml-2">Continue!</span>
+                      <span className="text-xs text-ss-warn ml-2">Continue!</span>
                     </div>
                   </div>
                 </div>
@@ -140,8 +140,6 @@ const AnalyticsDashboard = () => {
                 </div>
               </div>
             </Card>
-            
-            <div className="absolute -z-10 w-full h-full bg-gradient-to-r from-blue-500/20 to-purple-500/20 blur-3xl -top-10 -left-10"></div>
           </div>
         </div>
       </div>

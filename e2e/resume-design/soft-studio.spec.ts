@@ -34,7 +34,7 @@ test.describe('Soft Studio resume page', () => {
   test.describe('shell & theme', () => {
     test('applies the Soft Studio wrapper, plaster ground, and Outfit type', async ({ page }) => {
       const wrapper = page.getByTestId('soft-studio-preview');
-      await expect(wrapper).toHaveClass(/soft-studio/);
+      await expect(wrapper).toHaveClass(/ss-wash/);
 
       const { background, fontFamily } = await wrapper.evaluate((el) => {
         const s = getComputedStyle(el);

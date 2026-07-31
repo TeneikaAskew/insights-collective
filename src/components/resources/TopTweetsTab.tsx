@@ -25,8 +25,8 @@ interface TopTweetsTabProps {
 // Skeleton card for tweets during loading
 const TweetCardSkeleton = ({ highlighted = false }: { highlighted?: boolean }) => {
   const backgroundClass = highlighted
-    ? 'bg-white dark:bg-gray-800 shadow-md border-2 border-blue-200 dark:border-blue-800'
-    : 'bg-white dark:bg-gray-800 shadow-sm';
+    ? 'bg-white shadow-md border-2 border-blue-200 '
+    : 'bg-white shadow-sm';
 
   return (
     <div className={`rounded-lg p-4 ${backgroundClass}`}>
@@ -66,8 +66,8 @@ export const TopTweetsTab: React.FC<TopTweetsTabProps> = ({
     return (
       <div className="space-y-6 w-full">
         {/* Highlighted top tweet skeleton */}
-        <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 p-4 rounded-lg border border-blue-100 dark:border-blue-800 mb-6">
-          <div className="flex items-center mb-2 text-blue-600 dark:text-blue-400">
+        <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-lg border border-blue-100 mb-6">
+          <div className="flex items-center mb-2 text-blue-600 ">
             <TrendingUp className="h-5 w-5 mr-2" />
             <h3 className="font-semibold">Top Trending Tweet</h3>
           </div>
@@ -85,7 +85,7 @@ export const TopTweetsTab: React.FC<TopTweetsTabProps> = ({
 
   if (visibleTweets.length === 0) {
     return (
-      <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg">
+      <div className="text-center py-12 bg-gray-50 rounded-lg">
         <h3 className="text-xl font-medium mb-2">No tweets found</h3>
         <p className="text-muted-foreground mb-4">
           Try adjusting your search or filter criteria, or check back later for new top tweets.
@@ -104,8 +104,8 @@ export const TopTweetsTab: React.FC<TopTweetsTabProps> = ({
   return (
     <div className="space-y-6 w-full">
       {topTweet && (
-        <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 p-4 rounded-lg border border-blue-100 dark:border-blue-800 mb-6">
-          <div className="flex items-center mb-2 text-blue-600 dark:text-blue-400">
+        <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-lg border border-blue-100 mb-6">
+          <div className="flex items-center mb-2 text-blue-600 ">
             <TrendingUp className="h-5 w-5 mr-2" />
             <h3 className="font-semibold">Top Trending Tweet</h3>
           </div>

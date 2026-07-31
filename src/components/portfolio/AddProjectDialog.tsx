@@ -64,7 +64,7 @@ export function AddProjectDialog({ onAddProject }: AddProjectDialogProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="bg-[#9b87f5] hover:bg-[#8B5CF6]">
+        <Button>
           <PlusCircle className="h-4 w-4 mr-2" /> Add Custom Project
         </Button>
       </DialogTrigger>
@@ -112,12 +112,12 @@ export function AddProjectDialog({ onAddProject }: AddProjectDialogProps) {
                   {project.required_skills.map((skill, index) => (
                     <div 
                       key={index} 
-                      className="bg-gray-100 px-2 py-1 rounded-md text-xs flex items-center"
+                      className="bg-muted px-2 py-1 rounded-md text-xs flex items-center"
                     >
                       {skill}
                       <button 
                         type="button"
-                        className="ml-1 text-gray-500 hover:text-red-500"
+                        className="ml-1 text-muted-foreground hover:text-destructive"
                         onClick={() => removeSkill(skill)}
                       >
                         ×

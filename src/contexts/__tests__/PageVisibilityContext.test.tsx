@@ -52,7 +52,7 @@ describe('PageVisibilityContext', () => {
     vi.mocked(useAuth).mockReturnValue({ ...baseAuth } as any);
   });
 
-  it('fails CLOSED for non-admins when the visibility fetch errors', async () => {
+  it('fails CLOSED for managed pages only when the visibility fetch errors', async () => {
     getQueryBuilder().order.mockResolvedValue(supabaseError('db unavailable'));
 
     const { result } = renderHook(() => usePageVisibility(), { wrapper });
@@ -60,9 +60,15 @@ describe('PageVisibilityContext', () => {
     await waitFor(() => expect(result.current.isReady).toBe(true));
 
     expect(result.current.loadError).toBe(true);
-    // Previously this returned true (fail-open) because the list was empty
-    expect(result.current.isPageVisible('/admin/users')).toBe(false);
-    expect(result.current.isPageVisible('/any-page')).toBe(false);
+    // Policy: fail-closed is scoped to MANAGED chains. A managed page like
+    // /resume stays hidden on a fetch error (a DB/RLS failure must not grant
+    // access), but unmanaged paths (404s, redirect-only URLs) have no
+    // governing chain — nothing to gate — so blanking them buys no security
+    // and they stay visible.
+    expect(result.current.isPageVisible('/resume')).toBe(false);
+    expect(result.current.isPageVisible('/courses/abc-123')).toBe(false);
+    expect(result.current.isPageVisible('/any-page')).toBe(true);
+    expect(result.current.isPageVisible('/admin/users')).toBe(true);
     // The failure must be surfaced, not silent
     expect(toastSpy).toHaveBeenCalledWith(
       expect.objectContaining({ variant: 'destructive' })
@@ -74,8 +80,8 @@ describe('PageVisibilityContext', () => {
       data: [
         {
           id: '1',
-          page_path: '/gated',
-          page_name: 'Gated',
+          page_path: '/resume',
+          page_name: 'Resume Analyzer',
           visible_to_users: false,
           visible_to_instructors: false,
         },
@@ -88,9 +94,78 @@ describe('PageVisibilityContext', () => {
     await waitFor(() => expect(result.current.isReady).toBe(true));
 
     expect(result.current.loadError).toBe(false);
-    expect(result.current.isPageVisible('/gated')).toBe(false);
+    expect(result.current.isPageVisible('/resume')).toBe(false);
     // Pages not present in the table still default to visible
     expect(result.current.isPageVisible('/unmanaged')).toBe(true);
+  });
+
+  it('hides an entire subtree when its governing section is hidden', async () => {
+    getQueryBuilder().order.mockResolvedValue({
+      data: [
+        {
+          id: '1',
+          page_path: '/courses',
+          page_name: 'Courses',
+          visible_to_users: false,
+          visible_to_instructors: false,
+        },
+        {
+          id: '2',
+          page_path: '/interview-prep',
+          page_name: 'Interview Prep',
+          visible_to_users: false,
+          visible_to_instructors: true,
+        },
+        {
+          id: '3',
+          page_path: '/interview-prep/star-practice',
+          page_name: 'STAR Practice',
+          visible_to_users: true,
+          visible_to_instructors: true,
+        },
+      ],
+      error: null,
+    });
+
+    const { result } = renderHook(() => usePageVisibility(), { wrapper });
+    await waitFor(() => expect(result.current.isReady).toBe(true));
+
+    // Hidden /courses governs every nested course URL, including param routes
+    expect(result.current.isPageVisible('/courses')).toBe(false);
+    expect(result.current.isPageVisible('/courses/abc-123')).toBe(false);
+    expect(result.current.isPageVisible('/courses/abc-123/learn/m1/i2')).toBe(false);
+    // Aliases resolve to the governing section
+    expect(result.current.isPageVisible('/course/abc-123')).toBe(false);
+
+    // A visible child cannot escape a hidden parent (AND across the chain)
+    expect(result.current.isPageVisible('/interview-prep/star-practice')).toBe(false);
+  });
+
+  it('applies instructor OR-visibility across the governing chain', async () => {
+    vi.mocked(useAuth).mockReturnValue({
+      ...baseAuth,
+      user: { id: 'instructor-1', roles: ['instructor'] },
+      isAuthenticated: true,
+    } as any);
+    getQueryBuilder().order.mockResolvedValue({
+      data: [
+        {
+          id: '1',
+          page_path: '/interview-prep',
+          page_name: 'Interview Prep',
+          visible_to_users: false,
+          visible_to_instructors: true,
+        },
+      ],
+      error: null,
+    });
+
+    const { result } = renderHook(() => usePageVisibility(), { wrapper });
+    await waitFor(() => expect(result.current.isReady).toBe(true));
+
+    // Instructor sees the section (and its subtree) via the instructor toggle
+    expect(result.current.isPageVisible('/interview-prep')).toBe(true);
+    expect(result.current.isPageVisible('/interview-prep/star-practice')).toBe(true);
   });
 
   it('still shows everything to admins even when the fetch errors', async () => {

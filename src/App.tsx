@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Link, useParams, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ThemeProvider } from 'next-themes';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { OnboardingProvider } from '@/contexts/OnboardingContext';
 import { DialogsProvider } from '@/components/dialogs/DialogsProvider';
@@ -112,7 +113,8 @@ const AdminCourses = lazy(() => import('@/pages/AdminCourses'));
 const AdminEvents = lazy(() => import('@/pages/AdminEvents'));
 const AdminUsers = lazy(() => import('@/pages/AdminUsers'));
 const BlogAdmin = lazy(() => import('@/pages/admin/BlogAdmin'));
-const AdminPageVisibility = lazy(() => import('@/pages/AdminPageVisibility'));
+const AdminLayout = lazy(() => import('@/pages/admin/AdminLayout'));
+const PageVisibilityManager = lazy(() => import('@/pages/admin/PageVisibilityManager'));
 const FormManagement = lazy(() => import('@/pages/admin/FormManagement'));
 const UnifiedFormManagement = lazy(() => import('@/pages/admin/UnifiedFormManagement'));
 const LocalStorageDebug = lazy(() => import('@/pages/admin/LocalStorageDebug'));
@@ -124,14 +126,12 @@ const NotFound = lazy(() => import('@/pages/NotFound'));
 
 // Components
 import ProtectedRoute from '@/components/ProtectedRoute';
-import PageVisibilityGuard from '@/components/PageVisibilityGuard';
+import VisibilityGate from '@/components/VisibilityGate';
 import { SecurityHeaders } from '@/components/security/SecurityHeaders';
 import { useSecureSession } from '@/hooks/useSecureSession';
 import { usePortfolioPages } from '@/hooks/usePortfolioPages';
 import { GoogleAnalytics, SEOMetaTags } from '@/components/common/GoogleAnalytics';
 import CourseFeedbackButton from '@/components/course/CourseFeedbackButton';
-
-import '@/App.css';
 
 // Loading component for Suspense fallback
 const PageLoader = () => (
@@ -227,6 +227,7 @@ function RouteTracker() {
 
 function App() {
   return (
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem storageKey="ic-theme">
     <Router>
         <AuthProvider>
           <PageVisibilityProvider>
@@ -236,9 +237,19 @@ function App() {
               <SecurityHeaders />
               <SecurityManager />
               <RouteTracker />
-              <div className="min-h-screen bg-gray-50">
+              <div className="min-h-screen bg-background">
                 <Suspense fallback={<PageLoader />}>
                   <Routes>
+                    {/*
+                      Page-visibility gate. Routes render only when visible
+                      for the current user's role; hidden pages mount a
+                      Coming Soon page instead — the page component itself
+                      never runs. Policy (which paths are gated, subtree
+                      governance, aliases) lives in src/config/pageManifest.ts.
+                      Auth, legal, public and /admin surfaces short-circuit
+                      through UNGATED_PATHS.
+                    */}
+                    <Route element={<VisibilityGate />}>
                     {/* Home & Core Routes */}
                     <Route path="/" element={<Index />} />
                     <Route path="/dashboard" element={<Dashboard />} />
@@ -347,16 +358,12 @@ function App() {
                     {/* Portfolio Routes */}
                     <Route path="/portfolio-explorer" element={
                       <ProtectedRoute>
-                        <PageVisibilityGuard>
-                          <PortfolioExplorer />
-                        </PageVisibilityGuard>
+                        <PortfolioExplorer />
                       </ProtectedRoute>
                     } />
                     <Route path="/portfolio-editor/:pageId" element={
                       <ProtectedRoute>
-                        <PageVisibilityGuard>
-                          <PortfolioEditorWrapper />
-                        </PageVisibilityGuard>
+                        <PortfolioEditorWrapper />
                       </ProtectedRoute>
                     } />
                     <Route path="/portfolio/:customUrl" element={<PublicPortfolioWrapper />} />
@@ -370,51 +377,57 @@ function App() {
 
                     {/* Resources & Tools Routes */}
                     <Route path="/resources" element={<Resources />} />
-                    <Route path="/teneika-linkedin" element={
-                      <PageVisibilityGuard>
-                        <TeneikaLinkedIn />
-                      </PageVisibilityGuard>
-                    } />
-                    <Route path="/teneika-tweets" element={
-                      <PageVisibilityGuard>
-                        <TeneikaTweets />
-                      </PageVisibilityGuard>
-                    } />
+                    <Route path="/teneika-linkedin" element={<TeneikaLinkedIn />} />
+                    <Route path="/teneika-tweets" element={<TeneikaTweets />} />
 
                     {/* Survey & Forms Routes */}
                     <Route path="/survey" element={<Survey />} />
                     <Route path="/survey/:slug" element={<SurveyPage />} />
                     <Route path="/survey-confirmation" element={<SurveyConfirmation />} />
                     <Route path="/survey-confirmation/:slug" element={<SurveyConfirmation />} />
-                    <Route path="/survey/survey-form-create" element={<SurveyFormCreate />} />
-                    <Route path="/survey/survey-form-edit/:id" element={<SurveyFormEdit />} />
-                    <Route path="/survey/:surveySlug/edit" element={<SurveyFormEdit />} />
+                    {/* Survey builder tools are admin form tooling, guarded
+                        like the admin Forms area */}
+                    <Route path="/survey/survey-form-create" element={<ProtectedRoute requireAdmin><SurveyFormCreate /></ProtectedRoute>} />
+                    <Route path="/survey/survey-form-edit/:id" element={<ProtectedRoute requireAdmin><SurveyFormEdit /></ProtectedRoute>} />
+                    <Route path="/survey/:surveySlug/edit" element={<ProtectedRoute requireAdmin><SurveyFormEdit /></ProtectedRoute>} />
 
-                    {/* Admin Routes */}
-                    {/* Every /admin route is wrapped in ProtectedRoute
-                        requireAdmin — previously only /admin itself was,
-                        leaving the rest reachable by any visitor (RLS aside). */}
-                    <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminDashboard /></ProtectedRoute>} />
-                    <Route path="/admin/activity" element={<ProtectedRoute requireAdmin><AdminActivity /></ProtectedRoute>} />
-                    {/* Instructors author their own posts here — RLS already
-                        grants them CRUD on posts they own, and admin-only tabs
-                        are hidden inside the page. */}
-                    <Route path="/admin/blog/*" element={<ProtectedRoute requireAdmin allowInstructor><BlogAdmin /></ProtectedRoute>} />
-                    <Route path="/admin/courses" element={<ProtectedRoute requireAdmin><AdminCourses /></ProtectedRoute>} />
-                    <Route path="/admin/course-edit/:id" element={<ProtectedRoute requireAdmin><AdminCourseEditRedirect /></ProtectedRoute>} />
-                    <Route path="/admin/events" element={<ProtectedRoute requireAdmin><AdminEvents /></ProtectedRoute>} />
-                    <Route path="/admin/users" element={<ProtectedRoute requireAdmin><AdminUsers /></ProtectedRoute>} />
-                    <Route path="/admin/page-visibility" element={<ProtectedRoute requireAdmin><AdminPageVisibility /></ProtectedRoute>} />
-                    <Route path="/admin/form-management" element={<ProtectedRoute requireAdmin><FormManagement /></ProtectedRoute>} />
-                    <Route path="/admin/unified-form-management" element={<ProtectedRoute requireAdmin><UnifiedFormManagement /></ProtectedRoute>} />
-                    <Route path="/admin/unified-form-management/submissions/:slug" element={<ProtectedRoute requireAdmin><FormManagement /></ProtectedRoute>} />
-                    <Route path="/admin/unified-form-management/submissions/:slug/submission/:submissionId" element={<ProtectedRoute requireAdmin><FormManagement /></ProtectedRoute>} />
-                    {/* Debug Tools is a dev-only surface: it inspects raw
-                        localStorage (secrets are redacted, but it should not
-                        ship to production at all). Gate the route to DEV. */}
-                    {import.meta.env.DEV && (
-                      <Route path="/admin/local-storage-debug" element={<ProtectedRoute requireAdmin><LocalStorageDebug /></ProtectedRoute>} />
-                    )}
+                    {/* Admin Routes — one shell (AdminLayout), one guard at
+                        the layout. Every tool is a nested route rendered into
+                        the shell's Outlet. */}
+                    <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminLayout /></ProtectedRoute>}>
+                      <Route index element={<AdminDashboard />} />
+                      <Route path="users" element={<AdminUsers />} />
+                      <Route path="courses" element={<AdminCourses />} />
+                      <Route path="course-edit/:id" element={<AdminCourseEditRedirect />} />
+                      <Route path="events" element={<AdminEvents />} />
+                      <Route path="activity" element={<AdminActivity />} />
+                      <Route path="forms" element={<UnifiedFormManagement />} />
+                      <Route path="forms/submissions/:slug" element={<FormManagement />} />
+                      <Route path="forms/submissions/:slug/submission/:submissionId" element={<FormManagement />} />
+                      {/* Legacy form URLs keep working inside the shell */}
+                      <Route path="form-management" element={<FormManagement />} />
+                      <Route path="unified-form-management" element={<Navigate to="/admin/forms" replace />} />
+                      <Route path="unified-form-management/submissions/:slug" element={<FormManagement />} />
+                      <Route path="unified-form-management/submissions/:slug/submission/:submissionId" element={<FormManagement />} />
+                      <Route path="page-visibility" element={<PageVisibilityManager />} />
+                      {/* Debug Tools is a dev-only surface: it inspects raw
+                          localStorage and should not ship to production. */}
+                      {import.meta.env.DEV && (
+                        <Route path="debug/storage" element={<LocalStorageDebug />} />
+                      )}
+                      {/* Legacy URL always redirects: to the debug tool in dev,
+                          to the admin dashboard in production builds */}
+                      <Route path="local-storage-debug" element={<Navigate to={import.meta.env.DEV ? '/admin/debug/storage' : '/admin'} replace />} />
+
+                    </Route>
+                    {/* Blog admin allows instructors (RLS grants them CRUD on
+                        their own posts), so it carries its own guard and wraps
+                        the shell explicitly. */}
+                    <Route path="/admin/blog/*" element={
+                      <ProtectedRoute requireAdmin allowInstructor>
+                        <AdminLayout><BlogAdmin /></AdminLayout>
+                      </ProtectedRoute>
+                    } />
 
                     {/* Legal & Info Routes */}
                     <Route path="/privacy-policy" element={<PrivacyPolicy />} />
@@ -422,6 +435,7 @@ function App() {
 
                     {/* 404 Catch-All Route */}
                     <Route path="*" element={<NotFound />} />
+                    </Route>
                   </Routes>
                 </Suspense>
                 <Toaster />
@@ -441,6 +455,7 @@ function App() {
           </PageVisibilityProvider>
         </AuthProvider>
       </Router>
+    </ThemeProvider>
   );
 }
 

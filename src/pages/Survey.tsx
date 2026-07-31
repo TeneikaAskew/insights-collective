@@ -132,8 +132,8 @@ const Survey = () => {
                   </div>
 
                   {form.deadline && (
-                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                      <p className="text-amber-800 font-medium">
+                    <div className="p-4 bg-ss-warn-chip border border-border rounded-lg">
+                      <p className="text-ss-warn font-medium">
                         Deadline: {new Date(form.deadline).toLocaleDateString()}
                       </p>
                     </div>

@@ -254,7 +254,7 @@ const Register = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-white">
+    <div className="min-h-screen flex items-center justify-center p-4 ss-wash">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center text-2xl font-bold text-primary">
@@ -274,9 +274,9 @@ const Register = () => {
           <CardContent>
             {/* Success message */}
             {registrationSuccess && needsEmailVerification && (
-              <Alert className="mb-4 border-green-200 bg-green-50">
-                <CheckCircle className="h-4 w-4 text-green-600" />
-                <AlertDescription className="text-green-800">
+              <Alert className="mb-4 border-border bg-ss-good-chip">
+                <CheckCircle className="h-4 w-4 text-ss-good" />
+                <AlertDescription className="text-ss-good">
                   <strong>Registration successful!</strong> Please check your email and click the verification link to activate your account.
                 </AlertDescription>
               </Alert>
@@ -331,10 +331,10 @@ const Register = () => {
                   }} 
                   required 
                   disabled={formSubmitting || loading}
-                  className={nameError ? 'border-red-500 focus:border-red-500' : ''}
+                  className={nameError ? 'border-destructive focus:border-destructive' : ''}
                 />
                 {nameError && (
-                  <p className="text-sm text-red-600 mt-1 flex items-center">
+                  <p className="text-sm text-destructive mt-1 flex items-center">
                     <AlertCircle className="h-3 w-3 mr-1" />
                     {nameError}
                   </p>
@@ -354,10 +354,10 @@ const Register = () => {
                   }} 
                   required 
                   disabled={formSubmitting || loading}
-                  className={emailError ? 'border-red-500 focus:border-red-500' : ''}
+                  className={emailError ? 'border-destructive focus:border-destructive' : ''}
                 />
                 {emailError && (
-                  <p className="text-sm text-red-600 mt-1 flex items-center">
+                  <p className="text-sm text-destructive mt-1 flex items-center">
                     <AlertCircle className="h-3 w-3 mr-1" />
                     {emailError}
                   </p>
@@ -378,7 +378,7 @@ const Register = () => {
                     }} 
                     required 
                     disabled={formSubmitting || loading}
-                    className={passwordError ? 'border-red-500 focus:border-red-500' : ''}
+                    className={passwordError ? 'border-destructive focus:border-destructive' : ''}
                   />
                   <button 
                     type="button" 
@@ -390,7 +390,7 @@ const Register = () => {
                   </button>
                 </div>
                 {passwordError && (
-                  <p className="text-sm text-red-600 mt-1 flex items-center">
+                  <p className="text-sm text-destructive mt-1 flex items-center">
                     <AlertCircle className="h-3 w-3 mr-1" />
                     {passwordError}
                   </p>
@@ -411,7 +411,7 @@ const Register = () => {
                     }} 
                     required 
                     disabled={formSubmitting || loading}
-                    className={confirmPasswordError ? 'border-red-500 focus:border-red-500' : ''}
+                    className={confirmPasswordError ? 'border-destructive focus:border-destructive' : ''}
                   />
                   <button 
                     type="button" 
@@ -423,7 +423,7 @@ const Register = () => {
                   </button>
                 </div>
                 {confirmPasswordError && (
-                  <p className="text-sm text-red-600 mt-1 flex items-center">
+                  <p className="text-sm text-destructive mt-1 flex items-center">
                     <AlertCircle className="h-3 w-3 mr-1" />
                     {confirmPasswordError}
                   </p>

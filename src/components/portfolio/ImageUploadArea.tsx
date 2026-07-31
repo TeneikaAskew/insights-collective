@@ -132,8 +132,8 @@ export function ImageUploadArea({
         className={`
           relative border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-all
           ${dragActive 
-            ? 'border-blue-400 bg-blue-50' 
-            : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
+            ? 'border-primary bg-ss-lav-chip'
+            : 'border-border hover:border-ss-lav hover:bg-muted/50'
           }
           ${uploading ? 'pointer-events-none opacity-50' : ''}
         `}
@@ -153,15 +153,15 @@ export function ImageUploadArea({
         />
         
         <div className="space-y-2">
-          <Upload className="mx-auto h-12 w-12 text-gray-400" />
+          <Upload className="mx-auto h-12 w-12 text-muted-foreground" />
           <div>
-            <p className="text-lg font-medium text-gray-900">
+            <p className="text-lg font-medium text-foreground">
               {uploading ? 'Uploading...' : 'Upload project screenshots'}
             </p>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-muted-foreground">
               Drag and drop images here, or click to browse
             </p>
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               PNG, JPG, GIF up to 10MB • Max {maxImages} images
             </p>
           </div>
@@ -176,7 +176,7 @@ export function ImageUploadArea({
               <img
                 src={imageUrl}
                 alt={`Project screenshot ${index + 1}`}
-                className="w-full h-32 object-cover rounded-lg border border-gray-200"
+                className="w-full h-32 object-cover rounded-lg border border-border"
               />
               <Button
                 size="sm"

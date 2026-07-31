@@ -34,8 +34,8 @@ export const TweetCard = ({ tweet, highlighted = false }: TweetCardProps) => {
   };
 
   const backgroundClass = highlighted
-    ? 'bg-white dark:bg-gray-800 shadow-md border-2 border-blue-200 dark:border-blue-800'
-    : 'bg-white dark:bg-gray-800 shadow-sm';
+    ? 'bg-white shadow-md border-2 border-blue-200 '
+    : 'bg-white shadow-sm';
 
   return (
     <Card className={`hover:shadow-md transition-shadow overflow-hidden ${backgroundClass}`}>
