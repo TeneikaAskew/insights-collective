@@ -117,9 +117,9 @@ describe('EnrolledCoursesDashboard', () => {
     expect(screen.getByText('Essay 1')).toBeInTheDocument();
   });
 
-  it('does not fabricate status badge, module counts, or a stock thumbnail', async () => {
+  it('does not fabricate a status badge or module counts', async () => {
     mockTables(successTables());
-    const { container } = render(<EnrolledCoursesDashboard />);
+    render(<EnrolledCoursesDashboard />);
 
     await screen.findAllByText('Intro to Data Analytics');
 
@@ -127,10 +127,31 @@ describe('EnrolledCoursesDashboard', () => {
     expect(screen.queryByText('Active')).not.toBeInTheDocument();
     // No "X/Y modules" derived from a single percentage
     expect(screen.queryByText(/\d+\/\d+ modules/)).not.toBeInTheDocument();
-    // No unsplash fallback image anywhere in the DOM; missing thumbnail
-    // renders as a neutral placeholder without an <img>.
+  });
+
+  it('covers a course with app-owned artwork, never a remote stock image', async () => {
+    mockTables(successTables());
+    const { container } = render(<EnrolledCoursesDashboard />);
+
+    await screen.findAllByText('Intro to Data Analytics');
+
+    // This assertion used to require no <img> at all for a course with no
+    // thumbnail. `CourseImage` now falls back to one of three bundled covers
+    // chosen by hashing the title, so the rule it enforces has changed: the
+    // artwork must be ours and bundled, never fetched from a stock service.
+    // That is the part worth guarding — a remote cover is an outbound request
+    // on every card and an image nobody in this repo controls.
     expect(container.innerHTML).not.toContain('unsplash');
-    expect(container.querySelector('img')).not.toBeInTheDocument();
+
+    const images = Array.from(container.querySelectorAll('img'));
+    expect(images.length).toBeGreaterThan(0);
+    for (const img of images) {
+      const src = img.getAttribute('src') ?? '';
+      expect(src, `${src} is not a bundled asset`).not.toMatch(/^https?:\/\//);
+      expect(src).toMatch(/course-cover-(collaboration|leadership|strategy)/);
+      // A decorative cover still needs an accessible name for the card.
+      expect(img.getAttribute('alt')).toBeTruthy();
+    }
   });
 
   it('omits the instructor line when the instructor is unknown', async () => {
