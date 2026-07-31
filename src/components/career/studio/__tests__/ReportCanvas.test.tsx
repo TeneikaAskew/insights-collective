@@ -14,6 +14,23 @@ vi.mock('@/hooks/useSkillCourses', () => ({
   useSkillCourses: (skills: string[]) => mockUseSkillCourses(skills),
 }));
 
+// The Top match card resolves its title and pay from career_role_wages by slug.
+// Stubbed here so these tests exercise the Skills & courses card without a live
+// Supabase read deciding whether the card above it renders.
+const wageRow = {
+  slug: 'data-analyst',
+  title: 'Data Analyst',
+  occupation_title: 'Data Scientists',
+  soc_code: '15-2051',
+  pct25: 91_000,
+  pct75: 151_000,
+  reference_period: 'May 2025',
+};
+vi.mock('@/hooks/useCareerRoleWages', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/hooks/useCareerRoleWages')>()),
+  useCareerRoleWages: () => ({ bySlug: new Map([[wageRow.slug, wageRow]]) }),
+}));
+
 const sqlCourse: SkillCourse = {
   source: 'coursera',
   id: 'https://www.coursera.org/learn/sql-foundations',
@@ -31,7 +48,9 @@ const sqlCourse: SkillCourse = {
 
 const report = {
   summary: 'You are on a solid analytics path.',
-  recommendedRoles: [{ title: 'Data Analyst', matchPercentage: 82 }],
+  // Reports carry a slug, not a title — the title and pay are resolved from
+  // career_role_wages so neither can be model-invented.
+  recommendedRoles: [{ roleSlug: 'data-analyst', matchPercentage: 82 }],
   skillsAndCourses: [
     { skill: 'SQL', course: 'Invented SQL Course', provider: 'Made-up U', level: 'Beginner' },
     { skill: 'Public Speaking', course: 'Speak Well', provider: 'Talk School', level: 'Intermediate' },
@@ -50,6 +69,19 @@ describe('ReportCanvas skills & courses grounding', () => {
       loading: false,
       usedBundledCatalog: false,
     });
+  });
+
+  it('titles the top match from the wage row, not from the report', () => {
+    render(<ReportCanvas report={report} revealStage={ALL_REVEALED} />);
+
+    // The report carries only a slug. Both the heading and the pay chip come
+    // from career_role_wages, so a figure cannot render without a BLS
+    // occupation behind it — the chip is annotated with which one.
+    expect(screen.getAllByText('Data Analyst').length).toBeGreaterThan(0);
+    const chip = screen.getByText('$91k–$151k');
+    expect(chip).toHaveAttribute('title', 'Data Scientists (15-2051), May 2025');
+    // The raw slug is a fallback for a role the wage table does not know.
+    expect(screen.queryByText('data-analyst')).not.toBeInTheDocument();
   });
 
   it('links a matched skill to the real catalog course', () => {
