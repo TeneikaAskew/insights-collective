@@ -36,7 +36,7 @@ const ROW_LIMIT = 120;
 export const PLATFORM_LANGUAGE = 'en';
 
 const COLUMNS =
-  'slug, url, title, partner, format, level, rating, reviews, subjects, primary_subjects, skills, description, languages';
+  'slug, url, title, partner, format, level, rating, reviews, subjects, primary_subjects, skills, description, languages, is_featured';
 
 interface CourseraCourseRow {
   slug: string;
@@ -52,6 +52,7 @@ interface CourseraCourseRow {
   skills: string[] | null;
   description: string | null;
   languages: string[] | null;
+  is_featured: boolean | null;
 }
 
 function toCourse(row: CourseraCourseRow): CourseraCourse {
@@ -69,6 +70,7 @@ function toCourse(row: CourseraCourseRow): CourseraCourse {
     skills: row.skills ?? [],
     description: row.description ?? '',
     languages: row.languages ?? [],
+    isFeatured: row.is_featured ?? false,
   };
 }
 

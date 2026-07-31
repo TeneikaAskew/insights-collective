@@ -187,13 +187,18 @@ async function enqueueDiscover(
     perSitemap[sitemap.split('~').pop() ?? sitemap] = matched;
   }
 
-  // Skip anything already retired — a 404 does not become a 200.
-  const { data: retired } = await supabase
-    .from('coursera_courses')
-    .select('slug')
-    .eq('status', 'retired');
-  for (const row of retired ?? []) {
-    for (const [url, slug] of candidates) if (slug === row.slug) candidates.delete(url);
+  // Skip anything already retired — a 404 does not become a 200. Per URL, not per
+  // slug: one retired course must not permanently hide its live sibling at the other
+  // path prefix. Paged for the same db-max-rows reason as selectAllCourses.
+  for (let from = 0; ; from += PAGE) {
+    const { data } = await supabase
+      .from('coursera_courses')
+      .select('url')
+      .eq('status', 'retired')
+      .range(from, from + PAGE - 1);
+    const page = data ?? [];
+    for (const row of page) candidates.delete(row.url);
+    if (page.length < PAGE) break;
   }
 
   const rows = [...candidates].map(([url, slug]) => ({
@@ -252,10 +257,12 @@ async function processBatch(
             // 404 means retired. Record it on the course so discovery stops
             // re-queueing it, instead of retrying forever.
             if (status === 404) {
+              // Match on url. Keyed on slug this would retire the live sibling at the
+              // other path prefix along with the dead one.
               await supabase
                 .from('coursera_courses')
                 .update({ status: 'retired', last_http_status: 404, last_verified_at: new Date().toISOString() })
-                .eq('slug', item.slug);
+                .eq('url', item.url);
               done.push(item.url);
               return;
             }
@@ -291,6 +298,10 @@ async function processBatch(
             estimated_hours: course.estimatedHours,
             description: course.description,
             skills: course.skills,
+            // Without this the column keeps its empty-array default, which the client
+            // reads as "unknown language" and lets through — so the language filter
+            // would never actually exclude anything the crawler refreshed.
+            languages: course.languages,
             // Inferred from title + skills only, never the description: marketing
             // prose name-drops everything adjacent and produced nonsense
             // classifications (an academic English course as `research`).
@@ -315,11 +326,16 @@ async function processBatch(
   }
 
   if (upserts.length > 0) {
-    // Upsert preserves curation: status, curator_note and is_featured are absent
-    // from the payload, so an admin's decision to hide a course survives refreshes.
+    // Conflict on url, NOT slug. /learn/python and /specializations/python are
+    // different courses that share a slug (56 such pairs), and since the primary key
+    // moved to url there is no unique constraint on slug for Postgres to conflict on —
+    // this would reject the whole batch every five minutes.
+    //
+    // Upsert preserves curation: status, curator_note and is_featured are absent from
+    // the payload, so an admin's decision survives refreshes.
     const { error: upsertError } = await supabase
       .from('coursera_courses')
-      .upsert(upserts, { onConflict: 'slug' });
+      .upsert(upserts, { onConflict: 'url' });
     if (upsertError) throw new Error(`upsert failed: ${upsertError.message}`);
   }
 

@@ -80,9 +80,20 @@ describe('CareerPathTab course recommendations', () => {
 
     render(<CareerPathTab role={role} />);
 
+    // Parse the URL and compare the host exactly. A substring check would also match
+    // https://evil.example/?redirect=coursera.org, which is precisely the confusion
+    // this assertion is supposed to rule out.
+    const isCoursera = (href: string | null) => {
+      if (!href) return false;
+      try {
+        return new URL(href).hostname === 'www.coursera.org';
+      } catch {
+        return false;
+      }
+    };
     const external = screen
       .getAllByRole('link')
-      .filter((link) => link.getAttribute('href')?.includes('coursera.org'));
+      .filter((link) => isCoursera(link.getAttribute('href')));
 
     expect(external.length).toBeGreaterThan(0);
     for (const link of external) {

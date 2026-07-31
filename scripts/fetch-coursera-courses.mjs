@@ -75,12 +75,68 @@ async function readCachedRecord(url) {
   }
 }
 
+/**
+ * Cache an explicit set of fields rather than the whole parsed object.
+ *
+ * The record derives from a fetched page, so this is a network-data-to-filesystem
+ * flow. The path is a SHA-1 of the URL (no traversal is possible) and the content is
+ * JSON-encoded, but whitelisting the shape means an unexpected extra field from a
+ * changed page can never reach disk either.
+ */
+function cacheableRecord(record) {
+  return {
+    url: String(record.url ?? ''),
+    title: String(record.title ?? ''),
+    partner: String(record.partner ?? ''),
+    description: String(record.description ?? ''),
+    level: record.level ?? null,
+    rating: record.rating ?? null,
+    reviews: record.reviews ?? null,
+    enrolled: record.enrolled ?? null,
+    estimatedHours: record.estimatedHours ?? null,
+    skills: (record.skills ?? []).map(String),
+    languages: (record.languages ?? []).map(String),
+    reviewComments: (record.reviewComments ?? []).map((review) => ({
+      rating: review?.rating ?? null,
+      comment: String(review?.comment ?? ''),
+    })),
+  };
+}
+
 async function writeCachedRecord(url, record) {
   await mkdir(CACHE_DIR, { recursive: true });
-  await writeFile(cachePathFor(url), JSON.stringify(record), 'utf8');
+  await writeFile(cachePathFor(url), JSON.stringify(cacheableRecord(record)), 'utf8');
+}
+
+/**
+ * Every URL this tool fetches, checked at the point of use rather than only where the
+ * list is built. The work list comes from files on disk (the generated catalog, the
+ * denylist), so "the caller already filtered" is not something the fetch site can
+ * assume — CodeQL is right to flag file-data reaching a network sink without a guard
+ * adjacent to it.
+ *
+ * Host is compared exactly. A substring check would accept
+ * `https://evil.example/?x=www.coursera.org`.
+ */
+function isAllowedFetchUrl(raw) {
+  let parsed;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== 'https:' || parsed.hostname !== 'www.coursera.org') return false;
+  if (SITEMAPS.includes(`${parsed.origin}${parsed.pathname}`)) return true;
+
+  const [, prefix, slug, ...rest] = parsed.pathname.split('/');
+  return ALLOWED_PATHS.includes(prefix) && !!slug && rest.length === 0;
 }
 
 async function fetchWithRetry(url) {
+  if (!isAllowedFetchUrl(url)) {
+    return { html: null, error: `refusing to fetch out-of-scope url: ${url}` };
+  }
+
   let lastError;
   for (let attempt = 0; attempt < MAX_RETRIES; attempt += 1) {
     try {
@@ -400,7 +456,12 @@ function toCsv(courses) {
       course.title,
       course.partner,
       // Match the stringified-list shape the generator's parseSkills() reads.
-      `[${course.skills.map((skill) => `'${skill.replace(/'/g, "\\'")}'`).join(', ')}]`,
+      // Backslash FIRST, then the quote — escaping the quote first would leave a
+      // literal backslash able to escape the closing delimiter, and the generator's
+      // parseSkills() reads `\\.` as an escape pair, so the row would parse wrong.
+      `[${course.skills
+        .map((skill) => `'${skill.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`)
+        .join(', ')}]`,
       course.description,
       course.level ? `${course.level[0]}${course.level.slice(1).toLowerCase()} level` : '',
       course.url,

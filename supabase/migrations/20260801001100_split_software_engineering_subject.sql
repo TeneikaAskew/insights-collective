@@ -84,3 +84,8 @@ set subjects = (
                   || f.new_title) s)
 from flags f
 where c.slug = f.slug;
+
+-- Least privilege, matching the other coursera_* helpers. This is an internal regex
+-- builder used by maintenance SQL; a browser session has no reason to call it, and it
+-- was the only one of the four left executable by anon and authenticated.
+revoke all on function public.coursera_kw_pattern(text) from public, anon, authenticated;

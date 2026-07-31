@@ -49,6 +49,11 @@ export interface CourseraCourse {
    * have none, so readers must keep them rather than hide them.
    */
   languages?: string[];
+  /**
+   * Admin curation: forces this course to the top of every subject it teaches,
+   * regardless of rating. Absent on the bundled catalog, which has no curation.
+   */
+  isFeatured?: boolean;
 }
 
 export const courseraCatalog: CourseraCourse[] = generatedCourseraCatalog;
@@ -109,6 +114,11 @@ function qualityScore(course: CourseraCourse): number {
  */
 function rankForSubject(subject: LearningSubject) {
   return (a: CourseraCourse, b: CourseraCourse): number => {
+    // Curation outranks everything. `is_featured` exists so an admin can override the
+    // algorithm; if quality could still beat it, it would not be an override.
+    const featured = Number(b.isFeatured ?? false) - Number(a.isFeatured ?? false);
+    if (featured !== 0) return featured;
+
     const aPrimary = a.primarySubjects.includes(subject) ? 1 : 0;
     const bPrimary = b.primarySubjects.includes(subject) ? 1 : 0;
     return bPrimary - aPrimary || qualityScore(b) - qualityScore(a) || a.url.localeCompare(b.url);

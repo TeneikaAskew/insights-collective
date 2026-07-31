@@ -317,6 +317,40 @@ describe('data integrity', () => {
     expect(ranked[0].slug).toBe('strong');
   });
 
+  it('puts an admin-featured course above everything else', () => {
+    // is_featured exists so an admin can override the algorithm. If quality could
+    // still beat it, it would not be an override — and the column would be inert,
+    // which is what it was until this was wired up.
+    const featured: CourseraCourse = {
+      slug: 'curated',
+      url: 'https://www.coursera.org/learn/curated',
+      title: 'A Modest Course We Chose Anyway',
+      partner: 'Test',
+      format: 'Course',
+      level: 'Beginner',
+      rating: 4.31,
+      reviews: 51,
+      subjects: ['sql'],
+      primarySubjects: ['sql'],
+      skills: [],
+      description: '',
+      isFeatured: true,
+    };
+    const popular: CourseraCourse = {
+      ...featured,
+      slug: 'popular',
+      url: 'https://www.coursera.org/specializations/popular',
+      title: 'Wildly Popular SQL Specialization',
+      format: 'Specialization',
+      rating: 4.9,
+      reviews: 250000,
+      isFeatured: false,
+    };
+
+    const ranked = indexCatalogBySubject([popular, featured]).get('sql')!;
+    expect(ranked[0].slug).toBe('curated');
+  });
+
   it('keeps primarySubjects a subset of subjects', () => {
     for (const course of courseraCatalog) {
       for (const subject of course.primarySubjects) {
