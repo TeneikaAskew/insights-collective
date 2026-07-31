@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ClipboardList, LayoutGrid, Image as ImageIcon, Pencil, Eye, Trash2, Check, X } from 'lucide-react';
 import type { BuilderCourse, BuilderModule } from './types';
 import { TeachableBreadcrumb } from './TeachableBreadcrumb';
+import { CourseImage } from '@/components/common/CourseImage';
 
 interface SetupGuideViewProps {
   course: BuilderCourse;
@@ -252,17 +253,7 @@ export function SetupGuideView({
               </div>
             </div>
             <div className="aspect-[16/9] rounded-md flex items-center justify-center overflow-hidden bg-muted border border-dashed border-border">
-              {thumbnailSrc ? (
-                <img
-                  src={thumbnailSrc}
-                  alt="Course thumbnail"
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="text-xs text-muted-foreground text-center px-4">
-                  Recommended 1024×576 (16:9)
-                </div>
-              )}
+              <CourseImage src={thumbnailSrc} alt={course.title} className="w-full h-full object-cover" />
             </div>
           </div>
         </aside>
