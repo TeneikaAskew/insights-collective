@@ -451,7 +451,11 @@ const ExploreDataCareers = () => {
         {/* Mounted once for the page and driven by id, so all three views open
             the same instance rather than the grid mounting one Dialog per card. */}
         <Dialog open={openRoleId !== null} onOpenChange={open => !open && setOpenRoleId(null)}>
-          <DialogContent className="p-0 border-none bg-transparent shadow-none max-w-4xl w-[95vw]">
+          {/* `[&>button]:hidden` drops DialogContent's own close X. RoleHeader
+              already renders one at the same `top-4 right-4`, so the two stacked
+              into a doubled glyph. Keeping RoleHeader's: it carries the rounded
+              treatment and the onClose the dialog is driven by. Esc still closes. */}
+          <DialogContent className="p-0 border-none bg-transparent shadow-none max-w-4xl w-[95vw] [&>button]:hidden">
             {openRoleId && (() => {
               const role = dataCareerRoles.find(r => r.id === openRoleId);
               if (!role) return null;
