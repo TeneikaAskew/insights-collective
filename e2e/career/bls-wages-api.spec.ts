@@ -13,15 +13,27 @@ import { test, expect } from '@playwright/test';
 test.use({ storageState: { cookies: [], origins: [] } });
 
 const SUPABASE_URL =
-  process.env.VITE_SUPABASE_URL ?? 'https://siuqvhscuiycvdrtiqsh.supabase.co';
-const ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY ?? '';
+  process.env.VITE_SUPABASE_URL || 'https://siuqvhscuiycvdrtiqsh.supabase.co';
+// CI supplies PUBLISHABLE_KEY; ANON_KEY is the older name still used locally.
+// Reading only one of them would make this whole file skip in CI, which is a
+// suite that reports green without having checked anything.
+const ANON_KEY =
+  process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
 const FN = `${SUPABASE_URL}/functions/v1/bls-wages`;
 
 /** Seeded by 20260802000000_bls_wage_reference.sql. Pinned so a partial load fails. */
 const TOTAL_ROLES = 33;
 
 test.describe('bls-wages edge function', () => {
-  test.skip(!ANON_KEY, 'VITE_SUPABASE_ANON_KEY is required to reach the function');
+  test.beforeAll(() => {
+    // Deliberately a failure, not a skip. Without a key these tests cannot
+    // check anything, and a silent skip is indistinguishable from a pass.
+    if (!ANON_KEY) {
+      throw new Error(
+        'VITE_SUPABASE_PUBLISHABLE_KEY (or VITE_SUPABASE_ANON_KEY) must be set to reach bls-wages',
+      );
+    }
+  });
 
   test('serves every seeded role to an anonymous caller', async ({ request }) => {
     const res = await request.get(FN, { headers: { apikey: ANON_KEY } });
