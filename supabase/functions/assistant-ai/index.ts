@@ -417,7 +417,12 @@ serve(async (req) => {
 
     // Real, dated pay figures replacing the hardcoded ladder that used to live
     // in KNOWLEDGE_BASE.
-    const wageContext = await fetchWageContext(supabase);
+    //
+    // `auth.asUser` rather than the `supabase` above: that one is scoped to the
+    // else-branch of the credentials check, so referencing it here throws
+    // ReferenceError on every request. `career_role_wages` is public reference
+    // data, so the caller's own client can read it.
+    const wageContext = await fetchWageContext(auth.asUser);
 
     // Prepare the API call to GROQ
     const controller = new AbortController();
