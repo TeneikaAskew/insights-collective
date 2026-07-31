@@ -227,7 +227,9 @@ function RouteTracker() {
 
 function App() {
   return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem storageKey="ic-theme">
+    // Default is light — dark (Ink Studio) and system remain explicit choices
+    // in the theme toggle; only users who never picked get light.
+    <ThemeProvider attribute="class" defaultTheme="light" enableSystem storageKey="ic-theme">
     <Router>
         <AuthProvider>
           <PageVisibilityProvider>
