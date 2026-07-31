@@ -2,6 +2,7 @@
 // ABOUTME: Shows total forms, submissions, per-form submission counts, and submission trends over time.
 
 import React, { useState, useEffect } from 'react';
+import { CHART_COLORS } from '@/lib/chartColors';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -16,7 +17,7 @@ import { createLogger } from '@/utils/logger';
 
 const logger = createLogger('FormAnalytics');
 
-const COLORS = ['hsl(var(--primary))', 'hsl(var(--accent))', '#FFBB28', '#FF8042', '#8884d8'];
+const COLORS = CHART_COLORS;
 
 const getTimeframeStart = (timeframe: string): Date => {
   const now = new Date();

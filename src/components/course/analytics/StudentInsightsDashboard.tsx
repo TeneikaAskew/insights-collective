@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { CHART_COLORS } from '@/lib/chartColors';
 import { useParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -71,7 +72,7 @@ interface ActivityData {
   activitiesCompleted: number;
 }
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
+const COLORS = CHART_COLORS;
 
 export const StudentInsightsDashboard: React.FC<StudentInsightsProps> = ({
   studentId: propStudentId,
@@ -511,7 +512,7 @@ export const StudentInsightsDashboard: React.FC<StudentInsightsProps> = ({
                     <Line
                       type="monotone"
                       dataKey="activitiesCompleted"
-                      stroke="#82ca9d"
+                      stroke="hsl(var(--ss-teal))"
                       name="Activities Completed"
                     />
                   </LineChart>
