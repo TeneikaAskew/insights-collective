@@ -114,18 +114,32 @@ migrations against a database that already has them.
 
 A fresh database still gets the full sequence, in order, and ends in the same state.
 
-### One caveat: the deployed function is comment-stripped
+### Deployed function parity
 
-The first deploy attempt failed with a gateway 502 on a ~30KB payload. The retry
-succeeded with the same code minus its comment blocks. The deployed bundle is
-therefore functionally identical to `supabase/functions/coursera-refresh/` but not
-textually identical. To restore parity whenever a CLI token is available:
+The repo and the deployed bundle now match, as of function version 6.
+
+They had drifted in both directions, which is worth recording because the cause will
+recur. The first deploy failed with a gateway 502 on a ~30KB payload and succeeded on
+a retry with the comments stripped; subsequent fixes were then made by editing that
+deploy payload rather than the file, so two improvements only ever existed in
+production — the chunked `enqueueRefresh` upsert and the `courses_with_language`
+counter in `status` — while a third, the contact URL in `USER_AGENT`, only ever
+existed in the repo. Reconciling meant taking the union, not overwriting one side.
+
+The lesson: edit `supabase/functions/coursera-refresh/` and deploy *from* it. A
+payload edited in flight has no reviewer and no history.
+
+To redeploy and confirm:
 
 ```bash
 supabase functions deploy coursera-refresh
 ```
 
-Nothing depends on this; it only matters if you diff the dashboard against the repo.
+```sql
+-- Round-trips through Vault auth exactly as cron does; returns a net request id.
+select public.coursera_call_refresh('status');
+select status_code, content::text from net._http_response order by id desc limit 1;
+```
 
 ### Verifying by hand
 
@@ -338,23 +352,31 @@ Fundamentals as `data-analysis`.
 
 ## Known limitations
 
-- **Non-English courses are in the corpus.** 128 of the 8,381 crawled courses have
-  non-Latin titles, and nothing filters by language. In practice the quality bar keeps
-  them out — zero of the 179 selected courses have a non-Latin title — but a
-  well-reviewed Chinese or Japanese course could surface for a subject. Course pages
-  expose `primaryLanguages` in their state blob if a hard filter is ever wanted; it is
-  not currently extracted.
+- **The language backfill is still running.** `languages` is populated from
+  `primaryLanguages`, and the client filter keeps a row when it contains `en` *or is
+  empty*. Empty means UNKNOWN, not "not English" — rows crawled before the column
+  existed have none, and hiding them would empty most subjects. So the filter only
+  really bites once the monthly crawl has refreshed everything; until then it excludes
+  the rows it has evidence about and passes the rest. `status` reports
+  `courses_with_language` against `courses_active` to show how far along that is.
+  A Latin-script Spanish or Portuguese course can still surface from the un-backfilled
+  remainder, which is exactly the case a title-script check would have missed anyway.
 - **About 11% of crawled pages ship no partner node** (907 of 8,381), and those rows
   are dropped rather than defaulted. That is the intended trade — attribution is not
   something a course directory may invent — but it does mean the corpus is not the
   whole catalog.
-- **`software-engineering` is a coarse subject.** It cannot distinguish "learn to
-  program" from "learn full-stack", so a broad intro course can win the slot for a
-  full-stack role. Splitting the subject would fix it if that matters.
 - **`slug` is not unique.** `/learn/<slug>` and `/specializations/<slug>` are different
   courses that share one — 56 such pairs. `url` is the identity everywhere: the primary
   key, the upsert target, the dedupe key, and `ResolvedCourse.id`. Do not reintroduce a
   slug-keyed map or `onConflict: 'slug'`; both silently lose rows rather than failing.
+- **One CodeQL query is excluded repo-wide.** `js/http-to-file-access` fires on the
+  crawler's parsed-record cache, which is the script's whole purpose and cannot be
+  refactored away. The write is already hardened — SHA-1 filename, whitelisted and
+  primitive-coerced fields — so the exclusion lives in `.github/codeql/codeql-config.yml`
+  with the reasoning. CodeQL filters by rule and not by path, so it necessarily applies
+  everywhere; the "Filesystem writes stay in scripts/" step in `security.yml` is what
+  stops that from silently widening. If that step is ever removed, re-scope the
+  exclusion.
 - **The crawl queue has no lease.** `process` claims rows by selecting them, so two
   overlapping invocations could fetch the same page twice. Harmless at a 5-minute
   cadence with a batch that finishes in well under a minute; it would need a real

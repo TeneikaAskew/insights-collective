@@ -140,12 +140,19 @@ async function enqueueRefresh(supabase: ReturnType<typeof serviceClient>, limit:
   }));
   if (rows.length === 0) return { enqueued: 0 };
 
-  const { error: upsertError } = await supabase
-    .from('coursera_crawl_queue')
-    .upsert(rows, { onConflict: 'url' });
-  if (upsertError) throw new Error(upsertError.message);
+  // Chunked for the same reason as enqueueDiscover: a full refresh is 7,000+ rows,
+  // and one upsert that size is a single oversized request body and statement.
+  let enqueued = 0;
+  for (let i = 0; i < rows.length; i += 500) {
+    const chunk = rows.slice(i, i + 500);
+    const { error: upsertError } = await supabase
+      .from('coursera_crawl_queue')
+      .upsert(chunk, { onConflict: 'url' });
+    if (upsertError) throw new Error(upsertError.message);
+    enqueued += chunk.length;
+  }
 
-  return { enqueued: rows.length };
+  return { enqueued };
 }
 
 async function enqueueDiscover(
@@ -385,10 +392,20 @@ async function queueStatus(supabase: ReturnType<typeof serviceClient>) {
   for (const status of ['active', 'hidden', 'retired']) {
     const { count } = await supabase
       .from('coursera_courses')
-      .select('slug', { count: 'exact', head: true })
+      .select('url', { count: 'exact', head: true })
       .eq('status', status);
     counts[`courses_${status}`] = count ?? 0;
   }
+
+  // Language backfill progress. Rows crawled before `languages` existed still hold the
+  // empty-array default, and the client treats empty as "unknown" and shows them — so
+  // this is the only way to tell how much of the catalog the filter can actually act on.
+  const { count: withLanguage } = await supabase
+    .from('coursera_courses')
+    .select('url', { count: 'exact', head: true })
+    .not('languages', 'eq', '{}');
+  counts.courses_with_language = withLanguage ?? 0;
+
   return counts;
 }
 

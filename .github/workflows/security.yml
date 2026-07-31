@@ -59,11 +59,34 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
+    # The exclusion in codeql-config.yml applies repo-wide, because CodeQL filters
+    # by rule and not by path. It is only defensible while the flow it covers stays
+    # confined to scripts/, so assert that before the scan rather than trusting it.
+    # Runs first: a failure here should read as "the exclusion no longer fits", not
+    # as a CodeQL result.
+    - name: Filesystem writes stay in scripts/
+      run: |
+        # src/ ships to browsers and supabase/functions/ runs on Deno Deploy —
+        # neither has a filesystem to write to, so a hit here is either a mistake
+        # or a genuinely new network-data-to-disk flow that nobody has reviewed
+        # against the js/http-to-file-access exclusion.
+        if grep -rnE 'writeFile|writeFileSync|createWriteStream|appendFile|Deno\.write' \
+             src supabase/functions; then
+          echo "::error::Filesystem writes found outside scripts/. The"
+          echo "::error::js/http-to-file-access exclusion in .github/codeql/codeql-config.yml"
+          echo "::error::was scoped on the assumption that only scripts/ writes to disk."
+          echo "::error::Review the code above, then either move it or narrow the exclusion."
+          exit 1
+        fi
+        echo "no filesystem writes outside scripts/ — exclusion scope holds"
+
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3
       with:
         languages: javascript, typescript
-        queries: security-and-quality
+        # Query set moved into the config file so it sits beside the one exclusion
+        # it is filtered by. Passing `queries:` here as well would union with it.
+        config-file: ./.github/codeql/codeql-config.yml
     
     - name: Autobuild
       uses: github/codeql-action/autobuild@v3
