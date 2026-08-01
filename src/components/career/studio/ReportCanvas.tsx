@@ -168,10 +168,16 @@ const ReportCanvas: React.FC<ReportCanvasProps> = ({ report, revealStage }) => {
                   {idx + 1}
                 </span>
                 <div className="text-sm leading-relaxed min-w-0">
-                  <p className="font-bold m-0">
-                    {cleanStepTitle(step.step || step.title)}
+                  {/* flex-wrap, and the chip may wrap internally. The timeframe is
+                      model-written free text — "10+ years (potentially in parallel
+                      with step 2)" is a real value — and the previous
+                      whitespace-nowrap inline chip ran off-screen and over the
+                      wrapped title the moment the text got long. The layout has to
+                      tolerate the text, not the other way around. */}
+                  <p className="font-bold m-0 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                    <span className="min-w-0">{cleanStepTitle(step.step || step.title)}</span>
                     {(step.timeline || step.timeframe) && (
-                      <span className="ml-2 text-[11px] font-bold text-ss-peach-deep bg-ss-warn-chip rounded-full px-2 py-0.5 whitespace-nowrap">
+                      <span className="text-[11px] font-bold leading-snug text-ss-peach-deep bg-ss-warn-chip rounded-full px-2 py-0.5 max-w-full break-words">
                         {step.timeline || step.timeframe}
                       </span>
                     )}

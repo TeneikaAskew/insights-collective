@@ -70,7 +70,13 @@ const AppLayout = ({ children, fullWidth = false }: AppLayoutProps) => {
       mobileOpen={mobileSidebarOpen}
       onMobileOpenChange={setMobileSidebarOpen}
     >
-      <div className="flex h-screen w-full overflow-hidden">
+      {/* h-dvh, not h-screen: 100vh on mobile includes the region behind dynamic
+          browser/webview chrome, so the app box — and the footer pinned to its
+          bottom — disagreed with the visible viewport and left a dead band under
+          the footer on every page. 100dvh tracks the real visible height; the
+          h-screen first keeps a fallback for engines without dvh, where the later
+          h-dvh declaration simply doesn't apply. */}
+      <div className="flex h-screen h-dvh w-full overflow-hidden">
         <AppSidebar />
         <div className="flex flex-col flex-1 w-full h-full overflow-hidden">
           <Navbar />
