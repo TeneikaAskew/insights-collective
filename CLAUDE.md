@@ -172,3 +172,35 @@ npm run test -- --grep "authentication"
 # Run tests in CI mode (no watch)
 npm run test -- --run
 ```
+### Hard-won rules (evidence in docs/lessons-learned/)
+
+**Before claiming the environment can't do something, run the command that
+would do it.** `npx playwright install` works here (only the *postinstall* is
+skipped via `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD`); `.env` is a **template** —
+keys exist, values are empty, so check values, not key presence; a spec that
+stubs its data needs no globalSetup and runs under a scratch config. The one
+verified real limitation: browser HTTPS through the sandbox proxy stalls
+(curl works), which blocks signed-in E2E locally — and only that.
+
+**E2E specifics that have each broken CI at least once:**
+- Responsive components (e.g. `RoleTable`) mount BOTH presentations at every
+  width; CSS hides one. Every Playwright read needs a visibility filter:
+  `:visible` in selectors, `.filter({ visible: true })` on `getByText`.
+  `count()`/`evaluateAll` never auto-filter hidden elements.
+- The console-error fixture instruments only the injected `page`. To run a
+  test signed out, override `test.use({ storageState: { cookies: [], origins: [] } })`
+  — a hand-built `browser.newContext()` page escapes the instrumentation.
+- A test asserting signed-out UI must not live unmodified in a signed-in
+  project; that's a race against session restore, and retries only mask it.
+
+**CI attribution, in order:** PR checks run against the *merge* of head into
+main. Before owning a failure, reproduce it on `origin/main` alone
+(`git checkout origin/main && npx vitest run <spec>`), and check main's own
+push-run conclusions. Stacked PRs (base ≠ main) run NEITHER `test.yml` NOR
+`e2e.yml` — their green is a subset; retarget to main before trusting it.
+
+**The repo describes intent; only the live system describes state.** A
+migration on main may not be applied (`/course-art` sat unapplied while prod
+hotlinked Unsplash); a deployed Edge Function may not match the repo (deploy
+from the file, never edit payloads in flight). When debugging anything
+data-shaped, query the live table first.

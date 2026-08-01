@@ -42,8 +42,12 @@ const trackClass = 'text-[11.5px] font-bold uppercase tracking-[0.06em] text-ss-
  * means swiping sideways to reach the pay — the whole point of this view. Each
  * role stacks instead, carrying the same fields the columns carry.
  *
- * Exactly one presentation is mounted at a time (`sm:hidden` / `hidden sm:block`),
- * so `role-row` never double-counts.
+ * BOTH presentations are mounted at every width — `sm:hidden` / `hidden sm:block`
+ * only toggle CSS visibility, they do not unmount. Anything that queries this
+ * DOM (tests above all) must filter to visible elements, or it sees two copies
+ * of every row, band, title, and attribution line. A previous version of this
+ * comment claimed only one presentation is mounted at a time; four e2e specs
+ * were written against that claim and all four failed in CI.
  */
 const RoleCards: React.FC<RoleTableProps> = ({ roles, wagesBySlug, onOpenRole }) => (
   <div className="sm:hidden space-y-3">
