@@ -1,7 +1,7 @@
 // ABOUTME: Measures horizontal overflow on <main>, the element that actually scrolls.
 // ABOUTME: Shared by the signed-in and signed-out mobile-overflow specs.
 import type { Page, TestInfo } from '@playwright/test';
-import { expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { PAGE_MANIFEST } from '../../src/config/pageManifest';
 
 /**
@@ -124,6 +124,22 @@ export async function expectNoMobileOverflow(
     { timeout: 15_000 },
   );
   await page.waitForTimeout(1200);
+
+  // A page an admin has switched off in page_visibility renders ComingSoon:
+  // same URL, inside <main>, not a 404, and three lines of centred text that
+  // cannot possibly scroll sideways. It passes this spec while saying nothing
+  // about the page. /assistants, /teneika-linkedin and /teneika-tweets are
+  // gated today and were being counted as measured.
+  //
+  // Skipped rather than failed: the gate is legitimate product configuration
+  // and differs per environment, so a red build here would be reporting an
+  // admin toggle as a code defect. A skip still moves out of the pass column
+  // and carries its reason, which a green tick would not.
+  // Not the guarded-assertion shape eslint bans: nothing is being asserted
+  // inside a branch that can silently not run. When the page is not gated this
+  // is a no-op and every assertion below runs unconditionally.
+  const isGated = (await page.getByTestId('coming-soon').count()) > 0;
+  test.skip(isGated, `${route} is switched off in page_visibility; nothing was measured`);
 
   const report = await measureOverflow(page);
 
