@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import type { SupabaseIssue } from '../../src/integrations/supabase/instrumentation';
 import { structuralIssues, describeIssue } from '../../src/integrations/supabase/issue-triage';
+import { redactUrl, redactText } from '../../src/integrations/supabase/redact-secrets';
 
 /**
  * Two mechanisms live here, and the second is the one that matters.
@@ -32,9 +33,20 @@ import { structuralIssues, describeIssue } from '../../src/integrations/supabase
  * request; they are no longer the only thing standing between a broken query
  * and a green suite.
  *
- * Audit mode (`E2E_AUDIT_CONSOLE=1`) records EVERY console error and EVERY
- * failed network response — including suppressed ones — to
- * .e2e-audit/console-audit.jsonl. It never changes pass/fail.
+ * Audit mode (`E2E_AUDIT_CONSOLE=1`) records console errors and failed network
+ * responses — including suppressed ones — to .e2e-audit/console-audit.jsonl.
+ * It never changes pass/fail.
+ *
+ * Its coverage is bounded by where these listeners attach: the INJECTED `page`,
+ * and nothing else. Specs that build their own page with
+ * `browser.newContext().newPage()` — 43 call sites across 16 files, including
+ * the visual suite, blog-post, the legal pages and the survey specs — are
+ * invisible to it. Absence from the catalogue therefore means "not watched",
+ * NOT "clean". Widening this to cover every context is PR 7c's job; until then
+ * the artifact is a partial census and has to be read as one.
+ *
+ * Recorded URLs and text pass through redact-secrets.ts first, because CI
+ * publishes this file as a downloadable artifact.
  */
 const AUDIT = process.env.E2E_AUDIT_CONSOLE === '1';
 // Deliberately NOT under test-results/ — Playwright wipes that directory at the
@@ -337,8 +349,10 @@ export const test = base.extend<ConsoleFixtures>({
           ...where,
           kind: 'console',
           ignored,
-          text: msg.text().slice(0, 500),
-          url: msg.location()?.url ?? '',
+          // Redacted BEFORE the slice, not after: truncating first can cut a
+          // credential in half and leave the front of it in the record.
+          text: redactText(msg.text()).slice(0, 500),
+          url: redactUrl(msg.location()?.url ?? ''),
         });
         if (!ignored) errors.push(msg);
       };
@@ -351,7 +365,13 @@ export const test = base.extend<ConsoleFixtures>({
           location: () => ({ url: '', lineNumber: 0, columnNumber: 0 }),
         } as unknown as ConsoleMessage;
         const ignored = shouldIgnore(fakeMsg);
-        auditRecord({ ...where, kind: 'pageerror', ignored, text: fakeMsg.text().slice(0, 500), url: '' });
+        auditRecord({
+          ...where,
+          kind: 'pageerror',
+          ignored,
+          text: redactText(fakeMsg.text()).slice(0, 500),
+          url: '',
+        });
         if (!ignored) errors.push(fakeMsg);
       };
 
@@ -367,7 +387,11 @@ export const test = base.extend<ConsoleFixtures>({
           ignored: null,
           status: res.status(),
           method: res.request().method(),
-          url: res.url().slice(0, 400),
+          // This is the line that would have published credentials. A failing
+          // request is exactly when this fires, and several URLs the app
+          // requests carry a token in the query — Supabase signed storage URLs
+          // and the private calendar feed. Redact before truncating.
+          url: redactUrl(res.url()).slice(0, 400),
         });
       };
 
