@@ -165,7 +165,16 @@ export function BlogAnalyticsDashboard({ postId }: BlogAnalyticsDashboardProps) 
         .gte('date', format(priorStart, 'yyyy-MM-dd'))
         .lte('date', format(priorEnd, 'yyyy-MM-dd'));
       if (postId) priorQuery = priorQuery.eq('blog_post_id', postId);
-      const { data: priorData } = await priorQuery;
+      const { data: priorData, error: priorError } = await priorQuery;
+
+      // A failed prior-period read produced priorViews = 0, which the deltas
+      // below turn into a confident percentage against nothing — most often a
+      // dramatic "+100%" or "0% change" that an author would read as a real
+      // trend. The comparison is optional context, so it degrades, but it must
+      // not invent a number.
+      if (priorError) {
+        logger.error('Prior-period comparison unavailable; deltas will be omitted', priorError);
+      }
 
       const priorViews = priorData?.reduce((s, i) => s + (i.views || 0), 0) || 0;
       const priorVisitors = priorData?.reduce((s, i) => s + (i.unique_visitors || 0), 0) || 0;

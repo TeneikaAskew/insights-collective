@@ -143,7 +143,14 @@ export function useConversationMessages(conversationId?: string) {
               }
             }
           } catch (error) {
-            logger.error('Error processing real-time message:', error);
+            // Dropping the message here meant it simply never appeared in the
+            // open thread — the recipient saw a conversation that looked
+            // complete and current while missing a message, until something
+            // else forced a reload. Re-reading the thread is the honest
+            // recovery: whatever this handler failed to append is fetched with
+            // everything else.
+            logger.error('Error processing real-time message; refetching the thread:', error);
+            void fetchMessages();
           }
         }
       )

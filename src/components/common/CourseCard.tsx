@@ -79,13 +79,22 @@ const CourseCard: React.FC<CourseCardProps> = ({
           // Generate consistent UUID for this course
           const courseUUID = getMappedCourseUuid(course.id);
           
-          const { data } = await supabase
+          const { data, error } = await supabase
             .from('course_wishlists')
             .select('id')
             .eq('user_id', user.id)
             .eq('course_id', courseUUID)
             .maybeSingle();
-          
+
+          // On failure the server state is unknown, so the heart keeps whatever
+          // localStorage said rather than being silently corrected. Saying so in
+          // the log matters because the two can disagree: a card can show
+          // wishlisted from a stale local value the server would have refuted.
+          if (error) {
+            logger.warn('Wishlist state could not be confirmed; showing the local value', error);
+            return;
+          }
+
           // If exists in Supabase, override localStorage state
           if (data) {
             setWishlisted(true);

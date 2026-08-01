@@ -159,21 +159,47 @@ export function BlogManagement() {
 
       if (postsError) throw postsError;
 
-      // Get all categories
-      const { data: categoriesData } = await supabase
+      // The three enrichment reads below were unchecked while the posts query
+      // above throws on error. That asymmetry is the bug: a failed enrichment
+      // still rendered the post list, but with every author as "Unknown", every
+      // category blank and every tag missing — which reads as a data-entry
+      // problem in the posts themselves rather than a failed query. They are
+      // genuinely non-fatal (the list is still usable), so they warn instead of
+      // throwing, but they no longer pass silently.
+      const { data: categoriesData, error: categoriesError } = await supabase
         .from('blog_categories')
         .select('id, name');
 
-      // Get all authors
-      const { data: authorsData } = await supabase
+      const { data: authorsData, error: authorsError } = await supabase
         .from('profiles')
         .select('id, first_name, last_name');
 
       // Tags for every post in one query, grouped client-side — never per-post
       // (an N+1 here would fire one request per row in the list).
-      const { data: tagsData } = await supabase
+      const { data: tagsData, error: tagsError } = await supabase
         .from('blog_post_tags')
         .select('blog_post_id, tag_name');
+
+      const degraded = [
+        categoriesError && 'categories',
+        authorsError && 'authors',
+        tagsError && 'tags',
+      ].filter(Boolean) as string[];
+
+      if (degraded.length) {
+        logger.error('Blog list enrichment failed; rows will show gaps', {
+          missing: degraded,
+          categoriesError,
+          authorsError,
+          tagsError,
+        });
+        toast({
+          title: `Could not load ${degraded.join(', ')}`,
+          description:
+            'Posts are listed, but those columns are blank because the lookup failed — not because the posts are missing that data.',
+          variant: 'destructive',
+        });
+      }
 
       // Index authors and categories once instead of scanning per post.
       const authorsById = new Map((authorsData || []).map((a) => [a.id, a]));

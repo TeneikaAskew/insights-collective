@@ -58,6 +58,7 @@ export const ResumeAnalysisOverlay: React.FC<ResumeAnalysisOverlayProps> = ({
   const [careerGoals, setCareerGoals] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
   const [savedLocally, setSavedLocally] = useState(false);
+  const [saveError, setSaveError] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { user } = useAuth();
 
@@ -119,23 +120,31 @@ export const ResumeAnalysisOverlay: React.FC<ResumeAnalysisOverlayProps> = ({
     
     setIsSaving(true);
     
+    setSaveError(false);
+
     try {
       // First save locally
       saveGoalsLocally();
-      
+
       // Then save to database
       const { error } = await supabase
         .from('resumes')
         .update({ career_goals: careerGoals })
         .eq('id', resumeId);
-      
+
+      // "Saved Goals" is driven by the localStorage write above, which always
+      // succeeds — so pressing Save reported success even when this update
+      // failed, and the goals existed only on that one device. The two are
+      // different promises and the UI now distinguishes them.
       if (error) {
         logger.error('Error saving career goals:', error);
+        setSaveError(true);
       } else {
         logger.log('Career goals saved to database');
       }
     } catch (err) {
       logger.error('Error in saving career goals:', err);
+      setSaveError(true);
     } finally {
       setIsSaving(false);
     }
@@ -191,7 +200,11 @@ export const ResumeAnalysisOverlay: React.FC<ResumeAnalysisOverlayProps> = ({
               />
               <div className="flex justify-between items-center">
                 <div className="text-sm text-muted-foreground">
-                  {savedLocally ? 'Saved Goals' : ''}
+                  {saveError
+                    ? "Couldn't save to your account — kept on this device only. Try again."
+                    : savedLocally
+                      ? 'Saved Goals'
+                      : ''}
                 </div>
                 <Button 
                   variant="outline" 

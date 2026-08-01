@@ -310,8 +310,15 @@ export function useResumeAnalysis() {
           .limit(1)
           .maybeSingle();
 
+        // A failed check is NOT an answer. This used to log and fall through to
+        // the branch below, where `resumeCheck` is null on error exactly as it
+        // is when no resume exists — so a transient query failure destroyed the
+        // user's cached analysis and left the page claiming they had never
+        // uploaded anything. Deleting a user's work needs a confirmed "no row",
+        // not an absent one.
         if (resumeError) {
           logger.error('Error checking for resume existence:', resumeError);
+          return;
         }
 
         // If no resume exists in DB, clear any stale localStorage cache
@@ -324,7 +331,10 @@ export function useResumeAnalysis() {
           return;
         }
       } catch (err) {
+        // Same reasoning as the resumeError branch: a thrown check tells us
+        // nothing about whether a resume exists, so nothing gets cleared.
         logger.error('Error checking resume existence:', err);
+        return;
       }
 
       // Try localStorage first

@@ -302,11 +302,24 @@ Provide helpful, specific advice as a resume coach. Be constructive, honest, and
               if (roastData?.roast) {
                 resumeRoast = roastData.roast;
                 
-                // Store it in the database for future use
-                await supabase
+                // Store it in the database for future use.
+                //
+                // The result was discarded entirely, so a failed write was
+                // indistinguishable from a successful one — and since this value
+                // is a cache for a PAID generation, every future chat open
+                // silently regenerated and re-billed it. The chat still works
+                // without the cache, so this warns rather than throws.
+                const { error: roastPersistError } = await supabase
                   .from('resumes')
                   .update({ resume_roast: resumeRoast })
                   .eq('user_id', user.id);
+
+                if (roastPersistError) {
+                  logger.warn(
+                    'Resume roast could not be cached; it will be regenerated on the next open',
+                    roastPersistError,
+                  );
+                }
               }
             }
           }

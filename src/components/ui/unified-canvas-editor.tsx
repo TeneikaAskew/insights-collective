@@ -311,7 +311,15 @@ export function UnifiedCanvasEditor({
         setImageUploadTab('upload');
       }
     } catch (error) {
+      // Log-only meant the dialog just sat there: no image appeared, no message,
+      // and the form kept its state, so the only signal that anything had gone
+      // wrong was the absence of a result. (These toasts reach the screen now
+      // that sonner's renderer is mounted — before that they would have been
+      // discarded too.)
       logger.error('Image upload failed:', error);
+      toast.error("That image didn't upload", {
+        description: 'Nothing was inserted. Check the file and try again.',
+      });
     }
   };
 
@@ -371,6 +379,9 @@ export function UnifiedCanvasEditor({
         }
       } catch (error) {
         logger.error('File upload failed:', error);
+        toast.error("That file didn't upload", {
+          description: 'Nothing was inserted into the document. Try again.',
+        });
       }
     }
   };
