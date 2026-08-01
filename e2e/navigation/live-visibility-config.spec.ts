@@ -1,16 +1,17 @@
-// ABOUTME: Fails when production hides a page that nobody signed off on —
-// ABOUTME: the counterweight to the force-visible stubs used by content specs.
+// ABOUTME: Fails when production hides a page that nobody signed off on, so an
+// ABOUTME: accidental toggle cannot hide behind the suite's gated-page handling.
 //
-// Content specs stub page_visibility force-visible (see
-// e2e/helpers/visibility-helpers.ts) so an intentional admin toggle cannot
-// redden the suite. That trade opens exactly one hole: a page hidden BY
-// ACCIDENT would also stop reddening anything, and real users would sit in
-// front of a "Coming Soon" card while CI stayed green.
+// Specs cope with hidden sections in ways that are correct for a DELIBERATE
+// toggle — route-parity compares an alias against its canonical route,
+// mobile-overflow skips with a reason — but none of them can tell a deliberate
+// toggle from an accidental one. Left there, a page switched off by mistake
+// would quietly stop being measured while real users sat in front of the lock
+// card, and CI would stay green.
 //
-// This spec closes it. It reads the live table and compares against
-// EXPECTED_HIDDEN_PAGES, which is the reviewed record of intent. Hiding a page
-// on purpose is a two-step act: flip it in the admin UI, add it here with a
-// reason. Anything else fails loudly, naming the path.
+// This spec closes that gap. It reads the live table and compares it against
+// EXPECTED_HIDDEN_PAGES, the reviewed record of intent, failing in both
+// directions: a page hidden without an entry, or an entry whose page is no
+// longer hidden.
 //
 // Read-only: anon SELECT, no writes. Toggling real visibility from a spec is
 // forbidden — admin-page-visibility.spec.ts:43-46 records the run that left the
@@ -18,8 +19,8 @@
 
 import { test, expect } from '@playwright/test';
 import {
-  EXPECTED_HIDDEN_PAGES,
   fetchLiveVisibility,
+  staleAllowlistEntries,
   unexpectedHiddenPaths,
 } from '../helpers/visibility-helpers';
 
@@ -51,13 +52,7 @@ test.describe('Live page visibility configuration', () => {
     // restored, its entry must come out, or the allowlist silently grows into
     // a blanket exemption that would mask a future accidental hide.
     const rows = await fetchLiveVisibility();
-    const hidden = new Set(
-      rows.filter(row => !row.visible_to_users).map(row => row.page_path),
-    );
-
-    const staleEntries = Object.keys(EXPECTED_HIDDEN_PAGES).filter(
-      path => !hidden.has(path),
-    );
+    const staleEntries = staleAllowlistEntries(rows);
 
     expect(
       staleEntries,
