@@ -31,17 +31,22 @@ export default function VisibilityGate() {
     );
   }
 
-  // A failed visibility fetch also hides every managed page (isPageVisible
-  // fails closed for non-admins), but it must not SAY the same thing a
-  // deliberate toggle says. It did: an outage rendered "This page will be
-  // available to your account soon — contact your administrator", so a database
-  // or RLS failure was indistinguishable from an admin decision, on every page
-  // at once including the public landing page, and it blamed the reader's
-  // account for it. Measured directly: with the visibility query failing, all 41
-  // routes rendered that card. Same fail-closed behaviour, honest wording.
-  if (loadError) {
-    return <VisibilityUnavailable onRetry={retry} />;
+  // isPageVisible decides ACCESS; the branch below decides only what to SAY
+  // when access is denied. Keeping that order matters: the predicate still
+  // grants admins everything and never gates unmanaged paths, both of which
+  // hold during a load error too, so an outage must not take those routes away.
+  // (An earlier draft returned the outage screen before consulting the
+  // predicate, which blanked /courses for admins and redirect-only routes like
+  // /career-agent for everyone.)
+  if (isPageVisible(location.pathname)) {
+    return <Outlet />;
   }
 
-  return isPageVisible(location.pathname) ? <Outlet /> : <ComingSoon />;
+  // Denied. A failed fetch and a deliberate toggle both land here and both fail
+  // closed — but they must not read the same. They did: an outage rendered
+  // "This page will be available to your account soon — contact your
+  // administrator", so a database or RLS failure was indistinguishable from an
+  // admin decision and blamed the reader's account for it. Measured directly:
+  // with the visibility query failing, all 41 routes showed that card.
+  return loadError ? <VisibilityUnavailable onRetry={retry} /> : <ComingSoon />;
 }

@@ -29,12 +29,15 @@ test.describe('Course Learn Interface', () => {
 
   test('content viewer pane is visible', async ({ page }) => {
     await goto(page, learnUrl);
-    const viewer = page.locator('[class*="content"], [class*="viewer"], main, [role="main"], section, article').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await viewer.count() > 0) {
-      await expect(viewer).toBeVisible();
-    }
+    // Was `[class*="content"], [class*="viewer"], main, [role="main"], section,
+    // article` behind a count-guard. Two defects in one line: the bare `section`
+    // matched ANY section on the page — including the toast region a toaster
+    // mounts, which is present and hidden, so `.first()` resolved to it and the
+    // visibility assertion failed on a page that was rendering perfectly. And
+    // the guard meant the whole test passed when nothing matched at all.
+    // CourseLearn renders its viewer as <main> (CourseLearn.tsx:702), so name it.
+    const viewer = page.locator('main').first();
+    await expect(viewer).toBeVisible();
   });
 
   test('progress bar or completion indicator is present', async ({ page }) => {
