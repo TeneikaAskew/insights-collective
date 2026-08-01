@@ -3,12 +3,37 @@ import { goto, expectRedirectToLogin, waitForPageLoad } from '../fixtures/page-h
 import { Routes } from '../helpers/route-helpers';
 
 test.describe('Dashboard', () => {
-  test.skip('unauthenticated user is redirected to login', async ({ browser }) => {
-    const ctx = await browser.newContext(); // fresh context = no session
-    const page = await ctx.newPage();
-    await page.goto(Routes.dashboard);
-    await expectRedirectToLogin(page);
-    await ctx.close();
+  // The reason now travels WITH the skip instead of sitting in a comment no
+  // report can read: CI's coverage-gap step lists every skipped test, and a
+  // reason it cannot see is a reason nobody reviewing the summary ever sees.
+  //
+  // This one had no comment at all. Same mechanism as calendar.spec.ts, which
+  // was re-skipped after CI disproved the assumption that /dashboard redirects:
+  // Dashboard renders its own <Navigate to="/login?redirect=..."> but sits
+  // inside <Route element={<VisibilityGate/>}>, so the gate decides what mounts
+  // first and the redirect does not necessarily run.
+  //
+  // Wrapped in a signed-out describe even though it is skipped, so unskipping in
+  // PR 8 is a one-word change that is already correct: this file runs under
+  // chromium-member, and dropping the session via test.use (rather than a
+  // hand-built context) keeps the page under the console-error fixture.
+  test.describe('signed out', () => {
+    test.use({ storageState: { cookies: [], origins: [] } });
+
+    test.skip(
+      'unauthenticated user is redirected to login',
+      {
+        annotation: {
+          type: 'skip-reason',
+          description:
+            'Blocked on PR 8: /dashboard has no ProtectedRoute — it self-redirects from inside VisibilityGate, so what a signed-out visitor sees is undecided. See calendar.spec.ts for the CI run that disproved the redirect.',
+        },
+      },
+      async ({ page }) => {
+        await page.goto(Routes.dashboard);
+        await expectRedirectToLogin(page);
+      },
+    );
   });
 
   test('renders dashboard heading for authenticated user', async ({ page }) => {

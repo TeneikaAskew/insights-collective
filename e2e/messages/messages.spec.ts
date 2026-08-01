@@ -3,13 +3,23 @@ import { goto, waitForPageLoad, expectRedirectToLogin } from '../fixtures/page-h
 import { Routes } from '../helpers/route-helpers';
 
 test.describe('Messages', () => {
-  test.skip('unauthenticated user is redirected to login', async ({ browser }) => {
-    // Messages page has no server-side auth guard; skipped pending guard addition
-    const ctx = await browser.newContext();
-    const page = await ctx.newPage();
-    await page.goto(Routes.messages);
-    await expectRedirectToLogin(page);
-    await ctx.close();
+  test.describe('signed out', () => {
+    test.use({ storageState: { cookies: [], origins: [] } });
+
+    test.skip(
+      'unauthenticated user is redirected to login',
+      {
+        annotation: {
+          type: 'skip-reason',
+          description:
+            'Blocked on PR 8: /messages is routed without ProtectedRoute and shows an inline sign-in card instead of redirecting.',
+        },
+      },
+      async ({ page }) => {
+        await page.goto(Routes.messages);
+        await expectRedirectToLogin(page);
+      },
+    );
   });
 
   test('renders messages page', async ({ page }) => {

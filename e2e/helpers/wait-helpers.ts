@@ -53,21 +53,35 @@ export async function expectToast(page: Page, text?: string): Promise<void> {
 }
 
 /**
- * Assert an unauthenticated user ends up on the login page.
- * Supabase auth check is async so we poll: wait up to 25s for the URL to
- * change to /login. If the app renders a loading state first that's fine —
- * the guard will eventually redirect.  We then verify the email input is
- * visible to confirm it's the real login page (not a blank redirect).
+ * Assert an unauthenticated visitor ends up ON the login page.
+ *
+ * The URL assertion used to be decorative. It sat inside a `Promise.race`
+ * against "#email is visible", and `Promise.race` settles on the FIRST
+ * outcome — so as soon as an email input appeared anywhere, the race resolved
+ * and the URL expectation was abandoned mid-flight, its result discarded. The
+ * only surviving assertion was the line after it, which checks #email again.
+ * Net effect: the helper asserted "this page contains an email input", and any
+ * route rendering an inline sign-in card satisfied it **without redirecting**.
+ * That is precisely the difference between a guarded route and an unguarded
+ * one, which is the single thing these tests exist to measure.
+ *
+ * Now it is sequential, and the order is the contract: land on /login FIRST,
+ * then confirm it is the real login page rather than a blank shell.
+ *
+ * `ProtectedRoute` (src/components/ProtectedRoute.tsx:133-135) renders
+ * `<Navigate to="/login" replace/>` once auth settles with no session, so the
+ * URL genuinely changes — this is not an aspirational assertion. The 25s
+ * budget covers the "Verifying access..." spinner the guard holds the route
+ * with while `loading` is true.
+ *
+ * Callers whose route has no synchronous guard will now FAIL rather than pass
+ * on an inline sign-in card. That is the intended signal; PR 8 wraps the
+ * remaining eight routes in `ProtectedRoute`, and until then those specs stay
+ * skipped with a stated reason rather than green for the wrong reason.
  */
 export async function expectRedirectToLogin(page: Page): Promise<void> {
-  // Wait for either: URL changes to /login, or the #email input appears
-  // (in case the route doesn't change but the login form is shown inline)
-  await Promise.race([
-    expect(page).toHaveURL(/\/login/, { timeout: 25_000 }),
-    expect(page.locator('#email')).toBeVisible({ timeout: 25_000 }),
-  ]);
-  // After redirect stabilises, confirm the login form is present
-  await expect(page.locator('#email')).toBeVisible({ timeout: 30_000 });
+  await expect(page).toHaveURL(/\/login/, { timeout: 25_000 });
+  await expect(page.locator('#email')).toBeVisible({ timeout: 15_000 });
 }
 
 /**

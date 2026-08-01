@@ -3,13 +3,24 @@ import { goto, waitForPageLoad, expectRedirectToLogin } from '../fixtures/page-h
 import { Routes } from '../helpers/route-helpers';
 
 test.describe('Portfolio Explorer', () => {
-  test.skip('unauthenticated user is redirected to login', async ({ browser }) => {
-    // Portfolio Explorer has no client-side auth guard; skipped pending guard addition
-    const ctx = await browser.newContext();
-    const page = await ctx.newPage();
-    await page.goto(Routes.portfolioExplorer);
-    await expectRedirectToLogin(page);
-    await ctx.close();
+  // Unskipped. The stated reason — "has no client-side auth guard" — went stale:
+  // /portfolio-explorer is wrapped in <ProtectedRoute> (src/App.tsx:360-364),
+  // which renders <Navigate to="/login"> once auth settles with no session. The
+  // guard is independently proven live by auth/redirect-state.spec.ts, which
+  // navigates to this very route signed out and reads back the stored redirect
+  // path. So the skip was not protecting anything; it was hiding coverage of a
+  // guard that already works, and would have kept hiding a regression in it.
+  //
+  // Signed out via test.use, not `browser.newContext()`: this spec runs under
+  // chromium-member, and a hand-built context escapes the console-error
+  // fixture, which only instruments the injected `page`.
+  test.describe('signed out', () => {
+    test.use({ storageState: { cookies: [], origins: [] } });
+
+    test('unauthenticated user is redirected to login', async ({ page }) => {
+      await page.goto(Routes.portfolioExplorer);
+      await expectRedirectToLogin(page);
+    });
   });
 
   test('renders portfolio explorer page', async ({ page }) => {

@@ -4,22 +4,36 @@ import { Routes } from '../helpers/route-helpers';
 
 // The calendar lives in the Dashboard's Calendar tab; Routes.calendar deep-links to it.
 test.describe('Calendar (Dashboard tab)', () => {
-  test.skip('unauthenticated user is redirected to login', async ({ browser }) => {
-    // I unskipped this on the assumption that moving the calendar behind the
-    // Dashboard supplied the client-side auth guard it was waiting for. CI proved
-    // that wrong: it failed with the URL never matching /login.
-    //
-    // The Dashboard does render <Navigate to="/login?redirect=..."> when
-    // unauthenticated, but /dashboard sits inside <Route element={<VisibilityGate/>}>,
-    // so the gate decides what mounts first and Dashboard's redirect does not
-    // necessarily run. Re-skipped rather than left red, because establishing what
-    // unauthenticated users should see on a gated route is its own change — note the
-    // long list of sibling specs skipped for the same reason.
-    const ctx = await browser.newContext();
-    const page = await ctx.newPage();
-    await page.goto(Routes.calendar);
-    await expectRedirectToLogin(page);
-    await ctx.close();
+  // I unskipped this on the assumption that moving the calendar behind the
+  // Dashboard supplied the client-side auth guard it was waiting for. CI proved
+  // that wrong: it failed with the URL never matching /login.
+  //
+  // The Dashboard does render <Navigate to="/login?redirect=..."> when
+  // unauthenticated, but /dashboard sits inside <Route element={<VisibilityGate/>}>,
+  // so the gate decides what mounts first and Dashboard's redirect does not
+  // necessarily run. Re-skipped rather than left red, because establishing what
+  // unauthenticated users should see on a gated route is its own change — note the
+  // long list of sibling specs skipped for the same reason.
+  //
+  // The one-line version of that now rides on the skip itself, because the CI
+  // coverage-gap report reads annotations, not comments.
+  test.describe('signed out', () => {
+    test.use({ storageState: { cookies: [], origins: [] } });
+
+    test.skip(
+      'unauthenticated user is redirected to login',
+      {
+        annotation: {
+          type: 'skip-reason',
+          description:
+            'Blocked on PR 8: /calendar deep-links into /dashboard, which self-redirects from inside VisibilityGate. CI disproved the redirect once already — the URL never reached /login.',
+        },
+      },
+      async ({ page }) => {
+        await page.goto(Routes.calendar);
+        await expectRedirectToLogin(page);
+      },
+    );
   });
 
   test('renders calendar heading', async ({ page }) => {

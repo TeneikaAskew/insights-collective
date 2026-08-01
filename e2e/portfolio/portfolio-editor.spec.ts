@@ -5,14 +5,23 @@ import { Routes } from '../helpers/route-helpers';
 test.describe('Portfolio Editor', () => {
   const editorUrl = Routes.portfolioEditor();
 
-  test.skip('unauthenticated user is redirected to login', async ({ browser }) => {
-    // Portfolio editor currently renders a "Portfolio page not found" fallback for
-    // unknown IDs instead of redirecting; skip until a synchronous auth guard is added.
-    const ctx = await browser.newContext();
-    const page = await ctx.newPage();
-    await page.goto(editorUrl);
-    await expectRedirectToLogin(page);
-    await ctx.close();
+  // Unskipped. The stated reason described the wrong component: the
+  // "Portfolio page not found" fallback lives in PortfolioEditorWrapper
+  // (src/App.tsx:193-200), which only mounts AFTER <ProtectedRoute> has let the
+  // request through (:365-369). A signed-out visitor never reaches it — the
+  // guard redirects first — so the not-found fallback could not have been what
+  // this test was seeing, and the skip outlived whatever it was written for.
+  //
+  // Signed out via test.use for the same instrumentation reason as the explorer
+  // spec: chromium-member supplies a session, and only the injected `page` is
+  // watched for console errors.
+  test.describe('signed out', () => {
+    test.use({ storageState: { cookies: [], origins: [] } });
+
+    test('unauthenticated user is redirected to login', async ({ page }) => {
+      await page.goto(editorUrl);
+      await expectRedirectToLogin(page);
+    });
   });
 
   test('renders portfolio editor page', async ({ page }) => {

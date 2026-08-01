@@ -114,6 +114,14 @@ jobs:
       contents: write
     env:
       E2E_BASE_URL: http://localhost:8080
+      # Record every console error and failed response, INCLUDING the ones the
+      # fixture suppresses, to .e2e-audit/console-audit.jsonl. It never changes
+      # pass/fail (console-errors.fixture.ts:39) — it is the only way to notice
+      # a suppression rule that has quietly started hiding a real defect. The
+      # flag existed and was documented; it had simply never been switched on
+      # anywhere that runs, so the catalogue it produces was only ever generated
+      # by hand, locally, when someone remembered to.
+      E2E_AUDIT_CONSOLE: '1'
       # Single-credential mode: providing E2E_ADMIN_* + E2E_TEST_PASSWORD is enough.
       # global-setup will bootstrap the instructor/member accounts to E2E_TEST_PASSWORD
       # via the admin-users edge function (setE2EPassword action, scoped to e2e-* accounts).
@@ -331,13 +339,31 @@ jobs:
                 }
                 return 'no error message';
               };
+              // A skip reason lives in the test's ANNOTATIONS, never in an
+              // error. Playwright records test.skip(cond,'reason') as
+              // {type:'skip', description:'reason'} and leaves result.error
+              // undefined — verified against playwright 1.59 by running a spec
+              // with each skip form and dumping the JSON report. So the old
+              // 'res.error?.message || no reason' could not print a reason for
+              // ANY skip, however carefully written: every line of the skip
+              // list said 'no reason', which read as a suite full of
+              // unexplained gaps and buried the ones that really are
+              // unexplained. Declaration-time skips carry theirs as an explicit
+              // annotation argument; both forms land in the same array, so take
+              // the first annotation that actually has a description.
+              const skipReason = t => {
+                const a = (t.annotations||[]).find(x => x && x.description);
+                return a ? a.description.replace(/\s+/g,' ').trim() : 'NO REASON RECORDED';
+              };
               function walk(node){
                 (node.suites||[]).forEach(walk);
                 (node.specs||[]).forEach(sp=>sp.tests.forEach(t=>{
                   const where = (sp.file||'?')+' ['+(t.projectName||'?')+'] '+sp.title;
                   if (t.status === 'unexpected') failed.push(where+' — '+firstError(t));
                   else if (t.status === 'flaky') flaky.push(where);
-                  t.results.forEach(res=>{ if(res.status==='skipped') skipped.push(sp.title+' — '+(res.error?.message||'no reason')); });
+                  // Keyed off the TEST, not each result: a retried test has
+                  // several results and the old loop listed it once per result.
+                  else if (t.status === 'skipped') skipped.push(where+' — '+skipReason(t));
                 }));
               }
               (r.suites||[]).forEach(walk);
@@ -347,6 +373,19 @@ jobs:
             " 2>&1 | tee -a $GITHUB_STEP_SUMMARY || true
             echo '```' >> $GITHUB_STEP_SUMMARY
           fi
+
+      # Non-gating on purpose. The recorder cannot fail a run, so uploading it is
+      # the whole mechanism: it makes the suppressed-error catalogue something a
+      # reviewer can open on any run instead of something that has to be
+      # reproduced locally to exist at all.
+      - name: Upload suppressed-console audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: console-audit
+          path: .e2e-audit/
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Upload Playwright HTML report
         if: always()
