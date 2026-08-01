@@ -464,7 +464,7 @@ const CourseLearn = () => {
   // --- Course home (no lesson selected) ---
   if (!selected) {
     return (
-      <div className="fixed inset-0 flex flex-col bg-background text-foreground">
+      <div data-testid="course-learn-home" className="fixed inset-0 flex flex-col bg-background text-foreground">
         <AdminTopBar canEdit={canEdit} courseId={course.id} previewAsStudent={previewAsStudent} onPreviewChange={setPreviewAsStudent} />
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-14">
@@ -699,7 +699,7 @@ const CourseLearn = () => {
         </aside>
 
         {/* Content */}
-        <main className="flex-1 overflow-y-auto min-w-0">
+        <main data-testid="course-learn-viewer" className="flex-1 overflow-y-auto min-w-0">
           <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-10 pb-32">
             <div className="mb-4">
               <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest px-2.5 py-1 rounded bg-primary text-primary-foreground">

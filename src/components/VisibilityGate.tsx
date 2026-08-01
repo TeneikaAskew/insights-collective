@@ -2,6 +2,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { usePageVisibility } from '@/contexts/PageVisibilityContext';
 import { isUngatedPath } from '@/config/pageManifest';
 import ComingSoon from '@/pages/ComingSoon';
+import VisibilityUnavailable from '@/pages/VisibilityUnavailable';
 
 /**
  * Pathless layout route that enforces page visibility for every route
@@ -13,7 +14,7 @@ import ComingSoon from '@/pages/ComingSoon';
  */
 export default function VisibilityGate() {
   const location = useLocation();
-  const { isPageVisible, isReady } = usePageVisibility();
+  const { isPageVisible, isReady, loadError, retry } = usePageVisibility();
 
   // Defensive: ungated surfaces render even if this gate ever wraps them
   if (isUngatedPath(location.pathname)) {
@@ -30,5 +31,22 @@ export default function VisibilityGate() {
     );
   }
 
-  return isPageVisible(location.pathname) ? <Outlet /> : <ComingSoon />;
+  // isPageVisible decides ACCESS; the branch below decides only what to SAY
+  // when access is denied. Keeping that order matters: the predicate still
+  // grants admins everything and never gates unmanaged paths, both of which
+  // hold during a load error too, so an outage must not take those routes away.
+  // (An earlier draft returned the outage screen before consulting the
+  // predicate, which blanked /courses for admins and redirect-only routes like
+  // /career-agent for everyone.)
+  if (isPageVisible(location.pathname)) {
+    return <Outlet />;
+  }
+
+  // Denied. A failed fetch and a deliberate toggle both land here and both fail
+  // closed — but they must not read the same. They did: an outage rendered
+  // "This page will be available to your account soon — contact your
+  // administrator", so a database or RLS failure was indistinguishable from an
+  // admin decision and blamed the reader's account for it. Measured directly:
+  // with the visibility query failing, all 41 routes showed that card.
+  return loadError ? <VisibilityUnavailable onRetry={retry} /> : <ComingSoon />;
 }

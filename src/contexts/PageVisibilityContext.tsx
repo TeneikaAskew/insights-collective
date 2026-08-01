@@ -23,6 +23,8 @@ interface PageVisibilityContextType {
   isReady: boolean;
   /** True when the page-visibility fetch failed; isPageVisible fails CLOSED for non-admins in this state */
   loadError: boolean;
+  /** Re-runs the visibility fetch (used by the outage card's Try again) */
+  retry: () => Promise<void>;
   pageVisibility: PageVisibilityEntry[];
   updatePageVisibility: (pageId: string, updates: Partial<PageVisibilityEntry>) => Promise<void>;
   syncAvailablePages: () => Promise<void>;
@@ -40,6 +42,7 @@ export const usePageVisibility = () => {
       isLoading: true,
       isReady: false,
       loadError: false,
+      retry: async () => {},
       pageVisibility: [] as PageVisibilityEntry[],
       updatePageVisibility: async () => {},
       syncAvailablePages: async () => {},
@@ -339,6 +342,9 @@ export const PageVisibilityProvider: React.FC<PageVisibilityProviderProps> = ({ 
     isLoading,
     isReady,
     loadError,
+    /** Re-runs the visibility fetch so a transient outage can be recovered from
+     *  in place, instead of requiring a full page reload. */
+    retry: fetchPageVisibilityData,
     pageVisibility,
     updatePageVisibility,
     syncAvailablePages,

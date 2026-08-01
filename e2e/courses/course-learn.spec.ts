@@ -29,12 +29,22 @@ test.describe('Course Learn Interface', () => {
 
   test('content viewer pane is visible', async ({ page }) => {
     await goto(page, learnUrl);
-    const viewer = page.locator('[class*="content"], [class*="viewer"], main, [role="main"], section, article').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await viewer.count() > 0) {
-      await expect(viewer).toBeVisible();
-    }
+    // Was `[class*="content"], [class*="viewer"], main, [role="main"], section,
+    // article` behind a count-guard, which failed two ways at once: the bare
+    // `section` matched ANY section — including a toaster's region, which is
+    // present and hidden, so `.first()` resolved to it and the assertion failed
+    // on a page rendering perfectly — and the guard passed the test when nothing
+    // matched at all.
+    //
+    // Narrowing to `main` was also wrong: CourseLearn has two content panes and
+    // this URL selects no item, so it renders the course-home branch, which is
+    // not a <main>. Both panes now carry a testid, and asserting on either says
+    // what the test means — a content pane rendered — in whichever state the
+    // page is, while still failing if neither does.
+    const viewer = page
+      .locator('[data-testid="course-learn-home"], [data-testid="course-learn-viewer"]')
+      .first();
+    await expect(viewer).toBeVisible();
   });
 
   test('progress bar or completion indicator is present', async ({ page }) => {

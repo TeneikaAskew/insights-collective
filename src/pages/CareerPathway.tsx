@@ -47,6 +47,7 @@ type Phase =
   | 'resume-upload'  // waiting for a file
   | 'generating'     // report being generated
   | 'ready'          // report on the canvas
+  | 'resume-error'   // saved-resume lookup failed, retry available
   | 'error';         // generation failed, retry available
 
 /** The results hook returns a placeholder report when nothing is saved yet. */
@@ -121,13 +122,31 @@ const CareerPathway: React.FC = () => {
     // Query the latest resume text directly — the hook's cached copy can be stale.
     let text = '';
     if (user?.id) {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('resumes')
         .select('text')
         .eq('user_id', user.id)
         .order('updated_at', { ascending: false })
         .limit(1)
         .maybeSingle();
+      if (g !== coach.genRef.current) return;
+      // Without this check a failed read looked identical to "no resume on
+      // file", so the coach told a user who HAD uploaded one that it was
+      // missing and asked them to upload it again.
+      if (error) {
+        logger.error('Could not read the saved resume', error);
+        await coach.say(
+          "I couldn't reach your saved resume just now — that's on us, not you. Try again in a moment.",
+        );
+        if (g !== coach.genRef.current) return;
+        // A phase with a retry, not a bare return. This step runs with input
+        // already disabled (see the top of this callback), so returning here
+        // left the composer dead and neither resume control on screen: the
+        // coach said "try again" while offering no way to do so, and finishing
+        // the pathway meant reloading or starting over.
+        setPhase('resume-error');
+        return;
+      }
       text = data?.text ?? '';
     }
     if (g !== coach.genRef.current) return;
@@ -250,7 +269,7 @@ const CareerPathway: React.FC = () => {
       await coach.say("That upload didn't go through — try again with a PDF or DOCX.");
       return;
     }
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('resumes')
       .select('text')
       .eq('user_id', user.id)
@@ -258,7 +277,29 @@ const CareerPathway: React.FC = () => {
       .limit(1)
       .maybeSingle();
     if (g !== coach.genRef.current) return;
-    await generateReport(data?.text ?? '');
+
+    // The report is the deliverable of this whole flow and the user is expected
+    // to act on it. Generating one from `data?.text ?? ''` meant that a failed
+    // read — or a stored row whose text extraction produced nothing — still
+    // yielded a confident, personalised-looking career plan built from no resume
+    // at all. Refuse instead, and say which of the two happened.
+    if (error) {
+      logger.error('Could not read the resume after upload', error);
+      await coach.say(
+        "Your resume uploaded, but I couldn't read it back just now, so I've held off on the report rather than build one without it. Try again in a moment.",
+      );
+      return;
+    }
+
+    const resumeText = data?.text?.trim() ?? '';
+    if (!resumeText) {
+      await coach.say(
+        "Your file uploaded, but I couldn't pull any text out of it — that happens with scanned or image-only PDFs. Upload a text-based PDF or DOCX and I'll build your report from it.",
+      );
+      return;
+    }
+
+    await generateReport(resumeText);
   }, [resumeFile, user?.id, uploadResume, coach, generateReport]);
 
   const beginFresh = useCallback(async () => {
@@ -431,7 +472,10 @@ const CareerPathway: React.FC = () => {
     phase === 'ready' ? 'Your pathway is ready — use “Start over” to retake it'
       : phase === 'generating' ? 'Maya is working on your report…'
         : phase === 'resume-choice' || phase === 'resume-upload' ? 'Choose an option above'
-          : coach.composing || !awaitingInput ? 'Maya is typing…'
+          // Without its own case this fell through to "Maya is typing…", which
+          // is untrue while she is waiting on a retry the user has to press.
+          : phase === 'resume-error' ? 'Use the button above to try again'
+            : coach.composing || !awaitingInput ? 'Maya is typing…'
             : 'Type your answer…';
 
   return (
@@ -563,6 +607,18 @@ const CareerPathway: React.FC = () => {
                           {resumeUploading ? 'Uploading…' : 'Upload and continue'}
                         </button>
                       )}
+                    </div>
+                  )}
+
+                  {phase === 'resume-error' && (
+                    <div className="ml-10 mt-1">
+                      <button
+                        type="button"
+                        onClick={() => void startResumeStep()}
+                        className="rounded-full bg-ss-lav-deep text-white text-sm font-bold px-5 py-2.5 transition-colors hover:bg-ss-lav-deep/90"
+                      >
+                        Try loading my resume again
+                      </button>
                     </div>
                   )}
 

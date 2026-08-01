@@ -267,6 +267,12 @@ export const useAuthProvider = () => {
     // inside useUserProfile, leaving `error` null while the user ran with
     // fallback roles. Surface them so consumers can react.
     error: error ?? (profileError ? profileError.message : null),
+    // Exposed separately from `error` so the shell can show a role-specific
+    // warning without also surfacing, say, a failed login attempt. The audit
+    // found that `error` above had ZERO consumers — a failed roles RPC silently
+    // demoted an instructor or admin to the student UI, with missing navigation
+    // and missing pages, and nothing on screen said why. AppLayout renders this.
+    profileError: profileError ? profileError.message : null,
     login,
     register,
     logout,

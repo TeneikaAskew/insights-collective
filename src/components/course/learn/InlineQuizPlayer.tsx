@@ -32,17 +32,28 @@ export function InlineQuizPlayer({ item, quiz, onCompleted }: InlineQuizPlayerPr
   // `correct` flag from every option server-side. The list query that supplies
   // `quiz` deliberately carries no answer data at all.
   const [fetchedQuestions, setFetchedQuestions] = useState<any[] | null>(null);
+  // A failed RPC used to set questions to [], which falls through to the
+  // "This quiz has no questions yet" empty state — the same screen a student
+  // sees when an instructor genuinely hasn't authored any. A platform-wide quiz
+  // outage was therefore indistinguishable from unfinished course content, and
+  // the student's only recourse was to assume the course was incomplete.
+  // Named for the query it belongs to: `loadError` below already means "the
+  // prior-attempt lookup failed", which fails closed for a different reason.
+  const [questionsError, setQuestionsError] = useState<Error | null>(null);
+  const [retryToken, setRetryToken] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     if (!quiz?.id) return;
     (async () => {
+      setQuestionsError(null);
       const { data, error } = await supabase
         .rpc('get_quiz_questions_for_taking', { p_quiz_id: quiz.id });
       if (cancelled) return;
       if (error) {
         logger.error('Failed to load quiz questions', error);
-        setFetchedQuestions([]);
+        setQuestionsError(new Error(error.message));
+        setFetchedQuestions(null);
         return;
       }
       setFetchedQuestions(data || []);
@@ -50,7 +61,7 @@ export function InlineQuizPlayer({ item, quiz, onCompleted }: InlineQuizPlayerPr
     return () => {
       cancelled = true;
     };
-  }, [quiz?.id]);
+  }, [quiz?.id, retryToken]);
 
   const questions = useMemo(
     () =>
@@ -431,6 +442,21 @@ export function InlineQuizPlayer({ item, quiz, onCompleted }: InlineQuizPlayerPr
         title="Couldn't load your quiz attempts"
         error={loadError}
         onRetry={() => setReloadKey((k) => k + 1)}
+      />
+    );
+  }
+
+  // Checked BEFORE the empty state: a failed question fetch leaves no questions,
+  // and the empty state says "This quiz has no questions yet" — the same screen
+  // a student sees when an instructor genuinely hasn't authored any. That made a
+  // quiz outage indistinguishable from unfinished course content, with the
+  // student left to conclude the course was incomplete.
+  if (questionsError) {
+    return (
+      <CourseErrorState
+        title="Couldn't load this quiz"
+        error={questionsError}
+        onRetry={() => setRetryToken((n) => n + 1)}
       />
     );
   }

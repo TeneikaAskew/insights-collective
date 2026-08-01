@@ -7,6 +7,7 @@ import { OnboardingProvider } from '@/contexts/OnboardingContext';
 import { DialogsProvider } from '@/components/dialogs/DialogsProvider';
 import { PageVisibilityProvider } from '@/contexts/PageVisibilityContext';
 import { Toaster } from '@/components/ui/toaster';
+import { Toaster as SonnerToaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import WelcomeModal from '@/components/onboarding/WelcomeModal';
 import { Spinner } from '@/components/ui/spinner';
@@ -432,6 +433,13 @@ function App() {
                     {/* Legal & Info Routes */}
                     <Route path="/privacy-policy" element={<PrivacyPolicy />} />
                     <Route path="/terms-of-service" element={<TermsOfService />} />
+                    {/* The signup form linked to these short forms, which were
+                        never routed, so "you agree to our Terms of Service" led
+                        to a 404 on the one screen where those documents legally
+                        matter. The links are fixed; these aliases keep the short
+                        URLs working wherever else they were handed out. */}
+                    <Route path="/terms" element={<Navigate to="/terms-of-service" replace />} />
+                    <Route path="/privacy" element={<Navigate to="/privacy-policy" replace />} />
 
                     {/* 404 Catch-All Route */}
                     <Route path="*" element={<NotFound />} />
@@ -439,6 +447,15 @@ function App() {
                   </Routes>
                 </Suspense>
                 <Toaster />
+                {/* The app calls two toast APIs. Ten source files — the grade
+                    history, rubric, question-bank and course-calendar hooks, the
+                    course materials and calendar pages, the canvas editor, the AI
+                    content dialog, the curriculum view and the add-event modal —
+                    import `toast` from `sonner`, whose renderer was never
+                    mounted. Every one of those toasts was discarded, including
+                    the error ones: an instructor whose grade-history write failed
+                    got no signal at all. Mounting it is the whole fix. */}
+                <SonnerToaster />
                 <WelcomeModal />
                 <CourseFeedbackButton />
                 <GoogleAnalytics />

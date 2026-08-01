@@ -17,6 +17,7 @@ const logger = createLogger('Survey');
 const Survey = () => {
   const [forms, setForms] = useState<FormData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -32,14 +33,21 @@ const Survey = () => {
         .order('featured', { ascending: false }) // Featured forms first
         .order('created_at', { ascending: false }); // Then by creation date
 
+      // Both failure paths used to leave `forms` empty and fall through to the
+      // "No Surveys Available / There are currently no active surveys" card,
+      // which is a factual claim about the data — one this page had no basis to
+      // make after a query it never checked.
       if (error) {
         logger.error('Error fetching forms:', error);
+        setLoadError(true);
         return;
       }
 
+      setLoadError(false);
       setForms(data || []);
     } catch (error) {
       logger.error('Error fetching forms:', error);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -54,6 +62,29 @@ const Survey = () => {
       <AppLayout>
         <div className="container py-8 flex justify-center">
           <Spinner size="lg" />
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <AppLayout>
+        <div className="container py-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>Surveys couldn't be loaded</CardTitle>
+              <CardDescription>
+                Something went wrong on our end — this doesn't mean there are no
+                surveys. Please try again.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button variant="outline" onClick={() => { setLoading(true); fetchActiveForms(); }}>
+                Try again
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </AppLayout>
     );
