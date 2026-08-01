@@ -24,14 +24,21 @@ const SIGNED_IN_ONLY = ['/'];
 /**
  * Manifest entries with no parameterless form to render.
  *
- * /interview-prep/mock-interview-room without a :sessionId redirects to
- * /interview-prep/mock-interviews on purpose — MockInterviewRoom.tsx guards on
- * it, because a room with no session has nothing to show. This spec found that
- * and it is behaviour, not a defect. It stays named here rather than quietly
- * dropped, so the gap is visible: the room's own mobile layout is unmeasured
- * and would need a seeded session id to cover.
+ * Both entries exist to govern a parameterised subtree in the visibility
+ * system — resolveGoverningPaths('/portfolio-editor/p1') needs the row — not
+ * because a user can land on the bare path.
+ *
+ *   /interview-prep/mock-interview-room  redirects to .../mock-interviews;
+ *     MockInterviewRoom.tsx guards on a missing :sessionId, because a room
+ *     with no session has nothing to show.
+ *   /portfolio-editor  App.tsx only routes /portfolio-editor/:pageId, so the
+ *     bare path renders the 404 page.
+ *
+ * Named here rather than quietly dropped, so the gap stays visible: neither
+ * page's own mobile layout is measured, and covering them needs a seeded
+ * session id and portfolio page id respectively.
  */
-const NO_PARAMETERLESS_FORM = ['/interview-prep/mock-interview-room'];
+const NO_PARAMETERLESS_FORM = ['/interview-prep/mock-interview-room', '/portfolio-editor'];
 
 const ROUTES: string[] = [
   ...manifestPaths().filter(

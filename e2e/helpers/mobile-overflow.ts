@@ -140,6 +140,16 @@ export async function expectNoMobileOverflow(
     `${route} redirected to ${report.pathname}; nothing about ${route} was measured`,
   ).toBe(route);
 
+  // A 404 keeps its URL, so the check above lets one through — and a NotFound
+  // page has almost no content, which means it never scrolls sideways and reads
+  // as a clean pass. /portfolio-editor sat in the manifest with only a
+  // /:pageId route behind it and passed this spec as a 404 for exactly that
+  // reason.
+  await expect(
+    page.getByTestId('not-found'),
+    `${route} rendered the 404 page; there is no route behind that manifest entry`,
+  ).toHaveCount(0);
+
   expect(
     report.main,
     `${route} overflows ${report.main}px` +
