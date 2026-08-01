@@ -5,13 +5,17 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { CardHeader, CardTitle } from '@/components/ui/card';
 import { DataCareerRole } from '@/data/dataCareerRoles';
+import { CareerRoleWage } from '@/hooks/useCareerRoleWages';
+import WageBand from '../WageBand';
 
 interface RoleHeaderProps {
   role: DataCareerRole;
   onClose: () => void;
+  /** Present once the wage query resolves; every role has one. */
+  wage?: CareerRoleWage;
 }
 
-export const RoleHeader: React.FC<RoleHeaderProps> = ({ role, onClose }) => {
+export const RoleHeader: React.FC<RoleHeaderProps> = ({ role, onClose, wage }) => {
   const categories = role.category ? role.category.split(',').map(cat => cat.trim()) : [];
   
   return (
@@ -32,6 +36,10 @@ export const RoleHeader: React.FC<RoleHeaderProps> = ({ role, onClose }) => {
           <X className="h-4 w-4" />
         </Button>
       </div>
+
+      {/* The detail view previously showed no pay at all, which made it the one
+          place a reader could not answer "what does this role earn?". */}
+      {wage && <WageBand wage={wage} className="mt-4 max-w-md" />}
     </CardHeader>
   );
 };

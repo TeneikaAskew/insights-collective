@@ -1,21 +1,33 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
 import { DataCareerRole } from '@/data/dataCareerRoles';
-import { Dialog, DialogTrigger, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { CareerRoleDetails } from './CareerRoleDetails';
+import { CareerRoleWage } from '@/hooks/useCareerRoleWages';
+import WageBand from './WageBand';
 
 interface RoleCardProps {
   role: DataCareerRole;
+  /**
+   * The BLS row for this role, once it has loaded. Optional only because the
+   * query is in flight on first paint — `career_role_wages` inner-joins a NOT
+   * NULL FK, so every role has one after it settles.
+   */
+  wage?: CareerRoleWage;
+  /**
+   * Opens the shared detail dialog. The dialog lives on the page rather than
+   * inside each card, so List and Grid open the same instance instead of the
+   * grid mounting one Dialog per visible role.
+   */
+  onOpenRole: (roleId: string) => void;
 }
 
 export const RoleCard: React.FC<RoleCardProps> = ({
-  role
+  role,
+  wage,
+  onOpenRole
 }) => {
-  const [open, setOpen] = useState(false);
-
   // Format category text properly (handle acronyms like AI, UX)
   const formatCategoryLabel = (label: string): string => {
     // Check if the label is a known acronym that should be fully capitalized
@@ -35,6 +47,7 @@ export const RoleCard: React.FC<RoleCardProps> = ({
   return (
     <Card
       id={`role-${role.id}`}
+      data-testid="role-card"
       className="h-full flex flex-col rounded-2xl transition-all hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md"
     >
       <CardHeader className="pb-2">
@@ -46,30 +59,23 @@ export const RoleCard: React.FC<RoleCardProps> = ({
         </div>
         <CardDescription>{role.shortDescription}</CardDescription>
       </CardHeader>
-      <CardContent className="text-sm flex-grow">
-        <div className="space-y-2">
-          <div>
-            <span className="font-medium">Key Tools:</span>{' '}
-            <span className="text-muted-foreground">{role.tools.slice(0, 3).join(', ')}{role.tools.length > 3 ? '...' : ''}</span>
-          </div>
+      <CardContent className="text-sm flex-grow space-y-3">
+        <div>
+          <span className="font-medium">Key Tools:</span>{' '}
+          <span className="text-muted-foreground">{role.tools.slice(0, 3).join(', ')}{role.tools.length > 3 ? '...' : ''}</span>
         </div>
+        {/* The BLS occupation and the scale are named once per page — in the
+            legend and in the detail dialog — rather than under every card. */}
+        {wage && <WageBand wage={wage} showOccupation={false} showScale={false} />}
       </CardContent>
       <CardFooter className="mt-auto border-t pt-3">
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button variant="ghost" className="w-full justify-between text-primary hover:bg-accent hover:text-accent-foreground">
-              Explore role <ArrowRight className="h-4 w-4" aria-hidden="true" />
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="p-0 border-none bg-transparent shadow-none max-w-4xl w-[95vw]">
-            {/* The visible title lives inside CareerRoleDetails' own header;
-                Radix still needs an accessible name and description on the
-                dialog itself. */}
-            <DialogTitle className="sr-only">{role.title}</DialogTitle>
-            <DialogDescription className="sr-only">{role.shortDescription}</DialogDescription>
-            <CareerRoleDetails role={role} onClose={() => setOpen(false)} />
-          </DialogContent>
-        </Dialog>
+        <Button
+          variant="ghost"
+          className="w-full justify-between text-primary hover:bg-accent hover:text-accent-foreground"
+          onClick={() => onOpenRole(role.id)}
+        >
+          Explore role <ArrowRight className="h-4 w-4" aria-hidden="true" />
+        </Button>
       </CardFooter>
     </Card>
   );

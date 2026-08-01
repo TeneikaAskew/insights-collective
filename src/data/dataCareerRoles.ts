@@ -685,7 +685,79 @@ export const dataCareerRoles: DataCareerRole[] = [
           timePeriod: "6+ years"
         }
       ]
-    }
+    },
+    schedule: [
+      {
+        "time": "9:00 AM",
+        "activity": "Check overnight latency and error metrics for deployed AI services in production"
+      },
+      {
+        "time": "10:00 AM",
+        "activity": "Wrap a data scientist's PyTorch model into a Python inference API"
+      },
+      {
+        "time": "12:00 PM",
+        "activity": "Step away for lunch and skim release notes for the cloud APIs you use"
+      },
+      {
+        "time": "1:00 PM",
+        "activity": "Debug a Kubernetes pod that keeps restarting under peak inference load"
+      },
+      {
+        "time": "2:30 PM",
+        "activity": "Meet product managers to scope requirements for an upcoming AI feature"
+      },
+      {
+        "time": "3:30 PM",
+        "activity": "Review a teammate's pull request and fix a failing CI/CD stage"
+      },
+      {
+        "time": "4:30 PM",
+        "activity": "Document API endpoints and update the Docker image build instructions"
+      }
+    ],
+    projectTimeline: [
+      {
+        "title": "Service Architecture Design",
+        "duration": "1 week",
+        "description": "You define how a data science model becomes a production service, agreeing on interfaces, latency targets and scaling limits before writing code.",
+        "activities": [
+          "Review model requirements with the data scientists",
+          "Draft API contract and expected request volumes",
+          "Choose serving pattern and cloud infrastructure"
+        ]
+      },
+      {
+        "title": "Model Integration Build",
+        "duration": "2-3 weeks",
+        "description": "You implement the service in Python, package it with Docker, and wire it into existing systems so other engineers can call it reliably.",
+        "activities": [
+          "Build inference endpoints and input validation",
+          "Containerize the model with reproducible dependencies",
+          "Integrate with upstream services and authentication"
+        ]
+      },
+      {
+        "title": "Scale and Reliability Testing",
+        "duration": "1-2 weeks",
+        "description": "You push the service under realistic load, tune resource limits on Kubernetes, and close the gaps that only appear at production traffic.",
+        "activities": [
+          "Load test to find throughput and latency ceilings",
+          "Tune autoscaling, batching and resource requests",
+          "Add retries, timeouts and graceful failure paths"
+        ]
+      },
+      {
+        "title": "Deployment and Monitoring",
+        "duration": "1 week",
+        "description": "You ship the service through the CI/CD pipeline, watch its first days in production, and hand documentation to the teams that depend on it.",
+        "activities": [
+          "Roll out gradually through the CI/CD pipeline",
+          "Set alerts on latency, errors and cost",
+          "Publish API docs and on-call runbook"
+        ]
+      }
+    ],
   },
   {
     id: "ai-consultant",
@@ -730,7 +802,79 @@ export const dataCareerRoles: DataCareerRole[] = [
           timePeriod: "7+ yrs" 
         }
       ]
-    }
+    },
+    schedule: [
+      {
+        "time": "9:00 AM",
+        "activity": "Join the client stand-up to review AI roadmap progress and blockers"
+      },
+      {
+        "time": "10:00 AM",
+        "activity": "White-board a solution architecture for the client's document processing use case"
+      },
+      {
+        "time": "12:00 PM",
+        "activity": "Lunch with the IT leader to hear where adoption is stalling"
+      },
+      {
+        "time": "1:00 PM",
+        "activity": "Score two vendor ML platforms against the readiness assessment criteria"
+      },
+      {
+        "time": "2:30 PM",
+        "activity": "Build an ROI model estimating payback period for the proposed pilot"
+      },
+      {
+        "time": "3:30 PM",
+        "activity": "Draft an executive briefing translating pilot metrics into business impact"
+      },
+      {
+        "time": "4:30 PM",
+        "activity": "Prepare workshop materials on AI governance for next week's session"
+      }
+    ],
+    projectTimeline: [
+      {
+        "title": "Readiness Assessment",
+        "duration": "2 weeks",
+        "description": "You interview business and IT leaders to judge whether the organization has the data, skills and governance to adopt AI successfully.",
+        "activities": [
+          "Run discovery workshops with business unit heads",
+          "Audit data maturity and platform capabilities",
+          "Score candidate use cases by value and feasibility"
+        ]
+      },
+      {
+        "title": "AI Strategy and Roadmap",
+        "duration": "2-3 weeks",
+        "description": "You turn the assessment into a sequenced roadmap tied to business objectives, with an ROI framework the executive team can hold you to.",
+        "activities": [
+          "Prioritize use cases into a phased roadmap",
+          "Define ROI framework and success measures",
+          "Recommend platforms, partners and governance model"
+        ]
+      },
+      {
+        "title": "Pilot Design and Build",
+        "duration": "4-6 weeks",
+        "description": "You guide the client and technology partners through a bounded pilot, keeping scope tight enough to prove value within one quarter.",
+        "activities": [
+          "Scope the pilot and agree acceptance criteria",
+          "Guide the delivery team through implementation",
+          "Advise on ethical risks and approval gates"
+        ]
+      },
+      {
+        "title": "Impact Review and Scaling",
+        "duration": "2 weeks",
+        "description": "You measure what the pilot actually delivered, brief the C-suite honestly, and set out what scaling would cost and require.",
+        "activities": [
+          "Measure pilot results against the ROI framework",
+          "Present findings and decision options to executives",
+          "Plan change management for wider rollout"
+        ]
+      }
+    ],
   },
   {
     id: "ai-test-engineer",
@@ -774,7 +918,79 @@ export const dataCareerRoles: DataCareerRole[] = [
           description: "Set org‑wide AI validation standards and governance." 
         }
       ]
-    }
+    },
+    schedule: [
+      {
+        "time": "9:00 AM",
+        "activity": "Review last night's CI test run and triage the failed cases"
+      },
+      {
+        "time": "10:00 AM",
+        "activity": "Write PyTest cases covering edge inputs for the new model version"
+      },
+      {
+        "time": "12:00 PM",
+        "activity": "Break for lunch while a long regression suite finishes running"
+      },
+      {
+        "time": "1:00 PM",
+        "activity": "Compare model accuracy against benchmark thresholds and flag the regressions"
+      },
+      {
+        "time": "2:30 PM",
+        "activity": "Pair with a data scientist to reproduce a failing prediction path"
+      },
+      {
+        "time": "3:30 PM",
+        "activity": "Run bias-detection tools across held-out slices and record the results"
+      },
+      {
+        "time": "4:30 PM",
+        "activity": "Update the quality dashboard and raise defects for sprint planning"
+      }
+    ],
+    projectTimeline: [
+      {
+        "title": "Test Plan Design",
+        "duration": "1 week",
+        "description": "You define what passing means for an upcoming model, agreeing benchmarks and failure thresholds with the data scientists and product owner.",
+        "activities": [
+          "Map model behaviors that must be tested",
+          "Set accuracy and latency benchmark thresholds",
+          "Collect edge-case and adversarial input examples"
+        ]
+      },
+      {
+        "title": "Automation Framework Build",
+        "duration": "2 weeks",
+        "description": "You build the reusable Python test harness so every future model version is validated automatically rather than checked by hand.",
+        "activities": [
+          "Write PyTest suites for accuracy and regression",
+          "Add fixtures for versioned datasets and models",
+          "Wire the suite into the CI/CD pipeline"
+        ]
+      },
+      {
+        "title": "Execution and Troubleshooting",
+        "duration": "1-2 weeks",
+        "description": "You run the full suite against release candidates, investigate every failure with the modeling team, and retest until behavior is stable.",
+        "activities": [
+          "Execute regression and stress runs on candidates",
+          "Reproduce and isolate failing prediction cases",
+          "Retest fixes and track defect burn-down"
+        ]
+      },
+      {
+        "title": "Reporting and Release Sign-Off",
+        "duration": "1 week",
+        "description": "You summarize test coverage and residual risk in a report that MLOps and product owners use to approve the production release.",
+        "activities": [
+          "Publish coverage and benchmark comparison results",
+          "Document known limitations and residual risks",
+          "Hand monitoring checks to the MLOps engineers"
+        ]
+      }
+    ],
   },
   {
     id: "computer-information-research-scientist",
@@ -818,7 +1034,79 @@ export const dataCareerRoles: DataCareerRole[] = [
           description: "Set research vision, shape industry standards, advise executives." 
         }
       ]
-    }
+    },
+    schedule: [
+      {
+        "time": "9:00 AM",
+        "activity": "Check overnight HPC cluster jobs and inspect experiment logs for anomalies"
+      },
+      {
+        "time": "10:00 AM",
+        "activity": "Prototype a new algorithm variant in C++ and profile its runtime"
+      },
+      {
+        "time": "12:00 PM",
+        "activity": "Eat lunch while annotating a recent paper from the research databases"
+      },
+      {
+        "time": "1:00 PM",
+        "activity": "Run controlled experiments comparing your algorithm against established baselines"
+      },
+      {
+        "time": "2:30 PM",
+        "activity": "Present preliminary results at the group seminar and absorb the critique"
+      },
+      {
+        "time": "3:30 PM",
+        "activity": "Mentor a junior researcher on experiment design and version control habits"
+      },
+      {
+        "time": "4:30 PM",
+        "activity": "Draft the methods section of your conference paper submission"
+      }
+    ],
+    projectTimeline: [
+      {
+        "title": "Problem Framing",
+        "duration": "3-4 weeks",
+        "description": "You survey the literature to find an unsolved computing problem worth attacking, then state a hypothesis precise enough to test experimentally.",
+        "activities": [
+          "Survey prior work in research databases",
+          "Identify the gap existing algorithms leave open",
+          "Write a research proposal with success criteria"
+        ]
+      },
+      {
+        "title": "Algorithm Prototyping",
+        "duration": "4-6 weeks",
+        "description": "You implement candidate algorithms in Python or C++ and iterate on the mathematical formulation until one shows genuine promise.",
+        "activities": [
+          "Implement candidate algorithms with scientific libraries",
+          "Prove correctness and analyze complexity bounds",
+          "Profile prototypes and discard weak variants"
+        ]
+      },
+      {
+        "title": "Experimental Validation",
+        "duration": "4-6 weeks",
+        "description": "You run large experiment sweeps on HPC clusters against strong baselines, checking that the advantage holds across datasets and settings.",
+        "activities": [
+          "Schedule large experiment sweeps on HPC clusters",
+          "Benchmark against published baseline results",
+          "Test sensitivity to dataset and parameter changes"
+        ]
+      },
+      {
+        "title": "Publication and Transfer",
+        "duration": "4-6 weeks",
+        "description": "You write up the work for a top conference, respond to reviewers, and help product teams judge what is ready to build on.",
+        "activities": [
+          "Write and submit the conference paper",
+          "Release reproducible code and experiment configs",
+          "Brief product teams on transfer opportunities"
+        ]
+      }
+    ],
   },
   {
     id: "customer-engineer-data-ai",
@@ -862,7 +1150,79 @@ export const dataCareerRoles: DataCareerRole[] = [
           description: "Shape product roadmap with customer insights, lead technical strategy." 
         }
       ]
-    }
+    },
+    schedule: [
+      {
+        "time": "9:00 AM",
+        "activity": "Sync with the customer to clear blockers on their pipeline deployment"
+      },
+      {
+        "time": "10:00 AM",
+        "activity": "Build a proof-of-concept in the demo environment using cloud AI APIs"
+      },
+      {
+        "time": "12:00 PM",
+        "activity": "Take lunch between customer calls and clear your support inbox"
+      },
+      {
+        "time": "1:00 PM",
+        "activity": "Troubleshoot an authentication failure blocking the client's data ingestion job"
+      },
+      {
+        "time": "2:30 PM",
+        "activity": "Walk the client's data engineers through the architecture you configured"
+      },
+      {
+        "time": "3:30 PM",
+        "activity": "Log product gaps and feature requests for the product managers"
+      },
+      {
+        "time": "4:30 PM",
+        "activity": "Write a knowledge-base article covering the fix you shipped today"
+      }
+    ],
+    projectTimeline: [
+      {
+        "title": "Customer Onboarding",
+        "duration": "1-2 weeks",
+        "description": "You learn the customer's data landscape and goals, then agree what a successful adoption of the platform will look like for them.",
+        "activities": [
+          "Map existing data sources and environments",
+          "Agree success criteria with client stakeholders",
+          "Provision sandbox access and starter datasets"
+        ]
+      },
+      {
+        "title": "Proof-of-Concept Build",
+        "duration": "2-3 weeks",
+        "description": "You build a working demo against the customer's own data so their team can see the AI capability solving their actual problem.",
+        "activities": [
+          "Wire customer data into the demo environment",
+          "Build the POC against real customer data",
+          "Demo results and gather technical objections"
+        ]
+      },
+      {
+        "title": "Pilot Deployment",
+        "duration": "3-4 weeks",
+        "description": "You move the proof-of-concept into the customer's own cloud environment, fixing integration and permission issues alongside their data engineers.",
+        "activities": [
+          "Deploy into the customer's cloud environment",
+          "Troubleshoot integration, quota and permission issues",
+          "Train customer engineers on daily operation"
+        ]
+      },
+      {
+        "title": "Adoption and Handover",
+        "duration": "1-2 weeks",
+        "description": "You confirm the customer can run the solution without you, capture their feedback for product, and document everything for future support.",
+        "activities": [
+          "Review usage metrics against agreed success criteria",
+          "File prioritized product feedback with product managers",
+          "Publish runbooks and knowledge-base articles"
+        ]
+      }
+    ],
   },
   {
     id: "decision-scientist",
@@ -906,7 +1266,79 @@ export const dataCareerRoles: DataCareerRole[] = [
           description: "Lead org‑wide decision science, influence C‑suite direction." 
         }
       ]
-    }
+    },
+    schedule: [
+      {
+        "time": "9:00 AM",
+        "activity": "Review overnight Monte Carlo runs and sanity-check the output distributions"
+      },
+      {
+        "time": "10:00 AM",
+        "activity": "Meet leadership to sharpen the decision question behind a pricing change"
+      },
+      {
+        "time": "12:00 PM",
+        "activity": "Lunch away from the desk to reset before the modeling block"
+      },
+      {
+        "time": "1:00 PM",
+        "activity": "Code scenario analyses in Python comparing three market expansion options"
+      },
+      {
+        "time": "2:30 PM",
+        "activity": "Work with finance to quantify downside risk and expected ROI"
+      },
+      {
+        "time": "3:30 PM",
+        "activity": "Update the dashboard tracking outcomes of last quarter's decisions"
+      },
+      {
+        "time": "4:30 PM",
+        "activity": "Build slides framing the trade-offs as clear choices for executives"
+      }
+    ],
+    projectTimeline: [
+      {
+        "title": "Framing the Decision",
+        "duration": "1 week",
+        "description": "You work with executives to convert a vague strategic worry into a specific decision with defined options, constraints and success measures.",
+        "activities": [
+          "Interview executives on the choice they face",
+          "Define options, constraints and decision criteria",
+          "Identify data needed to separate the options"
+        ]
+      },
+      {
+        "title": "Model and Simulation Build",
+        "duration": "2 weeks",
+        "description": "You build the quantitative backbone in Python or R, modeling each option's outcomes and the uncertainty around them.",
+        "activities": [
+          "Assemble inputs with the data analysts",
+          "Build decision tree and simulation models",
+          "Run Monte Carlo scenarios across key assumptions"
+        ]
+      },
+      {
+        "title": "Validation and Sensitivity",
+        "duration": "1 week",
+        "description": "You stress the model against history and challenge its assumptions with finance so the recommendation survives hard questions in the room.",
+        "activities": [
+          "Backtest model against historical outcomes",
+          "Run sensitivity analysis on fragile assumptions",
+          "Pressure-test findings with the finance team"
+        ]
+      },
+      {
+        "title": "Recommendation and Follow-Through",
+        "duration": "1-2 weeks",
+        "description": "You present the trade-offs as a clear recommendation, facilitate the decision workshop, and set up tracking of what actually happens next.",
+        "activities": [
+          "Present options and risk-adjusted recommendation to leadership",
+          "Facilitate the decision workshop with product strategists",
+          "Stand up a dashboard tracking realized outcomes"
+        ]
+      }
+    ],
   },
   {
     id: "generative-ai-scientist",
@@ -950,7 +1382,79 @@ export const dataCareerRoles: DataCareerRole[] = [
           description: "Head research lab, shape industry standards." 
         }
       ]
-    }
+    },
+    schedule: [
+      {
+        "time": "9:00 AM",
+        "activity": "Check overnight GPU cluster jobs and inspect loss curves for divergence"
+      },
+      {
+        "time": "10:00 AM",
+        "activity": "Read new papers on diffusion sampling and note ideas worth testing"
+      },
+      {
+        "time": "12:00 PM",
+        "activity": "Eat lunch while a checkpoint evaluation sweep runs in the background"
+      },
+      {
+        "time": "1:00 PM",
+        "activity": "Modify the transformer architecture and launch a controlled ablation run"
+      },
+      {
+        "time": "2:30 PM",
+        "activity": "Score generated samples by hand and catalogue the failure modes"
+      },
+      {
+        "time": "3:30 PM",
+        "activity": "Review bias and safety findings with the ethics board reviewers"
+      },
+      {
+        "time": "4:30 PM",
+        "activity": "Document hyper-parameter results and push training code to the repository"
+      }
+    ],
+    projectTimeline: [
+      {
+        "title": "Architecture Research",
+        "duration": "3-4 weeks",
+        "description": "You study current generative architectures and run small-scale experiments to decide which design is worth committing serious GPU budget to.",
+        "activities": [
+          "Review recent generative modeling literature",
+          "Run small-scale architecture and data ablations",
+          "Estimate compute budget and training schedule"
+        ]
+      },
+      {
+        "title": "Large-Scale Training",
+        "duration": "4-6 weeks",
+        "description": "You train the model across GPU clusters, babysitting loss curves and intervening when instability, data issues or throughput problems appear.",
+        "activities": [
+          "Launch distributed training across GPU clusters",
+          "Monitor loss curves and recover from instability",
+          "Tune hyper-parameters and checkpoint intermediate models"
+        ]
+      },
+      {
+        "title": "Evaluation and Safety Review",
+        "duration": "2-3 weeks",
+        "description": "You measure output quality quantitatively and qualitatively, then work through bias and misuse concerns with the ethics board before anything ships.",
+        "activities": [
+          "Benchmark sample quality against reference models",
+          "Probe for bias and unsafe generations",
+          "Agree mitigations with the ethics board"
+        ]
+      },
+      {
+        "title": "Release or Submission",
+        "duration": "2-3 weeks",
+        "description": "You either hand the optimized model to ML engineers for serving or write the results up for a research conference, often both.",
+        "activities": [
+          "Optimize model for inference cost and latency",
+          "Hand off weights and evaluation notes to engineers",
+          "Draft the paper and present internal findings"
+        ]
+      }
+    ],
   },
   {
     id: "insights-analyst",
@@ -994,7 +1498,79 @@ export const dataCareerRoles: DataCareerRole[] = [
           description: "Oversee org‑wide insights strategy." 
         }
       ]
-    }
+    },
+    schedule: [
+      {
+        "time": "9:00 AM",
+        "activity": "Refresh Tableau dashboards and confirm overnight data loads completed cleanly"
+      },
+      {
+        "time": "10:00 AM",
+        "activity": "Write SQL to answer an ad-hoc question about churn by segment"
+      },
+      {
+        "time": "12:00 PM",
+        "activity": "Pause for lunch and skim the weekly marketing performance summary"
+      },
+      {
+        "time": "1:00 PM",
+        "activity": "Meet the product manager to understand context behind a KPI drop"
+      },
+      {
+        "time": "2:30 PM",
+        "activity": "Build Power BI visuals showing the trend and its likely drivers"
+      },
+      {
+        "time": "3:30 PM",
+        "activity": "Write a short insights memo with three concrete recommended actions"
+      },
+      {
+        "time": "4:30 PM",
+        "activity": "Ask data engineers to fix a broken field in the reporting table"
+      }
+    ],
+    projectTimeline: [
+      {
+        "title": "Question and KPI Scoping",
+        "duration": "1 week",
+        "description": "You pin down what business question a declining metric really raises, and which KPIs would settle it for marketing and finance.",
+        "activities": [
+          "Interview marketing and finance on the question",
+          "Agree the KPIs that define success",
+          "List data sources and known reporting gaps"
+        ]
+      },
+      {
+        "title": "Data Pull and Validation",
+        "duration": "1 week",
+        "description": "You extract the data in SQL, reconcile it against trusted reports, and resolve quality issues with the data engineers before analyzing anything.",
+        "activities": [
+          "Write SQL extracts across the relevant tables",
+          "Reconcile totals against existing trusted reports",
+          "Escalate data quality issues to data engineers"
+        ]
+      },
+      {
+        "title": "Deep-Dive Analysis",
+        "duration": "1-2 weeks",
+        "description": "You segment, compare and test until the pattern behind the metric is explainable rather than merely visible in a chart.",
+        "activities": [
+          "Segment the metric by cohort and channel",
+          "Test candidate explanations against the data",
+          "Draft visuals that make the pattern obvious"
+        ]
+      },
+      {
+        "title": "Readout and Dashboard",
+        "duration": "1 week",
+        "description": "You present the findings and recommendations to stakeholders, then turn the one-off analysis into a dashboard they can watch themselves.",
+        "activities": [
+          "Present findings and recommendations to stakeholders",
+          "Build a Tableau dashboard for ongoing tracking",
+          "Document definitions and methodology for reuse"
+        ]
+      }
+    ],
   },
   {
     id: "mlops-engineer",
@@ -1038,7 +1614,79 @@ export const dataCareerRoles: DataCareerRole[] = [
           description: "Drive org‑wide ML platform strategy." 
         }
       ]
-    }
+    },
+    schedule: [
+      {
+        "time": "9:00 AM",
+        "activity": "Check overnight pipeline runs and restart a stuck model training job"
+      },
+      {
+        "time": "10:00 AM",
+        "activity": "Containerize a newly approved model and push the Docker image"
+      },
+      {
+        "time": "12:00 PM",
+        "activity": "Break for lunch once the staging deployment finishes rolling out"
+      },
+      {
+        "time": "1:00 PM",
+        "activity": "Add automated validation gates to the CI/CD pipeline before promotion"
+      },
+      {
+        "time": "2:30 PM",
+        "activity": "Join infrastructure stand-up with SREs about Kubernetes autoscaling limits"
+      },
+      {
+        "time": "3:30 PM",
+        "activity": "Investigate drift alerts in MLflow against the training baseline"
+      },
+      {
+        "time": "4:30 PM",
+        "activity": "Review cloud spend per model and right-size the serving nodes"
+      }
+    ],
+    projectTimeline: [
+      {
+        "title": "Pipeline Design",
+        "duration": "1 week",
+        "description": "You map how a model should travel from a data scientist's notebook to production, defining the stages, artifacts and approvals along the way.",
+        "activities": [
+          "Map current handoffs with the data scientists",
+          "Define pipeline stages, artifacts and registry layout",
+          "Choose infrastructure and access control model"
+        ]
+      },
+      {
+        "title": "CI/CD Implementation",
+        "duration": "2 weeks",
+        "description": "You build the automated path that packages, tests and deploys models with Docker, Kubernetes and MLflow so releases stop being manual.",
+        "activities": [
+          "Automate build, containerization and registry publishing",
+          "Add automated validation gates before promotion",
+          "Deploy to staging with reproducible Kubernetes manifests"
+        ]
+      },
+      {
+        "title": "Monitoring Rollout",
+        "duration": "1-2 weeks",
+        "description": "You instrument production models for drift, latency and failures, and agree with data scientists what an alert should actually trigger.",
+        "activities": [
+          "Instrument drift, latency and error metrics",
+          "Set alert thresholds and escalation paths",
+          "Wire rollback to a previous model version"
+        ]
+      },
+      {
+        "title": "Cost and Performance Tuning",
+        "duration": "1 week",
+        "description": "You measure real serving cost and throughput, then tune infrastructure until the pipeline is both fast enough and defensibly priced.",
+        "activities": [
+          "Profile serving cost per model and request",
+          "Right-size nodes, replicas and batching settings",
+          "Report savings and reliability gains to stakeholders"
+        ]
+      }
+    ],
   },
   {
     id: "private-equity-analyst",
@@ -1082,7 +1730,79 @@ export const dataCareerRoles: DataCareerRole[] = [
           description: "Source deals, set fund strategy." 
         }
       ]
-    }
+    },
+    schedule: [
+      {
+        "time": "9:00 AM",
+        "activity": "Scan industry news and deal announcements affecting your target sectors"
+      },
+      {
+        "time": "10:00 AM",
+        "activity": "Update the LBO model in Excel with revised debt assumptions"
+      },
+      {
+        "time": "12:00 PM",
+        "activity": "Quick lunch at your desk while prepping for the management call"
+      },
+      {
+        "time": "1:00 PM",
+        "activity": "Join a management call and press on customer concentration risk"
+      },
+      {
+        "time": "2:30 PM",
+        "activity": "Size the addressable market using research databases and expert calls"
+      },
+      {
+        "time": "3:30 PM",
+        "activity": "Run sensitivity analysis on exit multiples and entry leverage"
+      },
+      {
+        "time": "4:30 PM",
+        "activity": "Draft investment memo sections for this week's committee meeting"
+      }
+    ],
+    projectTimeline: [
+      {
+        "title": "Sourcing and Screening",
+        "duration": "2 weeks",
+        "description": "You screen targets in a sector against the fund's criteria, building quick views on which companies deserve real diligence time.",
+        "activities": [
+          "Build a target long list from research databases",
+          "Screen financials against fund investment criteria",
+          "Log promising targets and outreach in the CRM"
+        ]
+      },
+      {
+        "title": "Preliminary Valuation",
+        "duration": "1-2 weeks",
+        "description": "You analyze the target's financial statements and build a first LBO model to test whether the returns can plausibly clear the hurdle.",
+        "activities": [
+          "Normalize historical financials and margin trends",
+          "Build the first LBO and valuation model",
+          "Test entry price against target return thresholds"
+        ]
+      },
+      {
+        "title": "Deep Diligence",
+        "duration": "3-4 weeks",
+        "description": "You dig into the market, customers and risks alongside the deal team, industry experts and legal advisors, updating the model as facts arrive.",
+        "activities": [
+          "Size the market and map competitive position",
+          "Run expert calls on customers and churn",
+          "Refine model with diligence findings and legal flags"
+        ]
+      },
+      {
+        "title": "Investment Committee",
+        "duration": "1 week",
+        "description": "You assemble the investment memo and supporting analysis so the committee can judge the thesis, the downside and the proposed structure.",
+        "activities": [
+          "Write the investment memo and thesis summary",
+          "Prepare sensitivity tables and downside cases",
+          "Present analysis and field committee questions"
+        ]
+      }
+    ],
   },
   {
     id: "product-insights-analyst",
@@ -1126,7 +1846,79 @@ export const dataCareerRoles: DataCareerRole[] = [
           description: "Manage analytics teams, shape product direction." 
         }
       ]
-    }
+    },
+    schedule: [
+      {
+        "time": "9:00 AM",
+        "activity": "Review activation and retention metrics in the product analytics suite"
+      },
+      {
+        "time": "10:00 AM",
+        "activity": "Check the running A/B test for sample ratio mismatch and early noise"
+      },
+      {
+        "time": "12:00 PM",
+        "activity": "Lunch with a UX researcher comparing session findings against your metrics"
+      },
+      {
+        "time": "1:00 PM",
+        "activity": "Write SQL to size the drop-off happening midway through onboarding"
+      },
+      {
+        "time": "2:30 PM",
+        "activity": "Design the next experiment with the product manager and set guardrails"
+      },
+      {
+        "time": "3:30 PM",
+        "activity": "Build a BI dashboard tracking feature health for the launch review"
+      },
+      {
+        "time": "4:30 PM",
+        "activity": "Post an experiment readout covering lift, confidence and next steps"
+      }
+    ],
+    projectTimeline: [
+      {
+        "title": "Funnel Instrumentation",
+        "duration": "1 week",
+        "description": "You work with engineers to make sure every step of the onboarding funnel is tracked correctly before you draw any conclusions from it.",
+        "activities": [
+          "Audit existing event tracking for gaps",
+          "Specify new events with the engineers",
+          "Validate data landing in the analytics suite"
+        ]
+      },
+      {
+        "title": "Experiment Design",
+        "duration": "1 week",
+        "description": "You turn a product hypothesis about the drop-off into a testable experiment with a primary metric, sample size and guardrails.",
+        "activities": [
+          "Define hypothesis and primary success metric",
+          "Calculate sample size and required run time",
+          "Agree guardrail metrics with the product manager"
+        ]
+      },
+      {
+        "title": "Launch and Monitoring",
+        "duration": "2-3 weeks",
+        "description": "You launch the test on the A/B platform and watch it daily for imbalance or harm, resisting the urge to call it early.",
+        "activities": [
+          "Launch the variant and verify assignment balance",
+          "Monitor guardrails for user harm daily",
+          "Hold the test to its planned duration"
+        ]
+      },
+      {
+        "title": "Readout and Rollout",
+        "duration": "1 week",
+        "description": "You analyze results by segment, share an honest readout, and help the product team decide whether to ship, iterate or abandon.",
+        "activities": [
+          "Analyze lift overall and by user segment",
+          "Publish readout with confidence intervals and caveats",
+          "Recommend ship, iterate or stop decision"
+        ]
+      }
+    ],
   },
   {
     id: "qa-engineer-ai",
@@ -1170,7 +1962,79 @@ export const dataCareerRoles: DataCareerRole[] = [
           description: "Set org‑wide QA governance and standards." 
         }
       ]
-    }
+    },
+    schedule: [
+      {
+        "time": "9:00 AM",
+        "activity": "Review yesterday's validation run and log defects against quality metrics"
+      },
+      {
+        "time": "10:00 AM",
+        "activity": "Draft the test strategy for a model heading into release review"
+      },
+      {
+        "time": "12:00 PM",
+        "activity": "Take a proper break outside before the afternoon fairness review"
+      },
+      {
+        "time": "1:00 PM",
+        "activity": "Measure subgroup performance with bias tools and document the disparities"
+      },
+      {
+        "time": "2:30 PM",
+        "activity": "Walk the compliance team through the evidence your audit trail captures"
+      },
+      {
+        "time": "3:30 PM",
+        "activity": "Automate a fairness check inside the CI/CD gate for future releases"
+      },
+      {
+        "time": "4:30 PM",
+        "activity": "Set acceptance criteria with the product owner and update quality docs"
+      }
+    ],
+    projectTimeline: [
+      {
+        "title": "Quality Criteria Definition",
+        "duration": "1 week",
+        "description": "You agree with product owners and compliance what accuracy, fairness and robustness standards a model must meet before it can ship.",
+        "activities": [
+          "Agree accuracy and fairness acceptance criteria",
+          "Identify protected groups and sensitive use cases",
+          "Confirm evidence compliance teams will require"
+        ]
+      },
+      {
+        "title": "Validation Automation",
+        "duration": "2 weeks",
+        "description": "You turn those criteria into automated checks that run on every model version, so quality is enforced rather than periodically inspected.",
+        "activities": [
+          "Automate accuracy and robustness test suites",
+          "Add bias tooling to the validation flow",
+          "Integrate checks as CI/CD release gates"
+        ]
+      },
+      {
+        "title": "Bias and Robustness Evaluation",
+        "duration": "2 weeks",
+        "description": "You run the model against skewed, noisy and adversarial inputs, then work with data scientists on the weaknesses you surface.",
+        "activities": [
+          "Evaluate performance across subgroup slices",
+          "Probe robustness with noisy and adversarial inputs",
+          "Review remediation options with the data scientists"
+        ]
+      },
+      {
+        "title": "QA Report and Sign-Off",
+        "duration": "1 week",
+        "description": "You document quality metrics, unresolved risks and monitoring needs in a report that compliance and product owners sign before deployment.",
+        "activities": [
+          "Compile quality metrics and fairness evidence",
+          "Record residual risks and recommended monitoring",
+          "Obtain sign-off from compliance and product owners"
+        ]
+      }
+    ],
   },
   {
     id: "research-scientist",
@@ -1214,7 +2078,79 @@ export const dataCareerRoles: DataCareerRole[] = [
           description: "Set research vision, manage labs." 
         }
       ]
-    }
+    },
+    schedule: [
+      {
+        "time": "9:00 AM",
+        "activity": "Check overnight training runs on HPC and log the metric deltas"
+      },
+      {
+        "time": "10:00 AM",
+        "activity": "Read recent literature and pick one method worth reproducing this week"
+      },
+      {
+        "time": "12:00 PM",
+        "activity": "Attend the lunch seminar and question the visiting speaker's results"
+      },
+      {
+        "time": "1:00 PM",
+        "activity": "Prototype the algorithm in Python and test it on internal data"
+      },
+      {
+        "time": "2:30 PM",
+        "activity": "Discuss with product teams whether the result transfers to their problem"
+      },
+      {
+        "time": "3:30 PM",
+        "activity": "Mentor an intern through their ablation study and review their code"
+      },
+      {
+        "time": "4:30 PM",
+        "activity": "Draft the experiments section of an upcoming conference paper"
+      }
+    ],
+    projectTimeline: [
+      {
+        "title": "Hypothesis and Design",
+        "duration": "2 weeks",
+        "description": "You choose a research question with a plausible product payoff, then design experiments precise enough that a negative result still teaches something.",
+        "activities": [
+          "Review literature and pick a tractable question",
+          "Design experiments and choose evaluation metrics",
+          "Agree the applied payoff with product managers"
+        ]
+      },
+      {
+        "title": "Prototype and Baselines",
+        "duration": "3-4 weeks",
+        "description": "You implement the method and reproduce credible baselines, since a new approach only means something measured against the honest alternative.",
+        "activities": [
+          "Implement the method with standard ML libraries",
+          "Reproduce published baselines on shared datasets",
+          "Work with data engineers on training datasets"
+        ]
+      },
+      {
+        "title": "Experimentation and Analysis",
+        "duration": "4 weeks",
+        "description": "You run experiment sweeps on HPC, analyze where the method wins and fails, and let interns own well-scoped ablations.",
+        "activities": [
+          "Run parameter sweeps and ablations on HPC",
+          "Analyze failure cases and generalization limits",
+          "Supervise interns running supporting experiments"
+        ]
+      },
+      {
+        "title": "Publication and Handoff",
+        "duration": "3 weeks",
+        "description": "You write the paper, share reproducible code, and help engineering understand what would be needed to run the method in a product.",
+        "activities": [
+          "Write and submit the conference paper",
+          "Package reproducible code and experiment configs",
+          "Brief engineering on productionization requirements"
+        ]
+      }
+    ],
   },
   {
     id: "solution-engineer-data-ai",
@@ -1258,7 +2194,79 @@ export const dataCareerRoles: DataCareerRole[] = [
           description: "Manage solution teams, set technical pre‑sales strategy." 
         }
       ]
-    }
+    },
+    schedule: [
+      {
+        "time": "9:00 AM",
+        "activity": "Rehearse the demo flow and verify sandbox data loads before the call"
+      },
+      {
+        "time": "10:00 AM",
+        "activity": "Run a live solution demo for the prospect's technical evaluators"
+      },
+      {
+        "time": "12:00 PM",
+        "activity": "Eat between meetings while updating opportunity notes in the CRM"
+      },
+      {
+        "time": "1:00 PM",
+        "activity": "Diagram a target architecture mapping their data sources to cloud services"
+      },
+      {
+        "time": "2:30 PM",
+        "activity": "Code a scoped proof-of-concept proving the integration path actually works"
+      },
+      {
+        "time": "3:30 PM",
+        "activity": "Answer the client IT team's security and integration questions"
+      },
+      {
+        "time": "4:30 PM",
+        "activity": "Debrief with sales on objections and write up the proposed solution"
+      }
+    ],
+    projectTimeline: [
+      {
+        "title": "Discovery and Scoping",
+        "duration": "1 week",
+        "description": "You meet the prospect's business and IT people to understand the problem, their existing stack, and what would count as proof.",
+        "activities": [
+          "Interview business and client IT stakeholders",
+          "Document current data stack and constraints",
+          "Define evaluation criteria with the sales team"
+        ]
+      },
+      {
+        "title": "Solution Architecture",
+        "duration": "1-2 weeks",
+        "description": "You design a target architecture on cloud platforms and AI APIs that fits their constraints, then socialize it before building anything.",
+        "activities": [
+          "Draft target architecture and integration points",
+          "Validate security and compliance requirements",
+          "Review the design with product teams"
+        ]
+      },
+      {
+        "title": "Proof-of-Concept Build",
+        "duration": "2-3 weeks",
+        "description": "You build a narrow but real implementation against their data, focused on the one or two risks that would kill the deal.",
+        "activities": [
+          "Build the POC against representative client data",
+          "Prove the riskiest integration assumptions first",
+          "Prepare demo narrative for business stakeholders"
+        ]
+      },
+      {
+        "title": "Validation and Handoff",
+        "duration": "1 week",
+        "description": "You present results to the client, resolve remaining technical objections, and transfer the design to implementation partners for delivery.",
+        "activities": [
+          "Present POC results and technical validation",
+          "Resolve outstanding objections with client IT",
+          "Hand architecture and notes to implementation partners"
+        ]
+      }
+    ],
   },
   {
     id: "cloud-data-engineer",
@@ -1302,7 +2310,79 @@ export const dataCareerRoles: DataCareerRole[] = [
           description: "Set cloud data strategy and best practices." 
         }
       ]
-    }
+    },
+    schedule: [
+      {
+        "time": "9:00 AM",
+        "activity": "Join the data engineering stand-up and review overnight Spark job failures"
+      },
+      {
+        "time": "10:00 AM",
+        "activity": "Update Terraform modules that provision new BigQuery datasets and service accounts"
+      },
+      {
+        "time": "12:00 PM",
+        "activity": "Break for lunch while skimming cloud release notes with teammates"
+      },
+      {
+        "time": "1:00 PM",
+        "activity": "Repartition a Spark job to cut load times into Redshift"
+      },
+      {
+        "time": "2:30 PM",
+        "activity": "Design review with data scientists on the feature pipeline they need"
+      },
+      {
+        "time": "3:30 PM",
+        "activity": "Migrate another batch of on-prem tables and reconcile row counts"
+      },
+      {
+        "time": "4:30 PM",
+        "activity": "Check IAM policies and storage encryption settings with the security team"
+      }
+    ],
+    projectTimeline: [
+      {
+        "title": "Cloud Architecture Design",
+        "duration": "Week 1",
+        "description": "You map the on-prem warehouse, choose target cloud services, and design the landing, staging, and serving layers with cost estimates.",
+        "activities": [
+          "Inventory source tables, volumes, and refresh windows",
+          "Draft target architecture and storage layout",
+          "Estimate monthly compute and storage costs"
+        ]
+      },
+      {
+        "title": "Pipeline Build",
+        "duration": "Weeks 2-3",
+        "description": "You provision infrastructure with Terraform and build the Spark and serverless jobs that move and transform data into the warehouse.",
+        "activities": [
+          "Write Terraform for buckets, warehouse, and roles",
+          "Build Spark ingestion and transformation jobs",
+          "Add orchestration, retries, and failure alerting"
+        ]
+      },
+      {
+        "title": "Migration & Validation",
+        "duration": "Weeks 3-4",
+        "description": "You backfill historical data, run the old and new pipelines in parallel, and prove the cloud outputs match the legacy system.",
+        "activities": [
+          "Backfill history and verify row counts",
+          "Run parallel loads against legacy outputs",
+          "Resolve type and timezone mismatches"
+        ]
+      },
+      {
+        "title": "Tuning & Handover",
+        "duration": "Week 4",
+        "description": "You optimize partitioning and cluster sizing to control spend, lock down access, then document the pipeline for the wider team.",
+        "activities": [
+          "Tune partitioning, clustering, and cluster sizing",
+          "Apply least-privilege IAM and audit logging",
+          "Document runbooks and hand off to on-call"
+        ]
+      }
+    ],
   },
   {
     id: "data-governance-analyst",
@@ -1346,7 +2426,79 @@ export const dataCareerRoles: DataCareerRole[] = [
           description: "Own enterprise data governance strategy." 
         }
       ]
-    }
+    },
+    schedule: [
+      {
+        "time": "9:00 AM",
+        "activity": "Review overnight data-quality scorecards and flag domains breaching their thresholds"
+      },
+      {
+        "time": "10:00 AM",
+        "activity": "Draft retention and classification policy language for the customer data domain"
+      },
+      {
+        "time": "12:00 PM",
+        "activity": "Step away for lunch and read a regulatory update newsletter"
+      },
+      {
+        "time": "1:00 PM",
+        "activity": "Meet the compliance team about evidence needed for the upcoming audit"
+      },
+      {
+        "time": "2:30 PM",
+        "activity": "Update catalog entries and confirm ownership assignments with data stewards"
+      },
+      {
+        "time": "3:30 PM",
+        "activity": "Run a stewardship workshop on applying the new classification rules"
+      },
+      {
+        "time": "4:30 PM",
+        "activity": "Log policy exceptions and set the governance council agenda"
+      }
+    ],
+    projectTimeline: [
+      {
+        "title": "Policy Development",
+        "duration": "3-4 weeks",
+        "description": "You draft classification, retention, and access policies for a priority data domain, reconciling regulatory obligations with how the business actually works.",
+        "activities": [
+          "Map regulatory obligations to data domains",
+          "Draft classification and retention standards",
+          "Socialize drafts with legal and security"
+        ]
+      },
+      {
+        "title": "Rollout & Cataloging",
+        "duration": "4 weeks",
+        "description": "You publish the approved policies, name stewards for each domain, and record ownership and sensitivity in the data catalog.",
+        "activities": [
+          "Assign stewards to every critical dataset",
+          "Tag sensitivity and ownership in the catalog",
+          "Publish policies and exception request process"
+        ]
+      },
+      {
+        "title": "Quality Metric Tracking",
+        "duration": "4 weeks",
+        "description": "You define data-quality measures for the domain, baseline current performance, and start reporting compliance trends to stewards and leadership.",
+        "activities": [
+          "Define completeness, accuracy, and timeliness measures",
+          "Baseline current quality across key tables",
+          "Publish monthly compliance scorecards for each domain"
+        ]
+      },
+      {
+        "title": "Audit Prep & Training",
+        "duration": "3 weeks",
+        "description": "You assemble evidence for the compliance audit, close outstanding gaps, and train staff so the standards hold without your daily prompting.",
+        "activities": [
+          "Collect policy and control evidence packages",
+          "Remediate gaps found in readiness review",
+          "Deliver training sessions for stewards and IT"
+        ]
+      }
+    ],
   },
   {
     id: "data-visualization-specialist",
@@ -1390,7 +2542,79 @@ export const dataCareerRoles: DataCareerRole[] = [
           description: "Drive enterprise‑wide data storytelling strategy." 
         }
       ]
-    }
+    },
+    schedule: [
+      {
+        "time": "9:00 AM",
+        "activity": "Sketch wireframes for the executive revenue dashboard before opening Tableau"
+      },
+      {
+        "time": "10:00 AM",
+        "activity": "Build the trended KPI view in Tableau and check color contrast"
+      },
+      {
+        "time": "12:00 PM",
+        "activity": "Lunch away from screens, then browse a visualization gallery"
+      },
+      {
+        "time": "1:00 PM",
+        "activity": "Walk product owners through the prototype and capture layout feedback"
+      },
+      {
+        "time": "2:30 PM",
+        "activity": "Rebuild a cluttered marketing chart as a simple ranked bar"
+      },
+      {
+        "time": "3:30 PM",
+        "activity": "Prototype a D3.js interaction the standard BI tools cannot render"
+      },
+      {
+        "time": "4:30 PM",
+        "activity": "Publish the updated workbook and note changes for the style guide"
+      }
+    ],
+    projectTimeline: [
+      {
+        "title": "Requirements Gathering",
+        "duration": "1 week",
+        "description": "You interview executives and BI teammates to learn which decisions the dashboard must support and which numbers they already trust.",
+        "activities": [
+          "Interview executives about the decisions they make",
+          "Audit existing reports for duplicate metrics",
+          "Agree the handful of headline measures"
+        ]
+      },
+      {
+        "title": "Prototyping & Feedback",
+        "duration": "1-2 weeks",
+        "description": "You sketch layouts on paper, then build clickable mockups so stakeholders can react to structure and hierarchy before any data work hardens.",
+        "activities": [
+          "Sketch layout options and information hierarchy",
+          "Build clickable mockups in Tableau or Power BI",
+          "Test chart choices with a few users"
+        ]
+      },
+      {
+        "title": "Production Build",
+        "duration": "2-3 weeks",
+        "description": "You build the real dashboard against live data, applying accessible color, consistent formatting, and interactions that survive slow connections and small screens.",
+        "activities": [
+          "Connect live data and validate every figure",
+          "Apply accessible palette and consistent formatting",
+          "Tune filters, tooltips, and load performance"
+        ]
+      },
+      {
+        "title": "Launch & Style Guide",
+        "duration": "1 week",
+        "description": "You publish the dashboard, teach people how to read it, and fold the new patterns into the organization's visualization style guide.",
+        "activities": [
+          "Run walkthrough sessions for each audience",
+          "Update the style guide with new patterns",
+          "Collect usage feedback and fix rough edges"
+        ]
+      }
+    ],
   },
   {
     id: "data-metrics-analyst",
@@ -1434,7 +2658,79 @@ export const dataCareerRoles: DataCareerRole[] = [
           description: "Drive org‑wide performance measurement." 
         }
       ]
-    }
+    },
+    schedule: [
+      {
+        "time": "9:00 AM",
+        "activity": "Check overnight KPI refreshes and investigate any metric that moved sharply"
+      },
+      {
+        "time": "10:00 AM",
+        "activity": "Refine SQL definitions so retention counts match the finance ledger"
+      },
+      {
+        "time": "12:00 PM",
+        "activity": "Grab lunch with operations and hear their reporting frustrations"
+      },
+      {
+        "time": "1:00 PM",
+        "activity": "Rebuild the weekly performance dashboard using the corrected metric logic"
+      },
+      {
+        "time": "2:30 PM",
+        "activity": "Meet finance to reconcile revenue figures before the board pack"
+      },
+      {
+        "time": "3:30 PM",
+        "activity": "Run trend analysis in Excel to explain last month's fulfillment dip"
+      },
+      {
+        "time": "4:30 PM",
+        "activity": "Draft an insights memo recommending two operational fixes for leadership"
+      }
+    ],
+    projectTimeline: [
+      {
+        "title": "Metric Discovery",
+        "duration": "1-2 weeks",
+        "description": "You work with finance, operations, and product to decide which KPIs actually reflect performance and how each should be defined precisely.",
+        "activities": [
+          "Interview each function about their targets",
+          "Draft precise definitions and calculation rules",
+          "Confirm data sources exist for every metric"
+        ]
+      },
+      {
+        "title": "Dashboard Development",
+        "duration": "2-3 weeks",
+        "description": "You write the SQL behind each KPI, build the dashboard in your BI tool, and add breakdowns people will inevitably ask for.",
+        "activities": [
+          "Write and test SQL for each KPI",
+          "Build dashboard views by team and region",
+          "Add trend lines and target comparisons"
+        ]
+      },
+      {
+        "title": "Validation & Rollout",
+        "duration": "2 weeks",
+        "description": "You reconcile every number against finance and operational records, fix the gaps, then train each team on reading their own view.",
+        "activities": [
+          "Reconcile figures against finance and ops records",
+          "Fix definition mismatches surfaced in review",
+          "Train teams on interpreting their dashboard"
+        ]
+      },
+      {
+        "title": "Impact Review",
+        "duration": "2 weeks",
+        "description": "You track whether the metrics changed any decisions, retire the views nobody opens, and recommend improvements to leadership based on early trends.",
+        "activities": [
+          "Review dashboard usage and open questions",
+          "Retire metrics nobody acts on",
+          "Present trend findings and recommendations to leadership"
+        ]
+      }
+    ],
   },
   {
     id: "information-architect",
@@ -1478,7 +2774,79 @@ export const dataCareerRoles: DataCareerRole[] = [
           description: "Own enterprise data architecture vision." 
         }
       ]
-    }
+    },
+    schedule: [
+      {
+        "time": "9:00 AM",
+        "activity": "Extend the entity relationship diagram covering new subscription and billing entities"
+      },
+      {
+        "time": "10:00 AM",
+        "activity": "Review taxonomy naming with UX designers so labels match user language"
+      },
+      {
+        "time": "12:00 PM",
+        "activity": "Break for lunch and sketch schema alternatives in a notebook"
+      },
+      {
+        "time": "1:00 PM",
+        "activity": "Consult developers on schema options for their new application"
+      },
+      {
+        "time": "2:30 PM",
+        "activity": "Document metadata standards and naming conventions for the modeling review"
+      },
+      {
+        "time": "3:30 PM",
+        "activity": "Present the domain model to the architecture board for approval"
+      },
+      {
+        "time": "4:30 PM",
+        "activity": "Work through indexing and partitioning implications with the DBAs"
+      }
+    ],
+    projectTimeline: [
+      {
+        "title": "Discovery & Audit",
+        "duration": "2-3 weeks",
+        "description": "You inventory the existing schemas, vocabularies, and content structures, then document where duplication and inconsistent naming are hurting users and developers.",
+        "activities": [
+          "Inventory current schemas and naming conventions",
+          "Interview developers and UX on pain points",
+          "Document redundancy and structural gaps"
+        ]
+      },
+      {
+        "title": "Modeling & Taxonomy Design",
+        "duration": "3-4 weeks",
+        "description": "You build the conceptual and logical models, define the taxonomy and metadata framework, and validate both against real user tasks.",
+        "activities": [
+          "Draft conceptual and logical data models",
+          "Design taxonomy and controlled vocabularies",
+          "Validate structures against real user tasks"
+        ]
+      },
+      {
+        "title": "Implementation Guidance",
+        "duration": "3-4 weeks",
+        "description": "You translate the models into physical schema recommendations, review developer implementations, and adjust the design where performance realities demand compromise.",
+        "activities": [
+          "Turn logical models into physical schema guidance",
+          "Review developer implementations against the model",
+          "Adjust design for performance constraints"
+        ]
+      },
+      {
+        "title": "Governance Handoff",
+        "duration": "2 weeks",
+        "description": "You publish the standards, register the models and taxonomy with the governance function, and set the process for approving future changes.",
+        "activities": [
+          "Publish modeling and naming standards",
+          "Register models with the governance function",
+          "Define change review and approval process"
+        ]
+      }
+    ],
   },
   {
     id: "intelligence-analyst",
@@ -1522,7 +2890,79 @@ export const dataCareerRoles: DataCareerRole[] = [
           description: "Set intelligence strategy and operations." 
         }
       ]
-    }
+    },
+    schedule: [
+      {
+        "time": "9:00 AM",
+        "activity": "Sweep overnight OSINT feeds and tag items against standing collection requirements"
+      },
+      {
+        "time": "10:00 AM",
+        "activity": "Run pattern analysis linking incident reports across two research databases"
+      },
+      {
+        "time": "12:00 PM",
+        "activity": "Pause for lunch and trade source leads with fellow analysts"
+      },
+      {
+        "time": "1:00 PM",
+        "activity": "Draft a threat brief with confidence levels and clear sourcing notes"
+      },
+      {
+        "time": "2:30 PM",
+        "activity": "Brief the security team on an emerging risk to overseas sites"
+      },
+      {
+        "time": "3:30 PM",
+        "activity": "Corroborate a single-source claim before it enters the reporting system"
+      },
+      {
+        "time": "4:30 PM",
+        "activity": "Archive findings and update the collection plan with new gaps"
+      }
+    ],
+    projectTimeline: [
+      {
+        "title": "Collection Planning",
+        "duration": "1 week",
+        "description": "You turn a leadership question into specific intelligence requirements, then decide which sources and platforms can realistically answer each one.",
+        "activities": [
+          "Break the question into intelligence requirements",
+          "Map requirements to available sources",
+          "Set collection schedule and reporting cadence"
+        ]
+      },
+      {
+        "title": "Deep-Dive Analysis",
+        "duration": "2-3 weeks",
+        "description": "You gather and evaluate material from open and internal sources, weigh source reliability, and test alternative explanations against the evidence.",
+        "activities": [
+          "Collect and grade material by source reliability",
+          "Build timelines and link charts of activity",
+          "Test alternative explanations against the evidence"
+        ]
+      },
+      {
+        "title": "Report Production",
+        "duration": "1-2 weeks",
+        "description": "You write the assessment with clear judgments and confidence levels, have peers challenge it, then brief executives and policy makers directly.",
+        "activities": [
+          "Write assessment with judgments and confidence levels",
+          "Run peer review to challenge assumptions",
+          "Brief executives and policy makers"
+        ]
+      },
+      {
+        "title": "Post-Action Review",
+        "duration": "1 week",
+        "description": "You check which judgments held up, record what the collection plan missed, and feed those lessons into the next requirements cycle.",
+        "activities": [
+          "Compare judgments against what actually happened",
+          "Document collection gaps and source weaknesses",
+          "Update standing requirements for the next cycle"
+        ]
+      }
+    ],
   },
   {
     id: "mdm-analyst",
@@ -1566,7 +3006,79 @@ export const dataCareerRoles: DataCareerRole[] = [
           description: "Set master‑data strategy and architecture." 
         }
       ]
-    }
+    },
+    schedule: [
+      {
+        "time": "9:00 AM",
+        "activity": "Run the overnight duplicate-record report across the customer master domain"
+      },
+      {
+        "time": "10:00 AM",
+        "activity": "Resolve survivorship conflicts where two source systems disagree on addresses"
+      },
+      {
+        "time": "12:00 PM",
+        "activity": "Lunch break, then a quick pass through the stewardship inbox"
+      },
+      {
+        "time": "1:00 PM",
+        "activity": "Adjust matching rules in the MDM platform and rerun profiling"
+      },
+      {
+        "time": "2:30 PM",
+        "activity": "Sync with the ETL team about a supplier feed breaking golden records"
+      },
+      {
+        "time": "3:30 PM",
+        "activity": "Help a business unit steward correct mismatched product hierarchy codes"
+      },
+      {
+        "time": "4:30 PM",
+        "activity": "Record weekly data-quality metrics in the metadata repository"
+      }
+    ],
+    projectTimeline: [
+      {
+        "title": "Profiling & Rule Design",
+        "duration": "3 weeks",
+        "description": "You profile every source contributing to the domain, measure how badly records disagree, and design the matching and survivorship rules accordingly.",
+        "activities": [
+          "Profile each source system for the domain",
+          "Quantify duplicates and conflicting attributes",
+          "Draft matching, merge, and survivorship rules"
+        ]
+      },
+      {
+        "title": "Golden Record Build",
+        "duration": "3-4 weeks",
+        "description": "You configure the MDM platform, load source data, and tune the rules until the generated golden records survive steward review.",
+        "activities": [
+          "Configure match rules in the MDM platform",
+          "Load sources and generate candidate golden records",
+          "Tune thresholds after steward review batches"
+        ]
+      },
+      {
+        "title": "Integration & Sync",
+        "duration": "3 weeks",
+        "description": "You work with ETL teams so downstream systems consume the mastered records, and build the exception queue for cases automation cannot settle.",
+        "activities": [
+          "Publish mastered records to downstream systems",
+          "Build exception queue for unmatched records",
+          "Test round-trip updates from source systems"
+        ]
+      },
+      {
+        "title": "Monitoring & Stewardship",
+        "duration": "2-3 weeks",
+        "description": "You set up ongoing quality monitoring, train the business stewards who will own daily exceptions, and hand the process to governance.",
+        "activities": [
+          "Build quality dashboards and threshold alerts",
+          "Train stewards on exception resolution",
+          "Document standards and hand off to governance"
+        ]
+      }
+    ],
   },
   {
     id: "sql-developer",
@@ -1610,7 +3122,79 @@ export const dataCareerRoles: DataCareerRole[] = [
           description: "Set enterprise data‑platform strategy." 
         }
       ]
-    }
+    },
+    schedule: [
+      {
+        "time": "9:00 AM",
+        "activity": "Check overnight job logs for stored procedures that ran unusually long"
+      },
+      {
+        "time": "10:00 AM",
+        "activity": "Read an execution plan and add a covering index for the slow report"
+      },
+      {
+        "time": "12:00 PM",
+        "activity": "Lunch, then a walk to shake off a stubborn query bug"
+      },
+      {
+        "time": "1:00 PM",
+        "activity": "Write a stored procedure powering the BI analysts' new sales report"
+      },
+      {
+        "time": "2:30 PM",
+        "activity": "Review a developer's schema change for normalization and indexing problems"
+      },
+      {
+        "time": "3:30 PM",
+        "activity": "Commit migration scripts to version control and open a pull request"
+      },
+      {
+        "time": "4:30 PM",
+        "activity": "Deploy migrations to staging with the DBA and verify backups"
+      }
+    ],
+    projectTimeline: [
+      {
+        "title": "Requirement Intake",
+        "duration": "3-5 days",
+        "description": "You meet the BI analysts requesting a new reporting dataset, pin down the grain and filters, and check which tables can supply it.",
+        "activities": [
+          "Clarify report grain, filters, and refresh needs",
+          "Trace required fields to source tables",
+          "Flag missing data and modeling changes needed"
+        ]
+      },
+      {
+        "title": "Schema & Query Development",
+        "duration": "2 weeks",
+        "description": "You design the supporting tables or views, write the stored procedures, and keep everything in version control alongside repeatable migration scripts.",
+        "activities": [
+          "Design supporting tables, views, and keys",
+          "Write stored procedures and transformation logic",
+          "Version migration scripts in source control"
+        ]
+      },
+      {
+        "title": "QA & Performance Tuning",
+        "duration": "1-2 weeks",
+        "description": "You validate results against known figures, then profile execution plans and add indexing until the report runs within its window.",
+        "activities": [
+          "Validate output against known reference figures",
+          "Profile execution plans on production-sized data",
+          "Add indexes and rewrite costly joins"
+        ]
+      },
+      {
+        "title": "Release & Monitoring",
+        "duration": "1 week",
+        "description": "You deploy through staging with the DBA, confirm backup and rollback paths, then watch runtimes and locking for the first weeks.",
+        "activities": [
+          "Deploy migrations through staging to production",
+          "Confirm backup and rollback procedures",
+          "Monitor runtimes and blocking after release"
+        ]
+      }
+    ],
   },
   {
     id: "ai-governance-officer",
@@ -1654,7 +3238,79 @@ export const dataCareerRoles: DataCareerRole[] = [
           description: "Oversee global AI risk & compliance strategy." 
         }
       ]
-    }
+    },
+    schedule: [
+      {
+        "time": "9:00 AM",
+        "activity": "Triage new AI project intake forms and rank them by risk"
+      },
+      {
+        "time": "10:00 AM",
+        "activity": "Score a proposed model against the risk framework and document mitigations"
+      },
+      {
+        "time": "12:00 PM",
+        "activity": "Lunch while catching up on newly published regulatory guidance"
+      },
+      {
+        "time": "1:00 PM",
+        "activity": "Work with legal on disclosure wording for an automated decision"
+      },
+      {
+        "time": "2:30 PM",
+        "activity": "Update the model inventory and policy library after a deployment change"
+      },
+      {
+        "time": "3:30 PM",
+        "activity": "Brief executives on residual risk in the customer-facing assistant rollout"
+      },
+      {
+        "time": "4:30 PM",
+        "activity": "Run a short training for data teams on model documentation duties"
+      }
+    ],
+    projectTimeline: [
+      {
+        "title": "Framework Development",
+        "duration": "4 weeks",
+        "description": "You adapt an established risk framework to your organization, defining risk tiers, review gates, and the documentation every AI system must carry.",
+        "activities": [
+          "Map regulatory obligations to AI use cases",
+          "Define risk tiers and required review gates",
+          "Draft model documentation and disclosure templates"
+        ]
+      },
+      {
+        "title": "Intake & Tool Rollout",
+        "duration": "3-4 weeks",
+        "description": "You stand up the intake process and model inventory so every AI project is registered, tiered, and routed to the right reviewers.",
+        "activities": [
+          "Launch intake forms and triage workflow",
+          "Populate the model inventory with existing systems",
+          "Configure policy management and approval routing"
+        ]
+      },
+      {
+        "title": "Assessment & Remediation",
+        "duration": "4-6 weeks",
+        "description": "You run risk assessments across registered systems, work with data teams on mitigations, and escalate the cases that cannot be brought into tolerance.",
+        "activities": [
+          "Assess registered models against the framework",
+          "Agree mitigation plans with data teams",
+          "Escalate systems exceeding risk tolerance"
+        ]
+      },
+      {
+        "title": "Audit & Education",
+        "duration": "3 weeks",
+        "description": "You assemble audit evidence, report residual risk to executives, and train teams so governance steps happen before deployment rather than after.",
+        "activities": [
+          "Compile evidence for internal and external audit",
+          "Report residual risk to executives",
+          "Deliver training for engineering and product teams"
+        ]
+      }
+    ],
   },
   {
     id: "cloud-engineer",
@@ -1698,7 +3354,79 @@ export const dataCareerRoles: DataCareerRole[] = [
           description: "Set org‑wide cloud vision and best practices." 
         }
       ]
-    }
+    },
+    schedule: [
+      {
+        "time": "9:00 AM",
+        "activity": "Review monitoring dashboards for overnight autoscaling events and error spikes"
+      },
+      {
+        "time": "10:00 AM",
+        "activity": "Write infrastructure-as-code for a new environment and open the merge request"
+      },
+      {
+        "time": "12:00 PM",
+        "activity": "Lunch, then a coffee catch-up with the on-call DevOps engineer"
+      },
+      {
+        "time": "1:00 PM",
+        "activity": "Fix a flaky CI/CD deployment step blocking the developers' release"
+      },
+      {
+        "time": "2:30 PM",
+        "activity": "Right-size instances and commitments after reading the monthly cost report"
+      },
+      {
+        "time": "3:30 PM",
+        "activity": "Tighten network and security group rules flagged in configuration review"
+      },
+      {
+        "time": "4:30 PM",
+        "activity": "Run the incident post-mortem and assign follow-up automation work"
+      }
+    ],
+    projectTimeline: [
+      {
+        "title": "Infrastructure Design",
+        "duration": "1-2 weeks",
+        "description": "You design the environment for a new product workload, covering networking, scaling, redundancy, and the cost envelope leadership has approved.",
+        "activities": [
+          "Design network topology and account structure",
+          "Choose compute, scaling, and redundancy approach",
+          "Model expected cost at projected load"
+        ]
+      },
+      {
+        "title": "Automated Deployment",
+        "duration": "2-3 weeks",
+        "description": "You codify the whole environment in infrastructure-as-code and wire it into CI/CD so builds reach production without manual console work.",
+        "activities": [
+          "Write reusable infrastructure-as-code modules for each tier",
+          "Build CI/CD pipelines for application deploys",
+          "Peer review and promote through environments"
+        ]
+      },
+      {
+        "title": "Monitoring & Optimization",
+        "duration": "2 weeks",
+        "description": "You instrument the stack with metrics, logs, and alerts, then tune autoscaling and instance choices against what real traffic actually does.",
+        "activities": [
+          "Instrument metrics, logs, and alert thresholds",
+          "Tune autoscaling policies against real traffic",
+          "Cut waste found in cost and usage reports"
+        ]
+      },
+      {
+        "title": "Resilience Testing",
+        "duration": "1-2 weeks",
+        "description": "You rehearse failure, restoring from backups and failing over regions, then rewrite the runbooks based on what actually broke.",
+        "activities": [
+          "Run failover and backup restore drills",
+          "Measure recovery time against agreed targets",
+          "Update runbooks and on-call documentation"
+        ]
+      }
+    ],
   },
   {
     id: "cloud-security-engineer",
@@ -1742,7 +3470,79 @@ export const dataCareerRoles: DataCareerRole[] = [
           description: "Oversee org‑wide security strategy." 
         }
       ]
-    }
+    },
+    schedule: [
+      {
+        "time": "9:00 AM",
+        "activity": "Triage overnight SIEM alerts and close out the false positives"
+      },
+      {
+        "time": "10:00 AM",
+        "activity": "Review vulnerability scanner output and prioritize critical findings for patching"
+      },
+      {
+        "time": "12:00 PM",
+        "activity": "Lunch break, then skim new advisories over coffee"
+      },
+      {
+        "time": "1:00 PM",
+        "activity": "Tighten over-permissive IAM roles surfaced by the least-privilege review"
+      },
+      {
+        "time": "2:30 PM",
+        "activity": "Walk DevOps through encryption requirements for a new data store"
+      },
+      {
+        "time": "3:30 PM",
+        "activity": "Read the penetration test report and log remediation tickets"
+      },
+      {
+        "time": "4:30 PM",
+        "activity": "Write up yesterday's incident timeline for the compliance team"
+      }
+    ],
+    projectTimeline: [
+      {
+        "title": "Security Assessment",
+        "duration": "2 weeks",
+        "description": "You assess the cloud estate against a control baseline, scanning workloads and reviewing identity, encryption, and logging coverage across every account.",
+        "activities": [
+          "Scan workloads and misconfigured cloud services",
+          "Review IAM permissions and key management",
+          "Rank findings by exploitability and blast radius"
+        ]
+      },
+      {
+        "title": "Remediation Sprint",
+        "duration": "3-4 weeks",
+        "description": "You fix the highest-risk findings alongside DevOps, enforcing encryption and least privilege, and add guardrails that stop the same drift returning.",
+        "activities": [
+          "Close critical findings with owning teams",
+          "Enforce encryption and least-privilege defaults",
+          "Add preventive guardrails and policy checks"
+        ]
+      },
+      {
+        "title": "Detection & Compliance",
+        "duration": "2-3 weeks",
+        "description": "You tune SIEM rules so real threats surface above the noise, then evidence the control set for the compliance audit.",
+        "activities": [
+          "Tune SIEM detections and reduce alert noise",
+          "Map controls to the compliance framework",
+          "Assemble audit evidence with compliance colleagues"
+        ]
+      },
+      {
+        "title": "Incident Readiness",
+        "duration": "1-2 weeks",
+        "description": "You rehearse a cloud breach scenario with security and DevOps, time the response, and rewrite the playbooks where the exercise exposed gaps.",
+        "activities": [
+          "Run a tabletop exercise with responders",
+          "Test containment and credential rotation steps",
+          "Revise incident playbooks and escalation paths"
+        ]
+      }
+    ],
   },
   {
     id: "full-stack-developer",
@@ -1786,7 +3586,79 @@ export const dataCareerRoles: DataCareerRole[] = [
           description: "Guide team, set architecture direction." 
         }
       ]
-    }
+    },
+    schedule: [
+      {
+        "time": "9:00 AM",
+        "activity": "Join stand-up and pick up the checkout redesign ticket"
+      },
+      {
+        "time": "10:00 AM",
+        "activity": "Build the React component from the designer's latest mockup"
+      },
+      {
+        "time": "12:00 PM",
+        "activity": "Lunch, then pair briefly on a stubborn layout bug"
+      },
+      {
+        "time": "1:00 PM",
+        "activity": "Extend the Node.js endpoint and write the accompanying database migration"
+      },
+      {
+        "time": "2:30 PM",
+        "activity": "Wire the front end to a data scientist's scoring service"
+      },
+      {
+        "time": "3:30 PM",
+        "activity": "Write unit and integration tests, then push through the CI pipeline"
+      },
+      {
+        "time": "4:30 PM",
+        "activity": "Review a teammate's pull request and leave specific comments"
+      }
+    ],
+    projectTimeline: [
+      {
+        "title": "Sprint Planning",
+        "duration": "2-3 days",
+        "description": "You break the feature into tickets with product and design, agree the API contract, and flag the database changes the work will need.",
+        "activities": [
+          "Break the feature into estimated tickets",
+          "Agree API contract with consumers",
+          "Identify schema and migration changes"
+        ]
+      },
+      {
+        "title": "Feature Development",
+        "duration": "1 week",
+        "description": "You build the interface against the design files and the backing endpoints in parallel, keeping branches small and reviewable in Git.",
+        "activities": [
+          "Build React components from design files",
+          "Implement backend endpoints and data access",
+          "Open small pull requests for review"
+        ]
+      },
+      {
+        "title": "Integration & Testing",
+        "duration": "3-4 days",
+        "description": "You connect the front end to real services, including any model endpoint from the data scientists, and cover the flow with automated tests.",
+        "activities": [
+          "Connect UI to live APIs and services",
+          "Write unit and end-to-end tests",
+          "Fix defects found in QA review"
+        ]
+      },
+      {
+        "title": "Release & Retrospective",
+        "duration": "2-3 days",
+        "description": "You ship through the CI/CD pipeline behind a flag, watch errors and performance with DevOps, then run the team retrospective.",
+        "activities": [
+          "Deploy behind a feature flag",
+          "Watch error rates and performance after release",
+          "Run retrospective and log follow-up work"
+        ]
+      }
+    ],
   },
   {
     id: "metadata-specialist",
@@ -1830,7 +3702,79 @@ export const dataCareerRoles: DataCareerRole[] = [
           description: "Oversee enterprise metadata management." 
         }
       ]
-    }
+    },
+    schedule: [
+      {
+        "time": "9:00 AM",
+        "activity": "Review catalog entries harvested overnight and fill in missing descriptions"
+      },
+      {
+        "time": "10:00 AM",
+        "activity": "Curate tags and business terms for the finance data domain"
+      },
+      {
+        "time": "12:00 PM",
+        "activity": "Lunch, then a look through analyst search logs for gaps"
+      },
+      {
+        "time": "1:00 PM",
+        "activity": "Audit column-level lineage from the ETL tool into the catalog"
+      },
+      {
+        "time": "2:30 PM",
+        "activity": "Meet the governance team to confirm owners for orphaned datasets"
+      },
+      {
+        "time": "3:30 PM",
+        "activity": "Write glossary definitions with a steward and link related terms"
+      },
+      {
+        "time": "4:30 PM",
+        "activity": "Reshape the taxonomy so analysts can find shipment tables faster"
+      }
+    ],
+    projectTimeline: [
+      {
+        "title": "Catalog Rollout",
+        "duration": "3-4 weeks",
+        "description": "You connect the catalog to priority source systems, harvest technical metadata automatically, and confirm the crawlers see the tables analysts actually use.",
+        "activities": [
+          "Connect catalog to priority source systems",
+          "Configure harvesting and refresh schedules",
+          "Verify coverage of high-traffic datasets"
+        ]
+      },
+      {
+        "title": "Metadata Enrichment",
+        "duration": "4-5 weeks",
+        "description": "You add the context machines cannot infer: business definitions, owners, sensitivity tags, and lineage from ETL jobs through to reporting tables.",
+        "activities": [
+          "Write business definitions and glossary terms",
+          "Tag ownership, sensitivity, and certification status",
+          "Trace and document lineage through ETL jobs"
+        ]
+      },
+      {
+        "title": "Discoverability Tuning",
+        "duration": "2-3 weeks",
+        "description": "You test how analysts actually search, then reshape taxonomy, synonyms, and naming so the right dataset appears in the first few results.",
+        "activities": [
+          "Test real analyst searches against the catalog",
+          "Add synonyms and refine taxonomy branches",
+          "Retire or merge duplicate catalog entries"
+        ]
+      },
+      {
+        "title": "Stewardship & Alignment",
+        "duration": "2-3 weeks",
+        "description": "You train stewards to maintain their own entries and agree with governance how metadata quality will be measured going forward.",
+        "activities": [
+          "Train stewards on maintaining their entries",
+          "Agree metadata completeness targets with governance",
+          "Set review cadence for stale entries"
+        ]
+      }
+    ],
   },
   {
     id: "software-engineer-ai-ml",
@@ -1874,6 +3818,78 @@ export const dataCareerRoles: DataCareerRole[] = [
           description: "Design org‑wide AI platforms." 
         }
       ]
-    }
+    },
+    schedule: [
+      {
+        "time": "9:00 AM",
+        "activity": "Check serving dashboards for overnight latency spikes and error rates"
+      },
+      {
+        "time": "10:00 AM",
+        "activity": "Wrap a data scientist's trained model behind a versioned inference API"
+      },
+      {
+        "time": "12:00 PM",
+        "activity": "Lunch, then read a paper the research channel is discussing"
+      },
+      {
+        "time": "1:00 PM",
+        "activity": "Add a feature flag so product can ramp the model gradually"
+      },
+      {
+        "time": "2:30 PM",
+        "activity": "Benchmark batching and caching to bring p95 latency down"
+      },
+      {
+        "time": "3:30 PM",
+        "activity": "Rebuild the Docker image and roll out to the staging cluster"
+      },
+      {
+        "time": "4:30 PM",
+        "activity": "Work with QA on test cases for unexpected model outputs"
+      }
+    ],
+    projectTimeline: [
+      {
+        "title": "Model Integration",
+        "duration": "1-2 weeks",
+        "description": "You take a notebook model from the data scientists and turn it into versioned, testable code with reproducible dependencies and preprocessing.",
+        "activities": [
+          "Port notebook code into a versioned package",
+          "Pin dependencies and reproduce training outputs",
+          "Move preprocessing into shared serving code"
+        ]
+      },
+      {
+        "title": "Service & API Build",
+        "duration": "2-3 weeks",
+        "description": "You build the inference service around the model, define the API contract product teams will call, and containerize it for the cluster.",
+        "activities": [
+          "Define and document the inference API contract",
+          "Build the service with validation and fallbacks",
+          "Containerize and add health checks"
+        ]
+      },
+      {
+        "title": "Performance Tuning",
+        "duration": "1-2 weeks",
+        "description": "You load-test the service, then cut latency and cost through batching, caching, and right-sized resources until it meets the agreed targets.",
+        "activities": [
+          "Load-test against expected production traffic",
+          "Apply batching, caching, and model optimizations",
+          "Right-size CPU, memory, and replica counts"
+        ]
+      },
+      {
+        "title": "Release & Monitoring",
+        "duration": "1-2 weeks",
+        "description": "You ship behind a flag with a gradual ramp, then monitor latency, errors, and prediction drift alongside the data scientists.",
+        "activities": [
+          "Roll out gradually behind a feature flag",
+          "Add latency, error, and drift monitoring",
+          "Set alerts and rollback procedure with DevOps"
+        ]
+      }
+    ],
   }
 ];
