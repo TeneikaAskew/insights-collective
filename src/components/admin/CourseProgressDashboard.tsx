@@ -22,7 +22,10 @@ import {
 } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { downloadCsv } from '@/utils/csv';
+import { createLogger } from '@/utils/logger';
 import type { Course } from '@/types/course';
+
+const logger = createLogger('CourseProgressDashboard');
 
 type Row = {
   courseId: string;
@@ -51,11 +54,14 @@ export function CourseProgressDashboard({ courses }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>('enrolled');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [refreshedAt, setRefreshedAt] = useState<Date | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     let alive = true;
     (async () => {
       setLoading(true);
+      setLoadError(null);
       if (!courses.length) { setRows([]); setLoading(false); return; }
       const ids = courses.map((c) => c.id);
 
@@ -70,6 +76,32 @@ export function CourseProgressDashboard({ courses }: Props) {
 
       if (!alive) return;
 
+      // Every one of these reads used to be `res.data ?? []`, so an RLS denial,
+      // a schema drift or a network failure produced empty arrays and the table
+      // below rendered 0 enrolled / 0 completed / 0% / 0 certificates for every
+      // course — styled exactly like real data, with a fresh "refreshed at"
+      // timestamp under it. The 42703 incident this file's comments describe was
+      // found only because someone doubted the zeros. An admin reading this
+      // dashboard has no way to tell a quiet course from a broken query, so the
+      // failure has to reach the screen.
+      const failed = [
+        enrollRes.error && 'enrollments',
+        itemsRes.error && 'content items',
+        certRes.error && 'certificates',
+      ].filter(Boolean) as string[];
+
+      if (failed.length) {
+        logger.error('aggregate query failed', {
+          enrollments: enrollRes.error,
+          items: itemsRes.error,
+          certificates: certRes.error,
+        });
+        setLoadError(`Could not load ${failed.join(', ')}.`);
+        setRows([]);
+        setLoading(false);
+        return;
+      }
+
       const enrollments = enrollRes.data ?? [];
       const items = (itemsRes.data ?? []) as any[];
       const certs = certRes.data ?? [];
@@ -83,7 +115,7 @@ export function CourseProgressDashboard({ courses }: Props) {
       const CHUNK = 200;
       for (let i = 0; i < itemIds.length; i += CHUNK) {
         const chunk = itemIds.slice(i, i + CHUNK);
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('content_item_progressions')
           // workflow_state, not completed_at — same 42703 as above. 'read' and
           // 'completed' both count as done, matching the predicate
@@ -91,6 +123,16 @@ export function CourseProgressDashboard({ courses }: Props) {
           .select('user_id, content_item_id, workflow_state')
           .in('content_item_id', chunk);
         if (!alive) return;
+        // A failed chunk silently shrank the completion numbers rather than
+        // zeroing them, which is worse: partially-true progress is indistinguishable
+        // from students falling behind.
+        if (error) {
+          logger.error('progression chunk failed', error);
+          setLoadError('Could not load lesson progress.');
+          setRows([]);
+          setLoading(false);
+          return;
+        }
         if (data) progressions.push(...data);
       }
 
@@ -145,7 +187,7 @@ export function CourseProgressDashboard({ courses }: Props) {
       setLoading(false);
     })();
     return () => { alive = false; };
-  }, [courses]);
+  }, [courses, reloadToken]);
 
   const categories = useMemo(() => {
     const set = new Set<string>();
@@ -214,6 +256,26 @@ export function CourseProgressDashboard({ courses }: Props) {
 
   if (loading) {
     return <div className="flex justify-center py-16"><Spinner /></div>;
+  }
+
+  // Shown INSTEAD of the table, never alongside it. A partial render here would
+  // put real-looking numbers next to a warning and leave the admin to guess
+  // which columns to trust.
+  if (loadError) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center space-y-3">
+          <p className="font-semibold">Course progress is unavailable</p>
+          <p className="text-sm text-muted-foreground">
+            {loadError} These figures are not being shown because they would read as
+            zeros rather than as an error.
+          </p>
+          <Button variant="outline" onClick={() => setReloadToken((n) => n + 1)}>
+            Try again
+          </Button>
+        </CardContent>
+      </Card>
+    );
   }
 
   const StatCard = ({ icon: Icon, label, value, hint }: { icon: any; label: string; value: React.ReactNode; hint?: string }) => (

@@ -121,13 +121,24 @@ const CareerPathway: React.FC = () => {
     // Query the latest resume text directly — the hook's cached copy can be stale.
     let text = '';
     if (user?.id) {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('resumes')
         .select('text')
         .eq('user_id', user.id)
         .order('updated_at', { ascending: false })
         .limit(1)
         .maybeSingle();
+      if (g !== coach.genRef.current) return;
+      // Without this check a failed read looked identical to "no resume on
+      // file", so the coach told a user who HAD uploaded one that it was
+      // missing and asked them to upload it again.
+      if (error) {
+        logger.error('Could not read the saved resume', error);
+        await coach.say(
+          "I couldn't reach your saved resume just now — that's on us, not you. Try again in a moment.",
+        );
+        return;
+      }
       text = data?.text ?? '';
     }
     if (g !== coach.genRef.current) return;
@@ -250,7 +261,7 @@ const CareerPathway: React.FC = () => {
       await coach.say("That upload didn't go through — try again with a PDF or DOCX.");
       return;
     }
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('resumes')
       .select('text')
       .eq('user_id', user.id)
@@ -258,7 +269,29 @@ const CareerPathway: React.FC = () => {
       .limit(1)
       .maybeSingle();
     if (g !== coach.genRef.current) return;
-    await generateReport(data?.text ?? '');
+
+    // The report is the deliverable of this whole flow and the user is expected
+    // to act on it. Generating one from `data?.text ?? ''` meant that a failed
+    // read — or a stored row whose text extraction produced nothing — still
+    // yielded a confident, personalised-looking career plan built from no resume
+    // at all. Refuse instead, and say which of the two happened.
+    if (error) {
+      logger.error('Could not read the resume after upload', error);
+      await coach.say(
+        "Your resume uploaded, but I couldn't read it back just now, so I've held off on the report rather than build one without it. Try again in a moment.",
+      );
+      return;
+    }
+
+    const resumeText = data?.text?.trim() ?? '';
+    if (!resumeText) {
+      await coach.say(
+        "Your file uploaded, but I couldn't pull any text out of it — that happens with scanned or image-only PDFs. Upload a text-based PDF or DOCX and I'll build your report from it.",
+      );
+      return;
+    }
+
+    await generateReport(resumeText);
   }, [resumeFile, user?.id, uploadResume, coach, generateReport]);
 
   const beginFresh = useCallback(async () => {
