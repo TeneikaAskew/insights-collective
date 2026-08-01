@@ -3,20 +3,29 @@ import { goto, waitForPageLoad, expectRedirectToLogin } from '../fixtures/page-h
 import { Routes } from '../helpers/route-helpers';
 
 test.describe('Admin Dashboard', () => {
-  test('unauthenticated user is redirected to login', async ({ browser }) => {
-    // Explicitly override the project-level storageState so this context is
-    // truly unauthenticated (otherwise it inherits the admin session).
-    const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] } });
-    const page = await ctx.newPage();
-    await page.goto(Routes.admin);
-    await expectRedirectToLogin(page);
-    await ctx.close();
+  // Signed out via test.use rather than `browser.newContext()`. The
+  // console-error fixture attaches its listeners to the INJECTED `page`
+  // (console-errors.fixture.ts), so a hand-built context produces a page the
+  // fixture never sees — /login could throw on every load and this would still
+  // pass. Overriding storageState drops the admin session and nothing else.
+  test.describe('signed out', () => {
+    test.use({ storageState: { cookies: [], origins: [] } });
+
+    test('unauthenticated user is redirected to login', async ({ page }) => {
+      await page.goto(Routes.admin);
+      await expectRedirectToLogin(page);
+    });
   });
 
   test('renders admin dashboard', async ({ page }) => {
     await goto(page, Routes.admin);
-    // Admin session or role may not hydrate reliably; accept any top-level heading.
-    await expect(page.locator('h1, h2, h3').first()).toBeVisible();
+    // Was `h1, h2, h3` first-match visible, with a comment excusing it as
+    // tolerance for unreliable role hydration. The login page has an <h1> too,
+    // so this test passed on the login screen — the exact outcome it exists to
+    // rule out. Sibling admin specs (blog-management.spec.ts:26,
+    // admin-real-enrollments.spec.ts:12) already assert named headings under
+    // this same project and pass, so the hydration excuse does not hold.
+    await expect(page.getByRole('heading', { name: 'Admin Dashboard' })).toBeVisible();
   });
 
   test('spinner resolves on load', async ({ page }) => {
@@ -25,10 +34,21 @@ test.describe('Admin Dashboard', () => {
     await expect(page.locator('.animate-spin')).toHaveCount(0);
   });
 
-  test('admin heading is visible', async ({ page }) => {
+  test('quick-actions launcher renders', async ({ page }) => {
     await goto(page, Routes.admin);
-    // Session/role hydration may redirect to login; accept any top-level heading.
-    await expect(page.locator('h1, h2, h3').first()).toBeVisible();
+    // Formerly a second "accept any top-level heading" test — a verbatim
+    // duplicate of the one above and vacuous for the same reason. Repointed at
+    // a different piece of the dashboard so the file keeps two distinct claims:
+    // the page identified itself, AND its launcher grid built.
+    await expect(page.getByRole('heading', { name: 'Quick actions' })).toBeVisible();
+
+    // Matched on the launcher's DESCRIPTION, not its title. Two links point at
+    // /admin/page-visibility — the AdminLayout sidebar item (:48) and this
+    // launcher (AdminDashboard.tsx:102) — and the sidebar one is present on
+    // every admin page, so a title match plus `.first()` would most likely
+    // resolve to the sidebar and assert nothing about the dashboard at all.
+    // The description string exists only in the launcher.
+    await expect(page.getByRole('link', { name: /Control who sees each page/i })).toBeVisible();
   });
 
   test('stats cards render (users, courses, etc.)', async ({ page }) => {

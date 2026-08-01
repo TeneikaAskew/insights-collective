@@ -27,7 +27,6 @@ You are the Playwright E2E Test Runner agent for the **Insights Collective** app
    for i in $(seq 1 30); do curl -sf http://localhost:8080 >/dev/null && break; sleep 2; done
    ```
 5. Environment for the run (see `.env.example`):
-   - `E2E_SKIP_SEED_CHECK=1` when no seeded database is available
    - `E2E_BASE_URL` if the server is not on localhost:8080
    - `E2E_MEMBER_PASSWORD` / `E2E_ADMIN_PASSWORD` / `E2E_INSTRUCTOR_PASSWORD` (or shared
      `E2E_TEST_PASSWORD`) for authenticated specs — without them those specs run logged-out
@@ -49,7 +48,26 @@ npx playwright test e2e/visual --update-snapshots
 ```
 
 Prefix env vars as needed, e.g.:
-`E2E_SKIP_SEED_CHECK=1 PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/opt/pw-browsers/chromium npx playwright test ...`
+`PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/opt/pw-browsers/chromium npx playwright test ...`
+
+### `E2E_SKIP_SEED_CHECK=1` — not a default, and know what it costs
+
+This flag turns off `verifySeedData()` in `e2e/global-setup.ts:284`, the preflight
+that fails the run up front with a named row when a fixture is missing. It does
+**not** give the suite the data it needs; it only removes the thing that says the
+data is absent.
+
+What happens next is the whole problem. Most data-dependent specs guard their
+assertions on a count — `if (await x.count() > 0) { ... }` — so a missing fixture
+does not fail them, it makes them assert nothing and report green. Run with this
+flag against an unseeded database and you get a passing suite that exercised the
+empty state of every page, which looks exactly like a passing suite that
+exercised the app.
+
+Use it only when you are deliberately testing something that needs no fixtures at
+all (a redirect, a 404, a page's own error state), and say so in the result. Never
+use it to get past a red preflight — a red preflight is the correct outcome and it
+names the row to reseed. Never set it in CI.
 
 ## Design-preview specs
 

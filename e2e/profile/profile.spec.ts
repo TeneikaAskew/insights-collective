@@ -3,14 +3,23 @@ import { goto, expectRedirectToLogin, waitForPageLoad } from '../fixtures/page-h
 import { Routes } from '../helpers/route-helpers';
 
 test.describe('Profile Page', () => {
-  test.skip('unauthenticated user is redirected to login', async ({ browser }) => {
-    // Profile page redirects via navigate() in a useEffect, which is flaky
-    // under test conditions. Skip until a synchronous route guard is added.
-    const ctx = await browser.newContext();
-    const page = await ctx.newPage();
-    await page.goto(Routes.profile);
-    await expectRedirectToLogin(page);
-    await ctx.close();
+  test.describe('signed out', () => {
+    test.use({ storageState: { cookies: [], origins: [] } });
+
+    test.skip(
+      'unauthenticated user is redirected to login',
+      {
+        annotation: {
+          type: 'skip-reason',
+          description:
+            'Blocked on PR 8: /profile navigates from an async useEffect (Profile.tsx:56-66) instead of a synchronous guard, so the redirect races the assertion. Wrapping the route in ProtectedRoute removes the race and this unskips.',
+        },
+      },
+      async ({ page }) => {
+        await page.goto(Routes.profile);
+        await expectRedirectToLogin(page);
+      },
+    );
   });
 
   test('renders profile heading', async ({ page }) => {

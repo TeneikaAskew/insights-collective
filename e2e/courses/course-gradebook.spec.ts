@@ -36,13 +36,26 @@ test.describe('Course Gradebook (Instructor)', () => {
     }
   });
 
-  test.skip('unauthenticated user is redirected to login', async ({ browser }) => {
-    // Gradebook has no client-side auth guard; skip redirect test.
-    const ctx = await browser.newContext();
-    const page = await ctx.newPage();
-    await page.goto(gradebookUrl);
-    await page.waitForLoadState('domcontentloaded');
-    expect(page.url()).not.toContain('/gradebook');
-    await ctx.close();
-  });
+  // Body left exactly as it was: it is skipped, so nothing here has ever been
+  // executed, and rewriting the assertion would only add a claim CI cannot
+  // check. PR 8 owns the rewrite. All this adds is the reason, in the one place
+  // the CI coverage-gap report can read it.
+  test.skip(
+    'unauthenticated user is redirected to login',
+    {
+      annotation: {
+        type: 'skip-reason',
+        description:
+          'Blocked on PR 8: the gradebook route has no ProtectedRoute, so a signed-out visitor is never redirected.',
+      },
+    },
+    async ({ browser }) => {
+      const ctx = await browser.newContext();
+      const page = await ctx.newPage();
+      await page.goto(gradebookUrl);
+      await page.waitForLoadState('domcontentloaded');
+      expect(page.url()).not.toContain('/gradebook');
+      await ctx.close();
+    },
+  );
 });

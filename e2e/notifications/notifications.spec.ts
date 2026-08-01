@@ -3,13 +3,23 @@ import { goto, expectRedirectToLogin, waitForPageLoad } from '../fixtures/page-h
 import { Routes } from '../helpers/route-helpers';
 
 test.describe('Notifications Page', () => {
-  test.skip('unauthenticated user is redirected to login', async ({ browser }) => {
-    // Notifications page has no client-side auth guard; skipped pending guard addition
-    const ctx = await browser.newContext();
-    const page = await ctx.newPage();
-    await page.goto(Routes.notifications);
-    await expectRedirectToLogin(page);
-    await ctx.close();
+  test.describe('signed out', () => {
+    test.use({ storageState: { cookies: [], origins: [] } });
+
+    test.skip(
+      'unauthenticated user is redirected to login',
+      {
+        annotation: {
+          type: 'skip-reason',
+          description:
+            'Blocked on PR 8: /notifications is routed without ProtectedRoute (src/App.tsx:259) and shows an inline sign-in card instead of redirecting.',
+        },
+      },
+      async ({ page }) => {
+        await page.goto(Routes.notifications);
+        await expectRedirectToLogin(page);
+      },
+    );
   });
 
   test('renders notifications heading', async ({ page }) => {

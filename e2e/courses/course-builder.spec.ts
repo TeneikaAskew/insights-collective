@@ -75,13 +75,27 @@ test.describe('Course Builder (Instructor)', () => {
     await expect(page.locator('body')).not.toBeEmpty();
   });
 
-  test.skip('member user is redirected away from builder', async ({ browser }) => {
-    // Course builder has no client-side auth guard; skip redirect test.
-    const ctx = await browser.newContext();
-    const p = await ctx.newPage();
-    await p.goto(builderUrl);
-    const url = p.url();
-    expect(url).not.toContain('/builder');
-    await ctx.close();
-  });
+  // Body untouched (see the note in course-gradebook.spec.ts). Recorded here as
+  // well: the title says "member user" but the body builds a context with no
+  // storageState at all, so it describes a signed-OUT visitor. PR 8 decides
+  // which of the two it should be; annotating it now at least stops the CI
+  // report from listing it as a skip nobody could explain.
+  test.skip(
+    'member user is redirected away from builder',
+    {
+      annotation: {
+        type: 'skip-reason',
+        description:
+          'Blocked on PR 8: the course-builder route has no ProtectedRoute. Also mis-titled — the body signs out entirely rather than acting as a member.',
+      },
+    },
+    async ({ browser }) => {
+      const ctx = await browser.newContext();
+      const p = await ctx.newPage();
+      await p.goto(builderUrl);
+      const url = p.url();
+      expect(url).not.toContain('/builder');
+      await ctx.close();
+    },
+  );
 });

@@ -112,13 +112,23 @@ test.describe('Assignment Submission', () => {
     }
   });
 
-  test.skip('unauthenticated user is redirected', async ({ browser }) => {
-    // Assignment submission page has no client-side auth guard; skip redirect test.
-    const ctx = await browser.newContext();
-    const p = await ctx.newPage();
-    await p.goto(submitUrl);
-    await p.waitForLoadState('domcontentloaded');
-    expect(p.url()).not.toContain('/submit');
-    await ctx.close();
-  });
+  // Body untouched — see the note in course-gradebook.spec.ts.
+  test.skip(
+    'unauthenticated user is redirected',
+    {
+      annotation: {
+        type: 'skip-reason',
+        description:
+          'Blocked on PR 8: the assignment-submission route has no ProtectedRoute, so a signed-out visitor is never redirected.',
+      },
+    },
+    async ({ browser }) => {
+      const ctx = await browser.newContext();
+      const p = await ctx.newPage();
+      await p.goto(submitUrl);
+      await p.waitForLoadState('domcontentloaded');
+      expect(p.url()).not.toContain('/submit');
+      await ctx.close();
+    },
+  );
 });
