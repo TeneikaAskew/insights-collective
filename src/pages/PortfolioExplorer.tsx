@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
 import { ProfileForm } from '@/components/portfolio/ProfileForm';
@@ -21,6 +21,18 @@ import { createLogger } from '@/utils/logger';
 
 const logger = createLogger('handleTabChange');
 
+/**
+ * One step in the tab strip.
+ *
+ * `rounded-full` overrides TabsTrigger's `rounded-sm`; it comes after in the
+ * class list, which is what cn() relies on to resolve the conflict. The active
+ * state (`bg-background`, shadow) is inherited from the base rather than
+ * restated here, so a change to the design system reaches this too.
+ */
+const stepClass =
+  'flex-1 min-w-max gap-2 rounded-full px-4 py-2 text-muted-foreground ' +
+  'data-[state=active]:text-foreground';
+
 function PortfolioExplorer() {
   const [searchParams] = useSearchParams();
   const { user, isAuthenticated } = useAuth();
@@ -34,9 +46,16 @@ function PortfolioExplorer() {
   const [portfolioData, setPortfolioData] = useState<PortfolioInsightData | null>(null);
   const [profileCompleted, setProfileCompleted] = useState(false);
   const [savedAnswers, setSavedAnswers] = useState<QuestionnaireAnswers | null>(null);
-  // Add a flag to control tab navigation behavior
-  const [forceDiscoverTab, setForceDiscoverTab] = useState(false);
-  
+  /**
+   * True once the landing tab has been settled, either by us or by the reader.
+   *
+   * The profile resolves asynchronously — localStorage first, then the
+   * `portfolio` row — so the tab cannot be chosen at mount. This ref lets the
+   * choice happen exactly once, when the answer arrives, without yanking
+   * someone off a tab they have already clicked.
+   */
+  const tabSettled = useRef(Boolean(searchParams.get('tab')));
+
   const { toast } = useToast();
   const {
     projects,
@@ -71,14 +90,27 @@ function PortfolioExplorer() {
     }
   }, [previousRecommendations, portfolioData]);
 
-  // Update active tab when portfolio data becomes available
+  /**
+   * Land people on their work.
+   *
+   * This used to bounce anyone with saved recommendations from `discover` to
+   * `ideas`, which meant nobody ever arrived at their projects — `tracker` was
+   * reachable the whole time, and nothing ever took you there. You either saw
+   * a questionnaire you had already answered, or a list of ideas you had
+   * already read.
+   *
+   * Now: answered once, you land on your projects. Not answered, you land on
+   * the questionnaire, which is the only thing you can usefully do.
+   *
+   * Runs once. An explicit ?tab= wins, and so does any tab the reader clicks
+   * before the profile resolves.
+   */
   useEffect(() => {
-    // Only auto-navigate to ideas tab if we're not forcing the discover tab
-    if (portfolioData && activeTab === 'discover' && !forceDiscoverTab) {
-      // If data is available and we're on discover tab, move to ideas tab
-      setActiveTab('ideas');
-    }
-  }, [portfolioData, activeTab, forceDiscoverTab]);
+    if (tabSettled.current) return;
+    if (!profileCompleted) return;
+    tabSettled.current = true;
+    setActiveTab('tracker');
+  }, [profileCompleted]);
 
   // Add function to fetch existing questionnaire data
   const fetchExistingQuestionnaire = async () => {
@@ -198,9 +230,13 @@ function PortfolioExplorer() {
       setProfileCompleted(true);
       setSavedAnswers(data);
       
-      // Automatically move to next tab after analysis is complete
+      // Straight to the ideas that were just generated.
+      //
+      // handleTabChange, not setActiveTab: it marks the tab settled, which
+      // stops the landing effect — armed by the setProfileCompleted(true)
+      // above — from racing this and flashing the tracker on the way.
       setTimeout(() => {
-        setActiveTab('ideas');
+        handleTabChange('ideas');
       }, 500);
     } catch (error: any) {
       // A failed submit must not end silently — the user clicked a button
@@ -230,7 +266,7 @@ function PortfolioExplorer() {
     };
     
     await addProject.mutateAsync(newProject);
-    setActiveTab('tracker');
+    handleTabChange('tracker');
   };
 
   const handleStatusChange = async (projectId: string, newStatus: ProjectStatus) => {
@@ -246,11 +282,15 @@ function PortfolioExplorer() {
   };
 
   const handleTabChange = (tab: string) => {
+    // Whatever the reader picks wins, including over the landing choice that
+    // has not been made yet — the profile may still be in flight.
+    tabSettled.current = true;
+
     // Update URL with tab parameter
     const newSearchParams = new URLSearchParams(searchParams);
     newSearchParams.set('tab', tab);
     window.history.replaceState(null, '', `?${newSearchParams.toString()}`);
-    
+
     setActiveTab(tab);
   };
 
@@ -279,41 +319,53 @@ function PortfolioExplorer() {
   return (
     <AppLayout>
       <div className="container mx-auto p-4">
-        <Card className="mb-6 border-none shadow-none">
-          <CardHeader className="px-0">
-            <CardTitle className="text-3xl font-bold">Portfolio Explorer</CardTitle>
-            <CardDescription>
-              Create, plan, and track portfolio projects aligned with your career goals
-            </CardDescription>
-          </CardHeader>
-        </Card>
+        <header className="mb-6">
+          <h1 className="text-3xl font-bold tracking-tight">Portfolio Explorer</h1>
+          <p className="text-muted-foreground mt-1">
+            Build projects that prove you can do the job —{' '}
+            <span className="ss-serif">then put them somewhere people can see.</span>
+          </p>
+        </header>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-          <div className="w-full">
-            <TabsList className="grid grid-cols-2 sm:grid-cols-4 gap-1 sm:gap-2 mb-8 w-full max-w-4xl mx-auto h-auto p-2">
-              <TabsTrigger value="discover" className="relative flex-col sm:flex-row gap-1 sm:gap-2 py-2 sm:py-1.5">
-                <div className={`${profileCompleted ? 'bg-ss-good' : 'bg-primary'} rounded-full w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground flex items-center justify-center text-xs flex-shrink-0`}>
-                  {profileCompleted ? <Check className="h-3 w-3 sm:h-4 sm:w-4" /> : '1'}
-                </div>
-                <span className="text-xs sm:text-sm">Discover You</span>
+          {/* One rounded track, scrolling on a phone rather than wrapping to a
+              2x2 block. `step` keeps the numbered circles — they encode a real
+              sequence — and the active step is the one that lifts.
+              The `after:` fade is the scroll affordance: four steps do not fit
+              at 390px, and a row that scrolls with nothing to say so is a dead
+              end. Tied to the `sm` breakpoint rather than measured — above it
+              the strip fits inside max-w-4xl and the fade is hidden. */}
+          {/* mb-8 sits on the wrapper, not the list: the fade is `inset-y-0`
+              against this box, and a bottom margin inside it would stretch the
+              gradient into the gap below the strip. */}
+          <div className="relative w-full max-w-4xl mx-auto mb-8
+                          after:pointer-events-none after:absolute after:inset-y-0 after:right-0
+                          after:w-10 after:rounded-r-full after:bg-gradient-to-r
+                          after:from-transparent after:to-muted sm:after:hidden">
+            <TabsList className="flex w-full h-auto gap-1 rounded-full p-1.5 overflow-x-auto">
+              <TabsTrigger value="discover" className={stepClass}>
+                <span className={`${profileCompleted ? 'bg-ss-good' : 'bg-ss-lav-chip text-ss-lav-deep'} rounded-full w-5 h-5 flex items-center justify-center text-[11px] font-bold flex-shrink-0`}>
+                  {profileCompleted ? <Check className="h-3 w-3 text-primary-foreground" /> : '1'}
+                </span>
+                Discover you
               </TabsTrigger>
-              <TabsTrigger value="ideas" disabled={!profileCompleted} className="relative flex-col sm:flex-row gap-1 sm:gap-2 py-2 sm:py-1.5">
-                <div className="bg-primary rounded-full w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground flex items-center justify-center text-xs flex-shrink-0">
+              <TabsTrigger value="ideas" disabled={!profileCompleted} className={stepClass}>
+                <span className="bg-ss-lav-chip text-ss-lav-deep rounded-full w-5 h-5 flex items-center justify-center text-[11px] font-bold flex-shrink-0">
                   2
-                </div>
-                <span className="text-xs sm:text-sm">Project Ideas</span>
+                </span>
+                Project ideas
               </TabsTrigger>
-              <TabsTrigger value="tracker" className="relative flex-col sm:flex-row gap-1 sm:gap-2 py-2 sm:py-1.5">
-                <div className="bg-primary rounded-full w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground flex items-center justify-center text-xs flex-shrink-0">
+              <TabsTrigger value="tracker" className={stepClass}>
+                <span className="bg-ss-lav-chip text-ss-lav-deep rounded-full w-5 h-5 flex items-center justify-center text-[11px] font-bold flex-shrink-0">
                   3
-                </div>
-                <span className="text-xs sm:text-sm">Project Tracker</span>
+                </span>
+                Your projects
               </TabsTrigger>
-              <TabsTrigger value="pages" className="relative flex-col sm:flex-row gap-1 sm:gap-2 py-2 sm:py-1.5">
-                <div className="bg-primary rounded-full w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground flex items-center justify-center text-xs flex-shrink-0">
+              <TabsTrigger value="pages" className={stepClass}>
+                <span className="bg-ss-lav-chip text-ss-lav-deep rounded-full w-5 h-5 flex items-center justify-center text-[11px] font-bold flex-shrink-0">
                   4
-                </div>
-                <span className="text-xs sm:text-sm">Portfolio Pages</span>
+                </span>
+                Your portfolio page
               </TabsTrigger>
             </TabsList>
           </div>
@@ -427,14 +479,16 @@ function PortfolioExplorer() {
                     <Button 
                       size="sm"
                       variant="outline"
+                      className="rounded-full"
                       onClick={() => {
+                        // Back to the questionnaire, pre-filled: `savedAnswers`
+                        // is left alone and feeds ProfileForm's initialData, so
+                        // this is an edit rather than a blank restart.
                         setPortfolioData(null);
-                        // Set the force discover tab flag to true to prevent auto-navigation
-                        setForceDiscoverTab(true);
-                        setActiveTab('discover');
+                        handleTabChange('discover');
                       }}
                     >
-                      Update Profile
+                      Regenerate ideas
                     </Button>
                   </div>
                   <ProjectIdeaList 
@@ -494,14 +548,18 @@ function PortfolioExplorer() {
                         'Generate Project Ideas'
                       )}
                     </Button>
-                    <Button 
+                    <Button
                       variant="outline"
+                      className="rounded-full"
                       onClick={() => {
-                        setSavedAnswers(null);
-                        setActiveTab('discover');
+                        // `setSavedAnswers(null)` used to run here, which threw
+                        // away the answers on the way to the form that displays
+                        // them — so "update" meant retyping all three from
+                        // scratch. Navigating is the whole job.
+                        handleTabChange('discover');
                       }}
                     >
-                      Update Profile First
+                      Edit your answers
                     </Button>
                   </CardContent>
                 </Card>
@@ -515,8 +573,8 @@ function PortfolioExplorer() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Button onClick={() => setActiveTab('discover')}>
-                    Go to Profile Questionnaire
+                  <Button className="rounded-full" onClick={() => handleTabChange('discover')}>
+                    Answer the questionnaire
                   </Button>
                 </CardContent>
               </Card>
@@ -524,22 +582,25 @@ function PortfolioExplorer() {
             
             {portfolioData && (
               <div className="mt-8 flex justify-center">
-                <Button
-                  onClick={() => {
-                    setForceDiscoverTab(false); // Reset the force flag when navigating away
-                    setActiveTab('tracker');
-                  }}
-                >
-                  Go to Project Tracker
+                <Button className="rounded-full" onClick={() => handleTabChange('tracker')}>
+                  Go to your projects
                 </Button>
               </div>
             )}
           </TabsContent>
 
           <TabsContent value="tracker">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">My Portfolio Projects</h2>
-              <AddProjectDialog onAddProject={handleAddProject} />
+            <div className="flex flex-wrap gap-3 justify-between items-center mb-4">
+              <div>
+                <h2 className="text-xl font-semibold">Your projects</h2>
+                <p className="text-sm text-muted-foreground">Everything you are building, and how far along it is.</p>
+              </div>
+              {/* Only when there is a list to add to. With none, the empty state
+                  below already offers this and the two buttons were the same
+                  action twice, side by side, at the same emphasis. */}
+              {projects && projects.length > 0 && (
+                <AddProjectDialog onAddProject={handleAddProject} />
+              )}
             </div>
 
             {projectsLoading ? (
@@ -570,18 +631,20 @@ function PortfolioExplorer() {
                 onDeleteProject={handleDeleteProject}
               />
             ) : (
-              <Card>
+              <Card className="ss-card bg-card">
                 <CardHeader>
-                  <CardTitle>No Projects Yet</CardTitle>
+                  <CardTitle>Nothing here yet</CardTitle>
                   <CardDescription>
-                    You haven't added any portfolio projects yet. Get started by adding a custom project or explore our recommendations.
+                    Add a project you are already working on, or start from the ideas built for your answers.
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="flex flex-col sm:flex-row gap-4">
-                  <Button onClick={() => setActiveTab('ideas')}>
-                    Explore Recommended Projects
+                <CardContent className="flex flex-col sm:flex-row gap-3">
+                  <Button className="rounded-full" onClick={() => handleTabChange('ideas')}>
+                    Explore recommended projects
                   </Button>
-                  <AddProjectDialog onAddProject={handleAddProject} />
+                  {/* Secondary: two filled buttons of equal weight made the
+                      reader choose between them rather than showing a path. */}
+                  <AddProjectDialog onAddProject={handleAddProject} variant="outline" />
                 </CardContent>
               </Card>
             )}
