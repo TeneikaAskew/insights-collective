@@ -4,22 +4,20 @@ import { test, expect } from '../fixtures/page-helpers';
 import { goto, waitForPageLoad } from '../fixtures/page-helpers';
 import { Routes } from '../helpers/route-helpers';
 import { stubCourseraCatalog } from '../helpers/coursera-helpers';
-import { dataCareerRoles } from '../../src/data/dataCareerRoles';
 
 /** The catalogue in src/data/dataCareerRoles.ts. Pinned so a silent truncation fails. */
 const TOTAL_ROLES = 33;
-/**
- * How many cards By Category renders. A role's `category` is comma-separated
- * and the view lists it under every track it names, so this is placements, not
- * roles — currently 37 across 33 roles. Derived, because pinning it means a new
- * dual-track role fails a test that has nothing to do with the change.
- */
-const TOTAL_PLACEMENTS = dataCareerRoles.reduce(
-  (sum, role) => sum + role.category.split(',').filter((track) => track.trim()).length,
-  0,
-);
 /** ExploreDataCareers paginates at 9 and Load More adds 6. */
 const FIRST_PAGE = 9;
+/**
+ * Cards in the By Category view. Deliberately NOT TOTAL_ROLES: that view lists
+ * a role under every track it belongs to, and 4 of the 33 roles carry two
+ * categories ("Analytics, Business Intelligence" and friends), so 33 roles
+ * yield 37 cards. Derived from src/data/dataCareerRoles.ts by summing
+ * role.category.split(',').length; CI received exactly 37 when this was
+ * pinned to 33.
+ */
+const CATEGORY_VIEW_CARDS = 37;
 
 const countText = (page) => page.getByTestId('role-count').textContent();
 /**
@@ -76,13 +74,10 @@ test.describe('Explore Careers', () => {
     // Same filtered set, different reading of it.
     expect(await countText(page)).toContain(`${TOTAL_ROLES} roles found`);
 
-    // By Category groups the whole catalogue rather than the current page, and
-    // it counts placements, not roles: `role.category` is comma-separated and
-    // ExploreDataCareers lists a role under every track it names, so the four
-    // dual-track roles each appear twice. 33 roles, 37 cards. Derived from the
-    // data rather than pinned, so adding a dual-track role does not fail this.
+    // By Category groups the whole catalogue rather than the current page —
+    // one card per category membership, so more cards than roles.
     await page.getByTestId('view-categories').click();
-    await expect(cards(page)).toHaveCount(TOTAL_PLACEMENTS);
+    await expect(cards(page)).toHaveCount(CATEGORY_VIEW_CARDS);
 
     await page.getByTestId('view-list').click();
     await expect(rows(page)).toHaveCount(FIRST_PAGE);
@@ -94,12 +89,11 @@ test.describe('Explore Careers', () => {
     await expect(rows(page)).toHaveCount(3);
     expect(await countText(page)).toContain('3 roles found');
 
-    // Scoped to the visible rows. Unscoped, each title matched twice — once in
-    // the table row and once in the stacked mobile card, which is in the DOM at
-    // every width — and strict mode rejects two matches even when only one of
-    // them is on screen.
     for (const title of ['Cloud Data Engineer', 'Cloud Engineer', 'Cloud Security Engineer']) {
-      await expect(rows(page).getByText(title, { exact: true })).toBeVisible();
+      // filter({ visible: true }): each row's title exists twice in the DOM
+      // (hidden mobile card + table cell), so the bare getByText resolves to 2
+      // elements and toBeVisible dies on a strict-mode violation.
+      await expect(page.getByText(title, { exact: true }).filter({ visible: true })).toBeVisible();
     }
   });
 

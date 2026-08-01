@@ -84,12 +84,14 @@ test.describe('BLS wage data', () => {
 
   test('figures are attributed to a named BLS occupation', async ({ page }) => {
     // A pay figure with no source is the thing this whole feature exists to avoid.
-    // Scoped to the visible rows. Unscoped, `.first()` resolved to the stacked
-    // mobile card's attribution line — present in the DOM at every width and
-    // hidden at desktop — so the assertion failed on a page that was showing
-    // the attribution correctly.
+    //
+    // filter({ visible: true }) before first(): the List view mounts the mobile
+    // cards ahead of the table in the DOM, so a bare first() lands on a
+    // CSS-hidden copy of the attribution and reports it hidden. CI proved it:
+    // "locator resolved to <div>BLS: Management Analysts (13-1111)</div> —
+    // unexpected value hidden".
     await expect(
-      page.locator('[data-testid="role-row"]:visible').getByText(/BLS: .+ \(\d{2}-\d{4}\)/).first(),
+      page.getByText(/BLS: .+ \(\d{2}-\d{4}\)/).filter({ visible: true }).first(),
     ).toBeVisible();
     await expect(
       page.getByRole('link', { name: /Bureau of Labor Statistics/ }),
@@ -101,9 +103,11 @@ test.describe('BLS wage data', () => {
     await chooseFromSelect(page, 'Sort', 'Median pay');
     await expect(page.locator('[data-testid="role-row"]:visible')).toHaveCount(FIRST_PAGE);
 
-    // `:visible`, like every other locator here. getByTestId picked up both
-    // presentations — 18 bands for 9 rows — which broke the length assertion
-    // below and left the ordering unchecked.
+    // :visible, like every other wage-band read in this file. evaluateAll does
+    // not filter hidden elements, and the mobile cards mount a second band per
+    // role — the bare testid returned 18 where 9 are on screen. Worse than the
+    // count: the hidden nine sort as their own run, so the concatenated array
+    // can never satisfy the ordering assertion.
     const medians = await page
       .locator('[data-testid="wage-band"]:visible')
       .evaluateAll((els) => els.map((e) => Number(e.getAttribute('data-median'))));
@@ -120,9 +124,9 @@ test.describe('BLS wage data', () => {
     expect(shown).toBeGreaterThan(0);
     expect(shown).toBeLessThan(TOTAL_ROLES);
 
-    // `:visible`, like every other locator here. getByTestId picked up both
-    // presentations, so this read each median twice — harmless for a
-    // per-element bound, wrong for the same reason as the sort test above.
+    // :visible for the same double-mount reason as the sorting test. This one
+    // happened to pass unfiltered — the hidden duplicates carry the same medians
+    // — but only by luck of the assertion's shape.
     const medians = await page
       .locator('[data-testid="wage-band"]:visible')
       .evaluateAll((els) => els.map((e) => Number(e.getAttribute('data-median'))));
