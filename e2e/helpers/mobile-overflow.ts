@@ -69,6 +69,40 @@ export async function measureOverflow(page: Page): Promise<OverflowReport> {
 }
 
 /**
+ * A screenshot that actually shows the whole page.
+ *
+ * `fullPage: true` extends the capture to the *document's* scroll height, and
+ * in this app the document never scrolls — AppLayout clips at `overflow-hidden`
+ * and scrolls inside `<main>`. So `fullPage` silently returns a viewport-height
+ * image: /career-pathway captured 900px of an 1100px page and the whole report
+ * canvas was missing from the shot, which is how a screenshot review misses
+ * everything below the fold.
+ *
+ * Growing the viewport to fit the content is the fix. Width — the only axis
+ * this spec is about — stays at 390. Height changes, so any `vh`-sized element
+ * renders taller here than on a real phone; that is a known and accepted
+ * distortion in exchange for seeing the page at all.
+ */
+async function fullHeightScreenshot(page: Page): Promise<Buffer> {
+  const original = page.viewportSize();
+  const contentHeight = await page.evaluate(() => {
+    const main = document.querySelector('main');
+    return Math.max(
+      main ? main.scrollHeight : 0,
+      document.documentElement.scrollHeight,
+      document.body.scrollHeight,
+    );
+  });
+  // Capped: a runaway list should not try to allocate a 40,000px bitmap.
+  const height = Math.min(Math.max(contentHeight + 40, original?.height ?? 844), 6000);
+  await page.setViewportSize({ width: original?.width ?? MOBILE_VIEWPORT.width, height });
+  await page.waitForTimeout(400);
+  const body = await page.screenshot();
+  if (original) await page.setViewportSize(original);
+  return body;
+}
+
+/**
  * Navigate to `route` at phone width, attach a screenshot, and fail if the page
  * scrolls sideways — or if it never rendered the route that was asked for.
  */
@@ -94,7 +128,7 @@ export async function expectNoMobileOverflow(
   const report = await measureOverflow(page);
 
   await testInfo.attach(`${route === '/' ? '_root' : route.replace(/\//g, '_')}-390.png`, {
-    body: await page.screenshot({ fullPage: true }),
+    body: await fullHeightScreenshot(page),
     contentType: 'image/png',
   });
 
