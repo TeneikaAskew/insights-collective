@@ -22,6 +22,16 @@
 // Reads only. Toggling real visibility from a spec is forbidden —
 // admin-page-visibility.spec.ts:43-46 records the run that left the landing
 // page hidden for every visitor.
+//
+// stopAtGuard() below is the third coping strategy, for specs that assert a
+// page's CONTENT: when the section is hidden it asserts the gate instead and
+// tells the caller to stop. Without it those specs did not fail — they passed
+// against the lock card, because "main is visible", "a heading is visible" and
+// "no spinners" are all true of ComingSoon. Seven of the eight assistants tests
+// were green that way while testing nothing about assistants.
+
+import { expect, type Page } from '@playwright/test';
+import { resolveGoverningPaths } from '../../src/config/pageManifest';
 
 const SUPABASE_URL =
   process.env.VITE_SUPABASE_URL || 'https://siuqvhscuiycvdrtiqsh.supabase.co';
@@ -68,6 +78,70 @@ export function fetchLiveVisibility(): Promise<VisibilityRow[]> {
     })();
   }
   return cached;
+}
+
+/** Which column decides for the acting role, mirroring PageVisibilityContext. */
+export type ViewerRole = 'user' | 'instructor';
+
+/**
+ * True when the live configuration hides `pathname` from the acting role.
+ *
+ * Uses the app's own resolver so aliases and parent/child chains agree with
+ * production: /assistant-interface resolves to /assistants, and a child page is
+ * hidden when any path in its governing chain is. Paths outside the manifest
+ * are never gated.
+ */
+export async function isHiddenFromViewer(
+  pathname: string,
+  role: ViewerRole = 'user',
+): Promise<boolean> {
+  const governing = resolveGoverningPaths(pathname);
+  if (governing.length === 0) return false;
+
+  const rows = await fetchLiveVisibility();
+  const byPath = new Map(rows.map(row => [row.page_path, row]));
+
+  return governing.some(path => {
+    const row = byPath.get(path);
+    // No row means unmanaged, which the app treats as visible.
+    if (!row) return false;
+    return role === 'instructor'
+      ? !(row.visible_to_users || row.visible_to_instructors)
+      : !row.visible_to_users;
+  });
+}
+
+/**
+ * Assert the visibility gate is what rendered: the Coming Soon card is on
+ * screen, with its way back. Use as the hidden branch of a content spec so a
+ * hidden section still carries a real assertion — if the gate ever stops
+ * gating, this fails.
+ */
+export async function expectVisibilityGuard(page: Page): Promise<void> {
+  await expect(page.getByTestId('coming-soon')).toBeVisible();
+  await expect(page.getByRole('button', { name: /back to dashboard/i })).toBeVisible();
+}
+
+/**
+ * The one-liner for content specs: if the section is hidden, assert the gate and
+ * return true so the caller stops before its content assertions.
+ *
+ *   if (await stopAtGuard(page, Routes.assistants)) return;
+ *   ...content assertions...
+ *
+ * Restoring the section in Admin → Page Visibility turns the content assertions
+ * back on with no code change, and live-visibility-config.spec.ts independently
+ * fails if a page is hidden without a signed-off reason — so this can never
+ * become a quiet way to drop coverage.
+ */
+export async function stopAtGuard(
+  page: Page,
+  pathname: string,
+  role: ViewerRole = 'user',
+): Promise<boolean> {
+  if (!(await isHiddenFromViewer(pathname, role))) return false;
+  await expectVisibilityGuard(page);
+  return true;
 }
 
 /**
