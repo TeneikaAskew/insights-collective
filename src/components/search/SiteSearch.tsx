@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { usePublishedCourses } from '@/hooks/usePublishedCourses';
@@ -24,6 +25,7 @@ const SiteSearch = () => {
   // result to the viewer's own instructed courses, so a member's search never
   // matched a course at all. See usePublishedCourses for the full note.
   const { courses } = usePublishedCourses();
+  const isMobile = useIsMobile();
 
   // Search across multiple data sources - memoized for performance
   const getSearchResults = (query: string): SearchResult[] => {
@@ -202,14 +204,26 @@ const SiteSearch = () => {
     <div className="flex flex-1 relative" ref={searchRef}>
       <div className="w-full relative">
         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+        {/* The shortcut used to live in the placeholder, which truncated to
+            "Search enti…" at 390px — and a Ctrl/Cmd hint is meaningless on a
+            phone anyway. It is a kbd hint now, hidden below `sm`, so the
+            placeholder fits on mobile and the shortcut still shows where it
+            can be used. */}
         <Input
           type="search"
-          placeholder="Search entire site... (Press Ctrl/Cmd + K)"
-          className="w-full pl-8 bg-background"
+          placeholder={isMobile ? 'Search…' : 'Search entire site...'}
+          aria-label="Search entire site"
+          className="w-full pl-8 pr-3 md:pr-16 bg-background"
           value={searchQuery}
           onChange={handleSearchChange}
           onFocus={() => setIsSearching(true)}
         />
+        {/* `md:` and not `sm:`, to match `useIsMobile`'s 768px breakpoint above.
+            At `sm:` the hint appeared 128px before the placeholder grew back,
+            so 640–767px showed a keyboard shortcut next to "Search…". */}
+        <kbd className="pointer-events-none absolute right-2 top-2 hidden h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground md:flex">
+          Ctrl/⌘ K
+        </kbd>
         
         {isSearching && (
           <div className="absolute top-full left-0 right-0 mt-1 bg-popover border rounded-md shadow-lg z-50 max-h-[80vh] overflow-auto">

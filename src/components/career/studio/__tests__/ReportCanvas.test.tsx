@@ -50,7 +50,7 @@ const report = {
   summary: 'You are on a solid analytics path.',
   // Reports carry a slug, not a title — the title and pay are resolved from
   // career_role_wages so neither can be model-invented.
-  recommendedRoles: [{ roleSlug: 'data-analyst', matchPercentage: 82 }],
+  recommendedRoles: [{ roleSlug: 'data-analyst' }],
   skillsAndCourses: [
     { skill: 'SQL', course: 'Invented SQL Course', provider: 'Made-up U', level: 'Beginner' },
     { skill: 'Public Speaking', course: 'Speak Well', provider: 'Talk School', level: 'Intermediate' },
