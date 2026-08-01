@@ -6,7 +6,10 @@ a dozen CI round-trips. Files 08–12 come from a second session — the
 query-validity audit — and are kept separate because their failures have a
 distinct shape: not mistakes made while building, but defects that had been live
 for months without anything noticing. File 13 comes from a third (PR #32,
-Featured Courses and the automated-review round after it).
+Featured Courses and the automated-review round after it). File 14 comes from a
+fourth (PRs #43/#45/#48 and the career-spec fix): environment blockers asserted
+without testing them, a flake that was a mis-homed test rather than a timing
+problem, and a responsive component whose hidden half broke four specs at once.
 
 File 12 is a category of its own and worth reading first if you only read one:
 defects in the *instruments* rather than the product. Every entry in it is a
@@ -43,6 +46,7 @@ faith.
 | `11-repo-and-stack-specifics.md` | Verified stack facts worth not rediscovering |
 | `12-when-the-tooling-lies.md` | Gates and readers failing the way they were built to prevent |
 | `13-premise-and-attribution.md` | Verifying the *bug*, not just the fix (PR #32) |
+| `14-environment-claims-and-double-mounts.md` | "Can't" claims, race-shaped flakes, hidden DOM, stacked-PR CI gaps |
 
 ## The one-paragraph version
 

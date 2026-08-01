@@ -9,6 +9,15 @@ import { stubCourseraCatalog } from '../helpers/coursera-helpers';
 const TOTAL_ROLES = 33;
 /** ExploreDataCareers paginates at 9 and Load More adds 6. */
 const FIRST_PAGE = 9;
+/**
+ * Cards in the By Category view. Deliberately NOT TOTAL_ROLES: that view lists
+ * a role under every track it belongs to, and 4 of the 33 roles carry two
+ * categories ("Analytics, Business Intelligence" and friends), so 33 roles
+ * yield 37 cards. Derived from src/data/dataCareerRoles.ts by summing
+ * role.category.split(',').length; CI received exactly 37 when this was
+ * pinned to 33.
+ */
+const CATEGORY_VIEW_CARDS = 37;
 
 const countText = (page) => page.getByTestId('role-count').textContent();
 /**
@@ -65,9 +74,10 @@ test.describe('Explore Careers', () => {
     // Same filtered set, different reading of it.
     expect(await countText(page)).toContain(`${TOTAL_ROLES} roles found`);
 
-    // By Category groups the whole catalogue rather than the current page.
+    // By Category groups the whole catalogue rather than the current page —
+    // one card per category membership, so more cards than roles.
     await page.getByTestId('view-categories').click();
-    await expect(cards(page)).toHaveCount(TOTAL_ROLES);
+    await expect(cards(page)).toHaveCount(CATEGORY_VIEW_CARDS);
 
     await page.getByTestId('view-list').click();
     await expect(rows(page)).toHaveCount(FIRST_PAGE);
@@ -80,7 +90,10 @@ test.describe('Explore Careers', () => {
     expect(await countText(page)).toContain('3 roles found');
 
     for (const title of ['Cloud Data Engineer', 'Cloud Engineer', 'Cloud Security Engineer']) {
-      await expect(page.getByText(title, { exact: true })).toBeVisible();
+      // filter({ visible: true }): each row's title exists twice in the DOM
+      // (hidden mobile card + table cell), so the bare getByText resolves to 2
+      // elements and toBeVisible dies on a strict-mode violation.
+      await expect(page.getByText(title, { exact: true }).filter({ visible: true })).toBeVisible();
     }
   });
 
