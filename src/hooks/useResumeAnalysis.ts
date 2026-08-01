@@ -310,19 +310,24 @@ export function useResumeAnalysis() {
           .limit(1)
           .maybeSingle();
 
-        // A failed check is NOT an answer. This used to log and fall through to
-        // the branch below, where `resumeCheck` is null on error exactly as it
-        // is when no resume exists — so a transient query failure destroyed the
-        // user's cached analysis and left the page claiming they had never
-        // uploaded anything. Deleting a user's work needs a confirmed "no row",
-        // not an absent one.
+        // A failed check is NOT an answer. It used to fall through to the branch
+        // below, where `resumeCheck` is null on error exactly as it is when no
+        // resume exists — so a transient query failure destroyed the user's
+        // cached analysis and left the page claiming they had never uploaded
+        // anything. Deleting a user's work needs a confirmed "no row".
+        //
+        // Only the DESTRUCTIVE branch is skipped, though: returning outright
+        // would be its own version of the same mistake, hiding a perfectly good
+        // cached analysis for the rest of the mount (nothing in the dependency
+        // list changes, so this effect does not run again). Unknown means leave
+        // things alone and carry on reading the cache.
         if (resumeError) {
-          logger.error('Error checking for resume existence:', resumeError);
-          return;
-        }
-
-        // If no resume exists in DB, clear any stale localStorage cache
-        if (!resumeCheck) {
+          logger.error(
+            'Could not confirm whether a resume exists; keeping any cached analysis:',
+            resumeError,
+          );
+        } else if (!resumeCheck) {
+          // Confirmed absent — now the stale cache may go.
           logger.log('No resume found in DB, clearing stale localStorage cache');
           localStorage.removeItem(`resume_analysis_${user.id}`);
           localStorage.removeItem(`resume_text_${user.id}`);
@@ -331,10 +336,12 @@ export function useResumeAnalysis() {
           return;
         }
       } catch (err) {
-        // Same reasoning as the resumeError branch: a thrown check tells us
-        // nothing about whether a resume exists, so nothing gets cleared.
-        logger.error('Error checking resume existence:', err);
-        return;
+        // Same reasoning: a thrown check tells us nothing, so nothing is
+        // cleared and the cache below is still worth reading.
+        logger.error(
+          'Could not confirm whether a resume exists; keeping any cached analysis:',
+          err,
+        );
       }
 
       // Try localStorage first
