@@ -396,16 +396,24 @@ jobs:
       # separates "the suite produced no suppressed errors" from "the upload
       # silently shipped nothing", which is a distinction the first version of
       # this step could not make and got wrong (see include-hidden-files below).
+      # Piped through tee for the same reason the coverage-gap step above is:
+      # $GITHUB_STEP_SUMMARY is readable in the web UI and NOWHERE ELSE. A count
+      # that only lands there cannot be read through the API, which is how this
+      # step would be consulted when something looks wrong — so a silent zero
+      # would still be invisible to anyone not clicking through a browser. That
+      # is the exact failure this step exists to prevent, one level up.
       - name: Report suppressed-console audit size
         if: always()
         run: |
           f=.e2e-audit/console-audit.jsonl
-          if [ -s "$f" ]; then
-            echo "### Suppressed-console audit: $(wc -l < "$f") records" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "### Suppressed-console audit: NO RECORDS WRITTEN" >> $GITHUB_STEP_SUMMARY
-            echo "The recorder is enabled but produced nothing. Either the suite emitted no console errors and no failed responses at all (unlikely), or the recorder is not running." >> $GITHUB_STEP_SUMMARY
-          fi
+          {
+            if [ -s "$f" ]; then
+              echo "### Suppressed-console audit: $(wc -l < "$f") records"
+            else
+              echo "### Suppressed-console audit: NO RECORDS WRITTEN"
+              echo "The recorder is enabled but produced nothing. Either the suite emitted no console errors and no failed responses at all (unlikely), or the recorder is not running."
+            fi
+          } 2>&1 | tee -a $GITHUB_STEP_SUMMARY
 
       # Non-gating on purpose. The recorder cannot fail a run, so uploading it is
       # the whole mechanism: it makes the suppressed-error catalogue something a
