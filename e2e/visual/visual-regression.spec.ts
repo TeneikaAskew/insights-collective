@@ -75,7 +75,24 @@ const ROUTES: RouteSpec[] = [
   // course, and the landing section has unit coverage for what each card may
   // and may not claim.
   { name: 'login',           path: '/login',           role: 'public', waitFor: 'form' },
-  { name: 'blog-index',      path: '/blog',            role: 'public' },
+  // blog-index keeps its baseline but masks the post cards.
+  //
+  // The posts come from the shared live database, so the frame moved the moment
+  // one was edited: a run failed at 17,081 pixels (1.7%) against the committed
+  // baseline, and only about 1,850 of those were an intentional change to the
+  // navbar. That is the same drift that removed dashboard, enrolled-courses,
+  // landing and courses-catalog from this list — but masking is the first
+  // mitigation this file reaches for, and here it works cleanly: the page's
+  // chrome (header, search, category and tag filters, section headings, the
+  // grid geometry itself) is stable and worth a baseline, and only the card
+  // contents churn. What the posts say is covered by
+  // e2e/blog/blog-reading-journey.spec.ts.
+  {
+    name: 'blog-index',
+    path: '/blog',
+    role: 'public',
+    mask: ['[data-testid="featured-posts-grid"]', '[data-testid="all-posts-grid"]'],
+  },
   // calendar is removed for the same reason as dashboard above, which it is now part
   // of. Repointing it at /dashboard?tab=calendar made it a screenshot of the
   // Dashboard — stat tiles reading live enrollment counts, a course list, and the

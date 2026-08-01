@@ -220,7 +220,7 @@ export default function Blog() {
               <Star className="h-5 w-5 text-ss-warn" />
               <h2 className="text-2xl font-bold">Featured Articles</h2>
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div data-testid="featured-posts-grid" className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {featuredPosts.slice(0, 2).map(post => (
                 <Card key={post.id} className="overflow-hidden border-border ss-card-warm">
                   {post.imageUrl && (
@@ -311,7 +311,7 @@ export default function Blog() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div data-testid="all-posts-grid" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {regularPosts.map(post => (
                 <Card key={post.id} className="overflow-hidden hover:shadow-lg transition-shadow">
                   {post.imageUrl && (
