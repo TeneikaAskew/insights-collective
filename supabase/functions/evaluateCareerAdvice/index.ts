@@ -63,7 +63,7 @@ const buildSystemPrompt = (catalog: { slug: string; title: string }[]) =>
 {
   "summary": "string",
   "recommendedRoles": [
-    { "roleSlug": "string", "description": "string", "matchPercentage": 0 }
+    { "roleSlug": "string", "description": "string" }
   ],
   "skillsAndCourses": [
     { "skill": "string", "course": "string", "provider": "string", "level": "beginner|intermediate|advanced" }
@@ -84,7 +84,6 @@ const buildSystemPrompt = (catalog: { slug: string; title: string }[]) =>
 Rules:
 - Return ONLY the JSON object — no markdown, no commentary.
 - Fill each section with personalized, actionable, specific content grounded in the user's answers and resume.
-- matchPercentage is an integer 0-100 reflecting fit with the user's stated strengths and goals.
 - Minimums: 3 recommendedRoles, 4 skillsAndCourses, 3 potentialRoles, 3 careerPathSteps, 3 futureCareerPath steps, 3 keyTakeaways.
 - Do NOT output salary figures, pay ranges, or compensation anywhere in the report. Pay comes from the U.S. Bureau of Labor Statistics and is attached to each role by its slug after you respond.
 - Every recommendedRoles entry MUST use a "roleSlug" copied verbatim from the list below. Do not invent a slug, do not reword one, and do not recommend a role that is not listed:

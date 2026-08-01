@@ -108,7 +108,6 @@ const normalizeRecommendedRoles = (roles: any): RecommendedRole[] =>
       focusAreas: cleanFocusAreas(role.focus_areas || role.focusAreas || []),
       responsibilities: role.responsibilities || [],
       requirements: role.requirements || [],
-      matchPercentage: role.matchPercentage || role.match_percentage || 0,
     }));
 
 export const parseCareerReport = (reportText: string): CareerReportData => {

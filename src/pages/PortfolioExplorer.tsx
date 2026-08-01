@@ -98,17 +98,21 @@ function PortfolioExplorer() {
         return;
       }
 
-      // If not in local storage, fetch from Supabase
+      // If not in local storage, fetch from Supabase.
+      //
+      // maybeSingle, not single. A user who has not filled the questionnaire in
+      // has no `portfolio` row, and single() turns that ordinary state into an
+      // HTTP 406 with PGRST116. The code below already treated PGRST116 as
+      // "not found", but the request had failed by then — every visit logged
+      // four Supabase errors and the failed-query badge counted them.
       const { data, error } = await supabase
         .from('portfolio')
         .select('current_role, interests, hobbies')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (error) {
-        if (error.code !== 'PGRST116') { // Not found error
-          logger.error("Error fetching questionnaire:", error);
-        }
+        logger.error("Error fetching questionnaire:", error);
         return;
       }
 
@@ -133,12 +137,16 @@ function PortfolioExplorer() {
     }
   };
 
-  // Fetch existing data when component mounts
+  // Fetch existing data when component mounts.
+  //
+  // Keyed on user.id, not the user object. AuthContext hands back a new object
+  // as the session settles, so a dependency on `user` re-ran this four times on
+  // a single page load — four identical round trips for one answer.
   useEffect(() => {
     if (user) {
       fetchExistingQuestionnaire();
     }
-  }, [user]);
+  }, [user?.id]);
 
   const handleQuestionnaireSubmit = async (data: QuestionnaireAnswers) => {
     if (!user) return;
@@ -153,12 +161,16 @@ function PortfolioExplorer() {
         hobbies: data.hobbies
       }));
       
-      // Check if entry exists
+      // Check if entry exists. maybeSingle for the same reason as above — the
+      // first submission is exactly the case with no row, so single() made the
+      // common path an error. fetchError is now a real failure, not "no row".
       const { data: existingData, error: fetchError } = await supabase
         .from('portfolio')
         .select('created_at')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
+
+      if (fetchError) throw fetchError;
 
       const payload = {
         user_id: user.id,

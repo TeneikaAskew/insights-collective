@@ -20,6 +20,15 @@ vi.mock('@/hooks/use-user', () => ({
   useUser: () => ({ user: userState.user }),
 }));
 
+// The toast has to be observable. Nothing in this file renders a Toaster, so
+// asserting on toast copy with queryByText matches nothing whether the toast
+// fired or not — a check that cannot fail.
+const toastFn = vi.hoisted(() => vi.fn());
+vi.mock('@/hooks/use-toast', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/hooks/use-toast')>();
+  return { ...actual, useToast: () => ({ toast: toastFn, dismiss: vi.fn(), toasts: [] }) };
+});
+
 vi.mock('@/components/layout/AppLayout', () => ({
   default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
@@ -30,8 +39,27 @@ const QUESTIONS = [
   { id: 'q3', type: 'technical', question: 'Not shown (technical).', targetCompetency: 'SQL', preparationTips: '' },
 ];
 
-function mockStudyGuideQuery() {
+function mockStudyGuideQuery(questions: typeof QUESTIONS | null = QUESTIONS) {
   mockSupabaseClient.from.mockImplementation((table: string) => {
+    // Modelled on how PostgREST actually behaves, because the difference is
+    // the whole point: on zero rows `single` returns a PGRST116 error and
+    // `maybeSingle` returns a null with no error. A mock that resolved both
+    // identically would let the page go back to `single` and stay green.
+    const hasRow = table === 'study_guides' && !!questions;
+    const resolveGuide = (strict: boolean) =>
+      Promise.resolve(
+        hasRow
+          ? { data: { questions }, error: null }
+          : strict
+            ? {
+                data: null,
+                error: {
+                  code: 'PGRST116',
+                  message: 'JSON object requested, multiple (or no) rows returned',
+                },
+              }
+            : { data: null, error: null }
+      );
     const chain: any = {
       select: vi.fn(() => chain),
       eq: vi.fn(() => chain),
@@ -42,13 +70,11 @@ function mockStudyGuideQuery() {
         }
         return chain;
       }),
-      single: vi.fn(() =>
-        Promise.resolve(
-          table === 'study_guides'
-            ? { data: { questions: QUESTIONS }, error: null }
-            : { data: null, error: null }
-        )
-      ),
+      // The page reads a study guide with maybeSingle — no row is an ordinary
+      // state, not a 406. `single` stays on the mock so any other caller that
+      // still uses it keeps working; both resolve the same way.
+      single: vi.fn(() => resolveGuide(true)),
+      maybeSingle: vi.fn(() => resolveGuide(false)),
       insert: vi.fn(() => chain),
     };
     return chain;
@@ -57,6 +83,7 @@ function mockStudyGuideQuery() {
 
 beforeEach(() => {
   navigate.mockClear();
+  toastFn.mockClear();
   userState.user = null;
   vi.spyOn(LocalStorageUtils, 'getSavedStarResponses').mockReturnValue(null as any);
   vi.spyOn(LocalStorageUtils, 'getStarResponseDraftForQuestion').mockReturnValue(null as any);
@@ -68,6 +95,26 @@ describe('StarPractice page (Guided Coach)', () => {
     render(<StarPractice />);
     expect(await screen.findByText('No Questions Available')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /go back/i })).toBeInTheDocument();
+  });
+
+  it('shows the no-questions state, not an error, when the user has no study guide', async () => {
+    // This used to be an HTTP 406. The query ended in `.single()`, so a user
+    // who had simply never analysed a job description got PGRST116, which the
+    // page rethrew into a red "Failed to load questions. Please try again."
+    // toast. There was nothing to retry. `maybeSingle` makes no-row an ordinary
+    // null and the empty state below is what they see.
+    userState.user = { id: 'user-1' };
+    mockStudyGuideQuery(null);
+
+    render(<StarPractice />);
+
+    expect(await screen.findByText('No Questions Available')).toBeInTheDocument();
+    expect(
+      screen.getByText(/analyze a job description first/i),
+    ).toBeInTheDocument();
+    // The assertion that actually pins the fix: with `.single()` the mock
+    // returns PGRST116, the page rethrows, and this toast fires.
+    expect(toastFn).not.toHaveBeenCalled();
   });
 
   it('renders the question, step segments, and coach rail for a signed-in user', async () => {
