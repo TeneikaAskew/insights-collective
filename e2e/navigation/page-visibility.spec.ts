@@ -97,15 +97,28 @@ test.describe('Page visibility enforcement', () => {
     await expect(page.getByTestId('coming-soon')).toHaveCount(0);
   });
 
-  test('auth surfaces are never gated', async ({ page }) => {
-    // Even with every row hidden, /login must render
-    await stubVisibility(page, hiddenBlog);
+  test('auth surfaces are never gated', async ({ browser }) => {
+    // Signed out, in a context of its own.
+    //
+    // This file runs under chromium-member, and Login.tsx redirects an
+    // authenticated visitor to wherever they came from. So /login never showed
+    // its form here and the email assertion was racing the redirect — it read
+    // as flaky, then failed outright. The claim being made is about a
+    // signed-out visitor, so the test now uses one.
+    const context = await browser.newContext({ storageState: undefined });
+    const page = await context.newPage();
+    try {
+      // Even with every row hidden, /login must render its form.
+      await stubVisibility(page, hiddenBlog);
 
-    await page.goto('/login');
-    await waitForPageLoad(page);
+      await page.goto('/login');
+      await waitForPageLoad(page);
 
-    await expect(page.getByTestId('coming-soon')).toHaveCount(0);
-    await expect(page.locator('input[type="email"], input[name="email"]').first()).toBeVisible();
+      await expect(page.getByTestId('coming-soon')).toHaveCount(0);
+      await expect(page.locator('input[type="email"], input[name="email"]').first()).toBeVisible();
+    } finally {
+      await context.close();
+    }
   });
 
   test('Coming Soon offers a way back to the dashboard', async ({ page }) => {
