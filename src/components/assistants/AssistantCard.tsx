@@ -36,7 +36,10 @@ export const AssistantCard = ({ assistant, featured = false, onLaunch }: Assista
   };
   
   return (
-    <div className={`bg-card rounded-lg border ${featured ? 'border-ss-warn' : 'border-border'} overflow-hidden`}>
+    <div
+      data-testid="assistant-card"
+      className={`bg-card rounded-lg border ${featured ? 'border-ss-warn' : 'border-border'} overflow-hidden`}
+    >
       <div className={`p-4 ${featured ? 'border-b border-ss-warn/30' : ''}`}>
         <div className="flex justify-between items-start">
           <div className="flex items-center gap-2">

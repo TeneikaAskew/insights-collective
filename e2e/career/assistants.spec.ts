@@ -35,20 +35,38 @@ test.describe('Assistants', () => {
     // The count-guard here was never needed: the page renders from the static
     // allAssistants list (src/data/assistantData.ts, 14 entries), not from
     // seeded data, so "no cards" is a defect rather than a data gap.
-    const cards = page.locator('[class*="Card"], article, [class*="assistant"]');
-    await expect(cards.first()).toBeVisible();
+    //
+    // The locator is a testid because the obvious CSS guesses are all wrong:
+    // AssistantCard is a plain div with `bg-card`, and `[class*="Card"]` is
+    // case-sensitive, so the old selector matched nothing whatsoever. Behind a
+    // count-guard that was invisible; unguarded it would have failed the moment
+    // the section was restored, which is the worst possible time to find out.
+    await expect(page.getByTestId('assistant-card').first()).toBeVisible();
   });
 
   test('tabs filter assistants by category', async ({ page }) => {
     if (await stopAtGuard(page, Routes.assistants)) return;
-    const tabs = page.locator('[role="tab"]');
-    await expect(tabs.first()).toBeVisible();
-    await tabs.first().click();
-    // The old version clicked and then asserted nothing at all, so it could not
-    // tell a working filter from one that blanked the list.
-    await expect(
-      page.locator('[class*="Card"], article, [class*="assistant"]').first(),
-    ).toBeVisible();
+
+    // Scoped to the visible tab panel, for two separate reasons. Radix keeps
+    // every TabsContent mounted and hides the inactive ones, so an unscoped
+    // count returns all four panels at once; and the page renders a FEATURED
+    // Career Explorer card outside the tabs entirely (Assistants.tsx), which
+    // would otherwise be counted in every tab's total.
+    const panelCards = page.locator('[role="tabpanel"]:visible [data-testid="assistant-card"]');
+    const panelNames = page.locator('[role="tabpanel"]:visible [data-testid="assistant-card"] h3');
+
+    // "All Assistants" is the DEFAULT tab, so clicking it proves nothing — the
+    // previous version clicked exactly that and could not tell working category
+    // filtering from none at all. 13 = allAssistants (the featured card is not
+    // in the array).
+    await expect(panelCards).toHaveCount(13);
+
+    await page.getByRole('tab', { name: 'Analytics' }).click();
+
+    // The two analytics entries in assistantData.ts. Asserting names as well as
+    // count, so a filter returning the wrong two still fails.
+    await expect(panelCards).toHaveCount(2);
+    await expect(panelNames).toHaveText(['Data Analyst', 'Project Dashboard']);
   });
 
   test('Launch button navigates to assistant interface', async ({ page }) => {
