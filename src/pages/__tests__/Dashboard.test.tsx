@@ -10,6 +10,7 @@ import { mockSupabaseClient } from '@/test/mocks/supabase';
 import { createMockAuthProvider } from '@/test/mocks/authMocks';
 import { useAuth } from '@/contexts/AuthContext';
 import { makeCourse } from '@/test/utils/course-fixtures';
+import { Routes, Route } from 'react-router-dom';
 import Dashboard from '@/pages/Dashboard';
 
 // The app shell and analytics widgets are out of scope here.
@@ -52,6 +53,9 @@ const authedUser = { id: 'user-1', email: 'student@example.com', name: 'Ada' } a
 
 describe('Dashboard', () => {
   beforeEach(() => {
+    // BrowserRouter reads window.location, and the ?tab= test below mutates it.
+    // Reset so tab state never leaks between cases.
+    window.history.pushState({}, '', '/dashboard');
     vi.mocked(useAuth).mockReturnValue(
       createMockAuthProvider({ user: authedUser, isAuthenticated: true }) as any
     );
@@ -151,5 +155,54 @@ describe('Dashboard', () => {
     expect(await screen.findByText(/Failed to load notifications/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
     expect(screen.queryByText(/don't have any notifications/i)).not.toBeInTheDocument();
+  });
+
+  // The calendar used to be its own sidebar entry and its own /calendar page. It is a
+  // tab here now, and the links that used to point at that page deep-link into it, so
+  // both the tab and the ?tab=calendar entry point need to keep working.
+  describe('Calendar tab', () => {
+    it('renders the calendar panel when the tab is selected', async () => {
+      render(<Dashboard />);
+
+      await userEvent.click(await screen.findByRole('tab', { name: /Calendar/ }));
+
+      expect(await screen.findByRole('tab', { name: 'Selected Day' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Quizzes & Exams/ })).toBeInTheDocument();
+    });
+
+    it('carries the tab through the login redirect when signed out', async () => {
+      // REGRESSION: the redirect was hardcoded to "/login?redirect=/dashboard", which
+      // dropped the query string — a signed-out user following a calendar link came
+      // back to My Courses. Login's safeInternalPath preserves search, so the tab only
+      // survives if the path it is handed still carries it.
+      vi.mocked(useAuth).mockReturnValue(
+        createMockAuthProvider({ user: null, isAuthenticated: false }) as any
+      );
+      window.history.pushState({}, '', '/dashboard?tab=calendar');
+
+      // Rendered under Routes, as in App.tsx. That matters: navigating to /login has
+      // to unmount Dashboard. Rendered bare, it stays mounted, recomputes the redirect
+      // from the location it just moved to, and redirects forever.
+      render(
+        <Routes>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/login" element={<div data-testid="login-stub" />} />
+        </Routes>
+      );
+
+      expect(await screen.findByTestId('login-stub')).toBeInTheDocument();
+      const redirect = new URLSearchParams(window.location.search).get('redirect');
+      expect(redirect).toBe('/dashboard?tab=calendar');
+    });
+
+    it('opens the calendar directly from ?tab=calendar', async () => {
+      // How the profile menu and the notifications dropdown reach it now that
+      // /calendar is gone — a plain /dashboard link would land on My Courses.
+      window.history.pushState({}, '', '/dashboard?tab=calendar');
+
+      render(<Dashboard />);
+
+      expect(await screen.findByRole('tab', { name: 'Selected Day' })).toBeInTheDocument();
+    });
   });
 });

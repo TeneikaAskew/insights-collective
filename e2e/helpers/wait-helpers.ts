@@ -5,13 +5,31 @@ import { Page, expect } from '@playwright/test';
  * All pages are lazy-loaded, so this must be called after navigation.
  */
 export async function waitForPageLoad(page: Page, timeout = 15_000): Promise<void> {
-  // Wait for the document to reach an interactive state
+  // domcontentloaded fires when the HTML is parsed, which for a Vite SPA is before
+  // React has mounted anything.
   await page.waitForLoadState('domcontentloaded');
-  // Wait for any spinning loaders to vanish
+
+  // React has to have mounted before "wait for the spinner to go away" means
+  // anything. Playwright counts a not-yet-rendered element as hidden, so when this
+  // helper ran against an empty #root the spinner wait below resolved INSTANTLY and
+  // the helper returned while the page was still blank. Every assertion after it
+  // then raced the app's first paint, and only the assertion's own 10s expect
+  // timeout stood between that race and a failure — which is how
+  // navigation/page-visibility.spec.ts intermittently failed to find the login
+  // form. Waiting for the shell to exist first is what makes the spinner wait real.
   try {
-    await page.locator('.animate-spin').waitFor({ state: 'hidden', timeout });
+    await page.locator('#root > *').first().waitFor({ state: 'attached', timeout });
   } catch {
-    // No spinner found — that's fine
+    // Not the SPA shell (a static error page, say) — nothing further to wait for.
+  }
+
+  // .first() is load-bearing. waitFor is strict, so once a page rendered more than
+  // one spinner this threw a strict-mode violation rather than waiting, and the
+  // catch swallowed it — vacuous for a second reason.
+  try {
+    await page.locator('.animate-spin').first().waitFor({ state: 'hidden', timeout });
+  } catch {
+    // No spinner found — that's fine.
   }
 }
 

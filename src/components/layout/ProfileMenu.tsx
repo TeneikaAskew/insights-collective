@@ -126,7 +126,7 @@ export function ProfileMenu() {
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link to="/calendar" className="flex items-center gap-2">
+              <Link to="/dashboard?tab=calendar" className="flex items-center gap-2">
                 <Calendar className="h-4 w-4" />
                 Calendar
               </Link>

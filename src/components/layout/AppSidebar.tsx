@@ -93,11 +93,6 @@ const AppSidebar = () => {
     icon: Twitter,
     active: location.pathname === '/teneika-tweets'
   }, {
-    title: "Calendar",
-    url: "/calendar",
-    icon: Calendar,
-    active: location.pathname === '/calendar'
-  }, {
     title: "Notifications",
     url: "/notifications",
     icon: Bell,

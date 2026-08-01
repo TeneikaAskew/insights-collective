@@ -36,7 +36,6 @@ export const PAGE_MANIFEST: ManifestPage[] = [
   { path: '/dashboard', name: 'Dashboard' },
   { path: '/user-dashboard', name: 'User Dashboard' },
   { path: '/notifications', name: 'Notifications' },
-  { path: '/calendar', name: 'Calendar' },
   { path: '/profile', name: 'Profile' },
   {
     path: '/courses',
