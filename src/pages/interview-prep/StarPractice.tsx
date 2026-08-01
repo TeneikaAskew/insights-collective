@@ -202,13 +202,18 @@ export default function StarPractice() {
     try {
       logger.log("Loading study guides for user:", user.id);
 
+      // maybeSingle, not single. A user who has not generated a study guide has
+      // no row, and single() turns that into an HTTP 406 (PGRST116) which the
+      // throw below converted into a red "Failed to load questions. Please try
+      // again." toast — telling someone something broke when in fact they have
+      // simply not made one yet. Retrying could never have helped.
       const { data: studyGuides, error } = await supabase
         .from('study_guides')
         .select('questions')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
 
@@ -360,7 +365,7 @@ export default function StarPractice() {
           ...response,
         })
         .select()
-        .single();
+        .maybeSingle();
 
       if (saveError) throw saveError;
       logger.log("Saved response:", savedResponse);

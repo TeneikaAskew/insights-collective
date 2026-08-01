@@ -116,11 +116,10 @@ const ReportCanvas: React.FC<ReportCanvasProps> = ({ report, revealStage }) => {
               </span>
             )}
           </div>
-          {typeof topRole.matchPercentage === 'number' && topRole.matchPercentage > 0 && (
-            <div className="mt-3">
-              <Meter label="Match with your answers" pct={Math.min(topRole.matchPercentage, 100)} />
-            </div>
-          )}
+          {/* The "Match with your answers" meter is gone. It rendered a number
+              the model invented — nothing measured the fit, and a filled bar
+              reads as a computed score. The description below says why the role
+              was recommended, in words the model can actually justify. */}
           {topRole.description && (
             <p className="text-sm text-muted-foreground mt-2 leading-relaxed">{topRole.description}</p>
           )}
