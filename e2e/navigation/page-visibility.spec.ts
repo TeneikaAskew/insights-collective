@@ -97,15 +97,43 @@ test.describe('Page visibility enforcement', () => {
     await expect(page.getByTestId('coming-soon')).toHaveCount(0);
   });
 
-  test('auth surfaces are never gated', async ({ page }) => {
-    // Even with every row hidden, /login must render
-    await stubVisibility(page, hiddenBlog);
+  // Signed OUT, deliberately, via its own context rather than the shared `page`.
+  //
+  // This is what made the test flaky. It ran under chromium-member, whose
+  // storageState is a signed-in member, while asserting that the login FORM is
+  // visible — and Login.tsx navigates authenticated users off /login as soon as
+  // isAuthenticated resolves. So it passed only inside the window before
+  // AuthProvider finished restoring the session from storage, and failed once the
+  // restore won that race. Nothing about the assertion was wrong; the browser it
+  // ran in was.
+  //
+  // Every other signed-out assertion in this suite already does it this way
+  // (dashboard, profile, notifications, messages, calendar, admin-dashboard).
+  // This test was the lone outlier.
+  //
+  // Fixing the timing instead — waiting longer, or racing the redirect — would
+  // only have made a signed-in browser assert a signed-out expectation more
+  // reliably.
+  test('auth surfaces are never gated', async ({ browser }) => {
+    // Explicit empty state rather than a bare newContext(): both are signed out,
+    // but this cannot be misread as "inherit whatever the project configured".
+    const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+    const page = await context.newPage();
 
-    await page.goto('/login');
-    await waitForPageLoad(page);
+    try {
+      // Even with every row hidden, /login must render.
+      await stubVisibility(page, hiddenBlog);
 
-    await expect(page.getByTestId('coming-soon')).toHaveCount(0);
-    await expect(page.locator('input[type="email"], input[name="email"]').first()).toBeVisible();
+      await page.goto('/login');
+      await waitForPageLoad(page);
+
+      await expect(page.getByTestId('coming-soon')).toHaveCount(0);
+      await expect(
+        page.locator('input[type="email"], input[name="email"]').first(),
+      ).toBeVisible();
+    } finally {
+      await context.close();
+    }
   });
 
   test('Coming Soon offers a way back to the dashboard', async ({ page }) => {
