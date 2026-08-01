@@ -80,6 +80,9 @@ export function BlogAnalyticsDashboard({ postId }: BlogAnalyticsDashboardProps) 
     bounceRate: 0,
     viewsChange: 0,
     visitorsChange: 0,
+    // False when the prior-period query failed, so the cards can say the
+    // comparison is unavailable instead of rendering a computed-looking 0.0%.
+    comparisonAvailable: true,
   });
   const { toast } = useToast();
 
@@ -165,7 +168,19 @@ export function BlogAnalyticsDashboard({ postId }: BlogAnalyticsDashboardProps) 
         .gte('date', format(priorStart, 'yyyy-MM-dd'))
         .lte('date', format(priorEnd, 'yyyy-MM-dd'));
       if (postId) priorQuery = priorQuery.eq('blog_post_id', postId);
-      const { data: priorData } = await priorQuery;
+      const { data: priorData, error: priorError } = await priorQuery;
+
+      // A failed prior-period read produced priorViews = 0, which the deltas
+      // below turn into a confident percentage against nothing — rendered as a
+      // red "0.0% from previous period" that an author reads as a measured
+      // trend. The comparison is optional context, so it degrades rather than
+      // failing the page, but the cards have to SAY it is missing; an earlier
+      // draft of this fix only logged, which left the same fabricated 0.0% on
+      // screen under a comment claiming it had been omitted.
+      const comparisonAvailable = !priorError;
+      if (priorError) {
+        logger.error('Prior-period comparison unavailable; deltas suppressed', priorError);
+      }
 
       const priorViews = priorData?.reduce((s, i) => s + (i.views || 0), 0) || 0;
       const priorVisitors = priorData?.reduce((s, i) => s + (i.unique_visitors || 0), 0) || 0;
@@ -180,6 +195,7 @@ export function BlogAnalyticsDashboard({ postId }: BlogAnalyticsDashboardProps) 
         bounceRate: avgBounceRate,
         viewsChange,
         visitorsChange,
+        comparisonAvailable,
       });
 
       // Load top posts if not viewing specific post
@@ -332,18 +348,21 @@ export function BlogAnalyticsDashboard({ postId }: BlogAnalyticsDashboardProps) 
           <CardContent>
             <div className="text-2xl font-bold">{metrics.totalViews.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground flex items-center gap-1">
-              {metrics.viewsChange > 0 ? (
+              {!metrics.comparisonAvailable ? (
+                <span>Comparison with the previous period is unavailable</span>
+              ) : metrics.viewsChange > 0 ? (
                 <>
                   <TrendingUp className="h-3 w-3 text-ss-good" />
                   <span className="text-ss-good">+{metrics.viewsChange.toFixed(1)}%</span>
+                  from previous period
                 </>
               ) : (
                 <>
                   <TrendingDown className="h-3 w-3 text-ss-bad" />
                   <span className="text-ss-bad">{metrics.viewsChange.toFixed(1)}%</span>
+                  from previous period
                 </>
               )}
-              from previous period
             </p>
           </CardContent>
         </Card>
@@ -356,18 +375,21 @@ export function BlogAnalyticsDashboard({ postId }: BlogAnalyticsDashboardProps) 
           <CardContent>
             <div className="text-2xl font-bold">{metrics.totalVisitors.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground flex items-center gap-1">
-              {metrics.visitorsChange > 0 ? (
+              {!metrics.comparisonAvailable ? (
+                <span>Comparison with the previous period is unavailable</span>
+              ) : metrics.visitorsChange > 0 ? (
                 <>
                   <TrendingUp className="h-3 w-3 text-ss-good" />
                   <span className="text-ss-good">+{metrics.visitorsChange.toFixed(1)}%</span>
+                  from previous period
                 </>
               ) : (
                 <>
                   <TrendingDown className="h-3 w-3 text-ss-bad" />
                   <span className="text-ss-bad">{metrics.visitorsChange.toFixed(1)}%</span>
+                  from previous period
                 </>
               )}
-              from previous period
             </p>
           </CardContent>
         </Card>

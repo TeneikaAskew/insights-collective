@@ -74,7 +74,12 @@ interface ReportCanvasProps {
 const ReportCanvas: React.FC<ReportCanvasProps> = ({ report, revealStage }) => {
   const live = (stage: CanvasStage) => !!report && revealStage > CANVAS_STAGES.indexOf(stage);
 
-  const { bySlug: wagesBySlug } = useCareerRoleWages();
+  // isError was ignored, so a failed wage query silently removed the pay band
+  // AND the role title from the Top match card — both are resolved from
+  // career_role_wages by slug — leaving the slug itself on screen with no
+  // explanation. ExploreDataCareers already says so out loud when this happens
+  // (its `wages-unavailable` notice); this is the same statement, card-sized.
+  const { bySlug: wagesBySlug, isError: wagesFailed } = useCareerRoleWages();
   const topRole = report?.recommendedRoles?.[0];
   const topWage = topRole ? wagesBySlug.get(topRole.roleSlug) : undefined;
   const pathSteps = (report?.futureCareerPath?.length ? report.futureCareerPath : report?.careerPathSteps) ?? [];
@@ -116,6 +121,11 @@ const ReportCanvas: React.FC<ReportCanvasProps> = ({ report, revealStage }) => {
               </span>
             )}
           </div>
+          {wagesFailed && (
+            <p role="status" data-testid="canvas-wages-unavailable" className="text-xs text-muted-foreground mt-1">
+              Pay figures couldn't be loaded, so the salary range is missing here.
+            </p>
+          )}
           {/* The "Match with your answers" meter is gone. It rendered a number
               the model invented — nothing measured the fit, and a filled bar
               reads as a computed score. The description below says why the role

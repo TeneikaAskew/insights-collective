@@ -165,11 +165,20 @@ export function BlogSettings() {
   const onSubmit = async (data: BlogSettingsFormData) => {
     setSaving(true);
     try {
-      // First, check if settings exist
-      const { data: existingSettings } = await supabase
+      // First, check if settings exist.
+      //
+      // The error was unchecked and `.single()` fails on BOTH "no rows" (PGRST116)
+      // and on anything else — RLS denial, timeout, a second row already present.
+      // Every one of those produced `existingSettings === null` and dropped into
+      // the insert branch below, so a failed read on a NON-empty table wrote a
+      // duplicate settings row rather than updating the existing one. Only the
+      // genuine no-rows code may take that path.
+      const { data: existingSettings, error: lookupError } = await supabase
         .from('blog_settings')
         .select('id')
-        .single();
+        .maybeSingle();
+
+      if (lookupError) throw lookupError;
 
       if (existingSettings) {
         // Update existing settings

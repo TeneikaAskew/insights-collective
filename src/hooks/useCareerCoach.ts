@@ -59,7 +59,15 @@ export function useCareerCoach() {
               }
             }
           } catch (error) {
-            logger.error('Error syncing quiz results to Supabase:', error);
+            // Deliberately non-fatal, and worth stating why rather than leaving
+            // a bare log: the coach still opens and still answers, it just does
+            // so without the quiz context this sync would have attached. That is
+            // a quieter, more personalised-looking degradation than an outright
+            // failure, so the log says exactly what the user lost.
+            logger.error(
+              'Quiz results did not sync; the coach will run without quiz context for this session:',
+              error,
+            );
           }
         }
       }

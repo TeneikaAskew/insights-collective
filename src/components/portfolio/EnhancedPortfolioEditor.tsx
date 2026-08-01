@@ -119,7 +119,16 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
 
       logger.log('Career pathway results data:', data);
 
-      if (error || !data?.report) {
+      // `error || !data?.report` collapsed two different situations into one
+      // empty list: a query that failed, and a user who genuinely has no career
+      // report yet. The caller shows "no suggestions" either way, so a broken
+      // read looked like an empty profile. Separate them so the log says which.
+      if (error) {
+        logger.error('Career pathway results could not be read; skill suggestions unavailable', error);
+        return [];
+      }
+
+      if (!data?.report) {
         logger.log('No career pathway results found');
         return [];
       }
@@ -494,8 +503,12 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
                   <p className="text-muted-foreground mb-4">
                     You haven't added any projects yet. Head to your Kanban board and mark projects as 'Completed' to add them here.
                   </p>
+                  {/* Was /project-tracker, which is not a route — the button
+                      told users where to go and then 404'd them. The tracker is
+                      a tab on the portfolio explorer, and that tab is
+                      URL-addressable (PortfolioExplorer reads ?tab=). */}
                   <Button asChild>
-                    <a href="/project-tracker">
+                    <a href="/portfolio-explorer?tab=tracker">
                       <ExternalLink className="h-4 w-4 mr-2" />
                       Go to Project Tracker
                     </a>

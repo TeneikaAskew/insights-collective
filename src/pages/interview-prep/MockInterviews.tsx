@@ -278,7 +278,7 @@ export default function MockInterviews() {
         logger.error('Zoom meeting creation failed, using Jitsi room:', linkError);
       }
 
-      const { data: linked } = await supabase
+      const { data: linked, error: linkPersistError } = await supabase
         .from('mock_sessions')
         .update({
           meeting_url: meetingUrl,
@@ -290,11 +290,28 @@ export default function MockInterviews() {
         .select()
         .single();
 
+      // The session row is what the OTHER participant reads. This update was
+      // unchecked and supabase-js does not throw, so the surrounding catch could
+      // not fire: a failure here left the booker with a working link in local
+      // state and a success toast, while their counterpart opened a session with
+      // no meeting URL at all. The booking itself is real and already saved, so
+      // this warns rather than fails — but it must not claim success.
       setSessions([...sessions, linked || { ...session, meeting_url: meetingUrl, video_platform: platform }]);
-      toast({
-        title: 'Success',
-        description: 'Mock interview session scheduled successfully.',
-      });
+
+      if (linkPersistError) {
+        logger.error('Meeting link did not persist to the session', linkPersistError);
+        toast({
+          title: 'Session booked, but the meeting link did not save',
+          description:
+            "Your slot is reserved. The video link may not be visible to the other participant — reopen the session to add it again.",
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Success',
+          description: 'Mock interview session scheduled successfully.',
+        });
+      }
 
       // Reset form
       setSelectedDate(undefined);
