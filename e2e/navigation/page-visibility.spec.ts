@@ -97,28 +97,42 @@ test.describe('Page visibility enforcement', () => {
     await expect(page.getByTestId('coming-soon')).toHaveCount(0);
   });
 
-  test('auth surfaces are never gated', async ({ browser }) => {
-    // Signed out, in a context of its own.
-    //
-    // This file runs under chromium-member, and Login.tsx redirects an
-    // authenticated visitor to wherever they came from. So /login never showed
-    // its form here and the email assertion was racing the redirect — it read
-    // as flaky, then failed outright. The claim being made is about a
-    // signed-out visitor, so the test now uses one.
-    const context = await browser.newContext({ storageState: undefined });
-    const page = await context.newPage();
-    try {
-      // Even with every row hidden, /login must render its form.
+  // Signed OUT, deliberately.
+  //
+  // This is what made the test flaky. It ran under chromium-member, whose
+  // storageState is a signed-in member, while asserting that the login FORM is
+  // visible — and Login.tsx navigates authenticated users off /login as soon as
+  // isAuthenticated resolves. So it passed only inside the window before
+  // AuthProvider finished restoring the session from storage, and failed once the
+  // restore won that race. Nothing about the assertion was wrong; the browser it
+  // ran in was.
+  //
+  // Signed out via test.use rather than `browser.newContext()`, and that part is
+  // load-bearing: the console-error fixture attaches its listeners to the
+  // INJECTED `page` (console-errors.fixture.ts — `async ({ page }, use)` then
+  // page.on('console'|'pageerror')). A hand-built context creates a page the
+  // fixture never sees, so /login could start throwing on every load and this
+  // test would still pass. Overriding storageState removes the session and
+  // nothing else, keeping the page instrumented.
+  //
+  // Fixing the timing instead — waiting longer, or racing the redirect — would
+  // only have made a signed-in browser assert a signed-out expectation more
+  // reliably.
+  test.describe('signed out', () => {
+    test.use({ storageState: { cookies: [], origins: [] } });
+
+    test('auth surfaces are never gated', async ({ page }) => {
+      // Even with every row hidden, /login must render.
       await stubVisibility(page, hiddenBlog);
 
       await page.goto('/login');
       await waitForPageLoad(page);
 
       await expect(page.getByTestId('coming-soon')).toHaveCount(0);
-      await expect(page.locator('input[type="email"], input[name="email"]').first()).toBeVisible();
-    } finally {
-      await context.close();
-    }
+      await expect(
+        page.locator('input[type="email"], input[name="email"]').first(),
+      ).toBeVisible();
+    });
   });
 
   test('Coming Soon offers a way back to the dashboard', async ({ page }) => {
