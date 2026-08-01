@@ -21,8 +21,22 @@ import {
  */
 const SIGNED_IN_ONLY = ['/'];
 
+/**
+ * Manifest entries with no parameterless form to render.
+ *
+ * /interview-prep/mock-interview-room without a :sessionId redirects to
+ * /interview-prep/mock-interviews on purpose — MockInterviewRoom.tsx guards on
+ * it, because a room with no session has nothing to show. This spec found that
+ * and it is behaviour, not a defect. It stays named here rather than quietly
+ * dropped, so the gap is visible: the room's own mobile layout is unmeasured
+ * and would need a seeded session id to cover.
+ */
+const NO_PARAMETERLESS_FORM = ['/interview-prep/mock-interview-room'];
+
 const ROUTES: string[] = [
-  ...manifestPaths().filter((path) => !SIGNED_IN_ONLY.includes(path)),
+  ...manifestPaths().filter(
+    (path) => !SIGNED_IN_ONLY.includes(path) && !NO_PARAMETERLESS_FORM.includes(path),
+  ),
   '/privacy-policy',
   '/terms-of-service',
 ];
@@ -35,10 +49,12 @@ for (const route of ROUTES) {
   });
 }
 
-test('every manifest page is measured somewhere', () => {
+test('every manifest page is accounted for', () => {
   // A page added to the manifest without a row here would go unmeasured, and
-  // nobody would notice because the suite would still be green.
-  const covered = new Set([...ROUTES, ...SIGNED_IN_ONLY]);
+  // nobody would notice because the suite would still be green. The two
+  // exclusion lists count as accounted for — each carries a written reason —
+  // but a path in none of the three fails.
+  const covered = new Set([...ROUTES, ...SIGNED_IN_ONLY, ...NO_PARAMETERLESS_FORM]);
   for (const path of manifestPaths()) {
     expect(covered, `${path} is in the manifest but has no mobile-overflow test`).toContain(path);
   }

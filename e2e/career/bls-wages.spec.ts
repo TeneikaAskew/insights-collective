@@ -84,7 +84,13 @@ test.describe('BLS wage data', () => {
 
   test('figures are attributed to a named BLS occupation', async ({ page }) => {
     // A pay figure with no source is the thing this whole feature exists to avoid.
-    await expect(page.getByText(/BLS: .+ \(\d{2}-\d{4}\)/).first()).toBeVisible();
+    // Scoped to the visible rows. Unscoped, `.first()` resolved to the stacked
+    // mobile card's attribution line — present in the DOM at every width and
+    // hidden at desktop — so the assertion failed on a page that was showing
+    // the attribution correctly.
+    await expect(
+      page.locator('[data-testid="role-row"]:visible').getByText(/BLS: .+ \(\d{2}-\d{4}\)/).first(),
+    ).toBeVisible();
     await expect(
       page.getByRole('link', { name: /Bureau of Labor Statistics/ }),
     ).toBeVisible();
@@ -95,8 +101,11 @@ test.describe('BLS wage data', () => {
     await chooseFromSelect(page, 'Sort', 'Median pay');
     await expect(page.locator('[data-testid="role-row"]:visible')).toHaveCount(FIRST_PAGE);
 
+    // `:visible`, like every other locator here. getByTestId picked up both
+    // presentations — 18 bands for 9 rows — which broke the length assertion
+    // below and left the ordering unchecked.
     const medians = await page
-      .getByTestId('wage-band')
+      .locator('[data-testid="wage-band"]:visible')
       .evaluateAll((els) => els.map((e) => Number(e.getAttribute('data-median'))));
 
     expect(medians.length).toBe(FIRST_PAGE);
@@ -111,8 +120,11 @@ test.describe('BLS wage data', () => {
     expect(shown).toBeGreaterThan(0);
     expect(shown).toBeLessThan(TOTAL_ROLES);
 
+    // `:visible`, like every other locator here. getByTestId picked up both
+    // presentations, so this read each median twice — harmless for a
+    // per-element bound, wrong for the same reason as the sort test above.
     const medians = await page
-      .getByTestId('wage-band')
+      .locator('[data-testid="wage-band"]:visible')
       .evaluateAll((els) => els.map((e) => Number(e.getAttribute('data-median'))));
     for (const m of medians) expect(m).toBeGreaterThan(120000);
   });
