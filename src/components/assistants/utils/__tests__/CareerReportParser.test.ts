@@ -16,14 +16,14 @@ describe('parseCareerReport recommendedRoles', () => {
       JSON.stringify({
         summary: 'x',
         recommendedRoles: [
-          { roleSlug: 'data-analyst', description: 'Reporting and dashboards.', matchPercentage: 88 },
+          { roleSlug: 'data-analyst', description: 'Reporting and dashboards.' },
         ],
       }),
     );
 
     expect(report.recommendedRoles).toHaveLength(1);
     expect(report.recommendedRoles[0].roleSlug).toBe('data-analyst');
-    expect(report.recommendedRoles[0].matchPercentage).toBe(88);
+    expect(report.recommendedRoles[0].description).toBe('Reporting and dashboards.');
   });
 
   it('accepts the snake_case spelling the model sometimes emits', () => {
@@ -50,6 +50,23 @@ describe('parseCareerReport recommendedRoles', () => {
 
     expect(report.recommendedRoles).toHaveLength(1);
     expect(report.recommendedRoles[0].roleSlug).toBe('data-analyst');
+  });
+
+  it('carries no match score, even when the model volunteers one', () => {
+    const report = parseCareerReport(
+      JSON.stringify({
+        summary: 'x',
+        recommendedRoles: [
+          { roleSlug: 'data-analyst', description: 'Real.', matchPercentage: 92 },
+        ],
+      }),
+    );
+
+    // Nothing measured the fit. A percentage rendered against a filled bar
+    // reads as a computed score, so the field is dropped rather than shown —
+    // the same rule the salary figures follow.
+    expect(report.recommendedRoles[0]).not.toHaveProperty('matchPercentage');
+    expect(JSON.stringify(report)).not.toContain('92');
   });
 
   it('carries no salary field at all', () => {

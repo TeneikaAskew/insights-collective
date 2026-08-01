@@ -107,11 +107,13 @@ test.describe('Page visibility enforcement', () => {
   // restore won that race. Nothing about the assertion was wrong; the browser it
   // ran in was.
   //
-  // Signed out via test.use rather than a hand-built context: the console-error
-  // fixture instruments the injected `page`, and a manually created page would
-  // slip out from under it — /login could start throwing and this test would
-  // still pass. Overriding storageState keeps the instrumented fixture and
-  // removes only the session.
+  // Signed out via test.use rather than `browser.newContext()`, and that part is
+  // load-bearing: the console-error fixture attaches its listeners to the
+  // INJECTED `page` (console-errors.fixture.ts — `async ({ page }, use)` then
+  // page.on('console'|'pageerror')). A hand-built context creates a page the
+  // fixture never sees, so /login could start throwing on every load and this
+  // test would still pass. Overriding storageState removes the session and
+  // nothing else, keeping the page instrumented.
   //
   // Fixing the timing instead — waiting longer, or racing the redirect — would
   // only have made a signed-in browser assert a signed-out expectation more

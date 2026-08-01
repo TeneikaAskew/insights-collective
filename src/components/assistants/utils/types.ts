@@ -14,7 +14,6 @@ export interface RecommendedRole {
   focusAreas?: string[];
   responsibilities?: string[];
   requirements?: string[];
-  matchPercentage: number; // Make this required to match the expected type
 }
 
 export interface SkillCourse {

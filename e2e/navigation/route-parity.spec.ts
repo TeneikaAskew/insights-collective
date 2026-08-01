@@ -24,12 +24,25 @@ test.describe('Additional Route Coverage', () => {
     await expect(page.locator('main, [role="main"]')).toBeVisible();
   });
 
-  test('assistant-interface legacy route renders the default assistant shell', async ({ page }) => {
+  test('assistant-interface legacy alias lands where /assistants lands', async ({ page }) => {
+    // This asserted that the page renders a message composer. That is a claim
+    // about the assistant feature, not about the alias, and it broke the moment
+    // an admin toggled /assistants off in page_visibility — the alias resolves
+    // through the same gate, so both pages correctly showed "Coming Soon" and
+    // the spec called it a routing failure.
+    //
+    // What this file is for is parity: /assistant-interface must render
+    // whatever /assistants renders. Comparing the two says exactly that and
+    // stays true whichever side of the gate the section is on.
+    await goto(page, Routes.assistants);
+    await expect(page.locator('main, [role="main"]')).toBeVisible();
+    const canonical = await page.locator('main, [role="main"]').first().innerText();
+
     await goto(page, Routes.assistantInterfaceLegacy);
     await expect(page.locator('main, [role="main"]')).toBeVisible();
-    await expect(
-      page.locator('textarea, input[placeholder*="message"], input[placeholder*="question"], [contenteditable="true"]').first(),
-    ).toBeVisible();
+    const legacy = await page.locator('main, [role="main"]').first().innerText();
+
+    expect(legacy.trim()).toBe(canonical.trim());
   });
 
   test('unknown route renders not-found page with recovery link', async ({ page }) => {

@@ -84,7 +84,6 @@ export interface CareerReportData {
     /** See RecommendedRole in ./utils/types — title and pay come from the slug. */
     roleSlug: string;
     description: string;
-    matchPercentage: number;
     focusAreas?: string[];
     responsibilities?: string[];
     requirements?: string[];
