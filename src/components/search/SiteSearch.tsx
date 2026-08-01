@@ -5,6 +5,7 @@ import { Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { usePublishedCourses } from '@/hooks/usePublishedCourses';
 import { allAssistants } from '@/data/assistantData';
+import { dataCareerRoles } from '@/data/dataCareerRoles';
 
 type SearchResult = {
   id: string;
@@ -55,10 +56,14 @@ const SiteSearch = () => {
       { id: 'dashboard', title: 'Dashboard', description: 'Your personal dashboard', url: '/dashboard' },
       { id: 'resources', title: 'Resources', description: 'Browse all learning resources', url: '/resources' },
       { id: 'events', title: 'Events', description: 'Upcoming events and webinars', url: '/events' },
-      { id: 'forum', title: 'Forum', description: 'Community discussions', url: '/forum' },
+      // No Forum entry. App.tsx redirects /forum, /forums and /forum/:id to
+      // /dashboard under "Forums disabled", and it is absent from
+      // PAGE_MANIFEST — so searching "forum" advertised a feature that does
+      // not exist and dropped the reader on the dashboard.
       { id: 'resume', title: 'Resume Builder', description: 'Build and analyze your resume', url: '/resume' },
-      { id: 'career-pathway-coach', title: 'Career Pathway', description: 'AI-powered career guidance', url: '/career-pathway' },
-      { id: 'career-pathway', title: 'Career Pathway', description: 'Explore data career pathways', url: '/career-pathway' },
+      // One Career Pathway row, not two. The same URL appeared twice under the
+      // same title, so every search for "career" returned it twice.
+      { id: 'career-pathway', title: 'Career Pathway', description: 'AI-powered career guidance', url: '/career-pathway' },
       { id: 'explore-data-careers', title: 'Explore Data Careers', description: 'Browse data career roles', url: '/explore-data-careers' },
       { id: 'assistants', title: 'AI Assistants', description: 'AI-powered learning assistants', url: '/assistants' },
       { id: 'interview-prep', title: 'Interview Prep', description: 'Practice for technical interviews', url: '/interview-prep' },
@@ -94,17 +99,13 @@ const SiteSearch = () => {
       }
     });
 
-    // Data Career Roles
-    const careerRoles = [
-      { id: "data-analyst", title: "Data Analyst" },
-      { id: "data-scientist", title: "Data Scientist" },
-      { id: "data-engineer", title: "Data Engineer" },
-      { id: "machine-learning-engineer", title: "Machine Learning Engineer" },
-      { id: "analytics-engineer", title: "Analytics Engineer" },
-      { id: "data-product-manager", title: "Data Product Manager" }
-    ];
-
-    careerRoles.forEach(role => {
+    // Career roles, read from the catalogue the page itself renders.
+    //
+    // This used to be six roles typed out by hand against a catalogue of 33,
+    // so 29 were unfindable — and two of the six, `analytics-engineer` and
+    // `data-product-manager`, were slugs that no longer existed, so searching
+    // them produced a result that deep-linked to nothing.
+    dataCareerRoles.forEach(role => {
       if (role.title.toLowerCase().includes(searchLower)) {
         results.push({
           id: role.id,
@@ -240,11 +241,12 @@ const SiteSearch = () => {
                   {groupedResults[type].map((result) => (
                     <div
                       key={`${result.type}-${result.id}`}
+                      data-testid="search-result"
                       className="relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
                       onClick={() => handleSelectItem(result)}
                     >
                       <div className="flex flex-col">
-                        <span>{result.title}</span>
+                        <span data-testid="search-result-title">{result.title}</span>
                         {result.description && (
                           <span className="text-xs text-muted-foreground truncate max-w-md">
                             {result.description}
