@@ -21,6 +21,8 @@ reviewer, does.
 | `04-credential-handling.md` | What went wrong with secrets in this session and the rules that would have prevented it. |
 | `05-proposed-claude-md-additions.md` | Ready-to-paste sections for `CLAUDE.md`. Start here if you only want the actionable output. |
 | `06-ci-triage-and-silent-controls.md` | A later session: triaging five failures with three unrelated causes. Backend logs before backend theories; tests that passed by accident; controls that revert instead of reject; assertions that say what they saw. |
+| `07-stale-context-and-provenance.md` | A landing-page and BLS-data session: four confident, carefully-evidenced claims made against a branch 767 commits behind `origin/main`. Fetch before auditing; name the ref your finding belongs to. |
+| `08-checks-that-check-nothing.md` | Verification theatre from the same session — a typecheck that checked zero files, tests that passed whether the feature worked or not, and fabricated data nobody grepped for. |
 
 ## How to use this
 

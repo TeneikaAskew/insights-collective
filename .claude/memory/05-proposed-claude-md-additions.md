@@ -170,3 +170,59 @@ columns are silently restored to their previous values.
   "Expected: true", which cannot distinguish "still loading" from "error shown"
   from "rendered empty".
 ```
+
+---
+
+## Section: Establishing the baseline before auditing
+
+```markdown
+### Establish the Baseline Before Auditing
+
+Every claim about what exists in this repository is a claim about a specific
+ref. Branches here can be hundreds of commits apart.
+
+- **`git fetch` before answering "does X exist" or "how much of Y is done".**
+  Then state the ref the finding belongs to. A count with no ref attached is not
+  a fact.
+- **Check the gap before auditing.**
+  `git rev-list --left-right --count origin/main...HEAD`. Past a few dozen
+  commits, treat every "X is missing" as unverified until re-checked against
+  `origin/main`.
+- **Before inventing a convention — a token set, a wrapper, a helper — grep the
+  other refs for it.** `git grep -l <pattern> origin/main -- src` is free, and
+  landing a second implementation of an existing convention is expensive.
+- **Reachability is a property of one tree.** "Not routed in `App.tsx`" is only
+  true of the tree you read. Prefer a rendered-element check (`element={<X`)
+  over a substring grep, which matches `XDashboard` too.
+- **Before numbering a Supabase migration, read the remote's applied versions.**
+  Timestamp names collide across parallel branches. `db push` skips a version it
+  has already seen — leaving no tables, no error, and no output distinguishable
+  from success. Absent tables plus a recorded version is a collision.
+- **When the user says something exists that you reported missing, re-derive
+  before defending.** Ask which copy each of you is looking at; a code audit
+  cannot answer a question about designs.
+```
+
+---
+
+## Section: Checks must be able to fail
+
+```markdown
+### A Check Is Only Evidence If It Can Fail
+
+- **Prove a new check works by breaking something and watching it go red.** A
+  green result you have never seen fail is an untested path.
+- **Typecheck with `npm run typecheck` (`tsc -b`), never `tsc --noEmit`.**
+  `tsconfig.json` is a solution file (`"files": []` + `references`), so
+  `--noEmit` against it checks **zero files** and always passes. `npm run build`
+  is not a typecheck either — Vite strips types without checking them.
+- **A test wrapped in `if (await x.count() > 0)` is a request to pass**, and a
+  test body with no `expect` asserts nothing. Both exist in this suite. Before
+  trusting a new spec, make the feature unavailable and confirm it fails.
+- **After introducing a command that writes files, run `git status` before
+  staging.** `tsc -b` emits `*.tsbuildinfo`; `git add -A` will commit it.
+- **Audit for fabricated data by shape, not wording**: `Math.random`,
+  `$[0-9]{2,3}[Kk]`, `|| 'Not specified'`, and `sample`/`demo`/`placeholder`
+  used as a default prop. For every figure rendered, name the query that
+  produced it; if there is none, the product is making an unevidenced claim.
+```
