@@ -44,75 +44,39 @@ const initials = (contact: CourseContact) =>
 /**
  * Everyone in `courseId` the signed-in user is allowed to open a thread with.
  *
- * Mirrors open_course_thread: membership of the course is the whole rule, so everyone in
- * it can address everyone else in it. Returns [] rather than throwing when the caller is
- * not in the course — the RPC would refuse anyway, and an empty picker says so quietly.
+ * One `course_contacts` RPC, not three table reads, and the difference is not tidiness.
+ *
+ * This used to assemble the list client-side from `courses` + `enrollments` +
+ * `course_assignments`. It could never show a student their classmates, because
+ * `enrollments` is RLS-restricted to `user_id = auth.uid()` OR staff — a student reading
+ * it back gets exactly one row, their own. So `enrolledIds` collapsed to `[me]` and the
+ * picker offered nothing but teaching staff, however many people were in the course, and
+ * regardless of the profile-visibility widening in 20260802140000. Measured against
+ * production: 1 enrollment visible, 0 assignments, 16 profiles.
+ *
+ * `course_contacts` (20260802160000) is SECURITY DEFINER and answers with the same
+ * membership rule `open_course_thread` enforces, so the picker offers exactly who the RPC
+ * would accept — no more, and no fewer. A caller who neither takes nor teaches the course
+ * gets zero rows, which is why this still returns [] rather than throwing for them.
+ *
+ * `userId` is no longer read: the function derives the caller from `auth.uid()`, so the
+ * client cannot ask on someone else's behalf. It stays in the signature because callers
+ * pass it and removing it is a wider change than this fix.
  */
 export async function fetchCourseContacts(
   courseId: string,
-  userId: string,
+  _userId: string,
 ): Promise<CourseContact[]> {
-  const { data: course, error: courseError } = await supabase
-    .from('courses')
-    .select('id, instructor_id')
-    .eq('id', courseId)
-    .maybeSingle();
+  const { data, error } = await supabase.rpc('course_contacts', { p_course_id: courseId });
 
-  if (courseError) throw courseError;
-  if (!course) return [];
+  if (error) throw error;
 
-  const [{ data: enrollments, error: enrollmentError }, { data: assignments, error: assignmentError }] =
-    await Promise.all([
-      supabase.from('enrollments').select('user_id').eq('course_id', courseId),
-      // A course can be taught by more than one person. `courses.instructor_id` is only
-      // the primary; open_course_thread accepts anyone is_course_instructor() accepts,
-      // which is that column OR a course_assignments row with role 'instructor'. Reading
-      // only the column meant an assigned co-instructor was treated as a stranger to
-      // their own course and got an empty picker, while students were never offered them.
-      supabase
-        .from('course_assignments')
-        .select('user_id')
-        .eq('course_id', courseId)
-        .eq('role', 'instructor'),
-    ]);
-
-  if (enrollmentError) throw enrollmentError;
-  if (assignmentError) throw assignmentError;
-
-  const enrolledIds: string[] = (enrollments ?? []).map((row: any) => row.user_id);
-  const instructorIds: string[] = [
-    ...new Set(
-      [course.instructor_id, ...(assignments ?? []).map((row: any) => row.user_id)].filter(
-        Boolean,
-      ) as string[],
-    ),
-  ];
-
-  const isInstructor = instructorIds.includes(userId);
-  const isEnrolled = enrolledIds.includes(userId);
-
-  if (!isInstructor && !isEnrolled) return [];
-
-  // Everyone in the course, minus yourself. Students used to be offered only the
-  // teaching staff, mirroring an open_course_thread that refused student-to-student
-  // threads; that rule was dropped (20260802020300) so classmates can talk, and this
-  // has to match or the picker hides people the database would happily accept.
-  const contactIds = [
-    ...new Set([...enrolledIds, ...instructorIds].filter((id) => id !== userId)),
-  ];
-
-  if (contactIds.length === 0) return [];
-
-  const { data: profiles, error: profileError } = await supabase
-    .from('profiles')
-    .select('id, first_name, last_name, avatar_url')
-    .in('id', contactIds);
-
-  if (profileError) throw profileError;
-
-  return (profiles ?? []).map((profile: any) => ({
-    ...profile,
-    role: instructorIds.includes(profile.id) ? ('instructor' as const) : ('student' as const),
+  return (data ?? []).map((row: any) => ({
+    id: row.id,
+    first_name: row.first_name,
+    last_name: row.last_name,
+    avatar_url: row.avatar_url,
+    role: row.role === 'instructor' ? ('instructor' as const) : ('student' as const),
   }));
 }
 
