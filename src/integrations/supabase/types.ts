@@ -6180,7 +6180,6 @@ export type Database = {
         }[]
       }
       get_user_id: { Args: { email: string }; Returns: string }
-      get_user_role: { Args: { user_id: string }; Returns: string }
       get_user_roles: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"][]

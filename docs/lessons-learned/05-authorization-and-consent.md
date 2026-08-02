@@ -125,3 +125,39 @@ no `course_id`, and a participant who is not in that course.
 **Lesson:** ask which layer a bypass runs at before choosing where to enforce. If
 any writer runs as the service role, RLS is advice; a trigger or a constraint is
 the rule.
+
+## `%name%` is not a search for callers of `name`
+
+Reporting on the messaging work I claimed a broken helper, `get_user_role()`, was
+used by "11 policies across blog posts, quiz submissions, forms and progressions".
+It was not. The search behind that number was:
+
+```sql
+where pg_get_expr(p.polqual, p.polrelid) like '%get_user_role%'
+```
+
+which also matches **`get_user_roles`** — a different function, plural, that reads
+`public.user_roles` correctly and has never been broken. Nine of the eleven hits
+were that function. The two real callers were policies on
+`conversation_participants`, and they had already been rewritten.
+
+The corrected search is for the call, not the name:
+
+```sql
+where pg_get_expr(p.polqual, p.polrelid) ~ 'get_user_role\('
+```
+
+Run against policies, functions, views, constraints and column defaults, it
+returned nothing at all — which is how the fix went from "audit nine policies for
+an access change" to "delete a dead function".
+
+Two things went wrong, and only one of them is the regex. Nine policies suddenly
+implicated in an authorization bug is a surprising result, and a surprising result
+is the moment to re-derive the number, not to report it. I reported it — hedged,
+but reported — and the hedge is what made it sound careful rather than unchecked.
+
+**Lesson:** when a substring search produces an alarming count, the count is a
+hypothesis. Confirm it against the thing itself — here, calling the function and
+watching it raise — before it reaches anyone else. A wrong number delivered with
+appropriate caution is still a wrong number, and caution makes it more credible,
+not less.

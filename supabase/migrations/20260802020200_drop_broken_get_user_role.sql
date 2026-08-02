@@ -1,0 +1,62 @@
+-- Delete public.get_user_role(uuid). It has never been able to return a value.
+--
+--   CREATE FUNCTION public.get_user_role(user_id uuid) RETURNS text
+--     SECURITY DEFINER AS $$ SELECT role FROM public.profiles WHERE id = user_id $$;
+--
+-- `public.profiles` has no `role` column — checked, it is 0 rows in
+-- information_schema.columns. Roles moved to `public.user_roles` (99 rows over
+-- 90 accounts) and the singular column went with them; 20240607_convert_role_to_roles.sql
+-- is the migration that started that move, and it is commented out top to bottom,
+-- which is a fair summary of how tidily it finished. The function was last
+-- redefined against the missing column in
+-- 20250621123604-fca7b100-d438-44bd-95e2-8fa40576e965.sql and has raised
+-- `column "role" does not exist` on every call since. Verified on the live
+-- database on 2026-08-02, called as both `authenticated` and `anon`.
+--
+-- Why delete rather than repair
+-- -----------------------------
+-- Nothing calls it. Swept the whole database for `get_user_role(` — policies,
+-- functions, views, constraints, column defaults — and the whole repo, including
+-- the Edge Functions: no callers. Its last two callers were policies on
+-- `conversation_participants`, rewritten onto has_role() in 20260802020000.
+--
+-- The name survives in `src/integrations/supabase/types.ts` and
+-- `src/test/fixtures/db-functions.json`, but those are inventories of what
+-- exists, not uses; both are updated alongside this migration.
+--
+-- Repairing it would mean answering "which one of this user's roles?", and the
+-- honest answer is that the question is malformed: 7 accounts hold more than one
+-- role today (e2e-admin is student + admin + instructor). A function returning a
+-- single `text` cannot describe that, so any repair invents an arbitrary winner
+-- and becomes a second, disagreeing source of truth for authorization sitting
+-- right next to the correct one. `public.get_user_roles(uuid) RETURNS app_role[]`
+-- already reads user_roles properly, and `has_admin_access()` and `has_role()`
+-- are built on it — those are what the nine policies mentioning roles actually
+-- use, and they were never broken.
+--
+-- The reason not to simply leave a dead function alone: EXECUTE on it is granted
+-- to `anon` and `authenticated`, so it is a publicly callable SECURITY DEFINER
+-- entry point that always errors. Left in place it is bait — the next person to
+-- need "this user's role" finds a plausible helper, discovers it is broken, and
+-- fixes it, and the fix is a role check nobody reviewed.
+--
+-- Blast radius: none. The same eleven access probes were run under simulated
+-- JWTs before and after the drop, inside rolled-back transactions, and every
+-- result is identical:
+--
+--   admin reads forms .............................. rows 6   -> rows 6
+--   admin reads no_show_reports .................... rows 0   -> rows 0
+--   admin reads cron_job_logs ...................... rows 0   -> rows 0
+--   admin reads blog_posts ......................... rows 10  -> rows 10
+--   instructor reads quiz_submissions .............. rows 4   -> rows 4
+--   instructor reads quiz_submission_answers ....... rows 5   -> rows 5
+--   instructor reads content_item_progressions ..... rows 46  -> rows 46
+--   instructor reads module_progressions ........... rows 0   -> rows 0
+--   plain student reads cron_job_logs .............. rows 0   -> rows 0
+--   plain student reads no_show_reports ............ rows 0   -> rows 0
+--   plain student reads quiz_submission_answers .... rows 0   -> rows 0
+--
+-- Course messaging and leaving a thread were re-checked after the drop too, since
+-- the policies rewritten in 20260802020000 are the ones that used to call it.
+
+DROP FUNCTION IF EXISTS public.get_user_role(uuid);
