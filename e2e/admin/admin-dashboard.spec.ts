@@ -51,43 +51,56 @@ test.describe('Admin Dashboard', () => {
     await expect(page.getByRole('link', { name: /Control who sees each page/i })).toBeVisible();
   });
 
-  test('stats cards render (users, courses, etc.)', async ({ page }) => {
+  test('stat tiles render with their labels', async ({ page }) => {
     await goto(page, Routes.admin);
-    const stats = page.locator('[class*="stat"], [class*="metric"], [class*="card"], [class*="Card"]').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await stats.count() > 0) {
-      await expect(stats).toBeVisible();
+    // The four tiles by name. The old locator's widest alternative,
+    // [class*="card"], matches every shadcn Card on the page — including the
+    // page shell — so it was satisfied whether or not a single statistic
+    // rendered.
+    for (const label of ['Total Resources', 'Categories', 'Resource Types', 'With Deadlines']) {
+      await expect(page.getByText(label, { exact: true }).first()).toBeVisible();
     }
   });
 
-  test('charts render on dashboard', async ({ page }) => {
-    await goto(page, Routes.admin);
-    const chart = page.locator('[class*="chart"], [class*="Chart"], svg, canvas').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await chart.count() > 0) {
-      await expect(chart).toBeVisible();
-    }
-  });
+  // There are no charts on this page. Measured: 0 .recharts-wrapper elements.
+  // The old locator was `[class*="chart"], [class*="Chart"], svg, canvas` — and
+  // `svg` matches every lucide icon in the navbar, so the test passed on an
+  // icon and would have gone on passing if a chart were never added.
+  //
+  // Skipped rather than deleted: "the admin dashboard should show charts" may
+  // well be intended, and a named skip keeps that visible where a deletion
+  // would quietly drop it.
+  test.skip(
+    'charts render on dashboard',
+    {
+      annotation: {
+        type: 'skip-reason',
+        description:
+          'UI gap: /admin renders no chart (0 .recharts-wrapper). The previous assertion passed on a lucide icon because its locator included a bare `svg`.',
+      },
+    },
+    async ({ page }) => {
+      await goto(page, Routes.admin);
+      await expect(page.locator('.recharts-wrapper').first()).toBeVisible();
+    },
+  );
 
   test('recent activity feed renders', async ({ page }) => {
     await goto(page, Routes.admin);
-    const activity = page.locator('[class*="activity"], [class*="feed"], [role="list"]').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await activity.count() > 0) {
-      await expect(activity).toBeVisible();
+    // The section by its heading, plus the table it contains. `[role="list"]`
+    // in the old locator matches any list on the page, navigation included.
+    await expect(page.getByRole('heading', { name: 'Recent Activity' })).toBeVisible();
+    for (const col of ['Content', 'Type', 'Source']) {
+      await expect(page.locator('th').filter({ hasText: col }).first()).toBeVisible();
     }
   });
 
   test('admin navigation links are visible', async ({ page }) => {
     await goto(page, Routes.admin);
-    const navLinks = page.locator('a[href*="/admin/"]');
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await navLinks.count() > 0) {
-      await expect(navLinks.first()).toBeVisible();
-    }
+    const navLinks = page.locator('a[href*="/admin/"]').filter({ visible: true });
+    await expect(navLinks.first()).toBeVisible();
+    // Measured at 20. A floor rather than the exact count, so adding an admin
+    // section does not fail the test, but losing the whole nav does.
+    expect(await navLinks.count()).toBeGreaterThanOrEqual(5);
   });
 });
