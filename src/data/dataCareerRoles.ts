@@ -30,19 +30,6 @@ export interface DataCareerRole {
       timePeriod?: string;
     }[];
   };
-  /**
-   * @deprecated Placeholder course stubs from before the platform had a courses
-   * table. The ids here ("da101", "ml201", …) are not real course ids, so the
-   * links they used to render 404'd. Recommendations now come from
-   * `useRoleCourses`, which reads published platform courses and falls back to
-   * the Coursera catalog per subject. Kept only so nothing that still reads the
-   * field breaks; see `roleLearningPaths` to change what a role recommends.
-   */
-  courses?: {
-    id: string;
-    title: string;
-    description: string;
-  }[];
 }
 
 // Career roles data
@@ -146,18 +133,6 @@ export const dataCareerRoles: DataCareerRole[] = [
         }
       ]
     },
-    courses: [
-      {
-        id: "da101",
-        title: "Introduction to Data Analysis",
-        description: "Learn the fundamentals of analyzing data to extract insights."
-      },
-      {
-        id: "sql101",
-        title: "SQL for Data Analysis",
-        description: "Master SQL queries for retrieving and manipulating data."
-      }
-    ]
   },
   {
     id: "machine-learning-engineer",
@@ -258,18 +233,6 @@ export const dataCareerRoles: DataCareerRole[] = [
         }
       ]
     },
-    courses: [
-      {
-        id: "ml201",
-        title: "Deep Learning Fundamentals",
-        description: "Explore neural networks and deep learning architectures."
-      },
-      {
-        id: "mlops301",
-        title: "MLOps and Model Deployment",
-        description: "Learn to deploy and maintain machine learning models in production."
-      }
-    ]
   },
   {
     id: "data-engineer",
@@ -387,18 +350,6 @@ export const dataCareerRoles: DataCareerRole[] = [
         }
       ]
     },
-    courses: [
-      {
-        id: "de101",
-        title: "Introduction to Data Engineering",
-        description: "Learn the fundamentals of data pipelines and data architecture."
-      },
-      {
-        id: "de201",
-        title: "ETL Processes and Tools",
-        description: "Build efficient data pipelines using modern ETL tools."
-      }
-    ]
   },
   {
     id: "bi-analyst",
@@ -500,18 +451,6 @@ export const dataCareerRoles: DataCareerRole[] = [
         }
       ]
     },
-    courses: [
-      {
-        id: "bi101",
-        title: "Introduction to Business Intelligence",
-        description: "Learn the fundamentals of BI tools and reporting techniques."
-      },
-      {
-        id: "viz101",
-        title: "Dashboard Design Fundamentals",
-        description: "Create effective dashboards that communicate insights clearly."
-      }
-    ]
   },
   {
     id: "data-scientist",
@@ -628,18 +567,6 @@ export const dataCareerRoles: DataCareerRole[] = [
         }
       ]
     },
-    courses: [
-      {
-        id: "ml101",
-        title: "Introduction to Machine Learning",
-        description: "Learn the fundamentals of machine learning algorithms and techniques."
-      },
-      {
-        id: "stat101",
-        title: "Statistics for Machine Learning",
-        description: "Understand the statistical concepts behind machine learning models."
-      }
-    ]
   },
   // Update remaining roles
   {

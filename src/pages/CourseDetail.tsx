@@ -9,10 +9,9 @@ import ModuleCard from '@/components/common/ModuleCard';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { BookOpen, Clock, Users, Star, Calendar, ChevronLeft, Share, MessageSquare, Edit, Bell, FileText, BarChart3, Pin, PlusCircle, Trash2, ArrowRight, PlayCircle, Award, ClipboardCheck } from 'lucide-react';
+import { BookOpen, Clock, Users, Star, Calendar, ChevronLeft, Share, MessageSquare, Edit, Bell, FileText, BarChart3, Pin, PlusCircle, Trash2, ArrowRight, PlayCircle, Award, ClipboardCheck, LineChart } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -1180,6 +1179,23 @@ const CourseDetail = () => {
                           <li>
                             <Link to={`/courses/${courseId}/gradebook`} className="flex items-center gap-2 text-foreground hover:text-foreground hover:underline">
                               <BarChart3 className="h-4 w-4 text-muted-foreground" /> Gradebook
+                            </Link>
+                          </li>
+                          {/* Both of these existed and worked, and neither was
+                              reachable: StudentInsights was routed but linked
+                              from nowhere, and CourseInstructorsTab was not even
+                              routed. The dead-file audit reported the latter as
+                              deletable; the capability check saved it, because
+                              nothing else in src/ touches `course_instructors`.
+                              An orphaned capability wants a link, not a delete. */}
+                          <li>
+                            <Link to={`/courses/${courseId}/insights`} className="flex items-center gap-2 text-foreground hover:text-foreground hover:underline">
+                              <LineChart className="h-4 w-4 text-muted-foreground" /> Student insights
+                            </Link>
+                          </li>
+                          <li>
+                            <Link to={`/courses/${courseId}/instructors`} className="flex items-center gap-2 text-foreground hover:text-foreground hover:underline">
+                              <Users className="h-4 w-4 text-muted-foreground" /> Instructors
                             </Link>
                           </li>
                         </>
