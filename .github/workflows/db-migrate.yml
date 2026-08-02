@@ -62,11 +62,23 @@ jobs:
             echo "::error::$FILE does not exist on this ref"
             exit 1
           fi
-          # Supabase records the leading timestamp, not the whole filename.
-          VERSION="${NAME%%_*}"
+          # Supabase records the leading timestamp, not the whole filename, and
+          # the separator is not always an underscore: 53 of these files are the
+          # legacy Lovable form, 20250614185655-10e59561-db23-....sql. Cutting
+          # at the first underscore returns the whole filename for those, which
+          # then matches no recorded version — so the duplicate check would pass
+          # on an already-applied migration, re-run it, and record a version
+          # `supabase db push` does not recognise. Take the leading digits, which
+          # is what scripts/reconcile_migration_ledger.sql recorded them under.
+          # Length is not fixed either: most are a 14-digit timestamp, but
+          # 20251006_video_analytics_and_discussions is recorded as the 8-digit
+          # '20251006'. The rule is the leading digits, whatever there are of
+          # them, with a date's worth as the floor. The sed leaves only digits,
+          # so the pattern below is "8 or more of them".
+          VERSION="$(printf '%s' "$NAME" | sed 's/[^0-9].*//')"
           case "$VERSION" in
-            [0-9]*) : ;;
-            *) echo "::error::cannot read a version number off $NAME"; exit 1 ;;
+            [0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]*) : ;;
+            *) echo "::error::$NAME does not start with a version of at least 8 digits"; exit 1 ;;
           esac
           echo "file=$FILE" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
@@ -91,8 +103,12 @@ jobs:
           # "It's in the repo" is not "it ran". List the gap before touching it.
           psql "$PGURL" -v ON_ERROR_STOP=1 -Atc \
             'select version from supabase_migrations.schema_migrations' | sort > /tmp/applied.txt
+          # Same derivation as above, for the same reason: cutting at the
+          # underscore leaves the legacy hyphen names intact, and every one of
+          # them would then be listed as pending on a ledger that already has
+          # it — dozens of false entries for an operator to pick from.
           ls -1 supabase/migrations/*.sql | xargs -n1 basename \
-            | sed 's/_.*//' | sort -u > /tmp/repo.txt
+            | sed 's/[^0-9].*//' | sort -u > /tmp/repo.txt
           echo "### Migrations in the repo but not recorded in the database" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           comm -23 /tmp/repo.txt /tmp/applied.txt | tee -a "$GITHUB_STEP_SUMMARY"
@@ -120,16 +136,20 @@ jobs:
           VERSION: ${{ steps.resolve.outputs.version }}
           NAME: ${{ inputs.migration }}
         run: |
-          # One transaction: a migration that fails halfway leaves the schema in
-          # a state no file describes. ON_ERROR_STOP because psql's default is
-          # to carry on after an error and exit 0.
-          psql "$PGURL" -v ON_ERROR_STOP=1 --single-transaction -f "$FILE"
-
-          # Record it, or the next `db push` tries to run it again. Only
-          # `version` — that is the column Supabase matches on, and it is the
-          # one column every version of the tracking table has.
-          psql "$PGURL" -v ON_ERROR_STOP=1 -c \
-            "insert into supabase_migrations.schema_migrations (version) values ('$VERSION')"
+          # One transaction covering both the file and the ledger entry.
+          # psql runs -f and -c in the order given and --single-transaction
+          # wraps the lot, so the schema change and the record of it commit
+          # together. Two invocations would leave a window where the schema is
+          # changed and the ledger still says pending — a later `db push` would
+          # then run the file a second time, which is fine for `add constraint`
+          # and not fine for anything that moves data.
+          #
+          # ON_ERROR_STOP because psql's default is to carry on after an error
+          # and exit 0. Only `version` on the insert — that is the column
+          # Supabase matches on, and the one every version of the table has.
+          psql "$PGURL" -v ON_ERROR_STOP=1 --single-transaction \
+            -f "$FILE" \
+            -c "insert into supabase_migrations.schema_migrations (version) values ('$VERSION')"
           echo "Applied and recorded $VERSION ($NAME)."
 
       - name: Show the effect
