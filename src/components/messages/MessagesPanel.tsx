@@ -123,23 +123,48 @@ export function MessagesPanel({
   // the thing the original guard was right to avoid, because an id that genuinely
   // resolves to nothing (someone else's thread pasted into the URL) would poll
   // forever. A small ceiling with a short backoff keeps both properties.
-  const refreshAttempts = useRef(new Map<string, number>());
+  // The retries must OUTLIVE the open thread, which is why they are not cleaned up
+  // per-effect-run. Codex caught the first version doing exactly that: the immediate
+  // read misses, a backed-off retry is scheduled, the user presses Back, clearing
+  // `conversationId` re-runs the effect, and its cleanup cancels the pending timer.
+  // The effect then refuses to schedule anything more, because it requires an open
+  // conversation — so the map stays stale and the conversation stays filtered out
+  // until a reload. That is the very race this is here to repair, surviving in a
+  // narrower window.
+  //
+  // So on the first miss the whole remaining sequence is scheduled at once, and the
+  // timers are cleared only on unmount. refreshScope is idempotent, so a retry that
+  // turns out to be unnecessary costs one read.
+  const scheduledFor = useRef(new Set<string>());
+  const pendingTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  useEffect(
+    () => () => {
+      pendingTimers.current.forEach(clearTimeout);
+      pendingTimers.current = [];
+    },
+    [],
+  );
+
   useEffect(() => {
     if (!courseId || !conversationId || scopeLoading || openThreadScopeKnown) return;
+    if (scheduledFor.current.has(conversationId)) return;
+    scheduledFor.current.add(conversationId);
 
-    const attempts = refreshAttempts.current.get(conversationId) ?? 0;
-    if (attempts >= SCOPE_REFRESH_ATTEMPTS) return;
-    refreshAttempts.current.set(conversationId, attempts + 1);
+    // Immediately, because the common case is a map that is merely stale...
+    refreshScope();
 
-    // First attempt immediately — the common case is that the row is already there
-    // and the map is merely stale. Later attempts back off, so a genuinely unknown
-    // id costs three reads spread over a moment rather than a tight loop.
-    if (attempts === 0) {
-      refreshScope();
-      return;
+    // ...then a bounded, backed-off tail for the case it is not. Unlimited retries
+    // are what the original single-shot guard was right to avoid: an id that
+    // genuinely resolves to nothing — someone else's thread pasted into
+    // ?conversation= — would otherwise poll forever.
+    for (let attempt = 1; attempt < SCOPE_REFRESH_ATTEMPTS; attempt += 1) {
+      const timer = setTimeout(() => {
+        pendingTimers.current = pendingTimers.current.filter((t) => t !== timer);
+        refreshScope();
+      }, attempt * SCOPE_REFRESH_BACKOFF_MS);
+      pendingTimers.current.push(timer);
     }
-    const timer = setTimeout(refreshScope, attempts * SCOPE_REFRESH_BACKOFF_MS);
-    return () => clearTimeout(timer);
   }, [courseId, conversationId, scopeLoading, openThreadScopeKnown, refreshScope]);
 
   // `course_id` is stamped onto each row on the way through, not just used to filter:
