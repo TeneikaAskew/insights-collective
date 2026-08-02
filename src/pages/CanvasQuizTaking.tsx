@@ -138,17 +138,18 @@ export default function CanvasQuizTaking() {
     if (!quiz || !user) return;
 
     try {
-      // Create quiz submission
+      // The attempt number is allocated by the database, not here. Computing
+      // `submission.attempt + 1` in the browser meant two tabs — or one
+      // double-click — read the same latest attempt and inserted the same
+      // number, and the unique index on (quiz_id, user_id, attempt) turned that
+      // into a constraint error for whichever landed second.
+      //
+      // start_quiz_attempt also enforces allowed_attempts, which until now was
+      // only a UI gate: the INSERT policy on quiz_submissions is
+      // `auth.uid() = user_id` and nothing more, so the limit could be skipped
+      // entirely by posting directly to PostgREST.
       const { data: newSubmission, error } = await supabase
-        .from('quiz_submissions')
-        .insert({
-          quiz_id: quiz.id,
-          user_id: user.id,
-          started_at: new Date().toISOString(),
-          attempt: submission ? submission.attempt + 1 : 1,
-          workflow_state: 'pending_review'
-        })
-        .select()
+        .rpc('start_quiz_attempt', { p_quiz_id: quiz.id })
         .single();
 
       if (error) throw error;
