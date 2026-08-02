@@ -18,7 +18,7 @@ on:
   workflow_dispatch:
     inputs:
       migration:
-        description: 'Filename in supabase/migrations/ (e.g. 20260802010000_one_portfolio_page_per_user.sql)'
+        description: 'Filename in supabase/migrations/, or ALL to apply every pending migration in version order'
         required: true
         type: string
       confirm:
@@ -50,6 +50,7 @@ jobs:
 
       - name: Resolve the migration file
         id: resolve
+        if: inputs.migration != 'ALL'
         run: |
           NAME='${{ inputs.migration }}'
           # No paths. The input names a file in the migrations directory and
@@ -115,6 +116,7 @@ jobs:
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Refuse if this version was already recorded
+        if: inputs.migration != 'ALL'
         env:
           PGURL: ${{ secrets.SUPABASE_DB_URL }}
           VERSION: ${{ steps.resolve.outputs.version }}
@@ -130,6 +132,7 @@ jobs:
           fi
 
       - name: Apply it
+        if: inputs.migration != 'ALL'
         env:
           PGURL: ${{ secrets.SUPABASE_DB_URL }}
           FILE: ${{ steps.resolve.outputs.file }}
@@ -151,6 +154,64 @@ jobs:
             -f "$FILE" \
             -c "insert into supabase_migrations.schema_migrations (version) values ('$VERSION')"
           echo "Applied and recorded $VERSION ($NAME)."
+
+      - name: Apply every pending migration, oldest first
+        if: inputs.migration == 'ALL'
+        env:
+          PGURL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          # Batch mode exists because the gap between repo and ledger grows in
+          # bursts — 24 at the last count — and dispatching that many runs by
+          # hand is where someone starts skipping the checks.
+          #
+          # Same guarantees as the single-file path, per file: one transaction
+          # covering both the schema change and its ledger row, ON_ERROR_STOP,
+          # and the version read off the leading digits the way the ledger
+          # records it. Order is oldest first, because a later migration may
+          # depend on an earlier one.
+          #
+          # `set -e` plus ON_ERROR_STOP means the first failure ends the run.
+          # That is deliberate: everything before it is committed and recorded,
+          # everything after is untouched, and the log says exactly where it
+          # stopped. Carrying on past a failure would apply migrations whose
+          # precondition just failed to exist.
+          set -e
+
+          comm -23 \
+            <(ls -1 supabase/migrations/*.sql | xargs -n1 basename | sed 's/[^0-9].*//' | sort -u) \
+            <(psql "$PGURL" -v ON_ERROR_STOP=1 -Atc \
+                'select version from supabase_migrations.schema_migrations' | sort) \
+            > /tmp/pending.txt
+
+          COUNT=$(wc -l < /tmp/pending.txt)
+          echo "### Applying $COUNT pending migration(s)" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$COUNT" -eq 0 ]; then
+            echo "Nothing pending." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          while read -r VERSION; do
+            [ -z "$VERSION" ] && continue
+            FILE=$(ls -1 supabase/migrations/"$VERSION"*.sql | head -1)
+            if [ ! -f "$FILE" ]; then
+              echo "::error::no file found for pending version $VERSION"
+              exit 1
+            fi
+            echo "applying $VERSION  $(basename "$FILE")" | tee -a "$GITHUB_STEP_SUMMARY"
+            psql "$PGURL" -v ON_ERROR_STOP=1 --single-transaction \
+              -f "$FILE" \
+              -c "insert into supabase_migrations.schema_migrations (version) values ('$VERSION')"
+          done < /tmp/pending.txt
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+          # Prove the gap actually closed, rather than trusting the loop.
+          REMAINING=$(comm -23 \
+            <(ls -1 supabase/migrations/*.sql | xargs -n1 basename | sed 's/[^0-9].*//' | sort -u) \
+            <(psql "$PGURL" -v ON_ERROR_STOP=1 -Atc \
+                'select version from supabase_migrations.schema_migrations' | sort) | wc -l)
+          echo "Pending after this run: $REMAINING" | tee -a "$GITHUB_STEP_SUMMARY"
+          [ "$REMAINING" -eq 0 ]
 
       - name: Show the effect
         if: inputs.verify_table != ''
