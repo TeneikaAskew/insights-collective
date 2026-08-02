@@ -66,6 +66,10 @@ export const usePortfolioPages = () => {
           return null;
         }
 
+        // maybeSingle, not single: a page id that matches nothing is an
+        // ordinary state the editor renders as not-found. `.single()` turned it
+        // into a thrown PGRST116, which the route wrapper could not tell apart
+        // from a network failure or an RLS refusal.
         const { data, error } = await supabase
           .from('portfolio_pages')
           .select(`
@@ -76,9 +80,10 @@ export const usePortfolioPages = () => {
             )
           `)
           .eq('id', pageId)
-          .single();
+          .maybeSingle();
 
         if (error) throw error;
+        if (!data) return null;
 
         return {
           ...data,

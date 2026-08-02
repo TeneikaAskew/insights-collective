@@ -24,10 +24,18 @@ test.describe('Portfolio Editor', () => {
     });
   });
 
-  test('renders portfolio editor page', async ({ page }) => {
+  /**
+   * These assertions used to be `expect(body).not.toBeEmpty()` and
+   * `if (await x.count() > 0)`. Both pass against the "Portfolio page not
+   * found" screen, which is exactly what this route served: the seeded page id
+   * is `ffff6666-…`, and `isValidUUID` required RFC 4122 version 1-5, so the
+   * fetch was skipped and the wrapper reported the row missing. The spec was
+   * green the entire time. Assertions now name the editor.
+   */
+  test('renders the editor for the seeded page', async ({ page }) => {
     await goto(page, editorUrl);
-    // Page may show error for placeholder portfolio ID — just verify it rendered
-    await expect(page.locator('body')).not.toBeEmpty();
+    await expect(page.getByRole('heading', { name: 'Portfolio Editor' })).toBeVisible();
+    await expect(page.getByText('Portfolio page not found.')).toHaveCount(0);
   });
 
   test('spinner resolves on load', async ({ page }) => {
@@ -36,31 +44,30 @@ test.describe('Portfolio Editor', () => {
     await expect(page.locator('.animate-spin')).toHaveCount(0);
   });
 
-  test('editor toolbar or components panel renders', async ({ page }) => {
+  test('the editor panels are reachable', async ({ page }) => {
     await goto(page, editorUrl);
-    const editor = page.locator('[class*="editor"], [class*="Editor"], [class*="toolbar"], [class*="canvas"]').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await editor.count() > 0) {
-      await expect(editor).toBeVisible();
+    for (const name of ['Profile', 'Layout', 'Projects', 'Live Preview']) {
+      await expect(page.getByRole('tab', { name })).toBeVisible();
     }
   });
 
-  test('invalid page ID shows not-found state gracefully', async ({ page }) => {
+  test('save is offered', async ({ page }) => {
+    await goto(page, editorUrl);
+    await expect(page.getByRole('button', { name: /^Save/ })).toBeVisible();
+  });
+
+  test('a page id that matches nothing shows the not-found state', async ({ page }) => {
+    // A well-formed uuid that no row carries — the fetch runs and comes back
+    // empty. `invalid-page-id-99999` would exercise the shape guard instead.
+    await goto(page, '/portfolio-editor/00000000-0000-4000-8000-000000000000');
+    await expect(page.getByText('Portfolio page not found.')).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Back to Explorer' })).toBeVisible();
+  });
+
+  test('a page id that is not a uuid shows the not-found state', async ({ page }) => {
+    // Never reaches the database: the shape guard stops it, because a uuid
+    // column answers 22P02 and the editor would show a database error.
     await goto(page, '/portfolio-editor/invalid-page-id-99999');
-    await expect(page.locator('body')).not.toBeEmpty();
-    // Should render either a not-found message, a login redirect, or the editor shell.
-    const content = page.locator(':has-text("not found"), :has-text("error"), :has-text("Sign in"), main, form').first();
-    await expect(content).toBeVisible();
-  });
-
-  test('save or publish button is visible', async ({ page }) => {
-    await goto(page, editorUrl);
-    const saveBtn = page.locator('button:has-text("Save"), button:has-text("Publish"), button:has-text("Update")').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await saveBtn.count() > 0) {
-      await expect(saveBtn).toBeVisible();
-    }
+    await expect(page.getByText('Portfolio page not found.')).toBeVisible();
   });
 });
