@@ -101,6 +101,25 @@ jobs:
           psql "$PGURL" -v ON_ERROR_STOP=1 -Atc 'select 1' > /dev/null
           echo "Connected."
 
+          # Two files sharing one version is the near-miss in
+          # docs/lessons-learned/03: Supabase tracks by version, so whichever
+          # ran second was silently skipped — no error, no warning.
+          #
+          # Reported here, but NOT fatal on its own. 20260728000000 is carried
+          # by two files and is already recorded, so neither is pending and
+          # nothing is about to go wrong; refusing every run over a settled
+          # historical wart would just make this tool unusable. The refusal
+          # that matters is scoped to versions actually about to be applied —
+          # see the batch step.
+          DUPES=$(ls -1 supabase/migrations/*.sql | xargs -n1 basename \
+            | sed 's/[^0-9].*//' | sort | uniq -d)
+          if [ -n "$DUPES" ]; then
+            echo "::warning::These versions are carried by more than one file:"
+            for v in $DUPES; do
+              ls -1 supabase/migrations/"$v"*.sql | sed 's/^/  /'
+            done
+          fi
+
           # "It's in the repo" is not "it ran". List the gap before touching it.
           psql "$PGURL" -v ON_ERROR_STOP=1 -Atc \
             'select version from supabase_migrations.schema_migrations' | sort > /tmp/applied.txt
@@ -182,6 +201,31 @@ jobs:
             <(psql "$PGURL" -v ON_ERROR_STOP=1 -Atc \
                 'select version from supabase_migrations.schema_migrations' | sort) \
             > /tmp/pending.txt
+
+          # The refusal that matters. If a PENDING version is carried by more
+          # than one file, `sort -u` has already collapsed them into a single
+          # entry: the loop below would apply whichever file sorts first,
+          # record the shared version, and the closing gap check would then
+          # report zero while the other file had never run — a silent skip
+          # dressed up as a clean sweep, which is the whole failure this repo
+          # has hit before.
+          #
+          # Refuse rather than guess. Choosing a file means choosing which
+          # migration to lose, and renumbering is a decision about recorded
+          # history that belongs to a person.
+          PENDING_DUPES=""
+          while read -r V; do
+            [ -z "$V" ] && continue
+            N=$(ls -1 supabase/migrations/"$V"*.sql 2>/dev/null | wc -l)
+            [ "$N" -gt 1 ] && PENDING_DUPES="$PENDING_DUPES $V"
+          done < /tmp/pending.txt
+          if [ -n "$PENDING_DUPES" ]; then
+            echo "::error::A pending version is carried by more than one file. Renumber before applying."
+            for v in $PENDING_DUPES; do
+              ls -1 supabase/migrations/"$v"*.sql | sed 's/^/  /'
+            done
+            exit 1
+          fi
 
           COUNT=$(wc -l < /tmp/pending.txt)
           echo "### Applying $COUNT pending migration(s)" >> "$GITHUB_STEP_SUMMARY"
