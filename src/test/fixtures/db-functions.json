@@ -25,6 +25,7 @@
   "coursera_kick_refresh",
   "coursera_kw_pattern",
   "coursera_verify_refresh_secret",
+  "courses_shared_by_users",
   "create_grade_notification",
   "delete_all_user_resumes",
   "delete_resume_records",
