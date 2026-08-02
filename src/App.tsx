@@ -179,13 +179,27 @@ function CourseLearnRedirect() {
 function PortfolioEditorWrapper() {
   const { pageId } = useParams<{ pageId: string }>();
   const { usePortfolioPageWithProjects } = usePortfolioPages();
-  const { data: portfolioPage, isLoading } = usePortfolioPageWithProjects(pageId);
+  const { data: portfolioPage, isLoading, error } = usePortfolioPageWithProjects(pageId);
 
   if (isLoading) {
     return (
       <div className="flex flex-col justify-center items-center h-96 gap-3">
         <Spinner size="lg" />
         <p className="text-sm text-muted-foreground">Loading portfolio...</p>
+      </div>
+    );
+  }
+
+  // A failed read is not a missing portfolio. Telling someone their page does
+  // not exist when the request never came back sends them off to create the one
+  // they already have.
+  if (error) {
+    return (
+      <div className="flex flex-col justify-center items-center h-96 gap-3 text-center px-4">
+        <p className="text-muted-foreground" role="alert">
+          Could not load your portfolio. {error instanceof Error ? error.message : 'Please try again.'}
+        </p>
+        <Button variant="outline" onClick={() => window.location.reload()}>Retry</Button>
       </div>
     );
   }
