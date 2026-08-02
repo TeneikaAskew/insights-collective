@@ -202,9 +202,13 @@ const IGNORED_PATTERNS: IgnoreRule[] = [
   // Monaco CSS module loading errors (list of vs/css! modules that failed to load)
   /\[vs\/css!/,
 
-  // ── Enrollment badge errors (course_enrollments table missing in test env) ─
-  // ── Enrollment badge errors (course_enrollments table missing in test env) ─
-  /\[EnrollmentBadge\]/,
+  // EnrollmentBadge's suppression is GONE, along with the component: this PR
+  // deletes src/components/course/EnrollmentBadge.tsx, so a rule matching
+  // "[EnrollmentBadge]" can never fire again. A suppression outliving its
+  // subject is not harmless — it is a standing permission to ignore a message
+  // that, if it ever reappeared, would be coming from something else entirely.
+  // (The duplicated comment line it replaced was also the only trace that this
+  // entry had been added twice.)
   // Firefox-specific image decode errors (corrupt/truncated from CDN)
   /Image corrupt or truncated/,
   // useUserProfile transient RLS/no-row errors when profile row is missing
