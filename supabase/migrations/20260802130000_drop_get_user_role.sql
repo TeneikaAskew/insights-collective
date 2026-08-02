@@ -1,0 +1,32 @@
+-- ABOUTME: Drops public.get_user_role(uuid), which is already gone from the
+-- ABOUTME: live database but still created by an applied migration.
+--
+-- WHY A MIGRATION AND NOT JUST THE FIXTURE UPDATE
+--
+-- The function was dropped from production out of band. Recording that in
+-- src/test/fixtures/db-functions.json makes CI green, and does nothing for any
+-- database built from this repo: 20250621123604-fca7b100-*.sql:178 still
+-- creates it, so a fresh project, a `supabase db reset`, or a restored backup
+-- comes up WITH the function and the fixture drifts again on the first check.
+-- The fixture would then be describing production and contradicting the
+-- migrations, which is worse than either alone.
+--
+-- Editing that earlier migration would be the wrong fix. It is already applied
+-- everywhere, and rewriting applied migrations makes the recorded history stop
+-- matching what actually ran. A forward migration is the honest correction —
+-- the same reasoning as 20260802040000_retire_user_dashboard_page.sql.
+--
+-- SAFE TO APPLY
+--
+-- Nothing calls it. Every reference in src/ is to get_user_roles — the plural,
+-- which useUserProfile invokes over RPC (useUserProfile.ts:37) and which the
+-- RLS policies in 20250621123219, 20260412002000 and 20260725100011 depend on.
+-- No SQL in supabase/ calls the singular, and no Edge Function does either.
+--
+-- It also reads `profiles.role`, the single-role column that `profiles.roles`
+-- replaced, so it could not have answered correctly for a multi-role account
+-- even while it existed.
+--
+-- Idempotent, so it is safe on production, where the function is already gone.
+
+DROP FUNCTION IF EXISTS public.get_user_role(uuid);

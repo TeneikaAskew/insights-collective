@@ -1,0 +1,179 @@
+# Apply one migration to the live database, by hand, from a runner.
+#
+# Why a workflow and not a laptop: the near-miss in
+# docs/lessons-learned/03-database-and-migrations.md was a migration whose
+# version number was already recorded, so Supabase silently skipped it while
+# every local signal said it had shipped. That check is mechanical and belongs
+# somewhere it always runs. This also leaves a log of who applied what and when,
+# which `psql` from a terminal does not.
+#
+# Deliberately manual, one file at a time, and never on push. A blanket
+# `supabase db push` would apply whatever the repo happens to contain against
+# whatever the database happens to be, and the repo describes intent while only
+# the live system describes state.
+
+name: Apply a database migration
+
+on:
+  workflow_dispatch:
+    inputs:
+      migration:
+        description: 'Filename in supabase/migrations/ (e.g. 20260802010000_one_portfolio_page_per_user.sql)'
+        required: true
+        type: string
+      confirm:
+        description: 'Type "apply" to confirm this runs against the live database'
+        required: true
+        type: string
+      verify_table:
+        description: 'Optional: a table whose constraints and indexes to print afterwards, so the effect is shown rather than assumed'
+        required: false
+        type: string
+
+concurrency:
+  group: db-migrate
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    name: Apply migration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Confirm intent
+        run: |
+          if [ "${{ inputs.confirm }}" != "apply" ]; then
+            echo "::error::Confirmation not given. Re-run and type \"apply\" in the confirm field."
+            exit 1
+          fi
+
+      - name: Resolve the migration file
+        id: resolve
+        run: |
+          NAME='${{ inputs.migration }}'
+          # No paths. The input names a file in the migrations directory and
+          # nothing else, so it cannot reach a scratch .sql somebody left around.
+          case "$NAME" in
+            */*|..*|"") echo "::error::migration must be a bare filename in supabase/migrations/"; exit 1 ;;
+          esac
+          FILE="supabase/migrations/$NAME"
+          if [ ! -f "$FILE" ]; then
+            echo "::error::$FILE does not exist on this ref"
+            exit 1
+          fi
+          # Supabase records the leading timestamp, not the whole filename, and
+          # the separator is not always an underscore: 53 of these files are the
+          # legacy Lovable form, 20250614185655-10e59561-db23-....sql. Cutting
+          # at the first underscore returns the whole filename for those, which
+          # then matches no recorded version — so the duplicate check would pass
+          # on an already-applied migration, re-run it, and record a version
+          # `supabase db push` does not recognise. Take the leading digits, which
+          # is what scripts/reconcile_migration_ledger.sql recorded them under.
+          # Length is not fixed either: most are a 14-digit timestamp, but
+          # 20251006_video_analytics_and_discussions is recorded as the 8-digit
+          # '20251006'. The rule is the leading digits, whatever there are of
+          # them, with a date's worth as the floor. The sed leaves only digits,
+          # so the pattern below is "8 or more of them".
+          VERSION="$(printf '%s' "$NAME" | sed 's/[^0-9].*//')"
+          case "$VERSION" in
+            [0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]*) : ;;
+            *) echo "::error::$NAME does not start with a version of at least 8 digits"; exit 1 ;;
+          esac
+          echo "file=$FILE" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Applying $FILE (version $VERSION)"
+
+      - name: Install psql
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+
+      - name: Check the connection and report what is pending
+        env:
+          PGURL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$PGURL" ]; then
+            echo "::error::The SUPABASE_DB_URL secret is not set on this repository, so there is nothing to connect to."
+            exit 1
+          fi
+          psql "$PGURL" -v ON_ERROR_STOP=1 -Atc 'select 1' > /dev/null
+          echo "Connected."
+
+          # "It's in the repo" is not "it ran". List the gap before touching it.
+          psql "$PGURL" -v ON_ERROR_STOP=1 -Atc \
+            'select version from supabase_migrations.schema_migrations' | sort > /tmp/applied.txt
+          # Same derivation as above, for the same reason: cutting at the
+          # underscore leaves the legacy hyphen names intact, and every one of
+          # them would then be listed as pending on a ledger that already has
+          # it — dozens of false entries for an operator to pick from.
+          ls -1 supabase/migrations/*.sql | xargs -n1 basename \
+            | sed 's/[^0-9].*//' | sort -u > /tmp/repo.txt
+          echo "### Migrations in the repo but not recorded in the database" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          comm -23 /tmp/repo.txt /tmp/applied.txt | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Refuse if this version was already recorded
+        env:
+          PGURL: ${{ secrets.SUPABASE_DB_URL }}
+          VERSION: ${{ steps.resolve.outputs.version }}
+        run: |
+          # The near-miss: Supabase tracks by version, and a duplicate version is
+          # silently skipped. Better to stop here than to report a success that
+          # did nothing.
+          COUNT=$(psql "$PGURL" -v ON_ERROR_STOP=1 -Atc \
+            "select count(*) from supabase_migrations.schema_migrations where version = '$VERSION'")
+          if [ "$COUNT" != "0" ]; then
+            echo "::error::Version $VERSION is already recorded. Renumber the migration rather than forcing it through."
+            exit 1
+          fi
+
+      - name: Apply it
+        env:
+          PGURL: ${{ secrets.SUPABASE_DB_URL }}
+          FILE: ${{ steps.resolve.outputs.file }}
+          VERSION: ${{ steps.resolve.outputs.version }}
+          NAME: ${{ inputs.migration }}
+        run: |
+          # One transaction covering both the file and the ledger entry.
+          # psql runs -f and -c in the order given and --single-transaction
+          # wraps the lot, so the schema change and the record of it commit
+          # together. Two invocations would leave a window where the schema is
+          # changed and the ledger still says pending — a later `db push` would
+          # then run the file a second time, which is fine for `add constraint`
+          # and not fine for anything that moves data.
+          #
+          # ON_ERROR_STOP because psql's default is to carry on after an error
+          # and exit 0. Only `version` on the insert — that is the column
+          # Supabase matches on, and the one every version of the table has.
+          psql "$PGURL" -v ON_ERROR_STOP=1 --single-transaction \
+            -f "$FILE" \
+            -c "insert into supabase_migrations.schema_migrations (version) values ('$VERSION')"
+          echo "Applied and recorded $VERSION ($NAME)."
+
+      - name: Show the effect
+        if: inputs.verify_table != ''
+        env:
+          PGURL: ${{ secrets.SUPABASE_DB_URL }}
+          TABLE: ${{ inputs.verify_table }}
+        run: |
+          # Verify the effect, not the success flag: psql exiting 0 says the
+          # statements ran, not that the schema now looks the way the migration
+          # describes.
+          case "$TABLE" in
+            *[!a-zA-Z0-9_]*) echo "::error::verify_table must be a bare table name"; exit 1 ;;
+          esac
+          {
+            echo "### Constraints and indexes now on public.$TABLE"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          psql "$PGURL" -v ON_ERROR_STOP=1 -c \
+            "select conname as name, pg_get_constraintdef(oid) as definition
+               from pg_constraint where conrelid = 'public.$TABLE'::regclass
+              order by conname" \
+            -c "select indexname as name, indexdef as definition
+                  from pg_indexes where schemaname = 'public' and tablename = '$TABLE'
+                 order by indexname" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
