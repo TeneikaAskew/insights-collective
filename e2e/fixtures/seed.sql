@@ -129,8 +129,8 @@ BEGIN
      AND (COALESCE(first_name, '') = '' OR COALESCE(last_name, '') = '');
 END $$;
 
--- 1c. Clear the member <-> journeys one-on-one conversation, so the spec that
---     STARTS a conversation actually starts one.
+-- 1c. Clear the instructor <-> journeys one-on-one conversation, so the spec
+--     that STARTS a conversation actually starts one.
 --
 --     Starting a conversation had been failing in production against a trigger
 --     that requires conversations.course_id, and nothing caught it: the only
@@ -150,20 +150,32 @@ END $$;
 --     .deleted_at entirely and (b) matches on conversations.deleted_at, so
 --     anything short of removing the row leaves the pair still "taken".
 --
+--     WHY THIS PAIR AND NOT THE MEMBER'S. The spec was written for the member
+--     first and CI failed it, because `profiles` is guarded by
+--     can_view_profile: a student may read their own row, the rows of
+--     instructors teaching courses they are enrolled in, and the rows of people
+--     they already share a conversation with. Two students on one course cannot
+--     see each other at all, so the member's New Conversation search can only
+--     ever return the instructor — and journeys/messaging-notifications-
+--     hardening.spec.ts already drives open_course_thread on that same pair.
+--     Sharing it would race, and the loser would silently take the find branch.
+--     Instructors can see their enrolled students, so instructor <-> journeys
+--     is both reachable and unclaimed.
+--
 --     Scoped to exactly this pair. Every other conversation in the database,
---     including the member's own with the instructor, is left alone.
+--     including the member's own, is left alone.
 DO $$
 DECLARE
-  v_member_id uuid;
+  v_instructor_id uuid;
   v_journeys_id uuid;
   v_ids uuid[];
 BEGIN
-  SELECT id INTO v_member_id FROM auth.users
-   WHERE email = COALESCE(current_setting('e2e.member_email', true), 'e2e-member@insightscollective.org');
+  SELECT id INTO v_instructor_id FROM auth.users
+   WHERE email = 'e2e-instructor@insightscollective.org';
   SELECT id INTO v_journeys_id FROM auth.users
    WHERE email = 'e2e-journeys@insightscollective.org';
 
-  IF v_member_id IS NULL OR v_journeys_id IS NULL THEN
+  IF v_instructor_id IS NULL OR v_journeys_id IS NULL THEN
     RETURN;
   END IF;
 
@@ -173,7 +185,7 @@ BEGIN
   FROM public.conversations c
   WHERE c.is_group = false
     AND EXISTS (SELECT 1 FROM public.conversation_participants p
-                 WHERE p.conversation_id = c.id AND p.user_id = v_member_id)
+                 WHERE p.conversation_id = c.id AND p.user_id = v_instructor_id)
     AND EXISTS (SELECT 1 FROM public.conversation_participants p
                  WHERE p.conversation_id = c.id AND p.user_id = v_journeys_id)
     AND (SELECT count(*) FROM public.conversation_participants p
@@ -591,35 +603,36 @@ BEGIN
     RAISE EXCEPTION 'E2E SEED FAILED: e2e-journeys@insightscollective.org must exist confirmed, with an email identity, non-NULL auth token columns, and an enrollment on course 660e8400-...0001';
   END IF;
 
-  -- The two preconditions the "starts a conversation" spec cannot check for
-  -- itself, because failing either one leaves it passing for the wrong reason.
+  -- The preconditions e2e/instructor/new-conversation.spec.ts cannot check for
+  -- itself, because failing any one of them leaves it passing, or failing, for
+  -- the wrong reason.
   --
   -- A shared course: without one the Edge Function refuses by design, and the
   -- spec would be reading a legitimate refusal as a bug.
-  -- No existing conversation: with one the dialog silently takes the FIND
-  -- branch, lands on the same screen, and covers none of the create path.
   SELECT EXISTS (
     SELECT 1 FROM public.courses_shared_by_users(ARRAY[
-      (SELECT id FROM auth.users
-        WHERE email = COALESCE(current_setting('e2e.member_email', true), 'e2e-member@insightscollective.org')),
+      (SELECT id FROM auth.users WHERE email = 'e2e-instructor@insightscollective.org'),
       (SELECT id FROM auth.users WHERE email = 'e2e-journeys@insightscollective.org')
     ])
   ) INTO v_ok;
   IF NOT v_ok THEN
-    RAISE EXCEPTION 'E2E SEED FAILED: the member and e2e-journeys share no course, so starting a conversation between them is refused by design and messaging-new-conversation cannot pass honestly';
+    RAISE EXCEPTION 'E2E SEED FAILED: e2e-instructor and e2e-journeys share no course, so starting a conversation between them is refused by design and new-conversation.spec.ts cannot pass honestly';
   END IF;
 
+  -- No existing conversation: with one the dialog silently takes the FIND
+  -- branch, lands on the same screen, and covers none of the create path.
   SELECT NOT EXISTS (
     SELECT 1 FROM public.find_one_on_one_conversation(
-      (SELECT id FROM auth.users
-        WHERE email = COALESCE(current_setting('e2e.member_email', true), 'e2e-member@insightscollective.org')),
+      (SELECT id FROM auth.users WHERE email = 'e2e-instructor@insightscollective.org'),
       (SELECT id FROM auth.users WHERE email = 'e2e-journeys@insightscollective.org')
     )
   ) INTO v_ok;
   IF NOT v_ok THEN
-    RAISE EXCEPTION 'E2E SEED FAILED: a member <-> e2e-journeys conversation still exists after section 1c, so messaging-new-conversation would exercise the find path and pass without touching creation';
+    RAISE EXCEPTION 'E2E SEED FAILED: an e2e-instructor <-> e2e-journeys conversation still exists after section 1c, so new-conversation.spec.ts would exercise the find path and pass without touching creation';
   END IF;
 
+  -- A name to search for: useUsers queries profiles.first_name/last_name, and
+  -- the on_auth_user_created trigger leaves both empty.
   SELECT EXISTS (
     SELECT 1 FROM public.profiles p
     JOIN auth.users u ON u.id = p.id
@@ -628,6 +641,19 @@ BEGIN
   ) INTO v_ok;
   IF NOT v_ok THEN
     RAISE EXCEPTION 'E2E SEED FAILED: the e2e-journeys profile has no "Journeys" surname, so the New Conversation search cannot find it';
+  END IF;
+
+  -- And the acting account must be allowed to SEE that profile. can_view_profile
+  -- lets an instructor read the rows of students enrolled in their courses; if
+  -- section 2 has not made e2e-instructor the instructor_id of the reference
+  -- course, the search comes back empty and the failure points at the spec
+  -- rather than at the seed.
+  SELECT public.can_view_profile(
+    (SELECT id FROM auth.users WHERE email = 'e2e-instructor@insightscollective.org'),
+    (SELECT id FROM auth.users WHERE email = 'e2e-journeys@insightscollective.org')
+  ) INTO v_ok;
+  IF NOT v_ok THEN
+    RAISE EXCEPTION 'E2E SEED FAILED: can_view_profile denies e2e-instructor sight of e2e-journeys, so the New Conversation search returns nothing regardless of the name';
   END IF;
 END $$;
 

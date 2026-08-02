@@ -19,7 +19,27 @@
 //
 // So this spec presses the button.
 //
-// WHAT KEEPS IT FROM GOING VACUOUS THE SAME WAY
+// WHY IT RUNS AS THE INSTRUCTOR, NOT THE MEMBER
+//
+// It was written for the member first, and CI failed it: the user search
+// returned nobody. `profiles` is guarded by `can_view_profile`, which grants a
+// student sight of themselves, the instructors of courses they are enrolled in,
+// people they already share a conversation with, and nothing else. **Two
+// students on the same course cannot see each other.** So from the member's
+// session the dialog can only ever surface one other human — the instructor —
+// and that pair is already claimed by
+// journeys/messaging-notifications-hardening.spec.ts, which calls
+// `open_course_thread` on it. Sharing the pair would race: whichever spec ran
+// first would leave a conversation behind, and this one would then take the
+// find branch and cover nothing.
+//
+// Instructors, under the same policy, can see every student enrolled in their
+// courses. So the acting account is the instructor and the counterpart is the
+// journeys student — visible, sharing the reference course, and touched by no
+// other spec. Living under e2e/instructor/ is what selects that account:
+// chromium-instructor claims the directory and chromium-member ignores it.
+//
+// WHAT KEEPS IT FROM GOING VACUOUS
 //
 // The dialog calls `getOrCreateOneOnOneConversation`, which asks the server for
 // an existing one-on-one first and only creates when there is none. Both
@@ -27,19 +47,15 @@
 // where it landed would exercise the create path exactly once — on the first
 // run ever — and take the find path silently forever after.
 //
-// e2e/fixtures/seed.sql section 1c deletes the member <-> journeys conversation
-// before every run, and the seed then asserts that the pair really is clear and
-// really does share a course. This spec re-checks the precondition itself, so a
-// run against an unseeded database fails here with a readable message instead
-// of passing on the wrong branch.
+// e2e/fixtures/seed.sql section 1c deletes the instructor <-> journeys
+// conversation before every run, and the seed then asserts that the pair really
+// is clear and really does share a course. This spec re-checks the precondition
+// itself, so a run against an unseeded database fails here with a readable
+// message instead of passing on the wrong branch.
 
 import { test, expect } from '../fixtures/page-helpers';
 import { E2E_BASE_URL } from '../fixtures/test-data';
 
-// The seeded counterpart: enrolled in the same reference course as the member,
-// which is what lets the server find a course to scope the conversation to.
-// "Journeys" is unique across profiles, so the dialog's name search resolves to
-// exactly this account.
 const COUNTERPART_SEARCH = 'Journeys';
 const COUNTERPART_NAME = 'E2E Journeys';
 
@@ -92,8 +108,10 @@ test.describe('Starting a conversation', () => {
     await expect(
       candidate,
       `No profile named "${COUNTERPART_NAME}" came back from the user search. ` +
-        'Re-apply e2e/fixtures/seed.sql — section 1b gives that account its name, ' +
-        'and without one it cannot be searched for or identified in the list.',
+        'Two things cause that: the seed did not give the account a name ' +
+        '(seed.sql section 1b), or the acting account cannot see it — profiles is ' +
+        'guarded by can_view_profile, under which a student cannot read another ' +
+        "student's row at all.",
     ).toBeVisible({ timeout: 15_000 });
     await candidate.click();
 
