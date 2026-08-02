@@ -28,6 +28,14 @@ import { useConversationMessages } from '@/hooks/useConversationMessages';
 import { useConversationCourses } from '@/hooks/useConversationCourses';
 import { useMessageSend } from '@/hooks/useMessageSend';
 
+/**
+ * How many times the course-scope map is re-read for a conversation whose course is
+ * unknown, and how far apart. Three is enough for a row created moments ago to become
+ * visible, and small enough that an id which resolves to nothing stops asking.
+ */
+const SCOPE_REFRESH_ATTEMPTS = 3;
+const SCOPE_REFRESH_BACKOFF_MS = 400;
+
 export const sanitizeSubject = (subject?: string | null, fallback = 'Conversation') =>
   !subject || /^(null\s*)+$/i.test(subject.trim()) ? fallback : subject;
 
@@ -102,13 +110,36 @@ export function MessagesPanel({
 
   // A thread the map has never heard of is usually one that was just created by
   // the composer on this very page, so re-read the mapping before judging it.
-  // Guarded by a ref so an id that genuinely never resolves asks once, not forever.
-  const refreshedFor = useRef(new Set<string>());
+  //
+  // Bounded RETRIES rather than a single attempt, and the difference is a bug that
+  // reached production. This asked exactly once per id and then recorded the id as
+  // asked — so if that one read landed before the new conversation was visible to
+  // it, the mapping never filled and `scopeToCourse` filtered the thread out of the
+  // list for good. The symptom was a thread you could read and reply to that was
+  // missing from the sidebar next to it, until a reload. e2e caught it as "the new
+  // thread never reached the conversation list in-page".
+  //
+  // One attempt was too few for a row created a moment ago; unlimited attempts are
+  // the thing the original guard was right to avoid, because an id that genuinely
+  // resolves to nothing (someone else's thread pasted into the URL) would poll
+  // forever. A small ceiling with a short backoff keeps both properties.
+  const refreshAttempts = useRef(new Map<string, number>());
   useEffect(() => {
     if (!courseId || !conversationId || scopeLoading || openThreadScopeKnown) return;
-    if (refreshedFor.current.has(conversationId)) return;
-    refreshedFor.current.add(conversationId);
-    refreshScope();
+
+    const attempts = refreshAttempts.current.get(conversationId) ?? 0;
+    if (attempts >= SCOPE_REFRESH_ATTEMPTS) return;
+    refreshAttempts.current.set(conversationId, attempts + 1);
+
+    // First attempt immediately — the common case is that the row is already there
+    // and the map is merely stale. Later attempts back off, so a genuinely unknown
+    // id costs three reads spread over a moment rather than a tight loop.
+    if (attempts === 0) {
+      refreshScope();
+      return;
+    }
+    const timer = setTimeout(refreshScope, attempts * SCOPE_REFRESH_BACKOFF_MS);
+    return () => clearTimeout(timer);
   }, [courseId, conversationId, scopeLoading, openThreadScopeKnown, refreshScope]);
 
   // `course_id` is stamped onto each row on the way through, not just used to filter:
