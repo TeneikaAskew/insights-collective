@@ -20,6 +20,7 @@
   "can_view_profile",
   "check_course_completion",
   "clean_old_security_events",
+  "course_contacts",
   "course_roster_stats",
   "coursera_call_refresh",
   "coursera_kick_refresh",
