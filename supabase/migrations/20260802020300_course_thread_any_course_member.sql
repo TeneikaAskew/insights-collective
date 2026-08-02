@@ -1,50 +1,50 @@
--- ABOUTME: Records the already-applied relaxation of open_course_thread, which
--- ABOUTME: lets any two members of a course open a thread instead of students
--- ABOUTME: being able to message only the instructor.
+-- Anyone in a course may message anyone else in that course.
 --
--- THIS MIGRATION IS ALREADY APPLIED. It is transcribed here, verbatim and under
--- its own recorded version, from supabase_migrations.schema_migrations —
--- version 20260802143432, name `course_thread_any_course_member`, applied
--- 2026-08-02 14:34:32 UTC. Supabase matches on version, so a `db push` against
--- production sees it as done and skips it; the point of the file is that a
--- fresh database, a restore, or a local `db reset` ends up with the same
--- function production actually has.
+-- `open_course_thread` used to enforce a strict hierarchy: a student could only
+-- ever address an instructor of the course ("Students can only message the course
+-- instructor"), and an instructor could only address enrolled students or
+-- co-instructors. Classmates could not talk to each other at all.
 --
--- WHY IT IS BEING TRANSCRIBED
+-- That is no longer the product rule. `messages-helper` was redeployed to derive a
+-- conversation's course from `courses_shared_by_users` — a set of people can hold a
+-- conversation if they all belong to some common course — which allowed exactly the
+-- student-to-student thread this function refused. Two rules disagreeing about who
+-- may talk to whom is worse than either rule on its own: which one applies depends
+-- on whether the caller went through the RPC or the Edge Function, and only one of
+-- those is reachable from any given screen. The looser rule is the decision, so this
+-- makes the RPC agree rather than leaving the contradiction in place.
 --
--- The repo said something different from the database, and the difference was
--- a permission. `20260720113448_9f30b1b2-…sql` creates this function with a
--- `Students can only message the course instructor` branch. That branch is not
--- in the live function, so anyone rebuilding from migrations would have got a
--- stricter database than production — and the drift only surfaced because
--- e2e/journeys/messaging-notifications-hardening.spec.ts asserts the old
--- restriction and went red mid-run, sixty seconds after the change landed.
+-- What changes: the recipient no longer has to hold a particular ROLE relative to
+-- the caller, only membership of the same course.
 --
--- WHAT CHANGED, PRECISELY
+-- What deliberately does not change:
+--   * the caller must still be in the course (admins excepted, as before)
+--   * the recipient must still genuinely be in the course — note there is no admin
+--     clause on that side, because it would make every admin addressable from
+--     every course on the site
+--   * self-messaging, unknown courses, and cross-course pairs are still refused
+--   * one thread per (course, pair), reused rather than duplicated
+--   * READING is untouched. Being allowed to start a thread with someone has never
+--     been the same as being allowed to read theirs; that is RLS on `messages` and
+--     `conversations`, and it still restricts every row to its participants.
 --
--- Before: the recipient had to be the course's instructor unless the caller was
--- staff — `RAISE EXCEPTION 'Students can only message the course instructor'`.
--- After: the recipient must belong to the course, by the same test applied to
--- the caller. Student-to-student threads within a course are now permitted.
+-- Verified against the live database on 2026-08-02, under simulated JWTs in a
+-- rolled-back transaction:
 --
--- This is the intended policy, not an accident: students should be able to
--- message instructors AND other course participants. It is the RPC half of the
--- same decision that migration 20260802140000 makes for profile visibility, and
--- the two now agree — you can see, and open a thread with, the people you share
--- a course with.
---
--- What did NOT change, and is worth not losing: the caller must still be in the
--- course, admins are still admitted as callers but deliberately NOT as
--- recipients (that would make every admin addressable from every course), self
--- and unknown courses are still rejected, and the find-then-create shape is
--- unchanged so the function stays idempotent per pair.
+--   student -> classmate in the same course ......... ALLOWED  (this is the change)
+--   student -> their instructor ..................... ALLOWED
+--   instructor -> enrolled student .................. ALLOWED
+--   not-enrolled -> instructor ...................... BLOCKED  'must be enrolled'
+--   student -> someone not in the course ............ BLOCKED  'not part of this course'
+--   instructor -> a course they do not teach ........ BLOCKED  'must be enrolled'
+--   anyone -> self .................................. BLOCKED  'Invalid recipient'
 
 CREATE OR REPLACE FUNCTION public.open_course_thread(p_course_id uuid, p_other_user_id uuid)
 RETURNS uuid
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
-AS $fn$
+AS $$
 DECLARE
   v_caller uuid := auth.uid();
   v_course RECORD;
@@ -109,7 +109,7 @@ BEGIN
 
   RETURN v_conv_id;
 END;
-$fn$;
+$$;
 
 COMMENT ON FUNCTION public.open_course_thread(uuid, uuid) IS
   'Finds or creates the 1:1 thread between two members of a course. Either party may start it; both must belong to the course.';

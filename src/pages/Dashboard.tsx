@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePageVisibility } from '@/contexts/PageVisibilityContext';
 import AppLayout from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
 import CourseCard from '@/components/common/CourseCard';
@@ -8,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { BookOpen, Bell, Calendar, ArrowRight, Clock, LineChart } from 'lucide-react';
+import { BookOpen, Bell, Calendar, ArrowRight, Clock, LineChart, MessageSquare } from 'lucide-react';
 import StudentProgressAnalytics from '@/components/dashboard/StudentProgressAnalytics';
 import { useCoursesManagement } from '@/hooks/useCoursesManagement';
 import { useToast } from '@/hooks/use-toast';
@@ -16,6 +17,7 @@ import { Course } from '@/types';
 import { Navigate, Link, useSearchParams, useLocation } from 'react-router-dom';
 import { computeDashboardMetrics } from '@/utils/dashboardMetrics';
 import { CalendarPanel } from '@/components/calendar/CalendarPanel';
+import { MessagesPanel } from '@/components/messages/MessagesPanel';
 
 import { createLogger } from '@/utils/logger';
 
@@ -24,6 +26,12 @@ const logger = createLogger('Dashboard');
 const Dashboard = () => {
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
+  // Messages used to be the /messages page, which admins could hide from the page
+  // catalog. It is a tab now, and a tab is not a route, so the catalog entry would have
+  // stopped meaning anything — hiding "Messages" would have removed the sidebar link and
+  // left the tab sitting there. The manifest entry still governs it.
+  const { isPageVisible } = usePageVisibility();
+  const messagesVisible = isPageVisible('/messages');
 
   // Tab lives in the URL so it can be linked to. The Calendar tab replaced the former
   // standalone /calendar page, and the places that used to link there — the profile
@@ -38,6 +46,31 @@ const Dashboard = () => {
       (current) => {
         const next = new URLSearchParams(current);
         next.set('tab', tab);
+        // The open thread belongs to the Messages tab. Leaving it in the URL when the
+        // user switches to Calendar means coming back later re-opens a thread they had
+        // navigated away from.
+        if (tab !== 'messages') next.delete('conversation');
+        return next;
+      },
+      { replace: true },
+    );
+  };
+
+  // Messages sit beside the Calendar for the same reason the Calendar sits here: both are
+  // about the courses you are in, and neither earns a top-level page of its own. The open
+  // thread rides in the query string so /dashboard?tab=messages&conversation=<id> is a
+  // link somebody can send.
+  const openConversationId = searchParams.get('conversation') ?? undefined;
+  const setOpenConversation = (conversationId?: string) => {
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.set('tab', 'messages');
+        if (conversationId) {
+          next.set('conversation', conversationId);
+        } else {
+          next.delete('conversation');
+        }
         return next;
       },
       { replace: true },
@@ -451,6 +484,12 @@ const Dashboard = () => {
               <Calendar className="h-4 w-4 mr-1.5" />
               Calendar
             </TabsTrigger>
+            {messagesVisible && (
+              <TabsTrigger value="messages">
+                <MessageSquare className="h-4 w-4 mr-1.5" />
+                Messages
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="progress" className="space-y-6">
@@ -643,6 +682,22 @@ const Dashboard = () => {
             </div>
             <CalendarPanel />
           </TabsContent>
+
+          {messagesVisible && (
+          <TabsContent value="messages" className="space-y-6">
+            <div>
+              <h2 className="text-xl font-semibold">Messages</h2>
+              <p className="text-sm text-muted-foreground">
+                Every course you are in, in one inbox. Start a new conversation from the course itself —
+                students message the instructor, instructors message their students.
+              </p>
+            </div>
+            <MessagesPanel
+              conversationId={openConversationId}
+              onSelectConversation={setOpenConversation}
+            />
+          </TabsContent>
+          )}
         </Tabs>
       </div>
     </AppLayout>

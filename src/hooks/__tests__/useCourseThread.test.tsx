@@ -44,7 +44,11 @@ describe('useCourseThread', () => {
       p_course_id: 'course-1',
       p_other_user_id: 'user-2',
     });
-    expect(mockNavigate).toHaveBeenCalledWith('/messages/thread-42');
+    // Into the course the thread is about, not a site-wide inbox: messages are a panel
+    // inside the course now, so the thread id rides in the query string.
+    expect(mockNavigate).toHaveBeenCalledWith(
+      '/courses/course-1/messages?conversation=thread-42',
+    );
     expect(mockToast).not.toHaveBeenCalled();
     expect(result.current.opening).toBe(false);
   });

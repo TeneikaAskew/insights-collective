@@ -77,12 +77,19 @@ export function useConversationMessages(conversationId?: string) {
         );
 
         if (hasUnread) {
-          const { error: markReadError } = await supabase
-            .from('messages')
-            .update({ read: true })
-            .eq('conversation_id', conversationId)
-            .neq('sender_id', user.id)
-            .eq('read', false);
+          // Through the RPC, not a table update. The direct
+          // `update messages set read = true where sender_id <> me` this used to run
+          // could never match a row: the only UPDATE policy on `messages` is
+          // `sender_id = auth.uid()`, and every row it wants is one somebody else sent.
+          // PostgREST answered 204/zero-rows with no error, so nothing ever looked
+          // wrong while `read` stayed false forever and received messages kept their
+          // unread styling. Verified against the live database on 2026-08-02:
+          // 0 rows before, 1 row after. The policy is not simply widened because RLS
+          // cannot restrict an UPDATE to one column — a recipient allowed to set
+          // `read` would also be allowed to rewrite the sender's `content`.
+          const { error: markReadError } = await supabase.rpc('mark_conversation_read', {
+            p_conversation_id: conversationId,
+          });
 
           if (markReadError) {
             logger.warn('Failed to mark messages as read (non-critical):', markReadError);
@@ -147,12 +154,13 @@ export function useConversationMessages(conversationId?: string) {
               setMessages(prevMessages => [...prevMessages, newMessage]);
             }
             
-            // Mark message as read if it's not from the current user
+            // Mark message as read if it's not from the current user. Same reason as
+            // above for going through the RPC: a recipient has no UPDATE rights on a
+            // message they did not send, so the by-id update silently matched nothing.
             if (payload.new.sender_id !== user.id) {
-              const { error: markReadError } = await supabase
-                .from('messages')
-                .update({ read: true })
-                .eq('id', payload.new.id);
+              const { error: markReadError } = await supabase.rpc('mark_conversation_read', {
+                p_conversation_id: conversationId,
+              });
 
               if (markReadError) {
                 logger.warn('Failed to mark incoming message as read (non-critical):', markReadError);
