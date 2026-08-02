@@ -18,7 +18,7 @@ on:
   workflow_dispatch:
     inputs:
       migration:
-        description: 'Filename in supabase/migrations/, or ALL to apply every pending migration in version order'
+        description: 'Filename in supabase/migrations/, ALL to apply every pending migration, or RECONCILE to also record files whose objects already exist'
         required: true
         type: string
       confirm:
@@ -250,6 +250,93 @@ jobs:
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
           # Prove the gap actually closed, rather than trusting the loop.
+          REMAINING=$(comm -23 \
+            <(ls -1 supabase/migrations/*.sql | xargs -n1 basename | sed 's/[^0-9].*//' | sort -u) \
+            <(psql "$PGURL" -v ON_ERROR_STOP=1 -Atc \
+                'select version from supabase_migrations.schema_migrations' | sort) | wc -l)
+          echo "Pending after this run: $REMAINING" | tee -a "$GITHUB_STEP_SUMMARY"
+          [ "$REMAINING" -eq 0 ]
+
+      - name: Reconcile — apply what is missing, record what is already there
+        if: inputs.migration == 'RECONCILE'
+        env:
+          PGURL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          # Most of this backlog is not unapplied. It is UNRECORDED.
+          #
+          # `ALL` proved it: 20260731000000_tighten_blog_posts_rls stopped the
+          # batch with `policy "Authors admins instructors can view posts"
+          # already exists`. The objects are in the database; only the ledger
+          # is behind. scripts/reconcile_migration_ledger.sql exists because
+          # this already happened once, to 78 files applied outside the ledger.
+          #
+          # So run each file WITHOUT --single-transaction and WITHOUT
+          # ON_ERROR_STOP, so every statement is attempted independently:
+          # anything genuinely missing is created, and anything already present
+          # raises "already exists" and is skipped. Either way the end state is
+          # what the file describes, which is the thing that matters.
+          #
+          # That tolerance is the whole risk, so it is narrow and audited:
+          # ONLY "already exists" is forgiven. Every other error stops the run
+          # with the file named. In particular "does not exist" is NOT
+          # tolerated — an ALTER against a missing table means the file's
+          # preconditions are absent and recording it would be a lie.
+          #
+          # Safe against double-writes because that was checked before ALL ran:
+          # of the pending set, three write only inside CREATE FUNCTION bodies,
+          # two use ON CONFLICT, one DELETEs a named row, and one sets columns
+          # to constants. None duplicates anything on a second pass.
+          set -e
+
+          comm -23 \
+            <(ls -1 supabase/migrations/*.sql | xargs -n1 basename | sed 's/[^0-9].*//' | sort -u) \
+            <(psql "$PGURL" -v ON_ERROR_STOP=1 -Atc \
+                'select version from supabase_migrations.schema_migrations' | sort) \
+            > /tmp/pending.txt
+
+          COUNT=$(wc -l < /tmp/pending.txt)
+          echo "### Reconciling $COUNT pending migration(s)" >> "$GITHUB_STEP_SUMMARY"
+          [ "$COUNT" -eq 0 ] && { echo "Nothing pending."; exit 0; }
+
+          # Same refusal as the batch: a pending version carried by two files
+          # would silently lose one of them.
+          while read -r V; do
+            [ -z "$V" ] && continue
+            [ "$(ls -1 supabase/migrations/"$V"*.sql 2>/dev/null | wc -l)" -gt 1 ] && {
+              echo "::error::Pending version $V is carried by more than one file. Renumber first."
+              exit 1
+            }
+          done < /tmp/pending.txt
+
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          while read -r VERSION; do
+            [ -z "$VERSION" ] && continue
+            FILE=$(ls -1 supabase/migrations/"$VERSION"*.sql | head -1)
+            psql "$PGURL" -f "$FILE" > /tmp/out.txt 2>&1 || true
+
+            # Every error the file produced, not just the first.
+            grep -E '^psql:.*ERROR:' /tmp/out.txt > /tmp/errs.txt || true
+            UNTOLERATED=$(grep -vE 'already exists' /tmp/errs.txt || true)
+            if [ -n "$UNTOLERATED" ]; then
+              echo "::error::$(basename "$FILE") failed with something other than \"already exists\"; nothing recorded for it."
+              echo "$UNTOLERATED"
+              exit 1
+            fi
+
+            SKIPPED=$(wc -l < /tmp/errs.txt)
+            if [ "$SKIPPED" -eq 0 ]; then
+              echo "applied  $VERSION  $(basename "$FILE")" | tee -a "$GITHUB_STEP_SUMMARY"
+            else
+              echo "recorded $VERSION  $(basename "$FILE")  ($SKIPPED statement(s) already present)" \
+                | tee -a "$GITHUB_STEP_SUMMARY"
+              sed 's/^/           /' /tmp/errs.txt
+            fi
+
+            psql "$PGURL" -v ON_ERROR_STOP=1 -c \
+              "insert into supabase_migrations.schema_migrations (version) values ('$VERSION')"
+          done < /tmp/pending.txt
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
           REMAINING=$(comm -23 \
             <(ls -1 supabase/migrations/*.sql | xargs -n1 basename | sed 's/[^0-9].*//' | sort -u) \
             <(psql "$PGURL" -v ON_ERROR_STOP=1 -Atc \
