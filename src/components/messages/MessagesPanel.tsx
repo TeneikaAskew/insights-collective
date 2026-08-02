@@ -28,6 +28,14 @@ import { useConversationMessages } from '@/hooks/useConversationMessages';
 import { useConversationCourses } from '@/hooks/useConversationCourses';
 import { useMessageSend } from '@/hooks/useMessageSend';
 
+/**
+ * How many times the course-scope map is re-read for a conversation whose course is
+ * unknown, and how far apart. Three is enough for a row created moments ago to become
+ * visible, and small enough that an id which resolves to nothing stops asking.
+ */
+const SCOPE_REFRESH_ATTEMPTS = 3;
+const SCOPE_REFRESH_BACKOFF_MS = 400;
+
 export const sanitizeSubject = (subject?: string | null, fallback = 'Conversation') =>
   !subject || /^(null\s*)+$/i.test(subject.trim()) ? fallback : subject;
 
@@ -102,13 +110,61 @@ export function MessagesPanel({
 
   // A thread the map has never heard of is usually one that was just created by
   // the composer on this very page, so re-read the mapping before judging it.
-  // Guarded by a ref so an id that genuinely never resolves asks once, not forever.
-  const refreshedFor = useRef(new Set<string>());
+  //
+  // Bounded RETRIES rather than a single attempt, and the difference is a bug that
+  // reached production. This asked exactly once per id and then recorded the id as
+  // asked — so if that one read landed before the new conversation was visible to
+  // it, the mapping never filled and `scopeToCourse` filtered the thread out of the
+  // list for good. The symptom was a thread you could read and reply to that was
+  // missing from the sidebar next to it, until a reload. e2e caught it as "the new
+  // thread never reached the conversation list in-page".
+  //
+  // One attempt was too few for a row created a moment ago; unlimited attempts are
+  // the thing the original guard was right to avoid, because an id that genuinely
+  // resolves to nothing (someone else's thread pasted into the URL) would poll
+  // forever. A small ceiling with a short backoff keeps both properties.
+  // The retries must OUTLIVE the open thread, which is why they are not cleaned up
+  // per-effect-run. Codex caught the first version doing exactly that: the immediate
+  // read misses, a backed-off retry is scheduled, the user presses Back, clearing
+  // `conversationId` re-runs the effect, and its cleanup cancels the pending timer.
+  // The effect then refuses to schedule anything more, because it requires an open
+  // conversation — so the map stays stale and the conversation stays filtered out
+  // until a reload. That is the very race this is here to repair, surviving in a
+  // narrower window.
+  //
+  // So on the first miss the whole remaining sequence is scheduled at once, and the
+  // timers are cleared only on unmount. refreshScope is idempotent, so a retry that
+  // turns out to be unnecessary costs one read.
+  const scheduledFor = useRef(new Set<string>());
+  const pendingTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  useEffect(
+    () => () => {
+      pendingTimers.current.forEach(clearTimeout);
+      pendingTimers.current = [];
+    },
+    [],
+  );
+
   useEffect(() => {
     if (!courseId || !conversationId || scopeLoading || openThreadScopeKnown) return;
-    if (refreshedFor.current.has(conversationId)) return;
-    refreshedFor.current.add(conversationId);
+    if (scheduledFor.current.has(conversationId)) return;
+    scheduledFor.current.add(conversationId);
+
+    // Immediately, because the common case is a map that is merely stale...
     refreshScope();
+
+    // ...then a bounded, backed-off tail for the case it is not. Unlimited retries
+    // are what the original single-shot guard was right to avoid: an id that
+    // genuinely resolves to nothing — someone else's thread pasted into
+    // ?conversation= — would otherwise poll forever.
+    for (let attempt = 1; attempt < SCOPE_REFRESH_ATTEMPTS; attempt += 1) {
+      const timer = setTimeout(() => {
+        pendingTimers.current = pendingTimers.current.filter((t) => t !== timer);
+        refreshScope();
+      }, attempt * SCOPE_REFRESH_BACKOFF_MS);
+      pendingTimers.current.push(timer);
+    }
   }, [courseId, conversationId, scopeLoading, openThreadScopeKnown, refreshScope]);
 
   // `course_id` is stamped onto each row on the way through, not just used to filter:
