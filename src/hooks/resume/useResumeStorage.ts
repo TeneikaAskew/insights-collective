@@ -3,18 +3,67 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import * as pdfjs from 'pdfjs-dist';
 import PdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-import mammoth from 'mammoth';
 
 import { createLogger } from '@/utils/logger';
 
 const logger = createLogger('useResumeStorage');
 
-// Configure PDF.js worker from the locally bundled file (pdfjs v4+ ships the
-// worker as an .mjs module). No CDN fallback: a version-mismatched remote
-// worker fails in confusing ways — if the local assignment throws, surface it.
-pdfjs.GlobalWorkerOptions.workerSrc = PdfWorker;
+// pdfjs-dist and mammoth are loaded on demand rather than imported at the top.
+// Together they are most of a ~950KB chunk, and this module is reached from
+// /resume and /career-pathway — pages where the overwhelmingly common visit
+// never uploads a file at all. Static imports made every one of those visits
+// pay for two parsers to sit unused.
+//
+// The `?url` import above stays static on purpose: it resolves to a plain
+// string and Vite emits the worker as its own asset, so it costs a URL, not a
+// parser. It also has to be in scope when the pdfjs module settles, which is
+// where workerSrc is now assigned — pdfjs v4+ ships the worker as an .mjs and
+// there is deliberately no CDN fallback, because a version-mismatched remote
+// worker fails in ways nobody can diagnose.
+//
+// Each loader memoises the module promise so a second file does not re-import,
+// and DROPS the promise if the import rejects. Caching a rejection would turn
+// one failed chunk fetch — a dropped connection, a stale deploy — into a
+// permanently broken uploader for the rest of the session, with a retry button
+// that could never work.
+type PdfjsModule = typeof import('pdfjs-dist');
+type MammothModule = typeof import('mammoth');
+
+let pdfjsPromise: Promise<PdfjsModule> | null = null;
+let mammothPromise: Promise<MammothModule> | null = null;
+
+const loadPdfjs = (): Promise<PdfjsModule> => {
+  if (!pdfjsPromise) {
+    pdfjsPromise = import('pdfjs-dist')
+      .then((pdfjs) => {
+        pdfjs.GlobalWorkerOptions.workerSrc = PdfWorker;
+        return pdfjs;
+      })
+      .catch((error) => {
+        pdfjsPromise = null;
+        throw error;
+      });
+  }
+  return pdfjsPromise;
+};
+
+const loadMammoth = (): Promise<MammothModule> => {
+  if (!mammothPromise) {
+    mammothPromise = import('mammoth')
+      // mammoth is CommonJS with no type declarations, so the dynamic form
+      // hands back a namespace wrapping module.exports rather than the object
+      // the previous default import produced. Unwrap it here so the call site
+      // reads the same as it did, and fall through to the namespace for the
+      // case where the interop has already spread the named exports.
+      .then((mod) => ((mod as { default?: MammothModule }).default ?? mod) as MammothModule)
+      .catch((error) => {
+        mammothPromise = null;
+        throw error;
+      });
+  }
+  return mammothPromise;
+};
 
 // Interface for upload result
 export interface UploadResult {
@@ -43,9 +92,10 @@ export const extractTextFromFile = async (file: File): Promise<string> => {
 const extractTextFromPDF = async (file: File): Promise<string> => {
   try {
     logger.log("Starting PDF text extraction");
+    const pdfjs = await loadPdfjs();
     const arrayBuffer = await file.arrayBuffer();
     const uint8Array = new Uint8Array(arrayBuffer);
-    
+
     // Load the PDF document
     const pdf = await pdfjs.getDocument({ data: uint8Array }).promise;
     logger.log(`PDF loaded, pages: ${pdf.numPages}`);
@@ -75,6 +125,7 @@ const extractTextFromPDF = async (file: File): Promise<string> => {
 const extractTextFromDOCX = async (file: File): Promise<string> => {
   try {
     logger.log("Starting DOCX text extraction");
+    const mammoth = await loadMammoth();
     const arrayBuffer = await file.arrayBuffer();
     const result = await mammoth.extractRawText({ arrayBuffer });
     logger.log(`DOCX text extraction complete, total length: ${result.value.length}`);

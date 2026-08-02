@@ -4,7 +4,7 @@ import { useLocation, Link } from 'react-router-dom';
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarTrigger, SidebarFooter, SidebarRail, useSidebar } from '@/components/ui/sidebar';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePageVisibility } from '@/contexts/PageVisibilityContext';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -236,7 +236,7 @@ const AppSidebar = () => {
           <SidebarGroupContent>
             <SidebarMenu>
               {menuItems.map((item, index) => (
-                  <motion.div key={item.title} custom={index} initial="hidden" animate="visible" variants={menuItemVariants} className={open ? '' : 'flex justify-center'}>
+                  <m.div key={item.title} custom={index} initial="hidden" animate="visible" variants={menuItemVariants} className={open ? '' : 'flex justify-center'}>
                     <SidebarMenuItem className={open ? '' : 'w-8'}>
                       <SidebarMenuButton asChild isActive={item.active} className={`transition-all duration-200 ${item.active ? 'font-medium' : 'text-sidebar-foreground/80 hover:text-sidebar-accent hover:bg-sidebar-accent/10'}`}>
                         <Link to={item.url} className={`flex items-center rounded-md py-1.5 ${open ? 'space-x-2 px-2' : 'justify-center w-8 h-8 px-0 mx-auto'} ${item.highlight && open && !item.active ? 'bg-sidebar-accent/10 border border-sidebar-accent/30' : ''}`}>
@@ -251,7 +251,7 @@ const AppSidebar = () => {
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
-                  </motion.div>
+                  </m.div>
               ))}
             </SidebarMenu>
           </SidebarGroupContent>

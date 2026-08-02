@@ -32,18 +32,26 @@ vi.mock('@/components/course/CourseLayout', () => ({
   CourseLayout: ({ children }: any) => <div>{children}</div>,
 }));
 
+// The real module exports this component twice, named and default. The page
+// reaches it through React.lazy, which reads `default` and nothing else — a mock
+// with only the named export made every render throw. Both are defined here, and
+// they are the SAME component reference, so the two entry points cannot drift
+// into testing different things.
+const MockCanvasEditor = ({ content, onChange, readOnly, placeholder }: any) =>
+  readOnly ? (
+    <div data-testid="readonly-editor">{content}</div>
+  ) : (
+    <textarea
+      data-testid="editor"
+      placeholder={placeholder}
+      value={content || ''}
+      onChange={(e) => onChange?.(e.target.value)}
+    />
+  );
+
 vi.mock('@/components/ui/unified-canvas-editor', () => ({
-  UnifiedCanvasEditor: ({ content, onChange, readOnly, placeholder }: any) =>
-    readOnly ? (
-      <div data-testid="readonly-editor">{content}</div>
-    ) : (
-      <textarea
-        data-testid="editor"
-        placeholder={placeholder}
-        value={content || ''}
-        onChange={(e) => onChange?.(e.target.value)}
-      />
-    ),
+  UnifiedCanvasEditor: MockCanvasEditor,
+  default: MockCanvasEditor,
 }));
 
 // The standalone assignment component (media regression test) uses CanvasEditor.
@@ -173,8 +181,11 @@ describe('CanvasAssignmentSubmission', () => {
 
     expect(await screen.findByText('Homework 1')).toBeInTheDocument();
     expect(screen.getByText('50 points')).toBeInTheDocument();
+    // findBy, not getBy: the editor is loaded lazily now, so it lands a tick
+    // after the assignment body it sits under. Awaiting it is the assertion —
+    // it still fails if the editor never arrives.
     expect(
-      screen.getByPlaceholderText('Write your assignment submission here...'),
+      await screen.findByPlaceholderText('Write your assignment submission here...'),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Submit Assignment' })).toBeInTheDocument();
   });

@@ -2,11 +2,11 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Search, ArrowRight, ChevronDown } from 'lucide-react';
-//import { motion } from 'framer-motion';
+//import { m } from 'framer-motion';
 //import { useState, useEffect, useRef } from 'react';
 
 import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 
 const RotatingWords = () => {
   const words = ["Future", "Career", "Insights", "Impact", "Skills", "Edge", "Superpowers"];
@@ -29,7 +29,7 @@ const RotatingWords = () => {
   return (
     <span className="relative inline-flex align-baseline min-w-[120px]">
       <AnimatePresence mode="wait">
-        <motion.span 
+        <m.span 
           key={words[currentIndex]} 
           layout 
           className="inline-block font-bold text-ss-lav-deep"
@@ -39,11 +39,11 @@ const RotatingWords = () => {
           transition={{ duration: 0.4 }}
         >
           {words[currentIndex]}
-          <motion.span 
+          <m.span 
             layoutId="underline" 
             className="absolute left-0 -bottom-1 h-1 w-full bg-primary/40 rounded-t-full" 
           />
-        </motion.span>
+        </m.span>
       </AnimatePresence>
     </span>
   );
@@ -55,7 +55,7 @@ const HeroSection = () => {
       {/* Content */}
       <div className="container relative z-10 mx-auto px-4">
         <div className="max-w-4xl mx-auto text-center">
-          <motion.div 
+          <m.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
@@ -63,9 +63,9 @@ const HeroSection = () => {
             <h1 className="text-4xl md:text-6xl font-bold mb-6 font-display leading-tight text-foreground">
               Accelerate Your <RotatingWords />
             </h1>
-          </motion.div>
+          </m.div>
           
-          <motion.div 
+          <m.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
@@ -73,9 +73,9 @@ const HeroSection = () => {
             <p className="text-lg md:text-xl mb-10 text-muted-foreground max-w-3xl mx-auto">
               A modern resource and learning platform designed to help you master data skills with structured learning paths, resources and expert guidance
             </p>
-          </motion.div>
+          </m.div>
           
-          <motion.div 
+          <m.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.4 }}
@@ -101,9 +101,9 @@ const HeroSection = () => {
                 Explore Resources
               </Link>
             </Button>
-          </motion.div>
+          </m.div>
           
-          <motion.div 
+          <m.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.6 }}
@@ -121,10 +121,10 @@ const HeroSection = () => {
               <div className="w-3 h-3 bg-ss-lav rounded-full mr-2"></div>
               <span>Industry-Recognized Certifications</span>
             </div>
-          </motion.div>
+          </m.div>
           
           {/* Scroll indicator - fixed positioning and responsive adjustments */}
-          <motion.div 
+          <m.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.6, delay: 1 }}
@@ -132,7 +132,7 @@ const HeroSection = () => {
           >
             <span className="text-sm mb-2">Scroll to explore</span>
             <ChevronDown className="w-5 h-5 animate-bounce" />
-          </motion.div>
+          </m.div>
         </div>
       </div>
     </section>

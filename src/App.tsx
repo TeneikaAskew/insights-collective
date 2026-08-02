@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Link, useParams, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { LazyMotion } from 'framer-motion';
 import { ThemeProvider } from 'next-themes';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { OnboardingProvider } from '@/contexts/OnboardingContext';
@@ -249,11 +250,29 @@ function RouteTracker() {
   return null;
 }
 
+// framer-motion ships two renderers. The `motion` component bundles every
+// feature it might ever need and lands in whatever chunk imports it — which,
+// because AppSidebar animates, meant the app shell dragged the whole thing into
+// the entry bundle for every visitor. `m` is the same API with the feature set
+// left out, and LazyMotion supplies it separately.
+//
+// The features are passed as a FUNCTION, not as an imported value. The
+// difference is the entire point: `features={domAnimation}` would put the
+// feature bundle straight back into this chunk, which is exactly the import we
+// are trying to remove. As a function it becomes its own chunk, fetched once
+// after first paint.
+//
+// `strict` is deliberate. Without it a stray `motion.div` renders fine while
+// silently re-importing the full bundle, and the regression is invisible until
+// someone measures the entry chunk again. With it, that mistake throws.
+const loadDomAnimation = () => import('framer-motion').then((mod) => mod.domAnimation);
+
 function App() {
   return (
     // Default is light — dark (Ink Studio) and system remain explicit choices
     // in the theme toggle; only users who never picked get light.
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem storageKey="ic-theme">
+    <LazyMotion features={loadDomAnimation} strict>
     <Router>
         <AuthProvider>
           <PageVisibilityProvider>
@@ -509,6 +528,7 @@ function App() {
           </PageVisibilityProvider>
         </AuthProvider>
       </Router>
+    </LazyMotion>
     </ThemeProvider>
   );
 }

@@ -1,5 +1,5 @@
 
-import React, { useEffect, useMemo } from 'react';
+import React, { lazy, Suspense, useEffect, useMemo } from 'react';
 import { Navigate } from 'react-router-dom';
 import HeroSection from '@/components/home/HeroSection';
 import QuizSection from '@/components/quiz/QuizSection';
@@ -8,11 +8,9 @@ import UpcomingEvents from '@/components/home/UpcomingEvents';
 import CTASection from '@/components/home/CTASection';
 import Footer from '@/components/layout/Footer';
 import LearningJourney from '@/components/home/LearningJourney';
-import AnalyticsDashboard from '@/components/home/AnalyticsDashboard';
 import { useInView } from 'react-intersection-observer';
 import { usePublishedCourses } from '@/hooks/usePublishedCourses';
 import PersonalizedPathway from '@/components/home/PersonalizedPathway';
-import InteractiveShowcase from '@/components/home/InteractiveShowcase';
 import CommunityShowcase from '@/components/home/CommunityShowcase';
 import FeaturesSection from '@/components/home/FeaturesSection';
 import ExploreTools from '@/components/home/ExploreTools';
@@ -22,6 +20,27 @@ import OnboardingTrigger from '@/components/onboarding/OnboardingTrigger';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useRecentEvents } from '@/hooks/useEvents';
 import { useAuth } from '@/hooks/useAuth';
+
+// The only two sections on this page that pull in recharts — InteractiveShowcase
+// directly, AnalyticsDashboard through LearningProgressChart. Between them they
+// were putting a 336KB charting library into the entry graph, plus its
+// modulepreload tag, so every first-time visitor downloaded and parsed it before
+// the landing page could paint. Nobody sees a chart until they scroll.
+//
+// These are lazy, not conditionally rendered. The existing useInView gate
+// controls OPACITY, not mounting: every section is in the DOM from the start so
+// it holds its own height and the observer cascade works. Dropping the elements
+// until they scroll into view would collapse the page and bring everything into
+// view at once. lazy() leaves that intact and moves only the download, which is
+// the part that was expensive.
+const InteractiveShowcase = lazy(() => import('@/components/home/InteractiveShowcase'));
+const AnalyticsDashboard = lazy(() => import('@/components/home/AnalyticsDashboard'));
+
+// Approximate, and only has to be: its job is to stop the page collapsing in the
+// moment between first paint and the chart chunk arriving. Viewport-relative
+// rather than a pixel guess, because these are full-width marketing sections
+// whose real height depends on the viewport anyway.
+const SectionFallback = () => <div className="min-h-[50vh]" aria-hidden="true" />;
 
 // Individual section wrapper to safely use useInView per-section
 function SectionItem({ id, Component, threshold, isOnboardingActive }: {
@@ -44,7 +63,9 @@ function SectionItem({ id, Component, threshold, isOnboardingActive }: {
       data-tour={id}
       className={`transition-opacity duration-700 ${shouldBeVisible ? 'opacity-100' : 'opacity-0'}`}
     >
-      <Component />
+      <Suspense fallback={<SectionFallback />}>
+        <Component />
+      </Suspense>
     </div>
   );
 }

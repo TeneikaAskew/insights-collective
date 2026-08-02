@@ -4,7 +4,7 @@ import { ArrowRight, Clock, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { getCategoryDisplayName } from '@/constants/courseCategories';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { CourseImage } from '@/components/common/CourseImage';
 
 /**
@@ -88,7 +88,7 @@ const FeaturedCourses = ({ courses }: FeaturedCoursesProps) => {
         
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
           {courses.map((course, index) => (
-            <motion.div
+            <m.div
               key={course.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -196,7 +196,7 @@ const FeaturedCourses = ({ courses }: FeaturedCoursesProps) => {
                   </div>
                 </div>
               </Link>
-            </motion.div>
+            </m.div>
           ))}
         </div>
       </div>

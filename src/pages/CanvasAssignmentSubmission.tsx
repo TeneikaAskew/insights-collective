@@ -1,5 +1,5 @@
 // Canvas-style assignment submission page
-import { useState, useEffect } from 'react';
+import { lazy, Suspense, useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { CourseLayout } from '@/components/course/CourseLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -10,7 +10,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { UnifiedCanvasEditor } from '@/components/ui/unified-canvas-editor';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -34,6 +34,22 @@ import type { ContentItem, AssignmentSubmission } from '@/types/canvas';
 import { createLogger } from '@/utils/logger';
 
 const logger = createLogger('CanvasAssignmentSubmission');
+
+// The rich-text editor drags in ProseMirror — a 320KB chunk plus the 65KB
+// editor itself — and this route is the one place a student meets it. Only one
+// of the two submission types on this page is text entry, so a file-upload or
+// URL submission was paying the whole cost to render a textarea it never showed.
+//
+// The module has both a named and a default export of the same component;
+// lazy() takes the default.
+const UnifiedCanvasEditor = lazy(() => import('@/components/ui/unified-canvas-editor'));
+
+// Sized to the editor it stands in for, so the card does not resize under the
+// reader when the chunk lands. `minHeight` is the editor's own prop, so the two
+// cannot drift apart without someone noticing.
+const EditorSkeleton = ({ minHeight }: { minHeight: string }) => (
+  <Skeleton className="w-full rounded-md" style={{ height: minHeight === 'auto' ? '8rem' : minHeight }} />
+);
 
 export default function CanvasAssignmentSubmission() {
   const { courseId, moduleId, contentItemId } = useParams();
@@ -338,12 +354,14 @@ export default function CanvasAssignmentSubmission() {
           </CardHeader>
           <CardContent>
             <div className="prose prose-lg max-w-none">
-              <UnifiedCanvasEditor
-                content={contentItem.content || ''}
-                onChange={() => {}}
-                readOnly={true}
-                minHeight="auto"
-              />
+              <Suspense fallback={<EditorSkeleton minHeight="auto" />}>
+                <UnifiedCanvasEditor
+                  content={contentItem.content || ''}
+                  onChange={() => {}}
+                  readOnly={true}
+                  minHeight="auto"
+                />
+              </Suspense>
             </div>
           </CardContent>
         </Card>
@@ -414,12 +432,14 @@ export default function CanvasAssignmentSubmission() {
               {submissionType === 'online_text_entry' && (
                 <div className="space-y-2">
                   <Label>Your Submission</Label>
-                  <UnifiedCanvasEditor
-                    content={textSubmission}
-                    onChange={setTextSubmission}
-                    placeholder="Write your assignment submission here..."
-                    minHeight="400px"
-                  />
+                  <Suspense fallback={<EditorSkeleton minHeight="400px" />}>
+                    <UnifiedCanvasEditor
+                      content={textSubmission}
+                      onChange={setTextSubmission}
+                      placeholder="Write your assignment submission here..."
+                      minHeight="400px"
+                    />
+                  </Suspense>
                 </div>
               )}
 
