@@ -50,7 +50,7 @@ jobs:
 
       - name: Resolve the migration file
         id: resolve
-        if: inputs.migration != 'ALL'
+        if: inputs.migration != 'ALL' && inputs.migration != 'RECONCILE'
         run: |
           NAME='${{ inputs.migration }}'
           # No paths. The input names a file in the migrations directory and
@@ -135,7 +135,7 @@ jobs:
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Refuse if this version was already recorded
-        if: inputs.migration != 'ALL'
+        if: inputs.migration != 'ALL' && inputs.migration != 'RECONCILE'
         env:
           PGURL: ${{ secrets.SUPABASE_DB_URL }}
           VERSION: ${{ steps.resolve.outputs.version }}
@@ -151,7 +151,7 @@ jobs:
           fi
 
       - name: Apply it
-        if: inputs.migration != 'ALL'
+        if: inputs.migration != 'ALL' && inputs.migration != 'RECONCILE'
         env:
           PGURL: ${{ secrets.SUPABASE_DB_URL }}
           FILE: ${{ steps.resolve.outputs.file }}
@@ -308,10 +308,33 @@ jobs:
             }
           done < /tmp/pending.txt
 
+          # A file that opens its own transaction cannot be reconciled this
+          # way, and pretending otherwise is the dangerous case.
+          #
+          # 20260801000300_profiles_foreign_keys.sql starts with BEGIN;. The
+          # first "already exists" aborts that transaction, so every later
+          # statement returns "current transaction is aborted" WITHOUT RUNNING.
+          # Error-tolerant mode therefore does not attempt every statement — it
+          # attempts one and abandons the rest. Recording the version would
+          # assert an end state nobody established.
+          #
+          # Tolerating "current transaction is aborted" would be worse: it
+          # would forgive the cascade from a genuine failure too, which is the
+          # one error this mode must never swallow.
+          #
+          # So these are set aside for a person, named, and the run fails at
+          # the end rather than reporting a clean sweep.
+          : > /tmp/manual.txt
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           while read -r VERSION; do
             [ -z "$VERSION" ] && continue
             FILE=$(ls -1 supabase/migrations/"$VERSION"*.sql | head -1)
+            if grep -qiE '^[[:space:]]*BEGIN[[:space:]]*;' "$FILE"; then
+              echo "SKIPPED  $VERSION  $(basename "$FILE")  (opens its own transaction — needs manual reconciliation)" \
+                | tee -a "$GITHUB_STEP_SUMMARY"
+              echo "$VERSION $(basename "$FILE")" >> /tmp/manual.txt
+              continue
+            fi
             psql "$PGURL" -f "$FILE" > /tmp/out.txt 2>&1 || true
 
             # Every error the file produced, not just the first.
@@ -342,6 +365,12 @@ jobs:
             <(psql "$PGURL" -v ON_ERROR_STOP=1 -Atc \
                 'select version from supabase_migrations.schema_migrations' | sort) | wc -l)
           echo "Pending after this run: $REMAINING" | tee -a "$GITHUB_STEP_SUMMARY"
+
+          if [ -s /tmp/manual.txt ]; then
+            echo "::error::These open their own transaction and were not reconciled. Each needs a person to confirm its effects are present, then a manual ledger insert:"
+            sed 's/^/  /' /tmp/manual.txt
+            exit 1
+          fi
           [ "$REMAINING" -eq 0 ]
 
       - name: Show the effect
