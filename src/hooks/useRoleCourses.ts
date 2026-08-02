@@ -16,20 +16,28 @@ import {
 export interface UseRoleCoursesResult extends ResolvedRoleCourses {
   loading: boolean;
   /**
-   * True when the Coursera list came from the copy bundled with the app rather than
-   * from the database. Useful for admin diagnostics; not shown to learners, since
-   * the recommendations are equivalent either way.
+   * The Coursera read failed. Render it — do not swallow it. The predecessor of
+   * this field was `usedBundledCatalog`, described as "useful for admin
+   * diagnostics; not shown to learners, since the recommendations are equivalent
+   * either way". They were not equivalent: one set was live, the other was frozen
+   * at build time. And no component ever read the flag, so nobody found out.
    */
-  usedBundledCatalog: boolean;
+  courseraError: Error | null;
+  /** The Coursera read succeeded and covered none of this role's subjects. */
+  courseraEmpty: boolean;
+  /** Re-run the Coursera read. */
+  retryCoursera: () => void;
 }
 
 /**
  * Recommended courses for `role`.
  *
- * While the reads are in flight the result is the bundled-catalog fallback, which
- * then narrows once real data arrives. That ordering is deliberate: a brief list
- * beats an empty section that pops in, and it is also exactly what the caller gets
- * if either query fails outright.
+ * While the reads are in flight the Coursera list is EMPTY and `loading` is true;
+ * consumers show a skeleton. It used to be the bundled catalog, which narrowed to
+ * real data on arrival — a deliberate choice to avoid a section popping in, but
+ * one that also made a failed read indistinguishable from a slow one, because the
+ * placeholder and the failure state were the same list of real-looking courses.
+ * Showing a skeleton costs a moment of blank space and buys an honest failure.
  */
 export function useRoleCourses(
   role: { id: string; category?: string },
@@ -43,7 +51,13 @@ export function useRoleCourses(
     () => subjectsForRole(role.id, role.category),
     [role.id, role.category],
   );
-  const { catalog, loading: catalogLoading, usedFallback } = useCourseraCatalog(subjects);
+  const {
+    catalog,
+    loading: catalogLoading,
+    error: courseraError,
+    isEmpty: courseraEmpty,
+    retry: retryCoursera,
+  } = useCourseraCatalog(subjects);
 
   const platformLimit = options?.platformLimit;
   const courseraLimit = options?.courseraLimit;
@@ -56,6 +70,8 @@ export function useRoleCourses(
   return {
     ...resolved,
     loading: platformLoading || catalogLoading,
-    usedBundledCatalog: usedFallback,
+    courseraError,
+    courseraEmpty,
+    retryCoursera,
   };
 }

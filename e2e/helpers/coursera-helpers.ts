@@ -74,10 +74,11 @@ export const COURSERA_FIXTURE_COURSES: StubCourseraCourse[] = [
  * Route both coursera tables to fixtures. GET only — nothing in the app
  * writes to these tables, and this helper must keep it that way.
  *
- * Pass `courses: []` to exercise the bundled-catalog fallback: an empty
- * database result makes useCourseraCatalog fall back to the copy bundled
- * with the app, so course sections still render (with bundled content)
- * rather than disappearing.
+ * Pass `courses: []` to exercise the genuinely-empty case. There is no bundled
+ * fallback any more: an empty database result means no external courses render,
+ * which is the honest outcome. To exercise a FAILED read instead, fulfil the
+ * route with a 5xx — the consumers show "Couldn't load course recommendations"
+ * and a Retry, which is a different state and must not be confused with this one.
  */
 export async function stubCourseraCatalog(
   page: Page,

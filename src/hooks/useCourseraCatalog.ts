@@ -1,8 +1,7 @@
-// ABOUTME: Reads the Coursera fallback catalog from Postgres for a given set of
-// ABOUTME: subjects, falling back to the copy bundled with the app when the query
-// ABOUTME: fails or the table has not been migrated yet. The bundled copy is the
-// ABOUTME: same data the seed migration was generated from, so the fallback is a
-// ABOUTME: slightly staler catalog rather than an empty section.
+// ABOUTME: Reads the Coursera catalog from Postgres for a given set of subjects.
+// ABOUTME: This is the ONLY source — there is no bundled fallback any more, so a
+// ABOUTME: failed read reports `error` and an empty one reports `isEmpty`, and the
+// ABOUTME: consumers render those states instead of quietly showing build-time data.
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -76,13 +75,27 @@ function toCourse(row: CourseraCourseRow): CourseraCourse {
 
 export interface UseCourseraCatalogResult {
   /**
-   * Rows from the database, or undefined when unavailable — the resolver treats
-   * undefined as "use the bundled catalog", so callers pass this straight through.
+   * Rows from the database, or undefined when there are none to show — because
+   * the query is still running, failed, or came back empty. `error` and `isEmpty`
+   * say WHICH, and the UI is expected to render them differently.
    */
   catalog: CourseraCourse[] | undefined;
   loading: boolean;
-  /** True when the database copy could not be used and the bundle is in play. */
-  usedFallback: boolean;
+  /**
+   * The read failed. Previously this was folded together with "no rows" into a
+   * single `usedFallback` flag that no component ever read, and the bundled
+   * catalog rendered either way — so an outage and a healthy result looked
+   * identical on screen.
+   */
+  error: Error | null;
+  /** The read SUCCEEDED and returned nothing. A real answer, not a failure. */
+  isEmpty: boolean;
+  /**
+   * Re-run the query. Plumbed through because an error state the user cannot act
+   * on is only half the fix — a review finding on the CareerPathway work earlier
+   * in this program, which shipped an honest failure message next to a dead UI.
+   */
+  retry: () => void;
 }
 
 /**
@@ -96,7 +109,7 @@ export function useCourseraCatalog(subjects: LearningSubject[]): UseCourseraCata
   // entry rather than issuing two identical queries.
   const key = [...subjects].sort();
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, error: queryError, refetch } = useQuery({
     queryKey: ['coursera-catalog', key],
     enabled: key.length > 0,
     // Upstream refreshes monthly, so anything short of hours is churn.
@@ -118,9 +131,11 @@ export function useCourseraCatalog(subjects: LearningSubject[]): UseCourseraCata
         .limit(ROW_LIMIT);
 
       if (error) {
-        // Expected before the migration is applied. A warn rather than an error
-        // because the page still works — it just uses the bundled catalog.
-        logger.warn('Coursera catalog read failed; using the bundled catalog:', error);
+        // Still a warn, not an error: the consumers now render an explicit
+        // "couldn't load — retry" state, so this is a reported condition rather
+        // than an unhandled one, and the e2e console fixture should not redden a
+        // suite for a failure the UI is already showing honestly.
+        logger.warn('Coursera catalog read failed:', error);
         throw error;
       }
 
@@ -128,14 +143,17 @@ export function useCourseraCatalog(subjects: LearningSubject[]): UseCourseraCata
     },
   });
 
-  // An empty result is also a fallback case: it means the table exists but has no
-  // rows for these subjects (un-seeded, or mid-first-crawl). Showing nothing would
-  // be worse than showing the bundled list.
-  const usable = !isError && data && data.length > 0 ? data : undefined;
+  // An empty result is now reported AS empty rather than swapped for the bundle.
+  // "The table has no rows for these subjects" and "the read failed" are different
+  // facts and lead to different UI: one is an honest gap, the other is an outage
+  // with a retry. Collapsing them was the whole defect.
+  const rows = !isError && data && data.length > 0 ? data : undefined;
 
   return {
-    catalog: usable,
+    catalog: rows,
     loading: isLoading,
-    usedFallback: !usable,
+    error: isError ? ((queryError as Error) ?? new Error('Coursera catalog read failed')) : null,
+    isEmpty: !isLoading && !isError && (data?.length ?? 0) === 0,
+    retry: () => { void refetch(); },
   };
 }

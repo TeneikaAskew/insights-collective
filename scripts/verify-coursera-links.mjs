@@ -1,4 +1,4 @@
-// ABOUTME: Checks every URL in src/data/courseraCatalog.generated.ts still resolves
+// ABOUTME: Checks every URL in scripts/data/courseraCatalog.generated.ts still resolves
 // ABOUTME: on coursera.org. The catalog is generated from a dataset snapshot rather
 // ABOUTME: than a live API, so entries rot as courses are retired or renamed. This
 // ABOUTME: is how you tell. Run: npm run verify:coursera
@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const CATALOG_PATH = resolve(here, '../src/data/courseraCatalog.generated.ts');
+const CATALOG_PATH = resolve(here, './data/courseraCatalog.generated.ts');
 
 /**
  * Parse the generated catalog without importing it — this is a plain Node script

@@ -67,7 +67,8 @@ describe('ReportCanvas skills & courses grounding', () => {
         ['Public Speaking', []],
       ]),
       loading: false,
-      usedBundledCatalog: false,
+      error: null,
+      retry: vi.fn(),
     });
   });
 

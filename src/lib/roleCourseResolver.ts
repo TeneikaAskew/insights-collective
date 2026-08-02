@@ -62,12 +62,14 @@ export interface ResolveOptions {
   /** Cap on Coursera courses shown. Default 4. */
   courseraLimit?: number;
   /**
-   * Coursera catalog to draw from. Defaults to the one bundled with the app.
+   * Coursera catalog to draw from. Postgres is the only source — `useCourseraCatalog`
+   * passes the rows it fetched.
    *
-   * Injected rather than imported because the catalog now lives in Postgres —
-   * `useCourseraCatalog` passes the rows it fetched, and falls back to the bundled
-   * copy when that query fails. Keeping the choice in the caller leaves this
-   * function pure and testable against a fixture.
+   * Omitting it yields NO Coursera courses. It used to mean "use the copy bundled
+   * with the app", which made forgetting to pass a catalog indistinguishable from
+   * passing a good one. Loading and failure are both `undefined` here on purpose:
+   * this function is pure and cannot tell them apart, so the hook exposes
+   * `{ error, isEmpty, isLoading }` and the UI does the telling.
    */
   catalog?: CourseraCourse[];
 }

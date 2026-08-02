@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve, join, basename } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const CATALOG_PATH = resolve(here, '../src/data/courseraCatalog.generated.ts');
+const CATALOG_PATH = resolve(here, './data/courseraCatalog.generated.ts');
 const KEYWORDS_PATH = resolve(here, '../src/data/subjectKeywords.json');
 const DENYLIST_PATH = resolve(here, './coursera-denylist.json');
 const CACHE_DIR = resolve(here, '../.cache/coursera');

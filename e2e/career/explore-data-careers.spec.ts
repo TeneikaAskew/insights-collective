@@ -189,7 +189,13 @@ test.describe('Explore Careers', () => {
     await expect(external).toHaveAttribute('rel', 'noopener noreferrer');
   });
 
-  test('an empty catalog result falls back to bundled courses, not an empty section', async ({ page }) => {
+  // Inverted deliberately. This test previously asserted that an empty database
+  // result still produced coursera.org links, because the bundled catalog served
+  // in its place — which is the behaviour this change removes. Asserting the OLD
+  // contract would now be asserting that the fallback is still there.
+  test('an empty catalog result shows no external courses rather than bundled ones', async ({
+    page,
+  }) => {
     await stubCourseraCatalog(page, []);
     await stubNoPlatformCourses(page);
     await goto(page, Routes.exploreDataCareers);
@@ -198,10 +204,35 @@ test.describe('Explore Careers', () => {
     await page.getByRole('button', { name: /Explore role/ }).first().click();
     await page.getByRole('tab', { name: 'Career Path' }).click();
 
-    // The bundled catalog serves when the database returns nothing, so
-    // coursera.org links still render — just from the bundled copy.
-    const external = page.locator('a[href^="https://www.coursera.org/"]');
-    await expect(external.first()).toBeVisible({ timeout: 15_000 });
+    // The tab itself must still render — an empty catalog is not an error.
+    await expect(page.getByRole('tab', { name: 'Career Path' })).toBeVisible();
+
+    // And nothing may appear that the database did not supply. Before this
+    // change 180 build-time courses would have been here.
+    await expect(page.locator('a[href^="https://www.coursera.org/"]')).toHaveCount(0);
+  });
+
+  test('a failed catalog read says so instead of silently showing nothing', async ({ page }) => {
+    // The state that was unreachable while the fallback existed: the read fails,
+    // and previously the section rendered bundled courses as if all were well.
+    await page.route('**/rest/v1/coursera_courses*', route =>
+      route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: JSON.stringify({ message: 'simulated outage' }),
+      }),
+    );
+    await stubNoPlatformCourses(page);
+    await goto(page, Routes.exploreDataCareers);
+
+    await page.getByTestId('view-grid').click();
+    await page.getByRole('button', { name: /Explore role/ }).first().click();
+    await page.getByRole('tab', { name: 'Career Path' }).click();
+
+    await expect(
+      page.getByText(/Couldn't load course recommendations/i).first(),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('button', { name: 'Retry' }).first()).toBeVisible();
   });
 
   test('the career path tab links only to courses that exist', async ({ page }) => {

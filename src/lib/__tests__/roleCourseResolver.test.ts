@@ -6,16 +6,34 @@ import { describe, it, expect } from 'vitest';
 import { resolveRoleCourses, scorePlatformCourse } from '../roleCourseResolver';
 import type { PublishedCourse } from '@/hooks/usePublishedCourses';
 import {
-  courseraCatalog,
-  courseraCatalogByUrl,
+  catalogByUrl,
   courseraCoursesForSubject,
   courseraUrl,
   indexCatalogBySubject,
   type CourseraCourse,
 } from '@/data/courseraCatalog';
+// The generated file is no longer importable from src/ — it lives outside the
+// bundle now precisely so the app cannot reach it. The `data integrity` block
+// below validates the OFFLINE PIPELINE'S OUTPUT, not app behaviour, so it reads
+// the artifact from where the pipeline writes it. `tsconfig.app.json` includes
+// only src/, so this file is outside `tsc` coverage; these assertions are what
+// check it instead.
+import { generatedCourseraCatalog } from '../../../scripts/data/courseraCatalog.generated';
+
 import { roleLearningPaths } from '@/data/roleLearningPaths';
 import { LEARNING_SUBJECTS, SUBJECT_LABELS, inferSubjects } from '@/data/learningSubjects';
 import { dataCareerRoles } from '@/data/dataCareerRoles';
+
+const courseraCatalog = generatedCourseraCatalog;
+const courseraCatalogByUrl = catalogByUrl(courseraCatalog);
+const bundledIndex = indexCatalogBySubject(courseraCatalog);
+
+// The resolver no longer defaults to a bundled catalog, so these tests pass one
+// explicitly. It is still the real pipeline artifact rather than a hand-made
+// stub: the precedence assertions below ("Coursera only fills subjects the
+// platform leaves uncovered") are only meaningful against a catalog with real
+// subject coverage, and inventing one would test the fixture, not the rule.
+const catalog = courseraCatalog;
 
 function makeCourse(overrides: Partial<PublishedCourse> = {}): PublishedCourse {
   return {
@@ -62,7 +80,7 @@ const unrelatedCourse = makeCourse({
 
 describe('resolveRoleCourses', () => {
   it('falls back entirely to Coursera when the platform has no courses', () => {
-    const result = resolveRoleCourses({ id: 'data-analyst' }, []);
+    const result = resolveRoleCourses({ id: 'data-analyst' }, [], { catalog });
 
     expect(result.platform).toEqual([]);
     expect(result.platformIsEmpty).toBe(true);
@@ -72,7 +90,7 @@ describe('resolveRoleCourses', () => {
   });
 
   it('falls back to Coursera when the platform has courses but none are relevant', () => {
-    const result = resolveRoleCourses({ id: 'data-analyst' }, [unrelatedCourse]);
+    const result = resolveRoleCourses({ id: 'data-analyst' }, [unrelatedCourse], { catalog });
 
     expect(result.platform).toEqual([]);
     expect(result.platformIsEmpty).toBe(true);
@@ -80,7 +98,7 @@ describe('resolveRoleCourses', () => {
   });
 
   it('puts relevant platform courses first and links them internally', () => {
-    const result = resolveRoleCourses({ id: 'bi-analyst' }, [tableauCourse, unrelatedCourse]);
+    const result = resolveRoleCourses({ id: 'bi-analyst' }, [tableauCourse, unrelatedCourse], { catalog });
 
     expect(result.platform.map((c) => c.id)).toEqual(['uuid-tableau']);
     expect(result.platform[0].source).toBe('platform');
@@ -91,7 +109,7 @@ describe('resolveRoleCourses', () => {
   });
 
   it('does not recommend Coursera for a subject a platform course already covers', () => {
-    const result = resolveRoleCourses({ id: 'bi-analyst' }, [tableauCourse]);
+    const result = resolveRoleCourses({ id: 'bi-analyst' }, [tableauCourse], { catalog });
 
     // The Tableau course covers data-visualization and business-intelligence.
     expect(result.platform[0].matchedSubjects).toContain('data-visualization');
@@ -102,7 +120,7 @@ describe('resolveRoleCourses', () => {
   });
 
   it('still recommends Coursera for the subjects the platform course misses', () => {
-    const result = resolveRoleCourses({ id: 'bi-analyst' }, [tableauCourse]);
+    const result = resolveRoleCourses({ id: 'bi-analyst' }, [tableauCourse], { catalog });
 
     // bi-analyst also needs SQL and data modeling, which the Tableau course
     // does not teach — those are exactly the gaps Coursera should fill.
@@ -112,7 +130,7 @@ describe('resolveRoleCourses', () => {
   });
 
   it('carries the Coursera rating through but leaves platform ratings null', () => {
-    const result = resolveRoleCourses({ id: 'data-analyst' }, [tableauCourse]);
+    const result = resolveRoleCourses({ id: 'data-analyst' }, [tableauCourse], { catalog });
 
     for (const course of result.platform) {
       // The platform does not collect course ratings, so showing one would be
@@ -128,14 +146,14 @@ describe('resolveRoleCourses', () => {
   });
 
   it('ranks the more central platform course higher', () => {
-    const result = resolveRoleCourses({ id: 'data-engineer' }, [tableauCourse, sqlCourse]);
+    const result = resolveRoleCourses({ id: 'data-engineer' }, [tableauCourse, sqlCourse], { catalog });
 
     expect(result.platform[0].id).toBe('uuid-sql');
   });
 
   it('never repeats a Coursera course within one role', () => {
     for (const roleId of Object.keys(roleLearningPaths)) {
-      const { coursera } = resolveRoleCourses({ id: roleId }, []);
+      const { coursera } = resolveRoleCourses({ id: roleId }, [], { catalog });
       const ids = coursera.map((c) => c.id);
       expect(new Set(ids).size).toBe(ids.length);
     }
@@ -152,6 +170,7 @@ describe('resolveRoleCourses', () => {
     );
 
     const result = resolveRoleCourses({ id: 'data-engineer' }, many, {
+      catalog,
       platformLimit: 2,
       courseraLimit: 1,
     });
@@ -162,13 +181,13 @@ describe('resolveRoleCourses', () => {
 
   it('recommends something for every role, with or without platform courses', () => {
     for (const role of dataCareerRoles) {
-      const empty = resolveRoleCourses(role, []);
+      const empty = resolveRoleCourses(role, [], { catalog });
       expect(
         empty.platform.length + empty.coursera.length,
         `no recommendations for ${role.id}`,
       ).toBeGreaterThan(0);
 
-      const seeded = resolveRoleCourses(role, [sqlCourse, tableauCourse, unrelatedCourse]);
+      const seeded = resolveRoleCourses(role, [sqlCourse, tableauCourse, unrelatedCourse], { catalog });
       expect(
         seeded.platform.length + seeded.coursera.length,
         `no recommendations for ${role.id} with platform courses`,
@@ -177,7 +196,7 @@ describe('resolveRoleCourses', () => {
   });
 
   it('uses the category fallback for a role with no curated path', () => {
-    const result = resolveRoleCourses({ id: 'not-a-real-role', category: 'AI/ML' }, []);
+    const result = resolveRoleCourses({ id: 'not-a-real-role', category: 'AI/ML' }, [], { catalog });
 
     expect(result.coursera.length).toBeGreaterThan(0);
     expect(result.uncoveredSubjects).toContain('machine-learning');
@@ -194,7 +213,7 @@ describe('resolveRoleCourses', () => {
 
     const { score } = scorePlatformCourse(passingMention, ['sql', 'data-analysis']);
     // Prose-only evidence must land under the relevance floor.
-    const result = resolveRoleCourses({ id: 'sql-developer' }, [passingMention]);
+    const result = resolveRoleCourses({ id: 'sql-developer' }, [passingMention], { catalog });
 
     expect(score).toBeGreaterThan(0);
     expect(result.platform).toEqual([]);
@@ -361,7 +380,7 @@ describe('data integrity', () => {
 
   it('prefers a course the subject is central to over one that merely touches it', () => {
     for (const subject of LEARNING_SUBJECTS) {
-      const ranked = courseraCoursesForSubject(subject);
+      const ranked = courseraCoursesForSubject(subject, bundledIndex);
       const firstIncidental = ranked.findIndex((c) => !c.primarySubjects.includes(subject));
       if (firstIncidental === -1) continue;
 
