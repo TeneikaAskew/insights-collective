@@ -81,6 +81,7 @@
   "search_form_submissions",
   "set_updated_at",
   "snapshot_enrollment_progress",
+  "start_quiz_attempt",
   "sync_discussion_upvote_count",
   "touch_coursera_courses_updated_at",
   "track_blog_view",
