@@ -8,6 +8,7 @@ import {
   BookOpen,
   MessageCircle,
   Calendar,
+  MessageSquare,
   FileText,
   BarChart3,
   Users,
@@ -38,6 +39,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useCourseData } from '@/hooks/useCourseData';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCoursePermissions } from '@/hooks/useCoursePermissions';
+import { usePageVisibility } from '@/contexts/PageVisibilityContext';
 
 const courseNavItems = [
   { title: 'Course Home', url: '', icon: Home },
@@ -50,6 +52,7 @@ const courseNavItems = [
   { title: 'Rubrics', url: '/rubrics', icon: ClipboardCheck, instructorOnly: true },
   { title: 'Question Banks', url: '/question-banks', icon: Database, instructorOnly: true },
   { title: 'Calendar', url: '/calendar', icon: Calendar },
+  { title: 'Messages', url: '/messages', icon: MessageSquare, governedBy: '/messages' },
   { title: 'People', url: '/people', icon: Users },
 ];
 
@@ -60,6 +63,10 @@ export function CourseSidebar() {
   const { course, isLoading } = useCourseData(courseId);
   const { user } = useAuth();
   const { isInstructor } = useCoursePermissions(courseId);
+  // VisibilityGate resolves /courses/:id/messages to the '/courses' manifest entry, so
+  // switching Messages off never reached this rail. The toggle governs the feature, not
+  // one URL — a link that survives it is an invitation to a page the admin closed.
+  const { isPageVisible } = usePageVisibility();
   
   const currentPath = location.pathname;
   const basePath = `/courses/${courseId}`;
@@ -80,6 +87,7 @@ export function CourseSidebar() {
   const filteredNavItems = courseNavItems.filter(item => {
     if (item.instructorOnly && !isInstructor) return false;
     if (item.studentOnly && isInstructor) return false;
+    if ('governedBy' in item && !isPageVisible(item.governedBy as string)) return false;
     return true;
   });
 

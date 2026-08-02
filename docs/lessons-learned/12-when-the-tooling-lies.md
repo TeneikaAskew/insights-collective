@@ -251,3 +251,40 @@ with more confidence than it deserved. When the summariser finally worked,
 
 Correcting it unprompted cost one paragraph. Leaving it would have had someone
 searching the relay for a vulnerability that was never reported.
+
+## A note about a limitation outlives the workaround that fixed it
+
+CLAUDE.md carried this, as the closer to a section titled *Before claiming the
+environment can't do something, run the command that would do it*:
+
+> The one verified real limitation: browser HTTPS through the sandbox proxy
+> stalls (curl works), which blocks signed-in E2E locally — and only that.
+
+The first clause is true and still is. The second had stopped being true, in the
+same repository, in `scripts/e2e/supabase-relay.mjs` — written *because* of that
+exact measurement. Node can egress, so the relay lets Node do the talking and the
+browser make ordinary loopback requests. `npm run e2e:relay` runs the whole suite
+signed in against the real project. The note recorded the diagnosis and never got
+updated when the cure shipped one directory away.
+
+I read the note, ran `npx playwright test` with a hand-rolled config, got a blank
+page, and reported the limitation as confirmed. Every step felt like verification.
+None of it was: a blank page is *also* what the missing relay looks like, so the
+observation could not distinguish the two, and I never asked what would tell them
+apart. The section heading was the instruction, and I skipped past it to the
+sentence underneath.
+
+The same paragraph warns that `.env` is a template whose values live in the
+process environment. I checked `.env`, saw empty passwords, and concluded the
+credentials were absent. They were in `printenv` the whole time. A caveat can be
+sitting in front of you and still not be applied, because reading a warning and
+running the check are different acts.
+
+**Lesson:** a documented limitation is a claim with a timestamp. Before repeating
+one, look for the workaround — it is often committed next to the note, by whoever
+hit the wall first. And prefer the positive test: "does `e2e:relay` work" is
+answerable, where "is this environment limited" only ever confirms itself.
+
+**Corollary for the note-writer:** when you work around a limitation, go back and
+edit the sentence that describes it. Leaving "X is impossible" next to a script
+that does X costs the next person the whole investigation again.

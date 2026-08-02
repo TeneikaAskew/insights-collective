@@ -143,7 +143,7 @@ export async function expectNoMobileOverflow(
 
   const report = await measureOverflow(page);
 
-  await testInfo.attach(`${route === '/' ? '_root' : route.replace(/\//g, '_')}-390.png`, {
+  await testInfo.attach(`${route === '/' ? '_root' : route.replace(/[^\w]+/g, '_')}-390.png`, {
     body: await fullHeightScreenshot(page),
     contentType: 'image/png',
   });
@@ -151,10 +151,17 @@ export async function expectNoMobileOverflow(
   // A redirect means the page under test never rendered. Say so rather than
   // passing on whatever appeared instead — that is exactly how a signed-out
   // sweep reports the auth-gated routes as healthy without ever seeing them.
+  //
+  // Compared as pathnames, because some surfaces are addressed with a query
+  // string: the Messages UI is a Dashboard tab at /dashboard?tab=messages, and
+  // `location.pathname` never carries the search part. Only the query is
+  // forgiven — a route that lands on a different *path* is still a redirect and
+  // still fails.
+  const expectedPathname = new URL(route, 'http://localhost').pathname;
   expect(
     report.pathname,
     `${route} redirected to ${report.pathname}; nothing about ${route} was measured`,
-  ).toBe(route);
+  ).toBe(expectedPathname);
 
   // A 404 keeps its URL, so the check above lets one through — and a NotFound
   // page has almost no content, which means it never scrolls sideways and reads

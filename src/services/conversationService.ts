@@ -142,90 +142,15 @@ export const fetchDeletedUserConversations = async (userId: string): Promise<Con
   }
 };
 
-/**
- * Create a new conversation
+/*
+ * createNewConversation / getOrCreateOneOnOneConversation used to live here. They asked
+ * messages-helper to open a thread with any account in the directory, which is not what a
+ * message is in this product: a thread exists because of a course. Both are replaced by the
+ * `open_course_thread` RPC (see useCourseThread and CourseThreadComposer), which checks
+ * enrollment and the student/instructor relationship in the database before it writes
+ * anything. The matching Edge Function actions were removed at the same time, so there is
+ * no path left that creates an unscoped conversation.
  */
-export const createNewConversation = async (subject: string, recipientIds: string[], currentUserId?: string): Promise<string | null> => {
-  logger.log('[createNewConversation] Creating conversation with subject:', subject);
-  logger.log('[createNewConversation] Recipients:', recipientIds);
-  logger.log('[createNewConversation] Current user:', currentUserId);
-  
-  try {
-    // Get current user if not provided
-    if (!currentUserId) {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError || !user) {
-        throw new Error('Authentication required to create conversation');
-      }
-      currentUserId = user.id;
-    }
-
-    const { data, error } = await supabase.functions.invoke('messages-helper', {
-      body: { 
-        action: 'createConversation', 
-        subject, 
-        recipientIds,
-        currentUserId 
-      },
-    });
-
-    if (error) {
-      logger.error('[createNewConversation] Edge function invocation error:', error);
-      throw new Error(error.message || 'Failed to create conversation');
-    }
-
-    if (data?.error) {
-      logger.error('[createNewConversation] Edge function returned error:', data.error);
-      throw new Error(data.error || 'Failed to create conversation');
-    }
-
-    logger.log('[createNewConversation] Successfully created conversation:', data?.conversationId);
-    return data?.conversationId || null;
-  } catch (error) {
-    logger.error('[createNewConversation] Unexpected error:', error);
-    throw error instanceof Error ? error : new Error('An unknown error occurred while creating conversation.');
-  }
-};
-
-/**
- * Get or create a one-on-one conversation between two users
- */
-export const getOrCreateOneOnOneConversation = async (currentUserId: string, otherUserId: string): Promise<string | null> => {
-  logger.log('[getOrCreateOneOnOneConversation] Checking for existing conversation between:', currentUserId, 'and', otherUserId);
-  
-  try {
-    // First check if a one-on-one conversation already exists
-    const { data, error } = await supabase.functions.invoke('messages-helper', {
-      body: { 
-        action: 'checkOneOnOneConversation', 
-        currentUserId, 
-        otherUserId 
-      },
-    });
-
-    if (error) {
-      logger.error('[getOrCreateOneOnOneConversation] Edge function invocation error:', error);
-      throw new Error(error.message || 'Failed to check existing conversation');
-    }
-
-    if (data?.error) {
-      logger.error('[getOrCreateOneOnOneConversation] Edge function returned error:', data.error);
-      throw new Error(data.error || 'Failed to check existing conversation');
-    }
-
-    if (data?.conversationId) {
-      logger.log('[getOrCreateOneOnOneConversation] Found existing conversation:', data.conversationId);
-      return data.conversationId;
-    }
-
-    // If no existing conversation, create a new one
-    logger.log('[getOrCreateOneOnOneConversation] No existing conversation found, creating new one');
-    return await createNewConversation('', [otherUserId], currentUserId);
-  } catch (error) {
-    logger.error('[getOrCreateOneOnOneConversation] Unexpected error:', error);
-    throw error instanceof Error ? error : new Error('An unknown error occurred while getting or creating conversation.');
-  }
-};
 
 /**
  * Send a message in a conversation

@@ -176,11 +176,27 @@ npm run test -- --run
 
 **Before claiming the environment can't do something, run the command that
 would do it.** `npx playwright install` works here (only the *postinstall* is
-skipped via `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD`); `.env` is a **template** —
-keys exist, values are empty, so check values, not key presence; a spec that
-stubs its data needs no globalSetup and runs under a scratch config. The one
-verified real limitation: browser HTTPS through the sandbox proxy stalls
-(curl works), which blocks signed-in E2E locally — and only that.
+skipped via `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD`); a spec that stubs its data
+needs no globalSetup and runs under a scratch config.
+
+**The full E2E suite runs here, signed in, against the real project — use
+`npm run e2e:relay`.** The browser cannot reach Supabase over HTTPS directly, so
+`E2E_USE_RELAY=1` starts `scripts/e2e/serve.mjs`: a loopback relay to the project
+plus a dev server pointed at it, which is what `playwright.config.ts` then uses as
+its `webServer`. Everything works from there — global-setup signs in all four
+roles and saves storage state, and signed-in specs pass. Plain
+`npx playwright test` is what fails, and only because it skips the relay.
+
+Two things that will mislead you into "it can't run here", both of which have:
+- **Read the environment, not `.env`.** `.env` is a *template*: `E2E_MEMBER_PASSWORD`
+  and friends are present but empty in the file, while the real values are in the
+  process environment. Check `printenv E2E_MEMBER_PASSWORD`, not the file.
+- **A blank page under a hand-rolled config is the missing relay, not a broken
+  sandbox.** Without it the app mounts and then hangs on its first Supabase call,
+  which looks exactly like a stalled proxy.
+
+Visual baselines are the one thing relay mode cannot validate — it blocks fonts
+and images, so never refresh snapshots from a relay run.
 
 **E2E specifics that have each broken CI at least once:**
 - Responsive components (e.g. `RoleTable`) mount BOTH presentations at every

@@ -79,9 +79,13 @@ const AppSidebar = () => {
     active: location.pathname === '/assistants' || location.pathname.startsWith('/assistant/')
   }, {
     title: "Messages",
-    url: "/messages",
+    // Messages live in the Dashboard beside the Calendar — same reasoning, same place.
+    // The visibility manifest still keys this off /messages, so isPageVisible() below
+    // keeps working against the entry admins already know.
+    url: "/dashboard?tab=messages",
+    manifestPath: "/messages",
     icon: MessageSquare,
-    active: location.pathname.startsWith('/messages')
+    active: location.pathname === '/dashboard' && location.search.includes('tab=messages')
   }, {
     title: "Teneika's LinkedIn",
     url: "/teneika-linkedin",
@@ -156,7 +160,11 @@ const AppSidebar = () => {
   // Admins always see everything.
   const visiblePublicMenuItems = isAdmin
     ? publicMenuItems
-    : publicMenuItems.filter(item => isPageVisible(item.url));
+    // `manifestPath` exists for items whose link is no longer their manifest entry:
+    // Messages is a Dashboard tab now, but admins still toggle it as "/messages".
+    // Without this, isPageVisible("/dashboard?tab=messages") misses and the item
+    // silently disappears for every non-admin.
+    : publicMenuItems.filter(item => isPageVisible((item as any).manifestPath ?? item.url));
   const visibleAdminMenuItems = isAdmin
     ? adminMenuItems
     : [];

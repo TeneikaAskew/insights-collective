@@ -7,6 +7,7 @@ import { useConversationMessages } from '../useConversationMessages';
 import {
   supabaseError,
   getQueryBuilder,
+  mockSupabaseClient,
 } from '@/test/mocks/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -72,11 +73,9 @@ describe('useConversationMessages', () => {
       // 1st await: messages fetch succeeds
       .mockImplementationOnce((resolve: (value: unknown) => void) =>
         resolve({ data: [messageRow], error: null })
-      )
-      // 2nd await: mark-as-read update fails
-      .mockImplementationOnce((resolve: (value: unknown) => void) =>
-        resolve(supabaseError('mark read failed'))
       );
+    // mark-as-read is an RPC, not a table update — see the note on the write test below.
+    vi.mocked(mockSupabaseClient.rpc).mockResolvedValueOnce(supabaseError('mark read failed') as any);
 
     const { result } = renderHook(() => useConversationMessages('conv-1'));
 
@@ -110,7 +109,7 @@ describe('useConversationMessages', () => {
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.messages).toHaveLength(1);
-    expect(builder.update).not.toHaveBeenCalled();
+    expect(mockSupabaseClient.rpc).not.toHaveBeenCalled();
   });
 
   it('does not write when the only unread message is your own', async () => {
@@ -124,22 +123,33 @@ describe('useConversationMessages', () => {
     const { result } = renderHook(() => useConversationMessages('conv-1'));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(builder.update).not.toHaveBeenCalled();
+    expect(mockSupabaseClient.rpc).not.toHaveBeenCalled();
   });
 
-  it('still writes when there is something to mark', async () => {
+  /**
+   * Through mark_conversation_read, not `.from('messages').update({ read: true })`.
+   *
+   * The table write could never mark anything: the only UPDATE policy on `messages` is
+   * `sender_id = auth.uid()`, and every row a recipient wants to flag is a row somebody
+   * else sent. It matched zero rows and returned no error, so received messages kept
+   * their unread styling forever. Confirmed against the live database on 2026-08-02 —
+   * 0 rows updated via the table, 1 via the RPC. The policy is not widened instead
+   * because RLS cannot scope an UPDATE to a single column, so anyone allowed to set
+   * `read` would also be allowed to rewrite the sender's `content`.
+   */
+  it('marks the thread read through the RPC when there is something to mark', async () => {
     const builder = getQueryBuilder();
-    builder.then
-      .mockImplementationOnce((resolve: (value: unknown) => void) =>
-        resolve({ data: [messageRow], error: null })
-      )
-      .mockImplementationOnce((resolve: (value: unknown) => void) =>
-        resolve({ data: null, error: null })
-      );
+    builder.then.mockImplementationOnce((resolve: (value: unknown) => void) =>
+      resolve({ data: [messageRow], error: null })
+    );
 
     const { result } = renderHook(() => useConversationMessages('conv-1'));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(builder.update).toHaveBeenCalledWith({ read: true });
+    expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('mark_conversation_read', {
+      p_conversation_id: 'conv-1',
+    });
+    // The table path is the bug this replaced; it must not come back.
+    expect(builder.update).not.toHaveBeenCalled();
   });
 });
