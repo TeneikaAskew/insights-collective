@@ -1,6 +1,4 @@
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useParams } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -20,11 +18,23 @@ interface ConversationListProps {
   conversations: any[];
   loading: boolean;
   error?: any;
+  /** The open conversation, for highlighting. */
+  selectedId?: string;
+  /** Opening a thread is the host's decision — this list is rendered on more than one route. */
+  onSelect: (conversationId: string) => void;
 }
 
-const ConversationList: React.FC<ConversationListProps> = ({ conversations = [], loading, error }) => {
-  const { conversationId } = useParams();
-  const navigate = useNavigate();
+// Rows used to be <Link to={`/messages/${id}`}> with an onClick that preventDefault'd and
+// navigated to the same place. Messages now live inside the Dashboard tab and inside a
+// course, neither of which has a :conversationId segment, so the row reports the click and
+// the host puts it wherever that surface keeps its open thread.
+const ConversationList: React.FC<ConversationListProps> = ({
+  conversations = [],
+  loading,
+  error,
+  selectedId,
+  onSelect,
+}) => {
   const { user } = useAuth(); // Get the current user
 
   // Helper function to get initials
@@ -72,7 +82,10 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
     return (
       <div className="text-center p-6 border rounded-md bg-ss-card-warm">
         <p className="text-ss-peach-deep mb-2 font-medium">No conversations yet</p>
-        <p className="text-sm text-muted-foreground">Start a new conversation to connect with instructors and classmates.</p>
+        <p className="text-sm text-muted-foreground">
+          Messages belong to a course. Open one of your courses to message its instructor — instructors can
+          message any student enrolled in theirs.
+        </p>
       </div>
     );
   }
@@ -101,7 +114,15 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
       const validParticipantIds = participantIds.filter(id => id != null);
 
       if (validParticipantIds.length === 2) { // Ensure it's a valid 1-on-1 pair
-        const conversationKey = validParticipantIds.sort().join('-');
+        // The course is part of the key, not just the pair.
+        //
+        // Threads are course-scoped now, so one student and one instructor legitimately
+        // have a separate thread per course they share — open_course_thread reuses a
+        // thread only within the same course. Keying on the pair alone collapsed those
+        // into whichever was touched last, so asking about Course B silently hid the
+        // Course A conversation. Legacy unscoped threads have no course_id and key on
+        // '' , which preserves the old collapsing behaviour for exactly those rows.
+        const conversationKey = [...validParticipantIds.sort(), conv.course_id ?? ''].join('-');
         const existingConv = deduplicatedConversationsMap.get(conversationKey);
 
         // Keep the conversation with the latest update time
@@ -209,15 +230,13 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
             className={`hover:bg-ss-card-warm cursor-pointer transition-colors ${
               isUnread ? 'border-ss-peach-deep bg-ss-card-warm' : ''
             } ${
-              conversationId === conversation.id ? 'bg-ss-card-warm border-ss-peach' : ''
+              selectedId === conversation.id ? 'bg-ss-card-warm border-ss-peach' : ''
             }`}
           >
-            <Link
-              to={`/messages/${conversation.id}`}
-              onClick={(e) => {
-                e.preventDefault();
-                navigate(`/messages/${conversation.id}`);
-              }}
+            <button
+              type="button"
+              className="w-full text-left"
+              onClick={() => onSelect(conversation.id)}
             >
               <div className="p-4">
                 <div className="flex justify-between items-start gap-3">
@@ -266,7 +285,7 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
                   </div>
                 </div>
               </div>
-            </Link>
+            </button>
           </Card>
         );
       })}

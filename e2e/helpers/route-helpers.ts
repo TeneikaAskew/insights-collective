@@ -145,7 +145,12 @@ export const Routes = {
   // Events & Social
   events: '/events',
   eventDetail: (id = TestIds.eventId) => `/events/${id}`,
-  messages: '/messages',
+  // Messages moved into the Dashboard beside the Calendar, and into each course.
+  // `/messages` still resolves — App.tsx redirects it — and route-parity asserts that.
+  messages: '/dashboard?tab=messages',
+  messagesLegacy: '/messages',
+  messagesLegacyThread: (id = '00000000-0000-4000-8000-000000000000') => `/messages/${id}`,
+  courseMessages: (id = TestIds.courseId) => `/courses/${id}/messages`,
   forum: '/forum',
   forums: '/forums',
   // The forum feature is gone; App.tsx redirects every /forum and /thread route

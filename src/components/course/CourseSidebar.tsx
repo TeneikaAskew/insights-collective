@@ -8,6 +8,7 @@ import {
   BookOpen,
   MessageCircle,
   Calendar,
+  MessageSquare,
   FileText,
   BarChart3,
   Users,
@@ -50,6 +51,7 @@ const courseNavItems = [
   { title: 'Rubrics', url: '/rubrics', icon: ClipboardCheck, instructorOnly: true },
   { title: 'Question Banks', url: '/question-banks', icon: Database, instructorOnly: true },
   { title: 'Calendar', url: '/calendar', icon: Calendar },
+  { title: 'Messages', url: '/messages', icon: MessageSquare },
   { title: 'People', url: '/people', icon: Users },
 ];
 

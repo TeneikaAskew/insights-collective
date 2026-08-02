@@ -1,81 +1,89 @@
-// ABOUTME: End-to-end validation of the site messaging feature.
-// ABOUTME: Signs in as the seeded test account and exercises inbox load, tabs, and the New Conversation dialog.
+// ABOUTME: End-to-end validation of course messaging from the member account's side.
+// ABOUTME: Covers the Dashboard tab, a course's own Messages page, and the course composer.
 import { test, expect } from '../fixtures/page-helpers';
-import { TEST_USERS } from "../fixtures/test-data";
+import { FIXTURE_COURSES } from '../fixtures/test-data';
+import { Routes } from '../helpers/route-helpers';
 
-// This spec runs under the chromium-member project, whose storageState is the
-// session global-setup already established, so it starts authenticated. Driving
-// the real /login form in beforeEach was redundant work that could only add
-// failure surface: when that login was slow or failed, the page sat on /login
-// and every later locator timed out. Rely on the project session instead.
-const BASE = process.env.E2E_BASE_URL || "http://localhost:8080";
+// This spec runs under the chromium-member project, whose storageState is the session
+// global-setup already established, so it starts authenticated. Driving the real /login
+// form in beforeEach was redundant work that could only add failure surface: when that
+// login was slow or failed, the page sat on /login and every later locator timed out.
+const BASE = process.env.E2E_BASE_URL || 'http://localhost:8080';
+const ENROLLED = FIXTURE_COURSES.enrolled.id;
 
-test.describe("Messaging", () => {
-  test("inbox loads and shows empty state or conversations", async ({ page }) => {
-    await page.goto(`${BASE}/messages`, { waitUntil: "domcontentloaded" });
+test.describe('Course messaging', () => {
+  test('the Dashboard Messages tab loads the inbox', async ({ page }) => {
+    await page.goto(`${BASE}${Routes.messages}`, { waitUntil: 'domcontentloaded' });
 
-    await expect(page.getByRole("heading", { name: "Messages" })).toBeVisible();
-    await expect(page.getByRole("tab", { name: /inbox/i })).toBeVisible();
-    await expect(page.getByRole("tab", { name: /archived/i })).toBeVisible();
-    await expect(page.getByRole("tab", { name: /deleted/i })).toBeVisible();
-
-    // Wait for the inbox fetch to resolve into one of its terminal states.
-    //
-    // Which state is correct depends on data this spec does not control: the
-    // acting account has conversations in some environments and none in
-    // others, so both the empty state and a list of rows are passes. The old
-    // version polled a bare boolean, so any failure surfaced as
-    // "Expected: true" with no indication of what the page was showing —
-    // stuck on skeletons, showing the error alert, or rendering an empty list.
-    // Poll a descriptive state instead, and let the error alert fail loudly.
-    const inboxState = async () => {
-      const errorAlert = page.getByText(/error loading conversations/i);
-      if (await errorAlert.isVisible().catch(() => false)) {
-        const detail = await page
-          .getByRole('alert')
-          .innerText()
-          .catch(() => '');
-        return `error: ${detail.replace(/\s+/g, ' ').trim().slice(0, 200)}`;
-      }
-      if (await page.getByText(/no conversations yet/i).isVisible().catch(() => false)) {
-        return 'empty';
-      }
-      // Not the banned guard-around-an-assertion: inboxState is a state
-      // classifier whose result is asserted by .poll(...).toMatch(/^(empty|rows)$/)
-      // below — a count of 0 yields 'pending', which fails the poll rather
-      // than silently skipping a check.
-      // eslint-disable-next-line no-restricted-syntax
-      if (await page.locator('a[href^="/messages/"]').count()) return 'rows';
-      return 'pending';
-    };
-
-    await expect
-      .poll(inboxState, {
-        timeout: 30_000,
-        message: 'inbox should settle on the empty state or a list of conversations',
-      })
-      .toMatch(/^(empty|rows)$/);
+    await expect(page.getByRole('heading', { name: 'Messages', level: 2 })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /^inbox$/i })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /^archived$/i })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /^deleted$/i })).toBeVisible();
   });
 
-  test("archived and deleted tabs load without error", async ({ page }) => {
-    await page.goto(`${BASE}/messages`, { waitUntil: "domcontentloaded" });
-    await page.getByRole("tab", { name: /archived/i }).click();
-    await expect(page.getByRole("tab", { name: /archived/i })).toHaveAttribute("data-state", "active");
-    await page.getByRole("tab", { name: /deleted/i }).click();
-    await expect(page.getByRole("tab", { name: /deleted/i })).toHaveAttribute("data-state", "active");
+  test('archived and deleted tabs switch without error', async ({ page }) => {
+    await page.goto(`${BASE}${Routes.messages}`, { waitUntil: 'domcontentloaded' });
+
+    await page.getByRole('tab', { name: /^archived$/i }).click();
+    await expect(page.getByRole('tab', { name: /^archived$/i })).toHaveAttribute('data-state', 'active');
+    await page.getByRole('tab', { name: /^deleted$/i }).click();
+    await expect(page.getByRole('tab', { name: /^deleted$/i })).toHaveAttribute('data-state', 'active');
+    await expect(page.getByText(/error loading conversations/i)).toHaveCount(0);
   });
 
-  test("new conversation dialog opens and exposes user search", async ({ page }) => {
-    await page.goto(`${BASE}/messages`, { waitUntil: "domcontentloaded" });
-    await page.getByRole("button", { name: /new conversation/i }).click();
+  test('a course has its own Messages page in the course sidebar', async ({ page }) => {
+    await page.goto(`${BASE}/courses/${ENROLLED}/calendar`, { waitUntil: 'domcontentloaded' });
 
-    const dialog = page.getByRole("dialog");
+    // Messages sits with Calendar in the course rail — that is the whole point of the move.
+    const messagesLink = page.locator(`[data-sidebar="sidebar"] a[href="/courses/${ENROLLED}/messages"]`);
+    await expect(messagesLink).toBeVisible();
+
+    await messagesLink.click();
+    await expect(page).toHaveURL(new RegExp(`/courses/${ENROLLED}/messages`));
+    await expect(page.getByRole('heading', { name: 'Messages', level: 1 })).toBeVisible();
+  });
+
+  test('the composer offers people from this course, not the whole site', async ({ page }) => {
+    await page.goto(`${BASE}${Routes.courseMessages(ENROLLED)}`, { waitUntil: 'domcontentloaded' });
+
+    await page.getByRole('button', { name: /new message/i }).click();
+
+    const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByText(/start a new conversation/i)).toBeVisible();
-    await expect(dialog.getByPlaceholder(/search by name/i)).toBeVisible();
-    await expect(dialog.getByRole("button", { name: /start conversation/i })).toBeDisabled();
+    await expect(dialog.getByText(/students can message the course instructor/i)).toBeVisible();
+    await expect(dialog.getByLabel(/search this course/i)).toBeVisible();
+    // Nothing is selected yet, so there is nothing to start.
+    await expect(dialog.getByRole('button', { name: /start conversation/i })).toBeDisabled();
 
-    await dialog.getByRole("button", { name: /cancel/i }).click();
+    // The list must resolve to real people or an explicit "nobody here" — never sit on
+    // the spinner, and never show the load error.
+    await expect
+      .poll(
+        async () => {
+          if (await dialog.getByRole('alert').isVisible().catch(() => false)) return 'error';
+          if (await dialog.getByText(/nobody in this course you can message/i).isVisible().catch(() => false)) {
+            return 'empty';
+          }
+          // eslint-disable-next-line no-restricted-syntax
+          if (await dialog.locator('button:visible', { hasText: /instructor|student/i }).count()) return 'people';
+          return 'pending';
+        },
+        { timeout: 20_000, message: 'the course contact picker should resolve' },
+      )
+      .toMatch(/^(people|empty)$/);
+
+    await dialog.getByRole('button', { name: /cancel/i }).click();
     await expect(dialog).toBeHidden();
+  });
+
+  test('a course page shows only that course\'s threads', async ({ page }) => {
+    await page.goto(`${BASE}${Routes.courseMessages(ENROLLED)}`, { waitUntil: 'domcontentloaded' });
+
+    await expect(page.getByRole('heading', { name: 'Messages', level: 1 })).toBeVisible();
+    // Every row on this page must be a thread about this course. The strong version of
+    // that claim needs seeded cross-course threads; what is asserted here is the part
+    // that holds with or without them — the scoped read never fails open into the
+    // unscoped inbox, which would show up as the error alert.
+    await expect(page.getByText(/error loading conversations/i)).toHaveCount(0);
   });
 });

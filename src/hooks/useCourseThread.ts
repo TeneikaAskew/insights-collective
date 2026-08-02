@@ -19,7 +19,10 @@ export function useCourseThread() {
       });
       if (error) throw error;
       if (!data) throw new Error("Could not open thread");
-      navigate(`/messages/${data}`);
+      // Land in the course the thread is about, not a site-wide inbox. The thread id is a
+      // query param because /courses/:courseId/messages has no :conversationId segment —
+      // that keeps the course sidebar's Messages entry active while a thread is open.
+      navigate(`/courses/${courseId}/messages?conversation=${data}`);
     } catch (err: any) {
       toast({
         title: "Unable to open thread",

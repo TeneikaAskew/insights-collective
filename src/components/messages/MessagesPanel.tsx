@@ -1,0 +1,268 @@
+// ABOUTME: The user's messages — conversation list plus the open thread. Extracted from
+// ABOUTME: the former standalone /messages page so it can render inside the Dashboard's
+// ABOUTME: Messages tab and inside a course, next to the Calendar in both places.
+//
+// Deliberately renders no page chrome (no AppLayout, no <h1>): it is a panel, and the
+// surrounding tab or page supplies the heading. Same contract as CalendarPanel, which is
+// what lets both drop into the Dashboard without a nested layout or a duplicate title.
+//
+// Selection is a prop, not a route param. The panel is mounted at /dashboard?tab=messages
+// and at /courses/:courseId/messages, neither of which has a :conversationId segment, so
+// the open thread travels in the query string and the host decides what that looks like.
+
+import React, { useMemo, useState } from 'react';
+import { Card } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Send, ArrowLeft } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import ConversationList from '@/components/messages/ConversationList';
+import MessageThread from '@/components/messages/MessageThread';
+import MessageActions from '@/components/messages/MessageActions';
+import MessageSuggestions from '@/components/messages/MessageSuggestions';
+import { useConversationList } from '@/hooks/useConversationList';
+import { useArchivedConversations } from '@/hooks/useArchivedConversations';
+import { useDeletedConversations } from '@/hooks/useDeletedConversations';
+import { useConversationMessages } from '@/hooks/useConversationMessages';
+import { useConversationCourses } from '@/hooks/useConversationCourses';
+import { useMessageSend } from '@/hooks/useMessageSend';
+
+export const sanitizeSubject = (subject?: string | null, fallback = 'Conversation') =>
+  !subject || /^(null\s*)+$/i.test(subject.trim()) ? fallback : subject;
+
+interface MessagesPanelProps {
+  /** The conversation to open, or undefined for the list. */
+  conversationId?: string;
+  /** Called with a conversation id to open it, or undefined to go back to the list. */
+  onSelectConversation: (conversationId?: string) => void;
+  /**
+   * When set, only threads belonging to this course are listed. A course page shows
+   * that course's messages; the Dashboard tab shows every course's.
+   */
+  courseId?: string;
+  /** Rendered above the list — the course-scoped composer, usually. */
+  actions?: React.ReactNode;
+}
+
+export function MessagesPanel({
+  conversationId,
+  onSelectConversation,
+  courseId,
+  actions,
+}: MessagesPanelProps) {
+  const { user } = useAuth();
+  const [newMessage, setNewMessage] = useState('');
+  const [activeTab, setActiveTab] = useState('inbox');
+
+  const {
+    conversations: inboxConversations,
+    loading: inboxLoading,
+    error: inboxError,
+    refreshConversations: refreshInbox,
+  } = useConversationList();
+  const {
+    conversations: archivedConversations,
+    loading: archivedLoading,
+    error: archivedError,
+    refreshConversations: refreshArchived,
+  } = useArchivedConversations();
+  const {
+    conversations: deletedConversations,
+    loading: deletedLoading,
+    error: deletedError,
+    refreshConversations: refreshDeleted,
+  } = useDeletedConversations();
+
+  const { messages, loading: messagesLoading } = useConversationMessages(conversationId);
+  const { sendMessage, sending } = useMessageSend();
+
+  // A course page must not leak the user's other courses into its list. Filtering here
+  // rather than in the hooks keeps the three list hooks (and their realtime channels)
+  // shared between both surfaces — the Dashboard tab wants the unfiltered set.
+  const {
+    courseByConversation,
+    loading: scopeLoading,
+    error: scopeError,
+  } = useConversationCourses();
+
+  // `course_id` is stamped onto each row on the way through, not just used to filter:
+  // ConversationList keys its 1:1 deduplication on it, because the same student and
+  // instructor can have one thread per shared course and those must not collapse.
+  const scopeToCourse = useMemo(
+    () => (conversations: any[]) =>
+      conversations
+        .map((conv) => ({ ...conv, course_id: courseByConversation[conv?.id] ?? null }))
+        .filter((conv) => (courseId ? conv.course_id === courseId : true)),
+    [courseId, courseByConversation],
+  );
+
+  const inbox = scopeToCourse(inboxConversations);
+  const archived = scopeToCourse(archivedConversations);
+  const deleted = scopeToCourse(deletedConversations);
+
+  // On a course page the scoping read is part of the answer, so its loading and failure
+  // states are the list's. Treating a failed read as "no threads" would show a confident
+  // empty inbox while hiding real messages.
+  const scopingList = courseId;
+  const listLoading = (base: boolean) => base || (scopingList ? scopeLoading : false);
+  const listError = (base: unknown) => base ?? (scopingList ? scopeError : null);
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMessage.trim() || !conversationId || !user) return;
+
+    const success = await sendMessage(conversationId, newMessage.trim());
+    if (success) {
+      setNewMessage('');
+    }
+  };
+
+  const handleConversationAction = (actionType: 'archive' | 'unarchive' | 'delete' | 'restore') => {
+    switch (actionType) {
+      case 'archive':
+        refreshInbox();
+        refreshArchived();
+        break;
+      case 'unarchive':
+        refreshArchived();
+        refreshInbox();
+        break;
+      case 'delete':
+        refreshInbox();
+        refreshArchived();
+        refreshDeleted();
+        break;
+      case 'restore':
+        refreshDeleted();
+        refreshInbox();
+        break;
+    }
+
+    onSelectConversation(undefined);
+  };
+
+  if (conversationId) {
+    // Look the conversation up across every list, not just the scoped one: a thread can be
+    // opened from a course page and then archived, and the header still has to name it.
+    const currentConversation = [
+      ...inboxConversations,
+      ...archivedConversations,
+      ...deletedConversations,
+    ].find((conv) => conv.id === conversationId);
+    const isArchived = archivedConversations.some((conv) => conv.id === conversationId);
+    const isDeleted = deletedConversations.some((conv) => conv.id === conversationId);
+
+    return (
+      <div className="space-y-4">
+        <div className="flex items-start gap-2 min-w-0">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onSelectConversation(undefined)}
+            className="flex items-center gap-2 shrink-0"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span className="hidden sm:inline">Back to Messages</span>
+            <span className="sm:hidden">Back</span>
+          </Button>
+          <div className="min-w-0">
+            <h3 className="text-lg sm:text-xl font-semibold tracking-tight truncate">
+              {sanitizeSubject(currentConversation?.subject)}
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              {isDeleted ? 'Deleted conversation' : isArchived ? 'Archived conversation' : 'Active conversation'}
+            </p>
+          </div>
+        </div>
+
+        <Card className="h-[calc(100vh-18rem)] sm:h-[600px] flex flex-col">
+          <MessageActions
+            conversationId={conversationId}
+            onSuccess={handleConversationAction}
+            isArchived={isArchived}
+            isDeleted={isDeleted}
+            currentTab={isDeleted ? 'deleted' : isArchived ? 'archived' : 'inbox'}
+          />
+
+          <div className="flex-1 overflow-hidden">
+            <MessageThread messages={messages} loading={messagesLoading} />
+          </div>
+
+          {!isDeleted && (
+            <MessageSuggestions
+              onSelectMessage={setNewMessage}
+              conversationId={conversationId}
+              messages={messages}
+            />
+          )}
+
+          {!isDeleted && (
+            <div className="p-4 border-t">
+              <form onSubmit={handleSendMessage} className="flex space-x-2">
+                <Input
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  placeholder="Type your message..."
+                  disabled={sending}
+                  aria-label="Message"
+                  className="flex-1"
+                />
+                <Button type="submit" disabled={sending || !newMessage.trim()}>
+                  <Send className="h-4 w-4" />
+                  <span className="sr-only">Send</span>
+                </Button>
+              </form>
+            </div>
+          )}
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {actions && <div className="flex justify-start sm:justify-end">{actions}</div>}
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="inbox">Inbox</TabsTrigger>
+          <TabsTrigger value="archived">Archived</TabsTrigger>
+          <TabsTrigger value="deleted">Deleted</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="inbox" className="mt-6">
+          <ConversationList
+            conversations={inbox}
+            loading={listLoading(inboxLoading)}
+            error={listError(inboxError)}
+            selectedId={conversationId}
+            onSelect={onSelectConversation}
+          />
+        </TabsContent>
+
+        <TabsContent value="archived" className="mt-6">
+          <ConversationList
+            conversations={archived}
+            loading={listLoading(archivedLoading)}
+            error={listError(archivedError)}
+            selectedId={conversationId}
+            onSelect={onSelectConversation}
+          />
+        </TabsContent>
+
+        <TabsContent value="deleted" className="mt-6">
+          <ConversationList
+            conversations={deleted}
+            loading={listLoading(deletedLoading)}
+            error={listError(deletedError)}
+            selectedId={conversationId}
+            onSelect={onSelectConversation}
+          />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+export default MessagesPanel;

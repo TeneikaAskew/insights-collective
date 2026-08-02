@@ -73,3 +73,55 @@ terms — rather than expanding a consolidation PR into a schema decision.
 
 **Lesson:** finding a real problem does not automatically mean fixing it now.
 State it, size it, and let scope be a deliberate choice rather than drift.
+
+## A write that matches zero rows is not a working feature
+
+Marking a thread read was a plain table write:
+
+```
+update messages set read = true
+where conversation_id = $1 and sender_id <> me and read = false
+```
+
+The only UPDATE policy on `messages` is `messages_update_own`
+(`sender_id = auth.uid()`), so every row that statement wants is a row somebody
+else sent. It matched nothing, every time, since the policy was written.
+PostgREST answers that 204 with zero rows and no error, so nothing anywhere
+looked broken — while received messages kept their unread styling forever.
+
+It survived because "nothing left to mark" and "RLS filtered every row" are the
+same response. The only way to tell them apart is to **assert the row count**,
+which a fire-and-forget write never does. Simulating the policy under a real JWT
+(`set local role authenticated` + `request.jwt.claims`, inside a transaction that
+rolls back) showed `rows updated = 0` in one query.
+
+The fix is a SECURITY DEFINER RPC that checks membership and *returns* the count,
+not a wider policy: RLS cannot scope an UPDATE to a single column, so a policy
+permissive enough to let a recipient set `read` also lets them rewrite the
+sender's `content`.
+
+**Lesson:** when a write's whole job is to change rows, the count is the result.
+Discard it and a permanently no-op write is indistinguishable from success.
+
+## RLS is not a control on a path that runs as the service role
+
+Course messaging had an `open_course_thread` RPC enforcing exactly the right
+rules — enrolled or teaching, students to instructors only, no duplicates. It was
+never the only way in. `conversations` allowed INSERT on `created_by = auth.uid()`
+and `conversation_participants` allowed adding *any* user id to a conversation you
+created, so any account could open a thread with any other account. Removing those
+policies closed the client path.
+
+It did not close the real one. `messages-helper` runs every query with the service
+role key, and the service role bypasses RLS entirely, so `createConversation` kept
+working regardless of any policy. Deleting it from the function's source is not a
+control either: Edge Functions in this repo are deployed by hand, with no CI step,
+so source-only removal means the old code is still serving traffic.
+
+Triggers are the control. `BEFORE INSERT` fires for every writer, service role
+included. Probed as the service role, both halves are refused: a conversation with
+no `course_id`, and a participant who is not in that course.
+
+**Lesson:** ask which layer a bypass runs at before choosing where to enforce. If
+any writer runs as the service role, RLS is advice; a trigger or a constraint is
+the rule.

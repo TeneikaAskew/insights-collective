@@ -6228,6 +6228,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      mark_conversation_read: {
+        Args: { p_conversation_id: string }
+        Returns: number
+      }
       open_course_thread: {
         Args: { p_course_id: string; p_other_user_id: string }
         Returns: string

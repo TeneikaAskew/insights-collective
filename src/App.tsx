@@ -83,7 +83,7 @@ const SupabaseIssueBadge = import.meta.env.DEV
 // Events & Social Pages
 const Events = lazy(() => import('@/pages/Events'));
 const EventDetail = lazy(() => import('@/pages/EventDetail'));
-const Messages = lazy(() => import('@/pages/Messages'));
+const CourseMessages = lazy(() => import('@/pages/CourseMessages'));
 
 // Portfolio Pages
 const PortfolioExplorer = lazy(() => import('@/pages/PortfolioExplorer'));
@@ -173,6 +173,16 @@ function CourseLearnRedirect() {
     ? `/courses/${courseId}/learn/${moduleId}/${target}`
     : `/courses/${courseId}/learn`;
   return <Navigate to={dest} replace />;
+}
+
+// A /messages/:conversationId link now opens the Dashboard's Messages tab with that
+// thread selected. Threads used to have their own page; they are a panel now, so the id
+// travels in the query string.
+function LegacyConversationRedirect() {
+  const { conversationId } = useParams<{ conversationId: string }>();
+  return (
+    <Navigate to={`/dashboard?tab=messages&conversation=${conversationId ?? ''}`} replace />
+  );
 }
 
 // Portfolio Editor Wrapper Component
@@ -291,6 +301,7 @@ function App() {
                     <Route path="/courses/:courseId/certificate" element={<CourseCertificate />} />
                     <Route path="/verify-certificate/:code" element={<VerifyCertificate />} />
                      <Route path="/courses/:courseId/calendar" element={<CourseCalendar />} />
+                     <Route path="/courses/:courseId/messages" element={<CourseMessages />} />
                      <Route path="/courses/:courseId/people" element={<CourseDetail />} />
                      <Route path="/courses/:courseId/insights" element={<StudentInsights />} />
                      <Route path="/courses/:courseId/insights/:studentId" element={<StudentInsights />} />
@@ -345,8 +356,11 @@ function App() {
                     {/* Events & Social Routes */}
                     <Route path="/events" element={<Events />} />
                     <Route path="/events/:id" element={<EventDetail />} />
-                    <Route path="/messages" element={<Messages />} />
-                    <Route path="/messages/:conversationId" element={<Messages />} />
+                    {/* Messages moved into the surfaces they belong to: the Dashboard tab
+                        beside the Calendar, and each course's own page. These two paths are
+                        kept because a conversation link has been sendable for a long time. */}
+                    <Route path="/messages" element={<Navigate to="/dashboard?tab=messages" replace />} />
+                    <Route path="/messages/:conversationId" element={<LegacyConversationRedirect />} />
                     {/* Forums disabled — redirect all forum routes to dashboard */}
                     <Route path="/forum" element={<Navigate to="/dashboard" replace />} />
                     <Route path="/forums" element={<Navigate to="/dashboard" replace />} />
