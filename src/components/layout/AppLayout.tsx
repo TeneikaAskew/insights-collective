@@ -5,29 +5,13 @@ import Navbar from './Navbar';
 import AppFooter from '@/components/layout/AppFooter';
 import RoleLoadWarning from './RoleLoadWarning';
 import { useLocation } from 'react-router-dom';
+import { readSidebarCookie, writeSidebarCookie } from '@/lib/sidebarCookie';
 
 type AppLayoutProps = {
   children: React.ReactNode;
   fullWidth?: boolean;
 };
 
-function readSidebarCookie(cookieName: string, fallback: boolean): boolean {
-  if (typeof document === 'undefined') return fallback;
-
-  const match = document.cookie
-    .split('; ')
-    .find(row => row.startsWith(`${cookieName}=`));
-
-  if (!match) return fallback;
-
-  return match.split('=')[1] === 'true';
-}
-
-function writeSidebarCookie(cookieName: string, value: boolean) {
-  if (typeof document === 'undefined') return;
-
-  document.cookie = `${cookieName}=${value}; path=/; max-age=${60 * 60 * 24 * 7}`;
-}
 
 const AppLayout = ({ children, fullWidth = false }: AppLayoutProps) => {
   const location = useLocation();

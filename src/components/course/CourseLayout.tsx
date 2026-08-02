@@ -8,28 +8,12 @@ import { CourseSidebar } from './CourseSidebar';
 import { Toaster } from '@/components/ui/toaster';
 import Navbar from '@/components/layout/Navbar';
 import AppFooter from '@/components/layout/AppFooter';
+import { readSidebarCookie, writeSidebarCookie } from '@/lib/sidebarCookie';
 
 interface CourseLayoutProps {
   children: ReactNode;
 }
 
-function readSidebarCookie(cookieName: string, fallback: boolean): boolean {
-  if (typeof document === 'undefined') return fallback;
-
-  const match = document.cookie
-    .split('; ')
-    .find(row => row.startsWith(`${cookieName}=`));
-
-  if (!match) return fallback;
-
-  return match.split('=')[1] === 'true';
-}
-
-function writeSidebarCookie(cookieName: string, value: boolean) {
-  if (typeof document === 'undefined') return;
-
-  document.cookie = `${cookieName}=${value}; path=/; max-age=${60 * 60 * 24 * 7}`;
-}
 
 export function CourseLayout({ children }: CourseLayoutProps) {
   const location = useLocation();
