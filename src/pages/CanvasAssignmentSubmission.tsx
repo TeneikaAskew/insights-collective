@@ -1,5 +1,5 @@
 // Canvas-style assignment submission page
-import { useState, useEffect } from 'react';
+import { lazy, Suspense, useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { CourseLayout } from '@/components/course/CourseLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -10,7 +10,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { UnifiedCanvasEditor } from '@/components/ui/unified-canvas-editor';
+import { Skeleton } from '@/components/ui/skeleton';
+import CourseHtml from '@/components/course/CourseHtml';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -34,6 +35,23 @@ import type { ContentItem, AssignmentSubmission } from '@/types/canvas';
 import { createLogger } from '@/utils/logger';
 
 const logger = createLogger('CanvasAssignmentSubmission');
+
+// The rich-text editor drags in ProseMirror — a 320KB chunk plus the 65KB
+// editor itself — and this route is the one place a student meets it. Of the
+// three submission types only online_text_entry needs an editor, so a
+// file-upload or URL submission was paying the whole cost for a control it
+// never rendered.
+//
+// The module has both a named and a default export of the same component;
+// lazy() takes the default.
+const UnifiedCanvasEditor = lazy(() => import('@/components/ui/unified-canvas-editor'));
+
+// Sized to the editor it stands in for, so the card does not resize under the
+// reader when the chunk lands. `minHeight` is the editor's own prop, so the two
+// cannot drift apart without someone noticing.
+const EditorSkeleton = ({ minHeight }: { minHeight: string }) => (
+  <Skeleton className="w-full rounded-md" style={{ height: minHeight }} />
+);
 
 export default function CanvasAssignmentSubmission() {
   const { courseId, moduleId, contentItemId } = useParams();
@@ -337,14 +355,21 @@ export default function CanvasAssignmentSubmission() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="prose prose-lg max-w-none">
-              <UnifiedCanvasEditor
-                content={contentItem.content || ''}
-                onChange={() => {}}
-                readOnly={true}
-                minHeight="auto"
-              />
-            </div>
+            {/* The instructions are read-only prose, so they do not need an
+                editor at all — mounting one here started the ProseMirror
+                download on EVERY assignment, including the file-upload and
+                URL-only ones that never show a text box. That made the lazy
+                import below pointless in the common case.
+
+                CourseHtml is the renderer the rest of the course surfaces use
+                for exactly this: it sanitizes, and it re-signs private-bucket
+                asset URLs — which the editor's read-only path does not do, so
+                an image stored in course-images inside an assignment brief was
+                previously rendered with a URL that had already expired. */}
+            <CourseHtml
+              html={contentItem.content || ''}
+              className="prose prose-lg max-w-none"
+            />
           </CardContent>
         </Card>
 
@@ -414,12 +439,14 @@ export default function CanvasAssignmentSubmission() {
               {submissionType === 'online_text_entry' && (
                 <div className="space-y-2">
                   <Label>Your Submission</Label>
-                  <UnifiedCanvasEditor
-                    content={textSubmission}
-                    onChange={setTextSubmission}
-                    placeholder="Write your assignment submission here..."
-                    minHeight="400px"
-                  />
+                  <Suspense fallback={<EditorSkeleton minHeight="400px" />}>
+                    <UnifiedCanvasEditor
+                      content={textSubmission}
+                      onChange={setTextSubmission}
+                      placeholder="Write your assignment submission here..."
+                      minHeight="400px"
+                    />
+                  </Suspense>
                 </div>
               )}
 
