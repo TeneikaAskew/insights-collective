@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { SidebarProvider } from '@/components/ui/sidebar';
 import AppSidebar from './AppSidebar';
 import Navbar from './Navbar';
+import AppFooter from '@/components/layout/AppFooter';
 import RoleLoadWarning from './RoleLoadWarning';
 import { useLocation } from 'react-router-dom';
 
@@ -89,9 +90,7 @@ const AppLayout = ({ children, fullWidth = false }: AppLayoutProps) => {
           <main data-component-name="main" className={`flex-1 w-full overflow-auto ${fullWidth ? 'p-0' : 'p-4'}`}>
             {children}
           </main>
-          <footer className="p-4 w-full border-t text-center text-sm text-muted-foreground">
-            © {new Date().getFullYear()} Insights Collective. All rights reserved.
-          </footer>
+          <AppFooter />
         </div>
       </div>
     </SidebarProvider>

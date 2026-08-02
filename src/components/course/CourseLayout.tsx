@@ -7,6 +7,7 @@ import { SidebarProvider } from '@/components/ui/sidebar';
 import { CourseSidebar } from './CourseSidebar';
 import { Toaster } from '@/components/ui/toaster';
 import Navbar from '@/components/layout/Navbar';
+import AppFooter from '@/components/layout/AppFooter';
 
 interface CourseLayoutProps {
   children: ReactNode;
@@ -79,14 +80,24 @@ export function CourseLayout({ children }: CourseLayoutProps) {
         
         <div className="flex flex-1 w-full">
           <CourseSidebar />
-          
-          <main className="flex-1 overflow-auto">
-            <div className="p-6">
-              {children}
-            </div>
-          </main>
+
+          <div className="flex flex-1 flex-col overflow-auto">
+            {/* The gutter matches AppLayout's p-4 rather than keeping its own p-6:
+                a reader moving between /courses/:id and /dashboard should not see
+                the content start in a different place. */}
+            <main className="flex-1">
+              <div className="p-4">
+                {children}
+              </div>
+            </main>
+            {/* Courses keep their own sidebar and menu — a signed-off difference —
+                but they used to end with no footer at all, which reads as a page
+                that failed to finish. Inside the scroll container so it sits below
+                the content rather than pinned over it. */}
+            <AppFooter />
+          </div>
         </div>
-        
+
         <Toaster />
       </div>
     </SidebarProvider>

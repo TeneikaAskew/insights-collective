@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { htmlToPlainText } from '@/utils/htmlToPlainText';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { CourseImage } from '@/components/common/CourseImage';
-import AppLayout from '@/components/layout/AppLayout';
 import { CourseLayout } from '@/components/course/CourseLayout';
 import CourseErrorState from '@/components/course/CourseErrorState';
 import ModuleCard from '@/components/common/ModuleCard';
