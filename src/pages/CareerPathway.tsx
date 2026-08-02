@@ -424,7 +424,7 @@ const CareerPathway: React.FC = () => {
 
   if (!isAuthenticated) {
     return (
-      <AppLayout>
+      <AppLayout fullWidth>
         <div className="ss-wash min-h-full py-16 px-6" data-testid="career-pathway-signin">
           <div className="ss-card bg-card max-w-md mx-auto p-8 text-center">
             <div className="w-16 h-16 mx-auto rounded-full bg-ss-lav-chip grid place-content-center mb-5">
@@ -479,7 +479,7 @@ const CareerPathway: React.FC = () => {
             : 'Type your answer…';
 
   return (
-    <AppLayout>
+    <AppLayout fullWidth>
       <div className="ss-wash min-h-full py-10 px-4 sm:px-6" data-testid="career-pathway-page">
         <div className="max-w-6xl mx-auto">
           <header

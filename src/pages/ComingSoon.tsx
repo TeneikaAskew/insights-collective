@@ -11,7 +11,7 @@ export default function ComingSoon() {
   const navigate = useNavigate();
 
   return (
-    <AppLayout>
+    <AppLayout fullWidth>
       <div className="ss-wash min-h-full flex items-center justify-center px-4 py-16">
         <div className="ss-card bg-card p-10 max-w-md text-center" data-testid="coming-soon">
           <div className="ss-chip rounded-full p-4 w-16 h-16 mx-auto mb-6 flex items-center justify-center">

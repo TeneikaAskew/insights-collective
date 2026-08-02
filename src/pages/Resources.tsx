@@ -243,7 +243,9 @@ const Resources = () => {
 
   return (
     <AppLayout fullWidth={true}>
-      <div className="space-y-8 w-full">
+      {/* fullWidth means AppLayout adds no gutter, so this page owes one. It had
+          none, and its cards sat flush against both viewport edges. */}
+      <div className="space-y-8 w-full px-4 sm:px-6 py-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-center">Resources</h1>
           <p className="text-muted-foreground mt-2 text-center">

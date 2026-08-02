@@ -160,8 +160,8 @@ const ExploreDataCareers = () => {
     }
   };
   const railLabel = 'text-xs font-semibold uppercase tracking-wider text-muted-foreground';
-  return <AppLayout>
-      <div className="ss-wash">
+  return <AppLayout fullWidth>
+      <div className="ss-wash min-h-full">
         <div className="container mx-auto py-10 px-4 space-y-8">
           <motion.div initial={{
           opacity: 0,
