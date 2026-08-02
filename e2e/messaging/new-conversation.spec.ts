@@ -63,6 +63,18 @@ test.describe('Starting a conversation', () => {
   // fullyParallel, so a second test could not rely on this one having run
   // first, and a serial block would only make that dependency legal, not sound.
   test('creates a conversation, opens it, and lists it in the inbox', async ({ page }) => {
+    // The suite's default is 30s per test, and this one is a journey rather than a
+    // check: load a course-scoped page, open the composer, wait for a course_contacts
+    // round trip, create through open_course_thread, wait for the realtime refresh, then
+    // reload and read the list back. The individual waits below already sum past 30s, so
+    // the previous run failed on the budget rather than on anything it asserted —
+    // "Test timeout of 30000ms exceeded" with the picker working fine.
+    //
+    // Raising the ceiling, not the individual waits: each of those still fails on its own
+    // message, so a genuine hang is reported as the step that hung rather than as a flat
+    // timeout with no cause. Precedent: interview-prep-design/code-evaluation.spec.ts.
+    test.setTimeout(120_000);
+
     await page.goto(MESSAGES_URL, { waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('heading', { name: 'Messages' })).toBeVisible();
 
