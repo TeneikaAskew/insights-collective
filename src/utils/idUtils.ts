@@ -12,11 +12,25 @@ const COURSE_WISHLIST_KEY = 'insightsCollective_wishlistedCourses';
 const EVENT_REGISTRATION_KEY = 'insightsCollective_registeredEvents';
 const COURSE_UUID_MAPPING_KEY = 'insightsCollective_courseUuidMapping';
 
-// Validate UUID format
+// Validate UUID format.
+//
+// Shape only, deliberately. This guard exists so a route param that is not a
+// uuid never reaches a uuid column, where Postgres answers 22P02 and the caller
+// shows a database error instead of its not-found state. It is not a check that
+// the id was minted by any particular algorithm.
+//
+// It used to also require RFC 4122 version 1-5 and variant 8/9/a/b, which is
+// stricter than the `uuid` type itself: Postgres stores any 32 hex digits. So
+// `/portfolio-editor/ffff6666-6666-6666-6666-666666666666` -- a row that
+// exists, that the list screen had just rendered -- was refused before the
+// fetch and the editor reported "Portfolio page not found". Anything minted as
+// UUIDv7, or seeded by hand, failed the same way, on every screen that gates on
+// this: courses, modules, lessons, progress, permissions.
+const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export const isValidUUID = (uuid: string): boolean => {
   if (!uuid) return false;
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  return uuidRegex.test(uuid);
+  return UUID_SHAPE.test(uuid);
 };
 
 // Get or create persistent UUID mapping
