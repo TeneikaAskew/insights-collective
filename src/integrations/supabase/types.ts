@@ -6303,6 +6303,28 @@ export type Database = {
         Args: { new_roles: string[]; target_user_id: string }
         Returns: undefined
       }
+      start_quiz_attempt: {
+        Args: { p_quiz_id: string }
+        Returns: {
+          attempt: number | null
+          created_at: string | null
+          end_at: string | null
+          extra_attempts: number | null
+          extra_time: number | null
+          finished_at: string | null
+          id: string
+          kept_score: number | null
+          manually_unlocked: boolean | null
+          quiz_id: string
+          score: number | null
+          started_at: string | null
+          submission_id: string | null
+          time_spent: number | null
+          updated_at: string | null
+          user_id: string
+          workflow_state: string | null
+        }[]
+      }
       verify_certificate: {
         Args: { p_code: string }
         Returns: {
