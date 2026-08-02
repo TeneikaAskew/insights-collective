@@ -102,8 +102,15 @@ const CourseList = () => {
   });
 
   return (
-    <AppLayout>
-      <div className="bg-background text-foreground -mx-4 md:-mx-6 lg:-mx-8 -my-4 px-4 md:px-8 lg:px-12 py-10 min-h-[calc(100vh-4rem)]">
+    <AppLayout fullWidth>
+      {/* Was negative margins cancelling AppLayout's gutter so the catalog could
+          run edge to edge. They did not cancel it — AppLayout's padding is a flat
+          p-4 at every width, so -mx-6 and -mx-8 pulled 8px and 16px PAST the
+          container at md and lg and the page overflowed horizontally. The
+          mobile-overflow sweep measures at 390px only, which is the one width
+          where the arithmetic happened to balance. fullWidth asks for the same
+          thing directly and cannot drift out of step with the shell. */}
+      <div className="bg-background text-foreground px-4 md:px-8 lg:px-12 py-10 min-h-full">
         {/* Header */}
         <div className="max-w-7xl mx-auto mb-10">
           <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground mb-3">Catalog</p>

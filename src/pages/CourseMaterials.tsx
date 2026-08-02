@@ -15,6 +15,7 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import { CourseLayout } from '@/components/course/CourseLayout';
+import { EmptyState } from '@/components/ui/empty-state';
 import CourseErrorState from '@/components/course/CourseErrorState';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -326,14 +327,13 @@ const CourseMaterials = () => {
                 />
               </div>
             ) : visibleFolders.length === 0 && visibleFiles.length === 0 ? (
-              <div className="p-10 text-center">
-                <Folder className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
-                <p className="text-sm text-muted-foreground">
-                  {canManage
-                    ? 'This folder is empty. Upload files or create a subfolder to get started.'
-                    : 'No materials here yet.'}
-                </p>
-              </div>
+              <EmptyState
+                icon={Folder}
+                title={canManage ? 'This folder is empty' : 'No materials here yet.'}
+                description={
+                  canManage ? 'Upload files or create a subfolder to get started.' : undefined
+                }
+              />
             ) : (
               <ul className="divide-y">
                 {visibleFolders.map((f) => (

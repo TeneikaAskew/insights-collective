@@ -10,8 +10,8 @@ const ResumeLoginWall = () => {
   const loginUrl = `/login?redirect=${encodeURIComponent(location.pathname)}`;
   
   return (
-    <AppLayout>
-      <div className="ss-wash container mx-auto py-12 min-h-full">
+    <AppLayout fullWidth>
+      <div className="ss-wash min-h-full py-12 px-4 sm:px-6">
         <Card className="ss-card mx-auto max-w-md">
           <CardHeader>
             <CardTitle>Resume Analysis</CardTitle>
