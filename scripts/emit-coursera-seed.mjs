@@ -1,6 +1,6 @@
 // ABOUTME: Emits the seed migration for public.coursera_subject_keywords and
 // ABOUTME: public.coursera_courses from the two files that are canonical in the repo:
-// ABOUTME: src/data/subjectKeywords.json and src/data/courseraCatalog.generated.ts.
+// ABOUTME: src/data/subjectKeywords.json and scripts/data/courseraCatalog.generated.ts.
 // ABOUTME: Usage: npm run emit:coursera-seed -- <output.sql>
 //
 // The keyword table exists so the Edge Function can classify a freshly fetched
@@ -13,7 +13,7 @@ import { dirname, resolve } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const KEYWORDS_PATH = resolve(here, '../src/data/subjectKeywords.json');
-const CATALOG_PATH = resolve(here, '../src/data/courseraCatalog.generated.ts');
+const CATALOG_PATH = resolve(here, './data/courseraCatalog.generated.ts');
 
 /** Postgres string literal. Doubling single quotes is the whole escape rule. */
 const lit = (value) => `'${String(value).replace(/'/g, "''")}'`;
@@ -99,7 +99,7 @@ const courseValues = catalog
 const sql = `-- ABOUTME: GENERATED FILE — do not edit by hand. Regenerate with:
 -- ABOUTME:   npm run emit:coursera-seed -- <this file>
 -- ABOUTME: Seeds the subject keyword table and the initial Coursera catalog from
--- ABOUTME: src/data/subjectKeywords.json and src/data/courseraCatalog.generated.ts,
+-- ABOUTME: src/data/subjectKeywords.json and scripts/data/courseraCatalog.generated.ts,
 -- ABOUTME: which stay canonical in the repo.
 --
 -- ${keywordRows.length} keyword rows, ${catalog.length} courses.

@@ -77,7 +77,8 @@ describe('useCourseraCatalog', () => {
       primarySubjects: ['machine-learning'],
       languages: ['en'],
     });
-    expect(result.current.usedFallback).toBe(false);
+    expect(result.current.error).toBeNull();
+    expect(result.current.isEmpty).toBe(false);
   });
 
   it('applies the quality bar and the active filter server-side', async () => {
@@ -118,7 +119,11 @@ describe('useCourseraCatalog', () => {
     expect(table.overlaps).toHaveBeenCalledWith('subjects', ['machine-learning', 'python']);
   });
 
-  it('falls back when the table is missing or unreadable', async () => {
+  // The next two cases used to assert the SAME thing — `usedFallback === true` —
+  // for a failed read and an empty one. That single flag was the defect: the two
+  // are different facts, they need different UI, and the bundled catalog rendered
+  // either way so neither ever reached the screen. They are now distinguished.
+  it('reports an error when the table is missing or unreadable', async () => {
     // What happens before the migration is applied.
     table.result = {
       data: null,
@@ -129,19 +134,22 @@ describe('useCourseraCatalog', () => {
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.catalog).toBeUndefined();
-    expect(result.current.usedFallback).toBe(true);
+    expect(result.current.error).not.toBeNull();
+    // Not empty — nothing was successfully read, so "no rows" would be a lie.
+    expect(result.current.isEmpty).toBe(false);
   });
 
-  it('falls back when the table exists but has no rows for these subjects', async () => {
-    // Un-seeded, or mid-first-crawl. An empty section would be worse than a
-    // slightly staler bundled list.
+  it('reports empty — not an error — when the table has no rows for these subjects', async () => {
+    // Un-seeded, or mid-first-crawl. An honest gap, and the consumers say so
+    // rather than substituting a build-time list.
     table.result = { data: [], error: null };
 
     const { result } = renderHook(() => useCourseraCatalog(subjects), { wrapper });
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.catalog).toBeUndefined();
-    expect(result.current.usedFallback).toBe(true);
+    expect(result.current.isEmpty).toBe(true);
+    expect(result.current.error).toBeNull();
   });
 
   it('does not query at all for an empty subject list', async () => {
@@ -149,6 +157,6 @@ describe('useCourseraCatalog', () => {
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(mockSupabaseClient.from).not.toHaveBeenCalled();
-    expect(result.current.usedFallback).toBe(true);
+    expect(result.current.error).toBeNull();
   });
 });

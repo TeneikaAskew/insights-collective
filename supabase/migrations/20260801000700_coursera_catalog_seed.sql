@@ -1,7 +1,7 @@
 -- ABOUTME: GENERATED FILE — do not edit by hand. Regenerate with:
 -- ABOUTME:   npm run emit:coursera-seed -- <this file>
 -- ABOUTME: Seeds the subject keyword table and the initial Coursera catalog from
--- ABOUTME: src/data/subjectKeywords.json and src/data/courseraCatalog.generated.ts,
+-- ABOUTME: src/data/subjectKeywords.json and scripts/data/courseraCatalog.generated.ts,
 -- ABOUTME: which stay canonical in the repo.
 --
 -- 293 keyword rows, 179 courses.

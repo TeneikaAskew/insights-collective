@@ -1,10 +1,20 @@
 // ABOUTME: The Coursera catalog used as the SECONDARY course source — it fills the
 // ABOUTME: subject areas Insights Collective's own published courses do not cover.
-// ABOUTME: Rows live in courseraCatalog.generated.ts, built from a catalog CSV
-// ABOUTME: snapshot; this module owns the type and the lookup helpers.
+// ABOUTME: This module owns the TYPE and the pure lookup helpers only; the rows
+// ABOUTME: come from the coursera_courses table at runtime, via useCourseraCatalog.
+//
+// There is deliberately no bundled catalog here any more. A generated snapshot
+// used to ship in this directory and back-stop every read, which meant a failed
+// or empty database query rendered recommendations anyway — from data frozen at
+// build time — and nothing on screen said so. Course recommendations were the
+// one thing users could not tell was stale.
+//
+// The generated file still exists, at scripts/data/courseraCatalog.generated.ts.
+// It is the OFFLINE pipeline's artifact: the source for the database seed and the
+// slug list for link verification. It lives outside src/ so it cannot be imported
+// back into the bundle by accident, which is exactly how it became a fallback.
 
 import type { LearningSubject } from './learningSubjects';
-import { generatedCourseraCatalog } from './courseraCatalog.generated';
 
 export interface CourseraCourse {
   /**
@@ -51,23 +61,26 @@ export interface CourseraCourse {
   languages?: string[];
   /**
    * Admin curation: forces this course to the top of every subject it teaches,
-   * regardless of rating. Absent on the bundled catalog, which has no curation.
+   * regardless of rating. Only the database carries curation; the offline
+   * pipeline's generated file has none.
    */
   isFeatured?: boolean;
 }
 
-export const courseraCatalog: CourseraCourse[] = generatedCourseraCatalog;
-
 /**
- * Catalog indexed by URL — the identity, not the slug.
+ * Catalog rows indexed by URL — the identity, not the slug.
  *
  * /learn/<slug> and /specializations/<slug> are different courses that share a slug
- * (56 such pairs in the live catalog), so a slug-keyed map silently collapsed one of
+ * (56 such pairs in the live catalog), so a slug-keyed map silently collapses one of
  * every pair into the other.
+ *
+ * Was a module constant built over the bundled file. Now a function, because there
+ * is no bundled file to build it from — callers pass the catalog they actually
+ * have.
  */
-export const courseraCatalogByUrl: Record<string, CourseraCourse> = Object.fromEntries(
-  courseraCatalog.map((course) => [course.url, course]),
-);
+export function catalogByUrl(catalog: CourseraCourse[]): Record<string, CourseraCourse> {
+  return Object.fromEntries(catalog.map((course) => [course.url, course]));
+}
 
 /**
  * The course URL. A passthrough now that the source data carries it — kept as a
@@ -143,9 +156,6 @@ export function indexCatalogBySubject(catalog: CourseraCourse[]): SubjectIndex {
   return index;
 }
 
-/** Index over the bundled catalog, built once. */
-const bundledIndex = indexCatalogBySubject(courseraCatalog);
-
 /**
  * Indexes for database-supplied catalogs, keyed by the array itself. React Query
  * hands back the same array reference until the data changes, so this rebuilds only
@@ -153,8 +163,22 @@ const bundledIndex = indexCatalogBySubject(courseraCatalog);
  */
 const indexCache = new WeakMap<CourseraCourse[], SubjectIndex>();
 
+/** Shared by every caller with nothing to index. Frozen so no one mutates it. */
+const EMPTY_INDEX: SubjectIndex = new Map();
+
+/**
+ * Group a catalog by subject. `undefined` — still loading, or the read failed —
+ * yields an EMPTY index, never a substitute catalog.
+ *
+ * This used to return a prebuilt index over the bundled file whenever the caller
+ * passed nothing, which is how a failed database read became indistinguishable
+ * from a healthy one: the recommendations still rendered, just from a snapshot
+ * frozen at build time. Loading and error are deliberately identical HERE, in a
+ * pure helper that cannot know the difference; the hooks expose
+ * `{ error, isEmpty, isLoading }` so the UI can tell them apart and say so.
+ */
 export function subjectIndexFor(catalog?: CourseraCourse[]): SubjectIndex {
-  if (!catalog || catalog === courseraCatalog) return bundledIndex;
+  if (!catalog) return EMPTY_INDEX;
   let index = indexCache.get(catalog);
   if (!index) {
     index = indexCatalogBySubject(catalog);
@@ -166,11 +190,13 @@ export function subjectIndexFor(catalog?: CourseraCourse[]): SubjectIndex {
 /**
  * Catalog entries that teach `subject`, best-first. See `rankForSubject`.
  *
- * Pass `index` to read from a database-supplied catalog; omit it for the bundled one.
+ * `index` is REQUIRED. It defaulted to the bundled index, so every call site that
+ * simply forgot to pass one silently read build-time data — the same failure the
+ * comment above describes, reachable by omission rather than by error.
  */
 export function courseraCoursesForSubject(
   subject: LearningSubject,
-  index: SubjectIndex = bundledIndex,
+  index: SubjectIndex,
 ): CourseraCourse[] {
   return index.get(subject) ?? [];
 }

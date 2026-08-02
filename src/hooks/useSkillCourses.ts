@@ -12,11 +12,13 @@ import {
 } from '@/lib/skillCourseResolver';
 
 export interface UseSkillCoursesResult {
-  /** Up to `perSkillLimit` courses per skill; empty array = no match, keep the fallback UI. */
+  /** Up to `perSkillLimit` courses per skill; empty array = no match for that skill. */
   coursesBySkill: Map<string, SkillCourse[]>;
   loading: boolean;
-  /** True when the bundled catalog served instead of the database copy. */
-  usedBundledCatalog: boolean;
+  /** The Coursera read failed — every skill's list is empty for that reason, not for lack of matches. */
+  error: Error | null;
+  /** Re-run the read. */
+  retry: () => void;
 }
 
 export function useSkillCourses(
@@ -44,7 +46,7 @@ export function useSkillCourses(
     [skillNames],
   );
 
-  const { catalog, loading, usedFallback } = useCourseraCatalog(subjects);
+  const { catalog, loading, error, retry } = useCourseraCatalog(subjects);
 
   const perSkillLimit = options?.perSkillLimit;
   const coursesBySkill = useMemo(() => {
@@ -56,5 +58,5 @@ export function useSkillCourses(
     return bySkill;
   }, [skillNames, catalog, perSkillLimit]);
 
-  return { coursesBySkill, loading, usedBundledCatalog: usedFallback };
+  return { coursesBySkill, loading, error, retry };
 }

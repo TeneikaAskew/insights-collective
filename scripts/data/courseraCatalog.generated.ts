@@ -12,7 +12,7 @@
   // Slugs go stale as courses are retired. `npm run verify:coursera` re-checks every
   // URL and reports the dead ones.
 
-  import type { CourseraCourse } from './courseraCatalog';
+  import type { CourseraCourse } from '../../src/data/courseraCatalog';
 
   export const generatedCourseraCatalog: CourseraCourse[] = [
     {

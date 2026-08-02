@@ -24,7 +24,18 @@ export function SkillGapChart({ userSkills, missingSkills, learningResources }: 
   // Real catalog courses for each missing skill. Skills the catalog has
   // nothing for simply don't get a block — the browse-all button below is
   // the fallback for those.
-  const { coursesBySkill } = useSkillCourses(missingSkills);
+  //
+  // `error` is read now. It used to be impossible for this to be empty because
+  // of a failure: a failed read silently served the bundled catalog, so the
+  // section always rendered courses. With the bundle gone, "no blocks" can mean
+  // an outage, and the generic browse link below would have quietly stood in for
+  // recommendations that failed to load.
+  const {
+    coursesBySkill,
+    loading: courseraLoading,
+    error: courseraError,
+    retry: retryCoursera,
+  } = useSkillCourses(missingSkills);
   const matchedSkills = missingSkills.filter((skill) => (coursesBySkill.get(skill) ?? []).length > 0);
 
   return (
@@ -133,9 +144,29 @@ export function SkillGapChart({ userSkills, missingSkills, learningResources }: 
             </>
           )}
 
+          {/* An outage is not an empty catalog. Shown ahead of the browse link so
+              a failed read never passes for "we found nothing for these skills". */}
+          {courseraError && missingSkills.length > 0 && (
+            <div
+              className="rounded-lg border border-ss-bad/40 bg-ss-bad-chip px-3 py-2.5 text-sm flex items-center justify-between gap-3"
+              role="alert"
+            >
+              <span className="text-ss-bad">Couldn't load course recommendations.</span>
+              <Button variant="outline" size="sm" className="bg-card" onClick={retryCoursera}>
+                Retry
+              </Button>
+            </div>
+          )}
+
           {/* Generic browse link only when nothing above matched — matched
-              skills already link to specific courses. */}
-          {matchedSkills.length === 0 && missingSkills.length > 0 && (
+              skills already link to specific courses. Suppressed during an
+              outage, where it would read as a considered fallback rather than
+              the consequence of a failed query, and while LOADING, where it is
+              simply premature: the list starts empty on every uncached request,
+              so this used to flash on screen and then be replaced by real
+              recommendations. That flash is new — the bundled catalog filled
+              instantly, so there was no in-flight window to get wrong. */}
+          {!courseraLoading && !courseraError && matchedSkills.length === 0 && missingSkills.length > 0 && (
             <Button variant="outline" className="w-full mt-4" asChild>
               <a href="https://www.coursera.org/browse/data-science" target="_blank" rel="noopener noreferrer">
                 <ExternalLink className="h-4 w-4 mr-2" />

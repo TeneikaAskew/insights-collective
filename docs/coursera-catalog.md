@@ -11,8 +11,10 @@ For how recommendations are chosen, see `src/lib/roleCourseResolver.ts`.
 ## Where the catalog lives
 
 In Postgres — `public.coursera_courses` — refreshed by the `coursera-refresh` Edge
-Function on a monthly schedule. `src/data/courseraCatalog.generated.ts` still exists,
-but only as the seed for that table and as a client-side fallback.
+Function on a monthly schedule. That is the app's **only** source.
+`scripts/data/courseraCatalog.generated.ts` still exists, but purely as offline
+pipeline data: the seed for that table and the slug list for link verification.
+It is not imported by the app and is not a fallback.
 
 ```
                     ┌─ cron: 1st of month ──► enqueue-discover ─┐
@@ -20,9 +22,11 @@ but only as the seed for that table and as a client-side fallback.
 coursera.org ◄──────┴─ cron: every 5 min ──► process ──► coursera_crawl_queue
    (public                                      │
     pages)                                      ▼
-                                        coursera_courses ──► useCourseraCatalog
-                                                                     │
-                                        courseraCatalog.generated.ts ┘ (fallback)
+                                        coursera_courses ──► useCourseraCatalog ──► UI
+                                                ▲                                (or an
+                                                │                              error/empty
+                          scripts/data/courseraCatalog.generated.ts              state)
+                                   (seed only — outside src/, never bundled)
 ```
 
 ### Why a table and not the generated file
@@ -37,10 +41,37 @@ Keeping the whole crawled corpus (thousands of rows) rather than a pre-filtered 
 also means the quality bar becomes a *query* parameter. `MIN_RATING` and
 `MIN_REVIEWS` in `useCourseraCatalog` can be tuned without re-crawling anything.
 
-The bundled file remains as the fallback because a database problem should degrade
-the section, not empty it. `useCourseraCatalog` returns `undefined` — which the
-resolver reads as "use the bundled catalog" — when the query errors, when the table
-does not exist yet, or when it returns no rows for a role's subjects.
+### The bundled file is no longer a fallback (and why that reversed)
+
+It used to be one: a database problem "degraded the section rather than emptying
+it", by serving the copy compiled into the app. That reasoning is sound for a
+cosmetic asset and wrong for this. The substitute data was indistinguishable from
+the real thing on screen — same titles, same ratings, same links — so an outage,
+an unmigrated table and a healthy read all looked identical, and the only signal
+that anything had happened was a `usedFallback` flag that **no component ever
+read**. Course recommendations were the one thing a user could not tell was
+stale.
+
+So the app is now DB-only. `useCourseraCatalog` returns `{ catalog, loading,
+error, isEmpty, retry }`, and the three consumers render those states:
+
+| state | what the user sees |
+|---|---|
+| loading | nothing yet (the section is still resolving) |
+| `error` | "Couldn't load course recommendations" + **Retry** |
+| `isEmpty` | no external section — an honest gap, no error shown |
+| rows | the recommendations |
+
+Live coverage says this costs nothing: 1,867 rows pass the same quality bar the
+generated file applied, against 180 in the file, and every subject is equally or
+better covered (the thinnest, `experimentation`, ties at 8).
+
+The generated file still exists — at **`scripts/data/courseraCatalog.generated.ts`**,
+outside `src/`. It is the offline pipeline's artifact: the source for the seed
+migration and the slug list for link verification. It lives outside the app tree
+so it cannot be imported back into the bundle by accident, which is precisely how
+it became a fallback in the first place. Removing it from the bundle also took
+**128 KB** off the main chunk for every visitor.
 
 ### Why an Edge Function and not a GitHub Action
 
@@ -185,7 +216,7 @@ npm run emit:coursera-seed -- supabase/migrations/<timestamp>_coursera_catalog_s
 
 ## Where the data comes from
 
-`src/data/courseraCatalog.generated.ts` is a **generated file** — do not edit it by
+`scripts/data/courseraCatalog.generated.ts` is a **generated file** — do not edit it by
 hand. Two scripts feed it, and either can be the source:
 
 ```
@@ -319,7 +350,7 @@ lets them be interchangeable: `title`, `Organization`, `Skills`, `Description`,
 The scripts are plain Node with no interactive steps, so anything that can run a
 command can run them — a GitHub Action on a monthly schedule is the obvious home.
 Have it run the refresh sequence and open a PR when
-`src/data/courseraCatalog.generated.ts` changes; the drift, integrity and link
+`scripts/data/courseraCatalog.generated.ts` changes; the drift, integrity and link
 tests are what make that PR safe to review quickly. Nothing here needs Claude in
 the loop to work, though `npm run fetch:coursera -- --refresh` is a reasonable
 thing to ask Claude Code to run and summarize.

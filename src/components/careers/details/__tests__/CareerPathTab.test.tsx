@@ -15,6 +15,48 @@ vi.mock('@/hooks/usePublishedCourses', () => ({
   usePublishedCourses: () => mockUsePublishedCourses(),
 }));
 
+// The Coursera rows used to arrive for free: the catalog read never resolved
+// under the test mocks and the resolver fell back to the bundled file. With the
+// fallback gone, this section is genuinely empty unless the catalog is supplied,
+// so the fixture is now explicit about what Coursera returns.
+const mockUseCourseraCatalog = vi.fn();
+vi.mock('@/hooks/useCourseraCatalog', () => ({
+  useCourseraCatalog: () => mockUseCourseraCatalog(),
+}));
+
+const courseraFixture = [
+  {
+    slug: 'sql-for-data-science',
+    url: 'https://www.coursera.org/learn/sql-for-data-science',
+    title: 'SQL for Data Science',
+    partner: 'UC Davis',
+    format: 'Course' as const,
+    level: 'Beginner' as const,
+    rating: 4.6,
+    reviews: 12000,
+    subjects: ['sql' as const],
+    primarySubjects: ['sql' as const],
+    skills: ['SQL'],
+    description: 'Query relational databases.',
+    languages: ['en'],
+  },
+  {
+    slug: 'data-modeling',
+    url: 'https://www.coursera.org/learn/data-modeling',
+    title: 'Data Modeling Foundations',
+    partner: 'Meta',
+    format: 'Course' as const,
+    level: 'Intermediate' as const,
+    rating: 4.4,
+    reviews: 900,
+    subjects: ['data-modeling' as const],
+    primarySubjects: ['data-modeling' as const],
+    skills: ['Data Modeling'],
+    description: 'Design schemas that hold up.',
+    languages: ['en'],
+  },
+];
+
 const role: DataCareerRole = {
   id: 'bi-analyst',
   title: 'Business Intelligence Analyst',
@@ -43,6 +85,13 @@ const tableauCourse: PublishedCourse = {
 describe('CareerPathTab course recommendations', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUseCourseraCatalog.mockReturnValue({
+      catalog: courseraFixture,
+      loading: false,
+      error: null,
+      isEmpty: false,
+      retry: vi.fn(),
+    });
   });
 
   it('shows platform courses first, linked to their real course route', () => {

@@ -37,7 +37,8 @@ describe('SkillGapChart Coursera section', () => {
     mockUseSkillCourses.mockReturnValue({
       coursesBySkill: new Map([['SQL', [sqlCourse]]]),
       loading: false,
-      usedBundledCatalog: false,
+      error: null,
+      retry: vi.fn(),
     });
 
     render(<SkillGapChart userSkills={['Excel']} missingSkills={['SQL']} learningResources={[]} />);
@@ -54,7 +55,8 @@ describe('SkillGapChart Coursera section', () => {
     mockUseSkillCourses.mockReturnValue({
       coursesBySkill: new Map([['Public Speaking', []]]),
       loading: false,
-      usedBundledCatalog: false,
+      error: null,
+      retry: vi.fn(),
     });
 
     render(
@@ -70,7 +72,8 @@ describe('SkillGapChart Coursera section', () => {
     mockUseSkillCourses.mockReturnValue({
       coursesBySkill: new Map([['SQL', [sqlCourse]]]),
       loading: false,
-      usedBundledCatalog: false,
+      error: null,
+      retry: vi.fn(),
     });
 
     const { container } = render(

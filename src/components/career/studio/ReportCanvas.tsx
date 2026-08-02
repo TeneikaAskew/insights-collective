@@ -87,8 +87,19 @@ const ReportCanvas: React.FC<ReportCanvasProps> = ({ report, revealStage }) => {
 
   // Ground each skill row in the real catalog. The LLM's `course · provider`
   // text stays as the fallback for skills nothing matched.
+  //
+  // `error` is read because that fallback is otherwise indistinguishable from an
+  // outage: when the catalog read fails every row loses its match and silently
+  // shows the model's own course text instead — an UNVERIFIED recommendation,
+  // presented exactly as the considered "nothing matched here" case. The text is
+  // still shown (it is the documented fallback and often reasonable), but the
+  // card now says the grounding failed rather than implying it succeeded.
   const skillItems = report?.skillsAndCourses?.slice(0, 5) ?? [];
-  const { coursesBySkill } = useSkillCourses(skillItems.map((item) => item.skill));
+  const {
+    coursesBySkill,
+    error: courseraError,
+    retry: retryCoursera,
+  } = useSkillCourses(skillItems.map((item) => item.skill));
 
   return (
     <div className="flex flex-col gap-4" data-testid="report-canvas">
@@ -141,6 +152,24 @@ const ReportCanvas: React.FC<ReportCanvasProps> = ({ report, revealStage }) => {
       {live('skills') && skillItems.length ? (
         <CanvasCard>
           <CardLabel>Skills &amp; courses</CardLabel>
+          {courseraError && (
+            <div
+              className="mb-3 rounded-lg border border-ss-bad/40 bg-ss-bad-chip px-3 py-2 text-xs flex items-center justify-between gap-2"
+              role="alert"
+            >
+              <span className="text-ss-bad">
+                Couldn't load course recommendations, so these rows aren't matched to
+                real courses.
+              </span>
+              <button
+                type="button"
+                onClick={retryCoursera}
+                className="shrink-0 rounded-md border border-border bg-card px-2 py-1 font-medium"
+              >
+                Retry
+              </button>
+            </div>
+          )}
           {skillItems.map((item, idx) => {
             const match = coursesBySkill.get(item.skill)?.[0];
             return (

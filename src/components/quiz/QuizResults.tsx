@@ -214,7 +214,7 @@ const logger = createLogger('getTrackIcon');
  */
 const TrackCourseraCourses: React.FC<{ track: CareerTrack }> = ({ track }) => {
   const subjects = React.useMemo(() => subjectsForRole('quiz-track', track), [track]);
-  const { catalog } = useCourseraCatalog(subjects);
+  const { catalog, error: courseraError, retry: retryCoursera } = useCourseraCatalog(subjects);
 
   const courses = React.useMemo(() => {
     const index = subjectIndexFor(catalog);
@@ -237,6 +237,24 @@ const TrackCourseraCourses: React.FC<{ track: CareerTrack }> = ({ track }) => {
     }
     return picks;
   }, [catalog, subjects]);
+
+  // A failed read used to be impossible to see here: the bundled catalog filled
+  // `courses` and the section rendered as usual. Now the section would simply
+  // vanish, which reads as "there are no Coursera courses for this track" — a
+  // claim nobody made and the data does not support.
+  if (courseraError) {
+    return (
+      <div
+        className="mt-4 rounded-lg border border-ss-bad/40 bg-ss-bad-chip px-3 py-2.5 text-sm flex items-center justify-between gap-3"
+        role="alert"
+      >
+        <span className="text-ss-bad">Couldn't load Coursera recommendations.</span>
+        <Button variant="outline" size="sm" className="bg-card" onClick={retryCoursera}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
 
   if (courses.length === 0) return null;
 

@@ -25,8 +25,8 @@ export interface SkillCourse extends ResolvedCourse {
 export interface ResolveSkillOptions {
   /**
    * Catalog to draw from. Injected for the same reason `resolveRoleCourses`
-   * takes one: the rows usually come from Postgres via `useCourseraCatalog`,
-   * and omitting it falls back to the bundled copy.
+   * takes one: the rows come from Postgres via `useCourseraCatalog`. Omitting it
+   * yields NO courses — it no longer falls back to a bundled copy.
    */
   catalog?: CourseraCourse[];
   /** Cap on courses per skill. Default 3. */

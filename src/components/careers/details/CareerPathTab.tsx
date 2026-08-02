@@ -13,7 +13,8 @@ interface CareerPathTabProps {
 }
 
 export const CareerPathTab: React.FC<CareerPathTabProps> = ({ role }) => {
-  const { platform, coursera, platformIsEmpty } = useRoleCourses(role);
+  const { platform, coursera, platformIsEmpty, courseraError, retryCoursera } =
+    useRoleCourses(role);
 
   return (
     <div className="space-y-4">
@@ -63,6 +64,24 @@ export const CareerPathTab: React.FC<CareerPathTabProps> = ({ role }) => {
               <Link to="/courses">Browse All Courses</Link>
             </Button>
           </div>
+        </div>
+      )}
+
+      {/* A failed catalog read used to be invisible here: the bundled catalog
+          filled `coursera` regardless, so this section always rendered. Now the
+          list is genuinely empty when the read fails, and saying nothing would
+          imply this role simply has no external courses worth naming. */}
+      {courseraError && (
+        <div
+          className="mt-8 rounded-lg border border-ss-bad/40 bg-ss-bad-chip px-4 py-3 text-sm flex items-center justify-between gap-4"
+          role="alert"
+        >
+          <span className="text-ss-bad">
+            Couldn't load course recommendations for this role.
+          </span>
+          <Button variant="outline" size="sm" className="bg-card" onClick={retryCoursera}>
+            Retry
+          </Button>
         </div>
       )}
 

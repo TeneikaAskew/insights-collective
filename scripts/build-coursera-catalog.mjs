@@ -1,4 +1,4 @@
-// ABOUTME: Generates src/data/courseraCatalog.generated.ts from a Coursera catalog
+// ABOUTME: Generates scripts/data/courseraCatalog.generated.ts from a Coursera catalog
 // ABOUTME: CSV export. Coursera has no free public catalog API, so the input is a
 // ABOUTME: dataset snapshot rather than a live fetch — see the header it writes for
 // ABOUTME: provenance. Usage: npm run build:coursera -- <path-to-csv>
@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve, basename } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const OUTPUT_PATH = resolve(here, '../src/data/courseraCatalog.generated.ts');
+const OUTPUT_PATH = resolve(here, './data/courseraCatalog.generated.ts');
 const KEYWORDS_PATH = resolve(here, '../src/data/subjectKeywords.json');
 const DENYLIST_PATH = resolve(here, './coursera-denylist.json');
 
@@ -395,7 +395,7 @@ async function main() {
   // Slugs go stale as courses are retired. \`npm run verify:coursera\` re-checks every
   // URL and reports the dead ones.
 
-  import type { CourseraCourse } from './courseraCatalog';
+  import type { CourseraCourse } from '../../src/data/courseraCatalog';
 
   export const generatedCourseraCatalog: CourseraCourse[] = [
   ${body}
