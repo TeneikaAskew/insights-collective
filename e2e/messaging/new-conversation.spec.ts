@@ -106,9 +106,30 @@ test.describe('Starting a conversation', () => {
       timeout: 20_000,
     });
 
+    // Wait for the new thread to reach the list BEFORE navigating, and not only
+    // because it is worth asserting.
+    //
+    // Inserting the participant rows fires a realtime event, and the list
+    // responds by refetching through the messages-helper Edge Function.
+    // Navigating while that invoke is in flight aborts it, supabase-js reports
+    // the abort as "FunctionsFetchError: Failed to send a request to the Edge
+    // Function", and the console-error fixture fails the test — for a request
+    // this spec cancelled itself, after every assertion had already passed.
+    //
+    // An earlier attempt waited for networkidle here. That was not enough: the
+    // realtime event can arrive after the network has already gone quiet, so
+    // the wait settled before the refetch had even started. Waiting for the row
+    // itself waits for the thing that actually has to finish.
+    const listedThread = page.getByText(COUNTERPART_NAME).filter({ visible: true }).first();
+    await expect(
+      listedThread,
+      'The new thread never reached the conversation list in-page, so the ' +
+        'realtime refresh either did not fire or did not complete.',
+    ).toBeVisible({ timeout: 30_000 });
+
     // And it was persisted. Reloading refetches from the server, so the
-    // counterpart appearing in the list is the difference between a
-    // conversation that was written and one that only lived in component state.
+    // counterpart appearing again is the difference between a conversation that
+    // was written and one that only lived in component state.
     await page.goto(MESSAGES_URL, { waitUntil: 'domcontentloaded' });
     await expect(
       page.getByText(COUNTERPART_NAME).filter({ visible: true }).first(),
