@@ -1,6 +1,7 @@
 
 import { Link } from 'react-router-dom';
 import { GraduationCap } from 'lucide-react';
+import { copyrightLine } from '@/components/layout/AppFooter';
 
 const Footer = () => {
   return (
@@ -58,7 +59,7 @@ const Footer = () => {
         </div>
         
         <div className="border-t border-background/15 mt-8 pt-8 text-center text-background/60 text-sm">
-          <p>© {new Date().getFullYear()} Insights Collective. All rights reserved.</p>
+          <p>{copyrightLine()}</p>
           <div className="flex justify-center gap-4 mt-2">
             <Link to="/privacy-policy" className="hover:text-background">Privacy Policy</Link>
             <Link to="/terms-of-service" className="hover:text-background">Terms of Service</Link>

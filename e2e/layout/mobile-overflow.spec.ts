@@ -31,8 +31,10 @@ const SIGNED_IN_ONLY = ['/'];
  *   /interview-prep/mock-interview-room  redirects to .../mock-interviews;
  *     MockInterviewRoom.tsx guards on a missing :sessionId, because a room
  *     with no session has nothing to show.
- *   /portfolio-editor  App.tsx only routes /portfolio-editor/:pageId, so the
- *     bare path renders the 404 page.
+ *   /portfolio-editor  App.tsx only routes /portfolio-editor/:pageId; the bare
+ *     path redirects to /portfolio-explorer, which is measured under its own
+ *     manifest entry. (It used to render the 404 page and pass this spec for
+ *     that reason, which is why the redirect exists.)
  *
  * Named here rather than quietly dropped, so the gap stays visible: neither
  * page's own mobile layout is measured, and covering them needs a seeded

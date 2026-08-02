@@ -3,6 +3,7 @@ import { CourseLayout } from '@/components/course/CourseLayout';
 import { CourseProgressOverview } from '@/components/course/CourseProgressOverview';
 import { useAuth } from '@/contexts/AuthContext';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { PageHeader } from '@/components/ui/page-header';
 
 const CourseProgress = () => {
   const { courseId } = useParams<{ courseId: string }>();
@@ -34,12 +35,17 @@ const CourseProgress = () => {
 
   return (
     <CourseLayout>
-      <CourseProgressOverview
-        courseId={courseId || ''}
-        studentId={user.id}
-        onViewCertificate={handleViewCertificate}
-        onNavigateToLesson={handleNavigateToLesson}
-      />
+      {/* This page had no h1 at all. That is a landmark problem before it is a
+          visual one: "jump to the main heading" had nowhere to go. */}
+      <div className="space-y-6">
+        <PageHeader title="Your progress" subtitle="How far you have got in this course." />
+        <CourseProgressOverview
+          courseId={courseId || ''}
+          studentId={user.id}
+          onViewCertificate={handleViewCertificate}
+          onNavigateToLesson={handleNavigateToLesson}
+        />
+      </div>
     </CourseLayout>
   );
 };

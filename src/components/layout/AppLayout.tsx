@@ -2,31 +2,16 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { SidebarProvider } from '@/components/ui/sidebar';
 import AppSidebar from './AppSidebar';
 import Navbar from './Navbar';
+import AppFooter from '@/components/layout/AppFooter';
 import RoleLoadWarning from './RoleLoadWarning';
 import { useLocation } from 'react-router-dom';
+import { readSidebarCookie, writeSidebarCookie } from '@/lib/sidebarCookie';
 
 type AppLayoutProps = {
   children: React.ReactNode;
   fullWidth?: boolean;
 };
 
-function readSidebarCookie(cookieName: string, fallback: boolean): boolean {
-  if (typeof document === 'undefined') return fallback;
-
-  const match = document.cookie
-    .split('; ')
-    .find(row => row.startsWith(`${cookieName}=`));
-
-  if (!match) return fallback;
-
-  return match.split('=')[1] === 'true';
-}
-
-function writeSidebarCookie(cookieName: string, value: boolean) {
-  if (typeof document === 'undefined') return;
-
-  document.cookie = `${cookieName}=${value}; path=/; max-age=${60 * 60 * 24 * 7}`;
-}
 
 const AppLayout = ({ children, fullWidth = false }: AppLayoutProps) => {
   const location = useLocation();
@@ -89,9 +74,7 @@ const AppLayout = ({ children, fullWidth = false }: AppLayoutProps) => {
           <main data-component-name="main" className={`flex-1 w-full overflow-auto ${fullWidth ? 'p-0' : 'p-4'}`}>
             {children}
           </main>
-          <footer className="p-4 w-full border-t text-center text-sm text-muted-foreground">
-            © {new Date().getFullYear()} Insights Collective. All rights reserved.
-          </footer>
+          <AppFooter />
         </div>
       </div>
     </SidebarProvider>

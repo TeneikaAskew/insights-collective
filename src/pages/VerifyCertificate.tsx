@@ -8,6 +8,7 @@ import { Award, CheckCircle2, XCircle, ArrowLeft, ShieldAlert, Clock } from 'luc
 import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
 import { securityConfig } from '@/config/security';
+import AppFooter from '@/components/layout/AppFooter';
 
 type VerifiedCert = {
   verification_code: string;
@@ -71,9 +72,14 @@ export default function VerifyCertificate() {
     return () => { alive = false; };
   }, [code]);
 
+  // Stays deliberately bare of the app shell: a certificate is verified by whoever
+  // was handed the link — an employer, usually — who has no account and should not
+  // meet a signed-in sidebar. It gains only the footer, so the page ends the way
+  // every other page ends instead of stopping at the last card.
   return (
-    <div className="min-h-screen bg-background py-16 px-4">
-      <div className="max-w-2xl mx-auto">
+    <div className="min-h-screen bg-background flex flex-col">
+      <div className="flex-1 py-16 px-4">
+        <div className="max-w-2xl mx-auto">
         <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-6">
           <ArrowLeft className="h-4 w-4" /> Back home
         </Link>
@@ -198,7 +204,9 @@ export default function VerifyCertificate() {
             </CardContent>
           </Card>
         )}
+        </div>
       </div>
+      <AppFooter />
     </div>
   );
 }

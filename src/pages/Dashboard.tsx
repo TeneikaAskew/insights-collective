@@ -20,6 +20,7 @@ import { CalendarPanel } from '@/components/calendar/CalendarPanel';
 import { MessagesPanel } from '@/components/messages/MessagesPanel';
 
 import { createLogger } from '@/utils/logger';
+import { PageHeader } from '@/components/ui/page-header';
 
 const logger = createLogger('Dashboard');
 
@@ -399,12 +400,10 @@ const Dashboard = () => {
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">
-            Welcome back, {user.name}! Here's an overview of your learning progress.
-          </p>
-        </div>
+        <PageHeader
+          title="Dashboard"
+          subtitle={`Welcome back, ${user.name}! Here's an overview of your learning progress.`}
+        />
         
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           <Card 
