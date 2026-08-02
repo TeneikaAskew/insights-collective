@@ -31,19 +31,23 @@
 --    of a course, so a thread has to be justified by one.
 --
 --    `public.open_course_thread` (20260720113448) already encodes the real rules:
---    caller must be enrolled or teach the course, students may only address a
---    course instructor, instructors may only address enrolled students or
---    co-instructors, and the 1:1 thread per (course, pair) is reused rather than
---    duplicated. It is SECURITY DEFINER, so it keeps working when the table-level
---    INSERT policies go away. Verified against the live function on 2026-08-02:
+--    both parties must belong to the course, and the 1:1 thread per (course, pair)
+--    is reused rather than duplicated. It is SECURITY DEFINER, so it keeps working
+--    when the table-level INSERT policies go away. Verified against the live
+--    function on 2026-08-02:
 --
 --      student  -> course instructor, enrolled ....... ALLOWED (idempotent)
---      student  -> another student, same course ...... DENIED  "Students can only message the course instructor"
 --      student  -> instructor, NOT enrolled .......... DENIED  "You must be enrolled in this course to message about it"
 --      instructor -> enrolled student ................ ALLOWED (same thread as above)
 --      instructor -> user not in the course .......... DENIED  "Recipient is not part of this course"
 --      instructor -> student of a course they do not teach  DENIED
 --      anyone   -> self .............................. DENIED  "Invalid recipient"
+--
+--    NOTE: at the time this migration was written the RPC also refused
+--    student-to-student threads. 20260802020300 removed that hierarchy — course
+--    membership is now the whole rule — so read that file for the current answer to
+--    "who may message whom". Nothing in THIS migration depends on the distinction:
+--    it is about which layer may create a thread at all, not about who is in it.
 --
 -- Reading was already correct and is left alone: `messages` and `conversations`
 -- are SELECT-able only by participants, and a third account probed against a live

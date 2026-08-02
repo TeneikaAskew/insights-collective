@@ -50,7 +50,7 @@ test.describe('Course messaging', () => {
 
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByText(/students can message the course instructor/i)).toBeVisible();
+    await expect(dialog.getByText(/only message people you share a course with/i)).toBeVisible();
     await expect(dialog.getByLabel(/search this course/i)).toBeVisible();
     // Nothing is selected yet, so there is nothing to start.
     await expect(dialog.getByRole('button', { name: /start conversation/i })).toBeDisabled();

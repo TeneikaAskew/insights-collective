@@ -83,8 +83,8 @@ const ConversationList: React.FC<ConversationListProps> = ({
       <div className="text-center p-6 border rounded-md bg-ss-card-warm">
         <p className="text-ss-peach-deep mb-2 font-medium">No conversations yet</p>
         <p className="text-sm text-muted-foreground">
-          Messages belong to a course. Open one of your courses to message its instructor — instructors can
-          message any student enrolled in theirs.
+          Messages belong to a course. Open one of your courses to message anyone in it — classmates or
+          teaching staff.
         </p>
       </div>
     );

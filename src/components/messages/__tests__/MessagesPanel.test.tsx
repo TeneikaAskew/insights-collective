@@ -52,6 +52,7 @@ const DS_THREAD = conversation('conv-ds', 'Ada');
 const ML_THREAD = conversation('conv-ml', 'Grace');
 
 const sendMessage = vi.fn();
+const refreshScope = vi.fn();
 
 function setLists({
   inbox = [DS_THREAD, ML_THREAD],
@@ -75,12 +76,14 @@ function setLists({
     courseByConversation: scoping,
     loading: scopeLoading,
     error: scopeError,
+    refresh: refreshScope,
   } as any);
 }
 
 describe('MessagesPanel', () => {
   beforeEach(() => {
     sendMessage.mockReset().mockResolvedValue(true);
+    refreshScope.mockReset();
     vi.mocked(useAuth).mockReturnValue({ user: { id: 'user-1' } } as any);
     vi.mocked(useConversationMessages).mockReturnValue({ messages: [], loading: false } as any);
     vi.mocked(useMessageSend).mockReturnValue({ sendMessage, sending: false } as any);
@@ -157,6 +160,64 @@ describe('MessagesPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /send/i }));
 
     await waitFor(() => expect(sendMessage).toHaveBeenCalledWith('conv-ds', 'Thanks!'));
+  });
+
+  /**
+   * Filtering the list is not the same as scoping the page. ?conversation= is editable,
+   * and useConversationMessages loads whatever id it is given. RLS still means you can
+   * only open a thread you are in — so this is not a leak — but a user in two courses
+   * could read and reply to a course-B thread under course A's heading.
+   */
+  it('refuses to open a thread belonging to another course', () => {
+    render(
+      <MessagesPanel
+        courseId={DATA_SCIENCE}
+        conversationId="conv-ml"
+        onSelectConversation={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/about a different course/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText('Message')).not.toBeInTheDocument();
+  });
+
+  it('opens a thread that does belong to this course', () => {
+    render(
+      <MessagesPanel
+        courseId={DATA_SCIENCE}
+        conversationId="conv-ds"
+        onSelectConversation={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText(/about a different course/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Message')).toBeInTheDocument();
+  });
+
+  it('opens any thread on the unscoped Dashboard tab', () => {
+    render(<MessagesPanel conversationId="conv-ml" onSelectConversation={vi.fn()} />);
+
+    expect(screen.queryByText(/about a different course/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Message')).toBeInTheDocument();
+  });
+
+  /**
+   * The map is a snapshot taken at mount. The composer creates a thread while the page
+   * is already open, so a thread the map has never heard of is usually one that was just
+   * started here — re-read before deciding it belongs elsewhere, or the user is told
+   * their brand-new conversation is about a different course.
+   */
+  it('re-reads the scoping for a thread it has never seen, instead of rejecting it', () => {
+    render(
+      <MessagesPanel
+        courseId={DATA_SCIENCE}
+        conversationId="conv-brand-new"
+        onSelectConversation={vi.fn()}
+      />,
+    );
+
+    expect(refreshScope).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(/about a different course/i)).not.toBeInTheDocument();
   });
 
   it('goes back to the list by clearing the host selection', () => {

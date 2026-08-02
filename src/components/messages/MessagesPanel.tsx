@@ -10,7 +10,7 @@
 // and at /courses/:courseId/messages, neither of which has a :conversationId segment, so
 // the open thread travels in the query string and the host decides what that looks like.
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -84,7 +84,32 @@ export function MessagesPanel({
     courseByConversation,
     loading: scopeLoading,
     error: scopeError,
+    refresh: refreshScope,
   } = useConversationCourses();
+
+  // Filtering the list is not the same as scoping the page.
+  //
+  // The open thread arrives in ?conversation=, which anyone can edit, and
+  // useConversationMessages loads it by id. RLS still applies — you can only ever
+  // open a thread you are a participant of, so this is not a leak — but a user in
+  // two courses could put a course-B thread id on the course-A page and read and
+  // reply to it there, under course A's heading. That contradicts what the page
+  // says it is showing.
+  const openThreadScopeKnown =
+    !!conversationId && Object.prototype.hasOwnProperty.call(courseByConversation, conversationId);
+  const openThreadOutOfScope =
+    !!courseId && !!conversationId && openThreadScopeKnown && courseByConversation[conversationId] !== courseId;
+
+  // A thread the map has never heard of is usually one that was just created by
+  // the composer on this very page, so re-read the mapping before judging it.
+  // Guarded by a ref so an id that genuinely never resolves asks once, not forever.
+  const refreshedFor = useRef(new Set<string>());
+  useEffect(() => {
+    if (!courseId || !conversationId || scopeLoading || openThreadScopeKnown) return;
+    if (refreshedFor.current.has(conversationId)) return;
+    refreshedFor.current.add(conversationId);
+    refreshScope();
+  }, [courseId, conversationId, scopeLoading, openThreadScopeKnown, refreshScope]);
 
   // `course_id` is stamped onto each row on the way through, not just used to filter:
   // ConversationList keys its 1:1 deduplication on it, because the same student and
@@ -141,6 +166,32 @@ export function MessagesPanel({
 
     onSelectConversation(undefined);
   };
+
+  // Refuse to render a thread that belongs to another course under this course's
+  // heading. Not an error card: the thread is perfectly real and the user is
+  // entitled to it, just not here, so point at where it lives.
+  if (conversationId && openThreadOutOfScope) {
+    return (
+      <div className="space-y-4">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onSelectConversation(undefined)}
+          className="flex items-center gap-2"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Messages
+        </Button>
+        <Card className="p-6">
+          <h3 className="text-lg font-semibold">That conversation is about a different course</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            This page only shows messages for the course you are in. Open it from the course it
+            belongs to, or from Messages on your dashboard.
+          </p>
+        </Card>
+      </div>
+    );
+  }
 
   if (conversationId) {
     // Look the conversation up across every list, not just the scoped one: a thread can be

@@ -3,10 +3,9 @@
 //
 // The old dialog searched the whole user directory and opened a thread with whoever you
 // picked. That is not what this product's messages are: a message exists because of a
-// course, and the rules about who may address whom are enforced by open_course_thread.
-// This dialog therefore offers exactly the people that RPC would accept — the course
-// instructor if you are a student, the enrolled students if you teach it — so the UI and
-// the database agree instead of the UI offering choices the database rejects.
+// course. So this offers exactly the people open_course_thread would accept — everyone
+// in this course, students and teaching staff alike — and nobody outside it, so the UI
+// and the database agree instead of the UI offering choices the database rejects.
 
 import { useEffect, useState } from 'react';
 import {
@@ -45,9 +44,9 @@ const initials = (contact: CourseContact) =>
 /**
  * Everyone in `courseId` the signed-in user is allowed to open a thread with.
  *
- * Mirrors open_course_thread: a student gets the instructors, an instructor gets the
- * enrolled students plus co-instructors. Returns [] rather than throwing when the caller
- * is in neither camp — the RPC would refuse anyway, and an empty picker says so quietly.
+ * Mirrors open_course_thread: membership of the course is the whole rule, so everyone in
+ * it can address everyone else in it. Returns [] rather than throwing when the caller is
+ * not in the course — the RPC would refuse anyway, and an empty picker says so quietly.
  */
 export async function fetchCourseContacts(
   courseId: string,
@@ -62,24 +61,45 @@ export async function fetchCourseContacts(
   if (courseError) throw courseError;
   if (!course) return [];
 
-  const { data: enrollments, error: enrollmentError } = await supabase
-    .from('enrollments')
-    .select('user_id')
-    .eq('course_id', courseId);
+  const [{ data: enrollments, error: enrollmentError }, { data: assignments, error: assignmentError }] =
+    await Promise.all([
+      supabase.from('enrollments').select('user_id').eq('course_id', courseId),
+      // A course can be taught by more than one person. `courses.instructor_id` is only
+      // the primary; open_course_thread accepts anyone is_course_instructor() accepts,
+      // which is that column OR a course_assignments row with role 'instructor'. Reading
+      // only the column meant an assigned co-instructor was treated as a stranger to
+      // their own course and got an empty picker, while students were never offered them.
+      supabase
+        .from('course_assignments')
+        .select('user_id')
+        .eq('course_id', courseId)
+        .eq('role', 'instructor'),
+    ]);
 
   if (enrollmentError) throw enrollmentError;
+  if (assignmentError) throw assignmentError;
 
-  const enrolledIds = (enrollments ?? []).map((row: any) => row.user_id);
-  const isInstructor = course.instructor_id === userId;
+  const enrolledIds: string[] = (enrollments ?? []).map((row: any) => row.user_id);
+  const instructorIds: string[] = [
+    ...new Set(
+      [course.instructor_id, ...(assignments ?? []).map((row: any) => row.user_id)].filter(
+        Boolean,
+      ) as string[],
+    ),
+  ];
+
+  const isInstructor = instructorIds.includes(userId);
   const isEnrolled = enrolledIds.includes(userId);
 
   if (!isInstructor && !isEnrolled) return [];
 
-  const contactIds = isInstructor
-    ? enrolledIds.filter((id: string) => id !== userId)
-    : course.instructor_id && course.instructor_id !== userId
-      ? [course.instructor_id]
-      : [];
+  // Everyone in the course, minus yourself. Students used to be offered only the
+  // teaching staff, mirroring an open_course_thread that refused student-to-student
+  // threads; that rule was dropped (20260802020300) so classmates can talk, and this
+  // has to match or the picker hides people the database would happily accept.
+  const contactIds = [
+    ...new Set([...enrolledIds, ...instructorIds].filter((id) => id !== userId)),
+  ];
 
   if (contactIds.length === 0) return [];
 
@@ -92,7 +112,7 @@ export async function fetchCourseContacts(
 
   return (profiles ?? []).map((profile: any) => ({
     ...profile,
-    role: profile.id === course.instructor_id ? ('instructor' as const) : ('student' as const),
+    role: instructorIds.includes(profile.id) ? ('instructor' as const) : ('student' as const),
   }));
 }
 
@@ -181,8 +201,8 @@ export function CourseThreadComposer({ courseId, onThreadOpened }: CourseThreadC
           <DialogHeader>
             <DialogTitle>New message</DialogTitle>
             <DialogDescription>
-              Choose someone from this course. Students can message the course instructor; instructors can
-              message anyone enrolled.
+              Choose anyone from this course — classmates or teaching staff. You can only message
+              people you share a course with.
             </DialogDescription>
           </DialogHeader>
 

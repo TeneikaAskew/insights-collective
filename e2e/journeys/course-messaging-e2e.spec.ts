@@ -19,6 +19,8 @@ const COURSE_ID = '660e8400-e29b-41d4-a716-446655440001'; // Intro to Data Scien
 const INSTRUCTOR_ID = '30609adf-dc50-4b57-a456-1f38201e40de'; // e2e-instructor, teaches COURSE_ID
 const MEMBER_ID = '575f018c-fa13-4e36-959f-7aba223b1e53'; // e2e-member, enrolled in COURSE_ID
 const OTHER_STUDENT_ID = '71629ac8-ec88-4ce8-a859-9b29a664041d'; // david.rodriguez, also enrolled
+const NO_SHARED_COURSE_ID = '891c88ca-cdf5-413c-a0c4-92ee1ef69c87'; // no course role anywhere
+const PROBE_SUBJECT = 'E2E directory DM probe';
 
 function authHeaders(token: string) {
   return {
@@ -251,11 +253,12 @@ test.describe('Course messaging — end to end', () => {
     await rest(instructorToken, `messages?content=eq.${encodeURIComponent(secret)}`, { method: 'DELETE' });
   });
 
-  test('a conversation cannot be created outside a course', async () => {
+  test('a conversation still cannot be created outside a course', async () => {
     // The old "New Conversation" dialog opened a thread with anyone in the directory.
-    // Both halves of that are now refused: an unscoped conversation, and dropping an
-    // arbitrary account into a scoped one. Enforced by triggers rather than only by RLS,
-    // because the Edge Function writes as the service role and RLS does not apply to it.
+    // That is still refused — but the boundary is now the COURSE, not the role: a
+    // conversation must name a course, and every participant must belong to it.
+    // Enforced by triggers rather than only by RLS, because messages-helper writes as
+    // the service role and RLS does not apply to it.
     const unscoped = await rest(studentToken, 'conversations', {
       method: 'POST',
       body: JSON.stringify({ subject: 'E2E directory DM probe', is_group: false, created_by: MEMBER_ID }),
@@ -263,16 +266,44 @@ test.describe('Course messaging — end to end', () => {
     expect(unscoped.status, `expected rejection, got ${unscoped.status}: ${unscoped.body}`)
       .toBeGreaterThanOrEqual(400);
 
-    // And the retired Edge Function actions are refused too.
+    // messages-helper's createConversation derives the course from
+    // courses_shared_by_users, so it succeeds for people who share one and the row it
+    // writes is course-scoped like any other. Assert the scoping, not a rejection —
+    // this spec exists to prove threads cannot escape a course, and a 200 that produced
+    // an unscoped row would be the actual regression.
     const viaFunction = await fetch(`${SUPABASE_URL}/functions/v1/messages-helper`, {
       method: 'POST',
       headers: authHeaders(studentToken),
       body: JSON.stringify({
         action: 'createConversation',
-        subject: 'E2E directory DM probe',
+        subject: PROBE_SUBJECT,
         recipientIds: [OTHER_STUDENT_ID],
       }),
     });
-    expect(viaFunction.status).toBeGreaterThanOrEqual(400);
+    const viaFunctionBody = await viaFunction.text();
+    expect(viaFunction.status, `createConversation failed: ${viaFunctionBody}`).toBe(200);
+    const { conversationId } = JSON.parse(viaFunctionBody) as { conversationId: string };
+
+    const scoped = await rest(studentToken, `conversations?id=eq.${conversationId}&select=id,course_id`);
+    const [row] = JSON.parse(scoped.body) as Array<{ id: string; course_id: string | null }>;
+    expect(row, 'the created conversation should be readable by its creator').toBeTruthy();
+    expect(row.course_id, 'a conversation must belong to a course').not.toBeNull();
+
+    // Clean up: this one really was created, unlike the rejected probe above.
+    await rest(studentToken, `conversation_participants?conversation_id=eq.${conversationId}`, {
+      method: 'DELETE',
+    });
+    await rest(studentToken, `conversations?id=eq.${conversationId}`, { method: 'DELETE' });
+  });
+
+  test('a user with no shared course still cannot be messaged', async () => {
+    // The rule loosened from "students may only address instructors" to "anyone in the
+    // course", and this is the line that did not move.
+    const { status, body } = await rpc(studentToken, 'open_course_thread', {
+      p_course_id: COURSE_ID,
+      p_other_user_id: NO_SHARED_COURSE_ID,
+    });
+    expect(status, `expected rejection, got ${status}: ${body}`).toBeGreaterThanOrEqual(400);
+    expect(body).toMatch(/not part of this course/i);
   });
 });

@@ -101,7 +101,7 @@ test.describe('Messaging + notifications — real signed-in RPC gating', () => {
     expect(missing.body).toMatch(/course not found/i);
   });
 
-  test('student -> other student in same course: RPC rejects (requires E2E_MEMBER_PASSWORD)', async () => {
+  test('student -> other student in same course: RPC allows (requires E2E_MEMBER_PASSWORD)', async () => {
     const memberEmail = process.env.E2E_MEMBER_EMAIL || 'e2e-member@insightscollective.org';
     const memberPassword = process.env.E2E_MEMBER_PASSWORD || process.env.E2E_TEST_PASSWORD;
     test.skip(
@@ -109,13 +109,35 @@ test.describe('Messaging + notifications — real signed-in RPC gating', () => {
       'E2E_MEMBER_EMAIL / E2E_MEMBER_PASSWORD (or E2E_TEST_PASSWORD) not set',
     );
 
+    // This used to assert a rejection: open_course_thread answered student->student
+    // with "Students can only message the course instructor". 20260802020300 dropped
+    // that hierarchy — membership of the course is now the whole rule — so classmates
+    // may talk. The boundary that still matters is tested below and in
+    // course-messaging-e2e.spec.ts: someone OUTSIDE the course is still refused, and
+    // being allowed to start a thread still gives nobody the right to read another.
     const studentToken = await passwordSignIn(memberEmail!, memberPassword!);
     const { status, body } = await rpc(studentToken, 'open_course_thread', {
       p_course_id: COURSE_ID,
       p_other_user_id: ENROLLED_STUDENT_ID, // another student in this course
     });
+    expect(status, `expected the thread to open, got ${status} with ${body}`).toBe(200);
+    expect(JSON.parse(body)).toMatch(/^[0-9a-f-]{36}$/i);
+  });
+
+  test('student -> a user in no shared course: RPC still rejects', async () => {
+    const memberPassword2 = process.env.E2E_MEMBER_PASSWORD || process.env.E2E_TEST_PASSWORD;
+    test.skip(!memberPassword2, 'E2E_MEMBER_PASSWORD (or E2E_TEST_PASSWORD) not set');
+
+    const studentToken = await passwordSignIn(
+      process.env.E2E_MEMBER_EMAIL || 'e2e-member@insightscollective.org',
+      memberPassword2!,
+    );
+    const { status, body } = await rpc(studentToken, 'open_course_thread', {
+      p_course_id: COURSE_ID,
+      p_other_user_id: NON_ENROLLED_USER_ID,
+    });
     expect(status, `expected rejection, got 2xx with ${body}`).toBeGreaterThanOrEqual(400);
-    expect(body).toMatch(/only message the course instructor|must be enrolled/i);
+    expect(body).toMatch(/not part of this course/i);
   });
 
   test('announcement insert fans out real notification rows visible to the enrolled recipient', async () => {

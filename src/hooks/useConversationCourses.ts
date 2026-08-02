@@ -8,7 +8,7 @@
 // `conversations_participant_access` already restricts SELECT to conversations you are a
 // participant of, so this returns your threads and nothing else.
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { createLogger } from '@/utils/logger';
@@ -19,7 +19,16 @@ export function useConversationCourses() {
   const [courseByConversation, setCourseByConversation] = useState<Record<string, string | null>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
+  // Bumping this re-runs the effect. `refresh` exists because this map is a
+  // snapshot taken at mount, and a thread can be created while the page is
+  // already open: the composer calls open_course_thread, the conversation list
+  // picks the new row up over realtime, but a map that never reloads has no
+  // course for it — so returning to the list filtered out the thread the user
+  // had just started, until a full reload.
+  const [reloadToken, setReloadToken] = useState(0);
   const { user } = useAuth();
+
+  const refresh = useCallback(() => setReloadToken((token) => token + 1), []);
 
   useEffect(() => {
     if (!user) {
@@ -62,7 +71,7 @@ export function useConversationCourses() {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [user, reloadToken]);
 
-  return { courseByConversation, loading, error };
+  return { courseByConversation, loading, error, refresh };
 }

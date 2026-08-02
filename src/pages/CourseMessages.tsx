@@ -10,11 +10,20 @@ import { CourseLayout } from '@/components/course/CourseLayout';
 import { MessagesPanel } from '@/components/messages/MessagesPanel';
 import { CourseThreadComposer } from '@/components/messages/CourseThreadComposer';
 import { useCourseData } from '@/hooks/useCourseData';
+import { usePageVisibility } from '@/contexts/PageVisibilityContext';
+import ComingSoon from '@/pages/ComingSoon';
 
 export default function CourseMessages() {
   const { courseId } = useParams<{ courseId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const { course } = useCourseData(courseId);
+
+  // Enforced here as well as in VisibilityGate, because the gate cannot see it:
+  // resolveGoverningPaths('/courses/<id>/messages') returns ['/courses'], so this
+  // route was governed by the Courses toggle and switching Messages off left the
+  // whole messaging UI reachable from inside a course. Same predicate the
+  // Dashboard tab and the course rail use, so the three agree.
+  const { isPageVisible, isReady } = usePageVisibility();
 
   const conversationId = searchParams.get('conversation') ?? undefined;
 
@@ -34,6 +43,20 @@ export default function CourseMessages() {
       { replace: true },
     );
   };
+
+  // Fail closed while the setting loads, exactly as VisibilityGate does — a page
+  // that renders first and hides itself a moment later has already run its queries.
+  if (!isReady) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
+  if (!isPageVisible('/messages')) {
+    return <ComingSoon />;
+  }
 
   return (
     <CourseLayout>
