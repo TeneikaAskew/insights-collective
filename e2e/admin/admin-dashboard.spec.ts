@@ -51,13 +51,14 @@ test.describe('Admin Dashboard', () => {
     await expect(page.getByRole('link', { name: /Control who sees each page/i })).toBeVisible();
   });
 
-  test('stat tiles render with their labels', async ({ page }) => {
+  test('platform KPI tiles render with their labels', async ({ page }) => {
     await goto(page, Routes.admin);
-    // The four tiles by name. The old locator's widest alternative,
-    // [class*="card"], matches every shadcn Card on the page — including the
-    // page shell — so it was satisfied whether or not a single statistic
-    // rendered.
-    for (const label of ['Total Resources', 'Categories', 'Resource Types', 'With Deadlines']) {
+    // The dashboard's own KPIs (AdminDashboard.tsx `kpis`), not the four tiles
+    // belonging to the ResourceManagement panel lower down the page — those are
+    // a different component, and asserting them would leave the KPI block free
+    // to disappear unnoticed. This test replaces one whose locator was
+    // [class*="card"], which matches every shadcn Card including the shell.
+    for (const label of ['Total Users', 'Total Courses', 'Active Enrollments', 'Certificates Issued']) {
       await expect(page.getByText(label, { exact: true }).first()).toBeVisible();
     }
   });
@@ -85,22 +86,37 @@ test.describe('Admin Dashboard', () => {
     },
   );
 
-  test('recent activity feed renders', async ({ page }) => {
+  test('recent activity card links out to the full log', async ({ page }) => {
     await goto(page, Routes.admin);
-    // The section by its heading, plus the table it contains. `[role="list"]`
-    // in the old locator matches any list on the page, navigation included.
-    await expect(page.getByRole('heading', { name: 'Recent Activity' })).toBeVisible();
-    for (const col of ['Content', 'Type', 'Source']) {
-      await expect(page.locator('th').filter({ hasText: col }).first()).toBeVisible();
-    }
+    // This card deliberately shows NO feed — AdminDashboard.tsx calls that out
+    // in a comment ("no fabricated feed") — so what it must contain is the way
+    // through to the real log. Scoped to the section, because Content/Type/
+    // Source are columns of the unrelated resources table further down and
+    // asserting those would pass even with this card gutted.
+    const card = page.locator('section').filter({ hasText: 'Recent Activity' }).first();
+    await expect(card.getByRole('heading', { name: 'Recent Activity' })).toBeVisible();
+    await expect(card.getByRole('link', { name: 'View All' })).toBeVisible();
+    await expect(card.getByRole('link', { name: 'full activity log' })).toBeVisible();
   });
 
-  test('admin navigation links are visible', async ({ page }) => {
+  test('admin section navigation is visible', async ({ page }) => {
     await goto(page, Routes.admin);
-    const navLinks = page.locator('a[href*="/admin/"]').filter({ visible: true });
-    await expect(navLinks.first()).toBeVisible();
-    // Measured at 20. A floor rather than the exact count, so adding an admin
-    // section does not fail the test, but losing the whole nav does.
-    expect(await navLinks.count()).toBeGreaterThanOrEqual(5);
+    // Scoped to AdminLayout's own nav. An unscoped a[href*="/admin/"] count is
+    // satisfied by the dashboard's six quick-action launchers alone, so the
+    // rail could be removed entirely and the count would still clear any floor
+    // worth setting.
+    //
+    // Both navs are matched because AdminLayout renders TWO and hides one by
+    // width: the desktop rail is <aside><nav> with no aria-label, and the
+    // labelled nav[aria-label="Admin sections"] is the md:hidden mobile pill
+    // strip. Targeting the label alone finds nothing at desktop width — the
+    // element exists but is hidden — so the locator has to accept either and
+    // :visible picks whichever the viewport is actually showing.
+    const nav = page
+      .locator('aside nav, nav[aria-label="Admin sections"]')
+      .filter({ visible: true })
+      .first();
+    await expect(nav).toBeVisible();
+    expect(await nav.getByRole('link').count()).toBeGreaterThan(0);
   });
 });
