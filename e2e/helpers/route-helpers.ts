@@ -24,6 +24,12 @@ export const TestIds = {
   // "What is Data Science?" — the first page-type content item in that module.
   lessonId: process.env.E2E_TEST_LESSON_ID || 'b25050bd-9e06-4e89-b994-8eb176546ad7',
   assignmentContentItemId: process.env.E2E_TEST_ASSIGNMENT_ID || '19d80f57-3623-47a7-9e12-05a86f671f21',
+  // "Submission Formats Exercise" — the fixture assignment seed.sql creates that
+  // offers ALL THREE submission types. The production assignment above offers
+  // file_upload only, so the Text Entry and Website URL tabs correctly never
+  // render on it; specs asserting on those tabs need this one or they are
+  // asserting against UI that is legitimately absent.
+  assignmentAllTypesContentItemId: 'cccc3333-3333-3333-3333-333333333333',
   // "Foundations Check-in" quiz, with two questions that have real options and a
   // correct answer. A quiz whose questions have an empty options array renders
   // "No options configured for this question", which is the same dead end as a

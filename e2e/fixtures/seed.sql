@@ -322,6 +322,23 @@ VALUES ('bbbb2222-2222-2222-2222-222222222222',
         'assignment', 20, 3, true)
 ON CONFLICT (id) DO NOTHING;
 
+-- The fixture quiz shipped with allowed_attempts = 3, which made it a
+-- SELF-CONSUMING fixture: every run of quiz-taking.spec.ts that clicked Start
+-- burned one, and after the third the page stopped offering a way to begin.
+-- Measured before this line existed: allowed_attempts 3, member attempts 3, so
+-- the quiz had been un-startable for some time and the count-guards in that
+-- spec reported it as passing.
+--
+-- Raised rather than deleting the member's quiz_submissions, which is the other
+-- way to free an attempt: quiz-results.spec.ts and quiz-completion-flow.spec.ts
+-- both render those rows, so clearing them would fix this spec by emptying two
+-- others. An explicit UPDATE, because the INSERT above is ON CONFLICT DO
+-- NOTHING and would never revise an existing row.
+UPDATE public.quizzes
+   SET allowed_attempts = 9999
+ WHERE id = 'bbbb2222-2222-2222-2222-222222222222'
+   AND (allowed_attempts IS NULL OR allowed_attempts < 9999);
+
 -- Questions need real answers. A question whose choices are empty renders
 -- "No options configured for this question" — the page loads but nothing can be
 -- answered, so the spec is back to testing an error state.
@@ -454,6 +471,39 @@ VALUES ('aaab7777-7777-7777-7777-777777777777',
         '{"fields":[{"id":"q1","type":"text","label":"What did you think?"}]}'::jsonb)
 ON CONFLICT (id) DO NOTHING;
 
+-- Assignment offering ALL THREE submission types, for the submission-page specs.
+--
+-- The production assignment those specs deep-linked to (19d80f57-…) offers
+-- file_upload ONLY, so the Text Entry and Website URL tabs correctly never
+-- rendered — and every assertion about them sat behind a count-guard that
+-- passed on their absence. The tests read as covering three submission types
+-- while covering none of them.
+--
+-- Its module_id is also 770e8400-…0002 while the route helper defaults the
+-- module segment to …0001. That mismatch is harmless for loading (the page
+-- fetches by content_item_id and uses the module only for its "Back to Module"
+-- link) but it means the link pointed at a module the assignment is not in.
+-- This fixture puts both in …0001 so the back-link is correct too.
+INSERT INTO public.content_items (id, course_id, module_id, type, title, content, position, published)
+VALUES ('cccc3333-3333-3333-3333-333333333333',
+        '660e8400-e29b-41d4-a716-446655440001',
+        '770e8400-e29b-41d4-a716-446655440001',
+        'assignment', 'Submission Formats Exercise',
+        '<p>Submit your work in whichever format suits it best.</p>', 98, true)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.assignments (id, course_id, module_id, content_item_id, title, description,
+                                instructions, points, submission_types, is_published)
+VALUES ('cccc4444-4444-4444-4444-444444444444',
+        '660e8400-e29b-41d4-a716-446655440001',
+        '770e8400-e29b-41d4-a716-446655440001',
+        'cccc3333-3333-3333-3333-333333333333',
+        'Submission Formats Exercise',
+        'Exercises every submission type the page can render.',
+        'Pick a tab and submit.', 100,
+        ARRAY['online_text_entry', 'online_url', 'online_upload'], true)
+ON CONFLICT (id) DO NOTHING;
+
 -- Assert deterministic invariants so a failed seed surfaces before tests run.
 DO $$
 DECLARE
@@ -463,6 +513,27 @@ BEGIN
    WHERE id::text LIKE '660e8400%';
   IF NOT v_ok THEN
     RAISE EXCEPTION 'E2E SEED FAILED: expected at least 5 fixture courses (660e8400-...)';
+  END IF;
+
+  -- A quiz nobody can start is a quiz no spec can test.
+  SELECT EXISTS (
+    SELECT 1 FROM public.quizzes q
+     WHERE q.id = 'bbbb2222-2222-2222-2222-222222222222'
+       AND q.allowed_attempts >= 9999
+  ) INTO v_ok;
+  IF NOT v_ok THEN
+    RAISE EXCEPTION 'E2E SEED FAILED: fixture quiz bbbb2222-...2222 has a low allowed_attempts; it will exhaust itself and quiz-taking.spec.ts will find no Start button';
+  END IF;
+
+  -- All three tabs, or the submission-page specs are back to asserting on UI
+  -- that is legitimately absent.
+  SELECT EXISTS (
+    SELECT 1 FROM public.assignments
+     WHERE content_item_id = 'cccc3333-3333-3333-3333-333333333333'
+       AND submission_types @> ARRAY['online_text_entry', 'online_url', 'online_upload']
+  ) INTO v_ok;
+  IF NOT v_ok THEN
+    RAISE EXCEPTION 'E2E SEED FAILED: fixture assignment cccc3333-...3333 missing or not offering all three submission types; the submission-page tab specs would assert against tabs that never render';
   END IF;
 
   SELECT EXISTS (

@@ -1,10 +1,32 @@
+// ABOUTME: The assignment submission page, driven against a fixture assignment
+// ABOUTME: that offers all three submission types so every tab really renders.
+//
+// WHY THESE ASSERTIONS ARE UNCONDITIONAL NOW
+//
+// Every test here used to sit behind `if (await x.count() > 0)`, which passes
+// whether or not the element exists. That was hiding something specific rather
+// than being merely lax: the assignment these specs deep-linked to
+// (19d80f57-…) has `submission_types = ['file_upload']`, so the Text Entry and
+// Website URL tabs correctly never rendered. Three tests named after three
+// submission types were exercising none of them, and would have gone on doing
+// so if the page had stopped rendering tabs altogether.
+//
+// seed.sql now creates "Submission Formats Exercise" offering all three, and
+// asserts on it, so a database without that fixture fails loudly at seed time
+// instead of quietly here.
+
 import { test, expect } from '../fixtures/page-helpers';
 import { goto, waitForPageLoad } from '../fixtures/page-helpers';
 import { Sel } from '../fixtures/test-ids';
-import { Routes } from '../helpers/route-helpers';
+import { Routes, TestIds } from '../helpers/route-helpers';
 
 test.describe('Assignment Submission', () => {
-  const submitUrl = Routes.assignmentSubmit();
+  // The all-types fixture, not the file-upload-only production row.
+  const submitUrl = Routes.assignmentSubmit(
+    TestIds.courseId,
+    TestIds.moduleId,
+    TestIds.assignmentAllTypesContentItemId,
+  );
 
   test('renders submission page', async ({ page }) => {
     await goto(page, submitUrl);
@@ -14,102 +36,80 @@ test.describe('Assignment Submission', () => {
   test('spinner resolves on load', async ({ page }) => {
     await page.goto(submitUrl);
     await waitForPageLoad(page);
-    // Placeholder IDs may keep a loading state; tolerate a persistent spinner
-    // as long as the page rendered a body.
-    await expect(page.locator('body')).not.toBeEmpty();
+    // The assignment is seeded, so the load must actually finish — a spinner
+    // that never resolves is the failure this test exists to catch. The old
+    // version tolerated a permanent spinner as long as <body> was non-empty,
+    // which every rendered error page also satisfies.
+    await expect(page.getByRole('heading', { name: 'Submission Formats Exercise' })).toBeVisible();
+    await expect(page.locator('.animate-spin')).toHaveCount(0);
   });
 
   test('submission type tabs are present', async ({ page }) => {
     await goto(page, submitUrl);
-    const tabs = page.locator('[role="tablist"]');
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await tabs.count() > 0) {
-      await expect(tabs.first()).toBeVisible();
-    }
+    await expect(page.locator('[role="tablist"]').first()).toBeVisible();
   });
 
   test('Text Entry tab renders textarea/editor', async ({ page }) => {
     await goto(page, submitUrl);
     const textTab = page.locator(Sel.assignment.textEntryTab);
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await textTab.count() > 0) {
-      await textTab.click();
-      await page.waitForTimeout(300);
-      const editor = page.locator('[contenteditable], textarea').first();
-      // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-      // eslint-disable-next-line no-restricted-syntax
-      if (await editor.count() > 0) {
-        await expect(editor).toBeVisible();
-      }
-    }
+    await expect(textTab).toBeVisible();
+    await textTab.click();
+    // The editor is lazily imported now, so it arrives after the click rather
+    // than with the page. toBeVisible() polls, which is the wait.
+    await expect(page.locator('[contenteditable], textarea').first()).toBeVisible();
   });
 
   test('Website URL tab renders URL input', async ({ page }) => {
     await goto(page, submitUrl);
     const urlTab = page.locator(Sel.assignment.websiteUrlTab);
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await urlTab.count() > 0) {
-      await urlTab.click();
-      await page.waitForTimeout(300);
-      const urlInput = page.locator(Sel.assignment.urlInput);
-      // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-      // eslint-disable-next-line no-restricted-syntax
-      if (await urlInput.count() > 0) {
-        await expect(urlInput).toBeVisible();
-        await urlInput.fill('https://github.com/example/project');
-        await expect(urlInput).toHaveValue('https://github.com/example/project');
-      }
-    }
+    await expect(urlTab).toBeVisible();
+    await urlTab.click();
+
+    const urlInput = page.locator(Sel.assignment.urlInput);
+    await expect(urlInput).toBeVisible();
+    await urlInput.fill('https://github.com/example/project');
+    await expect(urlInput).toHaveValue('https://github.com/example/project');
   });
 
   test('File Upload tab renders dropzone', async ({ page }) => {
     await goto(page, submitUrl);
     const fileTab = page.locator(Sel.assignment.fileUploadTab);
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await fileTab.count() > 0) {
-      await fileTab.click();
-      await page.waitForTimeout(300);
-      const dropzone = page.locator('[class*="dropzone"], [class*="upload"], input[type="file"]').first();
-      // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-      // eslint-disable-next-line no-restricted-syntax
-      if (await dropzone.count() > 0) {
-        await expect(dropzone).toBeVisible();
-      }
-    }
+    await expect(fileTab).toBeVisible();
+    await fileTab.click();
+
+    await expect(
+      page.locator('[class*="dropzone"], [class*="upload"], input[type="file"]').first(),
+    ).toBeVisible();
   });
 
   test('Submit Assignment button is present', async ({ page }) => {
     await goto(page, submitUrl);
-    const submitBtn = page.locator(Sel.assignment.submitBtn);
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await submitBtn.count() > 0) {
-      await expect(submitBtn).toBeVisible();
-    }
+    await expect(page.locator(Sel.assignment.submitBtn)).toBeVisible();
   });
 
   test('Cancel button navigates back', async ({ page }) => {
     await goto(page, submitUrl);
     const cancelBtn = page.locator(Sel.assignment.cancelBtn);
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await cancelBtn.count() > 0) {
-      await expect(cancelBtn).toBeVisible();
-    }
+    await expect(cancelBtn).toBeVisible();
+
+    // The test is named for the navigation, so assert the navigation. It only
+    // ever checked that the button was visible.
+    //
+    // The destination is /learn, not the /modules/:moduleId the link points at:
+    // that route is a CourseLearnRedirect (App.tsx), so the module URL is a
+    // waypoint by design and never the resting place. Asserting on it would be
+    // asserting on a URL the app is built never to stay at.
+    await cancelBtn.click();
+    await expect(page).toHaveURL(new RegExp(`/courses/${TestIds.courseId}/learn`));
   });
 
   test('assignment title/description is displayed', async ({ page }) => {
     await goto(page, submitUrl);
-    const title = page.locator('h1, h2, h3').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await title.count() > 0) {
-      await expect(title).toBeVisible();
-    }
+    // The seeded title, not "the first heading on the page" — which the course
+    // chrome satisfies on its own.
+    await expect(
+      page.getByRole('heading', { name: 'Submission Formats Exercise' }),
+    ).toBeVisible();
   });
 
   // Body untouched — see the note in course-gradebook.spec.ts.

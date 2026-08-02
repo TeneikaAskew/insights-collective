@@ -1,7 +1,7 @@
 import React from 'react';
 import { BookOpen, Home, UserCircle, GraduationCap, Calendar, Bell, FileText, Briefcase, Award, Bot, MessageSquare, FileUp, FileCheck, LayoutDashboard, Newspaper, Lightbulb, Twitter } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
-import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarTrigger, SidebarFooter, SidebarRail, useSidebar } from '@/components/ui/sidebar';
+import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter, SidebarRail, useSidebar } from '@/components/ui/sidebar';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePageVisibility } from '@/contexts/PageVisibilityContext';
 import { motion } from 'framer-motion';

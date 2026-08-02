@@ -1,6 +1,28 @@
+// ABOUTME: The quiz-taking page for the seeded "Foundations Check-in" fixture.
+// ABOUTME: Covers the landing state, starting an attempt, and the question UI.
+//
+// THE FIXTURE HAD CONSUMED ITSELF, AND THE COUNT-GUARDS REPORTED THAT AS GREEN
+//
+// Seven guards of the form `if (await x.count() > 0)`. Probing the real page
+// showed the quiz rendered its title and NOTHING else — no Start button, no
+// options, no submit. The cause was in the data, not the markup: the fixture
+// quiz shipped with allowed_attempts = 3, and the member had used all three.
+// Every run that clicked Start burned one, so the fixture was designed to stop
+// working on the fourth run and did.
+//
+// seed.sql now raises the limit and asserts it, so the page keeps offering an
+// attempt. With that in place every assertion below is unconditional.
+//
+// One of the old tests could never have passed even on a fresh fixture:
+// "Submit Quiz button appears" looked for it on the LANDING page, where it does
+// not exist — the quiz has to be started first, and the control only appears
+// once you are on a question.
+
 import { test, expect } from '../fixtures/page-helpers';
 import { goto, waitForPageLoad } from '../fixtures/page-helpers';
 import { Routes } from '../helpers/route-helpers';
+
+const START_BUTTON = 'button:has-text("Start Quiz")';
 
 test.describe('Quiz Taking', () => {
   const quizUrl = Routes.quizTaking();
@@ -13,71 +35,57 @@ test.describe('Quiz Taking', () => {
   test('spinner resolves on load', async ({ page }) => {
     await page.goto(quizUrl);
     await waitForPageLoad(page);
-    await expect(page.locator('body')).not.toBeEmpty();
+    // The seeded quiz must actually load. `body` being non-empty was also true
+    // of every error page, which is what let the exhausted fixture pass.
+    await expect(page.getByRole('heading', { name: 'Foundations Check-in' })).toBeVisible();
+    await expect(page.locator('.animate-spin')).toHaveCount(0);
   });
 
-  test('quiz title or instructions are visible', async ({ page }) => {
+  test('quiz title is visible', async ({ page }) => {
     await goto(page, quizUrl);
-    const title = page.locator('h1, h2, h3').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await title.count() > 0) {
-      await expect(title).toBeVisible();
-    }
+    // The seeded title, not "the first heading on the page" — the course chrome
+    // satisfies that on its own.
+    await expect(page.getByRole('heading', { name: 'Foundations Check-in' })).toBeVisible();
   });
 
   test('Start Quiz button is visible before quiz begins', async ({ page }) => {
     await goto(page, quizUrl);
-    const startBtn = page.locator('button:has-text("Start"), button:has-text("Begin"), button:has-text("Take Quiz")').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await startBtn.count() > 0) {
-      await expect(startBtn).toBeVisible();
-    }
+    await expect(page.locator(START_BUTTON)).toBeVisible();
   });
 
-  test('question navigation renders after starting quiz', async ({ page }) => {
+  // ONE test starts the quiz, and it asserts everything about the started
+  // state. This was two tests, and two tests were a race: the suite is
+  // fullyParallel on 4 workers in CI, both would have clicked Start against the
+  // same quiz and the same member, and startQuiz computes the attempt number
+  // CLIENT-side (CanvasQuizTaking.tsx:109-148 reads the latest submission, then
+  // inserts `attempt + 1`). Two pages that read before either writes compute the
+  // same number, and the unique index `unique_user_quiz_attempt` on
+  // (quiz_id, user_id, attempt) rejects the loser — which leaves that page on
+  // the landing screen until its assertion times out.
+  //
+  // Serialising the two would also have worked, but starting once is simpler
+  // and costs the shared fixture one attempt instead of two. Nothing outside
+  // this file starts this quiz.
+  test('starting the quiz reveals the question navigator and its options', async ({ page }) => {
     await goto(page, quizUrl);
-    const startBtn = page.locator('button:has-text("Start"), button:has-text("Begin"), button:has-text("Take Quiz")').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await startBtn.count() > 0) {
-      await startBtn.click();
-      await page.waitForTimeout(500);
-      // Question counter or navigation should appear
-      const questionNav = page.locator('[class*="question"], [class*="Question"], [aria-label*="question"]').first();
-      // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-      // eslint-disable-next-line no-restricted-syntax
-      if (await questionNav.count() > 0) {
-        await expect(questionNav).toBeVisible();
-      }
-    }
+    await page.locator(START_BUTTON).click();
+
+    await expect(page.getByText('Question Navigator')).toBeVisible();
+    // Two seeded questions, so two numbered jump buttons.
+    await expect(page.getByRole('button', { name: '1', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: '2', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Next' })).toBeVisible();
+
+    // Both seeded questions carry real answers — a question with an empty
+    // options array renders "No options configured", which is the dead end
+    // seed.sql's answer rows exist to prevent.
+    const options = page.locator('[role="radio"], input[type="radio"]');
+    await expect(options.first()).toBeVisible();
+    expect(await options.count()).toBeGreaterThanOrEqual(2);
   });
 
-  test('multiple choice options render as radio buttons or buttons', async ({ page }) => {
-    await goto(page, quizUrl);
-    const startBtn = page.locator('button:has-text("Start"), button:has-text("Begin"), button:has-text("Take Quiz")').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await startBtn.count() > 0) {
-      await startBtn.click();
-      await page.waitForTimeout(500);
-      const options = page.locator('[role="radio"], input[type="radio"], [class*="option"]');
-      // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-      // eslint-disable-next-line no-restricted-syntax
-      if (await options.count() > 0) {
-        await expect(options.first()).toBeVisible();
-      }
-    }
-  });
-
-  test('Submit Quiz button appears', async ({ page }) => {
-    await goto(page, quizUrl);
-    const submitBtn = page.locator('button:has-text("Submit Quiz"), button:has-text("Finish"), button:has-text("Submit")').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await submitBtn.count() > 0) {
-      await expect(submitBtn).toBeVisible();
-    }
-  });
+  // Deliberately no test that SUBMITS. Submitting writes a graded row that
+  // quiz-results.spec.ts and quiz-completion-flow.spec.ts then read, and this
+  // suite is fullyParallel — a spec here that scored the quiz would be racing
+  // the specs that report on it.
 });
