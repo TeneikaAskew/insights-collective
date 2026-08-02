@@ -322,6 +322,23 @@ VALUES ('bbbb2222-2222-2222-2222-222222222222',
         'assignment', 20, 3, true)
 ON CONFLICT (id) DO NOTHING;
 
+-- The fixture quiz shipped with allowed_attempts = 3, which made it a
+-- SELF-CONSUMING fixture: every run of quiz-taking.spec.ts that clicked Start
+-- burned one, and after the third the page stopped offering a way to begin.
+-- Measured before this line existed: allowed_attempts 3, member attempts 3, so
+-- the quiz had been un-startable for some time and the count-guards in that
+-- spec reported it as passing.
+--
+-- Raised rather than deleting the member's quiz_submissions, which is the other
+-- way to free an attempt: quiz-results.spec.ts and quiz-completion-flow.spec.ts
+-- both render those rows, so clearing them would fix this spec by emptying two
+-- others. An explicit UPDATE, because the INSERT above is ON CONFLICT DO
+-- NOTHING and would never revise an existing row.
+UPDATE public.quizzes
+   SET allowed_attempts = 9999
+ WHERE id = 'bbbb2222-2222-2222-2222-222222222222'
+   AND (allowed_attempts IS NULL OR allowed_attempts < 9999);
+
 -- Questions need real answers. A question whose choices are empty renders
 -- "No options configured for this question" — the page loads but nothing can be
 -- answered, so the spec is back to testing an error state.
@@ -496,6 +513,16 @@ BEGIN
    WHERE id::text LIKE '660e8400%';
   IF NOT v_ok THEN
     RAISE EXCEPTION 'E2E SEED FAILED: expected at least 5 fixture courses (660e8400-...)';
+  END IF;
+
+  -- A quiz nobody can start is a quiz no spec can test.
+  SELECT EXISTS (
+    SELECT 1 FROM public.quizzes q
+     WHERE q.id = 'bbbb2222-2222-2222-2222-222222222222'
+       AND q.allowed_attempts >= 9999
+  ) INTO v_ok;
+  IF NOT v_ok THEN
+    RAISE EXCEPTION 'E2E SEED FAILED: fixture quiz bbbb2222-...2222 has a low allowed_attempts; it will exhaust itself and quiz-taking.spec.ts will find no Start button';
   END IF;
 
   -- All three tabs, or the submission-page specs are back to asserting on UI
