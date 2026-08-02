@@ -44,13 +44,18 @@ test.describe('Portfolio Explorer', () => {
     ).toBeVisible();
   });
 
-  test('tabs are present: Discover, Ideas, Tracker, Pages', async ({ page }) => {
+  // The four tabs are numbered and named for what the user does, not for the
+  // nouns the old test used: "1 Discover you", "2 Project ideas",
+  // "3 Your projects", "4 Your portfolio page". So the old locators
+  // :has-text("Tracker") and :has-text("Pages") matched NOTHING — two tests
+  // that clicked nothing and asserted nothing. ("Pages" plural never appears;
+  // the tab is "Your portfolio page".)
+  const TABS = ['Discover you', 'Project ideas', 'Your projects', 'Your portfolio page'];
+
+  test('all four workflow tabs are present', async ({ page }) => {
     await goto(page, Routes.portfolioExplorer);
-    const tabs = page.locator('[role="tab"]');
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await tabs.count() > 0) {
-      await expect(tabs.first()).toBeVisible();
+    for (const name of TABS) {
+      await expect(page.getByRole('tab', { name: new RegExp(name) })).toBeVisible();
     }
   });
 
@@ -59,43 +64,26 @@ test.describe('Portfolio Explorer', () => {
     await expect(page.locator('main, [role="main"]')).toBeVisible();
   });
 
-  test('profile form renders in Discover tab', async ({ page }) => {
+  test('profile form renders in the Discover tab', async ({ page }) => {
     await goto(page, Routes.portfolioExplorer);
-    const discoverTab = page.locator('[role="tab"]:has-text("Discover")');
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await discoverTab.count() > 0) {
-      await discoverTab.click();
-      await page.waitForTimeout(300);
-      const textarea = page.locator('textarea').first();
-      // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-      // eslint-disable-next-line no-restricted-syntax
-      if (await textarea.count() > 0) {
-        await expect(textarea).toBeVisible();
-      }
-    }
+    await page.getByRole('tab', { name: /Discover you/ }).click();
+    await expect(page.locator('textarea').first()).toBeVisible();
   });
 
-  test('Tracker tab shows kanban board or project list', async ({ page }) => {
+  test('Your projects tab opens', async ({ page }) => {
     await goto(page, Routes.portfolioExplorer);
-    const trackerTab = page.locator('[role="tab"]:has-text("Tracker")');
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await trackerTab.count() > 0) {
-      await trackerTab.click();
-      await page.waitForTimeout(300);
-    }
+    const tab = page.getByRole('tab', { name: /Your projects/ });
+    await tab.click();
+    // The old test clicked and asserted nothing at all, so it passed even when
+    // the click did not select the tab.
+    await expect(tab).toHaveAttribute('aria-selected', 'true');
   });
 
-  test('Pages tab shows portfolio pages list', async ({ page }) => {
+  test('Your portfolio page tab opens', async ({ page }) => {
     await goto(page, Routes.portfolioExplorer);
-    const pagesTab = page.locator('[role="tab"]:has-text("Pages"), [role="tab"]:has-text("Portfolio Pages")');
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await pagesTab.count() > 0) {
-      await pagesTab.click();
-      await page.waitForTimeout(300);
-    }
+    const tab = page.getByRole('tab', { name: /Your portfolio page/ });
+    await tab.click();
+    await expect(tab).toHaveAttribute('aria-selected', 'true');
   });
 
   test('sidebar is visible', async ({ page }) => {

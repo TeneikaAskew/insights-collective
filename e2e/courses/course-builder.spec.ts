@@ -17,55 +17,43 @@ test.describe('Course Builder (Instructor)', () => {
     await expect(page.locator('.animate-spin')).toHaveCount(0);
   });
 
-  test('publish toggle is present', async ({ page }) => {
+  // The builder for a PUBLISHED course, so the control reads "Unpublish".
+  // `Sel.builder.publishToggle` was '#publish-toggle', an id this page has never
+  // rendered — the count-guard around it meant the test passed on nothing.
+  test('publish control is present', async ({ page }) => {
     await goto(page, builderUrl);
-    const toggle = page.locator(Sel.builder.publishToggle);
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await toggle.count() > 0) {
-      await expect(toggle).toBeVisible();
-    }
+    await expect(
+      page.getByRole('button', { name: /^(Unpublish|Publish)$/ }),
+    ).toBeVisible();
   });
 
   test('preview button is visible', async ({ page }) => {
     await goto(page, builderUrl);
-    const preview = page.locator(Sel.builder.previewBtn);
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await preview.count() > 0) {
-      await expect(preview).toBeVisible();
-    }
+    await expect(page.locator(Sel.builder.previewBtn).first()).toBeVisible();
   });
 
-  test('course title field is editable', async ({ page }) => {
+  // The title is not an inline contenteditable — it is behind an "Edit title"
+  // action. `Sel.builder.titleField` looked for '[contenteditable="true"]',
+  // which this page has none of, so "course title field is editable" asserted
+  // nothing and clicked nothing.
+  test('course title can be edited', async ({ page }) => {
     await goto(page, builderUrl);
-    const title = page.locator(Sel.builder.titleField).first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await title.count() > 0) {
-      await expect(title).toBeVisible();
-      await title.click();
-    }
+    await expect(page.getByRole('heading', { name: 'Introduction to Data Science' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Edit title' })).toBeVisible();
   });
 
-  test('add module button is present', async ({ page }) => {
+  // Same story: there is no "Add Module" button. Curriculum is edited through
+  // its own action, which is what this test is really about.
+  test('curriculum can be edited', async ({ page }) => {
     await goto(page, builderUrl);
-    const addModuleBtn = page.locator(Sel.builder.addModuleBtn).first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await addModuleBtn.count() > 0) {
-      await expect(addModuleBtn).toBeVisible();
-    }
+    await expect(page.getByRole('button', { name: 'Edit curriculum' })).toBeVisible();
   });
 
   test('curriculum tree shows module list', async ({ page }) => {
     await goto(page, builderUrl);
-    const tree = page.locator('[class*="CurriculumTree"], [class*="curriculum"], aside').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await tree.count() > 0) {
-      await expect(tree).toBeVisible();
-    }
+    await expect(
+      page.locator('[class*="CurriculumTree"], [class*="curriculum"], aside').first(),
+    ).toBeVisible();
   });
 
   test('new course builder route renders without error', async ({ page }) => {

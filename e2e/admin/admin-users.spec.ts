@@ -1,6 +1,5 @@
 import { test, expect } from '../fixtures/page-helpers';
 import { goto, waitForPageLoad } from '../fixtures/page-helpers';
-import { Sel } from '../fixtures/test-ids';
 import { Routes } from '../helpers/route-helpers';
 
 test.describe('Admin Users Management', () => {
@@ -17,51 +16,56 @@ test.describe('Admin Users Management', () => {
 
   test('users table renders with expected columns', async ({ page }) => {
     await goto(page, Routes.adminUsers);
-    const table = page.locator('table, [role="table"], [class*="user"]').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await table.count() > 0) {
-      await expect(table).toBeVisible();
+    // The columns, not "some element matched" — the old locator's third
+    // alternative, [class*="user"], matches almost anything on a user page.
+    for (const col of ['Name', 'Roles', 'Joined', 'Actions']) {
+      await expect(page.locator('th').filter({ hasText: col }).first()).toBeVisible();
     }
+    expect(await page.locator('tbody tr').filter({ visible: true }).count()).toBeGreaterThan(0);
   });
 
   test('search input filters users', async ({ page }) => {
     await goto(page, Routes.adminUsers);
-    const search = page.locator(Sel.searchInput).first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await search.count() > 0) {
-      await search.fill('test');
-      await page.waitForTimeout(400);
-    }
+    // By placeholder, NOT the shared search selector's .first(). There are two search boxes on
+    // this page and the first one is the Navbar's "Search entire site…" — so the
+    // old test typed into the site search and, because it asserted nothing,
+    // passed regardless. Measured: filtering via the site search leaves 20 rows,
+    // via "Search users…" leaves 1.
+    const search = page.getByPlaceholder('Search users...');
+    await expect(search).toBeVisible();
+
+    const before = await page.locator('tbody tr').filter({ visible: true }).count();
+    // A search nobody can match. The old test typed "test" and asserted
+    // nothing, so it passed whether or not the input was wired to anything.
+    await search.fill('zzzzzzzzzznotauser');
+    await expect
+      .poll(() => page.locator('tbody tr').filter({ visible: true }).count())
+      .toBeLessThan(before);
   });
 
-  test('role tabs are present: All, Admins, Instructors, Members', async ({ page }) => {
+  // These are BUTTONS carrying counts ("90 All Users", "6 Instructors"), not
+  // [role="tab"] elements — the old locator matched nothing, so the test
+  // clicked nothing and asserted nothing.
+  test('role filters are present and filter the list', async ({ page }) => {
     await goto(page, Routes.adminUsers);
-    const tabs = page.locator('[role="tab"]');
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await tabs.count() > 0) {
-      await tabs.first().click();
-      await page.waitForTimeout(300);
+    for (const name of ['All Users', 'Students', 'Instructors', 'Admins']) {
+      await expect(page.getByRole('button', { name: new RegExp(name) })).toBeVisible();
     }
+
+    // Admins is the smallest cohort, so filtering to it must shrink the list.
+    const before = await page.locator('tbody tr').filter({ visible: true }).count();
+    await page.getByRole('button', { name: /Admins/ }).click();
+    await expect
+      .poll(() => page.locator('tbody tr').filter({ visible: true }).count())
+      .toBeLessThan(before);
   });
 
-  test('edit user dialog opens on action', async ({ page }) => {
+  // The row control is "Actions", not "Edit" or "Manage" — another locator that
+  // matched nothing, wrapped in a guard that reported it as a pass.
+  test('row actions menu opens', async ({ page }) => {
     await goto(page, Routes.adminUsers);
-    const editBtn = page.locator('button:has-text("Edit"), button:has-text("Manage"), [aria-label*="edit"]').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await editBtn.count() > 0) {
-      await editBtn.click();
-      await page.waitForTimeout(300);
-      const dialog = page.locator('[role="dialog"]');
-      // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-      // eslint-disable-next-line no-restricted-syntax
-      if (await dialog.count() > 0) {
-        await expect(dialog).toBeVisible();
-      }
-    }
+    await page.getByRole('button', { name: 'Actions' }).first().click();
+    await expect(page.getByRole('menu')).toBeVisible();
   });
 
   test('page heading is visible', async ({ page }) => {
