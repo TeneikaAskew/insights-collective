@@ -116,7 +116,78 @@ BEGIN
   INSERT INTO public.enrollments (user_id, course_id)
   VALUES (v_id, v_course_id)
   ON CONFLICT DO NOTHING;
+
+  -- The on_auth_user_created trigger leaves first_name/last_name empty, which
+  -- is invisible everywhere else but disqualifies this account from the one
+  -- job section 1c gives it: the New Conversation dialog searches
+  -- profiles.first_name/last_name (useUsers.ts) and renders the match by name,
+  -- so a nameless profile can be neither found nor identified in the list.
+  -- "Journeys" is unique across profiles; nothing else matches it.
+  UPDATE public.profiles
+     SET first_name = 'E2E', last_name = 'Journeys'
+   WHERE id = v_id
+     AND (COALESCE(first_name, '') = '' OR COALESCE(last_name, '') = '');
 END $$;
+
+-- 1c. Clear the member <-> journeys one-on-one conversation, so the spec that
+--     STARTS a conversation actually starts one.
+--
+--     Starting a conversation had been failing in production against a trigger
+--     that requires conversations.course_id, and nothing caught it: the only
+--     spec touching the flow opened the dialog and clicked Cancel. The spec
+--     that now submits it can only stay honest if the create path really runs.
+--
+--     It would not. The dialog calls getOrCreateOneOnOneConversation, so the
+--     first run creates and every run afterwards finds. Worse, the finding is
+--     invisible from the outside — both paths land on the same conversation
+--     view — so the spec would keep passing while the code it exists to cover
+--     went untouched, which is precisely the illusory green this suite has
+--     been cleaning up.
+--
+--     Deleting the row here is what keeps it real. It is a hard delete, not
+--     the participant-level soft delete the UI performs, because
+--     find_one_on_one_conversation (a) ignores conversation_participants
+--     .deleted_at entirely and (b) matches on conversations.deleted_at, so
+--     anything short of removing the row leaves the pair still "taken".
+--
+--     Scoped to exactly this pair. Every other conversation in the database,
+--     including the member's own with the instructor, is left alone.
+DO $$
+DECLARE
+  v_member_id uuid;
+  v_journeys_id uuid;
+  v_ids uuid[];
+BEGIN
+  SELECT id INTO v_member_id FROM auth.users
+   WHERE email = COALESCE(current_setting('e2e.member_email', true), 'e2e-member@insightscollective.org');
+  SELECT id INTO v_journeys_id FROM auth.users
+   WHERE email = 'e2e-journeys@insightscollective.org';
+
+  IF v_member_id IS NULL OR v_journeys_id IS NULL THEN
+    RETURN;
+  END IF;
+
+  -- Same shape as find_one_on_one_conversation: not a group, exactly the two
+  -- of them. A conversation that merely includes both is somebody else's.
+  SELECT array_agg(c.id) INTO v_ids
+  FROM public.conversations c
+  WHERE c.is_group = false
+    AND EXISTS (SELECT 1 FROM public.conversation_participants p
+                 WHERE p.conversation_id = c.id AND p.user_id = v_member_id)
+    AND EXISTS (SELECT 1 FROM public.conversation_participants p
+                 WHERE p.conversation_id = c.id AND p.user_id = v_journeys_id)
+    AND (SELECT count(*) FROM public.conversation_participants p
+          WHERE p.conversation_id = c.id) = 2;
+
+  IF v_ids IS NULL THEN
+    RETURN;
+  END IF;
+
+  DELETE FROM public.messages WHERE conversation_id = ANY(v_ids);
+  DELETE FROM public.conversation_participants WHERE conversation_id = ANY(v_ids);
+  DELETE FROM public.conversations WHERE id = ANY(v_ids);
+END $$;
+
 -- 2. Ensure the dedicated instructor is set as the primary instructor of the reference course.
 DO $$
 DECLARE
@@ -518,6 +589,45 @@ BEGIN
   ) INTO v_ok;
   IF NOT v_ok THEN
     RAISE EXCEPTION 'E2E SEED FAILED: e2e-journeys@insightscollective.org must exist confirmed, with an email identity, non-NULL auth token columns, and an enrollment on course 660e8400-...0001';
+  END IF;
+
+  -- The two preconditions the "starts a conversation" spec cannot check for
+  -- itself, because failing either one leaves it passing for the wrong reason.
+  --
+  -- A shared course: without one the Edge Function refuses by design, and the
+  -- spec would be reading a legitimate refusal as a bug.
+  -- No existing conversation: with one the dialog silently takes the FIND
+  -- branch, lands on the same screen, and covers none of the create path.
+  SELECT EXISTS (
+    SELECT 1 FROM public.courses_shared_by_users(ARRAY[
+      (SELECT id FROM auth.users
+        WHERE email = COALESCE(current_setting('e2e.member_email', true), 'e2e-member@insightscollective.org')),
+      (SELECT id FROM auth.users WHERE email = 'e2e-journeys@insightscollective.org')
+    ])
+  ) INTO v_ok;
+  IF NOT v_ok THEN
+    RAISE EXCEPTION 'E2E SEED FAILED: the member and e2e-journeys share no course, so starting a conversation between them is refused by design and messaging-new-conversation cannot pass honestly';
+  END IF;
+
+  SELECT NOT EXISTS (
+    SELECT 1 FROM public.find_one_on_one_conversation(
+      (SELECT id FROM auth.users
+        WHERE email = COALESCE(current_setting('e2e.member_email', true), 'e2e-member@insightscollective.org')),
+      (SELECT id FROM auth.users WHERE email = 'e2e-journeys@insightscollective.org')
+    )
+  ) INTO v_ok;
+  IF NOT v_ok THEN
+    RAISE EXCEPTION 'E2E SEED FAILED: a member <-> e2e-journeys conversation still exists after section 1c, so messaging-new-conversation would exercise the find path and pass without touching creation';
+  END IF;
+
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles p
+    JOIN auth.users u ON u.id = p.id
+    WHERE u.email = 'e2e-journeys@insightscollective.org'
+      AND p.last_name = 'Journeys'
+  ) INTO v_ok;
+  IF NOT v_ok THEN
+    RAISE EXCEPTION 'E2E SEED FAILED: the e2e-journeys profile has no "Journeys" surname, so the New Conversation search cannot find it';
   END IF;
 END $$;
 
