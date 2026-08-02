@@ -308,9 +308,12 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
             <p className="text-muted-foreground">Customize your portfolio content</p>
           </div>
         </div>
-        <div className="flex gap-2">
-          <Button 
-            onClick={handleSave} 
+        {/* flex-wrap, not flex: four buttons is about 470px of row, so at 390
+            the Share button hung off the right edge and took the whole page
+            into horizontal scroll with it. */}
+        <div className="flex flex-wrap gap-2">
+          <Button
+            onClick={handleSave}
             disabled={saving || !hasUnsavedChanges}
             className="bg-primary hover:bg-primary/90"
           >
