@@ -1414,8 +1414,8 @@ const CourseDetail = () => {
       <div className="space-y-6">
         {/* Course Header with Breadcrumb */}
         <div className="bg-card border rounded-lg p-6">
-          <div className="flex items-center justify-between mb-4 relative">
-            <div className="flex-1 min-w-0 pr-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4 relative">
+            <div className="flex-1 min-w-0 sm:pr-4">
               <Breadcrumb className="mb-2 relative z-10">
                 <BreadcrumbList>
                   <BreadcrumbItem>
@@ -1443,7 +1443,7 @@ const CourseDetail = () => {
                   )}
                 </BreadcrumbList>
               </Breadcrumb>
-              <h1 className="text-2xl font-bold mb-2">{course.title}</h1>
+              <h1 className="text-2xl font-bold mb-2 break-words">{course.title}</h1>
               <div className="flex items-center space-x-4 text-sm text-muted-foreground">
                 <span>{course.category}</span>
                 <span>•</span>
