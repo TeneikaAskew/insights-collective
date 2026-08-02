@@ -152,6 +152,57 @@ function badFilterValue(url: URL): string | null {
   return null;
 }
 
+/**
+ * A write that filters on a column it also sets cannot be a failed write.
+ *
+ * `useConversationMessages` marks a thread read with
+ * `.update({ read: true }).eq('conversation_id', id).eq('read', false)`. Open a
+ * conversation whose messages are already read and PostgREST answers 204 with
+ * zero rows — correctly, because there was nothing left to mark. The
+ * empty-write rule reported that as a defect on every visit, and `isStructural`
+ * treats every empty-write as structural, so any spec that opened an
+ * already-read thread failed depending on the order the suite happened to run
+ * in.
+ *
+ * The precondition IS the filter. Zero rows means the rows were already in the
+ * state the caller asked for — the opposite of RLS silently eating a write,
+ * which is what this rule exists to catch. Both halves are on the request, so
+ * this needs no extra round trip: the column names come off the body, the
+ * filtered columns off the query string.
+ *
+ * Returns null when the body cannot be read as a flat JSON object — a bulk
+ * upsert array, a stream, anything unexpected — so an unparseable request keeps
+ * the strict verdict rather than quietly escaping it.
+ */
+function idempotentByFilter(url: URL, init: RequestInit | undefined): string | null {
+  const body = init?.body;
+  if (typeof body !== 'string') return null;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+
+  const written = new Set(Object.keys(parsed as Record<string, unknown>));
+  if (written.size === 0) return null;
+
+  for (const key of url.searchParams.keys()) {
+    // Only column filters: `select`, `order`, `on_conflict` and friends are
+    // PostgREST's own parameters and name no column being written.
+    if (RESERVED_PARAMS.has(key)) continue;
+    if (written.has(key)) return key;
+  }
+  return null;
+}
+
+/** PostgREST query parameters that are not column filters. */
+const RESERVED_PARAMS = new Set([
+  'select', 'order', 'limit', 'offset', 'on_conflict', 'columns', 'or', 'and', 'not',
+]);
+
 export function createInstrumentedFetch(baseFetch: typeof fetch = fetch): typeof fetch {
   return async function instrumentedFetch(input, init) {
     const method = (init?.method ?? 'GET').toUpperCase();
@@ -226,7 +277,8 @@ export function createInstrumentedFetch(baseFetch: typeof fetch = fetch): typeof
 
     if (isTableWrite && WRITE_METHODS.has(method)) {
       const affected = affectedRows(res);
-      if (affected === 0) {
+      const idempotentOn = affected === 0 ? idempotentByFilter(url, init) : null;
+      if (affected === 0 && !idempotentOn) {
         // The bug this whole layer exists for: PostgREST answers 2xx when RLS
         // filtered every row, so the caller's `if (error)` check passes and the
         // UI reports success for a write that never happened.
