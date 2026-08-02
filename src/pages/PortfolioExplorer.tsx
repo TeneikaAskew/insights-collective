@@ -33,15 +33,29 @@ const stepClass =
   'flex-1 min-w-max gap-2 rounded-full px-4 py-2 text-muted-foreground ' +
   'data-[state=active]:text-foreground';
 
+const TABS = ['discover', 'ideas', 'tracker', 'pages'] as const;
+
+/**
+ * One place that decides whether a ?tab= value is real.
+ *
+ * This test was written out twice — once to pick the initial tab, once to
+ * decide whether the landing choice had already been made — and the second
+ * copy accepted any non-empty string. So `?tab=projects` (a plausible guess,
+ * since the tab is labelled "Your projects") fell back to `discover` for
+ * rendering while counting as a deliberate choice, permanently suppressing
+ * the landing effect and stranding an answered reader on a questionnaire
+ * they had already filled in.
+ */
+const isValidTab = (value: string | null): value is (typeof TABS)[number] =>
+  !!value && (TABS as readonly string[]).includes(value);
+
 function PortfolioExplorer() {
   const [searchParams] = useSearchParams();
   const { user, isAuthenticated } = useAuth();
-  const [activeTab, setActiveTab] = useState(() => {
+  const [activeTab, setActiveTab] = useState<string>(() => {
     // Initialize active tab from URL param if available
     const tabParam = searchParams.get('tab');
-    return tabParam === 'discover' || tabParam === 'ideas' || 
-           tabParam === 'tracker' || tabParam === 'pages' 
-           ? tabParam : 'discover';
+    return isValidTab(tabParam) ? tabParam : 'discover';
   });
   const [portfolioData, setPortfolioData] = useState<PortfolioInsightData | null>(null);
   const [profileCompleted, setProfileCompleted] = useState(false);
@@ -54,7 +68,7 @@ function PortfolioExplorer() {
    * choice happen exactly once, when the answer arrives, without yanking
    * someone off a tab they have already clicked.
    */
-  const tabSettled = useRef(Boolean(searchParams.get('tab')));
+  const tabSettled = useRef(isValidTab(searchParams.get('tab')));
 
   const { toast } = useToast();
   const {
@@ -75,8 +89,7 @@ function PortfolioExplorer() {
   // Handle URL parameter changes
   useEffect(() => {
     const tabParam = searchParams.get('tab');
-    if (tabParam === 'discover' || tabParam === 'ideas' || 
-        tabParam === 'tracker' || tabParam === 'pages') {
+    if (isValidTab(tabParam)) {
       setActiveTab(tabParam);
     }
   }, [searchParams]);
@@ -226,15 +239,23 @@ function PortfolioExplorer() {
 
       // Generate portfolio ideas
       const result = await generatePortfolioIdeas.mutateAsync(data);
+
+      // Settle the tab BEFORE profileCompleted flips.
+      //
+      // Order matters and I had it backwards. setProfileCompleted(true) arms
+      // the landing effect, which sends a first-time submitter to `tracker`
+      // immediately — and the navigation below only lands 500ms later. So the
+      // tracker was shown for half a second on the way to the ideas that had
+      // just been generated, which is the flash a comment here used to claim
+      // was prevented. Settling first makes the effect a no-op, and also stops
+      // it overwriting a tab the reader picks during that window.
+      tabSettled.current = true;
+
       setPortfolioData(result);
       setProfileCompleted(true);
       setSavedAnswers(data);
-      
+
       // Straight to the ideas that were just generated.
-      //
-      // handleTabChange, not setActiveTab: it marks the tab settled, which
-      // stops the landing effect — armed by the setProfileCompleted(true)
-      // above — from racing this and flashing the tracker on the way.
       setTimeout(() => {
         handleTabChange('ideas');
       }, 500);

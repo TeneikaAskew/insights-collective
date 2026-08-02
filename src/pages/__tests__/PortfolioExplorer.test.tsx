@@ -34,13 +34,16 @@ vi.mock('@/contexts/AuthContext', async (importOriginal) => {
   return { ...actual, useAuth: () => authState };
 });
 
-const portfolioState = vi.hoisted(() => ({ previousRecommendations: null as unknown }));
+const portfolioState = vi.hoisted(() => ({
+  previousRecommendations: null as unknown,
+  generate: vi.fn(),
+}));
 vi.mock('@/hooks/usePortfolio', () => ({
   usePortfolio: () => ({
     projects: [],
     projectsLoading: false,
     projectsError: null,
-    generatePortfolioIdeas: { isPending: false, mutateAsync: vi.fn() },
+    generatePortfolioIdeas: { isPending: false, mutateAsync: portfolioState.generate },
     addProject: { mutateAsync: vi.fn() },
     updateProjectStatus: { mutateAsync: vi.fn() },
     updateProject: { mutateAsync: vi.fn() },
@@ -86,9 +89,13 @@ describe('PortfolioExplorer landing tab', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    // The deep-link tests below push a query string; without this each one
+    // would inherit the previous test's URL and quietly assert the wrong thing.
+    window.history.replaceState(null, '', '/portfolio-explorer');
     authState.user = { id: 'user-1' };
     authState.isAuthenticated = true;
     portfolioState.previousRecommendations = null;
+    portfolioState.generate.mockReset();
   });
 
   it('opens on the questionnaire when there are no answers yet', async () => {
@@ -125,6 +132,64 @@ describe('PortfolioExplorer landing tab', () => {
 
     await waitFor(() => expect(tab(/Your projects/i)).toHaveAttribute('aria-selected', 'true'));
     expect(tab(/Project ideas/i)).toHaveAttribute('aria-selected', 'false');
+  });
+
+  it('goes straight to the new ideas after a first submit, without flashing the tracker', async () => {
+    // Submitting sets profileCompleted, which arms the landing effect, but the
+    // navigation to `ideas` is 500ms behind it. With the ordering wrong the
+    // reader watched the tracker for half a second on the way to the ideas
+    // they had just generated.
+    mockPortfolioRow(null);
+    portfolioState.generate.mockResolvedValue(RECOMMENDATIONS);
+    // Real timers: the delay is 500ms and the waitFor below allows 3s, so
+    // faking them buys nothing and needs vi.useFakeTimers() to be set up.
+    const user = userEvent.setup();
+
+    render(<PortfolioExplorer />);
+    await waitFor(() => expect(tab(/Discover you/i)).toHaveAttribute('aria-selected', 'true'));
+
+    await user.type(screen.getByPlaceholderText(/data visualization/i), 'dbt, modelling');
+    await user.type(screen.getByPlaceholderText(/Junior Data Analyst/i), 'Junior Data Analyst');
+    await user.type(screen.getByPlaceholderText(/personal coding projects/i), 'cycling');
+    await user.click(screen.getByRole('button', { name: /generate|analyz|submit/i }));
+
+    // The whole window between the state flip and the delayed navigation: the
+    // tracker must never become the selected tab in it.
+    await waitFor(() => expect(portfolioState.generate).toHaveBeenCalled());
+    expect(tab(/Your projects/i)).toHaveAttribute('aria-selected', 'false');
+
+    await waitFor(() => expect(tab(/Project ideas/i)).toHaveAttribute('aria-selected', 'true'), {
+      timeout: 3000,
+    });
+    expect(tab(/Your projects/i)).toHaveAttribute('aria-selected', 'false');
+  });
+
+  it('ignores a ?tab= value that is not a real tab', async () => {
+    // `?tab=projects` is the obvious wrong guess — the tab is labelled "Your
+    // projects" — and it used to count as a deliberate choice while rendering
+    // as `discover`, which pinned an answered reader on the questionnaire.
+    window.history.replaceState(null, '', '/portfolio-explorer?tab=projects');
+    localStorage.setItem('portfolio_questionnaire_user-1', JSON.stringify(SAVED));
+    mockPortfolioRow(SAVED);
+
+    render(<PortfolioExplorer />);
+
+    await waitFor(() => expect(tab(/Your projects/i)).toHaveAttribute('aria-selected', 'true'));
+  });
+
+  it('honours a ?tab= value that is a real tab', async () => {
+    // The other half of the same rule: a valid deep link must still win over
+    // the landing choice, or the check above would just be ignoring the param.
+    window.history.replaceState(null, '', '/portfolio-explorer?tab=pages');
+    localStorage.setItem('portfolio_questionnaire_user-1', JSON.stringify(SAVED));
+    mockPortfolioRow(SAVED);
+
+    render(<PortfolioExplorer />);
+
+    await waitFor(() =>
+      expect(tab(/Your portfolio page/i)).toHaveAttribute('aria-selected', 'true'),
+    );
+    expect(tab(/Your projects/i)).toHaveAttribute('aria-selected', 'false');
   });
 
   it('keeps the saved answers so the questionnaire is an edit, not a retype', async () => {
