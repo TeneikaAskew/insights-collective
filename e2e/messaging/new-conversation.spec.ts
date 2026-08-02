@@ -19,25 +19,27 @@
 //
 // So this spec presses the button.
 //
-// WHY IT RUNS AS THE INSTRUCTOR, NOT THE MEMBER
+// IT IS STUDENT-TO-STUDENT ON PURPOSE
 //
-// It was written for the member first, and CI failed it: the user search
-// returned nobody. `profiles` is guarded by `can_view_profile`, which grants a
-// student sight of themselves, the instructors of courses they are enrolled in,
-// people they already share a conversation with, and nothing else. **Two
-// students on the same course cannot see each other.** So from the member's
-// session the dialog can only ever surface one other human — the instructor —
-// and that pair is already claimed by
-// journeys/messaging-notifications-hardening.spec.ts, which calls
-// `open_course_thread` on it. Sharing the pair would race: whichever spec ran
-// first would leave a conversation behind, and this one would then take the
-// find branch and cover nothing.
+// The first CI run failed this spec, and correctly: the user search returned
+// nobody. `profiles` was guarded by a `can_view_profile` that let a student see
+// themselves, the instructors of their courses, people they already had a
+// conversation with — and no other student. So the dialog invited a search that
+// could not return most of the people the server would have accepted, and a
+// student could in practice only message an instructor.
 //
-// Instructors, under the same policy, can see every student enrolled in their
-// courses. So the acting account is the instructor and the counterpart is the
-// journeys student — visible, sharing the reference course, and touched by no
-// other spec. Living under e2e/instructor/ is what selects that account:
-// chromium-instructor claims the directory and chromium-member ignores it.
+// Migration 20260802140000 closes that: anyone sharing a course can now see
+// anyone else on it, using the same predicate as `courses_shared_by_users` so
+// visibility and messaging cannot drift apart again. This spec is the coverage
+// for that decision, which is why it drives the student-to-student case rather
+// than the instructor's — the path that was unreachable is the one worth
+// asserting.
+//
+// The counterpart is the journeys student rather than the instructor for a
+// second reason: journeys/messaging-notifications-hardening.spec.ts drives
+// `open_course_thread` on the member/instructor pair, and the suite is
+// fullyParallel. Sharing that pair would race — whichever ran first would leave
+// a conversation behind and the other would silently take the find branch.
 //
 // WHAT KEEPS IT FROM GOING VACUOUS
 //
@@ -47,11 +49,11 @@
 // where it landed would exercise the create path exactly once — on the first
 // run ever — and take the find path silently forever after.
 //
-// e2e/fixtures/seed.sql section 1c deletes the instructor <-> journeys
-// conversation before every run, and the seed then asserts that the pair really
-// is clear and really does share a course. This spec re-checks the precondition
-// itself, so a run against an unseeded database fails here with a readable
-// message instead of passing on the wrong branch.
+// e2e/fixtures/seed.sql section 1c deletes the member <-> journeys conversation
+// before every run, and the seed then asserts that the pair really is clear,
+// really does share a course, and really is visible to one another. This spec
+// re-checks what it can itself, so a run against an unseeded database fails
+// here with a readable message instead of passing on the wrong branch.
 
 import { test, expect } from '../fixtures/page-helpers';
 import { E2E_BASE_URL } from '../fixtures/test-data';
@@ -109,9 +111,10 @@ test.describe('Starting a conversation', () => {
       candidate,
       `No profile named "${COUNTERPART_NAME}" came back from the user search. ` +
         'Two things cause that: the seed did not give the account a name ' +
-        '(seed.sql section 1b), or the acting account cannot see it — profiles is ' +
-        'guarded by can_view_profile, under which a student cannot read another ' +
-        "student's row at all.",
+        '(seed.sql section 1b), or the acting account cannot see it. The second ' +
+        'is the interesting one — profiles is guarded by can_view_profile, and ' +
+        'if migration 20260802140000 has not been applied to this database, one ' +
+        'student cannot read another student\'s row at all.',
     ).toBeVisible({ timeout: 15_000 });
     await candidate.click();
 
