@@ -1,200 +1,112 @@
 // ABOUTME: Tests for the course-scoped composer that replaced the site-wide directory dialog.
-// ABOUTME: The picker must offer exactly who open_course_thread would accept, and nobody else.
+// ABOUTME: The membership rule now lives in SQL; these cover the wrapper around it.
 //
-// These mirror the rules the database enforces (verified against the live RPC on
-// 2026-08-02): membership of the course is the whole rule, so anyone in it can address
-// anyone else in it, and somebody outside gets nothing. The UI offering a person the RPC
-// will reject is not a security hole — the RPC still refuses — but it is a dead end the
-// user cannot understand, which is how the old directory dialog behaved for every account
-// on the site. Offering too FEW people is the opposite failure and just as wrong: it hides
-// a conversation the database would have allowed.
+// WHERE THE RULE WENT, AND WHY THESE TESTS SHRANK
+//
+// These used to stub `courses`, `enrollments` and `course_assignments` and assert the
+// membership rule against them — that a student is offered classmates as well as staff,
+// that an outsider gets nobody, that assigned co-instructors count.
+//
+// That rule was the bug. Assembling the list client-side could never show a student their
+// classmates, because `enrollments` is RLS-restricted to `user_id = auth.uid()` OR staff:
+// a student reads back exactly one row, their own. The unit tests passed the whole time,
+// because stubbing the table meant stubbing away the restriction that made it impossible.
+// Only an e2e run against the real database found it.
+//
+// So the rule moved into `course_contacts` (20260802160000), which answers with the same
+// predicate `open_course_thread` enforces. A test that can execute SQL is the only one
+// that can check it, and those assertions now live in
+// e2e/journeys/course-messaging-e2e.spec.ts — student sees classmates AND staff, outsider
+// sees nobody, nobody sees themselves.
+//
+// What is left here is what is still written in TypeScript: the call, the error path, and
+// the mapping. Deliberately not re-stubbing the RPC to re-assert the rule — a mock that
+// returns whatever the rule is supposed to return proves only that the mock was written
+// to agree with itself, which is exactly how the previous version stayed green.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fetchCourseContacts } from '../CourseThreadComposer';
 import { mockSupabaseClient, resetSupabaseMock } from '@/test/mocks/supabase';
 
 const COURSE = 'course-1';
-const INSTRUCTOR = 'instructor-1';
-const STUDENT = 'student-1';
-const OTHER_STUDENT = 'student-2';
-const OUTSIDER = 'outsider-1';
-const CO_INSTRUCTOR = 'co-instructor-1';
-
-/**
- * fetchCourseContacts issues three reads in a fixed order: the course, its enrollments,
- * and the profiles of whoever survived. Stub `from` by table name so the test says what
- * the database contains rather than what order the code happens to ask in.
- */
-function stubTables({
-  enrollments,
-  assignedInstructors = [],
-}: {
-  enrollments: string[];
-  assignedInstructors?: string[];
-}) {
-  vi.mocked(mockSupabaseClient.from).mockImplementation((table: string) => {
-    if (table === 'courses') {
-      return {
-        select: () => ({
-          eq: () => ({
-            maybeSingle: async () => ({ data: { id: COURSE, instructor_id: INSTRUCTOR }, error: null }),
-          }),
-        }),
-      } as any;
-    }
-    if (table === 'enrollments') {
-      return {
-        select: () => ({
-          eq: async () => ({ data: enrollments.map((user_id) => ({ user_id })), error: null }),
-        }),
-      } as any;
-    }
-    if (table === 'course_assignments') {
-      return {
-        select: () => ({
-          eq: () => ({
-            eq: async () => ({
-              data: assignedInstructors.map((user_id) => ({ user_id })),
-              error: null,
-            }),
-          }),
-        }),
-      } as any;
-    }
-    if (table === 'profiles') {
-      return {
-        select: () => ({
-          in: async (_column: string, ids: string[]) => ({
-            data: ids.map((id) => ({ id, first_name: id, last_name: 'Person', avatar_url: null })),
-            error: null,
-          }),
-        }),
-      } as any;
-    }
-    throw new Error(`unexpected table: ${table}`);
-  });
-}
+const CALLER = 'student-1';
 
 describe('fetchCourseContacts', () => {
   beforeEach(() => {
     resetSupabaseMock();
   });
 
-  it('offers a student their classmates as well as the teaching staff', async () => {
-    stubTables({ enrollments: [STUDENT, OTHER_STUDENT] });
+  it('asks course_contacts for the course, and nothing else', async () => {
+    vi.mocked(mockSupabaseClient.rpc).mockResolvedValue({ data: [], error: null } as any);
 
-    const contacts = await fetchCourseContacts(COURSE, STUDENT);
+    await fetchCourseContacts(COURSE, CALLER);
 
-    // open_course_thread used to refuse student-to-student threads; 20260802020300
-    // dropped that, so a picker limited to instructors would now hide people the
-    // database accepts.
-    expect(contacts.map((c) => c.id).sort()).toEqual([INSTRUCTOR, OTHER_STUDENT].sort());
-    expect(contacts.find((c) => c.id === INSTRUCTOR)?.role).toBe('instructor');
-    expect(contacts.find((c) => c.id === OTHER_STUDENT)?.role).toBe('student');
-    // Never yourself.
-    expect(contacts.map((c) => c.id)).not.toContain(STUDENT);
-  });
-
-  it('offers an instructor every enrolled student, and not themselves', async () => {
-    stubTables({ enrollments: [STUDENT, OTHER_STUDENT] });
-
-    const contacts = await fetchCourseContacts(COURSE, INSTRUCTOR);
-
-    expect(contacts.map((c) => c.id).sort()).toEqual([STUDENT, OTHER_STUDENT].sort());
-    expect(contacts.map((c) => c.id)).not.toContain(INSTRUCTOR);
-    expect(contacts.every((c) => c.role === 'student')).toBe(true);
-  });
-
-  it('offers nobody to someone who neither takes nor teaches the course', async () => {
-    stubTables({ enrollments: [STUDENT] });
-
-    const contacts = await fetchCourseContacts(COURSE, OUTSIDER);
-
-    expect(contacts).toEqual([]);
-  });
-
-  it('offers nobody when an instructor has no students yet', async () => {
-    stubTables({ enrollments: [] });
-
-    const contacts = await fetchCourseContacts(COURSE, INSTRUCTOR);
-
-    expect(contacts).toEqual([]);
-  });
-
-  it('still offers nobody outside the course', async () => {
-    stubTables({ enrollments: [STUDENT, OTHER_STUDENT] });
-
-    // Loosening the rule to "anyone in the course" must not loosen it to "anyone".
-    const contacts = await fetchCourseContacts(COURSE, STUDENT);
-    expect(contacts.map((c) => c.id)).not.toContain(OUTSIDER);
-  });
-
-  /**
-   * A course can be taught by more than one person. `courses.instructor_id` is only the
-   * primary; open_course_thread accepts anyone `is_course_instructor()` accepts, which is
-   * that column OR a course_assignments row with role 'instructor'. A picker built from
-   * the column alone disagreed with the RPC in both directions.
-   */
-  it('offers a student the assigned co-instructors as well as the primary one', async () => {
-    stubTables({ enrollments: [STUDENT], assignedInstructors: [CO_INSTRUCTOR] });
-
-    const contacts = await fetchCourseContacts(COURSE, STUDENT);
-
-    expect(contacts.map((c) => c.id).sort()).toEqual([INSTRUCTOR, CO_INSTRUCTOR].sort());
-    expect(contacts.every((c) => c.role === 'instructor')).toBe(true);
-  });
-
-  it('offers nobody to a course with only you in it', async () => {
-    stubTables({ enrollments: [STUDENT] });
-
-    const contacts = await fetchCourseContacts(COURSE, STUDENT);
-
-    // The primary instructor is still a member, so this is about the *self* exclusion.
-    expect(contacts.map((c) => c.id)).toEqual([INSTRUCTOR]);
-  });
-
-  it('gives an assigned co-instructor the roster, not an empty picker', async () => {
-    // They are neither instructor_id nor enrolled, so the old check called them a
-    // stranger to a course they teach.
-    stubTables({ enrollments: [STUDENT, OTHER_STUDENT], assignedInstructors: [CO_INSTRUCTOR] });
-
-    const contacts = await fetchCourseContacts(COURSE, CO_INSTRUCTOR);
-
-    expect(contacts.map((c) => c.id).sort()).toEqual([STUDENT, OTHER_STUDENT, INSTRUCTOR].sort());
-    expect(contacts.find((c) => c.id === INSTRUCTOR)?.role).toBe('instructor');
-    expect(contacts.find((c) => c.id === STUDENT)?.role).toBe('student');
-    expect(contacts.map((c) => c.id)).not.toContain(CO_INSTRUCTOR);
-  });
-
-  it('throws rather than returning an empty picker when the enrollment read fails', async () => {
-    // An empty picker and a failed read look identical on screen. The caller renders the
-    // failure; it must not be able to mistake it for "nobody to message".
-    vi.mocked(mockSupabaseClient.from).mockImplementation((table: string) => {
-      if (table === 'courses') {
-        return {
-          select: () => ({
-            eq: () => ({
-              maybeSingle: async () => ({ data: { id: COURSE, instructor_id: INSTRUCTOR }, error: null }),
-            }),
-          }),
-        } as any;
-      }
-      if (table === 'course_assignments') {
-        return {
-          select: () => ({
-            eq: () => ({ eq: async () => ({ data: [], error: null }) }),
-          }),
-        } as any;
-      }
-      return {
-        select: () => ({
-          eq: async () => ({ data: null, error: { message: 'enrollments unavailable' } }),
-        }),
-      } as any;
+    // The RPC name is validated against src/test/fixtures/db-functions.json by the
+    // mock, so a typo or a function that does not exist fails here rather than in CI.
+    expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('course_contacts', {
+      p_course_id: COURSE,
     });
+    // No caller id is sent: the function reads auth.uid(), so the client cannot ask on
+    // somebody else's behalf.
+    expect(mockSupabaseClient.rpc).toHaveBeenCalledTimes(1);
+    const [, args] = vi.mocked(mockSupabaseClient.rpc).mock.calls[0];
+    expect(Object.keys(args as object)).toEqual(['p_course_id']);
+  });
 
-    await expect(fetchCourseContacts(COURSE, STUDENT)).rejects.toMatchObject({
-      message: 'enrollments unavailable',
+  it('maps rows to contacts, keeping the role the database assigned', async () => {
+    vi.mocked(mockSupabaseClient.rpc).mockResolvedValue({
+      data: [
+        { id: 'i1', first_name: 'Ada', last_name: 'Teacher', avatar_url: null, role: 'instructor' },
+        { id: 's2', first_name: 'Bo', last_name: 'Student', avatar_url: 'a.png', role: 'student' },
+      ],
+      error: null,
+    } as any);
+
+    const contacts = await fetchCourseContacts(COURSE, CALLER);
+
+    expect(contacts).toEqual([
+      { id: 'i1', first_name: 'Ada', last_name: 'Teacher', avatar_url: null, role: 'instructor' },
+      { id: 's2', first_name: 'Bo', last_name: 'Student', avatar_url: 'a.png', role: 'student' },
+    ]);
+  });
+
+  it('treats any role the database did not call instructor as a student', async () => {
+    // Defensive: the column is free text, and a contact rendered with an unknown role
+    // would fall through the UI's capitalize styling as-is.
+    vi.mocked(mockSupabaseClient.rpc).mockResolvedValue({
+      data: [{ id: 'x', first_name: 'X', last_name: 'Y', avatar_url: null, role: 'ta' }],
+      error: null,
+    } as any);
+
+    const contacts = await fetchCourseContacts(COURSE, CALLER);
+
+    expect(contacts[0].role).toBe('student');
+  });
+
+  it('returns an empty list when the caller is in no position to message anyone', async () => {
+    // course_contacts answers zero rows for someone outside the course rather than
+    // raising, so the picker shows "nobody in this course you can message yet".
+    vi.mocked(mockSupabaseClient.rpc).mockResolvedValue({ data: [], error: null } as any);
+
+    await expect(fetchCourseContacts(COURSE, CALLER)).resolves.toEqual([]);
+  });
+
+  it('tolerates a null payload', async () => {
+    vi.mocked(mockSupabaseClient.rpc).mockResolvedValue({ data: null, error: null } as any);
+
+    await expect(fetchCourseContacts(COURSE, CALLER)).resolves.toEqual([]);
+  });
+
+  it('throws when the RPC fails, so the dialog can show its error state', async () => {
+    // The composer catches this and renders a role="alert" — swallowing it here would
+    // put an empty picker in front of the user and call it "nobody to message".
+    vi.mocked(mockSupabaseClient.rpc).mockResolvedValue({
+      data: null,
+      error: { message: 'permission denied' },
+    } as any);
+
+    await expect(fetchCourseContacts(COURSE, CALLER)).rejects.toMatchObject({
+      message: 'permission denied',
     });
   });
 });

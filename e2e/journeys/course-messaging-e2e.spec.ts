@@ -306,4 +306,61 @@ test.describe('Course messaging — end to end', () => {
     expect(status, `expected rejection, got ${status}: ${body}`).toBeGreaterThanOrEqual(400);
     expect(body).toMatch(/not part of this course/i);
   });
+
+  /**
+   * The picker's rule, tested where it can actually be checked.
+   *
+   * CourseThreadComposer used to build its contact list client-side from `courses` +
+   * `enrollments` + `course_assignments`, and could never show a student their
+   * classmates: `enrollments` is RLS-restricted to `user_id = auth.uid()` OR staff, so a
+   * student reads back one row — their own. The unit tests passed throughout, because
+   * stubbing those tables stubbed away the restriction that made it impossible. Only a
+   * run against the real database caught it.
+   *
+   * `course_contacts` (20260802160000) moved the rule into SQL, so these assertions live
+   * at the layer that can execute it. They are the counterpart to the ones deleted from
+   * CourseThreadComposer.test.tsx.
+   */
+  test('course_contacts offers a student their classmates as well as the teaching staff', async () => {
+    const { status, body } = await rpc(studentToken, 'course_contacts', {
+      p_course_id: COURSE_ID,
+    });
+    expect(status, `course_contacts failed: ${body}`).toBe(200);
+    const contacts = JSON.parse(body) as Array<{ id: string; role: string }>;
+
+    const ids = contacts.map((c) => c.id);
+    expect(
+      ids,
+      'a classmate is missing — this is the exact failure course_contacts exists to fix, ' +
+        'so check that the migration is applied before touching the assertion',
+    ).toContain(OTHER_STUDENT_ID);
+    expect(ids).toContain(INSTRUCTOR_ID);
+
+    // Never yourself: the composer would offer a dead end, since open_course_thread
+    // refuses a self-message with "Invalid recipient".
+    expect(ids).not.toContain(MEMBER_ID);
+    // Never someone outside the course, however loose the rule became.
+    expect(ids).not.toContain(NO_SHARED_COURSE_ID);
+
+    expect(contacts.find((c) => c.id === INSTRUCTOR_ID)?.role).toBe('instructor');
+    expect(contacts.find((c) => c.id === OTHER_STUDENT_ID)?.role).toBe('student');
+  });
+
+  test('course_contacts offers an instructor their students, and offers an outsider nobody', async () => {
+    const asInstructor = await rpc(instructorToken, 'course_contacts', {
+      p_course_id: COURSE_ID,
+    });
+    expect(asInstructor.status, `course_contacts failed: ${asInstructor.body}`).toBe(200);
+    const taught = (JSON.parse(asInstructor.body) as Array<{ id: string }>).map((c) => c.id);
+    expect(taught).toContain(MEMBER_ID);
+    expect(taught).not.toContain(INSTRUCTOR_ID);
+
+    // Zero rows rather than an error, which is what lets the composer say "there is
+    // nobody in this course you can message yet" instead of showing a failure.
+    const outsider = await rpc(studentToken, 'course_contacts', {
+      p_course_id: '00000000-0000-0000-0000-000000000000',
+    });
+    expect(outsider.status).toBe(200);
+    expect(JSON.parse(outsider.body)).toEqual([]);
+  });
 });
