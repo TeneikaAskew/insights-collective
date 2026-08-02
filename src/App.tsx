@@ -395,6 +395,15 @@ function App() {
                         <PortfolioEditorWrapper />
                       </ProtectedRoute>
                     } />
+                    {/* Bare /portfolio-editor, with no page id, matched nothing and fell
+                        through to the 404 — reachable by trimming the id off the URL, or
+                        by any link written from memory. It is not a page in the manifest
+                        and never was, so send it to the explorer, which is where you pick
+                        which portfolio to edit. */}
+                    <Route
+                      path="/portfolio-editor"
+                      element={<Navigate to="/portfolio-explorer" replace />}
+                    />
                     <Route path="/portfolio/:customUrl" element={<PublicPortfolioWrapper />} />
 
                     {/* Blog & Content Routes */}
