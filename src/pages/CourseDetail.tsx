@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { BookOpen, Clock, Users, Star, Calendar, ChevronLeft, Share, MessageSquare, Edit, Bell, FileText, BarChart3, Pin, PlusCircle, Trash2, ArrowRight, PlayCircle, Award, ClipboardCheck, LineChart } from 'lucide-react';
+import { BookOpen, Clock, Users, Calendar, MessageSquare, Bell, FileText, BarChart3, Pin, PlusCircle, Trash2, ArrowRight, PlayCircle, Award, ClipboardCheck, LineChart } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -1028,6 +1028,13 @@ const CourseDetail = () => {
                             <Progress value={pct} className="h-1.5" />
                           </div>
                           <span className="text-sm tabular-nums w-12 text-right">{pct}%</span>
+                          {(isInstructor || isAdmin) && (
+                            <Button size="sm" variant="ghost" asChild className="ml-2">
+                              <Link to={`/courses/${courseId}/insights/${p.user_id}`}>
+                                <LineChart className="h-3.5 w-3.5 mr-1" /> Insights
+                              </Link>
+                            </Button>
+                          )}
                           {(isInstructor || isAdmin) && p.user_id !== user?.id && (
                             <Button
                               size="sm"
@@ -1188,16 +1195,31 @@ const CourseDetail = () => {
                               deletable; the capability check saved it, because
                               nothing else in src/ touches `course_instructors`.
                               An orphaned capability wants a link, not a delete. */}
+                          {/* Points at the roster, NOT at /insights bare.
+                              StudentInsightsDashboard falls back to
+                              `propStudentId || user?.id` (:80), so the
+                              student-less URL renders the INSTRUCTOR'S own
+                              progress under a "student insights" heading —
+                              wrong data presented confidently. Each student in
+                              the People list now carries its own Insights link
+                              with the id filled in. */}
                           <li>
-                            <Link to={`/courses/${courseId}/insights`} className="flex items-center gap-2 text-foreground hover:text-foreground hover:underline">
+                            <Link to={`/courses/${courseId}/people`} className="flex items-center gap-2 text-foreground hover:text-foreground hover:underline">
                               <LineChart className="h-4 w-4 text-muted-foreground" /> Student insights
                             </Link>
                           </li>
-                          <li>
-                            <Link to={`/courses/${courseId}/instructors`} className="flex items-center gap-2 text-foreground hover:text-foreground hover:underline">
-                              <Users className="h-4 w-4 text-muted-foreground" /> Instructors
-                            </Link>
-                          </li>
+                          {/* Admin-only, matching the page's own gate and the
+                              RLS behind it: only admins may write
+                              course_instructors. Showing this to a non-admin
+                              instructor would link them to an empty roster they
+                              cannot change. */}
+                          {isAdmin && (
+                            <li>
+                              <Link to={`/courses/${courseId}/instructors`} className="flex items-center gap-2 text-foreground hover:text-foreground hover:underline">
+                                <Users className="h-4 w-4 text-muted-foreground" /> Instructors
+                              </Link>
+                            </li>
+                          )}
                         </>
                       )}
                       {isEnrolled && course.instructor?.id && (

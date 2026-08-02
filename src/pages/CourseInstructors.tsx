@@ -26,8 +26,22 @@ import { Card, CardContent } from '@/components/ui/card';
 
 const CourseInstructors = () => {
   const { courseId } = useParams<{ courseId: string }>();
-  const { canEdit, isInstructor, isAdmin, loading } = useCoursePermissions(courseId);
-  const canManage = canEdit || isInstructor || isAdmin;
+  const { isAdmin, loading } = useCoursePermissions(courseId);
+
+  // ADMIN ONLY, and deliberately narrower than the sibling instructor pages.
+  //
+  // Gating this on `canEdit || isInstructor || isAdmin` — the gate the gradebook
+  // uses — would have admitted course owners and co-instructors to a page that
+  // cannot work for them. The RLS on `course_instructors` grants ALL to admins
+  // and lets everyone else SELECT only their own row
+  // (supabase/migrations/20250614185655-*.sql, verified against the live
+  // database). A non-admin instructor would therefore see an EMPTY roster and
+  // have every add and remove rejected — a page that looks functional and is
+  // not, which is the exact failure mode this whole cleanup is meant to remove.
+  //
+  // Widening the policy is a schema change and a product decision about who may
+  // reassign teaching staff. Until that is made, the UI matches the data layer.
+  const canManage = isAdmin;
 
   if (!courseId) {
     return (
@@ -61,7 +75,7 @@ const CourseInstructors = () => {
       <CourseLayout>
         <Card>
           <CardContent className="py-10 text-center text-muted-foreground">
-            Only this course's instructors can manage its teaching team.
+            Only an administrator can change who teaches this course.
           </CardContent>
         </Card>
       </CourseLayout>

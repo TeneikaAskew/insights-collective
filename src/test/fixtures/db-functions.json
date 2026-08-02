@@ -61,6 +61,7 @@
   "is_grading_staff",
   "log_audit_event",
   "log_security_event",
+  "mark_conversation_read",
   "notify_enrolled_on_announcement",
   "notify_student_on_grade",
   "open_course_thread",
