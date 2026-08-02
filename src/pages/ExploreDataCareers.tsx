@@ -12,7 +12,7 @@ import { CareerRoleDetails } from '@/components/careers/CareerRoleDetails';
 import { WageBandLegend } from '@/components/careers/WageBand';
 import { useCareerRoleWages } from '@/hooks/useCareerRoleWages';
 import { dataCareerRoles } from '@/data/dataCareerRoles';
-import { m } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 
 const ExploreDataCareers = () => {
@@ -163,7 +163,7 @@ const ExploreDataCareers = () => {
   return <AppLayout fullWidth>
       <div className="ss-wash min-h-full">
         <div className="container mx-auto py-10 px-4 space-y-8">
-          <m.div initial={{
+          <motion.div initial={{
           opacity: 0,
           y: -20
         }} animate={{
@@ -191,10 +191,10 @@ const ExploreDataCareers = () => {
             {wagesFailed && <p role="status" data-testid="wages-unavailable" className="text-sm text-ss-bad max-w-3xl">
                 Pay figures could not be loaded, so salary filtering and sorting are unavailable. Everything else on this page still works.
               </p>}
-          </m.div>
+          </motion.div>
 
           <div className="grid gap-8 md:grid-cols-5">
-            <m.div initial={{
+            <motion.div initial={{
             opacity: 0,
             x: -20
           }} animate={{
@@ -293,9 +293,9 @@ const ExploreDataCareers = () => {
                   </Button>
                 </div>
               </div>
-            </m.div>
+            </motion.div>
 
-            <m.div initial={{
+            <motion.div initial={{
             opacity: 0,
             y: 20
           }} animate={{
@@ -334,9 +334,9 @@ const ExploreDataCareers = () => {
                   </Select>
                 </div>
               </div>
-            </m.div>
+            </motion.div>
 
-            <m.div initial={{
+            <motion.div initial={{
             opacity: 0
           }} animate={{
             opacity: 1
@@ -399,11 +399,11 @@ const ExploreDataCareers = () => {
 
                 <TabsContent value="grid" className="space-y-6">
                   {filteredRoles.length > 0 ? <>
-                      <m.div variants={containerVariants} initial="hidden" animate="visible" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        {filteredRoles.slice(0, visibleRoles).map(role => <m.div key={role.id} variants={itemVariants}>
+                      <motion.div variants={containerVariants} initial="hidden" animate="visible" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {filteredRoles.slice(0, visibleRoles).map(role => <motion.div key={role.id} variants={itemVariants}>
                             <RoleCard role={role} wage={wagesBySlug.get(role.id)} onOpenRole={setOpenRoleId} />
-                          </m.div>)}
-                      </m.div>
+                          </motion.div>)}
+                      </motion.div>
 
                       {visibleRoles < filteredRoles.length && <div className="flex justify-center pt-4">
                           <Button onClick={handleLoadMore} variant="outline" className="group rounded-full">
@@ -422,7 +422,7 @@ const ExploreDataCareers = () => {
                 </TabsContent>
 
                 <TabsContent value="categories" className="space-y-10">
-                  {Object.entries(rolesByCategory).map(([category, roles]) => <m.div key={category} initial={{
+                  {Object.entries(rolesByCategory).map(([category, roles]) => <motion.div key={category} initial={{
                   opacity: 0,
                   y: 20
                 }} animate={{
@@ -441,10 +441,10 @@ const ExploreDataCareers = () => {
                       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                         {roles.map(role => <RoleCard key={role.id} role={role} wage={wagesBySlug.get(role.id)} onOpenRole={setOpenRoleId} />)}
                       </div>
-                    </m.div>)}
+                    </motion.div>)}
                 </TabsContent>
               </Tabs>
-            </m.div>
+            </motion.div>
           </div>
         </div>
 

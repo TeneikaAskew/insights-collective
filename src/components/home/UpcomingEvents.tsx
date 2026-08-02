@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, Calendar, MapPin, Users, Video, Clock, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { m } from 'framer-motion';
+import { motion } from 'framer-motion';
 
 type Event = {
   id: string;
@@ -127,7 +127,7 @@ const UpcomingEvents = ({ events }: UpcomingEventsProps) => {
             const timeFormatted = formatTime(event.start_time);
             
             return (
-              <m.div
+              <motion.div
                 key={event.id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -230,7 +230,7 @@ const UpcomingEvents = ({ events }: UpcomingEventsProps) => {
                     </div>
                   </div>
                 </Link>
-              </m.div>
+              </motion.div>
             );
           })}
         </div>

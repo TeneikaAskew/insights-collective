@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { m } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronLeft, ChevronRight, Check, SkipForward } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -251,7 +251,7 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ tourId }) => {
   return (
     <>
       {/* Backdrop overlay */}
-      <m.div
+      <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -261,7 +261,7 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ tourId }) => {
 
       {/* Highlight overlay for target element */}
       {targetElement && currentStepData.highlight && !elementNotFound && (
-        <m.div
+        <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className="fixed z-[1001] pointer-events-none"
@@ -278,7 +278,7 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ tourId }) => {
       )}
 
       {/* Tooltip */}
-      <m.div
+      <motion.div
         initial={isMobileViewport ? { opacity: 0, y: 50 } : { opacity: 0, scale: 0.8 }}
         animate={isMobileViewport ? { opacity: 1, y: 0 } : { opacity: 1, scale: 1 }}
         exit={isMobileViewport ? { opacity: 0, y: 50 } : { opacity: 0, scale: 0.8 }}
@@ -359,7 +359,7 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ tourId }) => {
             </div>
           </CardContent>
         </Card>
-      </m.div>
+      </motion.div>
     </>
   );
 };

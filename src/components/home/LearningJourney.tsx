@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import { Book, BarChart2, Star, GraduationCap, PieChart, Award, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { m, useAnimation } from 'framer-motion';
+import { motion, useAnimation } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
 
 const LearningJourney = () => {
@@ -115,7 +115,7 @@ const LearningJourney = () => {
           </p>
         </div>
 
-        <m.div 
+        <motion.div 
           ref={ref}
           variants={containerVariants}
           initial="hidden"
@@ -123,7 +123,7 @@ const LearningJourney = () => {
           className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mt-12"
         >
           {steps.map((step) => (
-            <m.div 
+            <motion.div 
               key={step.number}
               variants={itemVariants}
               className="flex flex-col h-full"
@@ -150,9 +150,9 @@ const LearningJourney = () => {
                   </Link>
                 </div>
               </div>
-            </m.div>
+            </motion.div>
           ))}
-        </m.div>
+        </motion.div>
 
         <div className="text-center mt-16">
           <Button 

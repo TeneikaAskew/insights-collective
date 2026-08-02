@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Brain, BarChart3, Database, Presentation, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { m, useAnimation } from 'framer-motion';
+import { motion, useAnimation } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
 import Quiz from './Quiz';
 
@@ -115,7 +115,7 @@ const QuizSection: React.FC = () => {
           </p>
           
           {!showQuiz && (
-            <m.div
+            <motion.div
               ref={ref}
               variants={containerVariants}
               initial="hidden"
@@ -123,7 +123,7 @@ const QuizSection: React.FC = () => {
             >
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-10">
                 {careerPaths.map((path, index) => (
-                  <m.div 
+                  <motion.div 
                     key={path.title}
                     variants={cardVariants}
                     className={`relative p-5 md:p-6 rounded-xl bg-card/80 backdrop-blur-sm flex flex-col items-center border ${colorMap[path.color].border} ${colorMap[path.color].shadow} shadow-lg hover:shadow-xl transition-all duration-300 group`}
@@ -138,7 +138,7 @@ const QuizSection: React.FC = () => {
                     
                     {/* Decorative circle */}
                     <div className="absolute -z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-500 w-full h-full rounded-full bg-gradient-to-br from-transparent to-primary/5 blur-xl top-0 left-0"></div>
-                  </m.div>
+                  </motion.div>
                 ))}
               </div>
               
@@ -153,19 +153,19 @@ const QuizSection: React.FC = () => {
                 </span>
                 <span className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-primary via-accent to-primary bg-[length:200%_100%] rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500 animate-gradient-x"></span>
               </Button>
-            </m.div>
+            </motion.div>
           )}
         </div>
         
         {showQuiz && (
-          <m.div 
+          <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
             className="bg-card p-6 md:p-8 rounded-xl shadow-xl border "
           >
             <Quiz />
-          </m.div>
+          </motion.div>
         )}
       </div>
     </section>

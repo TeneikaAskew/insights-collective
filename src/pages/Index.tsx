@@ -27,12 +27,18 @@ import { useAuth } from '@/hooks/useAuth';
 // modulepreload tag, so every first-time visitor downloaded and parsed it before
 // the landing page could paint. Nobody sees a chart until they scroll.
 //
-// These are lazy, not conditionally rendered. The existing useInView gate
-// controls OPACITY, not mounting: every section is in the DOM from the start so
-// it holds its own height and the observer cascade works. Dropping the elements
-// until they scroll into view would collapse the page and bring everything into
-// view at once. lazy() leaves that intact and moves only the download, which is
-// the part that was expensive.
+// lazy() alone is not enough, which is worth stating because it is the easy
+// mistake here: React starts a lazy import when the component RENDERS, and the
+// existing useInView gate controls opacity, not mounting — every section is in
+// the DOM from the start. So a lazy section that is merely transparent still
+// downloads its chunk during the first render, and a visitor who never scrolls
+// still pays for recharts. Only the modulepreload goes away.
+//
+// So these two — and only these two — also wait for `deferUntilVisible`. The
+// reason the rest cannot is that dropping a section from the DOM collapses the
+// page, which brings everything below it into view at once and defeats the
+// observer cascade. These two can, because SectionFallback holds their space
+// while they are absent.
 const InteractiveShowcase = lazy(() => import('@/components/home/InteractiveShowcase'));
 const AnalyticsDashboard = lazy(() => import('@/components/home/AnalyticsDashboard'));
 
@@ -43,11 +49,15 @@ const AnalyticsDashboard = lazy(() => import('@/components/home/AnalyticsDashboa
 const SectionFallback = () => <div className="min-h-[50vh]" aria-hidden="true" />;
 
 // Individual section wrapper to safely use useInView per-section
-function SectionItem({ id, Component, threshold, isOnboardingActive }: {
+function SectionItem({ id, Component, threshold, isOnboardingActive, deferUntilVisible = false }: {
   id: string;
   Component: React.ComponentType;
   threshold: number;
   isOnboardingActive: boolean;
+  /** Hold the section out of the DOM until it is near the viewport, so its
+   *  lazy chunk is not requested during the first render. Only safe for
+   *  sections whose height SectionFallback can stand in for. */
+  deferUntilVisible?: boolean;
 }) {
   const { ref, inView } = useInView({
     triggerOnce: !isOnboardingActive,
@@ -63,9 +73,13 @@ function SectionItem({ id, Component, threshold, isOnboardingActive }: {
       data-tour={id}
       className={`transition-opacity duration-700 ${shouldBeVisible ? 'opacity-100' : 'opacity-0'}`}
     >
-      <Suspense fallback={<SectionFallback />}>
-        <Component />
-      </Suspense>
+      {deferUntilVisible && !shouldBeVisible ? (
+        <SectionFallback />
+      ) : (
+        <Suspense fallback={<SectionFallback />}>
+          <Component />
+        </Suspense>
+      )}
     </div>
   );
 }
@@ -118,12 +132,12 @@ const Index = () => {
     { id: 'hero', Component: HeroSection, threshold: 0.1 },
     { id: 'quiz', Component: QuizSection, threshold: 0.3 },
     { id: 'personalizedPathway', Component: PersonalizedPathway, threshold: 0.3 },
-    { id: 'interactiveShowcase', Component: InteractiveShowcase, threshold: 0.2 },
+    { id: 'interactiveShowcase', Component: InteractiveShowcase, threshold: 0.2, deferUntilVisible: true },
     { id: 'features', Component: FeaturesSection, threshold: 0.3 },
     { id: 'journey', Component: LearningJourney, threshold: 0.2 },
     { id: 'courses', Component: () => <FeaturedCourses courses={featuredCourses} />, threshold: 0.2 },
     { id: 'tools', Component: ExploreTools, threshold: 0.3 },
-    { id: 'analytics', Component: AnalyticsDashboard, threshold: 0.2 },
+    { id: 'analytics', Component: AnalyticsDashboard, threshold: 0.2, deferUntilVisible: true },
     { id: 'communityShowcase', Component: CommunityShowcase, threshold: 0.2 },
     { id: 'events', Component: () => <UpcomingEvents events={upcomingEvents} />, threshold: 0.2 },
     { id: 'cta', Component: CTASection, threshold: 0.3 },
@@ -141,13 +155,14 @@ const Index = () => {
         </div>
       )}
       
-      {sections.map(({ id, Component, threshold }) => (
+      {sections.map(({ id, Component, threshold, deferUntilVisible }) => (
         <SectionItem
           key={id}
           id={id}
           Component={Component}
           threshold={threshold}
           isOnboardingActive={isOnboardingActive}
+          deferUntilVisible={deferUntilVisible}
         />
       ))}
       <Footer />
