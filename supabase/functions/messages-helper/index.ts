@@ -455,12 +455,43 @@ async function createConversation(supabaseAdmin: any, subject: string, recipient
   }
 
   // Create the conversation
+  //
+  // Every conversation must belong to a course.
+  //
+  // `conversations_require_course` is a BEFORE INSERT trigger that raises when
+  // course_id is null, and `enforce_conversation_participant_in_course` rejects
+  // any participant who is not enrolled in (or teaching, or an admin of) that
+  // course. This function used to insert without a course_id at all, so once
+  // those triggers went live EVERY attempt to start a conversation failed with a
+  // raw Postgres exception, and the New Conversation dialog was simply broken.
+  //
+  // So the course is derived rather than asked for: pick one that the creator
+  // AND every recipient already belong to. That satisfies both triggers by
+  // construction, and it keeps the dialog free of a course picker for a value
+  // the server can work out. When there is no such course the conversation is
+  // genuinely not permissible, and saying so plainly beats a database error.
+  const everyone = [currentUserId, ...recipientIds];
+  const { data: sharedCourses, error: sharedError } = await supabaseAdmin
+    .rpc('courses_shared_by_users', { p_user_ids: everyone });
+
+  if (sharedError) {
+    throw new Error(`Failed to resolve a shared course: ${sharedError.message}`);
+  }
+
+  const courseId = sharedCourses?.[0]?.course_id ?? null;
+  if (!courseId) {
+    throw new Error(
+      'You can only message people you share a course with. Enrol in a common course first.',
+    );
+  }
+
   const { data: conversationData, error: conversationError } = await supabaseAdmin
     .from('conversations')
     .insert({
       subject: finalSubject,
       is_group: isGroup,
-      created_by: currentUserId
+      created_by: currentUserId,
+      course_id: courseId
     })
     .select('id')
     .single();
