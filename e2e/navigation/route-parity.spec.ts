@@ -48,6 +48,12 @@ test.describe('Additional Route Coverage', () => {
     await goto(page, Routes.notFound);
     await expect(page.locator('h1:has-text("404")')).toBeVisible();
     await expect(page.locator('text=Oops! Page not found')).toBeVisible();
-    await expect(page.locator('a[href="/"]')).toBeVisible();
+
+    // Scoped to the 404 block on purpose. The page renders inside AppLayout now,
+    // and the sidebar header is itself a link home — so a bare a[href="/"] both
+    // matches two elements (strict mode) and, if it were relaxed with .first(),
+    // would be satisfied by the sidebar logo whether or not the 404 page offers
+    // a way back at all. The assertion is about THIS page's recovery link.
+    await expect(page.getByTestId('not-found').locator('a[href="/"]')).toBeVisible();
   });
 });
