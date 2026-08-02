@@ -172,6 +172,19 @@ export const usePortfolioPages = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      // One page per account. The unique constraint is the real guarantee, but
+      // reaching it produces a 23505 the caller would surface as "Failed to
+      // create portfolio page" — accurate and useless. Refusing here says why.
+      const { count, error: countError } = await supabase
+        .from('portfolio_pages')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      if (countError) throw countError;
+      if ((count ?? 0) > 0) {
+        throw new Error('You already have a portfolio page. Edit that one instead of creating another.');
+      }
+
       const { data, error } = await supabase
         .from('portfolio_pages')
         .insert({
@@ -194,8 +207,11 @@ export const usePortfolioPages = () => {
     onError: (error) => {
       logger.error('Error creating portfolio page:', error);
       toast({
-        title: "Error",
-        description: "Failed to create portfolio page",
+        title: "Could not create your portfolio page",
+        // The thrown message when a second page is refused explains itself;
+        // a fixed "Failed to create portfolio page" would have replaced it
+        // with something the reader can do nothing about.
+        description: error instanceof Error ? error.message : 'Please try again.',
         variant: "destructive"
       });
     }
@@ -224,33 +240,6 @@ export const usePortfolioPages = () => {
     onError: (error) => {
       logger.error('Error updating portfolio page:', error);
       throw error;
-    }
-  });
-
-  // Delete a portfolio page
-  const deletePortfolioPage = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('portfolio_pages')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['portfolio-pages'] });
-      toast({
-        title: "Success",
-        description: "Portfolio page deleted successfully!",
-      });
-    },
-    onError: (error) => {
-      logger.error('Error deleting portfolio page:', error);
-      toast({
-        title: "Error",
-        description: "Failed to delete portfolio page",
-        variant: "destructive"
-      });
     }
   });
 
@@ -442,7 +431,6 @@ export const usePortfolioPages = () => {
     createPortfolioPage,
     addPortfolioPage, // backward compatibility
     updatePortfolioPage,
-    deletePortfolioPage,
     addProjectToPortfolio,
     addProjectToPage,
     removeProjectFromPortfolio,

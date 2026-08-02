@@ -6,7 +6,6 @@ import { PortfolioPagesList } from './PortfolioPagesList';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Globe, Users, FileText, Share } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 
 export function PortfolioPagesTab() {
@@ -41,62 +40,12 @@ export function PortfolioPagesTab() {
     );
   }
 
-  const publicPortfolios = portfolioPages?.filter(page => page.is_public) || [];
-  const privatePortfolios = portfolioPages?.filter(page => !page.is_public) || [];
-
+  // The four stat tiles are gone. With one page per account they read
+  // "Total 1 / Public 1 / Private 0 / Shared Links 1" — four numbers that
+  // restate each other and never change. The page's own header says whether it
+  // is live and where it points, which is the part that varies.
   return (
     <div className="space-y-8">
-      {/* Header with stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <FileText className="h-5 w-5 text-ss-lav-deep" />
-              <div>
-                <p className="text-sm text-muted-foreground">Total Portfolios</p>
-                <p className="text-2xl font-bold">{portfolioPages?.length || 0}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <Globe className="h-5 w-5 text-ss-good" />
-              <div>
-                <p className="text-sm text-muted-foreground">Public</p>
-                <p className="text-2xl font-bold">{publicPortfolios.length}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <Users className="h-5 w-5 text-ss-teal" />
-              <div>
-                <p className="text-sm text-muted-foreground">Private</p>
-                <p className="text-2xl font-bold">{privatePortfolios.length}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <Share className="h-5 w-5 text-ss-lav-deep" />
-              <div>
-                <p className="text-sm text-muted-foreground">Shared Links</p>
-                <p className="text-2xl font-bold">{publicPortfolios.filter(p => p.custom_url).length}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
       {/* Main content - only show PortfolioPagesList, not duplicated content */}
       <PortfolioPagesList 
         pages={portfolioPages || []}
