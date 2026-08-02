@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ArrowLeft, ClipboardCheck, Shield } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
 import { supabase } from '@/integrations/supabase/client';
 import { useCoursePermissions } from '@/hooks/useCoursePermissions';
 import CourseErrorState from '@/components/course/CourseErrorState';
@@ -129,9 +130,10 @@ const InstructorAssignments = () => {
                 />
               </div>
             ) : rows.length === 0 ? (
-              <div className="p-10 text-center text-sm text-muted-foreground">
-                No assignments have been created in this course yet.
-              </div>
+              <EmptyState
+                icon={ClipboardCheck}
+                title="No assignments have been created in this course yet."
+              />
             ) : (
               <div className="divide-y">
                 {rows.map((r) => {

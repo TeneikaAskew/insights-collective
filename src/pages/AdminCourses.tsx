@@ -14,6 +14,7 @@ import {
   FileSpreadsheet, GraduationCap, CheckCircle, ArrowUpDown, ArrowUp, ArrowDown, X,
 } from 'lucide-react';
 import { Hint } from '@/components/ui/hint';
+import { EmptyState } from '@/components/ui/empty-state';
 import { CourseImage } from '@/components/common/CourseImage';
 import { CourseProgressDashboard } from '@/components/admin/CourseProgressDashboard';
 import { UnifiedExportReport } from '@/components/admin/UnifiedExportReport';
@@ -264,13 +265,17 @@ export default function AdminCourses() {
                 </Button>
               </div>
             ) : (
-              <div className="text-center py-16 rounded-3xl border border-dashed border-border bg-card">
-                <h3 className="text-xl font-bold mb-1">No courses yet</h3>
-                <p className="text-muted-foreground mb-4">Get started by creating your first course.</p>
-                <Button onClick={handleAddCourse} className="rounded-xl">
-                  <Plus className="mr-2 h-4 w-4" /> New course
-                </Button>
-              </div>
+              <EmptyState
+                className="rounded-3xl border border-dashed border-border bg-card"
+                icon={GraduationCap}
+                title="No courses yet"
+                description="Get started by creating your first course."
+                action={
+                  <Button onClick={handleAddCourse} className="rounded-xl">
+                    <Plus className="mr-2 h-4 w-4" /> New course
+                  </Button>
+                }
+              />
             )
           ) : (
             <div className="rounded-3xl border border-border bg-card overflow-hidden shadow-[var(--ss-shadow)]">

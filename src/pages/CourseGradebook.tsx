@@ -13,6 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent } from '@/components/ui/card';
 import { Shield, Users } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
 
 interface GradeUpdatePayload {
   studentId: string;
@@ -400,16 +401,16 @@ const CourseGradebook = () => {
     return (
       <CourseLayout>
         <Card>
-          <CardContent className="py-12 flex flex-col items-center text-center gap-2">
-            <Users className="h-8 w-8 text-muted-foreground" />
-            <p className="font-medium">
-              {!hasStudents
-                ? 'No students are enrolled in this course yet.'
-                : 'This course has no assignments or quizzes to grade yet.'}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              The gradebook will appear once there are enrolled students and gradable items.
-            </p>
+          <CardContent className="p-0">
+            <EmptyState
+              icon={Users}
+              title={
+                !hasStudents
+                  ? 'No students are enrolled in this course yet.'
+                  : 'This course has no assignments or quizzes to grade yet.'
+              }
+              description="The gradebook will appear once there are enrolled students and gradable items."
+            />
           </CardContent>
         </Card>
       </CourseLayout>
