@@ -53,7 +53,20 @@ test.describe('Quiz Taking', () => {
     await expect(page.locator(START_BUTTON)).toBeVisible();
   });
 
-  test('question navigation renders after starting quiz', async ({ page }) => {
+  // ONE test starts the quiz, and it asserts everything about the started
+  // state. This was two tests, and two tests were a race: the suite is
+  // fullyParallel on 4 workers in CI, both would have clicked Start against the
+  // same quiz and the same member, and startQuiz computes the attempt number
+  // CLIENT-side (CanvasQuizTaking.tsx:109-148 reads the latest submission, then
+  // inserts `attempt + 1`). Two pages that read before either writes compute the
+  // same number, and the unique index `unique_user_quiz_attempt` on
+  // (quiz_id, user_id, attempt) rejects the loser — which leaves that page on
+  // the landing screen until its assertion times out.
+  //
+  // Serialising the two would also have worked, but starting once is simpler
+  // and costs the shared fixture one attempt instead of two. Nothing outside
+  // this file starts this quiz.
+  test('starting the quiz reveals the question navigator and its options', async ({ page }) => {
     await goto(page, quizUrl);
     await page.locator(START_BUTTON).click();
 
@@ -62,11 +75,6 @@ test.describe('Quiz Taking', () => {
     await expect(page.getByRole('button', { name: '1', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: '2', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Next' })).toBeVisible();
-  });
-
-  test('multiple choice options render as radio buttons', async ({ page }) => {
-    await goto(page, quizUrl);
-    await page.locator(START_BUTTON).click();
 
     // Both seeded questions carry real answers — a question with an empty
     // options array renders "No options configured", which is the dead end
