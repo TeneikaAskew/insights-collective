@@ -63,7 +63,11 @@ export const Sel = {
     urlInput: '#url',
     submitBtn: 'button:has-text("Submit Assignment")',
     saveDraftBtn: 'button:has-text("Save Draft")',
-    cancelBtn: 'button:has-text("Cancel")',
+    // Anchor first, and not `button`, because it is not one: the page renders
+    // <Button asChild><Link>Cancel</Link></Button>, and Radix's asChild drops
+    // the <button> in favour of the child <a>. The old button-only selector
+    // could never match, which the count-guard around its only assertion hid.
+    cancelBtn: 'a:has-text("Cancel"), button:has-text("Cancel")',
     fileDropzone: 'input[type="file"]',
     contentEditable: '[contenteditable]',
   },

@@ -454,6 +454,39 @@ VALUES ('aaab7777-7777-7777-7777-777777777777',
         '{"fields":[{"id":"q1","type":"text","label":"What did you think?"}]}'::jsonb)
 ON CONFLICT (id) DO NOTHING;
 
+-- Assignment offering ALL THREE submission types, for the submission-page specs.
+--
+-- The production assignment those specs deep-linked to (19d80f57-…) offers
+-- file_upload ONLY, so the Text Entry and Website URL tabs correctly never
+-- rendered — and every assertion about them sat behind a count-guard that
+-- passed on their absence. The tests read as covering three submission types
+-- while covering none of them.
+--
+-- Its module_id is also 770e8400-…0002 while the route helper defaults the
+-- module segment to …0001. That mismatch is harmless for loading (the page
+-- fetches by content_item_id and uses the module only for its "Back to Module"
+-- link) but it means the link pointed at a module the assignment is not in.
+-- This fixture puts both in …0001 so the back-link is correct too.
+INSERT INTO public.content_items (id, course_id, module_id, type, title, content, position, published)
+VALUES ('cccc3333-3333-3333-3333-333333333333',
+        '660e8400-e29b-41d4-a716-446655440001',
+        '770e8400-e29b-41d4-a716-446655440001',
+        'assignment', 'Submission Formats Exercise',
+        '<p>Submit your work in whichever format suits it best.</p>', 98, true)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.assignments (id, course_id, module_id, content_item_id, title, description,
+                                instructions, points, submission_types, is_published)
+VALUES ('cccc4444-4444-4444-4444-444444444444',
+        '660e8400-e29b-41d4-a716-446655440001',
+        '770e8400-e29b-41d4-a716-446655440001',
+        'cccc3333-3333-3333-3333-333333333333',
+        'Submission Formats Exercise',
+        'Exercises every submission type the page can render.',
+        'Pick a tab and submit.', 100,
+        ARRAY['online_text_entry', 'online_url', 'online_upload'], true)
+ON CONFLICT (id) DO NOTHING;
+
 -- Assert deterministic invariants so a failed seed surfaces before tests run.
 DO $$
 DECLARE
@@ -463,6 +496,17 @@ BEGIN
    WHERE id::text LIKE '660e8400%';
   IF NOT v_ok THEN
     RAISE EXCEPTION 'E2E SEED FAILED: expected at least 5 fixture courses (660e8400-...)';
+  END IF;
+
+  -- All three tabs, or the submission-page specs are back to asserting on UI
+  -- that is legitimately absent.
+  SELECT EXISTS (
+    SELECT 1 FROM public.assignments
+     WHERE content_item_id = 'cccc3333-3333-3333-3333-333333333333'
+       AND submission_types @> ARRAY['online_text_entry', 'online_url', 'online_upload']
+  ) INTO v_ok;
+  IF NOT v_ok THEN
+    RAISE EXCEPTION 'E2E SEED FAILED: fixture assignment cccc3333-...3333 missing or not offering all three submission types; the submission-page tab specs would assert against tabs that never render';
   END IF;
 
   SELECT EXISTS (
