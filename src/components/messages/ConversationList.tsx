@@ -188,9 +188,14 @@ const ConversationList: React.FC<ConversationListProps> = ({
         // Get the first other participant's profile for display
          // For groups, maybe show creator or just a generic group icon?
          // For 1-on-1, show the other person.
+         // Declared without a value on purpose. Every branch below assigns both, so the
+         // old `'Conversation'` / `'??'` seeds were dead — CodeQL flags them as useless
+         // assignments. Dropping them turns the exhaustiveness into a compile-time
+         // guarantee: add a branch that forgets to set one and TypeScript says so, where
+         // before it would silently render '??' next to somebody's name.
          let displayProfile = null;
-         let displayName = sanitizeSubject(conversation.subject, 'Conversation');
-         let avatarFallback = '??';
+         let displayName: string;
+         let avatarFallback: string;
          let avatarUrl = null;
 
          if (conversation.is_group) {
