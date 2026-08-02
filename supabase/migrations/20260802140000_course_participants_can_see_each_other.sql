@@ -29,15 +29,33 @@
 --
 -- One branch, deliberately written as the same predicate as
 -- courses_shared_by_users (20260802050000): belonging to a course means
--- enrolled, OR being its instructor_id, OR being an instructor through
--- course_instructors. Stating it the same way is what keeps the two rules from
--- drifting apart again — the whole defect here was two definitions of the same
--- relationship maintained in separate places.
+-- enrolled, OR being its instructor_id, OR satisfying is_course_instructor().
+-- Stating it the same way is what keeps the two rules from drifting apart again
+-- — the whole defect here was two definitions of the same relationship
+-- maintained in separate places.
 --
--- It covers a second gap in passing. The old rule only recognised
--- courses.instructor_id, so a co-instructor added through course_instructors —
--- which is exactly what the newly-reachable CourseInstructorsTab manages — was
--- invisible to the students they teach, while still being messageable.
+-- It also covers co-instructors, who the old rule missed entirely: it looked
+-- only at courses.instructor_id, so someone teaching a course alongside its
+-- owner was invisible to their own students while still being messageable.
+--
+-- BUT "CO-INSTRUCTOR" HERE MEANS A course_assignments ROW, NOT course_instructors.
+--
+-- is_course_instructor() reads courses.instructor_id and course_assignments
+-- (role = 'instructor'). It does NOT read course_instructors. So somebody added
+-- through CourseInstructorsTab — the page made reachable in #66, and the only
+-- code in the repo that writes that table — is still not recognised here, is
+-- still not returned by courses_shared_by_users, and is still refused by
+-- open_course_thread. Widening this branch does not change that, and an earlier
+-- draft of this comment claimed otherwise.
+--
+-- Not fixed here, deliberately. The fix belongs in is_course_instructor rather
+-- than in one caller, and that helper also gates three RLS policies covering
+-- course content and grading — teaching a course through course_instructors
+-- would start granting those too. That is a decision about what the table
+-- MEANS, not a comment fix, and it wants saying out loud before it ships.
+-- Nothing is currently broken by the gap: course_instructors has zero rows,
+-- while course_assignments carries four instructor rows that all work. The
+-- page can create the first one, though, so this will not stay theoretical.
 --
 -- WHAT IT DOES NOT CHANGE
 --
