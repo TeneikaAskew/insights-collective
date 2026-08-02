@@ -128,6 +128,24 @@ const quiz = {
   questions: [question],
 };
 
+/**
+ * Starting a quiz is an RPC now, not an insert. `start_quiz_attempt` allocates
+ * the attempt number in the database, because computing it in the browser meant
+ * two tabs read the same MAX(attempt) and the unique index on
+ * (quiz_id, user_id, attempt) rejected whichever landed second.
+ *
+ * The call is `.rpc(...).single()`, so the stub has to return something with a
+ * `single()` — the default rpc mock resolves a plain object and has none.
+ */
+function stubStartQuizAttempt(row: { id: string; attempt: number } = { id: 'qsub-1', attempt: 1 }) {
+  (mockSupabaseClient.rpc as ReturnType<typeof vi.fn>).mockImplementation((name: string) => {
+    if (name === 'start_quiz_attempt') {
+      return { single: async () => ({ data: row, error: null }) };
+    }
+    return Promise.resolve({ data: null, error: null });
+  });
+}
+
 async function startQuizAndAnswer() {
   render(<CanvasQuizTaking />);
   fireEvent.click(await screen.findByRole('button', { name: 'Start Quiz' }));
@@ -242,9 +260,9 @@ describe('CanvasQuizTaking', () => {
     const answersBuilder = makeTableBuilder({ data: null, error: null });
     const quizSubsBuilder = makeTableBuilder(
       { data: [], error: null }, // existing-submission check on load
-      { data: { id: 'qsub-1', attempt: 1 }, error: null }, // insert on Start Quiz
       { data: null, error: null }, // final update on submit
     );
+    stubStartQuizAttempt();
     useTables({
       quiz_submissions: quizSubsBuilder,
       quiz_submission_answers: answersBuilder,
@@ -261,10 +279,15 @@ describe('CanvasQuizTaking', () => {
       ),
     );
 
-    // The submission row was created for this quiz + user.
-    expect(quizSubsBuilder.insert).toHaveBeenCalledWith(
-      expect.objectContaining({ quiz_id: 'quiz-1', user_id: 'user-1', attempt: 1 }),
-    );
+    // The attempt is requested from the database, not assembled here. Note what
+    // is NOT sent: no user_id and no attempt number. The function derives the
+    // user from auth.uid() and allocates the attempt under a lock, which is what
+    // stops two tabs computing the same number and colliding on
+    // unique_user_quiz_attempt.
+    expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('start_quiz_attempt', {
+      p_quiz_id: 'quiz-1',
+    });
+    expect(quizSubsBuilder.insert).not.toHaveBeenCalled();
     // Grading is server-side: the page ships its answers to score-quiz and
     // writes neither graded answer rows nor a score of its own.
     expect(mockSupabaseClient.functions.invoke).toHaveBeenCalledWith(
@@ -290,10 +313,10 @@ describe('CanvasQuizTaking', () => {
     vi.mocked(CanvasContentService.getContentItem).mockResolvedValue(quizItem as any);
     vi.mocked(CanvasContentService.getQuiz).mockResolvedValue(quiz as any);
 
+    stubStartQuizAttempt();
     useTables({
       quiz_submissions: makeTableBuilder(
         { data: [], error: null },
-        { data: { id: 'qsub-1', attempt: 1 }, error: null },
       ),
       quiz_submission_answers: makeTableBuilder({ data: null, error: null }),
     });
