@@ -120,12 +120,13 @@ export function CreatePortfolioPageForm({ onSuccess }: CreatePortfolioPageFormPr
           description: 'Portfolio page created successfully',
         });
         onSuccess();
-      } catch (error) {
-        toast({
-          title: 'Error',
-          description: 'Failed to create portfolio page',
-          variant: 'destructive',
-        });
+      } catch {
+        // Deliberately silent. createPortfolioPage's own onError already
+        // toasted, with the specific reason — "You already have a portfolio
+        // page", say. TOAST_LIMIT is 1, so a second toast here would replace
+        // that with "Failed to create portfolio page" and the reader would
+        // never see the part they can act on. The catch stays so the success
+        // toast and onSuccess() below it are skipped.
       } finally {
         setIsLoading(false);
       }

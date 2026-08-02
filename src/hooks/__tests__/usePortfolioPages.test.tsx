@@ -77,3 +77,57 @@ describe('usePortfolioPages.addProjectToPortfolio', () => {
     );
   });
 });
+
+/**
+ * One portfolio page per account.
+ *
+ * The unique constraint added in 20260802010000 is the real guarantee, but a
+ * 23505 surfaces to the reader as "Failed to create portfolio page" — accurate
+ * and useless. The hook refuses first so the message can say why.
+ */
+describe('usePortfolioPages.createPortfolioPage', () => {
+  beforeEach(() => {
+    mockToast.mockClear();
+    (mockSupabaseClient.auth.getUser as any).mockResolvedValue({
+      data: { user: { id: 'user-1' } },
+      error: null,
+    });
+  });
+
+  it('refuses a second page and never inserts', async () => {
+    const builder = getQueryBuilder();
+    // The head+count probe resolves through `then`, like every other awaited
+    // query on this builder.
+    builder.then.mockImplementation((resolve: (value: unknown) => void) =>
+      resolve({ data: null, count: 1, error: null })
+    );
+
+    const { result } = renderHook(() => usePortfolioPages(), {
+      wrapper: createHookWrapper(),
+    });
+
+    await expect(
+      result.current.createPortfolioPage.mutateAsync({ title: 'Second' } as never)
+    ).rejects.toThrow(/already have a portfolio page/i);
+
+    expect(builder.insert).not.toHaveBeenCalled();
+  });
+
+  it('inserts when the account has no page yet', async () => {
+    const builder = getQueryBuilder();
+    builder.then.mockImplementation((resolve: (value: unknown) => void) =>
+      resolve({ data: null, count: 0, error: null })
+    );
+    builder.single.mockResolvedValue({ data: { id: 'page-1' }, error: null });
+
+    const { result } = renderHook(() => usePortfolioPages(), {
+      wrapper: createHookWrapper(),
+    });
+
+    await result.current.createPortfolioPage.mutateAsync({ title: 'First' } as never);
+
+    expect(builder.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'First', user_id: 'user-1' })
+    );
+  });
+});
