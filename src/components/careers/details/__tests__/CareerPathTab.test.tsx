@@ -2,6 +2,12 @@
 // ABOUTME: users actually see — platform courses in their own section linking
 // ABOUTME: internally, Coursera below as the fallback — and guards the regression
 // ABOUTME: this replaced: links to placeholder ids like /courses/da101 that 404'd.
+//
+// That regression is now structurally impossible rather than merely asserted:
+// DataCareerRole.courses — the deprecated field those ids lived in — has been
+// removed from the type, so a fixture cannot supply one and the component cannot
+// read one. The assertion below is kept anyway; it costs nothing and it fails
+// loudly if the field is ever reintroduced.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, within } from '@testing-library/react';
@@ -66,8 +72,6 @@ const role: DataCareerRole = {
     description: 'Grow from analyst into BI leadership.',
     progressionSteps: [{ title: 'Junior BI Analyst', description: 'Learn the stack.' }],
   },
-  // The legacy placeholder field must no longer produce links.
-  courses: [{ id: 'da101', title: 'Legacy Placeholder', description: 'Should not render.' }],
 };
 
 const tableauCourse: PublishedCourse = {

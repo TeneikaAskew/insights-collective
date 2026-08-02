@@ -34,7 +34,6 @@ export interface ManifestPage {
 export const PAGE_MANIFEST: ManifestPage[] = [
   { path: '/', name: 'Home' },
   { path: '/dashboard', name: 'Dashboard' },
-  { path: '/user-dashboard', name: 'User Dashboard' },
   { path: '/notifications', name: 'Notifications' },
   { path: '/profile', name: 'Profile' },
   {

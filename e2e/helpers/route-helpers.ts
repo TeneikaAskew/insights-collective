@@ -64,7 +64,6 @@ export const Routes = {
   // Core
   landing: '/',
   dashboard: '/dashboard',
-  userDashboard: '/user-dashboard',
   profile: '/profile',
   notifications: '/notifications',
   // Calendar is a Dashboard tab now, not a page of its own.

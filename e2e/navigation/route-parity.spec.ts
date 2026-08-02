@@ -4,12 +4,11 @@ import { Sel } from '../fixtures/test-ids';
 import { Routes } from '../helpers/route-helpers';
 
 test.describe('Additional Route Coverage', () => {
-  test('user dashboard renders roadmap and next steps content', async ({ page }) => {
-    await goto(page, Routes.userDashboard);
-    await expect(page.locator('h1:has-text("Dashboard")')).toBeVisible();
-    await expect(page.locator('text=Roadmap Timeline')).toBeVisible();
-    await expect(page.locator('text=Next Steps')).toBeVisible();
-  });
+  // The /user-dashboard test is GONE, along with the route. It was a fossil: a
+  // second dashboard, reachable only by typing the URL, linked from nowhere and
+  // superseded by /dashboard. Its production page_visibility row is deleted too,
+  // so the admin's Page Visibility screen stops offering a toggle for a page
+  // that no longer exists.
 
   test('legacy course list alias renders browse controls', async ({ page }) => {
     await goto(page, Routes.legacyCourseList);
