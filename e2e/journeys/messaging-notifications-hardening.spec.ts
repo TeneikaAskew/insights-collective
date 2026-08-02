@@ -101,7 +101,29 @@ test.describe('Messaging + notifications — real signed-in RPC gating', () => {
     expect(missing.body).toMatch(/course not found/i);
   });
 
-  test('student -> other student in same course: RPC rejects (requires E2E_MEMBER_PASSWORD)', async () => {
+  /**
+   * This test used to assert the opposite, and the change is deliberate.
+   *
+   * `open_course_thread` once raised "Students can only message the course
+   * instructor" (migration 20260720113448). Migration 20260802143432,
+   * `course_thread_any_course_member`, removed that branch: the recipient must
+   * now belong to the course, tested the same way as the caller. Students may
+   * message each other within a course.
+   *
+   * That is the intended policy, and the RPC half of the same decision that
+   * 20260802140000 makes for profile visibility — you can see, and open a
+   * thread with, the people you share a course with.
+   *
+   * Worth recording how it surfaced: the relaxation was applied straight to the
+   * database at 14:34:32 while a suite was running, and this spec went red
+   * sixty seconds in. Nothing in the repo had changed. The repo migration is a
+   * transcription of what was already live, not a new decision.
+   *
+   * The rejections that DO survive are covered by the two tests above — a
+   * recipient outside the course, a self-message, an unknown course — so
+   * relaxing this one does not leave the gate untested.
+   */
+  test('student -> other student in same course: RPC allows it (requires E2E_MEMBER_PASSWORD)', async () => {
     const memberEmail = process.env.E2E_MEMBER_EMAIL || 'e2e-member@insightscollective.org';
     const memberPassword = process.env.E2E_MEMBER_PASSWORD || process.env.E2E_TEST_PASSWORD;
     test.skip(
@@ -114,8 +136,19 @@ test.describe('Messaging + notifications — real signed-in RPC gating', () => {
       p_course_id: COURSE_ID,
       p_other_user_id: ENROLLED_STUDENT_ID, // another student in this course
     });
-    expect(status, `expected rejection, got 2xx with ${body}`).toBeGreaterThanOrEqual(400);
-    expect(body).toMatch(/only message the course instructor|must be enrolled/i);
+    expect(status, `expected the thread to open, got ${status} with ${body}`).toBe(200);
+    // A conversation id, not just a 2xx: a null body would mean the function
+    // returned without finding or creating anything.
+    expect(JSON.parse(body)).toMatch(/^[0-9a-f-]{36}$/);
+
+    // Idempotent for this pair too, the same way it is for instructor/student
+    // above — otherwise every visit to the thread would mint a new one.
+    const again = await rpc(studentToken, 'open_course_thread', {
+      p_course_id: COURSE_ID,
+      p_other_user_id: ENROLLED_STUDENT_ID,
+    });
+    expect(again.status).toBe(200);
+    expect(JSON.parse(again.body)).toBe(JSON.parse(body));
   });
 
   test('announcement insert fans out real notification rows visible to the enrolled recipient', async () => {

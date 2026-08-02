@@ -126,6 +126,22 @@ const IGNORED_PATTERNS: IgnoreRule[] = [
   // Lovable's editor script, loaded from a CDN by index.html:26. Third-party and
   // unrelated to any app behaviour — it fails CORS wherever that CDN is
   // unreachable, which is not a regression in this codebase.
+  // Firefox reports a rejected third-party cookie as a page error against the
+  // URL that tried to set it. Cloudflare sits in front of Supabase storage and
+  // sets __cf_bm on avatar image responses; Firefox refuses it for the storage
+  // host and logs this. Nothing in this codebase sets or reads that cookie, and
+  // the image itself loads.
+  //
+  // It appeared when migration 20260802140000 widened can_view_profile: the
+  // course list can now resolve the profiles of coursemates it previously could
+  // not see, so it renders avatars that were never requested before. Three
+  // firefox course-list tests went red on it. The trigger was a real change in
+  // what the app fetches, but the message is a browser notice about a
+  // third-party cookie, not an app failure.
+  //
+  // Anchored on the cookie name so it cannot generalise into "ignore cookie
+  // problems": an app-set cookie being rejected would still fail the suite.
+  /Cookie [“"]__cf_bm[”"] has been rejected/,
   // Supabase realtime warning when no channel is subscribed
   /No session found/,
   // Vite HMR noise in test environments

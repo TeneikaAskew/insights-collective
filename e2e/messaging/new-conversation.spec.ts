@@ -142,6 +142,19 @@ test.describe('Starting a conversation', () => {
       timeout: 15_000,
     });
 
+    // Let the create settle before navigating. Inserting the participant rows
+    // fires a realtime event on conversation_participants, and
+    // useConversationList responds by refetching the inbox through the
+    // messages-helper Edge Function. Navigating while that invoke is in flight
+    // aborts it, supabase-js surfaces the abort as
+    // "FunctionsFetchError: Failed to send a request to the Edge Function",
+    // and the console-error fixture fails the test — for a request this spec
+    // cancelled itself, after every assertion had already passed.
+    //
+    // networkidle is the right wait here rather than a fixed pause: it is the
+    // in-flight request that matters, not a duration.
+    await page.waitForLoadState('networkidle');
+
     // And it was persisted. Navigating back refetches the inbox from the
     // server, so the row appearing here is the difference between a
     // conversation that was written and one that only existed in the client's
