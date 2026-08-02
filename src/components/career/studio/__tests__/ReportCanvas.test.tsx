@@ -107,4 +107,27 @@ describe('ReportCanvas skills & courses grounding', () => {
 
     expect(mockUseSkillCourses).toHaveBeenCalledWith(['SQL', 'Public Speaking']);
   });
+
+  it('says the grounding failed instead of passing LLM text off as the fallback', () => {
+    // Review finding. On a catalog outage every row loses its match, so the
+    // model's own `course · provider` text renders in exactly the position that
+    // normally means "we checked the catalog and nothing matched this skill".
+    // The text stays — it is the documented fallback — but the card has to admit
+    // it is ungrounded, or an unverified recommendation reads as a verified one.
+    mockUseSkillCourses.mockReturnValue({
+      coursesBySkill: new Map(),
+      loading: false,
+      error: new Error('catalog read failed'),
+      retry: vi.fn(),
+    });
+
+    render(<ReportCanvas report={report} revealStage={ALL_REVEALED} />);
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /Couldn't load course recommendations/i,
+    );
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+    // The LLM text is still offered, just no longer as a grounded result.
+    expect(screen.getByText(/Speak Well · Talk School/)).toBeInTheDocument();
+  });
 });

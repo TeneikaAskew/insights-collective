@@ -30,7 +30,12 @@ export function SkillGapChart({ userSkills, missingSkills, learningResources }: 
   // section always rendered courses. With the bundle gone, "no blocks" can mean
   // an outage, and the generic browse link below would have quietly stood in for
   // recommendations that failed to load.
-  const { coursesBySkill, error: courseraError, retry: retryCoursera } = useSkillCourses(missingSkills);
+  const {
+    coursesBySkill,
+    loading: courseraLoading,
+    error: courseraError,
+    retry: retryCoursera,
+  } = useSkillCourses(missingSkills);
   const matchedSkills = missingSkills.filter((skill) => (coursesBySkill.get(skill) ?? []).length > 0);
 
   return (
@@ -156,8 +161,12 @@ export function SkillGapChart({ userSkills, missingSkills, learningResources }: 
           {/* Generic browse link only when nothing above matched — matched
               skills already link to specific courses. Suppressed during an
               outage, where it would read as a considered fallback rather than
-              the consequence of a failed query. */}
-          {!courseraError && matchedSkills.length === 0 && missingSkills.length > 0 && (
+              the consequence of a failed query, and while LOADING, where it is
+              simply premature: the list starts empty on every uncached request,
+              so this used to flash on screen and then be replaced by real
+              recommendations. That flash is new — the bundled catalog filled
+              instantly, so there was no in-flight window to get wrong. */}
+          {!courseraLoading && !courseraError && matchedSkills.length === 0 && missingSkills.length > 0 && (
             <Button variant="outline" className="w-full mt-4" asChild>
               <a href="https://www.coursera.org/browse/data-science" target="_blank" rel="noopener noreferrer">
                 <ExternalLink className="h-4 w-4 mr-2" />
