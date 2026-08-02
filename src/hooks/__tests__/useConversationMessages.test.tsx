@@ -90,4 +90,56 @@ describe('useConversationMessages', () => {
     // Read receipts are non-critical: no destructive toast for this.
     expect(mockToast).not.toHaveBeenCalled();
   });
+
+  /**
+   * The write used to fire on every visit. On an already-read thread it
+   * matched nothing, and PostgREST answered 204 with zero rows — which the
+   * Supabase instrumentation reports as an empty write, correctly, because
+   * from the request alone "nothing left to mark" and "RLS filtered every row"
+   * are indistinguishable. /messages/:id showed "1 failed query" on a healthy
+   * page. The thread has just been fetched, so the precondition is already in
+   * hand.
+   */
+  it('does not write when every message is already read', async () => {
+    const builder = getQueryBuilder();
+    builder.then.mockImplementationOnce((resolve: (value: unknown) => void) =>
+      resolve({ data: [{ ...messageRow, read: true }], error: null })
+    );
+
+    const { result } = renderHook(() => useConversationMessages('conv-1'));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.messages).toHaveLength(1);
+    expect(builder.update).not.toHaveBeenCalled();
+  });
+
+  it('does not write when the only unread message is your own', async () => {
+    // You cannot have an unread message from yourself, so this filters to
+    // nothing server-side too — the same empty write, from the other direction.
+    const builder = getQueryBuilder();
+    builder.then.mockImplementationOnce((resolve: (value: unknown) => void) =>
+      resolve({ data: [{ ...messageRow, sender_id: 'user-1', read: false }], error: null })
+    );
+
+    const { result } = renderHook(() => useConversationMessages('conv-1'));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(builder.update).not.toHaveBeenCalled();
+  });
+
+  it('still writes when there is something to mark', async () => {
+    const builder = getQueryBuilder();
+    builder.then
+      .mockImplementationOnce((resolve: (value: unknown) => void) =>
+        resolve({ data: [messageRow], error: null })
+      )
+      .mockImplementationOnce((resolve: (value: unknown) => void) =>
+        resolve({ data: null, error: null })
+      );
+
+    const { result } = renderHook(() => useConversationMessages('conv-1'));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(builder.update).toHaveBeenCalledWith({ read: true });
+  });
 });

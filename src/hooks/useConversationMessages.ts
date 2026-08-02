@@ -61,16 +61,32 @@ export function useConversationMessages(conversationId?: string) {
         setMessages(messagesWithProfiles);
 
         // Mark messages as read (read receipts are non-critical: warn on
-        // failure but don't block the loaded messages)
-        const { error: markReadError } = await supabase
-          .from('messages')
-          .update({ read: true })
-          .eq('conversation_id', conversationId)
-          .neq('sender_id', user.id)
-          .eq('read', false);
+        // failure but don't block the loaded messages).
+        //
+        // Only when there is something to mark. The thread was just fetched,
+        // so the answer is already in hand and costs no round trip. Firing the
+        // PATCH unconditionally sent a write on every visit to an already-read
+        // thread, and PostgREST answered 204 with zero rows — which the
+        // Supabase instrumentation reports as an empty write, correctly: from
+        // the request alone, "nothing left to mark" and "RLS filtered every
+        // row" are the same answer. /messages/:id showed "1 failed query" on a
+        // healthy page because of this. Same shape as
+        // NotificationsDropdown.handleMarkAllAsRead, which already checks first.
+        const hasUnread = messagesWithProfiles.some(
+          message => !message.read && message.sender_id !== user.id
+        );
 
-        if (markReadError) {
-          logger.warn('Failed to mark messages as read (non-critical):', markReadError);
+        if (hasUnread) {
+          const { error: markReadError } = await supabase
+            .from('messages')
+            .update({ read: true })
+            .eq('conversation_id', conversationId)
+            .neq('sender_id', user.id)
+            .eq('read', false);
+
+          if (markReadError) {
+            logger.warn('Failed to mark messages as read (non-critical):', markReadError);
+          }
         }
 
       } catch (error) {
