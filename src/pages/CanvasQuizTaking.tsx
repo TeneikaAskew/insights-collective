@@ -56,6 +56,12 @@ export default function CanvasQuizTaking() {
   // the student begin a fresh attempt.
   const [loadError, setLoadError] = useState<Error | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // Guards the Start button against a double-click. Without it both handlers
+  // run before either RPC resolves, and because the advisory lock SERIALISES
+  // rather than deduplicates, both succeed — one gesture quietly burning two
+  // of the student's attempts. On a one-attempt quiz the second call instead
+  // raises, so the student gets a failure toast for a quiz that did start.
+  const [starting, setStarting] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [quizStarted, setQuizStarted] = useState(false);
 
@@ -135,7 +141,8 @@ export default function CanvasQuizTaking() {
   };
 
   const startQuiz = async () => {
-    if (!quiz || !user) return;
+    if (!quiz || !user || starting) return;
+    setStarting(true);
 
     try {
       // The attempt number is allocated by the database, not here. Computing
@@ -144,10 +151,11 @@ export default function CanvasQuizTaking() {
       // number, and the unique index on (quiz_id, user_id, attempt) turned that
       // into a constraint error for whichever landed second.
       //
-      // start_quiz_attempt also enforces allowed_attempts, which until now was
-      // only a UI gate: the INSERT policy on quiz_submissions is
+      // start_quiz_attempt is also the ONLY way to create a submission now.
+      // allowed_attempts used to be a UI gate over an INSERT policy of
       // `auth.uid() = user_id` and nothing more, so the limit could be skipped
-      // entirely by posting directly to PostgREST.
+      // by posting directly to PostgREST; that policy is gone and the function
+      // is SECURITY DEFINER.
       const { data: newSubmission, error } = await supabase
         .rpc('start_quiz_attempt', { p_quiz_id: quiz.id })
         .single();
@@ -168,6 +176,12 @@ export default function CanvasQuizTaking() {
         description: error.message,
         variant: 'destructive'
       });
+    } finally {
+      // Reset even on success: the button unmounts once the quiz starts, so
+      // this only matters on the error path — where leaving it set would
+      // disable Start permanently and make one failed attempt look like a
+      // quiz the student is locked out of.
+      setStarting(false);
     }
   };
 
@@ -446,7 +460,7 @@ export default function CanvasQuizTaking() {
 
               {canTakeQuiz ? (
                 <div className="flex justify-center pt-4">
-                  <Button size="lg" onClick={startQuiz}>
+                  <Button size="lg" onClick={startQuiz} disabled={starting}>
                     Start Quiz
                   </Button>
                 </div>
