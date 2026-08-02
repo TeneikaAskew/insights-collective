@@ -22,7 +22,6 @@ import Register from '@/pages/Register';
 const Dashboard = lazy(() => import('@/pages/Dashboard'));
 const Profile = lazy(() => import('@/pages/Profile'));
 const Notifications = lazy(() => import('@/pages/Notifications'));
-const UserDashboard = lazy(() => import('@/pages/UserDashboard'));
 const ResetPassword = lazy(() => import('@/pages/ResetPassword'));
 const AuthCallback = lazy(() => import('@/pages/AuthCallback'));
 
@@ -50,6 +49,7 @@ const CanvasQuizTaking = lazy(() => import('@/pages/CanvasQuizTaking'));
 const CanvasQuizResults = lazy(() => import('@/pages/CanvasQuizResults'));
 const CanvasGradingInterface = lazy(() => import('@/pages/CanvasGradingInterface'));
 const InstructorAssignments = lazy(() => import('@/pages/InstructorAssignments'));
+const CourseInstructors = lazy(() => import('@/pages/CourseInstructors'));
 const CourseMaterials = lazy(() => import('@/pages/CourseMaterials'));
 const CourseQuizResults = lazy(() => import('@/pages/CourseQuizResults'));
 
@@ -269,7 +269,6 @@ function App() {
                     {/* Home & Core Routes */}
                     <Route path="/" element={<Index />} />
                     <Route path="/dashboard" element={<Dashboard />} />
-                    <Route path="/user-dashboard" element={<UserDashboard />} />
                     <Route path="/notifications" element={<Notifications />} />
 
                     {/* Authentication Routes */}
@@ -327,6 +326,7 @@ function App() {
                      <Route path="/courses/:courseId/modules/:moduleId/quizzes/:contentItemId/results/:submissionId" element={<CanvasQuizResults />} />
                      <Route path="/courses/:courseId/assignments/:contentItemId/grade" element={<CanvasGradingInterface />} />
                      <Route path="/courses/:courseId/manage/assignments" element={<InstructorAssignments />} />
+                     <Route path="/courses/:courseId/instructors" element={<CourseInstructors />} />
                      <Route path="/courses/:courseId/materials" element={<CourseMaterials />} />
                      <Route path="/courses/:courseId/quiz-results" element={<CourseQuizResults />} />
 

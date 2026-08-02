@@ -245,7 +245,12 @@ export class CanvasContentService {
     if (error) throw error;
   }
 
-  // Reorder modules within a course. Used by the builder's CurriculumTree drag-drop.
+  // Reorder modules within a course. Called from CourseBuilder (:409).
+  //
+  // The comment here used to name "the builder's CurriculumTree drag-drop".
+  // CurriculumTree was deleted as dead code, so that sentence pointed at a file
+  // which no longer exists — a reader checking it would have concluded this
+  // method was orphaned too. It is not: CourseBuilder is the live caller.
   static async reorderModules(courseId: string, moduleIds: string[]): Promise<void> {
     const { error } = await supabase.rpc('reorder_modules', {
       p_course_id: courseId,
