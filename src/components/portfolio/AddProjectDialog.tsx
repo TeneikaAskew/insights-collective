@@ -11,9 +11,15 @@ import { ProjectStatus } from '@/types/portfolio';
 
 interface AddProjectDialogProps {
   onAddProject: (project: any) => void;
+  /**
+   * Emphasis of the trigger. Defaults to the filled button. Pass "outline"
+   * where this sits beside a more important action — two filled buttons of
+   * equal weight make the reader choose rather than showing them a path.
+   */
+  variant?: React.ComponentProps<typeof Button>['variant'];
 }
 
-export function AddProjectDialog({ onAddProject }: AddProjectDialogProps) {
+export function AddProjectDialog({ onAddProject, variant }: AddProjectDialogProps) {
   const [open, setOpen] = useState(false);
   const [project, setProject] = useState({
     title: '',
@@ -64,8 +70,8 @@ export function AddProjectDialog({ onAddProject }: AddProjectDialogProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
-          <PlusCircle className="h-4 w-4 mr-2" /> Add Custom Project
+        <Button variant={variant} className="rounded-full">
+          <PlusCircle className="h-4 w-4 mr-2" /> Add a project
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
