@@ -49,7 +49,17 @@ export const Sel = {
   // ── Course builder ────────────────────────────────────────────────────────
   builder: {
     publishToggle: '#publish-toggle',
-    previewBtn: 'button:has-text("Preview")',
+    // The shell's Preview control is a React Router <Link> (an <a>), not a
+    // button, and its label lives in a `hidden sm:inline` span — so neither a
+    // button selector nor a text match is reliable. data-onboarding is on the
+    // element itself and is width-independent.
+    //
+    // The old `button:has-text("Preview")` did match something, which is worse
+    // than matching nothing: SetupGuideView renders a separate "Preview
+    // curriculum" BUTTON, so the test passed against a different control on a
+    // different view, and would only have started failing if the builder ever
+    // opened on a tab without it.
+    previewBtn: '[data-onboarding="builder-preview"]',
     titleField: '[contenteditable="true"]',
     addModuleBtn: 'button:has-text("Add Module"), button:has-text("+ Module"), button:has-text("Module")',
     saveIndicator: ':has-text("Saved"), :has-text("saving")',

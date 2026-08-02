@@ -27,9 +27,14 @@ test.describe('Course Builder (Instructor)', () => {
     ).toBeVisible();
   });
 
-  test('preview button is visible', async ({ page }) => {
+  // Targets the shell's Preview link by data-onboarding, not by text. The old
+  // `button:has-text("Preview")` matched SetupGuideView's separate "Preview
+  // curriculum" BUTTON — a different control on a different view — so this test
+  // was green for the wrong reason and would have broken the moment the builder
+  // opened on a tab without that button.
+  test('preview link is visible', async ({ page }) => {
     await goto(page, builderUrl);
-    await expect(page.locator(Sel.builder.previewBtn).first()).toBeVisible();
+    await expect(page.locator(Sel.builder.previewBtn)).toBeVisible();
   });
 
   // The title is not an inline contenteditable — it is behind an "Edit title"
