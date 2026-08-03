@@ -31,8 +31,14 @@ test.describe('Events', () => {
     // regardless. Same defect as the one found on /admin/users.
     const searchInput = page.getByPlaceholder('Search events...');
     await expect(searchInput).toBeVisible();
-    await searchInput.fill('Office Hours');
-    await expect(page.getByRole('heading', { name: 'Office Hours with Instructor' })).toBeVisible();
+    // The SEEDED event, not one that merely happens to exist in the shared
+    // database. seed.sql guarantees "Data Science Career Panel" and nothing
+    // else, so filtering to anything else passes only by luck and times out on
+    // a fresh database.
+    await searchInput.fill('Data Science Career Panel');
+    await expect(
+      page.getByRole('heading', { name: 'Data Science Career Panel' }),
+    ).toBeVisible();
   });
 
   test('Upcoming / Past tabs are present', async ({ page }) => {

@@ -38,11 +38,18 @@ test.describe('App Layout', () => {
 
   test('user role badge is visible in sidebar', async ({ page }) => {
     await goto(page, Routes.dashboard);
-    // The old locator was a bare :has-text with no tag qualifier, which matches
-    // EVERY ancestor up to <html> — so one occurrence of the word anywhere on
-    // the page satisfied it, including inside unrelated copy. The role is shown
-    // in the profile menu, so assert the menu trigger instead: it is the control
-    // that actually carries who you are signed in as.
-    await expect(page.getByRole('button', { name: 'User menu' })).toBeVisible();
+    // The role label lives in the SIDEBAR (AppSidebar.tsx), and only when the
+    // sidebar is expanded — `open &&` gates it, and AppLayout starts collapsed.
+    // Measured: 0 matches before expanding, 1 after.
+    //
+    // The old locator was a bare :has-text with no tag qualifier, matching every
+    // ancestor up to <html>, so the word "Member" anywhere passed. My first
+    // replacement asserted the User menu button, which carries no role at all —
+    // green even with the label gone.
+    const rail = page.locator('[data-sidebar="rail"]').filter({ visible: true }).first();
+    await rail.click();
+
+    const sidebar = page.locator('[data-sidebar="sidebar"]');
+    await expect(sidebar.getByText('Member', { exact: true })).toBeVisible();
   });
 });
