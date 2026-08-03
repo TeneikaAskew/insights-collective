@@ -16,24 +16,29 @@ test.describe('Course Gradebook (Instructor)', () => {
     await expect(page.locator('.animate-spin')).toHaveCount(0);
   });
 
-  test('gradebook table or grid renders', async ({ page }) => {
+  test('gradebook grid renders with students and gradable items', async ({ page }) => {
     await goto(page, gradebookUrl);
-    const table = page.locator('table, [role="grid"], [class*="gradebook"]');
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await table.count() > 0) {
-      await expect(table.first()).toBeVisible();
-    }
+    // The old locator's [class*="gradebook"] alternative matches the page
+    // wrapper, so it could not tell a rendered grid from a shell that failed to
+    // load one. Columns and rows are what a gradebook IS.
+    await expect(page.locator('th').filter({ hasText: 'Student' }).first()).toBeVisible();
+    await expect(page.locator('th').filter({ hasText: 'Total' }).first()).toBeVisible();
+    expect(await page.locator('tbody tr').filter({ visible: true }).count()).toBeGreaterThan(0);
   });
 
-  test('student names column is present', async ({ page }) => {
+  test('every gradable item gets a column', async ({ page }) => {
     await goto(page, gradebookUrl);
-    const header = page.locator('th:has-text("Student"), th:has-text("Name"), [role="columnheader"]:has-text("Student")').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await header.count() > 0) {
-      await expect(header).toBeVisible();
-    }
+    // Student + at least one assignment + Total. A gradebook that lost its
+    // items would still have kept the two fixed columns, so the floor is what
+    // makes this an assertion about the course's content.
+    // Wait for a header BEFORE counting: count() resolves immediately and does
+    // not retry, so counting first raced the table's render and read 0 while
+    // the sibling test above passed on toBeVisible()'s polling.
+    await expect(
+      page.locator('th').filter({ hasText: 'Submission Formats Exercise' }).first(),
+    ).toBeVisible();
+    const headers = page.locator('th').filter({ visible: true });
+    expect(await headers.count()).toBeGreaterThan(2);
   });
 
   // Body left exactly as it was: it is skipped, so nothing here has ever been

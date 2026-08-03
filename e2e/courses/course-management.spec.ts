@@ -1,5 +1,5 @@
 import { test, expect } from '../fixtures/page-helpers';
-import { goto, waitForPageLoad, clickTab } from '../fixtures/page-helpers';
+import { goto, waitForPageLoad } from '../fixtures/page-helpers';
 import { Routes } from '../helpers/route-helpers';
 
 test.describe('Course Management (Instructor)', () => {
@@ -7,7 +7,6 @@ test.describe('Course Management (Instructor)', () => {
 
   test('renders course management page', async ({ page }) => {
     await goto(page, mgmtUrl);
-    // Placeholder course id may render a not-found fallback; accept any heading.
     await expect(page.locator('h1, h2').first()).toBeVisible();
   });
 
@@ -17,41 +16,40 @@ test.describe('Course Management (Instructor)', () => {
     await expect(page.locator('.animate-spin')).toHaveCount(0);
   });
 
-  test('management tabs are visible', async ({ page }) => {
+  // This route renders the course BUILDER, whose sections are buttons in a rail
+  // — "Setup guide", "Curriculum", "Design templates", "Certificates",
+  // "Information", "Settings". Measured: 0 [role="tab"] on the page, so all
+  // three tests below asked for tabs that do not exist and their count-guards
+  // reported that as passing.
+  const SECTIONS = ['Setup guide', 'Curriculum', 'Design templates', 'Certificates', 'Information', 'Settings'];
+
+  test('the builder section rail is present', async ({ page }) => {
     await goto(page, mgmtUrl);
-    const tabs = page.locator('[role="tab"]');
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await tabs.count() > 0) {
-      await expect(tabs.first()).toBeVisible();
+    for (const name of SECTIONS) {
+      await expect(page.getByRole('button', { name, exact: true })).toBeVisible();
     }
   });
 
-  test('students/enrollments section exists', async ({ page }) => {
+  test('the course being managed is named', async ({ page }) => {
     await goto(page, mgmtUrl);
-    const studentsTab = page.locator('[role="tab"]:has-text("Student"), [role="tab"]:has-text("People"), [role="tab"]:has-text("Enroll")');
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await studentsTab.count() > 0) {
-      await studentsTab.first().click();
-      await page.waitForTimeout(300);
-    }
+    await expect(
+      page.getByRole('heading', { name: 'Introduction to Data Science' }),
+    ).toBeVisible();
   });
 
-  test('assignments section is accessible', async ({ page }) => {
+  // Students and Assignments are not sections of this screen. The rail offers
+  // "Students" only as a COMING SOON placeholder, and assignments are reached
+  // through Curriculum — so the two tests named for those tabs were asserting
+  // navigation this page does not have.
+  test('students management is still a placeholder', async ({ page }) => {
     await goto(page, mgmtUrl);
-    const assignTab = page.locator('[role="tab"]:has-text("Assignment")');
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await assignTab.count() > 0) {
-      await assignTab.first().click();
-      await page.waitForTimeout(300);
-    }
-  });
-
-  test('sidebar is visible', async ({ page }) => {
-    await goto(page, mgmtUrl);
-    // Non-owner instructors see a "Not authorized" fallback without nav; verify body.
-    await expect(page.locator('body')).not.toBeEmpty();
+    // Asserted rather than skipped, because the placeholder is the real current
+    // behaviour and this fails the day it becomes a working section — which is
+    // when the test above it should grow a Students case.
+    const students = page.getByRole('button', { name: /Students/ });
+    await expect(students).toBeVisible();
+    // Case-insensitive: the DOM says "Coming soon" and CSS uppercases it, so
+    // innerText and textContent disagree. toContainText reads textContent.
+    await expect(students).toContainText(/coming soon/i);
   });
 });

@@ -16,19 +16,23 @@ test.describe('Course Question Banks (Instructor)', () => {
     await expect(page.locator('.animate-spin')).toHaveCount(0);
   });
 
-  test('add question button is present', async ({ page }) => {
+  test('create question bank control is visible', async ({ page }) => {
     await goto(page, qbUrl);
-    const addBtn = page.locator('button:has-text("Add"), button:has-text("New Question"), button:has-text("Create")').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await addBtn.count() > 0) {
-      await expect(addBtn).toBeVisible();
-    }
+    await expect(page.getByRole('button', { name: 'Create Question Bank' })).toBeVisible();
   });
 
-  test('question list or empty state renders', async ({ page }) => {
+  test('the question banks panel renders', async ({ page }) => {
     await goto(page, qbUrl);
-    // Page may show questions, empty state, or just the page shell
-    await expect(page.locator('body')).not.toBeEmpty();
+    // "body is not empty" was true of every error page too.
+    // exact on the second one: getByRole's `name` is a case-insensitive
+    // SUBSTRING match by default, so a bare 'Question Banks' also matches the
+    // page title "Introduction to Data Science - Question Banks" and resolves
+    // to two elements, which fails strict mode.
+    await expect(
+      page.getByRole('heading', { name: 'Introduction to Data Science - Question Banks' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Question Banks', exact: true }),
+    ).toBeVisible();
   });
 });
