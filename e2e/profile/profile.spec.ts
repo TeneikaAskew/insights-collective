@@ -27,13 +27,7 @@ test.describe('Profile Page', () => {
     // getSession() makes a Supabase network call; wait for all requests to finish
     await page.waitForLoadState('networkidle', { timeout: 20_000 }).catch(() => {});
     await waitForPageLoad(page);
-    const heading = page.locator('h1, h2').filter({ hasText: /profile/i }).first();
-    // Conditional: only assert if auth loaded and rendered the heading
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await heading.count() > 0) {
-      await expect(heading).toBeVisible();
-    }
+    await expect(page.getByRole('heading', { name: 'Profile', exact: true })).toBeVisible();
   });
 
   test('spinner resolves on load', async ({ page }) => {
@@ -45,12 +39,16 @@ test.describe('Profile Page', () => {
   test('profile form fields are present', async ({ page }) => {
     await goto(page, Routes.profile);
     // Name / display name input
-    const nameInput = page.locator('input[name*="name"], input[id*="name"], input[placeholder*="name"]').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await nameInput.count() > 0) {
-      await expect(nameInput).toBeVisible();
-    }
+    // By placeholder text, not by an attribute substring. The old locator was
+    // input[name*="name"], input[id*="name"], input[placeholder*="name"] — and
+    // these inputs carry NO name and NO id, while their placeholders read
+    // "First Name" and "Last Name". CSS attribute substring matching is
+    // case-sensitive, so *="name" never matched "First Name". All three
+    // alternatives missed, and the count-guard reported that as a pass.
+    const firstName = page.getByPlaceholder('First Name');
+    await expect(firstName).toBeVisible();
+    await expect(page.getByPlaceholder('Last Name')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Save Changes' })).toBeVisible();
   });
 
   test('email field is present and pre-filled', async ({ page }) => {
@@ -69,11 +67,6 @@ test.describe('Profile Page', () => {
 
   test('sidebar is visible', async ({ page }) => {
     await goto(page, Routes.profile);
-    const sidebar = page.locator('[data-sidebar="sidebar"], aside, nav').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await sidebar.count() > 0) {
-      await expect(sidebar).toBeVisible();
-    }
+    await expect(page.locator('[data-sidebar="sidebar"]')).toBeVisible();
   });
 });

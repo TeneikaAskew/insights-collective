@@ -287,6 +287,20 @@ VALUES ('dd0e8400-e29b-41d4-a716-446655440001',
         'panel', 'virtual', CURRENT_DATE + 30, 'Zoom', 100)
 ON CONFLICT (id) DO NOTHING;
 
+-- Keep it in the FUTURE. The insert above says CURRENT_DATE + 30, but it is ON
+-- CONFLICT DO NOTHING, so once the row existed the date was never revised again
+-- — and it had drifted to April 2025, rendering as a "Past Event". A fixture
+-- that silently ages out of its own category is the same class of problem as
+-- the quiz that consumed its own attempts: it works until it doesn't, and the
+-- specs that depend on it fail for a reason unrelated to what they test.
+--
+-- The events list filters Upcoming vs Past, so an aged-out fixture also means
+-- searching the Upcoming tab for it finds nothing.
+UPDATE public.events
+   SET date = CURRENT_DATE + 30
+ WHERE id = 'dd0e8400-e29b-41d4-a716-446655440001'
+   AND (date IS NULL OR date <= CURRENT_DATE);
+
 -- ── Fixtures for the routes that used to be tested with placeholder IDs ─────
 --
 -- Nine TestIds defaults in e2e/helpers/route-helpers.ts were non-UUID strings
@@ -538,6 +552,17 @@ BEGIN
    WHERE id::text LIKE '660e8400%';
   IF NOT v_ok THEN
     RAISE EXCEPTION 'E2E SEED FAILED: expected at least 5 fixture courses (660e8400-...)';
+  END IF;
+
+  -- An event that has aged into the past is invisible on the Upcoming tab, so
+  -- every spec that searches for it there fails for the wrong reason.
+  SELECT EXISTS (
+    SELECT 1 FROM public.events
+     WHERE id = 'dd0e8400-e29b-41d4-a716-446655440001'
+       AND date > CURRENT_DATE
+  ) INTO v_ok;
+  IF NOT v_ok THEN
+    RAISE EXCEPTION 'E2E SEED FAILED: fixture event dd0e8400-...0001 is not in the future; it renders as a Past Event and the events specs cannot find it';
   END IF;
 
   -- A grader with nothing to grade renders no grade input, no feedback box and
