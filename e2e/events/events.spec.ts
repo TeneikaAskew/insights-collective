@@ -25,31 +25,26 @@ test.describe('Events', () => {
   });
 
   test('search input is present', async ({ page }) => {
-    const searchInput = page.locator(Sel.searchInput).first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await searchInput.count() > 0) {
-      await expect(searchInput).toBeVisible();
-    }
+    // By placeholder, NOT Sel.searchInput.first(). There are two search boxes on
+    // every signed-in page and the first is the Navbar's "Search entire site…",
+    // so the old locator typed into site search and, asserting nothing, passed
+    // regardless. Same defect as the one found on /admin/users.
+    const searchInput = page.getByPlaceholder('Search events...');
+    await expect(searchInput).toBeVisible();
+    await searchInput.fill('Office Hours');
+    await expect(page.getByRole('heading', { name: 'Office Hours with Instructor' })).toBeVisible();
   });
 
   test('Upcoming / Past tabs are present', async ({ page }) => {
-    const tabs = page.locator('[role="tab"]');
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await tabs.count() > 0) {
-      await tabs.first().click();
-      await page.waitForTimeout(300);
-    }
+    // The two tabs carry counts, so this asserts the page loaded events rather
+    // than that some element with role=tab exists.
+    await expect(page.getByRole('tab', { name: /^Upcoming Events \(/ })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /^Past Events \(/ })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Upcoming Events (0)' })).toHaveCount(0);
   });
 
   test('Register button is visible on event cards', async ({ page }) => {
-    const registerBtn = page.locator('button:has-text("Register"), button:has-text("RSVP"), a:has-text("Register")').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await registerBtn.count() > 0) {
-      await expect(registerBtn).toBeVisible();
-    }
+    await expect(page.getByRole('button', { name: 'Register' }).first()).toBeVisible();
   });
 
   test('sidebar is visible', async ({ page }) => {

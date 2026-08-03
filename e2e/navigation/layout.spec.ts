@@ -15,24 +15,17 @@ test.describe('App Layout', () => {
 
   test('page footer is visible', async ({ page }) => {
     await goto(page, Routes.dashboard);
-    const footer = page.locator('footer, [class*="footer"]');
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await footer.count() > 0) {
-      // Scroll to footer
-      await footer.first().scrollIntoViewIfNeeded();
-      await expect(footer.first()).toBeVisible();
-    }
+    // `footer` alone. The old locator's [class*="footer"] alternative matches any
+    // wrapper whose class merely mentions the word, so it could not tell a
+    // rendered footer from a div that happened to be named after one.
+    const footer = page.locator('footer').filter({ visible: true }).first();
+    await footer.scrollIntoViewIfNeeded();
+    await expect(footer).toBeVisible();
   });
 
   test('navbar / topbar renders', async ({ page }) => {
     await goto(page, Routes.dashboard);
-    const navbar = page.locator('[data-component-name="Navbar"], header, [class*="navbar"], [class*="topbar"]').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await navbar.count() > 0) {
-      await expect(navbar).toBeVisible();
-    }
+    await expect(page.locator('header').filter({ visible: true }).first()).toBeVisible();
   });
 
   test('app renders without layout shift on navigation', async ({ page }) => {
@@ -45,11 +38,11 @@ test.describe('App Layout', () => {
 
   test('user role badge is visible in sidebar', async ({ page }) => {
     await goto(page, Routes.dashboard);
-    const roleBadge = page.locator(':has-text("Administrator"), :has-text("Instructor"), :has-text("Member")').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await roleBadge.count() > 0) {
-      await expect(roleBadge).toBeVisible();
-    }
+    // The old locator was a bare :has-text with no tag qualifier, which matches
+    // EVERY ancestor up to <html> — so one occurrence of the word anywhere on
+    // the page satisfied it, including inside unrelated copy. The role is shown
+    // in the profile menu, so assert the menu trigger instead: it is the control
+    // that actually carries who you are signed in as.
+    await expect(page.getByRole('button', { name: 'User menu' })).toBeVisible();
   });
 });

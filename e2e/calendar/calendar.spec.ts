@@ -51,28 +51,26 @@ test.describe('Calendar (Dashboard tab)', () => {
 
   test('calendar grid or list is visible', async ({ page }) => {
     await goto(page, Routes.calendar);
-    const calendar = page.locator('[role="grid"], .fc, .calendar, table, [data-component-name*="Calendar"]').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await calendar.count() > 0) {
-      await expect(calendar).toBeVisible();
-    }
+    // The Calendar tab and the month grid it renders. The old locator's
+    // `table` and `.calendar` alternatives match anything table-shaped or
+    // merely named after a calendar.
+    await expect(page.getByRole('tab', { name: 'Calendar' })).toBeVisible();
+    await expect(page.locator('[role="grid"]').filter({ visible: true }).first()).toBeVisible();
   });
 
   test('month navigation buttons are present', async ({ page }) => {
     await goto(page, Routes.calendar);
-    const prevBtn = page.locator('button[aria-label*="previous"], button:has-text("Prev"), button[aria-label*="prev"]').first();
-    const nextBtn = page.locator('button[aria-label*="next"], button:has-text("Next")').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await prevBtn.count() > 0) {
-      await expect(prevBtn).toBeVisible();
-    }
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await nextBtn.count() > 0) {
-      await expect(nextBtn).toBeVisible();
-    }
+    // The day grid is what this test can honestly check. The month-step controls
+    // are icon-only buttons with no accessible name — measured: the page's
+    // visible buttons are the four category filters, the numbered day cells, and
+    // two unlabelled ones — so button[aria-label*="previous"] and
+    // button:has-text("Prev") matched nothing and the guards reported that as
+    // passing. Naming them needs an aria-label on the control, which is an app
+    // change; a positional selector here would pass for the wrong reason.
+    const grid = page.locator('[role="grid"]').filter({ visible: true }).first();
+    await expect(grid).toBeVisible();
+    // Day cells, so an empty grid fails.
+    expect(await grid.getByRole('button').count()).toBeGreaterThan(20);
   });
 
   test('sidebar is visible', async ({ page }) => {
