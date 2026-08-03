@@ -504,6 +504,31 @@ VALUES ('cccc4444-4444-4444-4444-444444444444',
         ARRAY['online_text_entry', 'online_url', 'online_upload'], true)
 ON CONFLICT (id) DO NOTHING;
 
+-- A SUBMITTED assignment for the SpeedGrader to grade.
+--
+-- Without one, /courses/:id/assignments/:item/grade renders its shell and the
+-- three tabs read "Needs (0) / Graded (0) / All (0)" — so the grade input, the
+-- feedback box and the Save control legitimately do not exist, and the specs
+-- named for them sat behind count-guards reporting that as a pass.
+--
+-- Attached to the all-types fixture assignment rather than the production one,
+-- so grading a fixture never touches a real learner's work. workflow_state is
+-- 'submitted' and NOT 'graded': the point is to give the grader something that
+-- still needs grading, which is the state the three tests are about.
+INSERT INTO public.assignment_submissions
+  (id, assignment_id, user_id, submitted_at, submission_type, body, workflow_state, attempt)
+SELECT 'cccc5555-5555-5555-5555-555555555555',
+       'cccc4444-4444-4444-4444-444444444444',
+       u.id,
+       now() - interval '1 day',
+       'online_text_entry',
+       '<p>Fixture submission for the grading interface specs.</p>',
+       'submitted',
+       1
+FROM auth.users u
+WHERE u.email = COALESCE(current_setting('e2e.member_email', true), 'e2e-member@insightscollective.org')
+ON CONFLICT (id) DO NOTHING;
+
 -- Assert deterministic invariants so a failed seed surfaces before tests run.
 DO $$
 DECLARE
@@ -513,6 +538,17 @@ BEGIN
    WHERE id::text LIKE '660e8400%';
   IF NOT v_ok THEN
     RAISE EXCEPTION 'E2E SEED FAILED: expected at least 5 fixture courses (660e8400-...)';
+  END IF;
+
+  -- A grader with nothing to grade renders no grade input, no feedback box and
+  -- no Save control, which is exactly what the count-guards were hiding.
+  SELECT EXISTS (
+    SELECT 1 FROM public.assignment_submissions
+     WHERE id = 'cccc5555-5555-5555-5555-555555555555'
+       AND workflow_state = 'submitted'
+  ) INTO v_ok;
+  IF NOT v_ok THEN
+    RAISE EXCEPTION 'E2E SEED FAILED: fixture submission cccc5555-...5555 missing or already graded; grading-interface.spec.ts would assert against an empty SpeedGrader';
   END IF;
 
   -- A quiz nobody can start is a quiz no spec can test.

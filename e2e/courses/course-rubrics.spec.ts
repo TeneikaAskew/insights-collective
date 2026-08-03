@@ -16,20 +16,17 @@ test.describe('Course Rubrics (Instructor)', () => {
     await expect(page.locator('.animate-spin')).toHaveCount(0);
   });
 
-  test('create rubric button or link is visible', async ({ page }) => {
+  test('create rubric control is visible', async ({ page }) => {
     await goto(page, rubricsUrl);
-    const createBtn = page.locator('button:has-text("Create"), button:has-text("New Rubric"), button:has-text("Add Rubric"), a:has-text("Create")').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await createBtn.count() > 0) {
-      await expect(createBtn).toBeVisible();
-    }
+    await expect(page.getByRole('button', { name: 'Create Rubric' })).toBeVisible();
   });
 
-  test('rubric list or empty state renders', async ({ page }) => {
+  test('the seeded rubric is listed', async ({ page }) => {
     await goto(page, rubricsUrl);
-    // Page may show rubrics, empty state, or just the page shell
-    await expect(page.locator('body')).not.toBeEmpty();
+    // "body is not empty" was true of every error page too. The course has a
+    // "Data Analysis Rubric"; naming it means an empty list fails.
+    await expect(page.getByRole('heading', { name: 'Course Rubrics' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Data Analysis Rubric' })).toBeVisible();
   });
 
   test('rubric edit page renders', async ({ page }) => {
