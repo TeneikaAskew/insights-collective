@@ -48,24 +48,20 @@ const Profile = () => {
   const [profileReloadKey, setProfileReloadKey] = useState(0);
 
   useEffect(() => {
-    // Auth hydration is racy: Supabase's getSession() can resolve to null a tick
-    // before the persisted session is restored via the INITIAL_SESSION event.
-    // Guard the /login bounce so a signed-in user isn't kicked off their own
-    // profile during that brief window.
+    // The /login bounce that used to live here is gone: /profile is wrapped in
+    // ProtectedRoute now (src/App.tsx), which redirects synchronously and
+    // preserves the return path, so an unauthenticated visitor never reaches
+    // this component at all.
+    //
+    // What it replaces is worth recording. This effect had to sniff
+    // localStorage for a persisted session and bail out if it found one,
+    // because Supabase's getSession() can resolve to null a tick before
+    // INITIAL_SESSION restores the session — so without that check a signed-in
+    // user was kicked off their own profile during hydration. ProtectedRoute
+    // waits on the auth context's own `loading` instead of guessing from
+    // storage, which removes both the race and the guess.
     if (authLoading) return;
-    if (!isAuthenticated) {
-      const hasStoredSession = (() => {
-        try {
-          const raw = localStorage.getItem('supabase.auth.token');
-          return !!raw && raw !== 'null';
-        } catch {
-          return false;
-        }
-      })();
-      if (hasStoredSession) return; // wait for session to hydrate
-      navigate('/login');
-      return;
-    }
+    if (!isAuthenticated) return;
 
     if (user) {
       const fetchProfile = async () => {

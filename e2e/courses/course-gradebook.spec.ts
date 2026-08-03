@@ -1,5 +1,5 @@
 import { test, expect } from '../fixtures/page-helpers';
-import { goto, waitForPageLoad } from '../fixtures/page-helpers';
+import { expectRedirectToLogin, goto, waitForPageLoad } from '../fixtures/page-helpers';
 import { Routes } from '../helpers/route-helpers';
 
 test.describe('Course Gradebook (Instructor)', () => {
@@ -41,26 +41,21 @@ test.describe('Course Gradebook (Instructor)', () => {
     expect(await headers.count()).toBeGreaterThan(2);
   });
 
-  // Body left exactly as it was: it is skipped, so nothing here has ever been
-  // executed, and rewriting the assertion would only add a claim CI cannot
-  // check. PR 8 owns the rewrite. All this adds is the reason, in the one place
-  // the CI coverage-gap report can read it.
-  test.skip(
-    'unauthenticated user is redirected to login',
-    {
-      annotation: {
-        type: 'skip-reason',
-        description:
-          'Blocked on PR 8: the gradebook route has no ProtectedRoute, so a signed-out visitor is never redirected.',
-      },
-    },
-    async ({ browser }) => {
-      const ctx = await browser.newContext();
-      const page = await ctx.newPage();
+  // PR 8 owns the rewrite this comment used to defer, and here it is. The body
+  // could not have passed even with the guard in place: it waited for
+  // `domcontentloaded` and read the URL once, which fires before React has
+  // mounted — measured, the URL was still .../gradebook at that instant.
+  // expectRedirectToLogin polls the URL and then the sign-in form.
+  //
+  // The hand-built context is replaced by a describe-scoped `test.use` so the
+  // page stays under the console-error fixture, which instruments only the
+  // injected `page`.
+  test.describe('signed out', () => {
+    test.use({ storageState: { cookies: [], origins: [] } });
+
+    test('unauthenticated user is redirected to login', async ({ page }) => {
       await page.goto(gradebookUrl);
-      await page.waitForLoadState('domcontentloaded');
-      expect(page.url()).not.toContain('/gradebook');
-      await ctx.close();
-    },
-  );
+      await expectRedirectToLogin(page);
+    });
+  });
 });

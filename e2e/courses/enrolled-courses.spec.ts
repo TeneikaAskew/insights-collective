@@ -6,15 +6,8 @@ test.describe('Enrolled Courses', () => {
   test.describe('signed out', () => {
     test.use({ storageState: { cookies: [], origins: [] } });
 
-    test.skip(
+    test(
       'unauthenticated user is redirected to login',
-      {
-        annotation: {
-          type: 'skip-reason',
-          description:
-            'Blocked on PR 8: /enrolled-courses is routed without ProtectedRoute and shows an inline sign-in card instead of redirecting.',
-        },
-      },
       async ({ page }) => {
         await page.goto(Routes.enrolledCourses);
         await expectRedirectToLogin(page);
