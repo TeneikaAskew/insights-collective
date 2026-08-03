@@ -19,12 +19,13 @@ test.describe('Course Learn Interface', () => {
 
   test('curriculum tree or sidebar is visible', async ({ page }) => {
     await goto(page, learnUrl);
-    const tree = page.locator('[class*="curriculum"], [class*="sidebar"], [class*="CurriculumTree"], aside, nav');
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await tree.count() > 0) {
-      await expect(tree.first()).toBeVisible();
+    // The curriculum by its module names and per-module progress. The old
+    // locator accepted a bare `nav` and `aside`, which the app shell provides on
+    // every page — so it passed with no curriculum rendered at all.
+    for (const m of ['Foundations of Data Science', 'Python for Data Analysis', 'Statistical Methods']) {
+      await expect(page.getByRole('button', { name: new RegExp(m) })).toBeVisible();
     }
+    await expect(page.getByRole('button', { name: /Start from beginning/ })).toBeVisible();
   });
 
   test('content viewer pane is visible', async ({ page }) => {
@@ -49,11 +50,10 @@ test.describe('Course Learn Interface', () => {
 
   test('progress bar or completion indicator is present', async ({ page }) => {
     await goto(page, learnUrl);
-    const progress = page.locator('[role="progressbar"], [class*="progress"]').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await progress.count() > 0) {
-      await expect(progress).toBeVisible();
-    }
+    // Per-module completion counts, which is what this screen shows instead of
+    // a progressbar element — measured 0 [role="progressbar"] here. The old
+    // locator's [class*="progress"] alternative matched the page wrapper, so it
+    // passed regardless.
+    await expect(page.getByRole('button', { name: /Foundations of Data Science\s*6 \/ 7 complete/ })).toBeVisible();
   });
 });
