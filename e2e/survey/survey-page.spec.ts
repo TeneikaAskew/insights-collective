@@ -3,7 +3,13 @@ import { goto, waitForPageLoad } from '../fixtures/page-helpers';
 import { Routes } from '../helpers/route-helpers';
 
 test.describe('Survey Page', () => {
-  const surveyUrl = Routes.surveyPage();
+  // Pinned to the seeded fixture rather than Routes.surveyPage(), whose slug is
+  // overridable via E2E_TEST_SURVEY_SLUG. Every assertion below names this
+  // form's own title, section and placeholders, so pointing the suite at an
+  // externally provisioned survey could only fail it. The slug and the content
+  // are one fixture; they have to travel together.
+  const FIXTURE_SLUG = 'e2e-fixture-survey';
+  const surveyUrl = `/survey/${FIXTURE_SLUG}`;
 
   // Both of these asserted only that <body> is non-empty — true of the "Form Not
   // Found" screen this route used to render, and true of every error page. They
@@ -47,6 +53,13 @@ test.describe('Survey Page', () => {
     // so the URL trivially stayed put and the test passed without exercising
     // validation once.
     await page.getByRole('button', { name: 'Submit' }).click();
+    // Assert the message validation itself renders. "URL unchanged" and "the
+    // input is still there" are BOTH true when the submit handler no-ops, or
+    // when empty data reaches onSubmit and the insert throws and is caught
+    // without navigating — so neither one establishes that validation ran.
+    // SurveyField sets `required: "This field is required"` and FormMessage
+    // renders it, so this text appears only on the path being tested.
+    await expect(page.getByText('This field is required')).toBeVisible();
     await expect(page).toHaveURL(new RegExp(`${surveyUrl}$`));
     // And the form is still on screen rather than replaced by a confirmation.
     await expect(page.getByPlaceholder('Enter your name')).toBeVisible();

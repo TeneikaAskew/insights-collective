@@ -584,30 +584,40 @@ ON CONFLICT (id) DO NOTHING;
 -- fields, submit button and validation alike.
 --
 -- UPDATE rather than INSERT: forms.slug is UNIQUE, so an insert on this slug
--- fails outright. Written to be idempotent and to repair the shape whenever it
--- is wrong, not only when the row is missing.
+-- fails outright.
+--
+-- UNCONDITIONAL, and that is the point. The first version only repaired when
+-- `sections` was absent or empty, which restores exactly one way this fixture
+-- can break. A row edited through the admin form editor — a section renamed, a
+-- field removed, a placeholder changed — keeps a non-empty `sections` array, so
+-- the repair was skipped, the seed assertion (which counted sections) still
+-- passed, and the specs failed on placeholders nobody had touched. That is this
+-- file's own rule 1 violated in the act of writing it down: a consumed or
+-- edited fixture value must be RESTORED, not merely checked for presence.
+-- The written value is deterministic, so running it every time is idempotent.
 UPDATE public.forms
    SET status = true,
+       title = 'E2E Fixture Survey',
        form_link = '/survey/e2e-fixture-survey',
        form_structure = jsonb_build_object(
          'sections', jsonb_build_array(
            jsonb_build_object(
              'id', 'dddd7777-7777-7777-7777-777777777777',
              'title', 'About you',
+             -- No 'placeholder' key on purpose: SurveyField ignores one and
+             -- renders `Enter ${label.toLowerCase()}` (SurveyField.tsx:340,361).
+             -- A placeholder written here would look load-bearing and change
+             -- nothing on screen, so the LABEL is what the specs match on.
              'fields', jsonb_build_array(
                jsonb_build_object('type', 'text', 'label', 'Your name',
-                                  'required', true, 'placeholder', 'Jane Doe'),
+                                  'required', true),
                jsonb_build_object('type', 'textarea', 'label', 'What are you hoping to learn?',
-                                  'required', false, 'placeholder', 'A sentence or two')
+                                  'required', false)
              )
            )
          )
        )
- WHERE slug = 'e2e-fixture-survey'
-   AND (status IS DISTINCT FROM true
-        OR form_structure -> 'sections' IS NULL
-        OR jsonb_typeof(form_structure -> 'sections') <> 'array'
-        OR jsonb_array_length(form_structure -> 'sections') = 0);
+ WHERE slug = 'e2e-fixture-survey';
 
 -- Assert deterministic invariants so a failed seed surfaces before tests run.
 DO $$
@@ -621,14 +631,25 @@ BEGIN
   END IF;
 
   -- A survey the public page cannot load is a survey no spec can test.
+  --
+  -- Asserted at the EXACT shape survey-page.spec.ts reads, not at
+  -- "sections is non-empty". The weaker form passes on any structure with one
+  -- section in it — including one whose title and fields have been edited out
+  -- from under the specs — so it would have reported a healthy fixture while
+  -- every placeholder assertion failed. The seed's job is to make the failure
+  -- name its own cause.
   SELECT EXISTS (
     SELECT 1 FROM public.forms
      WHERE slug = 'e2e-fixture-survey'
        AND status = true
-       AND jsonb_array_length(form_structure -> 'sections') > 0
+       AND title = 'E2E Fixture Survey'
+       AND form_structure -> 'sections' -> 0 ->> 'title' = 'About you'
+       AND form_structure -> 'sections' -> 0 -> 'fields' -> 0 ->> 'label' = 'Your name'
+       AND (form_structure -> 'sections' -> 0 -> 'fields' -> 0 ->> 'required')::boolean IS TRUE
+       AND form_structure -> 'sections' -> 0 -> 'fields' -> 1 ->> 'label' = 'What are you hoping to learn?'
   ) INTO v_ok;
   IF NOT v_ok THEN
-    RAISE EXCEPTION 'E2E SEED FAILED: no active form at slug e2e-fixture-survey with at least one section; /survey/e2e-fixture-survey renders Form Not Found and the survey specs assert against it';
+    RAISE EXCEPTION 'E2E SEED FAILED: form e2e-fixture-survey is missing, inactive, or no longer matches the structure survey-page.spec.ts asserts (section "About you" with a required "Your name" text field and a "What are you hoping to learn?" textarea)';
   END IF;
 
   -- An event that has aged into the past is invisible on the Upcoming tab, so
