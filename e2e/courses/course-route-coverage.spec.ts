@@ -8,18 +8,25 @@ const hasSeededCourseData =
 test.describe('Additional Course Route Coverage', () => {
   test('course management dashboard renders searchable course operations table', async ({ page }) => {
     await goto(page, Routes.courseManagementDashboard);
-    const heading = page.locator('h1, h2').filter({ hasText: /course management/i }).first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await heading.count() > 0) {
-      await expect(heading).toBeVisible();
-      const search = page.locator('input[placeholder*="Search"]').first();
-      // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-      // eslint-disable-next-line no-restricted-syntax
-      if (await search.count() > 0) await expect(search).toBeVisible();
-    } else {
-      // Non-instructor sessions may not see this page — verify body rendered.
-      await expect(page.locator('body')).not.toBeEmpty();
+    // MEASURED as the member: this page DOES render for a non-instructor, with
+    // its heading, its operations table and an empty "No courses found." body.
+    // So the else-branch — "non-instructor sessions may not see this page,
+    // verify body rendered" — was excusing a case that does not occur, and it
+    // made the whole test optional for every case that does.
+    await expect(page.getByRole('heading', { name: 'Course Management' })).toBeVisible();
+
+    // The page's OWN search box. There are two inputs whose placeholder
+    // contains "Search" — the Navbar's "Search entire site..." comes first in
+    // document order, so `input[placeholder*="Search"].first()` was asserting
+    // about the site-wide search on every page, not this screen's filter.
+    // Fourth spec in this sweep to have made that exact mistake.
+    await expect(page.getByPlaceholder('Search courses...')).toBeVisible();
+
+    // The table the test is named for.
+    const table = page.getByRole('table');
+    await expect(table).toBeVisible();
+    for (const column of ['Title', 'Category', 'Level', 'Instructor', 'Students', 'Status', 'Actions']) {
+      await expect(table.getByRole('columnheader', { name: column, exact: true })).toBeVisible();
     }
   });
 

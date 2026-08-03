@@ -7,8 +7,21 @@ test.describe('STAR Practice', () => {
     await goto(page, Routes.starPractice);
   });
 
-  test('renders STAR practice page', async ({ page }) => {
-    await expect(page.locator('main, [role="main"]')).toBeVisible();
+  // THIS PAGE IS GATED, AND ALL THREE GUARDS TESTED THE UNGATED STATE.
+  //
+  // MEASURED for the shared member: /interview-prep/star-practice renders
+  // "No Questions Available — Please analyze a job description first to get
+  // personalized STAR questions." and a single "Go Back" button. Zero
+  // textareas, zero contenteditable, zero tabs, and no Situation/Task/Action/
+  // Result labels anywhere. So the three assertions below all describe the
+  // post-analysis screen this account never reaches, and the count-guards made
+  // each of them optional. What CAN be asserted is the gate itself.
+  test('renders the gate until a job description has been analysed', async ({ page }) => {
+    await expect(page.getByRole('heading', { name: 'No Questions Available' })).toBeVisible();
+    await expect(
+      page.getByText('Please analyze a job description first to get personalized STAR questions.'),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Go Back' })).toBeVisible();
   });
 
   test('spinner resolves on load', async ({ page }) => {
@@ -17,30 +30,35 @@ test.describe('STAR Practice', () => {
     await expect(page.locator('.animate-spin')).toHaveCount(0);
   });
 
-  test('STAR framework sections or labels are visible', async ({ page }) => {
-    const starLabels = page.locator(':has-text("Situation"), :has-text("Task"), :has-text("Action"), :has-text("Result")');
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await starLabels.count() > 0) {
-      await expect(starLabels.first()).toBeVisible();
-    }
-  });
+  const NEEDS_ANALYSIS = {
+    type: 'skip-reason',
+    description:
+      'Seed gap: /interview-prep/star-practice is gated on a completed job-description analysis for the acting account, and the shared member has none — the page renders "No Questions Available". Seeding one means driving the JD analyzer (an AI call) or writing whatever it persists; neither is done yet.',
+  } as const;
 
-  test('practice input areas are visible', async ({ page }) => {
-    const inputs = page.locator('textarea, [contenteditable]').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await inputs.count() > 0) {
-      await expect(inputs).toBeVisible();
-    }
-  });
+  test.skip(
+    'STAR framework sections or labels are visible',
+    { annotation: NEEDS_ANALYSIS },
+    async ({ page }) => {
+      for (const label of ['Situation', 'Task', 'Action', 'Result']) {
+        await expect(page.getByText(label, { exact: true }).first()).toBeVisible();
+      }
+    },
+  );
 
-  test('submit or generate button is present', async ({ page }) => {
-    const btn = page.locator('button:has-text("Submit"), button:has-text("Generate"), button:has-text("Practice"), button:has-text("Analyze")').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await btn.count() > 0) {
-      await expect(btn).toBeVisible();
-    }
-  });
+  test.skip(
+    'practice input areas are visible',
+    { annotation: NEEDS_ANALYSIS },
+    async ({ page }) => {
+      await expect(page.locator('textarea').first()).toBeVisible();
+    },
+  );
+
+  test.skip(
+    'submit or generate button is present',
+    { annotation: NEEDS_ANALYSIS },
+    async ({ page }) => {
+      await expect(page.getByRole('button', { name: /Submit|Generate|Practice/ })).toBeVisible();
+    },
+  );
 });

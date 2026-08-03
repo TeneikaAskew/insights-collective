@@ -2,38 +2,69 @@ import { test, expect } from '../fixtures/page-helpers';
 import { goto, waitForPageLoad } from '../fixtures/page-helpers';
 import { Routes } from '../helpers/route-helpers';
 
+// THIS PAGE WAS BROKEN FOR EVERY SUBMISSION, AND THIS FILE DESCRIBED THE ERROR.
+//
+// Removing the two count-guards below turned up two production defects in
+// CanvasQuizResults, both fixed alongside this file:
+//
+//   1. it called getQuiz(submission.quiz_id), but getQuiz is keyed on
+//      content_item_id — so the query searched the wrong column, matched
+//      nothing, and the page threw "Quiz not found" every time.
+//   2. the content-item lookup filtered on `settings->quiz_id`. `->` yields
+//      JSONB, so comparing it to a bare uuid raised 22P02 on every load; and
+//      the key does not exist on real rows anyway, since the relationship
+//      lives in quizzes.content_item_id.
+//
+// The old assertions could not see either one. "score or result is displayed"
+// used bare `:has-text(...)` with no tag qualifier, which matches every
+// ANCESTOR of a match up to <html>, and `.first()` therefore resolved to the
+// document element; the guard then made even that optional. "link back to
+// course" was satisfied by any /courses/ link on the page, and the spinner test
+// asserted a non-empty body with a comment excusing the placeholder id.
 test.describe('Quiz Results', () => {
   const resultsUrl = Routes.quizResults();
 
   test('renders quiz results page', async ({ page }) => {
     await goto(page, resultsUrl);
-    await expect(page.locator('main, [role="main"]')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Foundations Check-in - Results' })).toBeVisible();
   });
 
   test('spinner resolves on load', async ({ page }) => {
     await page.goto(resultsUrl);
     await waitForPageLoad(page);
-    // Placeholder submission ID may leave loading state; verify body rendered.
-    await expect(page.locator('body')).not.toBeEmpty();
+    await expect(page.getByRole('heading', { name: 'Foundations Check-in - Results' })).toBeVisible();
+    await expect(page.locator('.animate-spin')).toHaveCount(0);
   });
 
-  test('score or result is displayed', async ({ page }) => {
+  test('score and percentage are displayed', async ({ page }) => {
     await goto(page, resultsUrl);
-    const score = page.locator(':has-text("score"), :has-text("Score"), :has-text("%"), :has-text("points")').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await score.count() > 0) {
-      await expect(score).toBeVisible();
-    }
+    const main = page.locator('main');
+    // The seeded submission scores 20 of 20. Asserted as a labelled pair rather
+    // than as a bare number so this cannot pass on an unrelated "20" elsewhere,
+    // and matched on the Score label the page actually renders.
+    await expect(main.getByText('20/20')).toBeVisible();
+    await expect(main.getByText('100.0%').first()).toBeVisible();
+    await expect(main.getByText('Score', { exact: true })).toBeVisible();
   });
 
-  test('link back to course is present', async ({ page }) => {
+  test('question review section renders', async ({ page }) => {
     await goto(page, resultsUrl);
-    const backLink = page.locator('a[href*="/courses/"], button:has-text("Back"), a:has-text("Return")').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await backLink.count() > 0) {
-      await expect(backLink).toBeVisible();
-    }
+    // The part of the page that needed BOTH fixes: the questions arrive through
+    // getQuizQuestionsForTaking, which is only reached once the quiz resolves.
+    await expect(page.getByRole('heading', { name: 'Question Review' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Show Answers' })).toBeVisible();
+  });
+
+  test('link back to the module is present', async ({ page }) => {
+    await goto(page, resultsUrl);
+    // The page's own back link, by name and destination. `a[href*="/courses/"]`
+    // matched the sidebar's course links too, so the old assertion held with
+    // this control absent.
+    const backLink = page.getByRole('link', { name: 'Back to Module' }).first();
+    await expect(backLink).toBeVisible();
+    await expect(backLink).toHaveAttribute(
+      'href',
+      `/courses/${'660e8400-e29b-41d4-a716-446655440001'}/modules/770e8400-e29b-41d4-a716-446655440001`,
+    );
   });
 });

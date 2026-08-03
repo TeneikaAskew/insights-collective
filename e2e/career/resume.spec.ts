@@ -21,14 +21,24 @@ test.describe('Resume Analyzer', () => {
 
   test('file upload dropzone is visible', async ({ page }) => {
     await goto(page, Routes.resume);
-    const dropzone = page.locator(
-      'input[type="file"], [class*="dropzone"], [class*="upload"], :has-text("drag"), :has-text("Drop"), :has-text("Upload")',
-    ).first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await dropzone.count() > 0) {
-      await expect(dropzone).toBeVisible();
-    }
+    // MEASURED: the file input exists but is HIDDEN (count 1, visible 0) — as
+    // dropzones normally hide it — and nothing on this page has a class
+    // containing "dropzone" or "upload". So of the old union's six
+    // alternatives, the only ones that could match were the bare
+    // `:has-text(...)` ones, which match every ancestor up to <html>;
+    // `.first()` resolved to the document element, and the assertion was
+    // "<html> is visible".
+    //
+    // What a user can actually see is the prompt and the browse control; the
+    // input is asserted by count, because asserting a hidden element is
+    // visible is the mistake above in the other direction.
+    await expect(page.getByText('Drag and drop your resume here, or click to browse')).toBeVisible();
+    // getByText, not getByRole('button'): "Browse Files" is a
+    // <label htmlFor="resume-upload-display"> (ResumeAnalysisDisplay.tsx:178),
+    // and <label> has no implicit ARIA role. My first version asked for a
+    // button and found nothing.
+    await expect(page.getByText('Browse Files')).toBeVisible();
+    await expect(page.locator('input[type="file"]')).toHaveCount(1);
   });
 
   // Unskipped. "Login wall detection is unreliable in test env" named a symptom

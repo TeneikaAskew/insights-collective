@@ -369,6 +369,39 @@ export class CanvasContentService {
   }
 
   /**
+   * A quiz by its OWN id, for callers that hold a quiz_id rather than a
+   * content-item id.
+   *
+   * Every other method on this service is keyed on content_item_id, which is
+   * the right key when you are walking the course structure. It is the wrong
+   * key when you are starting from a quiz_submissions row: CanvasQuizResults
+   * held `submission.quiz_id` and passed it to getQuiz(contentItemId), so the
+   * query became `WHERE content_item_id = <a quiz id>`, matched nothing, and
+   * the page threw "Quiz not found" for EVERY submission.
+   *
+   * Resolved from the submission rather than from the :contentItemId route
+   * param deliberately. The param is user-supplied, and the results page
+   * renders per-question answers — pairing one quiz's questions with another
+   * quiz's answers would be worse than the error it replaces.
+   */
+  static async getQuizById(quizId: string): Promise<Quiz | null> {
+    const { data, error } = await supabase
+      .from('quizzes')
+      .select('*')
+      .eq('id', quizId)
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error;
+    if (!data) return null;
+
+    const { data: questions, error: questionsError } = await supabase
+      .rpc('get_quiz_questions_for_taking', { p_quiz_id: data.id });
+    if (questionsError) throw questionsError;
+
+    return { ...data, questions: questions || [] };
+  }
+
+  /**
    * Questions for a quiz id, through the same RPC getQuiz uses. Post
    * submission that RPC also reveals the correct answers, subject to the
    * quiz's show_correct_answers setting.
