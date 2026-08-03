@@ -2,26 +2,51 @@ import { test, expect } from '../fixtures/page-helpers';
 import { goto, waitForPageLoad } from '../fixtures/page-helpers';
 import { Routes } from '../helpers/route-helpers';
 
+// THIS ROUTE ONLY EXISTS IN A DEV BUILD.
+//
+// src/App.tsx:453 wraps it in `import.meta.env.DEV`, so the production bundle
+// CI serves has no /admin/debug/storage at all — the path falls through to the
+// admin shell. Every assertion below therefore describes a page that CI never
+// renders, which is why this file's three original assertions were "body is not
+// empty", "no spinner" and "some h1 or h2 exists": all true of the fallback.
+// Together with the count-guards on everything else, the file has never tested
+// this page in CI even once.
+//
+// Same shape as resume-design/soft-studio.spec.ts, and the same trade-off,
+// stated rather than buried: probing for the page means a genuine dev-only
+// regression skips instead of failing. The probe is deliberately narrow — the
+// page's OWN heading, not "did anything render" — so it only absorbs the route
+// being absent, not the page being broken.
 test.describe('Admin LocalStorage Debug', () => {
-  test('renders debug page', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await goto(page, Routes.adminLocalStorageDebug);
-    // Page may render outside of <main> — verify body rendered
-    await expect(page.locator('body')).not.toBeEmpty();
+    // waitFor, not isVisible(): a one-shot read has no retry, and this route is
+    // React.lazy'd, so a slow chunk would read "absent" and skip the tests in
+    // the one environment where they DO work. The timeout bounds how long a
+    // production build — where the route genuinely does not exist — waits
+    // before skipping.
+    const served = await page
+      .getByRole('heading', { name: 'LocalStorage Debug' })
+      .waitFor({ state: 'visible', timeout: 5000 })
+      .then(() => true)
+      .catch(() => false);
+    test.skip(!served, 'dev-only route: src/App.tsx:453 gates /admin/debug/storage behind import.meta.env.DEV, so a production build does not serve it');
+  });
+
+  test('renders debug page', async ({ page }) => {
+    await expect(page.getByRole('heading', { name: 'LocalStorage Debug' })).toBeVisible();
   });
 
   test('spinner resolves on load', async ({ page }) => {
-    await page.goto(Routes.adminLocalStorageDebug);
     await waitForPageLoad(page);
     await expect(page.locator('.animate-spin')).toHaveCount(0);
   });
 
   test('page heading is visible', async ({ page }) => {
-    await goto(page, Routes.adminLocalStorageDebug);
-    await expect(page.locator('h1, h2').first()).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'LocalStorage Debug' })).toBeVisible();
   });
 
   test('localStorage contents round-trip through the page', async ({ page }) => {
-    await goto(page, Routes.adminLocalStorageDebug);
     // MEASURED: this page renders no <pre>, no <code> and no <table>, so the
     // old locator's only live alternatives were the two [class*=] ones, and
     // the count-guard made a miss indistinguishable from a hit. Its comment
@@ -59,7 +84,6 @@ test.describe('Admin LocalStorage Debug', () => {
   });
 
   test('clear or delete key button is present', async ({ page }) => {
-    await goto(page, Routes.adminLocalStorageDebug);
     // Both clear controls by name. The old union with `.first()` never
     // established which one it had found, so either disappearing was invisible.
     await expect(page.getByRole('button', { name: 'Clear Resume Data' })).toBeVisible();
@@ -67,7 +91,6 @@ test.describe('Admin LocalStorage Debug', () => {
   });
 
   test('refresh button is present', async ({ page }) => {
-    await goto(page, Routes.adminLocalStorageDebug);
     await expect(page.getByRole('button', { name: 'Refresh' })).toBeVisible();
   });
 });
