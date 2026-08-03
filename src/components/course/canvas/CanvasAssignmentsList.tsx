@@ -202,7 +202,7 @@ export function CanvasAssignmentsList({ courseId }: CanvasAssignmentsListProps) 
                   {assignment.assignment?.due_at && (
                     <div className="flex items-center gap-1">
                       <Calendar className="h-4 w-4" />
-                      <span>Due {format(new Date(assignment.assignment.due_at), 'MMM d, yyyy at h:mm a')}</span>
+                      <span>Due {format(new Date(assignment.assignment.due_at), "MMM d, yyyy 'at' h:mm a")}</span>
                     </div>
                   )}
                   {assignment.assignment?.submission_types && (

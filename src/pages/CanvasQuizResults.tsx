@@ -341,7 +341,7 @@ export default function CanvasQuizResults() {
             <div className="grid grid-cols-2 gap-4 mt-6 text-sm">
               <div>
                 <span className="text-muted-foreground">Submitted:</span>{' '}
-                {format(new Date(submission.finished_at), 'MMM d, yyyy at h:mm a')}
+                {format(new Date(submission.finished_at), "MMM d, yyyy 'at' h:mm a")}
               </div>
               <div>
                 <span className="text-muted-foreground">Kept Score:</span>{' '}

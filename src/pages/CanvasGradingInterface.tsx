@@ -413,7 +413,7 @@ function CanvasGradingInterface() {
                       </div>
                       <CardDescription>
                         {selectedSubmission.submitted_at
-                          ? `Submitted ${format(new Date(selectedSubmission.submitted_at), 'MMM d, yyyy at h:mm a')}`
+                          ? `Submitted ${format(new Date(selectedSubmission.submitted_at), "MMM d, yyyy 'at' h:mm a")}`
                           : 'Not submitted'}
                       </CardDescription>
                     </div>
@@ -498,7 +498,7 @@ function CanvasGradingInterface() {
                     <Alert>
                       <CheckCircle className="h-4 w-4" />
                       <AlertDescription>
-                        Previously graded on {format(new Date(selectedSubmission.graded_at), 'MMM d, yyyy at h:mm a')}
+                        Previously graded on {format(new Date(selectedSubmission.graded_at), "MMM d, yyyy 'at' h:mm a")}
                       </AlertDescription>
                     </Alert>
                   )}
