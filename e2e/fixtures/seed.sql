@@ -619,6 +619,55 @@ UPDATE public.forms
        )
  WHERE slug = 'e2e-fixture-survey';
 
+-- The blog post the blog-post specs deep-link to.
+--
+-- Routes.blogSlug defaults to 'test-blog-post' and NO SUCH ROW EXISTS, so
+-- /blog/test-blog-post has been rendering "Blog post not found" — an <h1>, a
+-- "Back to Blog" button, and nothing else. Every assertion in
+-- blog-post.spec.ts was therefore describing the not-found screen: the title
+-- test passed on the words "Blog post not found", and the two count-guards sat
+-- on locators for an article and a back link that the real page has and the
+-- not-found page mostly does not.
+--
+-- Seeded rather than repointed at one of the ten real published posts. Those
+-- belong to the site owner and can be retitled, unpublished or deleted at any
+-- time, which is a fixture that decays by design.
+--
+-- author_id is NOT NULL, so the post is attributed to the e2e member. If that
+-- account is missing the whole seed has already failed further up.
+DO $$
+DECLARE
+  v_member_id uuid;
+BEGIN
+  SELECT id INTO v_member_id FROM auth.users
+   WHERE email = COALESCE(current_setting('e2e.member_email', true), 'e2e-member@insightscollective.org');
+
+  IF v_member_id IS NULL THEN
+    RAISE EXCEPTION 'E2E SEED FAILED: no e2e member account, so the fixture blog post cannot be attributed';
+  END IF;
+
+  -- Upserted on the slug, not INSERT ... ON CONFLICT DO NOTHING: a post whose
+  -- status was flipped to draft, or whose body was emptied, would otherwise
+  -- stay broken forever while the seed reported success. Same rule as the
+  -- survey fixture above.
+  INSERT INTO public.blog_posts (id, slug, title, excerpt, content, author_id,
+                                 status, published_at, read_time)
+  VALUES ('eeee8888-8888-8888-8888-888888888888',
+          'test-blog-post',
+          'E2E Fixture Blog Post',
+          'Fixture post for the blog-post specs.',
+          E'This paragraph exists so the article body is not empty.\n\n'
+          'A second paragraph, so content assertions have something to match.',
+          v_member_id,
+          'published', now() - interval '1 day', 3)
+  ON CONFLICT (slug) DO UPDATE
+    SET title        = EXCLUDED.title,
+        excerpt      = EXCLUDED.excerpt,
+        content      = EXCLUDED.content,
+        status       = EXCLUDED.status,
+        published_at = COALESCE(public.blog_posts.published_at, EXCLUDED.published_at);
+END $$;
+
 -- Assert deterministic invariants so a failed seed surfaces before tests run.
 DO $$
 DECLARE
@@ -650,6 +699,19 @@ BEGIN
   ) INTO v_ok;
   IF NOT v_ok THEN
     RAISE EXCEPTION 'E2E SEED FAILED: form e2e-fixture-survey is missing, inactive, or no longer matches the structure survey-page.spec.ts asserts (section "About you" with a required "Your name" text field and a "What are you hoping to learn?" textarea)';
+  END IF;
+
+  -- Unpublished or empty, /blog/test-blog-post falls back to "Blog post not
+  -- found" and blog-post.spec.ts silently describes that screen instead.
+  SELECT EXISTS (
+    SELECT 1 FROM public.blog_posts
+     WHERE slug = 'test-blog-post'
+       AND status = 'published'
+       AND title = 'E2E Fixture Blog Post'
+       AND length(content) > 0
+  ) INTO v_ok;
+  IF NOT v_ok THEN
+    RAISE EXCEPTION 'E2E SEED FAILED: no published blog post at slug test-blog-post titled "E2E Fixture Blog Post"; /blog/test-blog-post renders "Blog post not found" and blog-post.spec.ts asserts against it';
   END IF;
 
   -- An event that has aged into the past is invisible on the Upcoming tab, so
