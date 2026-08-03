@@ -34,16 +34,38 @@ test.describe('Mock Interview Room', () => {
 
   test('page heading is visible', async ({ page }) => {
     await goto(page, Routes.mockInterviewRoom);
-    await expect(page.locator('h1, h2').first()).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Mock Interviews' })).toBeVisible();
   });
 
-  test('response input or recording area renders', async ({ page }) => {
+  test('the scheduling tabs are offered', async ({ page }) => {
     await goto(page, Routes.mockInterviewRoom);
-    const input = page.locator('textarea, [contenteditable], [class*="response"], [class*="answer"]').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await input.count() > 0) {
-      await expect(input).toBeVisible();
+    // What this route actually is: /interview-prep/mock-interview-room resolves
+    // to /interview-prep/mock-interviews, a SCHEDULING hub — find a partner,
+    // set availability, view upcoming sessions. Asserted here because the file
+    // is otherwise named for a room that this route never renders.
+    for (const tab of ['Find Sessions', 'Set Availability', 'Upcoming Sessions', 'Guidelines']) {
+      await expect(page.getByRole('tab', { name: tab })).toBeVisible();
     }
   });
+
+  // MEASURED: this route renders 0 textareas, 0 contenteditable, and nothing
+  // whose class contains "response" or "answer" — the entire locator matched
+  // nothing, and the count-guard turned that into a pass. There is no response
+  // or recording area here because this route is the scheduling hub, not a live
+  // interview room; the test was written against a page that does not exist at
+  // this path.
+  test.skip(
+    'response input or recording area renders',
+    {
+      annotation: {
+        type: 'skip-reason',
+        description:
+          'Wrong page: /interview-prep/mock-interview-room resolves to the mock-interview SCHEDULING hub (Find Sessions / Set Availability / Upcoming Sessions / Guidelines). It renders no response or recording area, so there is nothing at this route for this assertion to describe.',
+      },
+    },
+    async ({ page }) => {
+      await goto(page, Routes.mockInterviewRoom);
+      await expect(page.locator('textarea').first()).toBeVisible();
+    },
+  );
 });

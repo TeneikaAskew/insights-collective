@@ -106,19 +106,31 @@ export default function CanvasQuizResults() {
       setSubmission(submissionWithAnswers);
 
       // Load quiz details
-      const quizData = await CanvasContentService.getQuiz(submissionData.quiz_id);
+      // getQuizById, NOT getQuiz: getQuiz is keyed on content_item_id, so
+      // passing a quiz_id searched the wrong column, matched nothing and threw
+      // "Quiz not found" on every single submission. Found by removing the
+      // count-guards from quiz-results.spec.ts, which had been asserting
+      // against that error screen.
+      const quizData = await CanvasContentService.getQuizById(submissionData.quiz_id);
       if (!quizData) throw new Error('Quiz not found');
       setQuiz(quizData);
       // Post-submission the same RPC reveals the key, subject to the quiz's
       // show_correct_answers setting.
       setQuestions(await CanvasContentService.getQuizQuestionsForTaking(quizData.id));
 
-      // Load content item (used for the page title)
+      // Load content item (used for the page title).
+      //
+      // Was `.eq('settings->quiz_id', submissionData.quiz_id)`, which failed
+      // twice over. `->` yields JSONB, so comparing it to a bare uuid string
+      // raised 22P02 "invalid input syntax for type json" on every load — the
+      // operator needed is `->>`. And even spelled correctly it read a settings
+      // key that is not the schema's relationship: content_items.settings is
+      // {} on real rows, while quizzes.content_item_id is the actual link. So
+      // the title never loaded regardless.
       const { data: contentData, error: contentError } = await supabase
         .from('content_items')
         .select('*')
-        .eq('type', 'quiz')
-        .eq('settings->quiz_id', submissionData.quiz_id)
+        .eq('id', quizData.content_item_id)
         .single();
 
       if (contentError && (contentError as any).code !== 'PGRST116') {

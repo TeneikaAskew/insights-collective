@@ -28,12 +28,12 @@ test.describe('Interview Prep Home', () => {
     }
   });
 
-  test('navigation links to sub-pages are present', async ({ page }) => {
-    const links = page.locator('a[href*="interview"], a[href*="code-practice"], a[href*="mock"], a[href*="star"]');
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await links.count() > 0) {
-      await expect(links.first()).toBeVisible();
+  test('the four prep steps are offered', async ({ page }) => {
+    // MEASURED: this page renders ZERO anchors in <main>. The four steps are
+    // role="tab" BUTTONS, so the old locator — four `a[href*=...]` alternatives
+    // — matched nothing at all, and the count-guard turned that into a pass.
+    for (const step of ['Analyze the job', 'Practice STAR stories', 'Drill code challenges', 'Book a mock interview']) {
+      await expect(page.getByRole('tab', { name: new RegExp(step) })).toBeVisible();
     }
   });
 

@@ -16,25 +16,37 @@ test.describe('Course Certificate', () => {
     await expect(page.locator('.animate-spin')).toHaveCount(0);
   });
 
-  test('certificate content or completion message renders', async ({ page }) => {
+  test('the certificate page states its requirement', async ({ page }) => {
     await goto(page, certUrl);
-    const cert = page.locator(
-      '[class*="certificate"], :has-text("Certificate"), :has-text("Congratulations"), :has-text("complete")',
-    );
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await cert.count() > 0) {
-      await expect(cert.first()).toBeVisible();
-    }
+    // The member has NOT completed the reference course, so what this route
+    // renders is the locked state — and that is worth asserting precisely,
+    // because the old locator could not tell it from the unlocked one. Its
+    // bare `:has-text("complete")` also matched every ancestor up to <html>.
+    await expect(page.getByRole('heading', { name: 'Course certificate' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Course Certification' })).toBeVisible();
+    await expect(
+      page.getByText('Finish every required lesson and assignment to unlock your certificate.'),
+    ).toBeVisible();
+    // Deliberately NOT asserting the completion percentage the page shows
+    // beside this: it moves whenever any spec touches the member's progress.
   });
 
-  test('download or print button is present if completed', async ({ page }) => {
-    await goto(page, certUrl);
-    const downloadBtn = page.locator('button:has-text("Download"), button:has-text("Print"), a[download]').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await downloadBtn.count() > 0) {
-      await expect(downloadBtn).toBeVisible();
-    }
-  });
+  // The download control only exists once the course is complete, and the
+  // shared member never completes it — certificate-generation.spec.ts runs the
+  // completion journey on a SEPARATE account precisely so this member's
+  // certificate state stays constant for everyone else.
+  test.skip(
+    'download or print button is present if completed',
+    {
+      annotation: {
+        type: 'skip-reason',
+        description:
+          'Seed gap by design: the shared member has not completed the reference course, so /certificate renders the locked state and offers no Download/Print. Completion is exercised by journeys/certificate-generation.spec.ts on the e2e-journeys account.',
+      },
+    },
+    async ({ page }) => {
+      await goto(page, certUrl);
+      await expect(page.getByRole('button', { name: /Download|Print/ })).toBeVisible();
+    },
+  );
 });

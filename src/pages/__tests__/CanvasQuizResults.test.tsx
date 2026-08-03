@@ -57,6 +57,7 @@ vi.mock('@/contexts/AuthContext', () => ({
 vi.mock('@/services/canvasContentService', () => ({
   default: {
     getQuiz: vi.fn(),
+    getQuizById: vi.fn(),
     getQuizQuestionsForTaking: vi.fn(),
   },
 }));
@@ -134,7 +135,7 @@ describe('CanvasQuizResults', () => {
   beforeEach(() => {
     toastMock.mockReset();
     navigateMock.mockReset();
-    vi.mocked(CanvasContentService.getQuiz).mockReset();
+    vi.mocked(CanvasContentService.getQuizById).mockReset();
     // Questions arrive through the student-safe RPC now, not embedded on the
     // quiz row.
     vi.mocked(CanvasContentService.getQuizQuestionsForTaking).mockReset();
@@ -152,8 +153,35 @@ describe('CanvasQuizResults', () => {
     expect(screen.queryByText(/results/i)).not.toBeInTheDocument();
   });
 
+  // THE BUG THIS FILE COULD NOT SEE.
+  //
+  // The page called getQuiz(submission.quiz_id). getQuiz is keyed on
+  // content_item_id, so the query became `WHERE content_item_id = <a quiz id>`,
+  // matched nothing, and every submission rendered "Quiz not found". This test
+  // file mocked getQuiz by NAME and asserted nothing about its argument, so a
+  // call that could never resolve against the real database looked identical to
+  // one that could. Asserting the argument is what makes the mock load-bearing.
+  it('looks the quiz up by the submission\'s quiz_id, not by a content-item id', async () => {
+    vi.mocked(CanvasContentService.getQuizById).mockResolvedValue(quiz as any);
+    useTables({
+      quiz_submissions: makeTableBuilder({ data: submissionRow(), error: null }),
+      content_items: makeTableBuilder({
+        data: { id: 'ci-1', title: 'Module 1 Quiz' },
+        error: null,
+      }),
+    });
+
+    render(<CanvasQuizResults />);
+    await screen.findByText('Module 1 Quiz - Results');
+
+    expect(CanvasContentService.getQuizById).toHaveBeenCalledWith('quiz-1');
+    // And never through the content-item-keyed lookup, which is the call that
+    // silently returned null in production.
+    expect(CanvasContentService.getQuiz).not.toHaveBeenCalled();
+  });
+
   it('renders scores and percentage on success, with no fabricated pass/fail verdict', async () => {
-    vi.mocked(CanvasContentService.getQuiz).mockResolvedValue(quiz as any);
+    vi.mocked(CanvasContentService.getQuizById).mockResolvedValue(quiz as any);
     useTables({
       quiz_submissions: makeTableBuilder({ data: submissionRow(), error: null }),
       content_items: makeTableBuilder({
@@ -179,7 +207,7 @@ describe('CanvasQuizResults', () => {
   });
 
   it('shows a destructive toast and an error state (not "not found") when loading fails', async () => {
-    vi.mocked(CanvasContentService.getQuiz).mockResolvedValue(quiz as any);
+    vi.mocked(CanvasContentService.getQuizById).mockResolvedValue(quiz as any);
     useTables({
       quiz_submissions: makeTableBuilder({
         data: null,
@@ -205,7 +233,7 @@ describe('CanvasQuizResults', () => {
   });
 
   it('renders the not-found screen when the submission genuinely does not exist', async () => {
-    vi.mocked(CanvasContentService.getQuiz).mockResolvedValue(quiz as any);
+    vi.mocked(CanvasContentService.getQuizById).mockResolvedValue(quiz as any);
     useTables({
       quiz_submissions: makeTableBuilder({
         data: null,
@@ -220,7 +248,7 @@ describe('CanvasQuizResults', () => {
   });
 
   it('renders zeroed results when the submission has no answers', async () => {
-    vi.mocked(CanvasContentService.getQuiz).mockResolvedValue(quiz as any);
+    vi.mocked(CanvasContentService.getQuizById).mockResolvedValue(quiz as any);
     vi.mocked(CanvasContentService.getQuizQuestionsForTaking).mockResolvedValue([]);
     useTables({
       quiz_submissions: makeTableBuilder({

@@ -17,26 +17,26 @@ test.describe('Job Description Analyzer', () => {
     await expect(page.locator('.animate-spin')).toHaveCount(0);
   });
 
-  test('job description textarea is present', async ({ page }) => {
-    const textarea = page.locator('textarea, [placeholder*="job"], [placeholder*="description"], [placeholder*="paste"]').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await textarea.count() > 0) {
-      await expect(textarea).toBeVisible();
-      await textarea.fill('Senior Software Engineer - React, TypeScript, Node.js required');
-    }
+  test('job description textarea accepts a posting', async ({ page }) => {
+    // The single textarea on the page, and it keeps what is typed. The old
+    // union's `[placeholder*="job"]` alternatives were dead — the placeholders
+    // here are sentence-case — and `.first()` over a union resolves in document
+    // order, so the test never established which control it had.
+    const textarea = page.locator('textarea');
+    await expect(textarea).toBeVisible();
+    await textarea.fill('Senior Software Engineer - React, TypeScript, Node.js required');
+    await expect(textarea).toHaveValue(/Senior Software Engineer/);
   });
 
-  test('analyze or generate button is present', async ({ page }) => {
-    const btn = page.locator('button:has-text("Analyze"), button:has-text("Generate"), button:has-text("Submit"), button:has-text("Study Guide")').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await btn.count() > 0) {
-      await expect(btn).toBeVisible();
-    }
+  test('analyze and extract controls are present', async ({ page }) => {
+    await expect(page.getByRole('button', { name: 'Analyze Description' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Extract' })).toBeVisible();
   });
 
   test('page heading is visible', async ({ page }) => {
-    await expect(page.locator('h1, h2').first()).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Job Description Analysis' })).toBeVisible();
+    // The empty right-hand pane is part of the page's promise, and it is what
+    // an outage would silently replace.
+    await expect(page.getByRole('heading', { name: 'Your study guide will appear here' })).toBeVisible();
   });
 });
