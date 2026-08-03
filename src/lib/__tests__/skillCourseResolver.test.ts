@@ -76,8 +76,23 @@ describe('subjectsForSkills', () => {
   });
 
   it('maps out-of-vocabulary skills to an empty list, never a guess', () => {
-    const map = subjectsForSkills(['Public Speaking']);
-    expect(map.get('Public Speaking')).toEqual([]);
+    const map = subjectsForSkills(['Empathy']);
+    expect(map.get('Empathy')).toEqual([]);
+  });
+
+  it('classifies business and professional skills into the new subjects', () => {
+    const map = subjectsForSkills([
+      'Stakeholder Communication',
+      'Executive Presence',
+      'Agile Project Management',
+      'Negotiation',
+      'Team Leadership',
+    ]);
+    expect(map.get('Stakeholder Communication')).toEqual(['communication', 'stakeholder-management']);
+    expect(map.get('Executive Presence')).toEqual(['leadership']);
+    expect(map.get('Agile Project Management')).toEqual(['project-management']);
+    expect(map.get('Negotiation')).toEqual(['negotiation']);
+    expect(map.get('Team Leadership')).toEqual(['leadership']);
   });
 
   it('unions subjects across the skill set without duplicates', () => {
@@ -120,8 +135,8 @@ describe('resolveSkillCourses', () => {
   });
 
   it('returns an empty list for skills the catalog has nothing for', () => {
-    const result = resolveSkillCourses(['Public Speaking', 'SQL'], { catalog });
-    expect(result.get('Public Speaking')).toEqual([]);
+    const result = resolveSkillCourses(['Empathy', 'SQL'], { catalog });
+    expect(result.get('Empathy')).toEqual([]);
     expect(result.get('SQL')!.length).toBeGreaterThan(0);
   });
 

@@ -37,7 +37,12 @@ export type LearningSubject =
   | 'web-development'
   | 'research'
   | 'finance'
-  | 'business-strategy';
+  | 'business-strategy'
+  | 'communication'
+  | 'leadership'
+  | 'stakeholder-management'
+  | 'project-management'
+  | 'negotiation';
 
 export const LEARNING_SUBJECTS: LearningSubject[] = [
   'data-analysis',
@@ -66,6 +71,11 @@ export const LEARNING_SUBJECTS: LearningSubject[] = [
   'research',
   'finance',
   'business-strategy',
+  'communication',
+  'leadership',
+  'stakeholder-management',
+  'project-management',
+  'negotiation',
 ];
 
 /** Human labels, for section headings and "why am I seeing this" copy. */
@@ -96,6 +106,11 @@ export const SUBJECT_LABELS: Record<LearningSubject, string> = {
   research: 'Research Methods',
   finance: 'Finance & Valuation',
   'business-strategy': 'Business Strategy',
+  communication: 'Communication & Presentation',
+  leadership: 'Leadership & People Management',
+  'stakeholder-management': 'Stakeholder Management',
+  'project-management': 'Project Management',
+  negotiation: 'Negotiation & Influence',
 };
 
 /**
