@@ -335,7 +335,30 @@ jobs:
               echo "$VERSION $(basename "$FILE")" >> /tmp/manual.txt
               continue
             fi
-            psql "$PGURL" -f "$FILE" > /tmp/out.txt 2>&1 || true
+            # Capture psql's own exit status rather than discarding it. Without
+            # ON_ERROR_STOP, a SQL error does NOT make psql exit nonzero — it
+            # reports the error and carries on, which is the behaviour this mode
+            # is built on. So a nonzero status here is never a tolerated SQL
+            # error; it is a client-level failure: 1 for psql's own fatal error,
+            # 2 for a connection that could not be made or was lost mid-file,
+            # 3 only with ON_ERROR_STOP.
+            #
+            # `|| true` used to swallow that. A connection dropped part-way
+            # through a file prints "connection to server was lost" rather than
+            # a line matching '^psql:.*ERROR:', so the grep below found nothing,
+            # UNTOLERATED was empty, the skipped count was zero, and the file was
+            # reported "applied" and its version INSERTed — having run only as
+            # far as the drop. A false ledger entry is the one outcome this
+            # whole workflow exists to prevent.
+            set +e
+            psql "$PGURL" -f "$FILE" > /tmp/out.txt 2>&1
+            PSQL_STATUS=$?
+            set -e
+            if [ "$PSQL_STATUS" -ne 0 ]; then
+              echo "::error::psql exited $PSQL_STATUS on $(basename "$FILE") — a client-level failure, not a tolerated SQL error. Nothing recorded for it."
+              cat /tmp/out.txt
+              exit 1
+            fi
 
             # Every error the file produced, not just the first.
             grep -E '^psql:.*ERROR:' /tmp/out.txt > /tmp/errs.txt || true

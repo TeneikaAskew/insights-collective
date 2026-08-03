@@ -103,13 +103,21 @@ BEGIN
       ('course_instructors',     'user_id',   'course_instructors_user_id_profiles_fkey',     'c')
   ),
   actual AS (
+    -- confkey is resolved, not just confrelid. Checking only the referenced
+    -- TABLE would accept a same-named, validated key pointing at some other
+    -- unique column on profiles — the constraint would exist, be valid, and
+    -- still not be the profiles(id) relationship PostgREST needs to embed
+    -- through. The column count is checked for the same reason: conkey[1]
+    -- alone would silently accept a composite key on its first column.
     SELECT c.conname::text        AS con,
            rel.relname::text      AS tbl,
            att.attname::text      AS col,
            c.confdeltype::text    AS deltype,
            c.convalidated         AS validated,
            fre.relname::text      AS ref_tbl,
-           array_length(c.conkey, 1) AS ncols
+           refatt.attname::text   AS ref_col,
+           array_length(c.conkey, 1)   AS ncols,
+           array_length(c.confkey, 1)  AS nrefcols
     FROM pg_constraint c
     JOIN pg_class     rel ON rel.oid = c.conrelid
     JOIN pg_namespace n   ON n.oid   = rel.relnamespace
@@ -117,6 +125,8 @@ BEGIN
     JOIN pg_namespace fn  ON fn.oid  = fre.relnamespace
     JOIN pg_attribute att ON att.attrelid = c.conrelid
                          AND att.attnum   = c.conkey[1]
+    JOIN pg_attribute refatt ON refatt.attrelid = c.confrelid
+                            AND refatt.attnum   = c.confkey[1]
     WHERE c.contype = 'f'
       AND n.nspname  = 'public'
       AND fn.nspname = 'public'
@@ -131,9 +141,12 @@ BEGIN
         WHEN a.tbl <> e.tbl OR a.col <> e.col THEN
           format(E'\n  - WRONG COLUMN %s is on public.%s(%s), expected public.%s(%s)',
                  e.con, a.tbl, a.col, e.tbl, e.col)
-        WHEN a.ref_tbl <> 'profiles' THEN
-          format(E'\n  - WRONG TARGET %s references public.%s, expected public.profiles',
-                 e.con, a.ref_tbl)
+        WHEN a.ref_tbl <> 'profiles' OR a.ref_col <> 'id' THEN
+          format(E'\n  - WRONG TARGET %s references public.%s(%s), expected public.profiles(id)',
+                 e.con, a.ref_tbl, a.ref_col)
+        WHEN a.ncols <> 1 OR a.nrefcols <> 1 THEN
+          format(E'\n  - COMPOSITE %s spans %s column(s) referencing %s column(s); '
+                  'this migration specifies a single-column key', e.con, a.ncols, a.nrefcols)
         WHEN NOT a.validated THEN
           format(E'\n  - NOT VALIDATED %s exists but is NOT VALID, so the rows that '
                   'were already there have never been checked', e.con)
@@ -179,6 +192,20 @@ END $$;
 INSERT INTO supabase_migrations.schema_migrations (version)
 VALUES ('20260801000300')
 ON CONFLICT DO NOTHING;
+
+-- The migration's own last statement, and the reason it is repeated here: the
+-- constraints are only half the effect. PostgREST caches the relationships it
+-- can embed through, and the migration ends with this NOTIFY because the embeds
+-- stay broken until it reloads. If these keys were installed by hand, or by a
+-- process that stopped before the notification, every assertion above passes
+-- while the user-facing symptom — "Error loading submissions" on the grading
+-- page — is still there.
+--
+-- Recording the version would then mark the migration permanently done while
+-- the thing it was written to fix remains visibly broken. Issuing it costs
+-- nothing when the cache is already fresh, so it runs unconditionally.
+-- Delivered on commit, so it is sent only if every assertion held.
+NOTIFY pgrst, 'reload schema';
 
 SELECT version
 FROM supabase_migrations.schema_migrations
