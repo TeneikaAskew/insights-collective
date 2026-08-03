@@ -14,43 +14,44 @@ test.describe('Admin Courses Management', () => {
     await expect(page.locator('.animate-spin')).toHaveCount(0);
   });
 
-  test('course table or list renders', async ({ page }) => {
+  test('course table renders with its columns and rows', async ({ page }) => {
     await goto(page, Routes.adminCourses);
-    const table = page.locator('table, [role="table"], [class*="course"], [class*="Card"]').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await table.count() > 0) {
-      await expect(table).toBeVisible();
+    // Columns by name. The old locator's [class*="course"] alternative matches
+    // most of this page, so it could not distinguish a rendered table from a
+    // shell that failed to load one.
+    for (const col of ['Course', 'Instructor', 'Status', 'Enrolled', 'Actions']) {
+      await expect(page.locator('th').filter({ hasText: col }).first()).toBeVisible();
     }
+    expect(await page.locator('tbody tr').filter({ visible: true }).count()).toBeGreaterThan(0);
   });
 
-  test('course status (published/draft) is displayed', async ({ page }) => {
+  test('course status is displayed for each row', async ({ page }) => {
     await goto(page, Routes.adminCourses);
-    const status = page.locator(':has-text("Published"), :has-text("Draft"), [class*="badge"], [class*="status"]').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await status.count() > 0) {
-      await expect(status).toBeVisible();
-    }
+    await expect(page.locator('th').filter({ hasText: 'Status' }).first()).toBeVisible();
+    // The old locator led with `:has-text("Published")`, which with no tag
+    // qualifier matches every ancestor up to <html> — so one occurrence of the
+    // word anywhere on the page satisfied it. Scoped to the table body instead.
+    const statuses = page
+      .locator('tbody tr')
+      .filter({ visible: true })
+      .filter({ hasText: /Published|Draft/ });
+    expect(await statuses.count()).toBeGreaterThan(0);
   });
 
-  test('edit course link is present', async ({ page }) => {
+  // The row control is an icon-only button in the Actions column, not a link or
+  // a button labelled "Edit" — so `button:has-text("Edit")` matched nothing and
+  // the count-guard reported that as a pass. Asserting the column is what can
+  // be checked reliably today; targeting the control itself needs a testid on
+  // it, which is an app change rather than a test one.
+  test('each course row exposes an actions control', async ({ page }) => {
     await goto(page, Routes.adminCourses);
-    const editLink = page.locator('a[href*="course-edit"], button:has-text("Edit"), a:has-text("Edit")').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await editLink.count() > 0) {
-      await expect(editLink).toBeVisible();
-    }
+    await expect(page.locator('th').filter({ hasText: 'Actions' }).first()).toBeVisible();
+    const firstRow = page.locator('tbody tr').filter({ visible: true }).first();
+    expect(await firstRow.getByRole('button').count()).toBeGreaterThan(0);
   });
 
   test('create new course button is visible', async ({ page }) => {
     await goto(page, Routes.adminCourses);
-    const createBtn = page.locator('button:has-text("Create"), button:has-text("New Course"), a:has-text("Create")').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await createBtn.count() > 0) {
-      await expect(createBtn).toBeVisible();
-    }
+    await expect(page.getByRole('button', { name: 'New course' })).toBeVisible();
   });
 });

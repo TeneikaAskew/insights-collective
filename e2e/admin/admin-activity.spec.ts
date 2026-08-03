@@ -14,33 +14,58 @@ test.describe('Admin Activity Log', () => {
     await expect(page.locator('.animate-spin')).toHaveCount(0);
   });
 
-  test('activity table or list renders', async ({ page }) => {
+  test('activity table renders with its columns and rows', async ({ page }) => {
     await goto(page, Routes.adminActivity);
-    const table = page.locator('table, [role="table"], [class*="activity"], [role="list"]').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await table.count() > 0) {
-      await expect(table).toBeVisible();
+    // Columns by name. The old locator's [class*="activity"] alternative
+    // matches the page wrapper, so it could not tell a rendered log from a
+    // shell that failed to load one.
+    for (const col of ['Event Type', 'Description', 'Severity', 'Time']) {
+      await expect(page.locator('th').filter({ hasText: col }).first()).toBeVisible();
     }
+    expect(await page.locator('tbody tr').filter({ visible: true }).count()).toBeGreaterThan(0);
   });
 
-  test('date filter is present', async ({ page }) => {
-    await goto(page, Routes.adminActivity);
-    const dateFilter = page.locator('input[type="date"], [placeholder*="date"], [aria-label*="date"]').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await dateFilter.count() > 0) {
-      await expect(dateFilter).toBeVisible();
-    }
-  });
+  // NEITHER FILTER EXISTS. Measured on the rendered page: 0 input[type="date"],
+  // 0 [role="combobox"], and the only button besides the app chrome is "Export".
+  // Both tests were named for controls this page has never had, and their
+  // count-guards reported that as passing.
+  //
+  // Skipped with named reasons rather than deleted: filtering an activity log
+  // by date and by event type is a reasonable thing to want, and the skips keep
+  // the gap in the coverage report where a deletion would erase it.
+  test.skip(
+    'date filter is present',
+    {
+      annotation: {
+        type: 'skip-reason',
+        description:
+          'UI gap: /admin/activity renders no date control (0 input[type="date"], 0 [placeholder*="date"], 0 [aria-label*="date"]).',
+      },
+    },
+    async ({ page }) => {
+      await goto(page, Routes.adminActivity);
+      await expect(page.locator('input[type="date"]').first()).toBeVisible();
+    },
+  );
 
-  test('event type filter is present', async ({ page }) => {
+  test.skip(
+    'event type filter is present',
+    {
+      annotation: {
+        type: 'skip-reason',
+        description:
+          'UI gap: /admin/activity renders no event-type filter (0 [role="combobox"], 0 select, no Filter/Type button). Only "Export" is offered.',
+      },
+    },
+    async ({ page }) => {
+      await goto(page, Routes.adminActivity);
+      await expect(page.getByRole('combobox').first()).toBeVisible();
+    },
+  );
+
+  test('export control is offered', async ({ page }) => {
     await goto(page, Routes.adminActivity);
-    const typeFilter = page.locator('[role="combobox"], select, button:has-text("Filter"), button:has-text("Type")').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await typeFilter.count() > 0) {
-      await expect(typeFilter).toBeVisible();
-    }
+    // The one action this page actually has, and nothing asserted it before.
+    await expect(page.getByRole('button', { name: 'Export' })).toBeVisible();
   });
 });

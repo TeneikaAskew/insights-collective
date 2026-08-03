@@ -51,43 +51,72 @@ test.describe('Admin Dashboard', () => {
     await expect(page.getByRole('link', { name: /Control who sees each page/i })).toBeVisible();
   });
 
-  test('stats cards render (users, courses, etc.)', async ({ page }) => {
+  test('platform KPI tiles render with their labels', async ({ page }) => {
     await goto(page, Routes.admin);
-    const stats = page.locator('[class*="stat"], [class*="metric"], [class*="card"], [class*="Card"]').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await stats.count() > 0) {
-      await expect(stats).toBeVisible();
+    // The dashboard's own KPIs (AdminDashboard.tsx `kpis`), not the four tiles
+    // belonging to the ResourceManagement panel lower down the page — those are
+    // a different component, and asserting them would leave the KPI block free
+    // to disappear unnoticed. This test replaces one whose locator was
+    // [class*="card"], which matches every shadcn Card including the shell.
+    for (const label of ['Total Users', 'Total Courses', 'Active Enrollments', 'Certificates Issued']) {
+      await expect(page.getByText(label, { exact: true }).first()).toBeVisible();
     }
   });
 
-  test('charts render on dashboard', async ({ page }) => {
+  // There are no charts on this page. Measured: 0 .recharts-wrapper elements.
+  // The old locator was `[class*="chart"], [class*="Chart"], svg, canvas` — and
+  // `svg` matches every lucide icon in the navbar, so the test passed on an
+  // icon and would have gone on passing if a chart were never added.
+  //
+  // Skipped rather than deleted: "the admin dashboard should show charts" may
+  // well be intended, and a named skip keeps that visible where a deletion
+  // would quietly drop it.
+  test.skip(
+    'charts render on dashboard',
+    {
+      annotation: {
+        type: 'skip-reason',
+        description:
+          'UI gap: /admin renders no chart (0 .recharts-wrapper). The previous assertion passed on a lucide icon because its locator included a bare `svg`.',
+      },
+    },
+    async ({ page }) => {
+      await goto(page, Routes.admin);
+      await expect(page.locator('.recharts-wrapper').first()).toBeVisible();
+    },
+  );
+
+  test('recent activity card links out to the full log', async ({ page }) => {
     await goto(page, Routes.admin);
-    const chart = page.locator('[class*="chart"], [class*="Chart"], svg, canvas').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await chart.count() > 0) {
-      await expect(chart).toBeVisible();
-    }
+    // This card deliberately shows NO feed — AdminDashboard.tsx calls that out
+    // in a comment ("no fabricated feed") — so what it must contain is the way
+    // through to the real log. Scoped to the section, because Content/Type/
+    // Source are columns of the unrelated resources table further down and
+    // asserting those would pass even with this card gutted.
+    const card = page.locator('section').filter({ hasText: 'Recent Activity' }).first();
+    await expect(card.getByRole('heading', { name: 'Recent Activity' })).toBeVisible();
+    await expect(card.getByRole('link', { name: 'View All' })).toBeVisible();
+    await expect(card.getByRole('link', { name: 'full activity log' })).toBeVisible();
   });
 
-  test('recent activity feed renders', async ({ page }) => {
+  test('admin section navigation is visible', async ({ page }) => {
     await goto(page, Routes.admin);
-    const activity = page.locator('[class*="activity"], [class*="feed"], [role="list"]').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await activity.count() > 0) {
-      await expect(activity).toBeVisible();
-    }
-  });
-
-  test('admin navigation links are visible', async ({ page }) => {
-    await goto(page, Routes.admin);
-    const navLinks = page.locator('a[href*="/admin/"]');
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await navLinks.count() > 0) {
-      await expect(navLinks.first()).toBeVisible();
-    }
+    // Scoped to AdminLayout's own nav. An unscoped a[href*="/admin/"] count is
+    // satisfied by the dashboard's six quick-action launchers alone, so the
+    // rail could be removed entirely and the count would still clear any floor
+    // worth setting.
+    //
+    // Both navs are matched because AdminLayout renders TWO and hides one by
+    // width: the desktop rail is <aside><nav> with no aria-label, and the
+    // labelled nav[aria-label="Admin sections"] is the md:hidden mobile pill
+    // strip. Targeting the label alone finds nothing at desktop width — the
+    // element exists but is hidden — so the locator has to accept either and
+    // :visible picks whichever the viewport is actually showing.
+    const nav = page
+      .locator('aside nav, nav[aria-label="Admin sections"]')
+      .filter({ visible: true })
+      .first();
+    await expect(nav).toBeVisible();
+    expect(await nav.getByRole('link').count()).toBeGreaterThan(0);
   });
 });
