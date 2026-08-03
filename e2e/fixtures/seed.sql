@@ -487,9 +487,21 @@ BEGIN
   END IF;
 END $$;
 
--- Portfolio page for /portfolio/edit/:pageId. Owned by the member, because the
--- editor checks ownership — pointing the default at a real user's page would
--- both fail and put a test one keystroke away from editing live content.
+-- Portfolio page for /portfolio/edit/:pageId AND the public view at
+-- /portfolio/e2e-member. Owned by the member, because the editor checks
+-- ownership — pointing the default at a real user's page would both fail and
+-- put a test one keystroke away from editing live content.
+--
+-- UPSERTED, not ON CONFLICT DO NOTHING. This page is opened by the EDITOR
+-- specs, so its title, description and skills are one save away from being
+-- something else, permanently — and public-portfolio.spec.ts now asserts that
+-- exact content rather than "the page is non-empty". Under DO NOTHING the row
+-- would keep whatever an editor run left behind while the seed reported
+-- success, which is rule 1 at the top of this file.
+--
+-- is_public and custom_url are restored for the same reason: flipping either
+-- one takes the public route to "Portfolio not found" without touching a row
+-- the old ownership-only assertion looked at.
 DO $$
 DECLARE
   v_member_id uuid;
@@ -502,7 +514,15 @@ BEGIN
             'E2E Portfolio', 'Fixture portfolio page for the editor spec.',
             'modern', true, 'e2e-member', 'hero-focus',
             '{"skills":["SQL","Python"],"professional_summary":"Fixture portfolio."}'::jsonb)
-    ON CONFLICT (id) DO NOTHING;
+    ON CONFLICT (id) DO UPDATE
+      SET user_id      = EXCLUDED.user_id,
+          title        = EXCLUDED.title,
+          description  = EXCLUDED.description,
+          theme        = EXCLUDED.theme,
+          is_public    = EXCLUDED.is_public,
+          custom_url   = EXCLUDED.custom_url,
+          layout       = EXCLUDED.layout,
+          profile_data = EXCLUDED.profile_data;
   END IF;
 END $$;
 
@@ -859,14 +879,24 @@ BEGIN
     RAISE EXCEPTION 'E2E SEED FAILED: fixture rubric missing from the reference course; the rubric editor renders Not Found';
   END IF;
 
+  -- Ownership is what the EDITOR needs; the rest is what the PUBLIC view needs.
+  -- Checking ownership alone passed on a page whose title, skills or public
+  -- flag an editor run had changed, which public-portfolio.spec.ts now asserts
+  -- verbatim.
   SELECT EXISTS (
     SELECT 1 FROM public.portfolio_pages p
     JOIN auth.users u ON u.id = p.user_id
      WHERE p.id = 'ffff6666-6666-6666-6666-666666666666'
        AND u.email = COALESCE(current_setting('e2e.member_email', true), 'e2e-member@insightscollective.org')
+       AND p.title = 'E2E Portfolio'
+       AND p.description = 'Fixture portfolio page for the editor spec.'
+       AND p.is_public IS TRUE
+       AND p.custom_url = 'e2e-member'
+       AND p.profile_data -> 'skills' ? 'SQL'
+       AND p.profile_data -> 'skills' ? 'Python'
   ) INTO v_ok;
   IF NOT v_ok THEN
-    RAISE EXCEPTION 'E2E SEED FAILED: fixture portfolio page missing or not owned by the member; the editor rejects it';
+    RAISE EXCEPTION 'E2E SEED FAILED: fixture portfolio page missing, not owned by the member, no longer public at /portfolio/e2e-member, or no longer carrying the title/description/skills public-portfolio.spec.ts asserts';
   END IF;
 
   SELECT EXISTS (

@@ -1,6 +1,5 @@
 import { test, expect } from '../fixtures/page-helpers';
 import { goto, waitForPageLoad } from '../fixtures/page-helpers';
-import { Routes } from '../helpers/route-helpers';
 
 // Public portfolio is accessible WITHOUT authentication. This file runs in
 // chromium-public, which has no storageState, so the hand-built
@@ -8,7 +7,13 @@ import { Routes } from '../helpers/route-helpers';
 // way escapes the console-error fixture, which instruments only the injected
 // `page`. They are gone; the project provides the signed-out state.
 test.describe('Public Portfolio View', () => {
-  const publicUrl = Routes.publicPortfolio();
+  // Pinned to the seeded fixture rather than Routes.publicPortfolio(), whose
+  // URL is overridable via E2E_TEST_PORTFOLIO_URL. Every assertion below names
+  // this page's own title, description and skills, so an externally
+  // provisioned portfolio would fail the suite while working perfectly. Same
+  // reasoning as blog-post and survey-page: the URL and the content are one
+  // fixture and have to travel together.
+  const publicUrl = '/portfolio/e2e-member';
 
   test('renders public portfolio without authentication', async ({ page }) => {
     await goto(page, publicUrl);
