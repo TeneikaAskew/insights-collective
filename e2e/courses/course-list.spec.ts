@@ -19,8 +19,10 @@ test.describe('Course List', () => {
   });
 
   test('search input is present', async ({ page }) => {
-    const search = page.locator(Sel.searchInput).first();
-    await expect(search).toBeVisible();
+    // By placeholder. Sel.searchInput.first() is the Navbar's "Search entire
+    // site…" — the THIRD place in this suite where that locator was pointed at
+    // site search instead of the page's own box (after /admin/users and /events).
+    await expect(page.getByPlaceholder('Search courses')).toBeVisible();
   });
 
   test('search filters course results', async ({ page }) => {
@@ -46,21 +48,27 @@ test.describe('Course List', () => {
   });
 
   test('category filter dropdown is present', async ({ page }) => {
-    const filter = page.locator('[role="combobox"]:has-text("Category"), button:has-text("Category")').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await filter.count() > 0) {
-      await expect(filter).toBeVisible();
+    // The control reads "All categories", so :has-text("Category") never
+    // matched it — "category" is not a substring of "all categories". The three
+    // filters are asserted by their actual labels.
+    // Filtered by TEXT, not by accessible name: a shadcn Select trigger renders
+    // its current value as content but does not expose it as an accessible
+    // name, so getByRole('combobox', { name }) finds nothing.
+    for (const label of ['All categories', 'All levels', 'Any schedule']) {
+      await expect(
+        page.getByRole('combobox').filter({ hasText: label }),
+      ).toBeVisible();
     }
   });
 
   test('sort dropdown is present', async ({ page }) => {
-    const sort = page.locator('[role="combobox"]:has-text("Sort"), button:has-text("Sort")').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await sort.count() > 0) {
-      await expect(sort).toBeVisible();
-    }
+    // There is no Sort control on this page — measured: the only comboboxes are
+    // All categories / All levels / Any schedule, and no button is named Sort.
+    // The "Any schedule" filter is the closest thing and is already covered
+    // above, so this asserts the filter row is complete rather than inventing a
+    // control that does not exist.
+    const combos = page.getByRole('combobox').filter({ visible: true });
+    expect(await combos.count()).toBe(3);
   });
 
   test('tabs for course categories are clickable', async ({ page }) => {

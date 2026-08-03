@@ -18,21 +18,23 @@ test.describe('Course Progress', () => {
 
   test('progress indicators are rendered', async ({ page }) => {
     await goto(page, progressUrl);
-    const progress = page.locator('[role="progressbar"], [class*="progress"], :has-text("%")');
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await progress.count() > 0) {
-      await expect(progress.first()).toBeVisible();
-    }
+    // role=progressbar only. The old locator also accepted [class*="progress"]
+    // (matches the page wrapper) and a bare :has-text("%") with no tag
+    // qualifier, which matches every ancestor up to <html> — so a stray percent
+    // sign anywhere satisfied it.
+    await expect(page.getByRole('heading', { name: 'Overall Progress' })).toBeVisible();
+    const bars = page.locator('[role="progressbar"]');
+    await expect(bars.first()).toBeVisible();
+    expect(await bars.count()).toBeGreaterThan(1);
   });
 
   test('module completion list renders', async ({ page }) => {
     await goto(page, progressUrl);
-    const modules = page.locator('[class*="module"], li, [role="listitem"]');
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await modules.count() > 0) {
-      await expect(modules.first()).toBeVisible();
+    // Named modules. The old locator accepted a bare `li`, so the navigation's
+    // list items satisfied it on any page that rendered at all.
+    await expect(page.getByRole('heading', { name: 'Module Progress' })).toBeVisible();
+    for (const m of ['Foundations of Data Science', 'Python for Data Analysis', 'Statistical Methods']) {
+      await expect(page.getByText(m, { exact: true }).first()).toBeVisible();
     }
   });
 });
