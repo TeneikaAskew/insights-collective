@@ -572,6 +572,43 @@ FROM auth.users u
 WHERE u.email = COALESCE(current_setting('e2e.member_email', true), 'e2e-member@insightscollective.org')
 ON CONFLICT (id) DO NOTHING;
 
+-- The survey the survey specs deep-link to.
+--
+-- /survey/e2e-fixture-survey rendered "Form Not Found", and the reason was not
+-- a missing row: the form exists and is active. Its form_structure was written
+-- in the OLD FLAT SHAPE — { "fields": [...] } — while SurveyPage reads
+-- { "sections": [ { id, title, fields: [...] } ] } and derives nothing from the
+-- flat one. A form that is present, active, and unrenderable.
+--
+-- So all three survey-page guards were asserting against a not-found screen:
+-- fields, submit button and validation alike.
+--
+-- UPDATE rather than INSERT: forms.slug is UNIQUE, so an insert on this slug
+-- fails outright. Written to be idempotent and to repair the shape whenever it
+-- is wrong, not only when the row is missing.
+UPDATE public.forms
+   SET status = true,
+       form_link = '/survey/e2e-fixture-survey',
+       form_structure = jsonb_build_object(
+         'sections', jsonb_build_array(
+           jsonb_build_object(
+             'id', 'dddd7777-7777-7777-7777-777777777777',
+             'title', 'About you',
+             'fields', jsonb_build_array(
+               jsonb_build_object('type', 'text', 'label', 'Your name',
+                                  'required', true, 'placeholder', 'Jane Doe'),
+               jsonb_build_object('type', 'textarea', 'label', 'What are you hoping to learn?',
+                                  'required', false, 'placeholder', 'A sentence or two')
+             )
+           )
+         )
+       )
+ WHERE slug = 'e2e-fixture-survey'
+   AND (status IS DISTINCT FROM true
+        OR form_structure -> 'sections' IS NULL
+        OR jsonb_typeof(form_structure -> 'sections') <> 'array'
+        OR jsonb_array_length(form_structure -> 'sections') = 0);
+
 -- Assert deterministic invariants so a failed seed surfaces before tests run.
 DO $$
 DECLARE
@@ -581,6 +618,17 @@ BEGIN
    WHERE id::text LIKE '660e8400%';
   IF NOT v_ok THEN
     RAISE EXCEPTION 'E2E SEED FAILED: expected at least 5 fixture courses (660e8400-...)';
+  END IF;
+
+  -- A survey the public page cannot load is a survey no spec can test.
+  SELECT EXISTS (
+    SELECT 1 FROM public.forms
+     WHERE slug = 'e2e-fixture-survey'
+       AND status = true
+       AND jsonb_array_length(form_structure -> 'sections') > 0
+  ) INTO v_ok;
+  IF NOT v_ok THEN
+    RAISE EXCEPTION 'E2E SEED FAILED: no active form at slug e2e-fixture-survey with at least one section; /survey/e2e-fixture-survey renders Form Not Found and the survey specs assert against it';
   END IF;
 
   -- An event that has aged into the past is invisible on the Upcoming tab, so
