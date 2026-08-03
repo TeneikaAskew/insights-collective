@@ -20,34 +20,48 @@ test.describe('Admin LocalStorage Debug', () => {
     await expect(page.locator('h1, h2').first()).toBeVisible();
   });
 
-  test('localStorage key-value pairs are displayed', async ({ page }) => {
+  test('localStorage contents round-trip through the page', async ({ page }) => {
     await goto(page, Routes.adminLocalStorageDebug);
-    // The page should show localStorage contents — at minimum the auth token key
-    const content = page.locator('[class*="key"], [class*="value"], pre, code, table, [class*="storage"]').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await content.count() > 0) {
-      await expect(content).toBeVisible();
-    }
+    // MEASURED: this page renders no <pre>, no <code> and no <table>, so the
+    // old locator's only live alternatives were the two [class*=] ones, and
+    // the count-guard made a miss indistinguishable from a hit. Its comment
+    // ("at minimum the auth token key") was also wrong: the page reports
+    // "Total localStorage items detected: 0" for a signed-in admin, because
+    // Supabase's session is not in this origin's localStorage under the key it
+    // scans for.
+    //
+    // So rather than asserting whatever happens to be in storage — which is
+    // neither seeded nor stable — this drives the page's OWN affordance and
+    // checks the display reflects it. That covers what the test was named for
+    // and cannot pass on an empty page.
+    await expect(page.getByRole('heading', { name: 'Storage Contents' })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Create Test Item to Verify Storage Access' }).click();
+
+    // The page announces the key it just wrote; read it back and require it in
+    // the listing. Deliberately NOT an item count: the mount-time scan reports
+    // 0 and the post-create scan reported 4, because the app's own keys
+    // (e2e:disable-tours, redirectAfterLogin, supabase.auth.token) land between
+    // the two reads. Any absolute number here would be asserting a race, and
+    // would differ again under CI's non-relay origin.
+    const announcement = page.getByText(/Test key created: test_\d+/);
+    await expect(announcement).toBeVisible();
+    const key = ((await announcement.textContent()) || '').replace('Test key created: ', '').trim();
+
+    const contents = page.getByText(new RegExp(`${key}:Test value created at`));
+    await expect(contents).toBeVisible();
   });
 
   test('clear or delete key button is present', async ({ page }) => {
     await goto(page, Routes.adminLocalStorageDebug);
-    const clearBtn = page.locator('button:has-text("Clear"), button:has-text("Delete"), button:has-text("Remove")').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await clearBtn.count() > 0) {
-      await expect(clearBtn).toBeVisible();
-    }
+    // Both clear controls by name. The old union with `.first()` never
+    // established which one it had found, so either disappearing was invisible.
+    await expect(page.getByRole('button', { name: 'Clear Resume Data' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Clear All Resume/Job Data' })).toBeVisible();
   });
 
   test('refresh button is present', async ({ page }) => {
     await goto(page, Routes.adminLocalStorageDebug);
-    const refreshBtn = page.locator('button:has-text("Refresh"), button[aria-label*="refresh"]').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await refreshBtn.count() > 0) {
-      await expect(refreshBtn).toBeVisible();
-    }
+    await expect(page.getByRole('button', { name: 'Refresh' })).toBeVisible();
   });
 });

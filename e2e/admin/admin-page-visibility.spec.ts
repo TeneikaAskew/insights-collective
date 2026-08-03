@@ -21,22 +21,28 @@ test.describe('Admin Page Visibility', () => {
 
   test('visibility toggles are present per page entry', async ({ page }) => {
     await goto(page, Routes.adminPageVisibility);
-    const toggles = page.locator('[role="switch"], input[type="checkbox"], [class*="toggle"]');
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await toggles.count() > 0) {
-      await expect(toggles.first()).toBeVisible();
-    }
+    // MEASURED: 42 [role="switch"] controls across the ledger. A lower bound
+    // rather than an exact count, deliberately: the number tracks the page
+    // manifest and the per-role columns, so pinning it would make this test
+    // fail every time a page is added — the fixture-decay trap one layer up.
+    // What must hold is that the ledger renders SWITCHES and not a read-only
+    // list, which is the thing the guard could not distinguish.
+    const toggles = page.getByRole('switch');
+    expect(await toggles.count()).toBeGreaterThan(10);
+    await expect(toggles.first()).toBeVisible();
   });
 
   test('page names/list is displayed', async ({ page }) => {
     await goto(page, Routes.adminPageVisibility);
-    const pageList = page.locator('table, [role="list"], [class*="page"], ul').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await pageList.count() > 0) {
-      await expect(pageList).toBeVisible();
+    // MEASURED: this ledger renders no <table>, no [role="list"] and no <ul>,
+    // so of the old union only `[class*="page"]` could match — and `.first()`
+    // over it resolved to whatever wrapper happened to come first. The rows
+    // are what this test is named for, so assert their columns and a page
+    // that cannot disappear without the manifest changing.
+    for (const column of ['Page', 'Path', 'All users', 'Instructors', 'Admins']) {
+      await expect(page.getByText(column, { exact: true }).first()).toBeVisible();
     }
+    await expect(page.getByText('governs /dashboard/*').first()).toBeVisible();
   });
 
   test('toggling visibility updates state', async ({ page }) => {

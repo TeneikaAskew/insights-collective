@@ -14,24 +14,34 @@ test.describe('Admin Events Management', () => {
     await expect(page.locator('.animate-spin')).toHaveCount(0);
   });
 
-  test('events table or list renders', async ({ page }) => {
+  test('events table renders with its columns', async ({ page }) => {
     await goto(page, Routes.adminEvents);
-    const table = page.locator('table, [role="table"], [class*="event"], [class*="Card"]').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await table.count() > 0) {
-      await expect(table).toBeVisible();
+    // The events table by its own columns. `[class*="Card"]` in the old union
+    // matched nothing (attribute substring matching is case-sensitive), and
+    // `.first()` over a union resolves in document order, so the test never
+    // established which element it was asserting about.
+    const table = page.getByRole('table');
+    await expect(table).toBeVisible();
+    for (const column of ['Event', 'Type', 'Date', 'Registrations', 'Actions']) {
+      await expect(table.getByRole('columnheader', { name: column })).toBeVisible();
     }
   });
 
   test('create event button is present', async ({ page }) => {
     await goto(page, Routes.adminEvents);
-    const createBtn = page.locator('button:has-text("Create"), button:has-text("New Event"), a:has-text("Create")').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await createBtn.count() > 0) {
-      await expect(createBtn).toBeVisible();
-    }
+    // MEASURED: the control is "Add Event". NONE of the old locator's three
+    // alternatives — "Create", "New Event", or an anchor saying "Create" —
+    // matches it, so this test has never once looked at the button it names.
+    await expect(page.getByRole('button', { name: 'Add Event' })).toBeVisible();
+  });
+
+  test('the events and registrations tabs are both offered', async ({ page }) => {
+    await goto(page, Routes.adminEvents);
+    // exact, because getByRole name matching is a case-insensitive SUBSTRING
+    // match by default — and this page also has "Upcoming Events (4)" and
+    // "Past Events (7)" tabs, so a bare 'Events' matches three of them.
+    await expect(page.getByRole('tab', { name: 'Events', exact: true })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Registrations', exact: true })).toBeVisible();
   });
 
   test('page heading is visible', async ({ page }) => {
