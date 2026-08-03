@@ -2,6 +2,35 @@
 -- ABOUTME: Run against the target Supabase project before executing the e2e suite.
 -- Usage: psql "$SUPABASE_DB_URL" -f e2e/fixtures/seed.sql
 -- Safe to run repeatedly. Uses stable identifiers so tests can reference known rows.
+--
+-- FIXTURES THAT DECAY — the failure mode this file has produced twice
+--
+-- "Safe to run repeatedly" is not the same as "keeps meaning the same thing".
+-- Two fixtures here worked when written and quietly stopped, and in both cases
+-- the specs that depended on them kept reporting green because they sat behind
+-- count-guards:
+--
+--   quizzes.allowed_attempts = 3   consumed by the tests themselves. Every run
+--                                  that clicked Start burned one, so it died on
+--                                  the fourth run. The page then offered no way
+--                                  to begin and the quiz specs asserted nothing.
+--
+--   events.date = CURRENT_DATE+30  behind ON CONFLICT DO NOTHING, so once the
+--                                  row existed the date never re-applied. It
+--                                  drifted to April 2025, rendered as a "Past
+--                                  Event", and vanished from the Upcoming tab
+--                                  the specs search.
+--
+-- Two rules that follow, for anything added below:
+--
+--   1. If a value is CONSUMED by running the suite (attempts, quotas, one-shot
+--      tokens), the seed must restore it, not just create it once.
+--   2. If a value is RELATIVE TO NOW, ON CONFLICT DO NOTHING will freeze it at
+--      whatever it was the first time. Add an explicit UPDATE.
+--
+-- And assert it in the DO block at the end. An assertion is what turns a decayed
+-- fixture into a loud seed failure instead of a spec that passes against an
+-- empty page.
 
 BEGIN;
 
