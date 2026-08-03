@@ -339,7 +339,7 @@ export default function CanvasAssignmentSubmission() {
                   {contentItem.assignment?.due_at && (
                     <div className="flex items-center gap-1 text-sm text-muted-foreground">
                       <Calendar className="h-4 w-4" />
-                      Due {format(new Date(contentItem.assignment.due_at), 'MMM d, yyyy at h:mm a')}
+                      Due {format(new Date(contentItem.assignment.due_at), "MMM d, yyyy 'at' h:mm a")}
                     </div>
                   )}
                   {isLate() && (
@@ -383,7 +383,7 @@ export default function CanvasAssignmentSubmission() {
                   Submission {submission.attempt} - {submission.workflow_state}
                 </div>
                 <div className="text-sm">
-                  Submitted {format(new Date(submission.submitted_at!), 'MMM d, yyyy at h:mm a')}
+                  Submitted {format(new Date(submission.submitted_at!), "MMM d, yyyy 'at' h:mm a")}
                 </div>
                 {submission.grade !== null && (
                   <div className="text-sm">

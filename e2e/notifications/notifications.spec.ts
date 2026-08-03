@@ -6,15 +6,8 @@ test.describe('Notifications Page', () => {
   test.describe('signed out', () => {
     test.use({ storageState: { cookies: [], origins: [] } });
 
-    test.skip(
+    test(
       'unauthenticated user is redirected to login',
-      {
-        annotation: {
-          type: 'skip-reason',
-          description:
-            'Blocked on PR 8: /notifications is routed without ProtectedRoute (src/App.tsx:259) and shows an inline sign-in card instead of redirecting.',
-        },
-      },
       async ({ page }) => {
         await page.goto(Routes.notifications);
         await expectRedirectToLogin(page);

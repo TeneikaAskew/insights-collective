@@ -16,20 +16,45 @@ function Calendar({
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
-      className={cn("p-3", className)}
+      // `relative` is load-bearing — see the nav comment below.
+      className={cn("relative p-3", className)}
       classNames={{
         months: "flex flex-col sm:flex-row gap-4",
         month: "flex flex-col gap-4",
         month_caption: "flex justify-center pt-1 relative items-center w-full",
         caption_label: "text-sm font-medium",
-        nav: "flex items-center gap-1",
+        // THE MONTH ARROWS WERE POSITIONED AGAINST THE VIEWPORT.
+        //
+        // react-day-picker v9 renders `nav` at the DayPicker ROOT, as a sibling
+        // of `months` — in v8 it lived inside the caption. These classNames
+        // still carried v8's arrangement: `absolute left-1` / `absolute
+        // right-1` on the BUTTONS, relying on `month_caption`'s `relative`,
+        // which is no longer an ancestor of them. With no positioned ancestor
+        // left, both buttons resolved against the initial containing block.
+        //
+        // Measured on /courses/:id/calendar at 1280x720 before this change:
+        //
+        //     "Go to the Previous Month"   x = 4 .. 32     (left-1 from the viewport)
+        //     "Go to the Next Month"       x = 1248 .. 1276 (right-1 from the viewport)
+        //     collapsed course sidebar     x = 0 .. 48
+        //     elementFromPoint(18, ...)    -> the sidebar's content div
+        //
+        // so Previous was rendered UNDERNEATH the sidebar rail and could not be
+        // clicked at all, and Next only worked because nothing happens to sit
+        // at the right edge. Every Calendar in the app had it; the course
+        // calendar is just where a test finally looked.
+        //
+        // Fixed the v9 way: `nav` is the absolutely positioned element, pinned
+        // across the calendar's own top edge (the root now provides the
+        // positioning context), and the buttons are ordinary flex children.
+        nav: "absolute inset-x-3 top-3 z-10 flex items-center justify-between",
         button_previous: cn(
           buttonVariants({ variant: "outline" }),
-          "absolute left-1 h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100"
+          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100"
         ),
         button_next: cn(
           buttonVariants({ variant: "outline" }),
-          "absolute right-1 h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100"
+          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100"
         ),
         month_grid: "w-full border-collapse",
         weekdays: "flex",

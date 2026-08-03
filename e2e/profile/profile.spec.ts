@@ -6,15 +6,8 @@ test.describe('Profile Page', () => {
   test.describe('signed out', () => {
     test.use({ storageState: { cookies: [], origins: [] } });
 
-    test.skip(
+    test(
       'unauthenticated user is redirected to login',
-      {
-        annotation: {
-          type: 'skip-reason',
-          description:
-            'Blocked on PR 8: /profile navigates from an async useEffect (Profile.tsx:56-66) instead of a synchronous guard, so the redirect races the assertion. Wrapping the route in ProtectedRoute removes the race and this unskips.',
-        },
-      },
       async ({ page }) => {
         await page.goto(Routes.profile);
         await expectRedirectToLogin(page);

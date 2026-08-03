@@ -374,7 +374,7 @@ export function BlogPostForm({ postId }: BlogPostFormProps) {
               </h1>
               {lastSaved && (
                 <p className="text-sm text-muted-foreground">
-                  Last saved {format(lastSaved, 'MMM dd, yyyy at h:mm a')}
+                  Last saved {format(lastSaved, "MMM dd, yyyy 'at' h:mm a")}
                 </p>
               )}
             </div>

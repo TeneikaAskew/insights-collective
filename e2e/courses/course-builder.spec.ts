@@ -1,5 +1,5 @@
 import { test, expect } from '../fixtures/page-helpers';
-import { goto, waitForPageLoad } from '../fixtures/page-helpers';
+import { expectRedirectToLogin, goto, waitForPageLoad } from '../fixtures/page-helpers';
 import { Sel } from '../fixtures/test-ids';
 import { Routes } from '../helpers/route-helpers';
 
@@ -68,27 +68,22 @@ test.describe('Course Builder (Instructor)', () => {
     await expect(page.locator('body')).not.toBeEmpty();
   });
 
-  // Body untouched (see the note in course-gradebook.spec.ts). Recorded here as
-  // well: the title says "member user" but the body builds a context with no
-  // storageState at all, so it describes a signed-OUT visitor. PR 8 decides
-  // which of the two it should be; annotating it now at least stops the CI
-  // report from listing it as a skip nobody could explain.
-  test.skip(
-    'member user is redirected away from builder',
-    {
-      annotation: {
-        type: 'skip-reason',
-        description:
-          'Blocked on PR 8: the course-builder route has no ProtectedRoute. Also mis-titled — the body signs out entirely rather than acting as a member.',
-      },
-    },
-    async ({ browser }) => {
-      const ctx = await browser.newContext();
-      const p = await ctx.newPage();
-      await p.goto(builderUrl);
-      const url = p.url();
-      expect(url).not.toContain('/builder');
-      await ctx.close();
-    },
-  );
+  // RENAMED to what it actually does. The old title said "member user", but the
+  // body built a context with no storageState at all — a signed-OUT visitor.
+  // While this was skipped the discrepancy cost nothing; now that PR 8 has
+  // wrapped the route in ProtectedRoute and the test runs, a name that
+  // describes the wrong actor would send the next reader looking for a
+  // role check that isn't here.
+  //
+  // The hand-built context is replaced by a describe-scoped `test.use`, so the
+  // page stays under the console-error fixture — a browser.newContext() page
+  // escapes it (the lesson from #48).
+  test.describe('signed out', () => {
+    test.use({ storageState: { cookies: [], origins: [] } });
+
+    test('unauthenticated visitor is redirected away from the builder', async ({ page }) => {
+      await page.goto(builderUrl);
+      await expectRedirectToLogin(page);
+    });
+  });
 });

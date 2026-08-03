@@ -16,7 +16,7 @@
 // instead of quietly here.
 
 import { test, expect } from '../fixtures/page-helpers';
-import { goto, waitForPageLoad } from '../fixtures/page-helpers';
+import { expectRedirectToLogin, goto, waitForPageLoad } from '../fixtures/page-helpers';
 import { Sel } from '../fixtures/test-ids';
 import { Routes, TestIds } from '../helpers/route-helpers';
 
@@ -112,23 +112,22 @@ test.describe('Assignment Submission', () => {
     ).toBeVisible();
   });
 
-  // Body untouched — see the note in course-gradebook.spec.ts.
-  test.skip(
-    'unauthenticated user is redirected',
-    {
-      annotation: {
-        type: 'skip-reason',
-        description:
-          'Blocked on PR 8: the assignment-submission route has no ProtectedRoute, so a signed-out visitor is never redirected.',
-      },
-    },
-    async ({ browser }) => {
-      const ctx = await browser.newContext();
-      const p = await ctx.newPage();
-      await p.goto(submitUrl);
-      await p.waitForLoadState('domcontentloaded');
-      expect(p.url()).not.toContain('/submit');
-      await ctx.close();
-    },
-  );
+  // The body is rewritten, not just unskipped, because as written it could not
+  // pass even with the guard in place: it waited for `domcontentloaded` and
+  // then read the URL once. That fires before React has mounted, let alone
+  // redirected, so it raced ProtectedRoute and lost — measured, the URL was
+  // still .../submit at that instant.
+  //
+  // expectRedirectToLogin polls the URL and then the form, which is the wait
+  // the original was missing. The hand-built context is gone too: this file
+  // runs in chromium-member, so a describe-scoped `test.use` gives the
+  // signed-out state while keeping the page under the console-error fixture.
+  test.describe('signed out', () => {
+    test.use({ storageState: { cookies: [], origins: [] } });
+
+    test('unauthenticated user is redirected', async ({ page }) => {
+      await page.goto(submitUrl);
+      await expectRedirectToLogin(page);
+    });
+  });
 });

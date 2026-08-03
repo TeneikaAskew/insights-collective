@@ -41,37 +41,24 @@ test.describe('Course Calendar', () => {
     await expect(grid).not.toHaveAttribute('aria-label', before ?? '');
   });
 
-  // UI DEFECT, MEASURED — the Previous Month control cannot be clicked.
-  //
-  // At the default 1280x720 desktop viewport with the course sidebar collapsed
-  // to its icon rail:
-  //
-  //     "Go to the Previous Month"  x = 4 .. 32
-  //     collapsed sidebar rail      x = 0 .. 48
-  //     document.elementFromPoint(18, centre)  ->  the sidebar's content div
-  //
-  // The calendar lays out across the full viewport width instead of starting
-  // after the rail, so the button renders UNDERNEATH the sidebar and Playwright
-  // reports "subtree intercepts pointer events". A real user hits the same
-  // wall. Skipped rather than worked around with force:true, because forcing
-  // the click would prove the handler works while the control stays
-  // unreachable — which is the kind of green this whole sweep exists to remove.
-  test.skip(
-    'previous-month navigation works',
-    {
-      annotation: {
-        type: 'skip-reason',
-        description:
-          'UI defect: on /courses/:id/calendar the "Go to the Previous Month" button (x 4-32) renders beneath the collapsed course sidebar rail (x 0-48) at 1280px, so it intercepts no clicks — elementFromPoint at its centre returns the sidebar. Forward navigation is unaffected and is covered above.',
-      },
-    },
-    async ({ page }) => {
-      await goto(page, calUrl);
-      const grid = page.getByRole('grid');
-      const before = await grid.getAttribute('aria-label');
-      await page.getByRole('button', { name: 'Go to the Next Month' }).click();
-      await page.getByRole('button', { name: 'Go to the Previous Month' }).click();
-      await expect(grid).toHaveAttribute('aria-label', before ?? '');
-    },
-  );
+  test('previous-month navigation works', async ({ page }) => {
+    await goto(page, calUrl);
+    const grid = page.getByRole('grid');
+    await expect(grid).toBeVisible();
+    const before = await grid.getAttribute('aria-label');
+
+    // This was skipped when written: the Previous arrow rendered at x 4-32,
+    // underneath the collapsed course sidebar rail at x 0-48, because
+    // react-day-picker v9 moved `nav` out of the caption while the calendar's
+    // classNames still positioned the BUTTONS absolutely against a `relative`
+    // that was no longer their ancestor — so both arrows resolved against the
+    // viewport. Fixed in src/components/ui/calendar.tsx; now measured at
+    // x 334 and x 558, inside the calendar, with elementFromPoint returning
+    // the button itself.
+    await page.getByRole('button', { name: 'Go to the Next Month' }).click();
+    await expect(grid).not.toHaveAttribute('aria-label', before ?? '');
+
+    await page.getByRole('button', { name: 'Go to the Previous Month' }).click();
+    await expect(grid).toHaveAttribute('aria-label', before ?? '');
+  });
 });

@@ -10,7 +10,12 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { GraduationCap, Loader2, Eye, EyeOff } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
-import { FaGoogle, FaGithub, FaTwitter } from 'react-icons/fa';
+// Only Google is offered on this page. githubSignIn/twitterSignIn exist on
+// useAuth and handleSocialSignIn still accepts those providers, but no control
+// reaches them — enabling either needs an OAuth app configured in Supabase,
+// so wiring up a button first would ship one that fails. Tracked by the named
+// skips in e2e/auth/login.spec.ts.
+import { FaGoogle } from 'react-icons/fa';
 import { useToast } from '@/hooks/use-toast';
 
 import { createLogger } from '@/utils/logger';

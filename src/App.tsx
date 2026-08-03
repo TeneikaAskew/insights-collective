@@ -279,7 +279,7 @@ function App() {
                     {/* Home & Core Routes */}
                     <Route path="/" element={<Index />} />
                     <Route path="/dashboard" element={<Dashboard />} />
-                    <Route path="/notifications" element={<Notifications />} />
+                    <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
 
                     {/* Authentication Routes */}
                     <Route path="/login" element={<Login />} />
@@ -289,7 +289,7 @@ function App() {
                     <Route path="/auth/callback" element={<AuthCallback />} />
 
                     {/* Profile & User Routes */}
-                    <Route path="/profile" element={<Profile />} />
+                    <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
 
                      {/* Course & Learning Routes - Canvas/Blackboard Style */}
                      <Route path="/courses" element={<CourseList />} />
@@ -300,13 +300,13 @@ function App() {
                      {/* Redirect singular /course to plural /courses */}
                      <Route path="/course/:courseId" element={<CourseRedirect />} />
                      <Route path="/course/:courseId/*" element={<CourseRedirect />} />
-                     <Route path="/enrolled-courses" element={<EnrolledCoursesDashboard />} />
+                     <Route path="/enrolled-courses" element={<ProtectedRoute><EnrolledCoursesDashboard /></ProtectedRoute>} />
                      <Route path="/courses/:courseId" element={<CourseDetail />} />
                      <Route path="/courses/:courseId/modules" element={<CourseDetail />} />
                      <Route path="/courses/:courseId/announcements" element={<CourseDetail />} />
                      <Route path="/courses/:courseId/assignments" element={<CourseDetail />} />
                      <Route path="/courses/:courseId/grades" element={<CourseDetail />} />
-                     <Route path="/courses/:courseId/gradebook" element={<CourseGradebook />} />
+                     <Route path="/courses/:courseId/gradebook" element={<ProtectedRoute><CourseGradebook /></ProtectedRoute>} />
                      <Route path="/courses/:courseId/rubrics" element={<CourseRubrics />} />
                      <Route path="/courses/:courseId/rubrics/:rubricId" element={<RubricEdit />} />
                      <Route path="/courses/:courseId/question-banks" element={<CourseQuestionBanks />} />
@@ -321,8 +321,8 @@ function App() {
                      {/* Legacy management page now redirects to unified builder */}
                      <Route path="/courses/:courseId/management" element={<CourseBuilderRedirect />} />
                      {/* New Teachable/Kajabi-style builder + learner routes */}
-                     <Route path="/courses/:courseId/builder" element={<CourseBuilder />} />
-                     <Route path="/courses/new/builder" element={<CourseBuilder />} />
+                     <Route path="/courses/:courseId/builder" element={<ProtectedRoute><CourseBuilder /></ProtectedRoute>} />
+                     <Route path="/courses/new/builder" element={<ProtectedRoute><CourseBuilder /></ProtectedRoute>} />
                      <Route path="/courses/:courseId/learn" element={<CourseLearn />} />
                      <Route path="/courses/:courseId/learn/:moduleId/:itemId" element={<CourseLearn />} />
                      <Route path="/courses/:courseId/modules/:moduleId/assignments/:assignmentId" element={<AssignmentDetail />} />
@@ -332,10 +332,10 @@ function App() {
                      <Route path="/courses/:courseId/modules/:moduleId/content/:itemId" element={<CourseLearnRedirect />} />
                      
                      {/* Canvas-style Routes */}
-                     <Route path="/courses/:courseId/modules/:moduleId/assignments/:contentItemId/submit" element={<CanvasAssignmentSubmission />} />
+                     <Route path="/courses/:courseId/modules/:moduleId/assignments/:contentItemId/submit" element={<ProtectedRoute><CanvasAssignmentSubmission /></ProtectedRoute>} />
                      <Route path="/courses/:courseId/modules/:moduleId/quizzes/:contentItemId" element={<CanvasQuizTaking />} />
                      <Route path="/courses/:courseId/modules/:moduleId/quizzes/:contentItemId/results/:submissionId" element={<CanvasQuizResults />} />
-                     <Route path="/courses/:courseId/assignments/:contentItemId/grade" element={<CanvasGradingInterface />} />
+                     <Route path="/courses/:courseId/assignments/:contentItemId/grade" element={<ProtectedRoute><CanvasGradingInterface /></ProtectedRoute>} />
                      <Route path="/courses/:courseId/manage/assignments" element={<InstructorAssignments />} />
                      <Route path="/courses/:courseId/instructors" element={<CourseInstructors />} />
                      <Route path="/courses/:courseId/materials" element={<CourseMaterials />} />

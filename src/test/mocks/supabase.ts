@@ -1,5 +1,6 @@
 import { vi } from 'vitest';
 import DB_FUNCTIONS from '../fixtures/db-functions.json';
+import { assertParsedSchema, getSchema } from './schema';
 
 /**
  * Every function that exists in the database's public schema.
@@ -24,6 +25,7 @@ async function defaultRpc(name: string) {
 
 /** Length of the shared leading substring — a cheap stand-in for "looks alike". */
 function commonPrefix(a: string, b: string): number {
+  if (typeof a !== 'string' || typeof b !== 'string') return 0;
   let i = 0;
   while (i < a.length && i < b.length && a[i] === b[i]) i++;
   return i;
@@ -50,6 +52,74 @@ function assertKnownRpc(name: string): void {
     `supabase.rpc('${name}') — no such function in the database.\n` +
       (near.length ? `Did you mean: ${near.join(', ')}?\n` : '') +
       `If it was just added, run: node scripts/audit/refresh-db-functions.mjs`,
+  );
+}
+
+/**
+ * Reject a table the database does not have.
+ *
+ * `from: vi.fn()` accepted any string, exactly as `rpc` once did — so a test
+ * could query a table that had been renamed or never existed and still pass.
+ * The names come from the generated types, which CI already checks against the
+ * live database.
+ */
+function assertKnownTable(name: string): void {
+  const schema = getSchema();
+  if (schema.has(name)) return;
+
+  const near = [...schema.keys()]
+    .map((n) => ({ n, score: commonPrefix(n, name) }))
+    .filter(({ n, score }) => score >= 5 || n.includes(name) || name.includes(n))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3)
+    .map(({ n }) => n);
+
+  throw new Error(
+    `supabase.from('${name}') — no such table or view in the public schema.\n` +
+      (near.length ? `Did you mean: ${near.join(', ')}?\n` : '') +
+      `If it was just added, regenerate src/integrations/supabase/types.ts.`,
+  );
+}
+
+/**
+ * Reject a column the table does not have, for the filter methods that take a
+ * plain column name.
+ *
+ * Three shapes are deliberately NOT checked, because in PostgREST they are not
+ * plain column references and a naive check would reject valid queries:
+ *   - JSON paths      settings->>quiz_id
+ *   - embedded fields profiles.first_name
+ *   - computed/alias  anything containing '(' or ':'
+ * The base column of a JSON path IS checked, which is the part a typo hits.
+ */
+/**
+ * The table the builder is currently standing on, set by `from()`. The mock
+ * hands every caller the SAME builder instance — tests rely on that to stub a
+ * return value — so the table cannot live on the builder itself.
+ */
+let currentTable: string | null = null;
+
+function assertKnownColumn(table: string | null, column: unknown): void {
+  if (!table || typeof column !== 'string') return;
+  const schema = getSchema();
+  const columns = schema.get(table);
+  if (!columns || columns.size === 0) return;
+
+  if (column.includes('.') || column.includes('(') || column.includes(':')) return;
+  const base = column.split(/->>?/)[0].trim();
+  if (!base || columns.has(base)) return;
+
+  const near = [...columns]
+    .map((n) => ({ n, score: commonPrefix(n, base) }))
+    .filter(({ n, score }) => score >= 3 || n.includes(base) || base.includes(n))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3)
+    .map(({ n }) => n);
+
+  throw new Error(
+    `supabase.from('${table}') filtered on '${column}' — ${table} has no column '${base}'.\n` +
+      (near.length ? `Did you mean: ${near.join(', ')}?\n` : '') +
+      `If it was just added, regenerate src/integrations/supabase/types.ts.`,
   );
 }
 
@@ -118,6 +188,17 @@ function buildQueryBuilder() {
     'limit',
   ] as const) {
     (builder[key] as ReturnType<typeof vi.fn>).mockReturnValue(builder);
+  }
+
+  // Filter methods take a column name first. Wired AFTER the loop above, which
+  // would otherwise overwrite these with a plain mockReturnValue. Checking here
+  // names the table and the column at the call site, instead of surfacing as an
+  // empty result three assertions later.
+  for (const key of ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'like', 'ilike', 'is', 'in', 'contains'] as const) {
+    (builder[key] as ReturnType<typeof vi.fn>).mockImplementation((column: unknown) => {
+      assertKnownColumn(currentTable, column);
+      return builder;
+    });
   }
 
   return builder;
@@ -205,7 +286,20 @@ export function resetSupabaseMock() {
   // `expect(from).not.toHaveBeenCalledWith('some_table')` reported a call an
   // earlier test had made — an assertion that silently cannot pass.
   (mockSupabaseClient.from as ReturnType<typeof vi.fn>).mockClear();
-  (mockSupabaseClient.from as ReturnType<typeof vi.fn>).mockReturnValue(fresh);
+  currentTable = null;
+  // Validates the table name and records it for the column checks, then returns
+  // the shared builder exactly as before. A test that stubs from() with
+  // mockReturnValue replaces this and skips the check, which is the same
+  // deliberate escape hatch rpc has.
+  (mockSupabaseClient.from as ReturnType<typeof vi.fn>).mockImplementation((table?: string) => {
+    // getQueryBuilder() calls from() with NO argument to reach the shared
+    // builder. That is a helper fetching the object, not a query, so there is
+    // no table name to validate and no table to record.
+    if (typeof table !== 'string') return fresh;
+    assertKnownTable(table);
+    currentTable = table;
+    return fresh;
+  });
   // rpc too: a test that stubs it with mockResolvedValue replaces the name
   // validation, and without this the next test would silently inherit both the
   // stubbed value and the missing check.
@@ -215,6 +309,9 @@ export function resetSupabaseMock() {
 
 // Seed an initial builder so the very first test has a working `from()`
 // before any beforeEach has run.
+// A parse that stopped matching would make every guard above a silent no-op.
+assertParsedSchema();
+
 resetSupabaseMock();
 
 // NOTE: The `vi.mock('@/integrations/supabase/client', ...)` call lives in
