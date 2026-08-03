@@ -24,9 +24,15 @@ test.describe('Course Question Banks (Instructor)', () => {
   test('the question banks panel renders', async ({ page }) => {
     await goto(page, qbUrl);
     // "body is not empty" was true of every error page too.
+    // exact on the second one: getByRole's `name` is a case-insensitive
+    // SUBSTRING match by default, so a bare 'Question Banks' also matches the
+    // page title "Introduction to Data Science - Question Banks" and resolves
+    // to two elements, which fails strict mode.
     await expect(
       page.getByRole('heading', { name: 'Introduction to Data Science - Question Banks' }),
     ).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Question Banks' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Question Banks', exact: true }),
+    ).toBeVisible();
   });
 });

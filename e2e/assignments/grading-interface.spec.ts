@@ -38,9 +38,19 @@ test.describe('Grading Interface (Instructor)', () => {
     await expect(page.locator('input[type="number"]').first()).toBeVisible();
   });
 
-  test('feedback textarea is present', async ({ page }) => {
+  test('the grade feedback editor is present', async ({ page }) => {
     await goto(page, gradingUrl);
-    await expect(page.locator('textarea').first()).toBeVisible();
+    // NOT `textarea`. SubmissionComments renders its own "Add a comment or
+    // feedback..." textarea further down, so a bare textarea locator passes on
+    // the comments box and stays green even if the grade feedback control
+    // disappears entirely.
+    //
+    // The grade feedback control is a TipTap UnifiedCanvasEditor
+    // (CanvasGradingInterface.tsx:487). The page mounts two of those — the
+    // submission viewer above it is readOnly — and only the editable one is
+    // contenteditable="true", so that attribute distinguishes them.
+    await expect(page.getByText('Feedback', { exact: true }).first()).toBeVisible();
+    await expect(page.locator('[contenteditable="true"]').first()).toBeVisible();
   });
 
   test('a save control is offered', async ({ page }) => {
