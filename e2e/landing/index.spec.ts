@@ -27,13 +27,17 @@ test.describe('Landing Page', () => {
   });
 
   test('navigating to /login from CTA works', async ({ page }) => {
+    // MEASURED: the landing page renders three of these — "Sign in" in the
+    // navbar, "Log in to view Dashboard", and a "Sign In" CTA. The guard meant
+    // the test skipped itself if the CTA ever disappeared, which is the one
+    // thing it exists to catch.
     const loginLink = page.locator('a[href*="/login"]').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await loginLink.count() > 0) {
-      await loginLink.click();
-      await expect(page).toHaveURL(/\/login/);
-    }
+    await expect(loginLink).toBeVisible();
+    await loginLink.click();
+    await expect(page).toHaveURL(/\/login/);
+    // And the destination is the sign-in form, not a shell that merely has the
+    // right URL.
+    await expect(page.locator('#email')).toBeVisible();
   });
 
   test('page renders without JavaScript errors', async ({ page }) => {

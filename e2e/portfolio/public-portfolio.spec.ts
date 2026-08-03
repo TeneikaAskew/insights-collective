@@ -1,56 +1,61 @@
 import { test, expect } from '../fixtures/page-helpers';
 import { goto, waitForPageLoad } from '../fixtures/page-helpers';
-import { Routes } from '../helpers/route-helpers';
 
-// Public portfolio is accessible WITHOUT authentication
+// Public portfolio is accessible WITHOUT authentication. This file runs in
+// chromium-public, which has no storageState, so the hand-built
+// browser.newContext() in every test was buying nothing — and a page made that
+// way escapes the console-error fixture, which instruments only the injected
+// `page`. They are gone; the project provides the signed-out state.
 test.describe('Public Portfolio View', () => {
-  const publicUrl = Routes.publicPortfolio();
+  // Pinned to the seeded fixture rather than Routes.publicPortfolio(), whose
+  // URL is overridable via E2E_TEST_PORTFOLIO_URL. Every assertion below names
+  // this page's own title, description and skills, so an externally
+  // provisioned portfolio would fail the suite while working perfectly. Same
+  // reasoning as blog-post and survey-page: the URL and the content are one
+  // fixture and have to travel together.
+  const publicUrl = '/portfolio/e2e-member';
 
-  test('renders public portfolio without authentication', async ({ browser }) => {
-    const ctx = await browser.newContext(); // fresh unauthenticated context
-    const page = await ctx.newPage();
+  test('renders public portfolio without authentication', async ({ page }) => {
     await goto(page, publicUrl);
-    await expect(page.locator('body')).not.toBeEmpty();
-    await ctx.close();
+    // The fixture portfolio by name. "body is not empty" was equally true of
+    // the "Portfolio not found" screen and of a crash that left the shell up.
+    await expect(page.getByRole('heading', { name: 'E2E Portfolio' })).toBeVisible();
   });
 
-  test('spinner resolves on load', async ({ browser }) => {
-    const ctx = await browser.newContext();
-    const page = await ctx.newPage();
+  test('spinner resolves on load', async ({ page }) => {
     await page.goto(publicUrl);
     await waitForPageLoad(page);
+    await expect(page.getByRole('heading', { name: 'E2E Portfolio' })).toBeVisible();
     await expect(page.locator('.animate-spin')).toHaveCount(0);
-    await ctx.close();
   });
 
-  test('portfolio content renders', async ({ browser }) => {
-    const ctx = await browser.newContext();
-    const page = await ctx.newPage();
+  test('portfolio content renders', async ({ page }) => {
     await goto(page, publicUrl);
-    // Public portfolio should show some content
-    const content = page.locator('main, [role="main"], [class*="portfolio"], [class*="Portfolio"]').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await content.count() > 0) {
-      await expect(content).toBeVisible();
-    }
-    await ctx.close();
+    // MEASURED: this page renders NO <main>, no [role="main"], and nothing
+    // whose class contains "portfolio" — PortfolioLayoutRenderer emits plain
+    // divs. So the old locator matched zero elements and the count-guard
+    // turned that into a pass. (CSS attribute matching is case-sensitive, so
+    // the [class*="Portfolio"] alternative was dead for a second reason.)
+    // What the page does render is the portfolio's own headings and content.
+    await expect(page.getByRole('heading', { name: 'E2E Portfolio' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Skills & Technologies' })).toBeVisible();
+    await expect(page.getByText('Fixture portfolio page for the editor spec.')).toBeVisible();
   });
 
-  test('page does not show app sidebar navigation', async ({ browser }) => {
-    const ctx = await browser.newContext();
-    const page = await ctx.newPage();
+  test('page does not show app sidebar navigation', async ({ page }) => {
     await goto(page, publicUrl);
-    // Public portfolio should be a standalone page without the main app sidebar
+    // Wait for the page proper before asserting an absence, or this passes
+    // against a blank document for the wrong reason.
+    await expect(page.getByRole('heading', { name: 'E2E Portfolio' })).toBeVisible();
     await expect(page.locator('[data-sidebar="sidebar"]')).toHaveCount(0);
-    await ctx.close();
   });
 
-  test('not found page renders for unknown portfolio URL', async ({ browser }) => {
-    const ctx = await browser.newContext();
-    const page = await ctx.newPage();
+  test('not found page renders for unknown portfolio URL', async ({ page }) => {
     await goto(page, '/portfolio/definitely-does-not-exist-99999');
-    await expect(page.locator('body')).not.toBeEmpty();
-    await ctx.close();
+    // PublicPortfolioView.tsx:59. Asserted by name so this test can tell the
+    // not-found screen from the error screen directly above it in that file —
+    // "body is not empty" could not, and a failed read rendering as "not found"
+    // is exactly the confusion that component was changed to avoid.
+    await expect(page.getByRole('heading', { name: 'Portfolio not found' })).toBeVisible();
   });
 });

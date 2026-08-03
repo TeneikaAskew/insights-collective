@@ -56,23 +56,55 @@ test.describe('Login Page', () => {
     // If no error is thrown, the button is working
   });
 
-  test('GitHub OAuth button initiates redirect (intercepted)', async ({ page }) => {
-    await interceptOAuth(page);
-    const btn = page.locator(Sel.login.githubBtn);
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await btn.count() > 0) {
-      await btn.first().click();
-    }
-  });
+  // GITHUB AND TWITTER SIGN-IN DO NOT EXIST ON THIS PAGE.
+  //
+  // Login.tsx imports FaGithub and FaTwitter and renders NEITHER — the single
+  // social control is "Sign in with Google" (:158-160). `handleSocialSignIn`
+  // still accepts 'github' | 'twitter' (:98), so the handler outlived the
+  // buttons, which is presumably why these two tests were written. Both
+  // locators have therefore always matched zero elements, and the count-guards
+  // turned that into a pass: the GitHub test clicked nothing, and the Twitter
+  // test asserted nothing.
+  //
+  // Skipped with a named reason rather than deleted, so the coverage-gap report
+  // keeps saying these providers are untested, and rather than softened to
+  // match, which would be writing a test around a missing feature.
+  test.skip(
+    'GitHub OAuth button initiates redirect (intercepted)',
+    {
+      annotation: {
+        type: 'skip-reason',
+        description:
+          'UI gap: /login renders no GitHub button. Login.tsx imports FaGithub and never uses it; only "Sign in with Google" is offered, though handleSocialSignIn still accepts the provider.',
+      },
+    },
+    async ({ page }) => {
+      await interceptOAuth(page);
+      await page.locator(Sel.login.githubBtn).click();
+    },
+  );
 
-  test('Twitter OAuth button is present', async ({ page }) => {
-    const twitterBtn = page.locator(Sel.login.twitterBtn);
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await twitterBtn.count() > 0) {
-      await expect(twitterBtn.first()).toBeVisible();
-    }
+  test.skip(
+    'Twitter OAuth button is present',
+    {
+      annotation: {
+        type: 'skip-reason',
+        description:
+          'UI gap: /login renders no Twitter button. Login.tsx imports FaTwitter and never uses it; only "Sign in with Google" is offered.',
+      },
+    },
+    async ({ page }) => {
+      await expect(page.locator(Sel.login.twitterBtn)).toBeVisible();
+    },
+  );
+
+  test('Google is the only social provider offered', async ({ page }) => {
+    // The assertion the two skips above cannot make. It fails in BOTH
+    // directions: if Google disappears, and if GitHub or Twitter is wired up
+    // without the skipped tests being restored.
+    await expect(page.locator(Sel.login.googleBtn)).toBeVisible();
+    await expect(page.locator(Sel.login.githubBtn)).toHaveCount(0);
+    await expect(page.locator(Sel.login.twitterBtn)).toHaveCount(0);
   });
 
   test('Forgot password link navigates to reset password page', async ({ page }) => {

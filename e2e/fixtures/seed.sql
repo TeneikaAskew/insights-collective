@@ -487,9 +487,21 @@ BEGIN
   END IF;
 END $$;
 
--- Portfolio page for /portfolio/edit/:pageId. Owned by the member, because the
--- editor checks ownership — pointing the default at a real user's page would
--- both fail and put a test one keystroke away from editing live content.
+-- Portfolio page for /portfolio/edit/:pageId AND the public view at
+-- /portfolio/e2e-member. Owned by the member, because the editor checks
+-- ownership — pointing the default at a real user's page would both fail and
+-- put a test one keystroke away from editing live content.
+--
+-- UPSERTED, not ON CONFLICT DO NOTHING. This page is opened by the EDITOR
+-- specs, so its title, description and skills are one save away from being
+-- something else, permanently — and public-portfolio.spec.ts now asserts that
+-- exact content rather than "the page is non-empty". Under DO NOTHING the row
+-- would keep whatever an editor run left behind while the seed reported
+-- success, which is rule 1 at the top of this file.
+--
+-- is_public and custom_url are restored for the same reason: flipping either
+-- one takes the public route to "Portfolio not found" without touching a row
+-- the old ownership-only assertion looked at.
 DO $$
 DECLARE
   v_member_id uuid;
@@ -502,7 +514,15 @@ BEGIN
             'E2E Portfolio', 'Fixture portfolio page for the editor spec.',
             'modern', true, 'e2e-member', 'hero-focus',
             '{"skills":["SQL","Python"],"professional_summary":"Fixture portfolio."}'::jsonb)
-    ON CONFLICT (id) DO NOTHING;
+    ON CONFLICT (id) DO UPDATE
+      SET user_id      = EXCLUDED.user_id,
+          title        = EXCLUDED.title,
+          description  = EXCLUDED.description,
+          theme        = EXCLUDED.theme,
+          is_public    = EXCLUDED.is_public,
+          custom_url   = EXCLUDED.custom_url,
+          layout       = EXCLUDED.layout,
+          profile_data = EXCLUDED.profile_data;
   END IF;
 END $$;
 
@@ -619,6 +639,55 @@ UPDATE public.forms
        )
  WHERE slug = 'e2e-fixture-survey';
 
+-- The blog post the blog-post specs deep-link to.
+--
+-- Routes.blogSlug defaults to 'test-blog-post' and NO SUCH ROW EXISTS, so
+-- /blog/test-blog-post has been rendering "Blog post not found" — an <h1>, a
+-- "Back to Blog" button, and nothing else. Every assertion in
+-- blog-post.spec.ts was therefore describing the not-found screen: the title
+-- test passed on the words "Blog post not found", and the two count-guards sat
+-- on locators for an article and a back link that the real page has and the
+-- not-found page mostly does not.
+--
+-- Seeded rather than repointed at one of the ten real published posts. Those
+-- belong to the site owner and can be retitled, unpublished or deleted at any
+-- time, which is a fixture that decays by design.
+--
+-- author_id is NOT NULL, so the post is attributed to the e2e member. If that
+-- account is missing the whole seed has already failed further up.
+DO $$
+DECLARE
+  v_member_id uuid;
+BEGIN
+  SELECT id INTO v_member_id FROM auth.users
+   WHERE email = COALESCE(current_setting('e2e.member_email', true), 'e2e-member@insightscollective.org');
+
+  IF v_member_id IS NULL THEN
+    RAISE EXCEPTION 'E2E SEED FAILED: no e2e member account, so the fixture blog post cannot be attributed';
+  END IF;
+
+  -- Upserted on the slug, not INSERT ... ON CONFLICT DO NOTHING: a post whose
+  -- status was flipped to draft, or whose body was emptied, would otherwise
+  -- stay broken forever while the seed reported success. Same rule as the
+  -- survey fixture above.
+  INSERT INTO public.blog_posts (id, slug, title, excerpt, content, author_id,
+                                 status, published_at, read_time)
+  VALUES ('eeee8888-8888-8888-8888-888888888888',
+          'test-blog-post',
+          'E2E Fixture Blog Post',
+          'Fixture post for the blog-post specs.',
+          E'This paragraph exists so the article body is not empty.\n\n'
+          'A second paragraph, so content assertions have something to match.',
+          v_member_id,
+          'published', now() - interval '1 day', 3)
+  ON CONFLICT (slug) DO UPDATE
+    SET title        = EXCLUDED.title,
+        excerpt      = EXCLUDED.excerpt,
+        content      = EXCLUDED.content,
+        status       = EXCLUDED.status,
+        published_at = COALESCE(public.blog_posts.published_at, EXCLUDED.published_at);
+END $$;
+
 -- Assert deterministic invariants so a failed seed surfaces before tests run.
 DO $$
 DECLARE
@@ -650,6 +719,19 @@ BEGIN
   ) INTO v_ok;
   IF NOT v_ok THEN
     RAISE EXCEPTION 'E2E SEED FAILED: form e2e-fixture-survey is missing, inactive, or no longer matches the structure survey-page.spec.ts asserts (section "About you" with a required "Your name" text field and a "What are you hoping to learn?" textarea)';
+  END IF;
+
+  -- Unpublished or empty, /blog/test-blog-post falls back to "Blog post not
+  -- found" and blog-post.spec.ts silently describes that screen instead.
+  SELECT EXISTS (
+    SELECT 1 FROM public.blog_posts
+     WHERE slug = 'test-blog-post'
+       AND status = 'published'
+       AND title = 'E2E Fixture Blog Post'
+       AND length(content) > 0
+  ) INTO v_ok;
+  IF NOT v_ok THEN
+    RAISE EXCEPTION 'E2E SEED FAILED: no published blog post at slug test-blog-post titled "E2E Fixture Blog Post"; /blog/test-blog-post renders "Blog post not found" and blog-post.spec.ts asserts against it';
   END IF;
 
   -- An event that has aged into the past is invisible on the Upcoming tab, so
@@ -797,14 +879,24 @@ BEGIN
     RAISE EXCEPTION 'E2E SEED FAILED: fixture rubric missing from the reference course; the rubric editor renders Not Found';
   END IF;
 
+  -- Ownership is what the EDITOR needs; the rest is what the PUBLIC view needs.
+  -- Checking ownership alone passed on a page whose title, skills or public
+  -- flag an editor run had changed, which public-portfolio.spec.ts now asserts
+  -- verbatim.
   SELECT EXISTS (
     SELECT 1 FROM public.portfolio_pages p
     JOIN auth.users u ON u.id = p.user_id
      WHERE p.id = 'ffff6666-6666-6666-6666-666666666666'
        AND u.email = COALESCE(current_setting('e2e.member_email', true), 'e2e-member@insightscollective.org')
+       AND p.title = 'E2E Portfolio'
+       AND p.description = 'Fixture portfolio page for the editor spec.'
+       AND p.is_public IS TRUE
+       AND p.custom_url = 'e2e-member'
+       AND p.profile_data -> 'skills' ? 'SQL'
+       AND p.profile_data -> 'skills' ? 'Python'
   ) INTO v_ok;
   IF NOT v_ok THEN
-    RAISE EXCEPTION 'E2E SEED FAILED: fixture portfolio page missing or not owned by the member; the editor rejects it';
+    RAISE EXCEPTION 'E2E SEED FAILED: fixture portfolio page missing, not owned by the member, no longer public at /portfolio/e2e-member, or no longer carrying the title/description/skills public-portfolio.spec.ts asserts';
   END IF;
 
   SELECT EXISTS (

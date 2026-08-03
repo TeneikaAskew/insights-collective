@@ -41,12 +41,25 @@ test.describe('Survey List', () => {
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
     await goto(page, Routes.survey);
-    const startBtn = page.locator('button:has-text("Start"), a:has-text("Start"), a:has-text("Take Survey"), button:has-text("Open")').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await startBtn.count() > 0) {
-      await expect(startBtn).toBeVisible();
-    }
+    // The seeded survey's OWN card, not "the first Start button on the page".
+    // The list renders one card per active form — three today — so `.first()`
+    // was asserting about whichever happened to sort first, and the test never
+    // navigated: it checked that a button it had not identified was visible,
+    // despite its own name.
+    //
+    // Reached from the card's own TITLE rather than by matching the card's
+    // classes. `.rounded-lg.border` looked equivalent and was not: Survey.tsx
+    // passes `border-2 border-primary` for a featured form, and the shared
+    // Card's twMerge drops the base `border` when it does — so that locator
+    // silently matched non-featured cards only, and this fixture's `featured`
+    // flag is not something the seed pins. `rounded-lg` has no such conflict.
+    const card = page
+      .getByRole('heading', { name: 'E2E Fixture Survey' })
+      .locator('xpath=ancestor::div[contains(@class,"rounded-lg")][1]');
+    await expect(card).toBeVisible();
+    await card.getByRole('button', { name: 'Start Survey' }).click();
+    await expect(page).toHaveURL(/\/survey\/e2e-fixture-survey$/);
+    await expect(page.getByRole('heading', { name: 'E2E Fixture Survey' })).toBeVisible();
     await ctx.close();
   });
 });
