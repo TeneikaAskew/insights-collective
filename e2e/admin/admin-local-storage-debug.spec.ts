@@ -36,7 +36,13 @@ test.describe('Admin LocalStorage Debug', () => {
     // and cannot pass on an empty page.
     await expect(page.getByRole('heading', { name: 'Storage Contents' })).toBeVisible();
 
-    await page.getByRole('button', { name: 'Create Test Item to Verify Storage Access' }).click();
+    // The UNCONDITIONAL control (LocalStorageDebug.tsx:248), not the
+    // empty-state one at :372 that renders only while items.length === 0.
+    // Both call the same handler, but the empty-state button disappears the
+    // moment storage has anything in it — so a test that clicks it is a test
+    // that only works while the page is failing to see the admin session's own
+    // keys. exact, because the longer label at :372 contains this one.
+    await page.getByRole('button', { name: 'Create Test Item', exact: true }).click();
 
     // The page announces the key it just wrote; read it back and require it in
     // the listing. Deliberately NOT an item count: the mount-time scan reports
