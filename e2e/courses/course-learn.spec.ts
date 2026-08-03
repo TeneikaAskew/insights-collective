@@ -19,13 +19,19 @@ test.describe('Course Learn Interface', () => {
 
   test('curriculum tree or sidebar is visible', async ({ page }) => {
     await goto(page, learnUrl);
-    // The curriculum by its module names and per-module progress. The old
-    // locator accepted a bare `nav` and `aside`, which the app shell provides on
-    // every page — so it passed with no curriculum rendered at all.
+    // The curriculum by its module names. The old locator accepted a bare `nav`
+    // and `aside`, which the app shell provides on every page — so it passed
+    // with no curriculum rendered at all.
+    //
+    // Deliberately NOT asserting "Start from beginning": CourseLearn only offers
+    // it at partial progress, and nothing seeds or restores
+    // content_item_progressions — so a fresh database, a completed course, or
+    // any spec that advances progress would fail a test that is otherwise
+    // read-only. That is the fixture-decay trap this very PR documents in
+    // seed.sql, and I walked into it while writing the note.
     for (const m of ['Foundations of Data Science', 'Python for Data Analysis', 'Statistical Methods']) {
       await expect(page.getByRole('button', { name: new RegExp(m) })).toBeVisible();
     }
-    await expect(page.getByRole('button', { name: /Start from beginning/ })).toBeVisible();
   });
 
   test('content viewer pane is visible', async ({ page }) => {
@@ -50,10 +56,16 @@ test.describe('Course Learn Interface', () => {
 
   test('progress bar or completion indicator is present', async ({ page }) => {
     await goto(page, learnUrl);
-    // Per-module completion counts, which is what this screen shows instead of
-    // a progressbar element — measured 0 [role="progressbar"] here. The old
+    // Per-module completion counts, which is what this screen shows instead of a
+    // progressbar element — measured 0 [role="progressbar"] here. The old
     // locator's [class*="progress"] alternative matched the page wrapper, so it
     // passed regardless.
-    await expect(page.getByRole('button', { name: /Foundations of Data Science\s*6 \/ 7 complete/ })).toBeVisible();
+    //
+    // Matched by SHAPE, not by the numbers. An exact "6 / 7 complete" pins the
+    // test to one mutable progress state that no seed restores, so it would
+    // break the moment anyone used the account or a spec advanced a lesson.
+    await expect(
+      page.getByRole('button', { name: /\d+ \/ \d+ complete/ }).first(),
+    ).toBeVisible();
   });
 });
