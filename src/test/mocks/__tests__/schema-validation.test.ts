@@ -20,6 +20,28 @@ describe('unit-mock schema guards', () => {
       expect(getSchema().size).toBeGreaterThan(50);
     });
 
+    it('holds only real relations — no functions, no composite types', () => {
+      // The parse first matched every six-space `name: {` inside `public:`,
+      // which swept in 61 entries from the Functions and CompositeTypes
+      // sections. They arrived with EMPTY column sets, which made them doubly
+      // harmful: assertKnownTable accepted them, and assertKnownColumn skips a
+      // relation whose columns it does not know, so each one also disabled
+      // column checking for itself.
+      const schema = getSchema();
+      const columnless = [...schema.entries()].filter(([, cols]) => cols.size === 0);
+      expect(columnless.map(([name]) => name)).toEqual([]);
+
+      for (const fn of ['is_course_instructor', 'has_admin_access', 'get_user_roles']) {
+        expect(schema.has(fn)).toBe(false);
+      }
+    });
+
+    it('rejects a database function passed to from()', () => {
+      expect(() => mockSupabaseClient.from('is_course_instructor')).toThrow(
+        /no such table or view/,
+      );
+    });
+
     it('carries columns, not just table names', () => {
       expect(getSchema().get('profiles')?.has('first_name')).toBe(true);
       expect(getSchema().get('quiz_submissions')?.has('quiz_id')).toBe(true);

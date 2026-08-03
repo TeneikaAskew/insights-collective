@@ -34,13 +34,36 @@ function parseSchema(): Schema {
   const src = readFileSync(TYPES_PATH, 'utf8');
   const schema: Schema = new Map();
 
-  // Indentation is the structure here. In the generated file a table name sits
-  // at six spaces inside `public:`, its `Row:` at eight, and each column at ten.
+  // Indentation is the structure here. In the generated file a top-level
+  // section (Tables, Views, Functions, Enums, CompositeTypes) sits at four
+  // spaces, a relation name at six inside it, its `Row:` at eight, and each
+  // column at ten.
+  //
+  // The section must be tracked, not just the indentation. A first version
+  // matched every six-space `name: {` inside `public:`, which swept in all 61
+  // entries under Functions and CompositeTypes — so `from('is_course_instructor')`
+  // was accepted as a table. Worse, those arrived with EMPTY column sets, and
+  // assertKnownColumn skips a relation whose columns it does not know, so each
+  // bogus name also silently disabled column checking. A guard that quietly
+  // stops guarding is the failure this whole suite exists to remove, so
+  // assertParsedSchema now rejects any column-less relation outright.
   const lines = src.split('\n');
+  let section: string | null = null;
   let current: string | null = null;
   let inRow = false;
 
   for (const line of lines) {
+    const sectionStart = line.match(/^ {4}(\w+): \{$/);
+    if (sectionStart) {
+      section = sectionStart[1];
+      current = null;
+      inRow = false;
+      continue;
+    }
+
+    // Only relations have rows to read.
+    if (section !== 'Tables' && section !== 'Views') continue;
+
     const table = line.match(/^ {6}(\w+): \{$/);
     if (table) {
       current = table[1];
@@ -64,11 +87,6 @@ function parseSchema(): Schema {
     }
   }
 
-  // Blocks that are not tables but match the same indentation.
-  for (const notATable of ['Row', 'Insert', 'Update', 'Relationships', 'Args', 'Returns']) {
-    schema.delete(notATable);
-  }
-
   return schema;
 }
 
@@ -89,6 +107,27 @@ export function assertParsedSchema(schema: Schema = getSchema()): void {
   const problems: string[] = [];
   if (schema.size < 50) {
     problems.push(`only ${schema.size} tables parsed from types.ts; expected dozens`);
+  }
+
+  // Every relation has at least one column. An entry without any is not a
+  // relation — it is something else that the parse mistook for one, and it
+  // would be accepted by assertKnownTable AND skipped by assertKnownColumn.
+  // This is the check that would have caught the Functions/CompositeTypes leak
+  // on the first run instead of in review.
+  const columnless = [...schema.entries()].filter(([, cols]) => cols.size === 0).map(([name]) => name);
+  if (columnless.length) {
+    problems.push(
+      `${columnless.length} parsed relation(s) have no columns, so they are not relations: ` +
+        `${columnless.slice(0, 8).join(', ')}${columnless.length > 8 ? ', …' : ''}`,
+    );
+  }
+
+  // Names that live in OTHER sections of the generated file and must not be
+  // reachable through from().
+  for (const notARelation of ['is_course_instructor', 'has_admin_access', 'get_user_roles']) {
+    if (schema.has(notARelation)) {
+      problems.push(`"${notARelation}" is a database function, not a relation, but the parse treated it as one`);
+    }
   }
   // Three tables from different parts of the schema, each with a column that
   // has been load-bearing in this codebase.
