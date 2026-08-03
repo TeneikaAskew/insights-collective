@@ -18,7 +18,7 @@ on:
   workflow_dispatch:
     inputs:
       migration:
-        description: 'Filename in supabase/migrations/, ALL to apply every pending migration, or RECONCILE to also record files whose objects already exist'
+        description: 'Filename in supabase/migrations/, ALL to apply every pending migration, RECONCILE to also record files whose objects already exist, or RECORD:<version> to record a version RECONCILE set aside (requires scripts/reconcile/<version>*.sql to prove its effects are present)'
         required: true
         type: string
       confirm:
@@ -50,7 +50,7 @@ jobs:
 
       - name: Resolve the migration file
         id: resolve
-        if: inputs.migration != 'ALL' && inputs.migration != 'RECONCILE'
+        if: inputs.migration != 'ALL' && inputs.migration != 'RECONCILE' && !startsWith(inputs.migration, 'RECORD:')
         run: |
           NAME='${{ inputs.migration }}'
           # No paths. The input names a file in the migrations directory and
@@ -135,7 +135,7 @@ jobs:
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Refuse if this version was already recorded
-        if: inputs.migration != 'ALL' && inputs.migration != 'RECONCILE'
+        if: inputs.migration != 'ALL' && inputs.migration != 'RECONCILE' && !startsWith(inputs.migration, 'RECORD:')
         env:
           PGURL: ${{ secrets.SUPABASE_DB_URL }}
           VERSION: ${{ steps.resolve.outputs.version }}
@@ -151,7 +151,7 @@ jobs:
           fi
 
       - name: Apply it
-        if: inputs.migration != 'ALL' && inputs.migration != 'RECONCILE'
+        if: inputs.migration != 'ALL' && inputs.migration != 'RECONCILE' && !startsWith(inputs.migration, 'RECORD:')
         env:
           PGURL: ${{ secrets.SUPABASE_DB_URL }}
           FILE: ${{ steps.resolve.outputs.file }}
@@ -372,6 +372,85 @@ jobs:
             exit 1
           fi
           [ "$REMAINING" -eq 0 ]
+
+      # RECORD:<version> is the other half of RECONCILE's handoff.
+      #
+      # RECONCILE sets aside any file that opens its own transaction and fails
+      # naming it, because error-tolerant mode cannot reconcile such a file: the
+      # first "already exists" aborts the transaction and every later statement
+      # returns "current transaction is aborted" WITHOUT RUNNING. Recording the
+      # version off the back of that would assert an end state nobody
+      # established.
+      #
+      # This mode records such a version, but ONLY behind a companion script in
+      # scripts/reconcile/ that asserts the migration's effects are actually
+      # present. The mechanism is general; the evidence is hand-written per file,
+      # because only a person can say what "its effects are present" means for a
+      # given migration. No script, no record — the refusal below is the point of
+      # the whole mode, not a guard rail on it.
+      #
+      # The script owns the ledger INSERT itself, so its assertions and the
+      # record commit in one transaction and cannot disagree. That is why this
+      # step does not append an insert of its own the way "Apply it" does.
+      - name: Record a version whose effects a script can prove are present
+        if: startsWith(inputs.migration, 'RECORD:')
+        env:
+          PGURL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -e
+          VERSION="${{ inputs.migration }}"
+          VERSION="${VERSION#RECORD:}"
+
+          # Same rule as the migration input: a version, not a path, so this
+          # cannot be pointed at a scratch .sql somebody left around.
+          case "$VERSION" in
+            */*|..*|"") echo "::error::RECORD: must be followed by a bare version, e.g. RECORD:20260801000300"; exit 1 ;;
+          esac
+          case "$VERSION" in
+            [0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]*) : ;;
+            *) echo "::error::'$VERSION' is not a version of at least 8 digits"; exit 1 ;;
+          esac
+
+          COUNT=$(ls -1 scripts/reconcile/"$VERSION"*.sql 2>/dev/null | wc -l)
+          if [ "$COUNT" -eq 0 ]; then
+            echo "::error::No scripts/reconcile/$VERSION*.sql. This mode records a version only when a script can prove the migration's effects are present; write that script first."
+            exit 1
+          fi
+          if [ "$COUNT" -gt 1 ]; then
+            echo "::error::More than one scripts/reconcile/$VERSION*.sql. Exactly one, so it is unambiguous which evidence was used."
+            exit 1
+          fi
+          SCRIPT=$(ls -1 scripts/reconcile/"$VERSION"*.sql | head -1)
+
+          ALREADY=$(psql "$PGURL" -v ON_ERROR_STOP=1 -Atc \
+            "select count(*) from supabase_migrations.schema_migrations where version = '$VERSION'")
+          if [ "$ALREADY" != "0" ]; then
+            echo "Version $VERSION is already recorded. Nothing to do."
+            echo "Version $VERSION was already recorded." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          echo "Running $SCRIPT against the live database."
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+          # --single-transaction so a failed assertion rolls back the script's
+          # own INSERT with it. ON_ERROR_STOP because psql otherwise carries on
+          # past an error and exits 0, which is how a failed check would read as
+          # a pass.
+          psql "$PGURL" -v ON_ERROR_STOP=1 --single-transaction -f "$SCRIPT" 2>&1 | tee /tmp/record.txt
+          STATUS=${PIPESTATUS[0]}
+          sed 's/^/  /' /tmp/record.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          [ "$STATUS" -eq 0 ] || exit "$STATUS"
+
+          # Read it back rather than trusting the exit code.
+          CONFIRMED=$(psql "$PGURL" -v ON_ERROR_STOP=1 -Atc \
+            "select count(*) from supabase_migrations.schema_migrations where version = '$VERSION'")
+          if [ "$CONFIRMED" != "1" ]; then
+            echo "::error::$SCRIPT exited 0 but $VERSION is still not recorded."
+            exit 1
+          fi
+          echo "Recorded $VERSION on the evidence of $SCRIPT." | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Show the effect
         if: inputs.verify_table != ''
