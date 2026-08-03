@@ -1,6 +1,6 @@
 import { test, expect } from '../fixtures/page-helpers';
 import { goto, waitForPageLoad } from '../fixtures/page-helpers';
-import { Routes } from '../helpers/route-helpers';
+import { Routes, TestIds } from '../helpers/route-helpers';
 
 // THIS PAGE WAS BROKEN FOR EVERY SUBMISSION, AND THIS FILE DESCRIBED THE ERROR.
 //
@@ -62,9 +62,13 @@ test.describe('Quiz Results', () => {
     // this control absent.
     const backLink = page.getByRole('link', { name: 'Back to Module' }).first();
     await expect(backLink).toBeVisible();
+    // Built from the SAME ids the route is built from. Hard-coding the default
+    // fixture uuids would fail whenever E2E_TEST_COURSE_ID or
+    // E2E_TEST_MODULE_ID is set, even though the link would be correct — this
+    // assertion is about the linkage, not about which course it points at.
     await expect(backLink).toHaveAttribute(
       'href',
-      `/courses/${'660e8400-e29b-41d4-a716-446655440001'}/modules/770e8400-e29b-41d4-a716-446655440001`,
+      `/courses/${TestIds.courseId}/modules/${TestIds.moduleId}`,
     );
   });
 });

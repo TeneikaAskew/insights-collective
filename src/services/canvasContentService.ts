@@ -383,6 +383,14 @@ export class CanvasContentService {
    * param deliberately. The param is user-supplied, and the results page
    * renders per-question answers — pairing one quiz's questions with another
    * quiz's answers would be worse than the error it replaces.
+   *
+   * Returns the ROW ONLY, unlike getQuiz. Modelling it on getQuiz for symmetry
+   * meant it ran get_quiz_questions_for_taking and then its one caller ran the
+   * identical RPC again a line later: a redundant sequential round trip on
+   * every results load, and a second chance for the request to fail and
+   * replace data that had already arrived with the error screen. `questions`
+   * is optional on Quiz, and getQuizQuestionsForTaking exists for exactly this
+   * caller, so the two concerns stay separate.
    */
   static async getQuizById(quizId: string): Promise<Quiz | null> {
     const { data, error } = await supabase
@@ -392,13 +400,7 @@ export class CanvasContentService {
       .single();
 
     if (error && error.code !== 'PGRST116') throw error;
-    if (!data) return null;
-
-    const { data: questions, error: questionsError } = await supabase
-      .rpc('get_quiz_questions_for_taking', { p_quiz_id: data.id });
-    if (questionsError) throw questionsError;
-
-    return { ...data, questions: questions || [] };
+    return data ?? null;
   }
 
   /**
