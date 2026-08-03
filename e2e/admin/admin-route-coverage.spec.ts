@@ -6,20 +6,19 @@ test.describe('Additional Admin Route Coverage', () => {
   test('unified form management renders tabs and opens the create form dialog', async ({ page }) => {
     await goto(page, Routes.adminUnifiedFormManagement);
 
-    const heading = page.locator('h1, h2, h3').filter({ hasText: /form management/i }).first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await heading.count() > 0) {
-      await expect(heading).toBeVisible();
+    // Both guards removed: the heading IS "Form Management" and the button IS
+    // "New Form" — measured. Guarded, this test's whole body was optional, so
+    // it reported success on a page that rendered neither, which is precisely
+    // what a route-COVERAGE spec exists to catch.
+    await expect(page.getByRole('heading', { name: 'Form Management' })).toBeVisible();
+
+    // The test's name promises tabs; it never checked for any.
+    for (const tab of ['All Forms', 'Templates', 'Analytics']) {
+      await expect(page.getByRole('tab', { name: tab })).toBeVisible();
     }
 
-    const newFormBtn = page.locator('button:has-text("New Form"), button:has-text("Create")').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await newFormBtn.count() > 0) {
-      await newFormBtn.click();
-      await expect(page.locator('[role="dialog"]')).toBeVisible();
-    }
+    await page.getByRole('button', { name: 'New Form' }).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
   });
 
   test('form-management route without a slug shows a recoverable error state', async ({ page }) => {

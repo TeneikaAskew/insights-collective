@@ -6,27 +6,18 @@ test.describe('Survey Admin Routes', () => {
   test('survey form create page auto-generates the slug from the title', async ({ page }) => {
     await goto(page, Routes.surveyFormCreate);
 
-    const heading = page.locator('h1, h2, h3').filter({ hasText: /create.*form/i }).first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await heading.count() === 0) {
-      // Page didn't render admin form UI (likely awaiting role hydration); accept a body render.
-      await expect(page.locator('body')).not.toBeEmpty();
-      return;
-    }
-    await expect(heading).toBeVisible();
-    const titleInput = page.locator('#title');
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await titleInput.count() > 0) {
-      await titleInput.fill('Community Feedback Survey');
-      const slug = page.locator('#slug');
-      // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-      // eslint-disable-next-line no-restricted-syntax
-      if (await slug.count() > 0) {
-        await expect(slug).toHaveValue('community-feedback-survey');
-      }
-    }
+    // THREE escape hatches removed, one of them a bail-out that made the whole
+    // test optional: a `count() === 0` on the heading fell through to "the body
+    // is not empty" and returned, so a page that rendered nothing admin-shaped
+    // — for any reason, not just role hydration — passed. `count()` does not
+    // retry, so it was also racing the render it was meant to be waiting for.
+    // toBeVisible() polls, which is the wait the bail-out was standing in for.
+    //
+    // MEASURED: the heading is "Create New Form", #title and #slug both exist,
+    // and typing the title fills the slug with 'community-feedback-survey'.
+    await expect(page.getByRole('heading', { name: 'Create New Form' })).toBeVisible();
+    await page.locator('#title').fill('Community Feedback Survey');
+    await expect(page.locator('#slug')).toHaveValue('community-feedback-survey');
   });
 
   test('survey form edit route fails gracefully when the form identifier cannot be resolved', async ({ page }) => {
