@@ -9,9 +9,11 @@
 -- src/data/subjectKeywords.json: the keyword table gets the new groups (with
 -- stakeholder / leadership / negotiation / project management MOVED out of
 -- business-strategy), and the stored classification on coursera_courses is
--- recomputed for the new subjects only. Existing business-strategy tags on
--- courses are left in place: removing them would require re-deriving the whole
--- classification, and an extra broad tag is harmless to ranking.
+-- recomputed for the new subjects, and stale business-strategy tags are
+-- removed from rows that no longer match any remaining business-strategy
+-- keyword — leaving them would keep e.g. a project-management certificate
+-- ranked as a CENTRAL business-strategy course (primary_subjects drives
+-- rankForSubject), outranking genuine strategy courses.
 
 -- ── Keyword table ────────────────────────────────────────────────────────────
 
@@ -87,3 +89,27 @@ begin
       );
   end loop;
 end $$;
+
+-- ── Drop stale business-strategy tags ────────────────────────────────────────
+-- The moved keywords no longer belong to business-strategy, so rows that were
+-- classified into it only via those keywords must lose the tag — kept, they
+-- would still rank as central business-strategy courses.
+
+update public.coursera_courses c
+set subjects = array_remove(c.subjects, 'business-strategy')
+where 'business-strategy' = any(c.subjects)
+  and not exists (
+    select 1 from public.coursera_subject_keywords k
+    where k.subject = 'business-strategy'
+      and (c.title || ' ' || array_to_string(c.skills, ' '))
+            ~* ('\m' || k.keyword || '\M')
+  );
+
+update public.coursera_courses c
+set primary_subjects = array_remove(c.primary_subjects, 'business-strategy')
+where 'business-strategy' = any(c.primary_subjects)
+  and not exists (
+    select 1 from public.coursera_subject_keywords k
+    where k.subject = 'business-strategy'
+      and c.title ~* ('\m' || k.keyword || '\M')
+  );

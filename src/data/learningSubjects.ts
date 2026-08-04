@@ -78,6 +78,19 @@ export const LEARNING_SUBJECTS: LearningSubject[] = [
   'negotiation',
 ];
 
+/**
+ * The business/professional subjects. Role paths append exactly one of these
+ * in last position; the role resolver reserves the final recommendation slot
+ * for it so the technical subjects cannot crowd it out entirely.
+ */
+export const BUSINESS_SUBJECTS: ReadonlySet<LearningSubject> = new Set([
+  'communication',
+  'leadership',
+  'stakeholder-management',
+  'project-management',
+  'negotiation',
+]);
+
 /** Human labels, for section headings and "why am I seeing this" copy. */
 export const SUBJECT_LABELS: Record<LearningSubject, string> = {
   'data-analysis': 'Data Analysis',
