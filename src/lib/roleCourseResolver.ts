@@ -9,7 +9,7 @@ import {
   subjectIndexFor,
   type CourseraCourse,
 } from '@/data/courseraCatalog';
-import { inferSubjects, type LearningSubject } from '@/data/learningSubjects';
+import { BUSINESS_SUBJECTS, inferSubjects, type LearningSubject } from '@/data/learningSubjects';
 import { subjectsForRole } from '@/data/roleLearningPaths';
 import type { PublishedCourse } from '@/hooks/usePublishedCourses';
 
@@ -239,13 +239,11 @@ export function resolveRoleCourses(
   const coursera: ResolvedCourse[] = [];
   const usedUrls = new Set<string>();
 
-  for (const subject of uncoveredSubjects) {
-    if (coursera.length >= courseraLimit) break;
-
+  const pick = (subject: LearningSubject): boolean => {
     const candidate = courseraCoursesForSubject(subject, subjectIndex).find(
       (course) => !usedUrls.has(course.url),
     );
-    if (!candidate) continue;
+    if (!candidate) return false;
 
     usedUrls.add(candidate.url);
     coursera.push(
@@ -253,9 +251,32 @@ export function resolveRoleCourses(
         candidate,
         // Credit the course for every uncovered subject it happens to teach, so
         // the UI can explain a single pick that closes two gaps at once.
-        candidate.subjects.filter((subject) => uncoveredSubjects.includes(subject)),
+        candidate.subjects.filter((s) => uncoveredSubjects.includes(s)),
       ),
     );
+    return true;
+  };
+
+  // Role paths end with one business subject (communication, leadership, …) at
+  // the lowest priority. Priority order alone would starve it: with the limit
+  // at four and five-plus technical subjects uncovered, the tail was never
+  // reached — exactly in the all-Coursera fallback the tail exists for. So one
+  // slot is reserved for it whenever an uncovered business subject exists, and
+  // released back to the technical subjects if no business course can fill it.
+  const uncoveredTechnical = uncoveredSubjects.filter((s) => !BUSINESS_SUBJECTS.has(s));
+  const uncoveredBusiness = uncoveredSubjects.filter((s) => BUSINESS_SUBJECTS.has(s));
+  const technicalCap = uncoveredBusiness.length > 0 ? courseraLimit - 1 : courseraLimit;
+
+  const technicalQueue = [...uncoveredTechnical];
+  while (coursera.length < technicalCap && technicalQueue.length > 0) {
+    pick(technicalQueue.shift()!);
+  }
+  for (const subject of uncoveredBusiness) {
+    if (coursera.length >= courseraLimit) break;
+    pick(subject);
+  }
+  while (coursera.length < courseraLimit && technicalQueue.length > 0) {
+    pick(technicalQueue.shift()!);
   }
 
   return {
