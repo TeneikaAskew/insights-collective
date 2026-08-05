@@ -2630,6 +2630,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "fk_event_registrations_event_id"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "fk_event_registrations_user_id"
             columns: ["user_id"]
             isOneToOne: false
@@ -5970,16 +5977,6 @@ export type Database = {
         Returns: boolean
       }
       clean_old_security_events: { Args: never; Returns: undefined }
-      course_contacts: {
-        Args: { p_course_id: string }
-        Returns: {
-          avatar_url: string
-          first_name: string
-          id: string
-          last_name: string
-          role: string
-        }[]
-      }
       course_roster_stats: {
         Args: never
         Returns: {
@@ -5997,12 +5994,6 @@ export type Database = {
       coursera_verify_refresh_secret: {
         Args: { p_secret: string }
         Returns: boolean
-      }
-      courses_shared_by_users: {
-        Args: { p_user_ids: string[] }
-        Returns: {
-          course_id: string
-        }[]
       }
       delete_all_user_resumes: {
         Args: { user_id_param: string }
@@ -6304,6 +6295,14 @@ export type Database = {
         }[]
       }
       snapshot_enrollment_progress: { Args: never; Returns: undefined }
+      track_blog_view: {
+        Args: { post_id: string; referrer_url?: string; view_date: string }
+        Returns: undefined
+      }
+      update_user_roles: {
+        Args: { new_roles: string[]; target_user_id: string }
+        Returns: undefined
+      }
       start_quiz_attempt: {
         Args: { p_quiz_id: string }
         Returns: {
@@ -6324,21 +6323,7 @@ export type Database = {
           updated_at: string | null
           user_id: string
           workflow_state: string | null
-        }
-        SetofOptions: {
-          from: "*"
-          to: "quiz_submissions"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      track_blog_view: {
-        Args: { post_id: string; referrer_url?: string; view_date: string }
-        Returns: undefined
-      }
-      update_user_roles: {
-        Args: { new_roles: string[]; target_user_id: string }
-        Returns: undefined
+        }[]
       }
       verify_certificate: {
         Args: { p_code: string }
