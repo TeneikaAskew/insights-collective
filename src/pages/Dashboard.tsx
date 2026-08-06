@@ -309,9 +309,16 @@ const Dashboard = () => {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [notificationsError, setNotificationsError] = useState<string | null>(null);
   const [notificationsReloadKey, setNotificationsReloadKey] = useState(0);
-  const [upcomingDeadlines, setUpcomingDeadlines] = useState<any[]>([]);
-  const [deadlinesError, setDeadlinesError] = useState<string | null>(null);
-  const [deadlinesReloadKey, setDeadlinesReloadKey] = useState(0);
+  // The deadline count comes from the same hook the Calendar's Upcoming view reads, so the
+  // KPI number and the list it links to can never disagree.
+  const { events: calendarEvents } = useUserCalendar(user?.id);
+  const upcomingDeadlineCount = (calendarEvents ?? []).filter((event: any) => {
+    const start = event?.start_time ?? event?.startTime ?? event?.due_date;
+    if (!start) return false;
+    const date = new Date(start);
+    return date.getTime() >= Date.now();
+  }).length;
+
 
   // Fetch real notifications from DB
   useEffect(() => {
