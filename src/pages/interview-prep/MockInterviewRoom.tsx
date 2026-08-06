@@ -100,7 +100,7 @@ export default function MockInterviewRoom() {
 
       if (error) throw error;
 
-      setSession(data);
+      setSession(data as unknown as MockSession);
       const sessionTime = new Date(data.session_time);
       const now = new Date();
       const timeDiff = Math.floor((sessionTime.getTime() - now.getTime()) / 1000);

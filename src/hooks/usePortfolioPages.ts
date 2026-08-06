@@ -44,7 +44,7 @@ export const usePortfolioPages = () => {
           ...pp,
           project: pp.project
         })) || []
-      })) as PortfolioPage[];
+      })) as unknown as PortfolioPage[];
     },
   });
 
@@ -195,7 +195,7 @@ export const usePortfolioPages = () => {
         .insert({
           ...portfolioPage,
           user_id: user.id,
-        })
+        } as any)
         .select()
         .single();
 
@@ -230,7 +230,7 @@ export const usePortfolioPages = () => {
     mutationFn: async ({ id, ...updates }: Partial<PortfolioPage> & { id: string }) => {
       const { data, error } = await supabase
         .from('portfolio_pages')
-        .update(updates)
+        .update(updates as any)
         .eq('id', id)
         .select()
         .single();

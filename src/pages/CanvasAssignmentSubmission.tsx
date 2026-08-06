@@ -124,7 +124,7 @@ export default function CanvasAssignmentSubmission() {
       }
 
       if (submissions && submissions.length > 0) {
-        setSubmission(submissions[0]);
+        setSubmission(submissions[0] as unknown as AssignmentSubmission);
 
         // Pre-fill form with existing submission
         if (submissions[0].submission_type === 'online_text_entry') {

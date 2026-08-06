@@ -369,8 +369,8 @@ export function useResumeAnalysis() {
         if (error) {
           logger.error('Error fetching analysis from DB:', error);
         } else if (data && data.analysis) {
-          setAnalysis(data.analysis);
-          calculateCareerAlignments(data.analysis);
+          setAnalysis(data.analysis as unknown as ResumeAnalysis);
+          calculateCareerAlignments(data.analysis as unknown as ResumeAnalysis);
           localStorage.setItem(`resume_analysis_${user.id}`, JSON.stringify(data.analysis));
           localStorage.setItem(`analysis_complete_time_${user.id}`, Date.now().toString());
           setHasLoadedAnalysis(true);

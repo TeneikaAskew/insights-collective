@@ -100,7 +100,7 @@ export function useModuleProgress(moduleId?: string) {
         .eq('user_id', user.id);
 
       if (assignmentError) throw assignmentError;
-      setAssignmentProgress(assignmentData || []);
+      setAssignmentProgress((assignmentData || []) as unknown as AssignmentProgress[]);
 
       // Fetch quiz progress for this module.
       //
@@ -265,10 +265,10 @@ export function useModuleProgress(moduleId?: string) {
         const existingIndex = prev.findIndex(a => a.content_item_id === contentItemId);
         if (existingIndex >= 0) {
           const updated = [...prev];
-          updated[existingIndex] = { ...data, content_item_id: contentItemId };
+          updated[existingIndex] = { ...data, content_item_id: contentItemId } as unknown as AssignmentProgress;
           return updated;
         }
-        return [...prev, data];
+        return [...prev, data as unknown as AssignmentProgress];
       });
 
       toast({

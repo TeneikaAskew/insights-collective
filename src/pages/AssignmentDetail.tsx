@@ -122,7 +122,7 @@ const AssignmentDetail = () => {
           />
         ) : (
           <AssignmentSubmissionComponent
-            assignment={assignment}
+            assignment={assignment as any}
             submission={submission}
             onSubmit={handleSubmit}
             isSubmitting={submitMutation.isPending}

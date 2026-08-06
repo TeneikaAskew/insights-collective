@@ -46,7 +46,7 @@ export function useLessons(moduleId?: string) {
         .order('order_num', { ascending: true });
 
       if (error) throw error;
-      setLessons(data || []);
+      setLessons((data || []) as unknown as Lesson[]);
     } catch (error: any) {
       logger.error('Error fetching lessons:', error);
       setError(error.message || 'Failed to load lessons');
@@ -76,14 +76,14 @@ export function useLessons(moduleId?: string) {
 
       if (error) throw error;
 
-      setLessons(prev => [...prev, data]);
+      setLessons(prev => [...prev, data as unknown as Lesson]);
       
       toast({
         title: 'Success',
         description: 'Lesson added successfully',
       });
 
-      return data;
+      return data as unknown as Lesson;
     } catch (error: any) {
       logger.error('Error adding lesson:', error);
       toast({
@@ -116,14 +116,14 @@ export function useLessons(moduleId?: string) {
 
       if (error) throw error;
 
-      setLessons(prev => prev.map(lesson => lesson.id === id ? data : lesson));
+      setLessons(prev => prev.map(lesson => lesson.id === id ? (data as unknown as Lesson) : lesson));
       
       toast({
         title: 'Success',
         description: 'Lesson updated successfully',
       });
 
-      return data;
+      return data as unknown as Lesson;
     } catch (error: any) {
       logger.error('Error updating lesson:', error);
       toast({
