@@ -70,7 +70,7 @@ export const gradeService = {
   async upsertGrade(grade: Partial<Grade>) {
     const { data, error } = await supabase
       .from('grades')
-      .upsert(grade, {
+      .upsert(grade as any, {
         onConflict: 'course_id,student_id,assignment_id,quiz_id'
       })
       .select()
@@ -84,7 +84,7 @@ export const gradeService = {
   async bulkUpdateGrades(grades: Partial<Grade>[]) {
     const { data, error } = await supabase
       .from('grades')
-      .upsert(grades, {
+      .upsert(grades as any, {
         onConflict: 'course_id,student_id,assignment_id,quiz_id'
       })
       .select();

@@ -103,7 +103,7 @@ export const gradeHistoryService = {
       .order('changed_at', { ascending: false });
 
     if (error) throw error;
-    return data || [];
+    return (data || []) as unknown as GradeHistoryEntry[];
   },
 
   async getStudentGradeHistory(studentId: string, courseId: string): Promise<GradeHistoryEntry[]> {
@@ -120,7 +120,7 @@ export const gradeHistoryService = {
       .order('changed_at', { ascending: false });
 
     if (error) throw error;
-    return data || [];
+    return (data || []) as unknown as GradeHistoryEntry[];
   },
 
   async getCourseGradeHistory(courseId: string, limit: number = 50): Promise<GradeHistoryEntry[]> {
@@ -138,18 +138,18 @@ export const gradeHistoryService = {
       .limit(limit);
 
     if (error) throw error;
-    return data || [];
+    return (data || []) as unknown as GradeHistoryEntry[];
   },
 
   async createGradeHistoryEntry(entry: Omit<GradeHistoryEntry, 'id' | 'created_at' | 'changed_at'>): Promise<GradeHistoryEntry> {
     const { data, error } = await supabase
       .from('grade_history')
-      .insert(entry)
+      .insert(entry as any)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as unknown as GradeHistoryEntry;
   },
 
   // Submission Comments
@@ -168,7 +168,7 @@ export const gradeHistoryService = {
     if (error) throw error;
 
     // Organize comments into threads
-    const comments = data || [];
+    const comments = (data || []) as unknown as SubmissionComment[];
     const topLevel = comments.filter(c => !c.parent_comment_id);
     const replies = comments.filter(c => c.parent_comment_id);
 
@@ -176,13 +176,13 @@ export const gradeHistoryService = {
       comment.replies = replies.filter(r => r.parent_comment_id === comment.id);
     });
 
-    return topLevel;
+    return topLevel as unknown as SubmissionComment[];
   },
 
   async createComment(comment: Omit<SubmissionComment, 'id' | 'created_at' | 'updated_at'>): Promise<SubmissionComment> {
     const { data, error } = await supabase
       .from('submission_comments')
-      .insert(comment)
+      .insert(comment as any)
       .select(`
         *,
         author:profiles!author_id(first_name, last_name, avatar_url)
@@ -190,13 +190,13 @@ export const gradeHistoryService = {
       .single();
 
     if (error) throw error;
-    return data;
+    return data as unknown as SubmissionComment;
   },
 
   async updateComment(commentId: string, updates: Partial<SubmissionComment>): Promise<SubmissionComment> {
     const { data, error } = await supabase
       .from('submission_comments')
-      .update(updates)
+      .update(updates as any)
       .eq('id', commentId)
       .select(`
         *,
@@ -205,7 +205,7 @@ export const gradeHistoryService = {
       .single();
 
     if (error) throw error;
-    return data;
+    return data as unknown as SubmissionComment;
   },
 
   async deleteComment(commentId: string): Promise<void> {
@@ -224,24 +224,24 @@ export const gradeHistoryService = {
       .insert({
         ...session,
         submissions_graded: 0
-      })
+      } as any)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as unknown as GradingSession;
   },
 
   async updateGradingSession(sessionId: string, updates: Partial<GradingSession>): Promise<GradingSession> {
     const { data, error } = await supabase
       .from('grading_sessions')
-      .update(updates)
+      .update(updates as any)
       .eq('id', sessionId)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as unknown as GradingSession;
   },
 
   async endGradingSession(sessionId: string): Promise<GradingSession> {
@@ -253,7 +253,7 @@ export const gradeHistoryService = {
       .single();
 
     if (error) throw error;
-    return data;
+    return data as unknown as GradingSession;
   },
 
   async getGradingSessions(graderId: string, courseId?: string): Promise<GradingSession[]> {
@@ -269,7 +269,7 @@ export const gradeHistoryService = {
     const { data, error } = await query.order('started_at', { ascending: false });
 
     if (error) throw error;
-    return data || [];
+    return (data || []) as unknown as GradingSession[];
   },
 
   // Notifications

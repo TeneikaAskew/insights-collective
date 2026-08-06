@@ -14,7 +14,7 @@ export const rubricService = {
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    return data || [];
+    return (data || []) as unknown as Rubric[];
   },
 
   // Get a single rubric with criteria
@@ -29,32 +29,32 @@ export const rubricService = {
       .single();
 
     if (error) throw error;
-    return data;
+    return data as unknown as Rubric;
   },
 
   // Create a new rubric
   async createRubric(rubric: Omit<Rubric, 'id' | 'created_at' | 'updated_at'>): Promise<Rubric> {
     const { data, error } = await supabase
       .from('rubrics')
-      .insert(rubric)
+      .insert(rubric as any)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as unknown as Rubric;
   },
 
   // Update a rubric
   async updateRubric(rubricId: string, updates: Partial<Rubric>): Promise<Rubric> {
     const { data, error } = await supabase
       .from('rubrics')
-      .update(updates)
+      .update(updates as any)
       .eq('id', rubricId)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as unknown as Rubric;
   },
 
   // Delete a rubric
@@ -71,25 +71,25 @@ export const rubricService = {
   async createCriteria(criteria: Omit<RubricCriteria, 'id' | 'created_at'>): Promise<RubricCriteria> {
     const { data, error } = await supabase
       .from('rubric_criteria')
-      .insert(criteria)
+      .insert(criteria as any)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as unknown as RubricCriteria;
   },
 
   // Update rubric criteria
   async updateCriteria(criteriaId: string, updates: Partial<RubricCriteria>): Promise<RubricCriteria> {
     const { data, error } = await supabase
       .from('rubric_criteria')
-      .update(updates)
+      .update(updates as any)
       .eq('id', criteriaId)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as unknown as RubricCriteria;
   },
 
   // Delete rubric criteria
@@ -111,7 +111,7 @@ export const rubricService = {
 
     const { error } = await supabase
       .from('rubric_criteria')
-      .upsert(updates);
+      .upsert(updates as any);
 
     if (error) throw error;
   },
