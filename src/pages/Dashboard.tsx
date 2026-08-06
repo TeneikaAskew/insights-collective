@@ -450,7 +450,7 @@ const Dashboard = () => {
             {teachingCourses.length > 0 && (
               <TabsTrigger value="teaching">Teaching</TabsTrigger>
             )}
-            <TabsTrigger value="deadlines">Upcoming Deadlines</TabsTrigger>
+            
             <TabsTrigger value="notifications">Notifications</TabsTrigger>
             <TabsTrigger value="calendar">
               <Calendar className="h-4 w-4 mr-1.5" />
