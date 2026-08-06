@@ -192,7 +192,7 @@ const Dashboard = () => {
             enrollCounts.set(r.course_id, (enrollCounts.get(r.course_id) || 0) + 1);
           });
 
-          const formattedCourses: Course[] = courses.map(course => ({
+          const formattedCourses = courses.map((course: any) => ({
             ...course,
             instructor: {
               id: course.instructor?.id || '',
@@ -271,7 +271,7 @@ const Dashboard = () => {
             enrollCounts.set(r.course_id, (enrollCounts.get(r.course_id) || 0) + 1);
           });
 
-          const formattedCourses: Course[] = courses.map(course => ({
+          const formattedCourses = courses.map((course: any) => ({
             ...course,
             instructor: {
               id: course.instructor?.id || '',

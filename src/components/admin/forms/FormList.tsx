@@ -69,7 +69,7 @@ export function FormList({ searchTerm }: FormListProps) {
 
       if (error) throw error;
 
-      const formsList = (data || []) as FormData[];
+      const formsList = (data || []) as unknown as FormData[];
       setForms(formsList);
       return formsList;
     } catch (error) {

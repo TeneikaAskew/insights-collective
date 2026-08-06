@@ -94,7 +94,7 @@ export default function SurveyFormEdit() {
               description: insertedForm.description || '',
               status: Boolean(insertedForm.status),
               slug: insertedForm.slug,
-              form_structure: insertedForm.form_structure
+              form_structure: insertedForm.form_structure as unknown as FormStructure
             });
             
             toast({
@@ -120,9 +120,10 @@ export default function SurveyFormEdit() {
         logger.log("Form data retrieved:", data);
 
         // Initialize form structure with safe defaults
+        const fsRaw = data.form_structure as any;
         const safeFormStructure: FormStructure = {
-          sections: Array.isArray(data.form_structure?.sections) ? 
-            data.form_structure.sections : []
+          sections: Array.isArray(fsRaw?.sections) ? 
+            fsRaw.sections : []
         };
 
         setFormData({

@@ -103,7 +103,7 @@ const CertificationSystem: React.FC<CertificationSystemProps> = ({
           .maybeSingle();
 
         if (certError) throw certError;
-        setCertificates(certData ? [certData] : []);
+        setCertificates(certData ? [certData as unknown as Certificate] : []);
       } else {
         // Fetch certificates for user
         const targetUserId = userId || user?.id;
@@ -116,7 +116,7 @@ const CertificationSystem: React.FC<CertificationSystemProps> = ({
             .order('issued_at', { ascending: false });
 
           if (certError) throw certError;
-          setCertificates(certData || []);
+          setCertificates((certData || []) as unknown as Certificate[]);
         }
       }
 
@@ -175,7 +175,7 @@ const CertificationSystem: React.FC<CertificationSystemProps> = ({
       if (certError) throw certError;
 
       if (certData && certData.length > 0) {
-        setCertificates(certData);
+        setCertificates(certData as unknown as Certificate[]);
         toast({
           title: 'Certificate Ready',
           description: 'Your certificate has been issued.',

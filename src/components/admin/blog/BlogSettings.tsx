@@ -145,7 +145,7 @@ export function BlogSettings() {
           enable_analytics: data.enable_analytics ?? true,
           email_notifications: data.email_notifications ?? true,
           notification_email: data.notification_email || '',
-          default_post_status: data.default_post_status || 'draft',
+          default_post_status: (data.default_post_status as 'draft' | 'published') || 'draft',
           auto_generate_excerpts: data.auto_generate_excerpts ?? true,
           posts_per_page: data.posts_per_page || 10,
         });

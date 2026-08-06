@@ -478,7 +478,7 @@ const CourseDetail = () => {
           thumbnail: courseData.image_url || courseData.thumbnail || undefined,
         };
 
-        setCourse(formattedCourse);
+        setCourse(formattedCourse as unknown as Course);
         setModules(processedModules);
         setLoading(false);
       } catch (error: any) {

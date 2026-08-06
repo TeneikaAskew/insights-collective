@@ -61,7 +61,7 @@ export function CanvasAssignmentsList({ courseId }: CanvasAssignmentsListProps) 
 
       if (error) throw error;
       
-      setAssignments(assignmentItems || []);
+      setAssignments((assignmentItems || []) as unknown as ContentItem[]);
 
       // Load submission status for each assignment
       if (user && assignmentItems && assignmentItems.length > 0) {
