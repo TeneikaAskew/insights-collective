@@ -16,7 +16,9 @@ import { useToast } from '@/hooks/use-toast';
 import { Course } from '@/types';
 import { Navigate, Link, useSearchParams, useLocation } from 'react-router-dom';
 import { computeDashboardMetrics } from '@/utils/dashboardMetrics';
-import { CalendarPanel } from '@/components/calendar/CalendarPanel';
+import { CalendarPanel, type CalendarPanelView } from '@/components/calendar/CalendarPanel';
+import { useUserCalendar } from '@/hooks/useCourseCalendar';
+
 import { MessagesPanel } from '@/components/messages/MessagesPanel';
 
 import { createLogger } from '@/utils/logger';
