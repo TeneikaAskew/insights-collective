@@ -536,73 +536,10 @@ const Dashboard = () => {
             </TabsContent>
           )}
           
-          <TabsContent value="deadlines" className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold">Upcoming Deadlines</h2>
-              {/* Switches tabs in place. This used to be a window.location.href to
-                  /calendar, which threw away the whole SPA state to reach a page that
-                  now lives one tab over. */}
-              <Button variant="outline" size="sm" onClick={() => setActiveTab('calendar')}>
-                View Calendar
-              </Button>
-            </div>
-            
-            {deadlinesError ? (
-              <Card>
-                <CardContent className="py-10 text-center" role="alert">
-                  <p className="text-muted-foreground mb-4">
-                    Failed to load upcoming deadlines: {deadlinesError}
-                  </p>
-                  <Button variant="outline" onClick={() => setDeadlinesReloadKey((k) => k + 1)}>
-                    Retry
-                  </Button>
-                </CardContent>
-              </Card>
-            ) : upcomingDeadlines.length > 0 ? (
-              <div className="space-y-4">
-                {upcomingDeadlines.map((deadline) => (
-                  <Card key={deadline.id}>
-                    <CardContent className="p-4 flex justify-between items-center">
-                      <div className="flex-1">
-                        <div className="flex items-start gap-3">
-                          <div className="mt-0.5">
-                            {deadline.type === 'assignment' ? (
-                              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                                <BookOpen className="h-4 w-4 text-primary" />
-                              </div>
-                            ) : (
-                              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                                <Clock className="h-4 w-4 text-primary" />
-                              </div>
-                            )}
-                          </div>
-                          <div>
-                            <h4 className="font-medium">{deadline.title}</h4>
-                            <p className="text-sm text-muted-foreground">{deadline.courseTitle}</p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div className="text-right">
-                          <Badge variant="outline" className="mb-1">
-                            {deadline.type === 'assignment' ? 'Assignment' : 'Quiz'}
-                          </Badge>
-                          <p className="text-sm text-muted-foreground">Due {formatDueDate(deadline.dueDate)}</p>
-                        </div>
-                        <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : (
-              <Card>
-                <CardContent className="py-10 text-center">
-                  <p className="text-muted-foreground">You don't have any upcoming deadlines.</p>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
+          {/* The former "Upcoming Deadlines" tab is gone: the Calendar tab's Upcoming
+              view is the single place deadlines are listed. */}
+
+
           
           <TabsContent value="notifications" className="space-y-6">
             <div className="flex items-center justify-between">
