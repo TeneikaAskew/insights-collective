@@ -652,7 +652,7 @@ const Dashboard = () => {
                 View and manage your upcoming events, assignments, and deadlines.
               </p>
             </div>
-            <CalendarPanel />
+            <CalendarPanel view={calendarView} onViewChange={setCalendarView} />
           </TabsContent>
 
           {messagesVisible && (
