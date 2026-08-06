@@ -195,7 +195,7 @@ export function CalendarPanel({
         </div>
 
         <div>
-          <Tabs defaultValue="selectedDay">
+          <Tabs value={activeView} onValueChange={handleViewChange}>
             <TabsList>
               <TabsTrigger value="selectedDay">Selected Day</TabsTrigger>
               <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
