@@ -86,7 +86,7 @@ export function useCoursesManagement() {
       }
 
       // Transform data to match frontend interface
-      const transformedCourses: Course[] = (coursesData || []).map(course => ({
+      const transformedCourses: Course[] = ((coursesData || []) as any[]).map((course: any) => ({
         ...course,
         imageUrl: course.image_url,
         enrollmentStatus: course.enrollment_status,
@@ -174,7 +174,7 @@ export function useCoursesManagement() {
 
         const { data, error } = await supabase
           .from('courses')
-          .update(dbCourseData)
+          .update(dbCourseData as any)
           .eq('id', courseId)
           .select()
           .single();
@@ -203,7 +203,7 @@ export function useCoursesManagement() {
         // Create new course
         const { data, error } = await supabase
           .from('courses')
-          .insert(dbCourseData)
+          .insert(dbCourseData as any)
           .select()
           .single();
 

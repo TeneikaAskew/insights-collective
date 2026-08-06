@@ -60,6 +60,10 @@ const PLACEHOLDER_COPY: Record<
     description:
       'Once this ships, you will be able to view, enroll, and manage students in this course.',
   },
+  settings: {
+    title: 'Settings',
+    description: 'Configure additional course settings.',
+  },
   reports: {
     title: 'Reports',
     description:
@@ -296,7 +300,7 @@ const CourseBuilder = () => {
       try {
         await supabase
           .from('courses')
-          .update({ ...patch, updated_at: new Date().toISOString() })
+          .update({ ...patch, updated_at: new Date().toISOString() } as any)
           .eq('id', course.id);
       } catch (err: any) {
         toast({ title: 'Error', description: err.message, variant: 'destructive' });

@@ -166,7 +166,7 @@ export function CourseProgressDashboard({ courses }: Props) {
         let sumPct = 0;
         for (const e of enrolled) {
           const done = completedPerUserCourse[`${e.user_id}::${c.id}`]?.size ?? 0;
-          const pct = total > 0 ? Math.round((done / total) * 100) : (e.completion_status === 'completed' ? 100 : 0);
+          const pct = total > 0 ? Math.round((done / total) * 100) : (Number(e.completion_status) === 100 ? 100 : 0);
           sumPct += pct;
           if (total > 0 && done >= total) completedUsers += 1;
         }

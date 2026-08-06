@@ -46,7 +46,7 @@ const AdminDashboard = () => {
     (async () => {
       setStatsError(null);
       const headCount = (table: string) =>
-        supabase.from(table).select('id', { count: 'exact', head: true });
+        (supabase.from(table as any) as any).select('id', { count: 'exact', head: true });
       const [
         enrollRes, certRes, profileRes, eventRes, formRes, blogRes, pvRes,
       ] = await Promise.all([

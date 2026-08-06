@@ -41,8 +41,9 @@ describe('useLessonCompletion', () => {
     const completion = {
       id: 'comp-1',
       lesson_id: 'lesson-1',
-      student_id: 'student-1',
+      user_id: 'student-1',
       completion_method: 'manual',
+      completed_at: new Date().toISOString(),
     };
     vi.mocked(lessonCompletionService.getLessonCompletion).mockResolvedValue(completion);
 

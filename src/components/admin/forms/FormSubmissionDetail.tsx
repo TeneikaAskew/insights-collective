@@ -50,7 +50,7 @@ export default function FormSubmissionDetail({ formId, submissionId, form }: For
 
       if (error) throw error;
 
-      setSubmission(data);
+      setSubmission(data as unknown as FormSubmission);
 
       if (data?.user_id) {
         const { data: profile, error: profileError } = await supabase

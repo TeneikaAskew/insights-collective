@@ -113,7 +113,7 @@ export function usePortfolio() {
           logger.error('Error storing recommendations in local storage:', storageErr);
         }
 
-        return portfolioData.recommendations as PortfolioInsightData;
+        return portfolioData.recommendations as unknown as PortfolioInsightData;
       }
 
       logger.info('No portfolio recommendations found');

@@ -142,7 +142,7 @@ export default function MockInterviews() {
       });
 
       setPreviousSessions(sessionCounts);
-      setSessions(sessions || []);
+      setSessions((sessions || []) as unknown as MockSession[]);
     } catch (error: any) {
       logger.error('Error loading sessions:', error);
       toast({
@@ -296,7 +296,7 @@ export default function MockInterviews() {
       // state and a success toast, while their counterpart opened a session with
       // no meeting URL at all. The booking itself is real and already saved, so
       // this warns rather than fails — but it must not claim success.
-      setSessions([...sessions, linked || { ...session, meeting_url: meetingUrl, video_platform: platform }]);
+      setSessions([...sessions, (linked || { ...session, meeting_url: meetingUrl, video_platform: platform }) as unknown as MockSession]);
 
       if (linkPersistError) {
         logger.error('Meeting link did not persist to the session', linkPersistError);

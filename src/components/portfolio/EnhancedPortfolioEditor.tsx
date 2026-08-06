@@ -103,9 +103,10 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
 
       logger.log('Portfolio recommendations data:', portfolioData);
 
-      if (portfolioData?.recommendations && portfolioData.recommendations.skills) {
-        logger.log('Found skills in portfolio recommendations:', portfolioData.recommendations.skills);
-        return portfolioData.recommendations.skills;
+      const recommendations = portfolioData?.recommendations as Record<string, any> | undefined;
+      if (recommendations && recommendations.skills) {
+        logger.log('Found skills in portfolio recommendations:', recommendations.skills);
+        return recommendations.skills;
       }
 
       // Fallback to career_pathway_results table
