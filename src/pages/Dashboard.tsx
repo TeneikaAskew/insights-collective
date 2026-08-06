@@ -452,14 +452,15 @@ const Dashboard = () => {
           
           <Card 
             className="cursor-pointer hover:bg-accent/50 transition-colors" 
-            onClick={() => handleMetricClick('deadlines')}
+            onClick={openUpcoming}
           >
             <CardHeader className="pb-2">
               <CardTitle className="text-base font-medium">Upcoming Deadlines</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between">
-                <div className="text-2xl font-bold">{upcomingDeadlines.length}</div>
+                <div className="text-2xl font-bold">{upcomingDeadlineCount}</div>
+
                 <Calendar className="h-5 w-5 text-muted-foreground" />
               </div>
             </CardContent>
