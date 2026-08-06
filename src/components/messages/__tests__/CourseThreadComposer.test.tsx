@@ -49,7 +49,7 @@ describe('fetchCourseContacts', () => {
     // No caller id is sent: the function reads auth.uid(), so the client cannot ask on
     // somebody else's behalf.
     expect(mockSupabaseClient.rpc).toHaveBeenCalledTimes(1);
-    const args = vi.mocked(mockSupabaseClient.rpc).mock.calls[0][1];
+    const args = (vi.mocked(mockSupabaseClient.rpc).mock.calls[0] as unknown as [string, object])[1];
     expect(Object.keys(args as object)).toEqual(['p_course_id']);
   });
 
