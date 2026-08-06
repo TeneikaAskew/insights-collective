@@ -16,7 +16,9 @@ import { useToast } from '@/hooks/use-toast';
 import { Course } from '@/types';
 import { Navigate, Link, useSearchParams, useLocation } from 'react-router-dom';
 import { computeDashboardMetrics } from '@/utils/dashboardMetrics';
-import { CalendarPanel } from '@/components/calendar/CalendarPanel';
+import { CalendarPanel, type CalendarPanelView } from '@/components/calendar/CalendarPanel';
+import { useUserCalendar } from '@/hooks/useCourseCalendar';
+
 import { MessagesPanel } from '@/components/messages/MessagesPanel';
 
 import { createLogger } from '@/utils/logger';
@@ -61,7 +63,24 @@ const Dashboard = () => {
   // about the courses you are in, and neither earns a top-level page of its own. The open
   // thread rides in the query string so /dashboard?tab=messages&conversation=<id> is a
   // link somebody can send.
+  // The Calendar tab's inner view also rides in the query string, so
+  // /dashboard?tab=calendar&view=upcoming is a linkable "what's due" screen.
+  const calendarView: CalendarPanelView =
+    searchParams.get('view') === 'upcoming' ? 'upcoming' : 'selectedDay';
+  const setCalendarView = (view: CalendarPanelView) => {
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.set('tab', 'calendar');
+        next.set('view', view);
+        return next;
+      },
+      { replace: true },
+    );
+  };
+
   const openConversationId = searchParams.get('conversation') ?? undefined;
+
   const setOpenConversation = (conversationId?: string) => {
     setSearchParams(
       (current) => {
@@ -290,9 +309,16 @@ const Dashboard = () => {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [notificationsError, setNotificationsError] = useState<string | null>(null);
   const [notificationsReloadKey, setNotificationsReloadKey] = useState(0);
-  const [upcomingDeadlines, setUpcomingDeadlines] = useState<any[]>([]);
-  const [deadlinesError, setDeadlinesError] = useState<string | null>(null);
-  const [deadlinesReloadKey, setDeadlinesReloadKey] = useState(0);
+  // The deadline count comes from the same hook the Calendar's Upcoming view reads, so the
+  // KPI number and the list it links to can never disagree.
+  const { events: calendarEvents } = useUserCalendar(user?.id);
+  const upcomingDeadlineCount = (calendarEvents ?? []).filter((event: any) => {
+    const start = event?.start_time ?? event?.startTime ?? event?.due_date;
+    if (!start) return false;
+    const date = new Date(start);
+    return date.getTime() >= Date.now();
+  }).length;
+
 
   // Fetch real notifications from DB
   useEffect(() => {
@@ -348,52 +374,25 @@ const Dashboard = () => {
     }
   };
 
-  // Fetch real upcoming deadlines from assignments
-  useEffect(() => {
-    const fetchDeadlines = async () => {
-      if (!user || enrolledCourses.length === 0) return;
-      try {
-        setDeadlinesError(null);
-        const courseIds = enrolledCourses.map(c => c.id);
-        const { data, error } = await supabase
-          .from('assignments')
-          .select('id, title, due_date, course_id, courses(title)')
-          .in('course_id', courseIds)
-          // Students must not see instructors' unpublished drafts as deadlines.
-          .eq('is_published', true)
-          .gte('due_date', new Date().toISOString())
-          .order('due_date', { ascending: true })
-          .limit(5);
-        if (error) throw error;
-
-        setUpcomingDeadlines((data || []).map(d => ({
-          id: d.id,
-          title: d.title,
-          courseTitle: (d.courses as any)?.title || 'Course',
-          dueDate: d.due_date,
-          type: 'assignment'
-        })));
-      } catch (err: any) {
-        logger.error('Error fetching deadlines:', err);
-        setDeadlinesError(err?.message || 'Failed to load deadlines');
-      }
-    };
-    fetchDeadlines();
-  }, [user, enrolledCourses, deadlinesReloadKey]);
-  
-  const formatDueDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-  
   const handleMetricClick = (tab: string) => {
     setActiveTab(tab);
   };
+
+  // The "Upcoming Deadlines" stat now opens the Calendar tab on its Upcoming view, so the
+  // number and the list it links to come from one source instead of two.
+  const openUpcoming = () => {
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.set('tab', 'calendar');
+        next.set('view', 'upcoming');
+        next.delete('conversation');
+        return next;
+      },
+      { replace: true },
+    );
+  };
+
   
   if (!user) return null;
   
@@ -453,14 +452,15 @@ const Dashboard = () => {
           
           <Card 
             className="cursor-pointer hover:bg-accent/50 transition-colors" 
-            onClick={() => handleMetricClick('deadlines')}
+            onClick={openUpcoming}
           >
             <CardHeader className="pb-2">
               <CardTitle className="text-base font-medium">Upcoming Deadlines</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between">
-                <div className="text-2xl font-bold">{upcomingDeadlines.length}</div>
+                <div className="text-2xl font-bold">{upcomingDeadlineCount}</div>
+
                 <Calendar className="h-5 w-5 text-muted-foreground" />
               </div>
             </CardContent>
@@ -477,7 +477,7 @@ const Dashboard = () => {
             {teachingCourses.length > 0 && (
               <TabsTrigger value="teaching">Teaching</TabsTrigger>
             )}
-            <TabsTrigger value="deadlines">Upcoming Deadlines</TabsTrigger>
+            
             <TabsTrigger value="notifications">Notifications</TabsTrigger>
             <TabsTrigger value="calendar">
               <Calendar className="h-4 w-4 mr-1.5" />
@@ -563,73 +563,10 @@ const Dashboard = () => {
             </TabsContent>
           )}
           
-          <TabsContent value="deadlines" className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold">Upcoming Deadlines</h2>
-              {/* Switches tabs in place. This used to be a window.location.href to
-                  /calendar, which threw away the whole SPA state to reach a page that
-                  now lives one tab over. */}
-              <Button variant="outline" size="sm" onClick={() => setActiveTab('calendar')}>
-                View Calendar
-              </Button>
-            </div>
-            
-            {deadlinesError ? (
-              <Card>
-                <CardContent className="py-10 text-center" role="alert">
-                  <p className="text-muted-foreground mb-4">
-                    Failed to load upcoming deadlines: {deadlinesError}
-                  </p>
-                  <Button variant="outline" onClick={() => setDeadlinesReloadKey((k) => k + 1)}>
-                    Retry
-                  </Button>
-                </CardContent>
-              </Card>
-            ) : upcomingDeadlines.length > 0 ? (
-              <div className="space-y-4">
-                {upcomingDeadlines.map((deadline) => (
-                  <Card key={deadline.id}>
-                    <CardContent className="p-4 flex justify-between items-center">
-                      <div className="flex-1">
-                        <div className="flex items-start gap-3">
-                          <div className="mt-0.5">
-                            {deadline.type === 'assignment' ? (
-                              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                                <BookOpen className="h-4 w-4 text-primary" />
-                              </div>
-                            ) : (
-                              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                                <Clock className="h-4 w-4 text-primary" />
-                              </div>
-                            )}
-                          </div>
-                          <div>
-                            <h4 className="font-medium">{deadline.title}</h4>
-                            <p className="text-sm text-muted-foreground">{deadline.courseTitle}</p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div className="text-right">
-                          <Badge variant="outline" className="mb-1">
-                            {deadline.type === 'assignment' ? 'Assignment' : 'Quiz'}
-                          </Badge>
-                          <p className="text-sm text-muted-foreground">Due {formatDueDate(deadline.dueDate)}</p>
-                        </div>
-                        <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : (
-              <Card>
-                <CardContent className="py-10 text-center">
-                  <p className="text-muted-foreground">You don't have any upcoming deadlines.</p>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
+          {/* The former "Upcoming Deadlines" tab is gone: the Calendar tab's Upcoming
+              view is the single place deadlines are listed. */}
+
+
           
           <TabsContent value="notifications" className="space-y-6">
             <div className="flex items-center justify-between">
@@ -679,7 +616,7 @@ const Dashboard = () => {
                 View and manage your upcoming events, assignments, and deadlines.
               </p>
             </div>
-            <CalendarPanel />
+            <CalendarPanel view={calendarView} onViewChange={setCalendarView} />
           </TabsContent>
 
           {messagesVisible && (

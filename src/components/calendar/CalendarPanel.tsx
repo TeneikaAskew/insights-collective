@@ -98,8 +98,26 @@ function LoadingCards({ count }: { count: number }) {
   );
 }
 
-export function CalendarPanel() {
+// The inner view (month day list vs. upcoming list) is controllable from outside so the
+// Dashboard's "Upcoming Deadlines" stat can deep-link straight to the Upcoming list.
+export type CalendarPanelView = 'selectedDay' | 'upcoming';
+
+export function CalendarPanel({
+  view,
+  onViewChange,
+}: {
+  view?: CalendarPanelView;
+  onViewChange?: (view: CalendarPanelView) => void;
+} = {}) {
   const { user } = useAuth();
+  const [uncontrolledView, setUncontrolledView] = useState<CalendarPanelView>('selectedDay');
+  const activeView = view ?? uncontrolledView;
+  const handleViewChange = (next: string) => {
+    const value = next === 'upcoming' ? 'upcoming' : 'selectedDay';
+    setUncontrolledView(value);
+    onViewChange?.(value);
+  };
+
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [activeFilters, setActiveFilters] = useState({
     quiz: true,
@@ -177,7 +195,7 @@ export function CalendarPanel() {
         </div>
 
         <div>
-          <Tabs defaultValue="selectedDay">
+          <Tabs value={activeView} onValueChange={handleViewChange}>
             <TabsList>
               <TabsTrigger value="selectedDay">Selected Day</TabsTrigger>
               <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
