@@ -309,14 +309,17 @@ const Dashboard = () => {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [notificationsError, setNotificationsError] = useState<string | null>(null);
   const [notificationsReloadKey, setNotificationsReloadKey] = useState(0);
-  // The deadline count comes from the same hook the Calendar's Upcoming view reads, so the
-  // KPI number and the list it links to can never disagree.
-  const { events: calendarEvents } = useUserCalendar(user?.id);
+  // The deadline count comes from the same hook and same filters the Calendar's Upcoming view
+  // reads, so the KPI number and the list it links to can never disagree.
+  // Calendar events expose their start as `start_date` (see CourseCalendarEvent).
+  const { events: calendarEvents } = useUserCalendar(user?.id, {
+    types: ['quiz', 'assignment', 'event', 'announcement'],
+  });
   const upcomingDeadlineCount = (calendarEvents ?? []).filter((event: any) => {
-    const start = event?.start_time ?? event?.startTime ?? event?.due_date;
+    const start = event?.start_date ?? event?.start_time ?? event?.due_date;
     if (!start) return false;
     const date = new Date(start);
-    return date.getTime() >= Date.now();
+    return !Number.isNaN(date.getTime()) && date.getTime() >= Date.now();
   }).length;
 
 
