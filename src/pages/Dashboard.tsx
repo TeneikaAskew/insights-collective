@@ -61,7 +61,24 @@ const Dashboard = () => {
   // about the courses you are in, and neither earns a top-level page of its own. The open
   // thread rides in the query string so /dashboard?tab=messages&conversation=<id> is a
   // link somebody can send.
+  // The Calendar tab's inner view also rides in the query string, so
+  // /dashboard?tab=calendar&view=upcoming is a linkable "what's due" screen.
+  const calendarView: CalendarPanelView =
+    searchParams.get('view') === 'upcoming' ? 'upcoming' : 'selectedDay';
+  const setCalendarView = (view: CalendarPanelView) => {
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.set('tab', 'calendar');
+        next.set('view', view);
+        return next;
+      },
+      { replace: true },
+    );
+  };
+
   const openConversationId = searchParams.get('conversation') ?? undefined;
+
   const setOpenConversation = (conversationId?: string) => {
     setSearchParams(
       (current) => {
