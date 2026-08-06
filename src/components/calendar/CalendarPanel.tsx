@@ -187,6 +187,19 @@ export function CalendarPanel({
                 selected={date}
                 onSelect={setDate}
                 className="w-full"
+                // react-day-picker sizes its month to fixed-width cells, which
+                // leaves the card padded out with dead space. Stretch the month,
+                // table and rows so the grid fills the column at every width.
+                classNames={{
+                  months: 'w-full',
+                  month: 'w-full space-y-4',
+                  table: 'w-full border-collapse',
+                  head_row: 'flex w-full',
+                  head_cell: 'flex-1 text-muted-foreground rounded-md font-normal text-[0.8rem]',
+                  row: 'flex w-full mt-2',
+                  cell: 'flex-1 aspect-square relative p-0 text-center text-sm focus-within:relative focus-within:z-20',
+                  day: 'h-full w-full p-0 font-normal aria-selected:opacity-100 rounded-full',
+                }}
                 modifiers={{ hasEvent: getDatesWithEvents }}
                 modifiersClassNames={{ hasEvent: 'bg-primary/20 rounded-full' }}
               />
