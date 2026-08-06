@@ -348,52 +348,25 @@ const Dashboard = () => {
     }
   };
 
-  // Fetch real upcoming deadlines from assignments
-  useEffect(() => {
-    const fetchDeadlines = async () => {
-      if (!user || enrolledCourses.length === 0) return;
-      try {
-        setDeadlinesError(null);
-        const courseIds = enrolledCourses.map(c => c.id);
-        const { data, error } = await supabase
-          .from('assignments')
-          .select('id, title, due_date, course_id, courses(title)')
-          .in('course_id', courseIds)
-          // Students must not see instructors' unpublished drafts as deadlines.
-          .eq('is_published', true)
-          .gte('due_date', new Date().toISOString())
-          .order('due_date', { ascending: true })
-          .limit(5);
-        if (error) throw error;
-
-        setUpcomingDeadlines((data || []).map(d => ({
-          id: d.id,
-          title: d.title,
-          courseTitle: (d.courses as any)?.title || 'Course',
-          dueDate: d.due_date,
-          type: 'assignment'
-        })));
-      } catch (err: any) {
-        logger.error('Error fetching deadlines:', err);
-        setDeadlinesError(err?.message || 'Failed to load deadlines');
-      }
-    };
-    fetchDeadlines();
-  }, [user, enrolledCourses, deadlinesReloadKey]);
-  
-  const formatDueDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-  
   const handleMetricClick = (tab: string) => {
     setActiveTab(tab);
   };
+
+  // The "Upcoming Deadlines" stat now opens the Calendar tab on its Upcoming view, so the
+  // number and the list it links to come from one source instead of two.
+  const openUpcoming = () => {
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.set('tab', 'calendar');
+        next.set('view', 'upcoming');
+        next.delete('conversation');
+        return next;
+      },
+      { replace: true },
+    );
+  };
+
   
   if (!user) return null;
   
