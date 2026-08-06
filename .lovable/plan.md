@@ -1,63 +1,25 @@
+# Merge Upcoming Deadlines into the Calendar tab
 
+Today the dashboard has two separate tabs — "Upcoming Deadlines" and "Calendar" — and the Calendar panel already contains its own inner "Selected Day" / "Upcoming" tabs. That is duplicated information in two places.
 
-## Plan: LessonDetail Fix + Responsive Audit via Playwright
+## What changes
 
-### Part 1: Replace mockService in LessonDetail.tsx
+1. **One tab, named "Calendar"**
+   - Remove the standalone "Upcoming Deadlines" tab and its list from the dashboard tab bar.
+   - The Calendar tab becomes the single home for the month view plus the Upcoming list (its existing inner tabs).
 
-**File:** `src/pages/LessonDetail.tsx`
+2. **The "Upcoming Deadlines" hero stat becomes a deep link**
+   - Clicking the card opens the Calendar tab with the inner **Upcoming** tab already selected.
+   - The URL reflects it (`/dashboard?tab=calendar&view=upcoming`), so the state is shareable and survives a refresh.
+   - The number on the card is derived from the same upcoming calendar events the Upcoming list renders, so the count and the list can never disagree.
 
-Replace `mockService.getCourseById()`, `mockService.getModuleById()`, and the mock lesson lookup with Supabase queries using `useQuery` from TanStack Query:
+3. **Upcoming list keeps deadline detail**
+   - Assignment and quiz entries in the Upcoming list keep their type badge and due date/time and continue to link straight to the assignment or quiz, so nothing that was only visible in the old deadlines tab is lost.
 
-- Query `courses` table by `courseId`
-- Query `modules` table by `moduleId` 
-- Query `lessons` table by `lessonId` (with `module_id = moduleId`)
-- Query `lesson_progress` table for current user to determine completion status
-- Update `handleMarkComplete` to upsert into `lesson_progress`
-- Add loading spinner while data fetches
-- Keep the existing "Lesson Not Found" fallback for missing data
+## Technical notes
 
-**DB tables confirmed available:** `courses` (5 rows), `modules` (16 rows), `lessons` (4 rows), `lesson_progress` (schema confirmed with `completed`, `completed_at` columns).
-
-### Part 2: Responsive Audit via Playwright
-
-Use Playwright browser automation to capture screenshots of all course-related pages at mobile (390x844), tablet (768x1024), and desktop (1280x720) viewports. The screenshot from the user shows the CanvasModuleDetail page with text overflow issues on mobile.
-
-**Pages to test (course features first):**
-
-1. `/courses` — Course list
-2. `/courses/:id` — Course detail (tabs, modules list, announcements)
-3. `/courses/:id/modules/:id` — Module detail (the page in the screenshot — grid layout, content sidebar, lesson viewer)
-4. `/courses/:id/modules/:id/content/:id` — Content item view
-5. `/courses/:id/progress` — Course progress
-6. `/courses/:id/calendar` — Course calendar
-7. `/courses/:id/certificate` — Certificate page
-8. `/courses/:id/learn` — Learn interface
-9. `/enrolled-courses` — Enrolled courses dashboard
-10. `/courses/:id/gradebook` — Gradebook
-11. `/dashboard` — Main dashboard
-
-**Known responsive risk areas based on code inspection:**
-- `CanvasModuleDetail.tsx` line 318: `flex justify-between items-start` — the "Progress / 100%" text can collide with the module title on narrow screens
-- `CanvasModuleDetail.tsx` line 339: `grid lg:grid-cols-4` — stacks on mobile but the module content sidebar takes full width before the lesson content
-- `LessonDetail.tsx` line 78: Same `flex justify-between` pattern with badge potentially overlapping title
-- `CourseDetail.tsx`: 870-line page with tabs, forms, and multiple card layouts — likely has overflow issues on mobile
-
-**Process:**
-1. Log in using E2E credentials
-2. Navigate to each page at 3 viewport sizes
-3. Capture screenshots
-4. Identify overflow, truncation, overlapping, and layout issues
-5. Report findings with specific line numbers and fix recommendations
-
-### Files to modify
-
-| File | Change |
-|------|--------|
-| `src/pages/LessonDetail.tsx` | Replace mockService with Supabase queries + lesson_progress upsert |
-
-### Deliverables
-
-1. Working LessonDetail page with real DB data
-2. Screenshot-based responsive audit report covering all course pages at 3 breakpoints
-3. List of specific responsive issues found with fix recommendations
-
+- `src/pages/Dashboard.tsx`: drop the `deadlines` `TabsTrigger`/`TabsContent` block and the deadline list markup; keep the KPI card but point `handleMetricClick('deadlines')` at `tab=calendar` + `view=upcoming`. Existing `?tab=` search-param handling is reused; add a `view` param.
+- `src/components/calendar/CalendarPanel.tsx`: change its inner `Tabs` from `defaultValue` to a controlled `value`/`onValueChange` driven by the `view` search param (default `selectedDay`), and expose the upcoming-event count to the dashboard (callback prop or shared hook call) for the KPI card.
+- The existing `upcomingDeadlines` assignment query in `Dashboard.tsx` is removed if the calendar events fully cover it; the deadline-fetch error state and Retry surface move to the calendar panel's existing error message.
+- Tests: update `src/pages/__tests__/Dashboard.test.tsx` (no more deadlines tab; KPI click asserts `tab=calendar&view=upcoming`) and add a Playwright assertion in `e2e/calendar/calendar.spec.ts` that the deep link lands on the Upcoming inner tab. `e2e/helpers/route-helpers.ts` gains an `upcoming` route entry.
+- `ProfileMenu.tsx`'s `/dashboard?tab=calendar` link keeps working unchanged.
