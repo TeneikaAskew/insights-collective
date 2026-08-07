@@ -44,7 +44,7 @@ const Survey = () => {
       }
 
       setLoadError(false);
-      setForms(data || []);
+      setForms((data || []) as unknown as FormData[]);
     } catch (error) {
       logger.error('Error fetching forms:', error);
       setLoadError(true);

@@ -61,7 +61,7 @@ export function useUserProfile(user: User | null) {
           roles = rolesData as string[];
         } else if (profile?.roles) {
           // Legacy fallback: parse roles from profiles table
-          let legacyRoles = profile.roles;
+          let legacyRoles: any = profile.roles;
           if (typeof legacyRoles === 'string') {
             if (legacyRoles.startsWith('{') && legacyRoles.endsWith('}')) {
               legacyRoles = legacyRoles.slice(1, -1).split(',').filter((r: string) => r.trim());

@@ -138,7 +138,7 @@ export default function CanvasQuizResults() {
       }
 
       if (contentData) {
-        setContentItem(contentData);
+        setContentItem(contentData as unknown as ContentItem);
       }
 
     } catch (error: any) {

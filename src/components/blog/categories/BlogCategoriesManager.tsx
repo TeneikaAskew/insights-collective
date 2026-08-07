@@ -112,10 +112,10 @@ export function BlogCategoriesManager() {
         post_count: counts?.[cat.id] || 0,
       })) || [];
 
-      setFlatCategories(categoriesWithCounts);
+      setFlatCategories(categoriesWithCounts as unknown as Category[]);
 
       // Build tree structure
-      const tree = buildCategoryTree(categoriesWithCounts);
+      const tree = buildCategoryTree(categoriesWithCounts as unknown as Category[]);
       setCategories(tree);
     } catch (error) {
       logger.error('Error loading categories:', error);

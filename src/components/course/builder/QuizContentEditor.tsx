@@ -89,7 +89,7 @@ export function QuizContentEditor({ contentItemId }: QuizContentEditorProps) {
         if (!qId) {
           const { data: created, error: cErr } = await supabase
             .from('quizzes')
-            .insert({ content_item_id: contentItemId, quiz_type: 'assignment' })
+            .insert({ content_item_id: contentItemId, quiz_type: 'assignment', title: 'Untitled Quiz' })
             .select('id')
             .single();
           if (cErr) throw cErr;

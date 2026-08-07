@@ -203,7 +203,7 @@ export default function InterviewPrep() {
         }
 
         logger.log('Study guides loaded from database:', guides?.length || 0);
-        setStudyGuides(guides || []);
+        setStudyGuides((guides || []) as unknown as StudyGuide[]);
 
         if (guides && guides.length > 0 && user) {
           LocalStorageUtils.saveStudyGuide(user.id, guides[0]);

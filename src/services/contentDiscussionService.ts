@@ -182,7 +182,7 @@ class ContentDiscussionService {
     try {
       const { data, error } = await supabase
         .from('content_discussions')
-        .update(updates)
+        .update(updates as any)
         .eq('id', discussionId)
         .select()
         .single();

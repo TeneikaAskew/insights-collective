@@ -97,7 +97,7 @@ export default function AdminEvents() {
     }
   };
 
-  const handleEditEvent = (event: Event) => {
+  const handleEditEvent = (event: any) => {
     setEventToEdit(event);
     setIsModalOpen(true);
   };

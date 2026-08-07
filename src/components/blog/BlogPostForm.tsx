@@ -174,7 +174,7 @@ export function BlogPostForm({ postId }: BlogPostFormProps) {
         status:
           post.scheduled_at && new Date(post.scheduled_at) > new Date()
             ? 'scheduled'
-            : post.status,
+            : (post.status as 'draft' | 'published' | 'scheduled'),
         category_id: post.category_id || undefined,
         tags: tags?.map(t => t.tag_name) || [],
         meta_title: post.seo_title || '',

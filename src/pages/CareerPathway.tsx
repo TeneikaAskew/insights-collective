@@ -677,7 +677,7 @@ const CareerPathway: React.FC = () => {
               {/* A plan cached from a previous pathway must not appear against a
                   freshly generated report — the user regenerates from the new one. */}
               <ActionPlanSection
-                initialActionPlan={generatedThisSession ? null : savedResults?.actionPlan ?? null}
+                initialActionPlan={generatedThisSession ? null : (savedResults?.actionPlan as any) ?? null}
                 onMilestoneProgress={setMilestones}
               />
             </div>

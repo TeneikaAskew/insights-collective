@@ -646,7 +646,7 @@ function PortfolioExplorer() {
               </Card>
             ) : projects && projects.length > 0 ? (
               <KanbanBoard 
-                projects={projects}
+                projects={projects as unknown as PortfolioProject[]}
                 onStatusChange={handleStatusChange}
                 onUpdateProject={handleUpdateProject}
                 onDeleteProject={handleDeleteProject}
