@@ -120,26 +120,39 @@ const Quiz: React.FC = () => {
       </div>
 
       <Card className="mb-6">
-        <CardContent className="pt-6">
-          <h3 className="text-xl font-semibold mb-6">{question.text}</h3>
+        <CardContent className="p-4 pt-6 sm:p-6">
+          <h3 className="text-lg sm:text-xl font-semibold mb-6">{question.text}</h3>
 
           {question.type === 'scale' && question.scaleType ? (
-            <div className="space-y-6">
-              <RadioGroup
-                value={answers[question.id]?.toString() || ''}
-                onValueChange={value => handleScaleAnswer(parseInt(value))}
-                className="grid grid-cols-5 gap-2"
-              >
-                {[1, 2, 3, 4, 5].map((value, index) => (
-                  <div key={value} className="flex flex-col items-center">
-                    <RadioGroupItem value={value.toString()} id={`scale-${value}`} />
-                    <Label htmlFor={`scale-${value}`} className="mt-2 text-center text-sm">
-                      {scaleLabels[question.scaleType]?.[index]}
-                    </Label>
-                  </div>
-                ))}
-              </RadioGroup>
-            </div>
+            /*
+             * Narrow viewports stack the scale as full-width rows: the labels
+             * ("Very Uncomfortable", "Strongly Prefer A") are long enough that a
+             * five-column grid gives each one ~55px, which single words such as
+             * "Uncomfortable" overflow into their neighbours. The horizontal
+             * scale only turns on once the columns are wide enough to hold them.
+             */
+            <RadioGroup
+              value={answers[question.id]?.toString() || ''}
+              onValueChange={value => handleScaleAnswer(parseInt(value))}
+              className="flex flex-col gap-2 sm:grid sm:grid-cols-5 sm:items-start sm:gap-2"
+            >
+              {[1, 2, 3, 4, 5].map((value, index) => (
+                <Label
+                  key={value}
+                  htmlFor={`scale-${value}`}
+                  className="flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm leading-snug transition-colors hover:bg-muted/50 sm:flex-col sm:gap-2 sm:border-0 sm:p-2 sm:text-center sm:text-xs md:text-sm"
+                >
+                  <RadioGroupItem
+                    value={value.toString()}
+                    id={`scale-${value}`}
+                    className="shrink-0"
+                  />
+                  <span className="min-w-0 break-words hyphens-auto">
+                    {scaleLabels[question.scaleType]?.[index]}
+                  </span>
+                </Label>
+              ))}
+            </RadioGroup>
           ) : (
             <RadioGroup
               value={answers[question.id]?.toString() || ''}
@@ -147,10 +160,18 @@ const Quiz: React.FC = () => {
               className="space-y-3"
             >
               {question.options?.map(option => (
-                <div key={option.id} className="flex items-center space-x-2">
-                  <RadioGroupItem value={option.id} id={`option-${option.id}`} />
-                  <Label htmlFor={`option-${option.id}`} className="text-base">{option.text}</Label>
-                </div>
+                <Label
+                  key={option.id}
+                  htmlFor={`option-${option.id}`}
+                  className="flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-base leading-snug transition-colors hover:bg-muted/50"
+                >
+                  <RadioGroupItem
+                    value={option.id}
+                    id={`option-${option.id}`}
+                    className="mt-1 shrink-0"
+                  />
+                  <span className="min-w-0 break-words">{option.text}</span>
+                </Label>
               ))}
             </RadioGroup>
           )}
