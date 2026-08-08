@@ -6,6 +6,8 @@ import { BarChart, LineChart, PieChart, ResponsiveContainer, CartesianGrid, XAxi
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { BarChart2, PieChart as PieIcon, LineChart as LineIcon, ArrowRight } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { renderSliceShare } from './pieSliceLabel';
 
 // Sample data for charts
 const barData = [
@@ -35,6 +37,7 @@ const pieData = [
 
 const InteractiveShowcase = () => {
   const [activeTab, setActiveTab] = useState('skills');
+  const isMobile = useIsMobile();
 
   return (
     <section className="py-20 bg-background">
@@ -49,34 +52,43 @@ const InteractiveShowcase = () => {
         <Tabs defaultValue="skills" value={activeTab} onValueChange={setActiveTab} className="max-w-4xl mx-auto">
           <div className="flex justify-center mb-8">
             <TabsList className="grid grid-cols-3 w-full max-w-md">
-              <TabsTrigger value="skills" className="flex items-center gap-2">
-                <BarChart2 className="h-4 w-4" />
-                <span className="hidden sm:inline">Top Skills</span>
+              <TabsTrigger value="skills" className="flex items-center gap-1.5 px-2 text-xs sm:gap-2 sm:px-3 sm:text-sm">
+                <BarChart2 className="h-4 w-4 shrink-0" />
+                <span className="truncate">Skills</span>
               </TabsTrigger>
-              <TabsTrigger value="growth" className="flex items-center gap-2">
-                <LineIcon className="h-4 w-4" />
-                <span className="hidden sm:inline">Growth Trends</span>
+              <TabsTrigger value="growth" className="flex items-center gap-1.5 px-2 text-xs sm:gap-2 sm:px-3 sm:text-sm">
+                <LineIcon className="h-4 w-4 shrink-0" />
+                <span className="truncate">Growth</span>
               </TabsTrigger>
-              <TabsTrigger value="roles" className="flex items-center gap-2">
-                <PieIcon className="h-4 w-4" />
-                <span className="hidden sm:inline">Data Roles</span>
+              <TabsTrigger value="roles" className="flex items-center gap-1.5 px-2 text-xs sm:gap-2 sm:px-3 sm:text-sm">
+                <PieIcon className="h-4 w-4 shrink-0" />
+                <span className="truncate">Roles</span>
               </TabsTrigger>
             </TabsList>
           </div>
 
           <Card className="border shadow-lg overflow-hidden">
-            <CardContent className="p-6">
+            <CardContent className="p-4 sm:p-6">
               <TabsContent value="skills" className="mt-0">
-                <h3 className="text-xl font-semibold mb-4">Most In-Demand Data Skills</h3>
-                <p className="text-muted-foreground mb-6">
+                <h3 className="text-lg sm:text-xl font-semibold mb-2 sm:mb-4">Most In-Demand Data Skills</h3>
+                <p className="text-sm sm:text-base text-muted-foreground mb-6">
                   Illustrative sample data for demonstration purposes.
                 </p>
                 <div className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={barData} layout="vertical" margin={{ top: 20, right: 30, left: 40, bottom: 5 }}>
+                    <BarChart
+                      data={barData}
+                      layout="vertical"
+                      margin={{ top: 20, right: isMobile ? 8 : 30, left: isMobile ? 0 : 40, bottom: 5 }}
+                    >
                       <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                      <XAxis type="number" domain={[0, 100]} />
-                      <YAxis dataKey="name" type="category" width={80} />
+                      <XAxis type="number" domain={[0, 100]} tick={{ fontSize: isMobile ? 11 : 12 }} />
+                      <YAxis
+                        dataKey="name"
+                        type="category"
+                        width={isMobile ? 60 : 80}
+                        tick={{ fontSize: isMobile ? 11 : 12 }}
+                      />
                       <Tooltip formatter={(value) => [`${value}%`, 'Market Demand']} />
                       <Bar dataKey="value" radius={[0, 4, 4, 0]}>
                         {barData.map((entry, index) => (
@@ -89,18 +101,25 @@ const InteractiveShowcase = () => {
               </TabsContent>
 
               <TabsContent value="growth" className="mt-0">
-                <h3 className="text-xl font-semibold mb-4">Growth Trends in Data Learning</h3>
-                <p className="text-muted-foreground mb-6">
+                <h3 className="text-lg sm:text-xl font-semibold mb-2 sm:mb-4">Growth Trends in Data Learning</h3>
+                <p className="text-sm sm:text-base text-muted-foreground mb-6">
                   Tracking the growth of learners and course completions over time.
                 </p>
                 <div className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={lineData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                    <LineChart
+                      data={lineData}
+                      margin={{ top: 20, right: isMobile ? 8 : 30, left: isMobile ? 0 : 20, bottom: 5 }}
+                    >
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="month" />
-                      <YAxis />
+                      <XAxis dataKey="month" tick={{ fontSize: isMobile ? 11 : 12 }} />
+                      <YAxis
+                        width={isMobile ? 48 : 60}
+                        tick={{ fontSize: isMobile ? 11 : 12 }}
+                        tickFormatter={(value: number) => (isMobile && value >= 1000 ? `${value / 1000}k` : `${value}`)}
+                      />
                       <Tooltip />
-                      <Legend />
+                      <Legend wrapperStyle={{ fontSize: isMobile ? 12 : 14 }} />
                       <Line type="monotone" dataKey="learners" stroke="hsl(var(--ss-teal))" strokeWidth={2} dot={{ r: 4 }} />
                       <Line type="monotone" dataKey="completions" stroke="hsl(var(--ss-lav-deep))" strokeWidth={2} dot={{ r: 4 }} />
                     </LineChart>
@@ -109,8 +128,8 @@ const InteractiveShowcase = () => {
               </TabsContent>
 
               <TabsContent value="roles" className="mt-0">
-                <h3 className="text-xl font-semibold mb-4">Data Professional Roles Distribution</h3>
-                <p className="text-muted-foreground mb-6">
+                <h3 className="text-lg sm:text-xl font-semibold mb-2 sm:mb-4">Data Professional Roles Distribution</h3>
+                <p className="text-sm sm:text-base text-muted-foreground mb-6">
                   Illustrative sample distribution for demonstration purposes.
                 </p>
                 <div className="h-80 flex items-center justify-center">
@@ -121,17 +140,23 @@ const InteractiveShowcase = () => {
                         cx="50%"
                         cy="50%"
                         labelLine={false}
-                        outerRadius={100}
+                        outerRadius={isMobile ? 90 : 100}
                         fill="hsl(var(--ss-lav))"
                         dataKey="value"
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        /* Callout labels only where the chart is wide enough to hold
+                           them; below that the share is drawn inside each slice. */
+                        label={
+                          isMobile
+                            ? renderSliceShare
+                            : ({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`
+                        }
                       >
                         {pieData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
                       <Tooltip formatter={(value) => [`${value}%`, 'Market Share']} />
-                      <Legend />
+                      <Legend wrapperStyle={{ fontSize: isMobile ? 12 : 14 }} />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
