@@ -2,20 +2,22 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
-import { BarChart, LineChart, PieChart, ResponsiveContainer, CartesianGrid, XAxis, YAxis, Tooltip, Bar, Line, Cell, Pie, Legend } from 'recharts';
+import { BarChart, LineChart, ResponsiveContainer, CartesianGrid, XAxis, YAxis, Tooltip, Bar, Line, Cell, Legend } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
-import { BarChart2, PieChart as PieIcon, LineChart as LineIcon, ArrowRight } from 'lucide-react';
+import { BarChart2, DollarSign, LineChart as LineIcon, ArrowRight } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { renderSliceShare } from './pieSliceLabel';
 
-// Sample data for charts
+// Share of 1,355 US data analyst postings on Glassdoor that require each skill.
+// Source: 365 Data Science, "Data Analyst Job Outlook 2026".
+// https://365datascience.com/career-advice/data-analyst-job-outlook-2025/
 const barData = [
-  { name: 'Python', value: 85, color: 'hsl(var(--ss-teal))' },
-  { name: 'SQL', value: 75, color: 'hsl(var(--ss-lav-deep))' },
-  { name: 'R', value: 55, color: 'hsl(var(--ss-bad))' },
-  { name: 'Tableau', value: 65, color: 'hsl(var(--ss-warn))' },
-  { name: 'Excel', value: 80, color: 'hsl(var(--ss-good))' },
+  { name: 'SQL', value: 50, color: 'hsl(var(--ss-teal))' },
+  { name: 'Excel', value: 41.3, color: 'hsl(var(--ss-lav-deep))' },
+  { name: 'Python', value: 33, color: 'hsl(var(--ss-bad))' },
+  { name: 'Tableau', value: 28.1, color: 'hsl(var(--ss-warn))' },
+  { name: 'Power BI', value: 24.7, color: 'hsl(var(--ss-good))' },
+  { name: 'R', value: 20, color: 'hsl(var(--ss-peach-deep))' },
 ];
 
 const lineData = [
@@ -28,11 +30,15 @@ const lineData = [
   { month: 'Jul', learners: 3490, completions: 4300 },
 ];
 
-const pieData = [
-  { name: 'Data Engineer', value: 40, color: 'hsl(var(--ss-teal))' },
-  { name: 'Data Analyst', value: 30, color: 'hsl(var(--ss-lav-deep))' },
-  { name: 'Data Scientist', value: 20, color: 'hsl(var(--ss-bad))' },
-  { name: 'ML Engineer', value: 10, color: 'hsl(var(--ss-good))' },
+// Median annual wage by occupation, United States.
+// Source: BLS Occupational Employment and Wage Statistics, May 2025.
+// https://www.bls.gov/news.release/ocwage.t01.htm
+const payData = [
+  { name: 'Database Architect', value: 144440, color: 'hsl(var(--ss-teal))' },
+  { name: 'Data Scientist', value: 126800, color: 'hsl(var(--ss-lav-deep))' },
+  { name: 'Statistician', value: 115700, color: 'hsl(var(--ss-bad))' },
+  { name: 'Database Administrator', value: 110090, color: 'hsl(var(--ss-warn))' },
+  { name: 'Operations Research Analyst', value: 99730, color: 'hsl(var(--ss-good))' },
 ];
 
 const InteractiveShowcase = () => {
@@ -45,7 +51,7 @@ const InteractiveShowcase = () => {
         <div className="text-center mb-10">
           <h2 className="text-3xl md:text-4xl font-bold mb-4 font-display">Data Skills In Demand</h2>
           <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
-            Explore interactive visualizations showing most in-demand data skills, career trends, and industry distributions.
+            Explore interactive visualizations showing the most in-demand data skills, learning trends, and what data roles pay.
           </p>
         </div>
 
@@ -60,9 +66,9 @@ const InteractiveShowcase = () => {
                 <LineIcon className="h-4 w-4 shrink-0" />
                 <span className="truncate">Growth</span>
               </TabsTrigger>
-              <TabsTrigger value="roles" className="flex items-center gap-1.5 px-2 text-xs sm:gap-2 sm:px-3 sm:text-sm">
-                <PieIcon className="h-4 w-4 shrink-0" />
-                <span className="truncate">Roles</span>
+              <TabsTrigger value="pay" className="flex items-center gap-1.5 px-2 text-xs sm:gap-2 sm:px-3 sm:text-sm">
+                <DollarSign className="h-4 w-4 shrink-0" />
+                <span className="truncate">Pay</span>
               </TabsTrigger>
             </TabsList>
           </div>
@@ -72,17 +78,31 @@ const InteractiveShowcase = () => {
               <TabsContent value="skills" className="mt-0">
                 <h3 className="text-lg sm:text-xl font-semibold mb-2 sm:mb-4">Most In-Demand Data Skills</h3>
                 <p className="text-sm sm:text-base text-muted-foreground mb-6">
-                  Illustrative sample data for demonstration purposes.
+                  Share of 1,355 US data analyst postings requiring each skill. Source:{' '}
+                  <a
+                    href="https://365datascience.com/career-advice/data-analyst-job-outlook-2025/"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline underline-offset-2 hover:text-foreground"
+                  >
+                    365 Data Science, 2026
+                  </a>
+                  .
                 </p>
                 <div className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                       data={barData}
                       layout="vertical"
-                      margin={{ top: 20, right: isMobile ? 8 : 30, left: isMobile ? 0 : 40, bottom: 5 }}
+                      margin={{ top: 20, right: isMobile ? 20 : 30, left: isMobile ? 0 : 40, bottom: 5 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                      <XAxis type="number" domain={[0, 100]} tick={{ fontSize: isMobile ? 11 : 12 }} />
+                      <XAxis
+                        type="number"
+                        domain={[0, 100]}
+                        tick={{ fontSize: isMobile ? 11 : 12 }}
+                        tickFormatter={(value: number) => `${value}%`}
+                      />
                       <YAxis
                         dataKey="name"
                         type="category"
@@ -103,7 +123,7 @@ const InteractiveShowcase = () => {
               <TabsContent value="growth" className="mt-0">
                 <h3 className="text-lg sm:text-xl font-semibold mb-2 sm:mb-4">Growth Trends in Data Learning</h3>
                 <p className="text-sm sm:text-base text-muted-foreground mb-6">
-                  Tracking the growth of learners and course completions over time.
+                  Learners and course completions over time. Illustrative sample data.
                 </p>
                 <div className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
@@ -127,37 +147,54 @@ const InteractiveShowcase = () => {
                 </div>
               </TabsContent>
 
-              <TabsContent value="roles" className="mt-0">
-                <h3 className="text-lg sm:text-xl font-semibold mb-2 sm:mb-4">Data Professional Roles Distribution</h3>
+              <TabsContent value="pay" className="mt-0">
+                <h3 className="text-lg sm:text-xl font-semibold mb-2 sm:mb-4">What Data Roles Pay</h3>
                 <p className="text-sm sm:text-base text-muted-foreground mb-6">
-                  Illustrative sample distribution for demonstration purposes.
+                  Median annual wage in the US. Source:{' '}
+                  <a
+                    href="https://www.bls.gov/news.release/ocwage.t01.htm"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline underline-offset-2 hover:text-foreground"
+                  >
+                    BLS Occupational Employment and Wage Statistics, May 2025
+                  </a>
+                  .
                 </p>
-                <div className="h-80 flex items-center justify-center">
+                <div className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={pieData}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        outerRadius={isMobile ? 90 : 100}
-                        fill="hsl(var(--ss-lav))"
-                        dataKey="value"
-                        /* Callout labels only where the chart is wide enough to hold
-                           them; below that the share is drawn inside each slice. */
-                        label={
-                          isMobile
-                            ? renderSliceShare
-                            : ({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`
-                        }
-                      >
-                        {pieData.map((entry, index) => (
+                    <BarChart
+                      data={payData}
+                      layout="vertical"
+                      /* The $150k tick sits flush against the plot edge, so the right
+                         margin has to hold it even on the narrowest screens. */
+                      margin={{ top: 20, right: isMobile ? 20 : 30, left: isMobile ? 0 : 40, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                      <XAxis
+                        type="number"
+                        domain={[0, 150000]}
+                        /* Left to itself recharts labels $0/$40k/$80k and then the
+                           domain edge, leaving an unlabelled gridline at $120k. */
+                        ticks={[0, 50000, 100000, 150000]}
+                        tick={{ fontSize: isMobile ? 11 : 12 }}
+                        tickFormatter={(value: number) => `$${value / 1000}k`}
+                      />
+                      <YAxis
+                        dataKey="name"
+                        type="category"
+                        width={isMobile ? 96 : 150}
+                        tick={{ fontSize: isMobile ? 10 : 12 }}
+                      />
+                      <Tooltip
+                        formatter={(value: number) => [`$${value.toLocaleString()}`, 'Median annual wage']}
+                      />
+                      <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                        {payData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
-                      </Pie>
-                      <Tooltip formatter={(value) => [`${value}%`, 'Market Share']} />
-                      <Legend wrapperStyle={{ fontSize: isMobile ? 12 : 14 }} />
-                    </PieChart>
+                      </Bar>
+                    </BarChart>
                   </ResponsiveContainer>
                 </div>
               </TabsContent>
