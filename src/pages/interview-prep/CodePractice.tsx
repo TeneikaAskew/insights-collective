@@ -7,6 +7,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Spinner } from '@/components/ui/spinner';
 import Editor from '@monaco-editor/react';
+// Side-effect import: binds the bundled Monaco to the loader before <Editor>
+// mounts, so it never reaches for the jsdelivr copy. Must precede first render.
+import '@/lib/monaco-setup';
 import { Check, Code, ChevronLeft, RotateCcw } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';

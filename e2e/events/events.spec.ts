@@ -21,7 +21,13 @@ test.describe('Events', () => {
   test('event cards or list renders', async ({ page }) => {
     const cards = page.locator('[class*="event"], [class*="Card"], article');
     const empty = page.locator(':has-text("No events"), :has-text("upcoming")');
-    expect((await cards.count()) + (await empty.count())).toBeGreaterThan(0);
+    // Counted in one shot, this raced the events read: it passes alone and fails
+    // under the parallel load of a full run, while the sibling test that waits
+    // for a Register button on those same cards passes either way. `count()` is
+    // a snapshot with no retry of its own, so the wait has to be explicit.
+    await expect
+      .poll(async () => (await cards.count()) + (await empty.count()), { timeout: 15_000 })
+      .toBeGreaterThan(0);
   });
 
   test('search input is present', async ({ page }) => {

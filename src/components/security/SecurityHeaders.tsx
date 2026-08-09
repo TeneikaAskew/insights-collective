@@ -31,17 +31,46 @@ function localSupabaseOrigin(): string | null {
 export const SecurityHeaders = () => {
   useEffect(() => {
     const localOrigin = localSupabaseOrigin();
-    const connectSrc = ["connect-src 'self' wss: https:", localOrigin].filter(Boolean).join(' ');
+
+    /**
+     * Realtime opens `ws://<origin>/realtime/v1/websocket` against that same
+     * loopback host, and a scheme is not a wildcard: `wss:` does not cover
+     * `ws:`, and `http://localhost:54399` does not cover `ws://localhost:54399`.
+     * So every realtime subscription — notifications, messages, presence — was
+     * blocked under `supabase start` and under the e2e relay, with the failure
+     * arriving only as a console line no test read. Deployed builds are https
+     * and use `wss:`, which was always allowed, so this adds nothing there.
+     */
+    const localWsOrigin = localOrigin ? localOrigin.replace(/^http:/, 'ws:') : null;
+    const connectSrc = ["connect-src 'self' wss: https:", localOrigin, localWsOrigin]
+      .filter(Boolean)
+      .join(' ');
+
+    /**
+     * Storage serves avatars and course art from that same origin, so `img-src`
+     * needs the exemption for the same reason `connect-src` does — and did not
+     * have it. `'self'` is the dev server's port, not Supabase's, and `https:`
+     * does not cover a loopback `http:` origin, so every uploaded image was
+     * blocked under `supabase start` and under the e2e relay. Firefox reports
+     * the violation to the console, which is how it surfaced; the picture is
+     * simply missing either way.
+     */
+    const imgSrc = ["img-src 'self' data: https: blob:", localOrigin].filter(Boolean).join(' ');
 
     // Set Content Security Policy via meta tag
     const cspMeta = document.createElement('meta');
     cspMeta.httpEquiv = 'Content-Security-Policy';
     cspMeta.content = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://esm.sh",
+      // cdn.jsdelivr.net was here for Monaco, which is bundled now and served
+      // from this origin; esm.sh is imported only by the Deno edge functions,
+      // where a browser CSP does not apply. Neither is reachable from any page,
+      // and a script-src entry that outlives its subject is a standing
+      // permission for whatever shows up at that host next.
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
-      "img-src 'self' data: https: blob:",
+      imgSrc,
       connectSrc,
       "frame-src 'self' blob: https://www.youtube.com https://www.youtube-nocookie.com https://youtube.com https://player.vimeo.com",
       "object-src 'none'",

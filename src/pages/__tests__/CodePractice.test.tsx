@@ -22,7 +22,14 @@ vi.mock('@/components/layout/AppLayout', () => ({
   default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
-// Monaco loads its editor over the network; stub it with a plain textarea
+// Monaco is bundled rather than fetched now, and the page imports the loader
+// binding for its side effect. That module pulls in the real monaco-editor plus
+// two `?worker` entry points, none of which jsdom can load or needs — the editor
+// itself is stubbed below. Mocked to nothing so the import stays harmless here.
+vi.mock('@/lib/monaco-setup', () => ({}));
+
+// Monaco renders into a canvas the assertions cannot read; stub it with a plain
+// textarea.
 const editorOnChange = vi.hoisted(() => ({ current: null as null | ((v: string) => void) }));
 vi.mock('@monaco-editor/react', () => ({
   default: ({ value, onChange }: { value: string; onChange: (v: string) => void }) => {

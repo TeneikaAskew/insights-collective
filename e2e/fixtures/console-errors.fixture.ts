@@ -210,13 +210,33 @@ const IGNORED_PATTERNS: IgnoreRule[] = [
   // Happen when source files change while the dev server is running tests.
   /error loading dynamically imported module/,
 
-  // ── Monaco editor CSP / CDN errors (dev-only, not our bugs) ───────────────
-  /Content Security Policy/,
-  /Loading "vs\//,
-  /cdn\.jsdelivr/,
-  /Here are the modules that depend/,
-  // Monaco CSS module loading errors (list of vs/css! modules that failed to load)
-  /\[vs\/css!/,
+  // Realtime over the relay, and only over the relay. scripts/e2e/supabase-relay.mjs
+  // is a plain HTTP relay — it strips hop-by-hop headers including `upgrade` and
+  // never handles the upgrade event — so a websocket to the loopback port closes
+  // before the handshake. Nothing in the app is wrong and no spec here tests
+  // realtime; the subscriptions are an enhancement over data that loads by
+  // fetch.
+  //
+  // Deliberately narrow: loopback host, the realtime path, and relay mode only.
+  // A websocket failure against the real project, or against any other path,
+  // still fails its test. This rule replaced no CSP suppression — the CSP block
+  // that used to cause this same message was a real defect and is fixed in
+  // SecurityHeaders.tsx.
+  (text: string) =>
+    RELAY_MODE &&
+    /(WebSocket connection to|Connecting to) 'ws:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/realtime\/v1\/websocket/.test(
+      text,
+    ),
+
+  // The Monaco block that lived here — /Content Security Policy/,
+  // /Loading "vs\//, /cdn\.jsdelivr/, /Here are the modules that depend/ and
+  // /\[vs\/css!/ — is gone with its subject. Monaco is bundled now and served
+  // from this origin, so none of those messages can be emitted by a healthy
+  // page; if one appears again it means the loader went back to the CDN, which
+  // is precisely what a suppression must not hide. /Content Security Policy/
+  // was the widest of them and would have swallowed any CSP violation anywhere
+  // in the app — it hid a real one, the img-src block on loopback Supabase
+  // storage, until Firefox reported it through a different code path.
 
   // EnrollmentBadge's suppression is GONE, along with the component: this PR
   // deletes src/components/course/EnrollmentBadge.tsx, so a rule matching
@@ -283,9 +303,10 @@ const RELAY_MODE = process.env.E2E_USE_RELAY === '1';
 
 function allowedHosts(): Set<string> {
   const hosts = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
-  // Monaco (cdn.jsdelivr.net) and esm.sh are in the app's own CSP script-src;
-  // the code editor does not work without them, so they stay reachable.
-  for (const h of ['cdn.jsdelivr.net', 'esm.sh']) hosts.add(h);
+  // cdn.jsdelivr.net and esm.sh used to be listed here so Monaco could load.
+  // Monaco is bundled now, and esm.sh is only ever imported by the Deno edge
+  // functions, so neither is a host any page reaches. Leaving them allowed
+  // would mean a regression to CDN loading still counted as healthy.
   try {
     hosts.add(new URL(process.env.VITE_SUPABASE_URL ?? 'https://siuqvhscuiycvdrtiqsh.supabase.co').hostname);
   } catch {
