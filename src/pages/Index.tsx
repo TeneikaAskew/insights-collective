@@ -20,6 +20,8 @@ import OnboardingTrigger from '@/components/onboarding/OnboardingTrigger';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useRecentEvents } from '@/hooks/useEvents';
 import { useAuth } from '@/hooks/useAuth';
+import PageSeo, { SITE_NAME, SITE_URL } from '@/components/seo/PageSeo';
+
 
 // The only two sections on this page that pull in recharts — InteractiveShowcase
 // directly, AnalyticsDashboard through LearningProgressChart. Between them they
