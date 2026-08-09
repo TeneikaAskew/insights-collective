@@ -126,6 +126,17 @@ const SECTIONS: Record<string, Section> = {
 };
 
 /**
+ * The trust markers under the CTA, and the state each one renders when it has
+ * no number to show. They are checked separately from the section above because
+ * they are the one part of this page that reads the database.
+ */
+const TRUST_MARKERS = {
+  'Expert-Led Courses': /^\d[\d,]*$/,
+  'Community Members': /^\d[\d,]*$/,
+  'Avg. Completion': /^\d+%$/,
+};
+
+/**
  * The two sections Index holds back with `deferUntilVisible`. Until they scroll
  * into view their wrapper holds a `min-h-[50vh]` aria-hidden spacer, which is
  * why every assertion below is about *text*: an emptiness check would pass on
@@ -176,6 +187,44 @@ test.describe('Home page', () => {
       await assert(await reveal(page, id));
     });
   }
+
+  test('the CTA trust markers all show real figures', async ({ page }) => {
+    const section = await reveal(page, 'cta');
+    await page.waitForLoadState('networkidle');
+
+    const shown: Record<string, string> = {};
+    for (const label of Object.keys(TRUST_MARKERS)) {
+      // Each marker is a value stacked above its label.
+      const value = section
+        .locator('div')
+        .filter({ hasText: new RegExp(`^${label.replace('.', '\\.')}$`) })
+        .locator('xpath=preceding-sibling::div[1]');
+      shown[label] = (await value.first().innerText()).trim();
+    }
+
+    // All three markers come from one call now, so they succeed or fail
+    // together. That is what makes this checkable without knowing how much data
+    // the environment holds: an empty database dashes all of them, and any
+    // mixture of figures and dashes means a query failed.
+    //
+    // Skipping on a single dash would have been useless here — the bug this
+    // guards against rendered Courses and Members as figures while
+    // Avg. Completion stayed "—" forever, and a per-marker skip would have
+    // waved exactly that through.
+    const dashed = Object.entries(shown).filter(([, v]) => v === '—');
+    test.skip(
+      dashed.length === Object.keys(TRUST_MARKERS).length,
+      'the environment has no platform data at all; nothing was asserted',
+    );
+    expect(
+      dashed.map(([label]) => label),
+      `these markers rendered "—" while others showed figures, so their query failed: ${JSON.stringify(shown)}`,
+    ).toEqual([]);
+
+    for (const [label, shape] of Object.entries(TRUST_MARKERS)) {
+      expect(shown[label], `"${label}" rendered "${shown[label]}", which is not a figure`).toMatch(shape);
+    }
+  });
 
   test('every section on the page is accounted for', async ({ page }) => {
     // A section added to Index without a row in SECTIONS would go untested
