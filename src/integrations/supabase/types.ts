@@ -6244,6 +6244,14 @@ export type Database = {
         Args: { p_course_id: string; p_other_user_id: string }
         Returns: string
       }
+      platform_stats: {
+        Args: never
+        Returns: {
+          avg_completion: number
+          community_members: number
+          published_courses: number
+        }[]
+      }
       rate_limit_certificate_verify: {
         Args: { p_code: string; p_found: boolean; p_ip_hash: string }
         Returns: {
