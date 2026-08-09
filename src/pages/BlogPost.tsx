@@ -11,6 +11,8 @@ import { BlogPost } from '@/types/blog';
 import AppLayout from '@/components/layout/AppLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import PageSeo, { SITE_NAME, SITE_URL } from '@/components/seo/PageSeo';
+
 
 import { createLogger } from '@/utils/logger';
 
