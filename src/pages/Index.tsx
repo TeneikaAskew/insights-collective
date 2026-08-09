@@ -147,8 +147,30 @@ const Index = () => {
 
   return (
     <div className="min-h-screen flex flex-col overflow-x-hidden">
+      <PageSeo
+        title="Insights Collective — Data & AI Career Learning"
+        description="Courses, career pathways and interview prep for data, analytics and AI roles. Take the quiz to find the data career that fits your skills."
+        path="/"
+        jsonLd={[
+          {
+            '@context': 'https://schema.org',
+            '@type': 'Organization',
+            name: SITE_NAME,
+            url: SITE_URL,
+            description: 'Learning platform for data, analytics and AI careers.',
+          },
+          {
+            '@context': 'https://schema.org',
+            '@type': 'WebSite',
+            name: SITE_NAME,
+            url: SITE_URL,
+          },
+        ]}
+      />
       <WelcomeModal />
       <OnboardingGuide tourId="home" />
+      
+
       
       {/* Onboarding trigger button */}
       {!isFirstVisit && !isOnboardingActive && (
