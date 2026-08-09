@@ -10,6 +10,8 @@ import { getAllBlogPosts, getBlogCategories } from '@/services/blogService';
 import { BlogPost, BlogCategory } from '@/types/blog';
 import AppLayout from '@/components/layout/AppLayout';
 import { useAuth } from '@/contexts/AuthContext';
+import PageSeo from '@/components/seo/PageSeo';
+
 
 import { createLogger } from '@/utils/logger';
 
