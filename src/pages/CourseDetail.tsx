@@ -29,6 +29,8 @@ import { CourseContentPreview } from '@/components/course/CourseContentPreview';
 import { CourseProgressTimeline } from '@/components/course/CourseProgressTimeline';
 import { CourseCalendarSync } from '@/components/course/CourseCalendarSync';
 import { LoginOverlayCard } from '@/components/course/LoginOverlayCard';
+import PageSeo, { SITE_NAME, SITE_URL } from '@/components/seo/PageSeo';
+
 import { useCourseThread } from '@/hooks/useCourseThread';
 
 import { createLogger } from '@/utils/logger';
