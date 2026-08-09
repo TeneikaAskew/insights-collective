@@ -11,6 +11,8 @@ import { BlogPost } from '@/types/blog';
 import AppLayout from '@/components/layout/AppLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import PageSeo, { SITE_NAME, SITE_URL } from '@/components/seo/PageSeo';
+
 
 import { createLogger } from '@/utils/logger';
 
@@ -170,7 +172,27 @@ export default function BlogPostPage() {
 
   return (
     <AppLayout>
+      <PageSeo
+        title={`${post.seoTitle || post.title} | Insights Collective`}
+        description={(post.seoDescription || post.excerpt || post.title).slice(0, 160)}
+        path={`/blog/${post.slug}`}
+        image={post.imageUrl}
+        type="article"
+        jsonLd={{
+          '@context': 'https://schema.org',
+          '@type': 'BlogPosting',
+          headline: post.title,
+          description: post.seoDescription || post.excerpt || undefined,
+          image: post.imageUrl || undefined,
+          datePublished: post.publishedAt || undefined,
+          dateModified: post.updatedAt || post.publishedAt || undefined,
+          author: post.authorName ? { '@type': 'Person', name: post.authorName } : undefined,
+          mainEntityOfPage: `${SITE_URL}/blog/${post.slug}`,
+          publisher: { '@type': 'Organization', name: SITE_NAME, url: SITE_URL },
+        }}
+      />
       <div className="container mx-auto py-8 px-4 max-w-4xl">
+
         {/* Navigation */}
         <div className="mb-6">
           <Link to="/blog">

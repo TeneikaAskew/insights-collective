@@ -10,6 +10,8 @@ import { getAllBlogPosts, getBlogCategories } from '@/services/blogService';
 import { BlogPost, BlogCategory } from '@/types/blog';
 import AppLayout from '@/components/layout/AppLayout';
 import { useAuth } from '@/contexts/AuthContext';
+import PageSeo from '@/components/seo/PageSeo';
+
 
 import { createLogger } from '@/utils/logger';
 
@@ -138,7 +140,13 @@ export default function Blog() {
 
   return (
     <AppLayout>
+      <PageSeo
+        title="Blog — Data Career Insights | Insights Collective"
+        description="Articles on data, analytics and AI careers: skills to learn, hiring trends, portfolio advice and interview preparation."
+        path="/blog"
+      />
       <div className="container mx-auto py-8 px-4">
+
         {/* Header Section */}
         <div className="mb-8">
           <div className="flex justify-between items-start mb-4">
