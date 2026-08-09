@@ -1448,7 +1448,22 @@ const CourseDetail = () => {
   
   return (
     <CourseLayout>
+      <PageSeo
+        title={`${course.title} | Insights Collective`}
+        description={(course.description || `Learn ${course.title} with hands-on lessons, projects and a completion certificate.`).slice(0, 160)}
+        path={`/courses/${courseId}`}
+        image={(course as any).image_url || (course as any).thumbnail || undefined}
+        jsonLd={{
+          '@context': 'https://schema.org',
+          '@type': 'Course',
+          name: course.title,
+          description: course.description || undefined,
+          url: `${SITE_URL}/courses/${courseId}`,
+          provider: { '@type': 'Organization', name: SITE_NAME, url: SITE_URL },
+        }}
+      />
       <div className="space-y-6">
+
         {/* Course Header with Breadcrumb */}
         <div className="bg-card border rounded-lg p-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4 relative">
