@@ -1,15 +1,22 @@
 import React from 'react';
 import AppLayout from '@/components/layout/AppLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import PageSeo from '@/components/seo/PageSeo';
 
 const TermsOfService: React.FC = () => {
   return (
     <AppLayout>
+      <PageSeo
+        title="Terms of Service | Insights Collective"
+        description="The terms that govern your use of Insights Collective's courses, career tools and community features."
+        path="/terms-of-service"
+      />
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <Card>
           <CardHeader>
-            <CardTitle className="text-3xl font-bold text-center">Terms of Service</CardTitle>
+            <h1 className="text-3xl font-bold text-center">Terms of Service</h1>
             <p className="text-center text-muted-foreground">Last updated: December 2024</p>
+
           </CardHeader>
           <CardContent className="prose prose-slate max-w-none">
             <section className="mb-8">
