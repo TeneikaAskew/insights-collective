@@ -249,10 +249,19 @@ test.describe('Explore Careers', () => {
     // fallback, so the titles vary. What must never come back are the
     // placeholder ids the legacy `courses` field carried — every /courses/da101
     // link 404'd. Assert on the hrefs rather than the copy.
+    // The panel is visible as soon as the career-progression steps render, and
+    // those come from static role data. The course lists arrive later, from the
+    // published-courses read and a ~969-row Coursera catalog query, so reading
+    // hrefs the moment the panel appears collects an empty list and fails on
+    // `toBeGreaterThan(0)` — measured against a catalog that holds plenty for
+    // this role. Wait for the recommendations rather than for the tab.
+    await expect
+      .poll(() => panel.getByRole('link').count(), { timeout: 20_000 })
+      .toBeGreaterThan(0);
+
     const hrefs = await panel.getByRole('link').evaluateAll((els) =>
       els.map((e) => e.getAttribute('href') ?? ''),
     );
-    expect(hrefs.length).toBeGreaterThan(0);
 
     for (const href of hrefs) {
       expect(href, `${href} is a legacy placeholder course id`).not.toMatch(
