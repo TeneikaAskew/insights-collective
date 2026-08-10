@@ -58,6 +58,8 @@ function CanvasGradingInterface() {
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState<FilterKey>('needs');
   const [search, setSearch] = useState('');
+  const [commentSeed, setCommentSeed] = useState<{ text: string; nonce: number } | undefined>();
+
 
   const [grade, setGrade] = useState<string>('');
   const [feedback, setFeedback] = useState<string>('');
@@ -436,10 +438,17 @@ function CanvasGradingInterface() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  <div>
+                  <div className="space-y-4">
                     <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-3">Submission</h3>
                     {renderSubmissionContent()}
+                    <SubmissionAttachments
+                      submissionId={selectedSubmission.id}
+                      onCommentOnFile={(filename) =>
+                        setCommentSeed({ text: `Re: ${filename} — `, nonce: Date.now() })
+                      }
+                    />
                   </div>
+
 
                   <div className="border-t pt-5 space-y-4">
                     <div className="flex flex-wrap items-end gap-3">
