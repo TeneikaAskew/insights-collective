@@ -108,7 +108,16 @@ export function InlineAssignmentSubmit({ item, assignment, onCompleted }: Props)
       if (sub) {
         setBody(sub.body || '');
         setUrl(sub.url || '');
+        const { data: files } = await supabase
+          .from('submission_attachments')
+          .select('id, filename, content_type, size, url')
+          .eq('submission_id', sub.id)
+          .order('created_at', { ascending: true });
+        if (!cancelled) setAttachments((files as AttachmentRow[]) || []);
+      } else {
+        setAttachments([]);
       }
+
       const rubricId = rubricRes.data?.[0]?.rubric_id;
       if (rubricId) {
         const { data: crit, error: critError } = await supabase
