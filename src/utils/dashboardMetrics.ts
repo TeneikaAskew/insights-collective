@@ -25,8 +25,8 @@ export interface DashboardMetrics {
 
 /**
  * A course counts as "in progress" when the learner is enrolled, has at least
- * one content item with workflow_state 'read' or 'completed', and has NOT been
- * issued a completion certificate for that course.
+ * one content item in a done workflow_state (see isProgressionDone), and has
+ * NOT been issued a completion certificate for that course.
  */
 export function computeDashboardMetrics(
   enrollments: EnrollmentRow[],
@@ -39,10 +39,11 @@ export function computeDashboardMetrics(
   const startedIds = new Set<string>();
   for (const p of progressions) {
     if (!p.course_id) continue;
-    if (p.workflow_state === 'read' || p.workflow_state === 'completed') {
+    if (isProgressionDone(p.workflow_state)) {
       startedIds.add(p.course_id);
     }
   }
+
 
   let inProgress = 0;
   for (const id of enrolledIds) {
