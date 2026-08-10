@@ -240,7 +240,22 @@ async function sweepLeakedAnnouncementProbes(): Promise<void> {
   // service_role. We only run this sweep when SUPABASE_SERVICE_ROLE_KEY is
   // provided in the environment (CI/local opt-in); it's never bundled.
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!serviceKey) return;
+  if (!serviceKey) {
+    // This used to `return` in silence, and the silence is the whole story: the
+    // spec below inserts a real announcement, the fan-out writes one row per
+    // enrolled user, and RLS lets the spec delete only its own. Every run
+    // without this key therefore left rows behind for everyone else on the
+    // course — 4,089 of them across 14 inboxes before anyone looked, on a
+    // published course where 13 of the 15 enrolments are real people. A run
+    // that cannot clean up should say so rather than look identical to one
+    // that did.
+    console.warn(
+      '[global-setup] SUPABASE_SERVICE_ROLE_KEY is not set, so the announcement-probe sweep cannot run.\n' +
+        '               messaging-notifications-hardening.spec.ts will leave one notification per\n' +
+        '               enrolled user of the reference course behind, and they accumulate every run.',
+    );
+    return;
+  }
   try {
     const headers = {
       apikey: serviceKey,

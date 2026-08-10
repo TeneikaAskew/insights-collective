@@ -976,6 +976,84 @@ BEGIN
   IF NOT v_ok THEN
     RAISE EXCEPTION 'E2E SEED FAILED: can_view_profile denies the member sight of e2e-journeys — apply migration 20260802140000, which lets people on the same course see each other';
   END IF;
+
+  -- Section 6's pool, asserted because it is consumed. notifications-flow
+  -- deletes one row per run; when the ambient rows ran out the spec failed on
+  -- its own seed-gap message with nothing to reseed it. Checked above the
+  -- twelve seeded so a shortfall is caught before the spec is.
+  SELECT count(*) >= 10 FROM public.notifications
+   WHERE user_id = (SELECT id FROM auth.users
+                     WHERE email = COALESCE(current_setting('e2e.member_email', true), 'e2e-member@insightscollective.org'))
+   INTO v_ok;
+  IF NOT v_ok THEN
+    RAISE EXCEPTION 'E2E SEED FAILED: the member has fewer than 10 notifications, so notifications-flow.spec.ts has nothing to open, mark read or delete';
+  END IF;
+
+  -- And unread ones specifically: "Mark all as read" only exercises the write
+  -- when something is unread, and otherwise passes on the disabled-button path.
+  SELECT EXISTS (
+    SELECT 1 FROM public.notifications
+     WHERE is_read = false
+       AND user_id = (SELECT id FROM auth.users
+                       WHERE email = COALESCE(current_setting('e2e.member_email', true), 'e2e-member@insightscollective.org'))
+  ) INTO v_ok;
+  IF NOT v_ok THEN
+    RAISE EXCEPTION 'E2E SEED FAILED: the member has no unread notifications, so "Mark all as read" asserts the disabled branch and never tests the update';
+  END IF;
+END $$;
+
+-- 6. Notifications for the member, so the notifications specs have something to
+--    act on.
+--
+-- THIS FIXTURE IS CONSUMED BY THE SUITE, so it follows rule 1 at the top of this
+-- file: restore, do not merely create. journeys/notifications-flow.spec.ts
+-- deletes one row per run to prove the delete persists. The account started with
+-- 36 ambient rows and ran dry, at which point that spec failed on its own
+-- "Seed gap" assertion — correctly, and with nothing to reseed it.
+--
+-- Fixed ids are what make the restore work: a deleted row is recreated by the
+-- next seed run because ON CONFLICT keys on the id, not on the content.
+--
+-- Not sourced from a course announcement, deliberately. The announcement
+-- fan-out trigger writes one notification per ENROLLED user, and the reference
+-- course carries thirteen real accounts alongside the two test ones — that path
+-- is how 4,089 probe rows reached fourteen people's inboxes. These rows are
+-- written straight to the member and touch nobody else.
+DO $$
+DECLARE
+  v_member_id uuid;
+  v_course_id uuid := '660e8400-e29b-41d4-a716-446655440001';
+  i int;
+BEGIN
+  SELECT id INTO v_member_id FROM auth.users
+   WHERE email = COALESCE(current_setting('e2e.member_email', true), 'e2e-member@insightscollective.org');
+  IF v_member_id IS NULL THEN
+    RAISE EXCEPTION 'E2E SEED FAILED: no e2e member account, so the notification fixtures cannot be attributed';
+  END IF;
+
+  FOR i IN 1..12 LOOP
+    INSERT INTO public.notifications (id, user_id, title, message, type, link, is_read, course_id, created_at)
+    VALUES (
+      ('77e8a400-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid,
+      v_member_id,
+      'Fixture notification ' || i,
+      'Seeded by e2e/fixtures/seed.sql for the notifications specs.',
+      'course_announcement',
+      '/courses/' || v_course_id || '/announcements',
+      -- A mix, so "Mark all as read" has unread rows to clear and the Unread tab
+      -- is not empty. The spec handles both states, but only one exercises the
+      -- write.
+      (i % 3 = 0),
+      v_course_id,
+      now() - (i || ' hours')::interval
+    )
+    ON CONFLICT (id) DO UPDATE
+      -- Rule 1 again: is_read is consumed too. "Mark all as read" flips every
+      -- unread row, so without this the pool is permanently read after one run
+      -- and that spec asserts the disabled-button branch forever.
+      SET is_read = (i % 3 = 0),
+          created_at = now() - (i || ' hours')::interval;
+  END LOOP;
 END $$;
 
 COMMIT;
