@@ -33,6 +33,36 @@ async function resend(path: string, init: RequestInit = {}) {
   return text ? JSON.parse(text) : {};
 }
 
+type ResendDomain = {
+  id: string;
+  name: string;
+  status: string;
+  records?: Array<{ record: string; name: string; type: string; value: string; status?: string }>;
+};
+
+// A domain sitting at `not_started` has never had its DNS checked. Kicking
+// verification here means the first send after DNS is in place succeeds on its own,
+// and the error we raise carries the exact records the operator still owes.
+async function senderSetupHint(list: ResendDomain[]): Promise<string> {
+  if (list.length === 0) return 'no sender domain has been added in Resend';
+  const domain = list[0];
+  const parts: string[] = [`${domain.name}:${domain.status}`];
+  try {
+    if (domain.status === 'not_started' || domain.status === 'failed') {
+      await resend(`/domains/${domain.id}/verify`, { method: 'POST' });
+      parts.push('verification requested');
+    }
+    const detail = (await resend(`/domains/${domain.id}`)) as ResendDomain;
+    const records = (detail.records ?? [])
+      .map((r) => `${r.type} ${r.name} -> ${r.value}`)
+      .join(' | ');
+    if (records) parts.push(`required DNS: ${records}`);
+  } catch (e) {
+    parts.push(`detail lookup failed: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  return parts.join('; ');
+}
+
 // The sender domain is whatever is verified in Resend, so it is discovered rather
 // than hardcoded — a wrong `from` is a 403 that looks like a broken key.
 let cachedFrom: string | null = null;
@@ -41,16 +71,15 @@ async function resolveFrom(): Promise<string> {
   if (override) return override;
   if (cachedFrom) return cachedFrom;
   const domains = await resend('/domains');
-  const list: Array<{ name: string; status: string }> = domains?.data ?? [];
+  const list: ResendDomain[] = domains?.data ?? [];
   const verified = list.find((d) => d.status === 'verified');
   if (!verified) {
-    throw new Error(
-      `no verified sender domain in Resend (found: ${list.map((d) => `${d.name}:${d.status}`).join(', ') || 'none'})`,
-    );
+    throw new Error(`no verified sender domain in Resend (${await senderSetupHint(list)})`);
   }
   cachedFrom = `Insights Collective <notifications@${verified.name}>`;
   return cachedFrom;
 }
+
 
 function appUrl(link: string | null): string {
   const base = (Deno.env.get('APP_BASE_URL') ?? 'https://insightscollective.org').replace(/\/$/, '');
