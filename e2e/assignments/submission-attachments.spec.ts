@@ -68,27 +68,31 @@ test.describe('Submission attachments in the grader (instructor)', () => {
     // pixels — do not weaken it back to an iframe/src check.
     const canvas = row.locator(`canvas[aria-label="Preview of ${PDF}"]`);
     await expect(canvas).toBeVisible();
+    // Poll the ink itself, not the canvas dimensions. pdf.js sizes the canvas
+    // from the viewport BEFORE it paints the page, so a width*height gate goes
+    // green while the bitmap is still blank — that race is why this read came
+    // back 0 under load even though the preview renders fine.
     await expect
-      .poll(async () => canvas.evaluate((c: HTMLCanvasElement) => c.width * c.height), {
-        timeout: 15_000,
-      })
-      .toBeGreaterThan(0);
-    const inked = await canvas.evaluate((c: HTMLCanvasElement) => {
-      const ctx = c.getContext('2d');
-      if (!ctx) return 0;
-      const { data } = ctx.getImageData(0, 0, c.width, c.height);
-      // Only opaque pixels count. An untouched canvas reads back as
-      // transparent black (0,0,0,0), which a naive "darker than white" test
-      // counts as ink and passes against a completely blank preview.
-      let inked = 0;
-      for (let i = 0; i < data.length; i += 4) {
-        if (data[i + 3] < 255) continue;
-        if (data[i] < 250 || data[i + 1] < 250 || data[i + 2] < 250) inked += 1;
-      }
-      return inked;
-    });
-    // The fixture PDF carries a heading, a line of body text and a rule.
-    expect(inked).toBeGreaterThan(500);
+      .poll(
+        async () =>
+          canvas.evaluate((c: HTMLCanvasElement) => {
+            const ctx = c.getContext('2d');
+            if (!ctx || c.width === 0 || c.height === 0) return 0;
+            const { data } = ctx.getImageData(0, 0, c.width, c.height);
+            // Only opaque pixels count. An untouched canvas reads back as
+            // transparent black (0,0,0,0), which a naive "darker than white"
+            // test counts as ink and passes against a completely blank preview.
+            let inked = 0;
+            for (let i = 0; i < data.length; i += 4) {
+              if (data[i + 3] < 255) continue;
+              if (data[i] < 250 || data[i + 1] < 250 || data[i + 2] < 250) inked += 1;
+            }
+            return inked;
+          }),
+        { timeout: 30_000, intervals: [250, 500, 1000] },
+      )
+      // The fixture PDF carries a heading, a line of body text and a rule.
+      .toBeGreaterThan(500);
   });
 
   test('downloads a file under its original name', async ({ page }) => {
