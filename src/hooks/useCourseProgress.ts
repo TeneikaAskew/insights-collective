@@ -48,7 +48,7 @@ const EMPTY: CourseProgress = {
  *  - CourseModulesList.tsx (per-module content_item_progressions query)
  *  - CourseProgressOverview.tsx (legacy content_progress table)
  *
- * Progress is defined as (content_item_progressions.workflow_state in ('read','completed'))
+ * Progress is defined by isProgressionDone() (src/utils/progressionStates.ts)
  * divided by total published content_items for the course's modules.
  */
 export function useCourseProgress(
