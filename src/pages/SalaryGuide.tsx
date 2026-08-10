@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import WageBand, { } from '@/components/careers/WageBand';
+import WageBand from '@/components/careers/WageBand';
 import { useCareerRoleWages, CareerRoleWage } from '@/hooks/useCareerRoleWages';
 import { dataCareerRoles } from '@/data/dataCareerRoles';
 import { ArrowRight, BarChart3, Compass, GraduationCap, TrendingUp } from 'lucide-react';
