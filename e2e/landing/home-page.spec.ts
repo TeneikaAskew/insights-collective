@@ -273,7 +273,7 @@ test.describe('Home page', () => {
     expect(total).toBeGreaterThan(0);
 
     for (let answered = 0; answered < total; answered++) {
-      // Scale and multiple-choice questions render the same shape: one labelled
+      // Scale and multiple-choice questions render the same shape: one labeled
       // row per option inside the group.
       const options = page.locator('[role="radiogroup"] label').filter({ visible: true });
       await expect(options.first()).toBeVisible();

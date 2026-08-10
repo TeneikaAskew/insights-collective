@@ -258,7 +258,7 @@ const SurveyField: React.FC<SurveyFieldProps> = ({ field, fieldName, defaultValu
             // 30 chars) and a URL regex also draws js/regex/missing-regexp-anchor;
             // parsing has neither problem and is a stricter, clearer check. A
             // scheme-less entry ("example.com") is accepted by trying https://
-            // in front, matching the old pattern's optional-scheme behaviour.
+            // in front, matching the old pattern's optional-scheme behavior.
             rules.validate = (value: any) => {
               if (!value) return true; // presence is enforced by `required`
               const raw = String(value).trim();

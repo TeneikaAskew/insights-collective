@@ -1,4 +1,4 @@
-// ABOUTME: Pins that site search reads the real catalogues rather than hand-typed copies.
+// ABOUTME: Pins that site search reads the real catalogs rather than hand-typed copies.
 // ABOUTME: Every advertised URL must be a route, and every career slug a real role.
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -9,7 +9,7 @@ import { dataCareerRoles } from '@/data/dataCareerRoles';
 /**
  * Why this file exists.
  *
- * The career results were six roles typed out by hand against a catalogue of
+ * The career results were six roles typed out by hand against a catalog of
  * 33. Twenty-nine were unfindable, and two of the six — `analytics-engineer`
  * and `data-product-manager` — were slugs that no longer existed, so searching
  * them returned a result that deep-linked to nothing. Nothing failed, because
@@ -46,15 +46,15 @@ describe('SiteSearch career results', () => {
   });
 
   it('finds a role that the old hand-written list left out', async () => {
-    // `mlops-engineer` is in the catalogue and was not in the six.
+    // `mlops-engineer` is in the catalog and was not in the six.
     const role = dataCareerRoles.find((r) => r.id === 'mlops-engineer');
-    expect(role, 'mlops-engineer is expected in the catalogue').toBeTruthy();
+    expect(role, 'mlops-engineer is expected in the catalog').toBeTruthy();
 
     const titles = await search(role!.title);
     expect(titles).toContain(role!.title);
   });
 
-  it('offers every role in the catalogue, not a subset', async () => {
+  it('offers every role in the catalog, not a subset', async () => {
     // "engineer" spans many tracks, so this is a broad read of the same list
     // the Explore Careers page renders.
     const expected = dataCareerRoles
@@ -68,7 +68,7 @@ describe('SiteSearch career results', () => {
     }
   });
 
-  it('navigates to a slug the catalogue actually contains', async () => {
+  it('navigates to a slug the catalog actually contains', async () => {
     render(<SiteSearch />);
     const input = screen.getByRole('searchbox', { name: /search entire site/i });
     fireEvent.change(input, { target: { value: 'Cloud Data Engineer' } });

@@ -41,7 +41,7 @@ import { redactUrl, redactText } from '../../src/integrations/supabase/redact-se
  * and nothing else. Specs that build their own page with
  * `browser.newContext().newPage()` — 43 call sites across 16 files, including
  * the visual suite, blog-post, the legal pages and the survey specs — are
- * invisible to it. Absence from the catalogue therefore means "not watched",
+ * invisible to it. Absence from the catalog therefore means "not watched",
  * NOT "clean". Widening this to cover every context is PR 7c's job; until then
  * the artifact is a partial census and has to be read as one.
  *
@@ -88,7 +88,7 @@ const IGNORED_HOSTS = [
  * `google-analytics.com.attacker.net`, so an error mentioning either was
  * silently suppressed — the same over-matching that made a bare /analytics/i
  * swallow the app's own errors. Rewriting it with lookarounds fixed the
- * semantics but CodeQL only recognises `^`-style anchors, so the alert count
+ * semantics but CodeQL only recognizes `^`-style anchors, so the alert count
  * went up rather than down, and anchoring to `^` is simply wrong here: these
  * match anywhere inside a console message, not a whole URL.
  *
@@ -124,7 +124,7 @@ const IGNORED_PATTERNS: IgnoreRule[] = [
   // Lovable component tagger (dev-only, not our code)
   /lovable-tagger/,
   // Lovable's editor script, loaded from a CDN by index.html:26. Third-party and
-  // unrelated to any app behaviour — it fails CORS wherever that CDN is
+  // unrelated to any app behavior — it fails CORS wherever that CDN is
   // unreachable, which is not a regression in this codebase.
   // Firefox reports a rejected third-party cookie as a page error against the
   // URL that tried to set it. Cloudflare sits in front of Supabase storage and

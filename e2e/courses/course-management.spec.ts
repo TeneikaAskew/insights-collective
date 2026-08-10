@@ -44,7 +44,7 @@ test.describe('Course Management (Instructor)', () => {
   test('students management is still a placeholder', async ({ page }) => {
     await goto(page, mgmtUrl);
     // Asserted rather than skipped, because the placeholder is the real current
-    // behaviour and this fails the day it becomes a working section — which is
+    // behavior and this fails the day it becomes a working section — which is
     // when the test above it should grow a Students case.
     const students = page.getByRole('button', { name: /Students/ });
     await expect(students).toBeVisible();

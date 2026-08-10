@@ -19,7 +19,7 @@
 // requests broke.
 //
 // WHAT IS DELIBERATELY *NOT* STRIPPED
-// Query parameters are the diagnostic value of this catalogue: a PostgREST URL
+// Query parameters are the diagnostic value of this catalog: a PostgREST URL
 // carries the table, the selected columns and the filters, which is how a
 // rejected query is identified at all. Dropping the query wholesale would make
 // the artifact safe and useless in the same stroke. So parameter NAMES are

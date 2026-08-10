@@ -12,11 +12,11 @@ interface RoleTableProps {
 }
 
 /**
- * Click/keyboard behaviour and identity, shared by both presentations below.
+ * Click/keyboard behavior and identity, shared by both presentations below.
  *
  * Defined once so the table row and the stacked card cannot drift apart — a role
  * that opens on Enter at desktop width but not on a phone is the kind of gap
- * that survives a long time, because nobody tests the same behaviour twice.
+ * that survives a long time, because nobody tests the same behavior twice.
  */
 const rowProps = (roleId: string, onOpenRole: (roleId: string) => void) => ({
   id: `role-${roleId}`,

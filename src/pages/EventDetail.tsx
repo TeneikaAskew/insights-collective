@@ -89,8 +89,8 @@ export default function EventDetail() {
     try {
       await unregisterMutation.mutateAsync(id);
       toast({
-        title: 'Registration Cancelled',
-        description: 'Your registration has been cancelled.',
+        title: 'Registration Canceled',
+        description: 'Your registration has been canceled.',
       });
     } catch (error) {
       toast({

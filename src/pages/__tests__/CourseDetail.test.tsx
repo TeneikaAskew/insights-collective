@@ -175,7 +175,7 @@ describe('CourseDetail', () => {
   });
 
   it('still renders the course when the enrollment count cannot be read, and omits the count', async () => {
-    // Replaces a test that pinned the opposite behaviour. Course pages are
+    // Replaces a test that pinned the opposite behavior. Course pages are
     // public and `anon` has no SELECT on `enrollments`, so throwing here
     // replaced the whole page with an error state for every signed-out
     // visitor. The original concern — never show a misleading "0 enrolled" —

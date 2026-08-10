@@ -18,7 +18,7 @@ describe('InteractiveShowcase', () => {
     mockUseIsMobile.mockReturnValue(true);
   });
 
-  it('keeps every tab labelled rather than icon-only on phones', () => {
+  it('keeps every tab labeled rather than icon-only on phones', () => {
     render(<InteractiveShowcase />);
 
     for (const label of ['Skills', 'Growth', 'Pay']) {

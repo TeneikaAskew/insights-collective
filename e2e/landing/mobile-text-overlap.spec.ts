@@ -44,7 +44,7 @@ test.describe('Landing page text at phone width', () => {
   test('quiz scale options do not print on top of each other', async ({ page }) => {
     await page.getByRole('button', { name: /Take the Career Quiz/i }).click();
 
-    // Every option is one labelled row; the scale is answered by tapping it.
+    // Every option is one labeled row; the scale is answered by tapping it.
     const options = page.locator('[role="radiogroup"] label').filter({ visible: true });
     await expect(options.first()).toBeVisible();
     expect(await options.count()).toBe(5);

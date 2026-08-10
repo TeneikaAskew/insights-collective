@@ -41,7 +41,7 @@ const TABS = ['discover', 'ideas', 'tracker', 'pages'] as const;
  * This test was written out twice — once to pick the initial tab, once to
  * decide whether the landing choice had already been made — and the second
  * copy accepted any non-empty string. So `?tab=projects` (a plausible guess,
- * since the tab is labelled "Your projects") fell back to `discover` for
+ * since the tab is labeled "Your projects") fell back to `discover` for
  * rendering while counting as a deliberate choice, permanently suppressing
  * the landing effect and stranding an answered reader on a questionnaire
  * they had already filled in.

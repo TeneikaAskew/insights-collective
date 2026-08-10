@@ -5,7 +5,7 @@ import { goto, waitForPageLoad } from '../fixtures/page-helpers';
 import { Routes } from '../helpers/route-helpers';
 import { stubCourseraCatalog } from '../helpers/coursera-helpers';
 
-/** The catalogue in src/data/dataCareerRoles.ts. Pinned so a silent truncation fails. */
+/** The catalog in src/data/dataCareerRoles.ts. Pinned so a silent truncation fails. */
 const TOTAL_ROLES = 33;
 /** ExploreDataCareers paginates at 9 and Load More adds 6. */
 const FIRST_PAGE = 9;
@@ -52,7 +52,7 @@ test.describe('Explore Careers', () => {
     await expect(page.getByTestId('role-count')).toBeVisible();
   });
 
-  test('lists the whole role catalogue', async ({ page }) => {
+  test('lists the whole role catalog', async ({ page }) => {
     // The count reflects the filtered set; the rows reflect the current page.
     expect(await countText(page)).toContain(`${TOTAL_ROLES} roles found`);
     await expect(rows(page)).toHaveCount(FIRST_PAGE);
@@ -74,7 +74,7 @@ test.describe('Explore Careers', () => {
     // Same filtered set, different reading of it.
     expect(await countText(page)).toContain(`${TOTAL_ROLES} roles found`);
 
-    // By Category groups the whole catalogue rather than the current page —
+    // By Category groups the whole catalog rather than the current page —
     // one card per category membership, so more cards than roles.
     await page.getByTestId('view-categories').click();
     await expect(cards(page)).toHaveCount(CATEGORY_VIEW_CARDS);
@@ -191,7 +191,7 @@ test.describe('Explore Careers', () => {
 
   // Inverted deliberately. This test previously asserted that an empty database
   // result still produced coursera.org links, because the bundled catalog served
-  // in its place — which is the behaviour this change removes. Asserting the OLD
+  // in its place — which is the behavior this change removes. Asserting the OLD
   // contract would now be asserting that the fallback is still there.
   test('an empty catalog result shows no external courses rather than bundled ones', async ({
     page,

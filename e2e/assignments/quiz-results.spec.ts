@@ -39,7 +39,7 @@ test.describe('Quiz Results', () => {
   test('score and percentage are displayed', async ({ page }) => {
     await goto(page, resultsUrl);
     const main = page.locator('main');
-    // The seeded submission scores 20 of 20. Asserted as a labelled pair rather
+    // The seeded submission scores 20 of 20. Asserted as a labeled pair rather
     // than as a bare number so this cannot pass on an unrelated "20" elsewhere,
     // and matched on the Score label the page actually renders.
     await expect(main.getByText('20/20')).toBeVisible();

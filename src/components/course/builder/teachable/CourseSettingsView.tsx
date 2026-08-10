@@ -16,7 +16,7 @@
 //
 // So this view deliberately offers less than the old one. Only settings with a
 // real consumer are here; a switch that changes nothing is worse than a missing
-// switch, because it looks like a promise. Discussions are honoured by
+// switch, because it looks like a promise. Discussions are honored by
 // LessonViewer, and delete does what it says.
 
 import { useState } from 'react';

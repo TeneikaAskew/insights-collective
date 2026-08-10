@@ -15,7 +15,7 @@ const logger = createLogger('AddEventModal');
 const EVENT_IMAGE_BUCKET = 'event-images';
 
 // Upload a selected image File to Storage and return its durable public URL.
-// Replaces the previous behaviour of persisting an ephemeral blob: URL.
+// Replaces the previous behavior of persisting an ephemeral blob: URL.
 async function uploadEventImage(file: File): Promise<string> {
   const validation = validateFileUpload(file);
   if (!validation.valid) {

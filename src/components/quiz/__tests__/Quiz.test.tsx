@@ -1,6 +1,6 @@
 // ABOUTME: Tests for the career quiz question layout. The scale options used to
 // ABOUTME: sit in a fixed five-column grid whose labels overflowed into each
-// ABOUTME: other on phones, so each option now owns a labelled, clickable row.
+// ABOUTME: other on phones, so each option now owns a labeled, clickable row.
 
 import { describe, it, expect } from 'vitest';
 import { screen } from '@testing-library/react';

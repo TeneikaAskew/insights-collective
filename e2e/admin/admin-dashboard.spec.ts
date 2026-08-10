@@ -108,7 +108,7 @@ test.describe('Admin Dashboard', () => {
     //
     // Both navs are matched because AdminLayout renders TWO and hides one by
     // width: the desktop rail is <aside><nav> with no aria-label, and the
-    // labelled nav[aria-label="Admin sections"] is the md:hidden mobile pill
+    // labeled nav[aria-label="Admin sections"] is the md:hidden mobile pill
     // strip. Targeting the label alone finds nothing at desktop width — the
     // element exists but is hidden — so the locator has to accept either and
     // :visible picks whichever the viewport is actually showing.

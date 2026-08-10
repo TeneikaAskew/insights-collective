@@ -384,7 +384,7 @@ export class CanvasContentService {
    * renders per-question answers — pairing one quiz's questions with another
    * quiz's answers would be worse than the error it replaces.
    *
-   * Returns the ROW ONLY, unlike getQuiz. Modelling it on getQuiz for symmetry
+   * Returns the ROW ONLY, unlike getQuiz. Modeling it on getQuiz for symmetry
    * meant it ran get_quiz_questions_for_taking and then its one caller ran the
    * identical RPC again a line later: a redundant sequential round trip on
    * every results load, and a second chance for the request to fail and
