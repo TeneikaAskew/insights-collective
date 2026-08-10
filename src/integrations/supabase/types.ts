@@ -3862,6 +3862,39 @@ export type Database = {
           },
         ]
       }
+      notification_email_log: {
+        Row: {
+          created_at: string
+          error: string | null
+          id: string
+          notification_id: string | null
+          provider_message_id: string | null
+          recipient: string | null
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          notification_id?: string | null
+          provider_message_id?: string | null
+          recipient?: string | null
+          status: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          notification_id?: string | null
+          provider_message_id?: string | null
+          recipient?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           course_id: string | null
