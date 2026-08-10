@@ -7,6 +7,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import CanvasContentService from '@/services/canvasContentService';
 import { createLogger } from '@/utils/logger';
 import { isValidUUID } from '@/utils/idUtils';
+import { isProgressionDone } from '@/utils/progressionStates';
+
 
 const logger = createLogger('useCourseProgress');
 
