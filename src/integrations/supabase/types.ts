@@ -6335,6 +6335,7 @@ export type Database = {
         Args: { p_conversation_id: string }
         Returns: number
       }
+      notification_email_secret: { Args: never; Returns: string }
       open_course_thread: {
         Args: { p_course_id: string; p_other_user_id: string }
         Returns: string
