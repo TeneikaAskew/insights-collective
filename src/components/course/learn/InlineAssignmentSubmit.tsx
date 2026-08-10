@@ -34,6 +34,17 @@ type RubricCriterion = {
 
 type RubricScore = { points?: number; level?: string; comment?: string };
 
+type AttachmentRow = {
+  id: string;
+  filename: string;
+  content_type: string | null;
+  size: number | null;
+  url: string;
+};
+
+const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
+
+
 export function InlineAssignmentSubmit({ item, assignment, onCompleted }: Props) {
   const { user } = useAuth();
   const { toast } = useToast();
