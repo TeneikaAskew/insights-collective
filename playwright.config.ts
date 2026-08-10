@@ -29,6 +29,15 @@ const RELAY_MODE = process.env.E2E_USE_RELAY === '1';
 const APP_PORT = process.env.E2E_APP_PORT || (RELAY_MODE ? '8090' : '8080');
 const BASE_URL = process.env.E2E_BASE_URL || `http://localhost:${APP_PORT}`;
 
+// Nine spec/helper modules build absolute URLs from
+// `process.env.E2E_BASE_URL || 'http://localhost:8080'` instead of Playwright's
+// injected `baseURL`. Unset, that default points at whatever already listens on
+// 8080 — in this sandbox the platform's own dev server, which talks to
+// https://<ref>.supabase.co and therefore dies behind the hermetic
+// host-resolver rule. Publishing the resolved value here is what keeps those
+// modules on the same server as the rest of the run.
+process.env.E2E_BASE_URL = BASE_URL;
+
 const SESSIONS_DIR = path.join(__dirname, '.playwright-sessions');
 
 /**
