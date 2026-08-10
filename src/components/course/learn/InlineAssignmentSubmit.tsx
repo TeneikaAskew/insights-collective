@@ -370,7 +370,28 @@ export function InlineAssignmentSubmit({ item, assignment, onCompleted }: Props)
         </Card>
       )}
 
+      {/* Graded submissions are read-only, so show the files that were turned in. */}
+      {isGraded && attachments.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle className="text-lg">Your files</CardTitle></CardHeader>
+          <CardContent className="space-y-2">
+            {attachments.map((att) => (
+              <button
+                key={att.id}
+                type="button"
+                onClick={() => void openAttachment(att)}
+                className="flex w-full items-center gap-2 rounded-md border p-2 text-left text-sm hover:bg-muted/60"
+              >
+                <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span className="truncate">{att.filename}</span>
+              </button>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Submission form */}
+
       {(!isGraded) && (
         <Card>
           <CardHeader>
