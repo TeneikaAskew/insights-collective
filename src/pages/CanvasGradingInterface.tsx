@@ -517,8 +517,11 @@ function CanvasGradingInterface() {
                     <SubmissionComments
                       submissionId={selectedSubmission.id}
                       submissionType="assignment"
+                      showPrivateComments
+                      commentSeed={commentSeed}
                     />
                   )}
+
                 </CardContent>
 
                 {/* Sticky save bar */}
