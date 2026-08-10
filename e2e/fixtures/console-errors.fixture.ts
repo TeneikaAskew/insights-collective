@@ -436,15 +436,46 @@ export const test = base.extend<ConsoleFixtures>({
         });
       };
 
+      // Relay-wiring guard. In relay mode every Supabase call must leave the
+      // browser addressed to the loopback relay; a request to the project's
+      // HTTPS origin means this page was served by a build wired to the real
+      // project (usually the wrong dev server), and the hermetic
+      // host-resolver rule will refuse it. That failure surfaces as the app's
+      // "We couldn't load your settings" screen and then as whatever assertion
+      // happened to run next — 26 specs failed that way, none of them naming
+      // the cause. Name it here instead.
+      const RELAY_MODE = process.env.E2E_USE_RELAY === '1';
+      const bypassedRelay = new Set<string>();
+      const onRequest = (req: { url: () => string }) => {
+        if (!RELAY_MODE) return;
+        const url = req.url();
+        if (/^https:\/\/[a-z0-9-]+\.supabase\.(co|in)\//i.test(url)) {
+          bypassedRelay.add(redactUrl(url).slice(0, 200));
+        }
+      };
+
       page.on('console', onConsole);
       page.on('pageerror', onPageError);
+      page.on('request', onRequest);
       if (AUDIT) page.on('response', onResponse);
 
       await use(errors);
 
       page.off('console', onConsole);
       page.off('pageerror', onPageError);
+      page.off('request', onRequest);
       if (AUDIT) page.off('response', onResponse);
+
+      if (bypassedRelay.size > 0) {
+        expect(
+          [...bypassedRelay],
+          `Test "${testInfo.title}" loaded a page that bypassed the Supabase relay and requested the\n` +
+            `project's HTTPS origin directly. Under E2E_USE_RELAY=1 those requests cannot succeed, so the\n` +
+            `app renders its "couldn't load your settings" state and every later assertion is noise.\n` +
+            `Cause is almost always a hardcoded http://localhost:8080 instead of Playwright's baseURL.`,
+        ).toHaveLength(0);
+      }
+
 
       // Structured check first: it is the more specific failure, and reporting
       // "column profiles.full_name does not exist on /courses/:id/quiz-results"
