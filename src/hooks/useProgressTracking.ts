@@ -39,17 +39,13 @@ export interface CourseProgress {
 }
 
 /**
- * Workflow states that count as "done" for progress and certification.
- * Kept in parity with the database, which is the authority on completion:
- * check_course_completion() and auto_issue_certificate_on_progression() both
- * accept 'read' or 'completed'. 'graded' is a post-completion state for
- * assignments and counts as done too.
+ * Completion semantics live in one place (src/utils/progressionStates.ts) so
+ * this hook, useCourseProgress and the dashboard metrics can never disagree.
+ * Re-exported here for existing importers.
  */
-export const DONE_PROGRESSION_STATES = ['read', 'completed', 'graded'] as const;
+export { DONE_PROGRESSION_STATES, isProgressionDone } from '@/utils/progressionStates';
+import { isProgressionDone } from '@/utils/progressionStates';
 
-export function isProgressionDone(workflowState?: string | null): boolean {
-  return !!workflowState && (DONE_PROGRESSION_STATES as readonly string[]).includes(workflowState);
-}
 
 export function useProgressTracking(courseId?: string, moduleId?: string) {
   const [courseProgress, setCourseProgress] = useState<CourseProgress | null>(null);
