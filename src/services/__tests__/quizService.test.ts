@@ -4,6 +4,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { storeQuizAttempt, startCareerCoachConversation } from '../quizService';
 import { mockSupabaseClient, supabaseError, getQueryBuilder } from '@/test/mocks/supabase';
+import { EmptyResultError } from '@/lib/resultIntegrity';
 import type { CareerTrack } from '@/data/careerQuizData';
 
 const scores: Record<CareerTrack, number> = {
@@ -119,7 +120,10 @@ describe('quizService', () => {
         'Business Intelligence': 0,
       } as Record<CareerTrack, number>;
 
-      await expect(storeQuizAttempt(answers, emptyScores)).rejects.toThrow(/no scores/i);
+      await expect(storeQuizAttempt(answers, emptyScores)).rejects.toThrow(
+        /empty quiz attempt.*every track scored 0/i,
+      );
+      await expect(storeQuizAttempt(answers, emptyScores)).rejects.toThrow(EmptyResultError);
       expect(getQueryBuilder().insert).not.toHaveBeenCalled();
     });
 

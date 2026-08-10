@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import {
+  affinityQuestions,
   CareerTrack,
   QuizQuestion,
   quizQuestions,
+  scaleAnswerWeightFraction,
   getTrackPersona,
   getCourseRecommendations
 } from '@/data/careerQuizData';
@@ -20,7 +22,6 @@ const scaleLabels: Record<
 > = {
   agree: ['Strongly Disagree', 'Disagree', 'Neutral', 'Agree', 'Strongly Agree'],
   comfort: ['Very Uncomfortable', 'Uncomfortable', 'Neutral', 'Comfortable', 'Very Comfortable'],
-  preference: ['Strongly Prefer A', 'Prefer A', 'Neutral', 'Prefer B', 'Strongly Prefer B']
 };
 
 const Quiz: React.FC = () => {
@@ -71,13 +72,16 @@ const Quiz: React.FC = () => {
       'Business Intelligence': 0
     };
 
-    quizQuestions.forEach(question => {
+    // Only the affinity questions. The experience question carries zero weights
+    // so it could not move a score anyway, but excluding it by intent rather
+    // than by arithmetic keeps the two measurements separate on purpose.
+    affinityQuestions.forEach(question => {
       const answer = answers[question.id];
       if (answer !== undefined) {
         if (question.type === 'scale' && question.weights) {
           const value = answer as number;
           Object.entries(question.weights).forEach(([track, weight]) => {
-            newScores[track as CareerTrack] += (value / 5) * weight;
+            newScores[track as CareerTrack] += scaleAnswerWeightFraction(value) * weight;
           });
         } else if (question.type === 'multiple-choice' && question.options) {
           const selected = question.options.find(opt => opt.id === answer);

@@ -129,7 +129,33 @@ describe('QuizResultsSection', () => {
 
     // AI/ML's ceiling is 22, so a perfect raw score reads exactly 100%.
     expect(await screen.findByText('100%')).toBeInTheDocument();
-    expect(screen.getByText('Advanced')).toBeInTheDocument();
+  });
+
+  it('states the recorded experience level once, not per track', async () => {
+    attemptRows = [
+      { ...attempt('scored', { ai: 16, an: 20, de: 17, bi: 18 }, '2025-04-12T00:14:32Z'),
+        self_reported_experience: 'working' },
+    ];
+
+    renderSection();
+
+    // One line for the person, not one per card. A level printed on each of the
+    // three cards was computed from that card's match percentage, which is a
+    // measure of interest — so a keen newcomer read as "Advanced" three times.
+    const level = await screen.findByTestId('experience-level');
+    expect(level).toHaveTextContent('Intermediate');
+    expect(screen.getAllByTestId('experience-level')).toHaveLength(1);
+  });
+
+  it('says the experience level is not recorded rather than guessing one', async () => {
+    // Every attempt taken before the experience question existed has no answer.
+    attemptRows = [attempt('scored', { ai: 16, an: 20, de: 17, bi: 18 }, '2025-04-12T00:14:32Z')];
+
+    renderSection();
+
+    const level = await screen.findByTestId('experience-level');
+    expect(level).toHaveTextContent(/not recorded/i);
+    expect(level).not.toHaveTextContent(/beginner|intermediate|advanced/i);
   });
 
   it('ignores an all-zero localStorage payload and still consults the database', async () => {
@@ -182,12 +208,15 @@ describe('QuizResultsSection', () => {
     await userEvent.click(await screen.findByRole('button', { name: /chat with career coach/i }));
 
     await waitFor(() => expect(initiateCareerCoachChat).toHaveBeenCalled());
-    const [, scores] = initiateCareerCoachChat.mock.calls[0];
+    const [, scores, existingAttemptId] = initiateCareerCoachChat.mock.calls[0];
     expect(scores).toEqual({
       'AI/ML': 16,
       Analytics: 20,
       'Data Engineering': 17,
       'Business Intelligence': 18,
     });
+    // And it names the attempt these results came from, so the coach attaches
+    // to it instead of writing a fresh row on every click.
+    expect(existingAttemptId).toBe('scored');
   });
 });

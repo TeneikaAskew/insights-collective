@@ -1163,21 +1163,26 @@ BEGIN
   -- The genuine attempt. Analytics 20 of a possible 23 is 87%; Data Engineering
   -- 17 of a possible 19 is 89% and therefore sorts above it once each track is
   -- normalized against its own ceiling rather than a flat 20.
+  -- self_reported_experience is the option id from the quiz's experience
+  -- question (migration 20260811000000); 'working' maps to Intermediate. Seeded
+  -- so the profile spec can assert a recorded level rather than only the
+  -- "not recorded" branch that every pre-existing attempt shows.
   INSERT INTO public.career_quiz_attempts (
     id, user_id, session_id, created_at,
     result_ai_ml_score, result_analytics_score,
     result_data_engineering_score, result_business_intelligence_score,
-    top_recommended_path
+    top_recommended_path, self_reported_experience
   ) VALUES (
     '88e8a400-0000-4000-8000-000000000001', v_member_id, 'e2e-seed-scored',
     now() - interval '30 days',
-    16, 20, 17, 18, 'Analytics'
+    16, 20, 17, 18, 'Analytics', 'working'
   )
   ON CONFLICT (id) DO UPDATE
     SET result_ai_ml_score = 16,
         result_analytics_score = 20,
         result_data_engineering_score = 17,
         result_business_intelligence_score = 18,
+        self_reported_experience = 'working',
         created_at = now() - interval '30 days';
 
   -- The poisoned one: newer, and scored nothing.

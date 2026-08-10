@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CareerTrack, getSkillLevel, getTrackPersona, toMatchPercentage } from '@/data/careerQuizData';
+import {
+  CareerTrack,
+  SkillLevel,
+  experienceLevelForOptionId,
+  getTrackPersona,
+  toMatchPercentage,
+} from '@/data/careerQuizData';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Brain, BarChart3, Database, Presentation, ArrowRight, Award } from 'lucide-react';
@@ -16,7 +22,6 @@ const logger = createLogger('QuizResultsSection');
 interface QuizResult {
   track: CareerTrack;
   score: number;
-  level: string;
   persona: any;
 }
 
@@ -34,7 +39,6 @@ const toTopTracks = (scores: Record<CareerTrack, number>): QuizResult[] =>
       return {
         track: track as CareerTrack,
         score: percentage,
-        level: getSkillLevel(percentage),
         persona: getTrackPersona(track as CareerTrack),
       };
     });
@@ -42,6 +46,8 @@ const toTopTracks = (scores: Record<CareerTrack, number>): QuizResult[] =>
 const QuizResultsSection = () => {
   const [quizResults, setQuizResults] = useState<QuizResult[] | null>(null);
   const [rawScores, setRawScores] = useState<Record<CareerTrack, number> | null>(null);
+  const [attemptId, setAttemptId] = useState<string | null>(null);
+  const [experienceLevel, setExperienceLevel] = useState<SkillLevel | null>(null);
   const [hasResults, setHasResults] = useState<boolean>(false);
   const [isLoadingResults, setIsLoadingResults] = useState<boolean>(true);
   const navigate = useNavigate();
@@ -74,6 +80,8 @@ const QuizResultsSection = () => {
     setIsLoadingResults(true);
     try {
       let scores: Record<CareerTrack, number> | null = null;
+      let attemptId: string | null = null;
+      let level: SkillLevel | null = null;
 
       // First, check localStorage for immediate results.
       const storedScores = localStorage.getItem('quizScores');
@@ -99,7 +107,7 @@ const QuizResultsSection = () => {
         const { data: attempts, error } = await supabase
           .from('career_quiz_attempts')
           .select(
-            'id, created_at, result_ai_ml_score, result_analytics_score, result_data_engineering_score, result_business_intelligence_score',
+            'id, created_at, self_reported_experience, result_ai_ml_score, result_analytics_score, result_data_engineering_score, result_business_intelligence_score',
           )
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
@@ -120,6 +128,10 @@ const QuizResultsSection = () => {
           if (hasAnyScore(attemptScores)) {
             logger.log('Found scored quiz attempt in Supabase:', attempt.id);
             scores = attemptScores;
+            attemptId = attempt.id;
+            // Null for every attempt taken before the experience question
+            // existed, which renders as "not recorded" rather than a guess.
+            level = experienceLevelForOptionId((attempt as any).self_reported_experience);
             // Save to localStorage for future reference.
             localStorage.setItem('quizScores', JSON.stringify(attemptScores));
             break;
@@ -131,17 +143,23 @@ const QuizResultsSection = () => {
         const topTracks = toTopTracks(scores);
         logger.log('Setting quiz results:', topTracks);
         setRawScores(scores);
+        setAttemptId(attemptId);
+        setExperienceLevel(level);
         setQuizResults(topTracks);
         setHasResults(true);
       } else {
         logger.log('No valid quiz results found');
         setRawScores(null);
+        setAttemptId(null);
+        setExperienceLevel(null);
         setQuizResults(null);
         setHasResults(false);
       }
     } catch (error) {
       logger.error('Error loading quiz results:', error);
       setRawScores(null);
+      setAttemptId(null);
+      setExperienceLevel(null);
       setQuizResults(null);
       setHasResults(false);
       toast({
@@ -272,13 +290,14 @@ const QuizResultsSection = () => {
                   )}
                 </div>
 
-                {/* Score and level info */}
+                {/* Match score only.
+                    "Level" used to sit here too, computed from this very
+                    percentage, so three cards showed three skill levels derived
+                    from how appealing the person found each track. Experience
+                    is one fact about them, so it is stated once below. */}
                 <div className="flex-1 space-y-1 mb-3">
                   <div className="text-sm text-muted-foreground">
                     Match Score: <span className="font-medium text-foreground">{result.score}%</span>
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    Level: <span className="font-medium text-foreground">{result.level}</span>
                   </div>
                 </div>
 
@@ -304,18 +323,30 @@ const QuizResultsSection = () => {
               </div>
             ))}
           </div>
-          
-          <div className="flex gap-2 justify-end mt-4">
-            <Button 
-              variant="outline" 
-              size="sm" 
+
+          <p className="text-sm text-muted-foreground" data-testid="experience-level">
+            Experience level:{' '}
+            <span className="font-medium text-foreground">
+              {experienceLevel ?? 'not recorded'}
+            </span>
+            {!experienceLevel && ' — retake the quiz to record it'}
+          </p>
+
+          <div className="flex flex-wrap gap-2 justify-end mt-4">
+            <Button
+              variant="outline"
+              size="sm"
               onClick={handleTakeQuiz}
             >
               Retake Quiz
             </Button>
-            <Button 
+            <Button
               size="sm"
-              onClick={() => initiateCareerCoachChat(getStoredAnswers(), getStoredScores())}
+              onClick={() =>
+                // The attempt these results came from, so the coach attaches to
+                // it instead of storing a fresh row on every click.
+                initiateCareerCoachChat(getStoredAnswers(), getStoredScores(), attemptId ?? undefined)
+              }
             >
               Chat with Career Coach
             </Button>

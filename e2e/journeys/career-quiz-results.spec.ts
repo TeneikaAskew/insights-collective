@@ -47,6 +47,11 @@ test.describe('Profile — Career Path Quiz Results', () => {
     // The bug this spec exists for: every track reported at 0%.
     await expect(card.getByText('0%')).toHaveCount(0);
 
+    // The experience level comes from the seeded answer ('working'), stated
+    // once for the person rather than once per track.
+    await expect(card.getByTestId('experience-level')).toHaveText(/Intermediate/);
+    await expect(card.getByTestId('experience-level')).toHaveCount(1);
+
     // And nothing may report above the maximum.
     const percentages = await card.getByText(/^\d+%$/).allInnerTexts();
     expect(percentages.length).toBeGreaterThan(0);
@@ -80,5 +85,57 @@ test.describe('Profile — Career Path Quiz Results', () => {
     // Answering must be possible — the scale options are the control that broke
     // on mobile, so check one is actually clickable here.
     await expect(page.getByRole('radio').first()).toBeVisible();
+  });
+
+  test('completing the quiz reports the experience level that was answered', async ({ page }) => {
+    // Walks every question, which is the only way to catch a quiz that cannot
+    // be finished — a question with no answerable control, or a Next button
+    // that never enables. It also pins the level to the answer given: the level
+    // used to be computed from the match percentages, so answering "None yet"
+    // while rating every track highly still produced "Advanced".
+    await page.goto(`${BASE}/career-quiz`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByText(/Question 1 of \d+/)).toBeVisible({ timeout: 15_000 });
+
+    const total = parseInt(
+      (await page.getByText(/Question 1 of \d+/).innerText()).match(/of (\d+)/)![1],
+      10,
+    );
+    expect(total).toBeGreaterThan(1);
+
+    for (let i = 1; i <= total; i += 1) {
+      await expect(page.getByText(new RegExp(`Question ${i} of ${total}`))).toBeVisible();
+
+      // The experience question is the one offering a multi-year option. Answer
+      // it "one to three years", which must come back as Intermediate.
+      const workingOption = page.getByText(/One to three years using data/i);
+      const isExperienceQuestion = await workingOption.isVisible().catch(() => false);
+
+      if (isExperienceQuestion) {
+        await workingOption.click();
+      } else {
+        // Otherwise take the top of the scale / the first option, whichever
+        // this question presents.
+        await page.getByRole('radio').last().click();
+      }
+
+      const next = page.getByRole('button', { name: i < total ? /^Next/ : /See Results/ });
+      await expect(next, `Question ${i} left the advance button disabled`).toBeEnabled();
+      await next.click();
+    }
+
+    await expect(page.getByRole('heading', { name: /Your Career Path Results/i })).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByTestId('experience-level')).toHaveText(/Intermediate/);
+
+    // Every match score is a percentage within range — no track above 100%,
+    // which `score * 5` produced for the two tracks whose ceiling exceeds 20.
+    const scores = await page.getByText(/Match Score: \d+%/).allInnerTexts();
+    expect(scores.length).toBeGreaterThan(0);
+    for (const text of scores) {
+      const value = parseInt(text.match(/(\d+)%/)![1], 10);
+      expect(value).toBeGreaterThanOrEqual(0);
+      expect(value).toBeLessThanOrEqual(100);
+    }
   });
 });

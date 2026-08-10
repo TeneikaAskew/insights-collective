@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { storeQuizAttempt, startCareerCoachConversation } from '@/services/quizService';
 import { CareerTrack } from '@/data/careerQuizData';
+import { emptyResultToast, isEmptyResult, isEmptyResultError } from '@/lib/resultIntegrity';
 import { useAuth } from '@/contexts/AuthContext';
 
 import { createLogger } from '@/utils/logger';
@@ -36,8 +37,15 @@ export function useCareerCoach() {
             const scores = JSON.parse(storedScores);
             const answers = JSON.parse(storedAnswers);
             
-            // Only sync if we have valid data
-            if (Object.keys(scores).length > 0 && Object.keys(answers).length > 0) {
+            // Only sync if we have valid data.
+            //
+            // `isEmptyResult` rather than a key count: the leftover object here
+            // is usually well-formed and entirely zeros, which passes a key
+            // count and is exactly what must not be written. Skipped silently
+            // and on purpose — nothing was lost, because there was nothing.
+            // A toast here would fire on page load, unprompted, about a
+            // background sync the reader never asked for.
+            if (!isEmptyResult(scores) && !isEmptyResult(answers)) {
               logger.log('Syncing stored quiz results to Supabase silently');
               const quizAttemptId = await storeQuizAttempt(answers, scores);
               
@@ -78,7 +86,16 @@ export function useCareerCoach() {
 
   const initiateCareerCoachChat = async (
     answers: Record<number, number | string>,
-    scores: Record<CareerTrack, number>
+    scores: Record<CareerTrack, number>,
+    /**
+     * An attempt already in the database to attach this conversation to.
+     *
+     * Without it every click stored a fresh attempt, so opening the coach from
+     * the profile three times left three rows describing one quiz — and each
+     * new row became the account's newest attempt. Callers that already know
+     * which attempt they are discussing should say so.
+     */
+    existingAttemptId?: string,
   ) => {
     // Check if user is authenticated
     if (!isAuthenticated) {
@@ -103,9 +120,9 @@ export function useCareerCoach() {
     setIsProcessing(true);
     
     try {
-      // Step 1: Store quiz attempt
-      const quizAttemptId = await storeQuizAttempt(answers, scores);
-      
+      // Step 1: Store the quiz attempt, unless we were handed one.
+      const quizAttemptId = existingAttemptId || (await storeQuizAttempt(answers, scores));
+
       if (!quizAttemptId) {
         throw new Error('Failed to store quiz attempt');
       }
@@ -140,13 +157,21 @@ export function useCareerCoach() {
       return true;
     } catch (error) {
       logger.error('Error initiating career coach chat:', error);
-      
-      toast({
-        title: "Error starting chat",
-        description: "There was an issue connecting to the Career Coach. Please try again.",
-        variant: "destructive",
-      });
-      
+
+      // "There was an issue connecting, please try again" is the wrong thing to
+      // say when the payload was empty: nothing was wrong with the connection
+      // and trying again will be refused for the same reason. Name the actual
+      // problem instead.
+      toast(
+        isEmptyResultError(error)
+          ? emptyResultToast(error)
+          : {
+              title: 'Error starting chat',
+              description: 'There was an issue connecting to the Career Coach. Please try again.',
+              variant: 'destructive',
+            },
+      );
+
       return false;
     } finally {
       setIsProcessing(false);

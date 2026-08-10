@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import AppLayout from '@/components/layout/AppLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { assertStorableResult, emptyResultToast, isEmptyResultError } from '@/lib/resultIntegrity';
 import { supabase } from '@/integrations/supabase/client';
 import { useCareerPathwayResults } from '@/hooks/useCareerPathwayResults';
 import { useResume } from '@/hooks/resume/useResume';
@@ -181,6 +182,12 @@ const CareerPathway: React.FC = () => {
 
       let saveFailed = false;
       if (user?.id) {
+        // An empty report is not a report. `data.error` is already checked
+        // above, but a well-formed response whose every field came back blank
+        // passes that check and would be stored as this person's career
+        // guidance — then reloaded later as a page of nothing.
+        assertStorableResult('career report', freshReport, 'the generated report had no content');
+
         const { error: saveError } = await supabase.from('career_pathway_results').insert({
           user_id: user.id,
           session_id: sessionIdRef.current,
@@ -209,11 +216,19 @@ const CareerPathway: React.FC = () => {
     } catch (e) {
       logger.error('Report generation failed:', e);
       if (g !== coach.genRef.current) return;
-      await coach.say('Something went wrong while generating your report. Give it a moment, then hit retry below.');
+      // "Give it a moment, then hit retry" is wrong advice for an empty report:
+      // retrying regenerates, it does not un-empty what came back. Say which
+      // failure this was.
+      await coach.say(
+        isEmptyResultError(e)
+          ? 'The report came back empty, so nothing was saved. Try answering the questions again with a little more detail.'
+          : 'Something went wrong while generating your report. Give it a moment, then hit retry below.',
+      );
       if (g !== coach.genRef.current) return;
+      if (isEmptyResultError(e)) toast(emptyResultToast(e));
       setPhase('error');
     }
-  }, [coach, user?.id]);
+  }, [coach, toast, user?.id]);
 
   const handleAnswer = useCallback(async (rawText: string) => {
     const text = rawText.trim();
