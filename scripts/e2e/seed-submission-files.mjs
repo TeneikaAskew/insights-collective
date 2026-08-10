@@ -38,11 +38,23 @@ const PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==',
   'base64',
 );
+// The PDF carries a real content stream with base-14 Helvetica text. An empty
+// page would render as a blank canvas, which is exactly the failure the PDF
+// preview spec exists to catch — it has to have visible ink, and the unembedded
+// font also exercises pdf.js's standard-font substitution.
+const PDF_TEXT = `BT /F1 24 Tf 40 320 Td (E2E fixture write-up) Tj ET
+BT /F1 14 Tf 40 280 Td (Student submission for the grading interface specs.) Tj ET
+2 w 40 260 m 360 260 l S`;
 const PDF = Buffer.from(
   `%PDF-1.4
 1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj
 2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj
-3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]>>endobj
+3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 400 400]/Resources<</Font<</F1 5 0 R>>>>/Contents 4 0 R>>endobj
+4 0 obj<</Length ${PDF_TEXT.length}>>stream
+${PDF_TEXT}
+endstream
+endobj
+5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj
 trailer<</Root 1 0 R>>
 %%EOF
 `,

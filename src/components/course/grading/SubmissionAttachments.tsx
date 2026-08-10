@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { createLogger } from '@/utils/logger';
+import { PdfPreview } from './PdfPreview';
 import {
   FileText,
   Download,
@@ -65,6 +66,8 @@ export function SubmissionAttachments({ submissionId, onCommentOnFile }: Submiss
   const [busyId, setBusyId] = useState<string | null>(null);
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
+
 
   useEffect(() => {
     let cancelled = false;
@@ -73,6 +76,7 @@ export function SubmissionAttachments({ submissionId, onCommentOnFile }: Submiss
       setLoadError(null);
       setPreviewId(null);
       setPreviewUrl(null);
+      setPreviewBlob(null);
       const { data, error } = await supabase
         .from('submission_attachments')
         .select('id, filename, content_type, size, url, created_at')
@@ -114,32 +118,31 @@ export function SubmissionAttachments({ submissionId, onCommentOnFile }: Submiss
     [toast],
   );
 
-  // Non-image previews are framed, and the app's CSP frame-src allows only
-  // 'self', blob: and the video hosts — so a Supabase signed URL in an <iframe>
-  // is refused by the browser and the pane renders blank in production, not just
-  // in headless Chromium. The bytes are therefore fetched with the grader's own
-  // session and framed as a blob: URL, which needs no CSP change.
+  // Images are shown from a signed URL. PDFs are downloaded and painted with
+  // pdf.js instead: an <iframe> would depend on a native PDF plugin (absent in
+  // headless Chromium, so the pane stayed blank there) and a signed supabase.co
+  // URL is refused outright by the app's CSP frame-src.
   const togglePreview = async (att: SubmissionAttachmentRow) => {
     if (previewId === att.id) {
       setPreviewId(null);
-      if (previewUrl?.startsWith('blob:')) URL.revokeObjectURL(previewUrl);
       setPreviewUrl(null);
+      setPreviewBlob(null);
       return;
     }
     setBusyId(att.id);
     try {
-      let url: string | null;
       if (isImage(att)) {
-        url = await signUrl(att);
+        const url = await signUrl(att);
+        if (!url) return;
+        setPreviewBlob(null);
+        setPreviewUrl(url);
       } else {
         const { data, error } = await supabase.storage.from(BUCKET).download(att.url);
         if (error || !data) throw error || new Error('The file could not be opened.');
-        url = URL.createObjectURL(data);
+        setPreviewUrl(null);
+        setPreviewBlob(data);
       }
-      if (!url) return;
-      if (previewUrl?.startsWith('blob:')) URL.revokeObjectURL(previewUrl);
       setPreviewId(att.id);
-      setPreviewUrl(url);
     } catch (e: any) {
       logger.error('Attachment preview failed', e);
       toast({
@@ -151,6 +154,7 @@ export function SubmissionAttachments({ submissionId, onCommentOnFile }: Submiss
       setBusyId(null);
     }
   };
+
 
 
   const openInTab = async (att: SubmissionAttachmentRow) => {
@@ -243,13 +247,13 @@ export function SubmissionAttachments({ submissionId, onCommentOnFile }: Submiss
                   )}
                 </div>
               </div>
-              {open && previewUrl && (
+              {open && (previewUrl || previewBlob) && (
                 <div className="rounded-md border overflow-hidden bg-muted/40">
-                  {isImage(att) ? (
+                  {isImage(att) && previewUrl ? (
                     <img src={previewUrl} alt={`Preview of ${att.filename}`} className="max-h-[520px] w-auto mx-auto" />
-                  ) : (
-                    <iframe src={previewUrl} title={`Preview of ${att.filename}`} className="w-full h-[520px]" />
-                  )}
+                  ) : previewBlob ? (
+                    <PdfPreview blob={previewBlob} filename={att.filename} />
+                  ) : null}
                 </div>
               )}
             </li>

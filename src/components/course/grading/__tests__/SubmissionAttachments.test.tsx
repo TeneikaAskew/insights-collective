@@ -15,6 +15,28 @@ import { SubmissionAttachments, formatFileSize } from '@/components/course/gradi
 
 const { toastMock } = vi.hoisted(() => ({ toastMock: vi.fn() }));
 
+// jsdom has no DOMMatrix/OffscreenCanvas, so the real pdf.js cannot even be
+// imported here. The rendering itself is covered end to end (the Playwright spec
+// reads pixels off the canvas); this stub keeps the unit test on the panel's own
+// behaviour: PDFs are downloaded and handed to a canvas, never an iframe.
+// The mocked specifiers must match PdfPreview's imports exactly — it loads the
+// legacy build (its polyfills are what make older/headless Chromium work).
+vi.mock('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url', () => ({ default: 'worker.mjs' }));
+vi.mock('pdfjs-dist/legacy/build/pdf.mjs', () => ({
+  GlobalWorkerOptions: { workerSrc: '' },
+  getDocument: () => ({
+    promise: Promise.resolve({
+      numPages: 1,
+      destroy: vi.fn(),
+      getPage: () =>
+        Promise.resolve({
+          getViewport: ({ scale }: { scale: number }) => ({ width: 600 * scale, height: 800 * scale }),
+          render: () => ({ promise: Promise.resolve() }),
+        }),
+    }),
+  }),
+}));
+
 vi.mock('@/hooks/use-toast', () => ({
   useToast: () => ({ toast: toastMock }),
   toast: toastMock,
@@ -144,23 +166,21 @@ describe('SubmissionAttachments', () => {
     );
   });
 
-  // A signed supabase.co URL in an <iframe> is refused by the app's CSP
-  // (frame-src 'self' blob: <video hosts>), so the pane renders blank in a real
-  // browser. The bytes must be fetched and framed as blob:.
-  it('previews a PDF in a blob-backed iframe rather than as an image', async () => {
+  // Not an <iframe>: that depends on a native PDF plugin (absent in headless
+  // Chromium, so the pane painted nothing) and a signed supabase.co URL is
+  // refused by the app's CSP frame-src. The bytes are downloaded and painted to
+  // a canvas by pdf.js instead.
+  it('previews a PDF on a pdf.js canvas rather than as an image or an iframe', async () => {
     useAttachments([pdfRow]);
     download.mockResolvedValue({ data: new Blob(['%PDF-1.4'], { type: 'application/pdf' }), error: null });
-    const createObjectURL = vi.fn().mockReturnValue('blob:pdf-preview');
-    (URL as any).createObjectURL = createObjectURL;
-    (URL as any).revokeObjectURL = vi.fn();
     render(<SubmissionAttachments submissionId="sub-1" />);
     await screen.findByText('writeup.pdf');
 
     await userEvent.click(screen.getByRole('button', { name: /preview/i }));
 
-    const frame = await screen.findByTitle('Preview of writeup.pdf');
-    expect(frame.tagName).toBe('IFRAME');
-    expect(frame).toHaveAttribute('src', 'blob:pdf-preview');
+    const canvas = await screen.findByLabelText('Preview of writeup.pdf');
+    expect(canvas.tagName).toBe('CANVAS');
+    expect(document.querySelector('iframe')).toBeNull();
     expect(download).toHaveBeenCalledWith(pdfRow.url);
     expect(createSignedUrl).not.toHaveBeenCalled();
   });

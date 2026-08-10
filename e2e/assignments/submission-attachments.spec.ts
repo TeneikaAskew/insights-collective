@@ -57,22 +57,38 @@ test.describe('Submission attachments in the grader (instructor)', () => {
     await expect(img).toHaveCount(0);
   });
 
-  test('previews a PDF in a blob-backed iframe', async ({ page }) => {
+  test('previews a PDF on a pdf.js canvas that actually paints', async ({ page }) => {
     await goto(page, gradingUrl);
     const row = fileRow(page, PDF);
     await row.getByRole('button', { name: 'Preview' }).click();
 
-    // Headless Chromium ships no PDF plugin, so the frame paints empty. The
-    // assertion is on the frame and its src scheme, which is what the app owns.
-    //
-    // blob:, NOT a Supabase signed URL: the app's CSP frame-src allows only
-    // 'self', blob: and the video hosts, so framing supabase.co directly is
-    // refused by the browser and the pane stays blank in production too. This
-    // spec caught exactly that, and the console-error fixture is what surfaced
-    // it — do not "fix" a failure here by widening frame-src.
-    const frame = row.locator(`iframe[title="Preview of ${PDF}"]`);
-    await expect(frame).toBeVisible();
-    await expect(frame).toHaveAttribute('src', /^blob:/);
+    // Deliberately NOT an <iframe>: that needs a native PDF plugin, which headless
+    // Chromium does not have, and a signed supabase.co URL is refused by the app's
+    // CSP frame-src. pdf.js paints the page onto a canvas, so this asserts real
+    // pixels — do not weaken it back to an iframe/src check.
+    const canvas = row.locator(`canvas[aria-label="Preview of ${PDF}"]`);
+    await expect(canvas).toBeVisible();
+    await expect
+      .poll(async () => canvas.evaluate((c: HTMLCanvasElement) => c.width * c.height), {
+        timeout: 15_000,
+      })
+      .toBeGreaterThan(0);
+    const inked = await canvas.evaluate((c: HTMLCanvasElement) => {
+      const ctx = c.getContext('2d');
+      if (!ctx) return 0;
+      const { data } = ctx.getImageData(0, 0, c.width, c.height);
+      // Only opaque pixels count. An untouched canvas reads back as
+      // transparent black (0,0,0,0), which a naive "darker than white" test
+      // counts as ink and passes against a completely blank preview.
+      let inked = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        if (data[i + 3] < 255) continue;
+        if (data[i] < 250 || data[i + 1] < 250 || data[i + 2] < 250) inked += 1;
+      }
+      return inked;
+    });
+    // The fixture PDF carries a heading, a line of body text and a rule.
+    expect(inked).toBeGreaterThan(500);
   });
 
   test('downloads a file under its original name', async ({ page }) => {
