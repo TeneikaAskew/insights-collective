@@ -1,6 +1,9 @@
 // ABOUTME: Compute learner dashboard metrics from enrollments, progressions, certificates.
 // ABOUTME: Kept pure so unit tests can exercise edge cases without hitting Supabase.
 
+import { isProgressionDone } from '@/utils/progressionStates';
+
+
 export interface EnrollmentRow {
   course_id: string;
 }
