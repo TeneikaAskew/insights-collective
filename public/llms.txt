@@ -9,6 +9,7 @@
 - [Explore data careers](/explore-data-careers): Role profiles, skills and wage data for data careers.
 - [Career pathway](/career-pathway): Build a step-by-step plan toward a target data role.
 - [Interview prep](/interview-prep): Mock interviews, STAR practice and coding practice.
+- [Data & AI salary guide](/resources/salary-guide): US salary bands (10th-90th percentile) for data, analytics and AI roles, sourced from BLS OEWS.
 - [Resources](/resources): Guides, tools and reference material for learners.
 - [Events](/events): Upcoming workshops, cohorts and community sessions.
 - [Blog](/blog): Articles on data careers, skills and learning.

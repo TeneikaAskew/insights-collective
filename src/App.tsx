@@ -96,6 +96,7 @@ const BlogPost = lazy(() => import('@/pages/BlogPost'));
 
 // Resources & Tools Pages
 const Resources = lazy(() => import('@/pages/Resources'));
+const SalaryGuide = lazy(() => import('@/pages/SalaryGuide'));
 const TeneikaLinkedIn = lazy(() => import('@/pages/TeneikaLinkedIn'));
 const TeneikaTweets = lazy(() => import('@/pages/TeneikaTweets'));
 
@@ -415,6 +416,7 @@ function App() {
 
                     {/* Resources & Tools Routes */}
                     <Route path="/resources" element={<Resources />} />
+                    <Route path="/resources/salary-guide" element={<SalaryGuide />} />
                     <Route path="/teneika-linkedin" element={<TeneikaLinkedIn />} />
                     <Route path="/teneika-tweets" element={<TeneikaTweets />} />
 
