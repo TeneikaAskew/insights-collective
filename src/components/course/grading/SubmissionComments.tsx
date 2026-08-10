@@ -402,11 +402,13 @@ export const SubmissionComments: React.FC<SubmissionCommentsProps> = ({
               </div>
 
               <Textarea
+                ref={composerRef}
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
                 placeholder="Add a comment or feedback..."
                 className="min-h-[100px]"
               />
+
 
               <div className="flex justify-end">
                 <Button 
