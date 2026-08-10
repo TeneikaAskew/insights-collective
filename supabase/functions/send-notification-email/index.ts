@@ -78,12 +78,24 @@ function template(title: string, message: string, url: string): string {
 </body></html>`;
 }
 
+function adminClient() {
+  return createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+  );
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
-  const expected = Deno.env.get('NOTIFICATION_EMAIL_SECRET');
-  if (!expected) return json({ error: 'NOTIFICATION_EMAIL_SECRET is not configured' }, 500);
-  if (req.headers.get('x-notify-secret') !== expected) return json({ error: 'unauthorized' }, 401);
+  // The expected secret lives only in the database vault; the trigger reads it there
+  // too, so there is no second copy to drift or leak.
+  const presented = req.headers.get('x-notify-secret');
+  if (!presented) return json({ error: 'unauthorized' }, 401);
+  const { data: expected, error: secretErr } = await adminClient().rpc('notification_email_secret');
+  if (secretErr) return json({ error: `secret lookup failed: ${secretErr.message}` }, 500);
+  if (!expected) return json({ error: 'notification email secret is not configured' }, 500);
+  if (presented !== expected) return json({ error: 'unauthorized' }, 401);
 
   let body: { notification_id?: string; mode?: string };
   try {
@@ -91,6 +103,7 @@ Deno.serve(async (req) => {
   } catch {
     return json({ error: 'invalid JSON body' }, 400);
   }
+
 
   try {
     if (body.mode === 'diagnostics') {
