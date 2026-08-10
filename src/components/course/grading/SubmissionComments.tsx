@@ -63,6 +63,7 @@ export const SubmissionComments: React.FC<SubmissionCommentsProps> = ({
   submissionType,
   allowComments = true,
   showPrivateComments = false,
+  commentSeed,
 }) => {
   const { user } = useAuth();
   const confirm = useConfirm();
@@ -81,9 +82,18 @@ export const SubmissionComments: React.FC<SubmissionCommentsProps> = ({
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [editingComment, setEditingComment] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
+  const composerRef = React.useRef<HTMLTextAreaElement>(null);
+
+  React.useEffect(() => {
+    if (!commentSeed?.text) return;
+    setNewComment((prev) => (prev.trim() ? `${prev.trim()}\n\n${commentSeed.text}` : commentSeed.text));
+    composerRef.current?.focus();
+    composerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [commentSeed?.nonce]);
 
   const handleSubmitComment = () => {
     if (!newComment.trim() || !user) return;
+
 
     const authorType = user.role === 'instructor' || user.role === 'admin' ? 'instructor' : 'student';
 
