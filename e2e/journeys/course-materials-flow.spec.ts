@@ -9,6 +9,13 @@ import { test, expect } from '../fixtures/page-helpers';
 // and every later locator timed out. Rely on the project session instead.
 
 const BASE = process.env.E2E_BASE_URL || 'http://localhost:8080';
+// Node-side Supabase target. Deliberately the project's real origin, NOT the
+// relay: this process has direct egress, and the relay exists only for the
+// browser. Values come from the same env the app is built from.
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://siuqvhscuiycvdrtiqsh.supabase.co';
+const SUPABASE_ANON_KEY =
+  process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNpdXF2aHNjdWl5Y3ZkcnRpcXNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQyMDU0MTUsImV4cCI6MjA1OTc4MTQxNX0.CbAWzKbUfbqYKAZr93jAQm8z8chbNoTe0EnK-E_4u9w';
 // Seeded course the test member is enrolled in (Introduction to Data Science).
 const ENROLLED_COURSE = process.env.E2E_ENROLLED_COURSE_ID || '660e8400-e29b-41d4-a716-446655440001';
 // A different published course the test member is NOT enrolled in.
@@ -45,35 +52,61 @@ test.describe('Course materials — enrollment-gated access', () => {
     // admin OR course-instructor rights SHOULD see them; a pure student MUST NOT.
     // Determining this from the actual session avoids false failures when the shared
     // test user carries multiple roles.
-    const hasManage = await page.evaluate(async () => {
+    //
+    // The two RPCs run from Node, not from page.evaluate. In the browser they were
+    // addressed to the project's HTTPS origin, which the hermetic host-resolver rule
+    // refuses under E2E_USE_RELAY=1 — and the old `.catch(() => false)` turned that
+    // network failure into "user has no manage rights", so the assertion below
+    // passed for the wrong reason. Node has direct egress, so it needs no relay, and
+    // a failed probe now throws instead of being read as a permission answer.
+    const token = await page.evaluate(() => {
       // Read the session token from whichever key the Supabase client used.
-      let token: string | null = null;
       for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i)!;
         if ((k.startsWith('sb-') && k.endsWith('-auth-token')) || k === 'supabase.auth.token') {
           try {
             const p = JSON.parse(localStorage.getItem(k)!);
-            token = p?.access_token ?? p?.currentSession?.access_token ?? null;
-            if (token) break;
+            const t = p?.access_token ?? p?.currentSession?.access_token ?? null;
+            if (t) return t as string;
           } catch {}
         }
       }
-      if (!token) return false;
-      // Decode JWT payload for the user id (no crypto needed for the sub claim).
-      const [, payload] = token.split('.');
-      const sub = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/'))).sub;
-      const SUPA = 'https://siuqvhscuiycvdrtiqsh.supabase.co';
-      const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNpdXF2aHNjdWl5Y3ZkcnRpcXNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQyMDU0MTUsImV4cCI6MjA1OTc4MTQxNX0.CbAWzKbUfbqYKAZr93jAQm8z8chbNoTe0EnK-E_4u9w';
-      const h = { apikey: KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
-      const [adminRes, instrRes] = await Promise.all([
-        fetch(`${SUPA}/rest/v1/rpc/has_admin_access`, { method: 'POST', headers: h, body: JSON.stringify({ user_id_param: sub }) }).then((r) => r.json()).catch(() => false),
-        fetch(`${SUPA}/rest/v1/rpc/is_course_instructor`, { method: 'POST', headers: h, body: JSON.stringify({ user_id_param: sub, course_id_param: '660e8400-e29b-41d4-a716-446655440001' }) }).then((r) => r.json()).catch(() => false),
-      ]);
-      return Boolean(adminRes) || Boolean(instrRes);
+      return null;
     });
+    expect(token, 'signed-in member must have a Supabase session in localStorage').toBeTruthy();
+
+    // Decode the JWT payload for the user id (no crypto needed for the sub claim).
+    const sub = JSON.parse(
+      Buffer.from(token!.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString(
+        'utf8',
+      ),
+    ).sub as string;
+
+    const headers = {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    };
+    const rpc = async (fn: string, body: Record<string, unknown>): Promise<boolean> => {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        throw new Error(`${fn} probe failed: ${res.status} ${await res.text()}`);
+      }
+      return Boolean(await res.json());
+    };
+    const [isAdmin, isInstructor] = await Promise.all([
+      rpc('has_admin_access', { user_id_param: sub }),
+      rpc('is_course_instructor', { user_id_param: sub, course_id_param: ENROLLED_COURSE }),
+    ]);
+    const hasManage = isAdmin || isInstructor;
+
     const expectedCount = hasManage ? 1 : 0;
     await expect(page.getByRole('button', { name: /new folder/i })).toHaveCount(expectedCount);
-    await expect(page.getByText(/upload files/i)).toHaveCount(hasManage ? expectedCount : 0);
+    await expect(page.getByText(/upload files/i)).toHaveCount(expectedCount);
   });
 
 

@@ -54,25 +54,31 @@ test.describe('Assignment submission → feedback → completion', () => {
     // Reload so the LessonViewer re-fetches
     await page.reload();
 
-    // 3. Submit via the inline form. The seeded assignment uses file_upload only,
-    //    so no text/URL field renders — the "Submit assignment" button submits with an empty body.
+    // 3. Submit via the inline form. This assignment's submission_types is
+    //    ['file_upload'], so the form renders a Files input and no text field, and
+    //    handleSubmit refuses an empty submission ("Add a response or a file before
+    //    submitting"). That guard is deliberate — it stops an empty row consuming the
+    //    student's only attempt — so the flow this spec exercises has to attach a file.
     const submitBtn = page.getByRole('button', { name: /^Submit assignment$/i });
     await expect(submitBtn).toBeVisible({ timeout: 15_000 });
-    const textArea = page.getByPlaceholder(/Write your response here/i);
-    const submissionBody = `E2E submission at ${new Date().toISOString()}`;
-    // Exempt from the count-guard rule on purpose: this is conditional setup,
-    // not a conditional assertion. The assignment has no submission_types, so
-    // no text field renders and the button submits an empty body — filling it
-    // when it happens to exist is optional work, and the assertion that matters
-    // is the unconditional one below.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await textArea.count()) {
-      await textArea.fill(submissionBody);
-    }
+
+    const fileInput = page.locator('input[type="file"]').first();
+    await expect(fileInput).toBeAttached({ timeout: 10_000 });
+    await fileInput.setInputFiles({
+      name: 'e2e-python-data-analysis.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from(`E2E submission at ${new Date().toISOString()}\n`, 'utf8'),
+    });
+    // The file is staged client-side until submit; the row and the storage object
+    // are both written by the click below.
+    await expect(page.getByText('e2e-python-data-analysis.txt')).toBeVisible({ timeout: 10_000 });
+
     await submitBtn.click();
 
-    // Success alert appears
-    await expect(page.getByText(/Submitted · Attempt 1 of/i)).toBeVisible({ timeout: 10_000 });
+    // Success alert appears. max_attempts is 1 on this assignment, so the cap is
+    // shown; the app omits " of N" entirely when max_attempts is null rather than
+    // inventing a limit.
+    await expect(page.getByText(/Submitted · Attempt 1 of 1/i)).toBeVisible({ timeout: 20_000 });
 
     // 4. Verify submission persisted in Supabase
     const subRes = await page.request.get(
