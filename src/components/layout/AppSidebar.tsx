@@ -1,5 +1,6 @@
 import React from 'react';
 import { BookOpen, Home, UserCircle, GraduationCap, Calendar, Bell, FileText, Briefcase, Award, Bot, MessageSquare, FileUp, FileCheck, LayoutDashboard, Newspaper, Lightbulb, Twitter } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter, SidebarRail, useSidebar } from '@/components/ui/sidebar';
 import { useAuth } from '@/contexts/AuthContext';
@@ -22,8 +23,28 @@ const AppSidebar = () => {
   // labels should always render regardless of the desktop `open` cookie state.
   const open = isMobile ? true : desktopOpen;
 
+  /**
+   * One shape for every nav entry.
+   *
+   * Without it the arrays infer a union of per-entry object literals, so a flag
+   * present on only some entries — `nested` here, as `manifestPath` already had
+   * to be — is not readable off the mapped item without a cast.
+   */
+  interface SidebarNavItem {
+    title: string;
+    url: string;
+    icon: LucideIcon;
+    active: boolean;
+    /** Link differs from the visibility-manifest entry that governs it. */
+    manifestPath?: string;
+    /** Renders a "New" badge and an accent outline. */
+    highlight?: boolean;
+    /** Indented as a child of the entry above it. */
+    nested?: boolean;
+  }
+
   // Define public menu items with corrected routes
-  const publicMenuItems = [{
+  const publicMenuItems: SidebarNavItem[] = [{
     title: "Dashboard",
     url: "/dashboard",
     icon: Home,
@@ -33,6 +54,23 @@ const AppSidebar = () => {
     url: "/resources",
     icon: FileText,
     active: location.pathname === '/resources'
+  },
+  // The two social archives belong to Resources — they are reading material,
+  // not destinations of their own — so they sit directly beneath it and are
+  // indented to say so. They used to sit between Messages and Notifications,
+  // where nothing connected them to anything around them.
+  {
+    title: "Teneika's LinkedIn",
+    url: "/teneika-linkedin",
+    icon: Briefcase,
+    active: location.pathname === '/teneika-linkedin',
+    nested: true
+  }, {
+    title: "Teneika's Tweets",
+    url: "/teneika-tweets",
+    icon: Twitter,
+    active: location.pathname === '/teneika-tweets',
+    nested: true
   }, {
     title: "Courses",
     url: "/courses",
@@ -87,16 +125,6 @@ const AppSidebar = () => {
     icon: MessageSquare,
     active: location.pathname === '/dashboard' && location.search.includes('tab=messages')
   }, {
-    title: "Teneika's LinkedIn",
-    url: "/teneika-linkedin",
-    icon: Briefcase,
-    active: location.pathname === '/teneika-linkedin'
-  }, {
-    title: "Teneika's Tweets",
-    url: "/teneika-tweets",
-    icon: Twitter,
-    active: location.pathname === '/teneika-tweets'
-  }, {
     title: "Notifications",
     url: "/notifications",
     icon: Bell,
@@ -109,7 +137,7 @@ const AppSidebar = () => {
   }];
 
   // Slim browse list for anonymous visitors — only pages they can meaningfully use before signing up
-  const browseMenuItems = [{
+  const browseMenuItems: SidebarNavItem[] = [{
     title: "Dashboard",
     url: "/dashboard",
     icon: Home,
@@ -164,7 +192,7 @@ const AppSidebar = () => {
     // Messages is a Dashboard tab now, but admins still toggle it as "/messages".
     // Without this, isPageVisible("/dashboard?tab=messages") misses and the item
     // silently disappears for every non-admin.
-    : publicMenuItems.filter(item => isPageVisible((item as any).manifestPath ?? item.url));
+    : publicMenuItems.filter(item => isPageVisible(item.manifestPath ?? item.url));
   const visibleAdminMenuItems = isAdmin
     ? adminMenuItems
     : [];
@@ -239,7 +267,12 @@ const AppSidebar = () => {
                   <motion.div key={item.title} custom={index} initial="hidden" animate="visible" variants={menuItemVariants} className={open ? '' : 'flex justify-center'}>
                     <SidebarMenuItem className={open ? '' : 'w-8'}>
                       <SidebarMenuButton asChild isActive={item.active} className={`transition-all duration-200 ${item.active ? 'font-medium' : 'text-sidebar-foreground/80 hover:text-sidebar-accent hover:bg-sidebar-accent/10'}`}>
-                        <Link to={item.url} className={`flex items-center rounded-md py-1.5 ${open ? 'space-x-2 px-2' : 'justify-center w-8 h-8 px-0 mx-auto'} ${item.highlight && open && !item.active ? 'bg-sidebar-accent/10 border border-sidebar-accent/30' : ''}`}>
+                        {/* `nested` indents a child of the entry above it. Only
+                            when the rail is expanded: collapsed, the rail is a
+                            column of centred icons and an indent there would
+                            just knock one out of alignment with no label
+                            present to explain why. */}
+                        <Link to={item.url} className={`flex items-center rounded-md py-1.5 ${open ? 'space-x-2 px-2' : 'justify-center w-8 h-8 px-0 mx-auto'} ${item.nested && open ? 'ml-4 border-l border-sidebar-border pl-3' : ''} ${item.highlight && open && !item.active ? 'bg-sidebar-accent/10 border border-sidebar-accent/30' : ''}`}>
 
                           <item.icon className={`h-3.5 w-3.5 flex-shrink-0 ${item.active ? 'text-sidebar-accent-foreground' : 'text-muted-foreground'}`} />
                           {open && <span className="text-xs truncate">{item.title}</span>}

@@ -18,6 +18,9 @@ import { createLogger } from '@/utils/logger';
 
 const logger = createLogger('TeneikaLinkedIn');
 
+/** The profile this page archives. */
+const LINKEDIN_PROFILE_URL = 'https://www.linkedin.com/in/teneikaaskew';
+
 interface LinkedInPost {
   id: string;
   post_id: string;
@@ -145,7 +148,21 @@ const TeneikaLinkedIn = () => {
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Teneika's LinkedIn Posts</h1>
             <p className="text-muted-foreground">
-              Archive of LinkedIn posts from Teneika Askew
+              Archive of LinkedIn posts from{' '}
+              {/* Especially worth linking here: when the archive is empty this
+                  page offers only a Scrape button, so without it there is no
+                  way through to the posts it is named after. */}
+              <a
+                href={LINKEDIN_PROFILE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 font-medium text-primary underline-offset-4 hover:underline"
+                data-testid="linkedin-profile-link"
+              >
+                Teneika Askew
+                <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                <span className="sr-only">(opens LinkedIn in a new tab)</span>
+              </a>
             </p>
           </div>
           <Button 
