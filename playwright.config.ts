@@ -230,6 +230,10 @@ export default defineConfig({
         '**/courses/course-question-banks.spec.ts',
         '**/assignments/grading-interface.spec.ts',
         '**/assignments/submission-attachments.spec.ts',
+        // Instructor-only: students never see the bulk download control, so
+        // running it with a member session asserts the opposite of the truth.
+        '**/assignments/bulk-attachment-download.spec.ts',
+
         '**/journeys/grading-workflow-flow.spec.ts',
         '**/instructor/**',
       ],
