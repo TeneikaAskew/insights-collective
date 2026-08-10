@@ -140,8 +140,10 @@ const SalaryGuide: React.FC = () => {
             What data, analytics and AI roles actually pay in the United States. Every figure below is the
             wage distribution the U.S. Bureau of Labor Statistics publishes for the occupation each role maps
             to — the 10th percentile as a realistic entry point, the median as the middle of the market, and
-            the 90th percentile as what senior and specialist work reaches. No survey estimates, no
-            self-reported numbers.
+            the 90th percentile as what senior and specialist work reaches. If you are sizing up data
+            science earnings before picking a track, this is the underlying distribution rather than a survey
+            estimate or a self-reported average.
+
           </p>
         </header>
 
