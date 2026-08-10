@@ -311,16 +311,20 @@ const QuizResults: React.FC<QuizResultsProps> = ({
   // the same on every card and course recommendations key on it rather than on
   // how appealing they found a track.
   const experienceLevel = getExperienceLevel(answers);
-  const topTracks = Object.entries(scores).sort(([, a], [, b]) => b - a).slice(0, 3).map(([track, score]) => {
-    const percentage = toMatchPercentage(track as CareerTrack, score);
-    return {
+  // Normalized before ranking, for the same reason it is normalized for
+  // display: raw scores are measured against different per-track ceilings, so
+  // ordering by them can crown a lower match. Analytics 20/23 is 87% and Data
+  // Engineering 17/19 is 89% — the raw sort put the 87% first.
+  const topTracks = Object.entries(scores)
+    .map(([track, score]) => ({
       track: track as CareerTrack,
-      score: percentage,
+      score: toMatchPercentage(track as CareerTrack, score),
       level: experienceLevel,
       persona: getTrackPersona(track as CareerTrack),
       courses: getCourseRecommendations(track as CareerTrack, experienceLevel ?? 'Beginner')
-    };
-  });
+    }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3);
   const getTrackIcon = (track: CareerTrack) => {
     switch (track) {
       case 'AI/ML':

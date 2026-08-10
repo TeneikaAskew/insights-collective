@@ -119,7 +119,7 @@ describe('QuizResultsSection', () => {
     expect(screen.queryByText('0%')).not.toBeInTheDocument();
   });
 
-  it('prefers scored localStorage values without querying', async () => {
+  it('uses scored localStorage values when the database has no attempt', async () => {
     localStorage.setItem(
       'quizScores',
       JSON.stringify({ 'AI/ML': 22, Analytics: 5, 'Data Engineering': 3, 'Business Intelligence': 2 }),
@@ -129,6 +129,44 @@ describe('QuizResultsSection', () => {
 
     // AI/ML's ceiling is 22, so a perfect raw score reads exactly 100%.
     expect(await screen.findByText('100%')).toBeInTheDocument();
+  });
+
+  it('still reads the database when localStorage already has scores', async () => {
+    // localStorage caches scores and nothing else. Letting it skip the query
+    // dropped the attempt id and the recorded experience on every mount after
+    // the first, so a recorded level silently became "not recorded" and the
+    // coach button went back to storing a duplicate attempt.
+    localStorage.setItem(
+      'quizScores',
+      JSON.stringify({ 'AI/ML': 16, Analytics: 20, 'Data Engineering': 17, 'Business Intelligence': 18 }),
+    );
+    attemptRows = [
+      { ...attempt('scored', { ai: 16, an: 20, de: 17, bi: 18 }, '2025-04-12T00:14:32Z'),
+        self_reported_experience: 'seasoned' },
+    ];
+
+    renderSection();
+
+    expect(await screen.findByTestId('experience-level')).toHaveTextContent('Advanced');
+
+    await userEvent.click(screen.getByRole('button', { name: /chat with career coach/i }));
+    await waitFor(() => expect(initiateCareerCoachChat).toHaveBeenCalled());
+    expect(initiateCareerCoachChat.mock.calls[0][2]).toBe('scored');
+  });
+
+  it('ranks the cards by match percentage, not by raw score', async () => {
+    // Raw scores are measured against different ceilings, so ranking on them
+    // disagrees with the percentages shown beside them: Analytics 20/23 is 87%
+    // and Data Engineering 17/19 is 89%, yet Analytics has the higher raw score
+    // and used to take the "Top Match" position.
+    attemptRows = [attempt('scored', { ai: 16, an: 20, de: 17, bi: 18 }, '2025-04-12T00:14:32Z')];
+
+    renderSection();
+
+    await screen.findByText('89%');
+    const shown = screen.getAllByText(/^\d+%$/).map((el) => parseInt(el.textContent!, 10));
+    expect(shown).toEqual([...shown].sort((a, b) => b - a));
+    expect(shown[0]).toBe(89);
   });
 
   it('states the recorded experience level once, not per track', async () => {

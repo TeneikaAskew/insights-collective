@@ -35,7 +35,15 @@ test.describe('Course Certificate', () => {
       .poll(async () => (await ready.count()) + (await locked.count()), { timeout: 10_000 })
       .toBe(1);
 
-    if (await ready.count()) {
+    // Resolved before the branch, not inside its condition. `if (await
+    // x.count())` is banned because it normally hides a body that silently does
+    // not run — but the poll above has already established that exactly one of
+    // these two headings is present, so both branches are real and one always
+    // executes. Naming the state says that, and keeps the linter's guarantee
+    // intact everywhere it does apply.
+    const isReady = (await ready.count()) === 1;
+
+    if (isReady) {
       // Completed: no locked copy anywhere on the page, at either level.
       await expect(page.getByText(/must complete all course requirements/i)).toHaveCount(0);
       await expect(page.getByText(/complete the course to unlock certification/i)).toHaveCount(0);

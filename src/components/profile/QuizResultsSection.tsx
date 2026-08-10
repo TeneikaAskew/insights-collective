@@ -32,16 +32,18 @@ const hasAnyScore = (scores: Partial<Record<CareerTrack, number>> | null | undef
 /** Raw track scores → the top three cards, normalized against each track's real ceiling. */
 const toTopTracks = (scores: Record<CareerTrack, number>): QuizResult[] =>
   Object.entries(scores)
-    .sort(([, scoreA], [, scoreB]) => scoreB - scoreA)
-    .slice(0, 3)
-    .map(([track, score]) => {
-      const percentage = toMatchPercentage(track as CareerTrack, score);
-      return {
-        track: track as CareerTrack,
-        score: percentage,
-        persona: getTrackPersona(track as CareerTrack),
-      };
-    });
+    // Normalize BEFORE ranking. Raw scores are not comparable across tracks —
+    // that is the whole reason they are normalized for display — so ranking on
+    // them made the order disagree with the numbers beside it: Analytics 20/23
+    // is 87% and Data Engineering 17/19 is 89%, yet the higher raw score put
+    // Analytics first and gave it the "Top Match" badge over the better match.
+    .map(([track, score]) => ({
+      track: track as CareerTrack,
+      score: toMatchPercentage(track as CareerTrack, score),
+      persona: getTrackPersona(track as CareerTrack),
+    }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3);
 
 const QuizResultsSection = () => {
   const [quizResults, setQuizResults] = useState<QuizResult[] | null>(null);
@@ -83,7 +85,15 @@ const QuizResultsSection = () => {
       let attemptId: string | null = null;
       let level: SkillLevel | null = null;
 
-      // First, check localStorage for immediate results.
+      // localStorage carries scores and nothing else — no attempt id, no
+      // recorded experience — so for a signed-in reader it is a cache of one
+      // third of the answer. Using it to skip the query cost the other two
+      // thirds on every mount after the first: the level fell back to "not
+      // recorded" for someone who had recorded it, and the coach button, having
+      // no attempt to attach to, went back to storing a duplicate row. For a
+      // signed-in reader the database is the source of truth; localStorage is
+      // the fallback for the anonymous case, where the quiz was taken on the
+      // home page and never persisted at all.
       const storedScores = localStorage.getItem('quizScores');
       if (storedScores) {
         const parsed = JSON.parse(storedScores) as Record<CareerTrack, number>;
@@ -93,8 +103,7 @@ const QuizResultsSection = () => {
         }
       }
 
-      // If user is authenticated, try to fetch from Supabase.
-      if (user && !scores) {
+      if (user) {
         logger.log('Checking Supabase for quiz results for user:', user.id);
 
         // Deliberately more than one row. `initiateCareerCoachChat` writes an
