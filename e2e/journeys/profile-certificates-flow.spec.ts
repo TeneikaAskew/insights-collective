@@ -60,4 +60,55 @@ test.describe('Profile — My Certificates', () => {
         'as the shared member they delete this row out from under this spec.',
     ).toHaveCount(1);
   });
+
+  test('certificate row keeps its text readable at phone width', async ({ page }) => {
+    // The row was `flex flex-wrap` with a `flex-1 min-w-0` text column beside
+    // the action buttons. min-w-0 lets a flex item shrink without limit, and
+    // wrapping is only a last resort — so instead of dropping the buttons to a
+    // second line the browser squeezed the text column to about one character
+    // wide. Reported symptom: the course title showed a single letter and the
+    // verification code ran down the screen vertically.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoProfile(page);
+    await expect(page.getByTestId('my-certificates-card')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('certificates-loading')).toHaveCount(0, { timeout: 15_000 });
+
+    const row = page.getByTestId('certificate-row').first();
+    await expect(row).toBeVisible();
+
+    const rowBox = await row.boundingBox();
+    expect(rowBox, 'certificate row has a layout box').toBeTruthy();
+
+    // The verification code is a single unbroken token, so its own width is the
+    // most direct read on how much room the text column actually got. One
+    // character per line would put it near 10px; the code needs well over half
+    // the row.
+    const code = row.locator('p.font-mono');
+    const codeBox = await code.boundingBox();
+    expect(codeBox, 'verification code line has a layout box').toBeTruthy();
+    expect(
+      codeBox!.width,
+      `Verification code line is only ${Math.round(codeBox!.width)}px wide inside a ` +
+        `${Math.round(rowBox!.width)}px row — the text column has collapsed again.`,
+    ).toBeGreaterThan(rowBox!.width * 0.5);
+
+    // A collapsed column also makes the row grow tall as text wraps per
+    // character. The seeded certificate's content is four short lines.
+    expect(
+      rowBox!.height,
+      `Certificate row is ${Math.round(rowBox!.height)}px tall at 390px wide; ` +
+        'that is per-character wrapping, not four lines of text.',
+    ).toBeLessThan(260);
+
+    // The title must render its whole first word, not a single clipped letter.
+    const title = row.locator('h3').first();
+    const titleText = (await title.innerText()).trim();
+    expect(titleText.length, `Certificate title rendered as "${titleText}"`).toBeGreaterThan(3);
+
+    // Nothing may push the page sideways.
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow, 'profile page scrolls horizontally at 390px').toBeLessThanOrEqual(1);
+  });
 });

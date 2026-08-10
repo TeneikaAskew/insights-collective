@@ -44,6 +44,18 @@ export const storeQuizAttempt = async (
   const { data: { user } } = await supabase.auth.getUser();
   const userId = user?.id;
 
+  // Refuse to persist a result nobody produced.
+  //
+  // Every question carries a positive weight for at least one track, so a real
+  // completed quiz cannot score zero across all four. An all-zero object only
+  // arises when a caller had no scores to hand over, and storing it created a
+  // row that outranked the user's genuine attempts by `created_at` — the profile
+  // then reported a 0% match for every track. Failing here is loud and local;
+  // the silent write was neither.
+  if (!Object.values(scores).some((score) => score > 0)) {
+    throw new Error('Refusing to store a quiz attempt with no scores: every track scored 0.');
+  }
+
   // Determine top recommended path
   const sortedTracks = Object.entries(scores)
     .sort(([, scoreA], [, scoreB]) => scoreB - scoreA);

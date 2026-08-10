@@ -1134,4 +1134,84 @@ BEGIN
   ON CONFLICT DO NOTHING;
 END $$;
 
+-- 8. Career quiz attempts for the member: one scored, and a newer one that
+--    scored nothing.
+--
+-- This pair reproduces exactly what a real account holds. Opening the career
+-- coach from the profile used to write an attempt from whatever scores it was
+-- handed, and the profile handed it an empty object whenever localStorage had
+-- been cleared — so accounts carry attempts whose four result columns are all
+-- 0, stamped later than the genuine one. The profile took strictly the newest
+-- row, so that write replaced a real result with three cards reading
+-- "Match Score: 0% / Level: Beginner".
+--
+-- Seeding both rows means career-quiz-results.spec.ts asserts the ordering
+-- rule and not merely that some scores render: a regression that goes back to
+-- newest-row-wins shows 0% here, exactly as it did in production.
+--
+-- Fixed ids so re-running restores rather than accumulates.
+DO $$
+DECLARE
+  v_member_id uuid;
+BEGIN
+  SELECT id INTO v_member_id FROM auth.users
+   WHERE email = COALESCE(current_setting('e2e.member_email', true), 'e2e-member@insightscollective.org');
+  IF v_member_id IS NULL THEN
+    RAISE EXCEPTION 'E2E SEED FAILED: no e2e member account, so the career quiz attempts cannot be seeded';
+  END IF;
+
+  -- The genuine attempt. Analytics 20 of a possible 23 is 87%; Data Engineering
+  -- 17 of a possible 19 is 89% and therefore sorts above it once each track is
+  -- normalized against its own ceiling rather than a flat 20.
+  INSERT INTO public.career_quiz_attempts (
+    id, user_id, session_id, created_at,
+    result_ai_ml_score, result_analytics_score,
+    result_data_engineering_score, result_business_intelligence_score,
+    top_recommended_path
+  ) VALUES (
+    '88e8a400-0000-4000-8000-000000000001', v_member_id, 'e2e-seed-scored',
+    now() - interval '30 days',
+    16, 20, 17, 18, 'Analytics'
+  )
+  ON CONFLICT (id) DO UPDATE
+    SET result_ai_ml_score = 16,
+        result_analytics_score = 20,
+        result_data_engineering_score = 17,
+        result_business_intelligence_score = 18,
+        created_at = now() - interval '30 days';
+
+  -- The poisoned one: newer, and scored nothing.
+  INSERT INTO public.career_quiz_attempts (
+    id, user_id, session_id, created_at,
+    result_ai_ml_score, result_analytics_score,
+    result_data_engineering_score, result_business_intelligence_score,
+    top_recommended_path
+  ) VALUES (
+    '88e8a400-0000-4000-8000-000000000002', v_member_id, 'e2e-seed-zero',
+    now() - interval '1 day',
+    0, 0, 0, 0, 'AI/ML'
+  )
+  ON CONFLICT (id) DO UPDATE
+    SET result_ai_ml_score = 0,
+        result_analytics_score = 0,
+        result_data_engineering_score = 0,
+        result_business_intelligence_score = 0,
+        created_at = now() - interval '1 day';
+
+  -- Assert the ordering the spec depends on. If the zero row ever stopped being
+  -- the newest, the spec would pass without testing the rule it exists for.
+  -- Written as IS DISTINCT FROM 0 so an empty table (scalar subquery → NULL)
+  -- raises too, rather than slipping through on NULL <> 0 being unknown.
+  IF (
+    SELECT COALESCE(result_ai_ml_score, 0) + COALESCE(result_analytics_score, 0)
+         + COALESCE(result_data_engineering_score, 0) + COALESCE(result_business_intelligence_score, 0)
+      FROM public.career_quiz_attempts
+     WHERE user_id = v_member_id
+     ORDER BY created_at DESC
+     LIMIT 1
+  ) IS DISTINCT FROM 0 THEN
+    RAISE EXCEPTION 'E2E SEED FAILED: the member''s newest career quiz attempt is missing or is not the zero-scored one, so career-quiz-results.spec.ts cannot prove the profile skips it';
+  END IF;
+END $$;
+
 COMMIT;

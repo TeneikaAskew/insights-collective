@@ -669,10 +669,59 @@ export const courseRecommendations: CourseRecommendation[] = [
   }
 ];
 
-// Helper function to get SkillLevel based on score
-export const getSkillLevel = (score: number): SkillLevel => {
-  if (score <= 20) return 'Beginner';
-  if (score <= 40) return 'Intermediate';
+/**
+ * The highest raw score each track can reach, derived from the questions
+ * themselves rather than assumed.
+ *
+ * A scale question contributes `(answer / 5) * weight`, so its maximum is the
+ * weight. A multiple-choice question contributes the chosen option's weight, so
+ * its maximum is the largest weight among the options. Summing those gives a
+ * per-track ceiling that is currently 19–23 depending on the track — not the
+ * flat 20 that `score * 5` assumed everywhere. That assumption both understated
+ * tracks with a ceiling below 20 and let the others print above 100%.
+ */
+export const trackMaxScores: Record<CareerTrack, number> = (() => {
+  const tracks: CareerTrack[] = ['AI/ML', 'Analytics', 'Data Engineering', 'Business Intelligence'];
+  const totals = { 'AI/ML': 0, 'Analytics': 0, 'Data Engineering': 0, 'Business Intelligence': 0 } as Record<CareerTrack, number>;
+
+  for (const question of quizQuestions) {
+    for (const track of tracks) {
+      if (question.type === 'scale' && question.weights) {
+        totals[track] += question.weights[track] ?? 0;
+      } else if (question.type === 'multiple-choice' && question.options) {
+        totals[track] += Math.max(0, ...question.options.map((o) => o.weights[track] ?? 0));
+      }
+    }
+  }
+
+  return totals;
+})();
+
+/**
+ * Convert a raw track score into the 0–100 "Match Score" the UI shows.
+ *
+ * Guards the degenerate case: a track with no weight anywhere would divide by
+ * zero, and a stored score from an older question set can exceed today's
+ * ceiling, so the result is clamped rather than allowed past 100%.
+ */
+export const toMatchPercentage = (track: CareerTrack, rawScore: number): number => {
+  const max = trackMaxScores[track];
+  if (!max || !Number.isFinite(rawScore)) return 0;
+  return Math.max(0, Math.min(100, Math.round((rawScore / max) * 100)));
+};
+
+/**
+ * Skill level for a 0–100 match percentage.
+ *
+ * Both call sites pass a percentage, which the old 20/40 thresholds were never
+ * written for: on that scale anything above 40% — which is every answer set
+ * that is not almost entirely "Strongly Disagree" — came back 'Advanced', and
+ * the three levels of `getCourseRecommendations` collapsed to one. These
+ * thresholds split the percentage range instead.
+ */
+export const getSkillLevel = (matchPercentage: number): SkillLevel => {
+  if (matchPercentage <= 40) return 'Beginner';
+  if (matchPercentage <= 70) return 'Intermediate';
   return 'Advanced';
 };
 

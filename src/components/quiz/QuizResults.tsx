@@ -185,7 +185,7 @@
 
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CareerTrack, getSkillLevel, getTrackPersona, getCourseRecommendations } from '@/data/careerQuizData';
+import { CareerTrack, getSkillLevel, getTrackPersona, getCourseRecommendations, toMatchPercentage } from '@/data/careerQuizData';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, BarChart2, BarChart3, Brain, Database, Download, Loader2, MessageCircle, Presentation, RefreshCw, Share2 } from 'lucide-react';
@@ -301,13 +301,20 @@ const QuizResults: React.FC<QuizResultsProps> = ({
       localStorage.setItem('quizAnswers', JSON.stringify(answers));
     }
   }, [scores, answers]);
-  const topTracks = Object.entries(scores).sort(([, a], [, b]) => b - a).slice(0, 3).map(([track, score]) => ({
-    track: track as CareerTrack,
-    score: score * 5, // Transform from 20-point scale to 100-point scale
-    level: getSkillLevel(score * 5),
-    persona: getTrackPersona(track as CareerTrack),
-    courses: getCourseRecommendations(track as CareerTrack, getSkillLevel(score * 5))
-  }));
+  // `score * 5` assumed every track topped out at 20. The weights say otherwise
+  // — the ceilings are 19 to 23 — so that arithmetic printed match scores above
+  // 100% for the two tracks that can exceed 20 and understated the one that
+  // cannot reach it. Normalize against each track's own maximum instead.
+  const topTracks = Object.entries(scores).sort(([, a], [, b]) => b - a).slice(0, 3).map(([track, score]) => {
+    const percentage = toMatchPercentage(track as CareerTrack, score);
+    return {
+      track: track as CareerTrack,
+      score: percentage,
+      level: getSkillLevel(percentage),
+      persona: getTrackPersona(track as CareerTrack),
+      courses: getCourseRecommendations(track as CareerTrack, getSkillLevel(percentage))
+    };
+  });
   const getTrackIcon = (track: CareerTrack) => {
     switch (track) {
       case 'AI/ML':

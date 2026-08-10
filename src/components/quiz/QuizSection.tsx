@@ -6,8 +6,20 @@ import { motion, useAnimation } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
 import Quiz from './Quiz';
 
-const QuizSection: React.FC = () => {
-  const [showQuiz, setShowQuiz] = useState(false);
+interface QuizSectionProps {
+  /**
+   * Open straight into the questions instead of the marketing intro.
+   *
+   * The home page wants the intro — the four track cards are the pitch. The
+   * dedicated /career-quiz route does not: someone who followed "Retake Quiz"
+   * has already decided, and making them click a second "Take the Career Quiz"
+   * button is the same dead-end feeling that route exists to remove.
+   */
+  autoStart?: boolean;
+}
+
+const QuizSection: React.FC<QuizSectionProps> = ({ autoStart = false }) => {
+  const [showQuiz, setShowQuiz] = useState(autoStart);
   const controls = useAnimation();
   const [ref, inView] = useInView({ triggerOnce: true, threshold: 0.2 });
 

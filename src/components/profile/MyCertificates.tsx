@@ -165,26 +165,42 @@ export const MyCertificates = () => {
       {certificates.map((cert) => {
         const title = cert.certificate_data?.course_title || cert.course?.title || 'Course';
         return (
-          <li key={cert.id} className="py-4 flex flex-wrap items-start gap-4" data-testid="certificate-row">
-            <div className="rounded-md bg-primary/10 p-3 text-primary">
-              <Award className="h-6 w-6" />
-            </div>
-            <div className="flex-1 min-w-0 space-y-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <h3 className="font-semibold text-base truncate">{title}</h3>
-                <Badge variant="secondary" className="capitalize">{cert.certificate_type}</Badge>
-                <Badge variant="outline" className="gap-1 text-xs">
-                  <ShieldCheck className="h-3 w-3" /> Verified
-                </Badge>
+          // `flex flex-wrap` with a `flex-1 min-w-0` text column never actually
+          // wrapped: wrapping is a last resort, and min-w-0 told the browser the
+          // column could shrink indefinitely, so on a phone it kept the buttons
+          // alongside and squeezed the text to roughly one character wide — the
+          // title clipped to a single letter and the verification code ran down
+          // the screen a character per line. Stack explicitly below `sm`
+          // instead, and only lay the row out horizontally where there is room.
+          <li
+            key={cert.id}
+            className="py-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4"
+            data-testid="certificate-row"
+          >
+            <div className="flex items-start gap-3 min-w-0 sm:flex-1">
+              <div className="shrink-0 rounded-md bg-primary/10 p-3 text-primary">
+                <Award className="h-6 w-6" />
               </div>
-              <p className="text-sm text-muted-foreground">
-                Issued {new Date(cert.issued_at).toLocaleDateString()} · Study time {formatTime(cert.certificate_data?.time_spent)}
-              </p>
-              <p className="text-xs font-mono text-muted-foreground break-all">
-                Code: {cert.verification_code}
-              </p>
+              <div className="flex-1 min-w-0 space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* break-words, not truncate: the row is no longer starved of
+                      width, so a long course title should wrap and stay
+                      readable rather than lose its ending to an ellipsis. */}
+                  <h3 className="font-semibold text-base min-w-0 break-words">{title}</h3>
+                  <Badge variant="secondary" className="capitalize">{cert.certificate_type}</Badge>
+                  <Badge variant="outline" className="gap-1 text-xs">
+                    <ShieldCheck className="h-3 w-3" /> Verified
+                  </Badge>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Issued {new Date(cert.issued_at).toLocaleDateString()} · Study time {formatTime(cert.certificate_data?.time_spent)}
+                </p>
+                <p className="text-xs font-mono text-muted-foreground break-all">
+                  Code: {cert.verification_code}
+                </p>
+              </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2 sm:shrink-0">
               <Button
                 variant="outline"
                 size="sm"

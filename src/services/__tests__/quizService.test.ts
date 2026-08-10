@@ -107,6 +107,37 @@ describe('quizService', () => {
 
       await expect(storeQuizAttempt(answers, scores)).rejects.toThrow();
     });
+
+    it('should REFUSE to store an attempt where every track scored zero', async () => {
+      // Callers that had no scores to hand over used to write this row anyway.
+      // It sorted newest by created_at, so it outranked the account's real
+      // attempts and the profile reported a 0% match for every track.
+      const emptyScores = {
+        'AI/ML': 0,
+        'Analytics': 0,
+        'Data Engineering': 0,
+        'Business Intelligence': 0,
+      } as Record<CareerTrack, number>;
+
+      await expect(storeQuizAttempt(answers, emptyScores)).rejects.toThrow(/no scores/i);
+      expect(getQueryBuilder().insert).not.toHaveBeenCalled();
+    });
+
+    it('should still store an attempt where only one track scored', async () => {
+      mockSupabaseClient.from().insert().select().single.mockResolvedValue({
+        data: { id: 'attempt-3' },
+        error: null,
+      });
+
+      const oneTrack = {
+        'AI/ML': 0,
+        'Analytics': 0,
+        'Data Engineering': 4,
+        'Business Intelligence': 0,
+      } as Record<CareerTrack, number>;
+
+      await expect(storeQuizAttempt(answers, oneTrack)).resolves.toBe('attempt-3');
+    });
   });
 
   describe('startCareerCoachConversation', () => {

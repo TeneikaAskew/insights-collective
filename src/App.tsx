@@ -66,6 +66,7 @@ const CareerPathway = lazy(() => import('@/pages/CareerPathway'));
 const Assistants = lazy(() => import('@/pages/Assistants'));
 const AssistantInterface = lazy(() => import('@/pages/AssistantInterface'));
 const ExploreDataCareers = lazy(() => import('@/pages/ExploreDataCareers'));
+const CareerQuiz = lazy(() => import('@/pages/CareerQuiz'));
 const Resume = lazy(() => import('@/pages/Resume'));
 // Dev-only design preview (tree-shaken out of production builds)
 const SoftStudioPreview = import.meta.env.DEV
@@ -367,6 +368,10 @@ function App() {
                     <Route path="/assistant/:id" element={<AssistantInterface />} />
                     <Route path="/assistant-interface" element={<AssistantInterface />} />
                     <Route path="/explore-data-careers" element={<ExploreDataCareers />} />
+                    {/* The quiz also lives on the home page, but "/" redirects
+                        signed-in visitors to the dashboard, so members need a
+                        route of their own to take or retake it. */}
+                    <Route path="/career-quiz" element={<CareerQuiz />} />
                     <Route path="/resume" element={<Resume />} />
                     {SoftStudioPreview && (
                       <Route path="/dev/soft-studio" element={<SoftStudioPreview />} />
