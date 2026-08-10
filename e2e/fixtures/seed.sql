@@ -592,6 +592,36 @@ FROM auth.users u
 WHERE u.email = COALESCE(current_setting('e2e.member_email', true), 'e2e-member@insightscollective.org')
 ON CONFLICT (id) DO NOTHING;
 
+-- Two uploaded files on that fixture submission, so the grader's "Uploaded
+-- files" panel (SubmissionAttachments) has something real to list, preview and
+-- download in e2e/assignments/submission-attachments.spec.ts. Without these the
+-- panel renders NOTHING at all (attachments.length === 0 returns null), which
+-- is indistinguishable from the component being broken.
+--
+-- One image and one PDF on purpose: the panel previews images with <img> and
+-- PDFs with <iframe>, and those are separate code paths.
+--
+-- The `url` column holds the storage OBJECT PATH, not a URL — the bucket is
+-- private and every read is signed at click time. The path layout is
+-- load-bearing: storage policies parse submissions/<courseId>/<userId>/<file>
+-- with split_part(). The objects themselves are uploaded by
+-- scripts/e2e/seed-submission-files.mjs (SQL cannot write to storage); the spec
+-- asserts loudly if they are missing rather than passing on an empty preview.
+INSERT INTO public.submission_attachments
+  (id, submission_id, filename, content_type, size, url, created_at)
+SELECT v.id, 'cccc5555-5555-5555-5555-555555555555', v.filename, v.content_type, v.size,
+       'submissions/660e8400-e29b-41d4-a716-446655440001/' || u.id || '/' || v.filename,
+       now() - interval '1 day'
+FROM auth.users u
+CROSS JOIN (VALUES
+  ('cccc6666-6666-6666-6666-666666666661'::uuid, 'e2e-fixture-chart.png', 'image/png', 6234),
+  ('cccc6666-6666-6666-6666-666666666662'::uuid, 'e2e-fixture-writeup.pdf', 'application/pdf', 1843)
+) AS v(id, filename, content_type, size)
+WHERE u.email = COALESCE(current_setting('e2e.member_email', true), 'e2e-member@insightscollective.org')
+ON CONFLICT (id) DO NOTHING;
+
+
+
 -- The survey the survey specs deep-link to.
 --
 -- /survey/e2e-fixture-survey rendered "Form Not Found", and the reason was not

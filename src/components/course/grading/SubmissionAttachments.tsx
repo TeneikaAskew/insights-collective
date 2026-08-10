@@ -114,19 +114,44 @@ export function SubmissionAttachments({ submissionId, onCommentOnFile }: Submiss
     [toast],
   );
 
+  // Non-image previews are framed, and the app's CSP frame-src allows only
+  // 'self', blob: and the video hosts — so a Supabase signed URL in an <iframe>
+  // is refused by the browser and the pane renders blank in production, not just
+  // in headless Chromium. The bytes are therefore fetched with the grader's own
+  // session and framed as a blob: URL, which needs no CSP change.
   const togglePreview = async (att: SubmissionAttachmentRow) => {
     if (previewId === att.id) {
       setPreviewId(null);
+      if (previewUrl?.startsWith('blob:')) URL.revokeObjectURL(previewUrl);
       setPreviewUrl(null);
       return;
     }
     setBusyId(att.id);
-    const signed = await signUrl(att);
-    setBusyId(null);
-    if (!signed) return;
-    setPreviewId(att.id);
-    setPreviewUrl(signed);
+    try {
+      let url: string | null;
+      if (isImage(att)) {
+        url = await signUrl(att);
+      } else {
+        const { data, error } = await supabase.storage.from(BUCKET).download(att.url);
+        if (error || !data) throw error || new Error('The file could not be opened.');
+        url = URL.createObjectURL(data);
+      }
+      if (!url) return;
+      if (previewUrl?.startsWith('blob:')) URL.revokeObjectURL(previewUrl);
+      setPreviewId(att.id);
+      setPreviewUrl(url);
+    } catch (e: any) {
+      logger.error('Attachment preview failed', e);
+      toast({
+        title: 'Could not open file',
+        description: e?.message || 'The file could not be previewed.',
+        variant: 'destructive',
+      });
+    } finally {
+      setBusyId(null);
+    }
   };
+
 
   const openInTab = async (att: SubmissionAttachmentRow) => {
     setBusyId(att.id);

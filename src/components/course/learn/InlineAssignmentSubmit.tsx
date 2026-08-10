@@ -203,17 +203,17 @@ export function InlineAssignmentSubmit({ item, assignment, onCompleted }: Props)
     }
     setSubmitting(true);
     try {
-      // Files go to storage BEFORE the submission row is written. Doing it the
-      // other way round consumed the student's only attempt when an upload was
-      // rejected (e.g. by the bucket's MIME allowlist), leaving a submitted row
-      // with no files and no way to retry.
-      const uploadedFiles: Array<{ file: File; path: string }> = [];
+      // Files go to storage BEFORE the submission row is written. The other way
+      // round consumed the student's attempt when an upload was rejected (e.g.
+      // by the bucket's MIME allowlist), leaving a "submitted" row with no files
+      // and no attempt left to retry with.
+      const uploaded: Array<{ file: File; path: string }> = [];
       for (const file of pendingFiles) {
-        const uploaded = await uploadFile(file, 'course-documents', item.course_id, {
+        const result = await uploadFile(file, 'course-documents', item.course_id, {
           submissionUserId: user.id,
         });
-        if (!uploaded) throw new Error(`Failed to upload ${file.name}`);
-        uploadedFiles.push({ file, path: uploaded.path });
+        if (!result) throw new Error(`Failed to upload ${file.name}`);
+        uploaded.push({ file, path: result.path });
       }
 
       const nextAttempt = (attemptsUsed || 0) + 1;
@@ -253,10 +253,10 @@ export function InlineAssignmentSubmit({ item, assignment, onCompleted }: Props)
       }
       setSubmission(saved);
 
-      // Attachment rows are written after the submission exists — the RLS
-      // policy on submission_attachments checks ownership through it.
-      if (uploadedFiles.length > 0) {
-        const rows = uploadedFiles.map(({ file, path }) => ({
+      // Attachment rows are written after the submission exists — the RLS policy
+      // on submission_attachments checks ownership through it.
+      if (uploaded.length > 0) {
+        const rows = uploaded.map(({ file, path }) => ({
           submission_id: saved.id,
           filename: file.name,
           content_type: file.type || null,

@@ -197,6 +197,7 @@ export default defineConfig({
         '**/courses/course-rubrics.spec.ts',
         '**/courses/course-question-banks.spec.ts',
         '**/assignments/grading-interface.spec.ts',
+        '**/assignments/submission-attachments.spec.ts',
         '**/journeys/grading-workflow-flow.spec.ts',
         '**/instructor/**',
       ],
@@ -254,6 +255,8 @@ export default defineConfig({
         '**/courses/course-rubrics.spec.ts',
         '**/courses/course-question-banks.spec.ts',
         '**/assignments/grading-interface.spec.ts',
+        '**/assignments/submission-attachments.spec.ts',
+
         '**/journeys/grading-workflow-flow.spec.ts',
         // Specs that are inherently instructor-role live under e2e/instructor/.
         '**/instructor/**',
