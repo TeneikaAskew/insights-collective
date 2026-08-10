@@ -18,6 +18,7 @@ import CanvasContentService from '@/services/canvasContentService';
 import CourseErrorState from '@/components/course/CourseErrorState';
 import { withCoursePermission } from '@/components/course/withCoursePermission';
 import { SubmissionComments } from '@/components/course/grading/SubmissionComments';
+import { SubmissionAttachments } from '@/components/course/grading/SubmissionAttachments';
 import {
   CheckCircle,
   Save,
