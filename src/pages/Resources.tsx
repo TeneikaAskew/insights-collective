@@ -1,5 +1,7 @@
 
 import { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
+import { ArrowRight } from 'lucide-react';
 import { urlHostMatches } from '@/utils/videoUrls';
 import AppLayout from '@/components/layout/AppLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -252,6 +254,22 @@ const Resources = () => {
             Discover helpful resources, events, and learning opportunities.
           </p>
         </div>
+
+        {/* Entry point into the salary guide, which is a standalone reference page
+            rather than a directory row. */}
+        <Link
+          to="/resources/salary-guide"
+          className="flex items-center justify-between gap-4 rounded-lg border bg-card p-4 hover:border-primary transition-colors"
+        >
+          <span>
+            <span className="block font-semibold">Data &amp; AI salary guide</span>
+            <span className="block text-sm text-muted-foreground">
+              US salary bands for 20+ data, analytics and AI roles, from BLS wage data.
+            </span>
+          </span>
+          <ArrowRight className="h-5 w-5 text-primary shrink-0" />
+        </Link>
+
         
         <Tabs defaultValue="resources" className="space-y-8 w-full">
           <TabsList>
