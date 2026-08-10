@@ -9,11 +9,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Send, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Loader2, Send, CheckCircle2, AlertCircle, Paperclip, X, Download } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useFileUpload } from '@/hooks/useFileUpload';
 import CourseErrorState from '@/components/course/CourseErrorState';
 import type { ContentItem, Assignment } from '@/types/canvas';
+
 
 interface Props {
   item: ContentItem;
