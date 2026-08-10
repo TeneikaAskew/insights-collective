@@ -120,10 +120,7 @@ Deno.serve(async (req) => {
 
     if (!body.notification_id) return json({ error: 'notification_id is required' }, 400);
 
-    const admin = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    );
+    const admin = adminClient();
 
     const { data: notification, error: nErr } = await admin
       .from('notifications')
@@ -176,11 +173,7 @@ Deno.serve(async (req) => {
     console.error('send-notification-email failed:', detail);
     try {
       if (body.notification_id) {
-        const admin = createClient(
-          Deno.env.get('SUPABASE_URL')!,
-          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-        );
-        await admin.from('notification_email_log').insert({
+        await adminClient().from('notification_email_log').insert({
           notification_id: body.notification_id,
           status: 'failed',
           error: detail.slice(0, 1000),
