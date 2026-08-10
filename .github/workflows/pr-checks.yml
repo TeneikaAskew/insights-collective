@@ -3,6 +3,14 @@ name: PR Checks
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+  # Also run on direct pushes to main. These checks were pull_request-only, so
+  # anything landing on main without a PR skipped every one of them — which is
+  # how `if (await ready.count())` reached main in ce0c511e and sat there
+  # unnoticed until the next PR inherited the red. Commits arrive here directly
+  # (Lovable pushes as gpt-engineer-app[bot]), so PR-only coverage leaves the
+  # default branch unguarded by exactly the checks meant to protect it.
+  push:
+    branches: [main]
 
 jobs:
   pr-validation:
