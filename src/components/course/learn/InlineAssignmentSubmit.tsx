@@ -49,12 +49,20 @@ export function InlineAssignmentSubmit({ item, assignment, onCompleted }: Props)
   const [body, setBody] = useState('');
   const [url, setUrl] = useState('');
   const [criteria, setCriteria] = useState<RubricCriterion[]>([]);
+  // Files chosen but not yet uploaded — they are uploaded on submit, because an
+  // attachment row needs the submission id.
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [attachments, setAttachments] = useState<AttachmentRow[]>([]);
+  const { uploadFile, uploading } = useFileUpload();
 
   const submissionTypes = assignment.submission_types || ['online_text_entry'];
   const acceptsText = submissionTypes.includes('online_text_entry');
   const acceptsUrl = submissionTypes.includes('online_url');
+  const acceptsFiles =
+    submissionTypes.includes('online_upload') || submissionTypes.includes('file_upload');
   // No configured limit means unlimited attempts — do not invent a policy.
   const maxAttempts: number | null = (assignment as any).max_attempts ?? null;
+
 
   useEffect(() => {
     let cancelled = false;
