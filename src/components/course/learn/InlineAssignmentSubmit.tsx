@@ -147,10 +147,58 @@ export function InlineAssignmentSubmit({ item, assignment, onCompleted }: Props)
   const attemptsUsed = submission?.attempt ?? 0;
   const canResubmit = !isGraded && (maxAttempts == null || attemptsUsed < maxAttempts);
 
+  const addFiles = (files: FileList | null) => {
+    if (!files) return;
+    const accepted: File[] = [];
+    for (const f of Array.from(files)) {
+      if (f.size > MAX_ATTACHMENT_BYTES) {
+        toast({
+          title: 'File too large',
+          description: `${f.name} exceeds the 25 MB limit.`,
+          variant: 'destructive',
+        });
+        continue;
+      }
+      accepted.push(f);
+    }
+    if (accepted.length) setPendingFiles((prev) => [...prev, ...accepted]);
+  };
+
+  const removeAttachment = async (attachmentId: string) => {
+    const { error } = await supabase
+      .from('submission_attachments')
+      .delete()
+      .eq('id', attachmentId);
+    if (error) {
+      toast({ title: 'Could not remove file', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setAttachments((prev) => prev.filter((a) => a.id !== attachmentId));
+  };
+
+  // Attachment rows store the object path; the buckets are private so a URL is
+  // signed at click time with the viewer's session.
+  const openAttachment = async (att: AttachmentRow) => {
+    const { data, error } = await supabase.storage
+      .from('course-documents')
+      .createSignedUrl(att.url, 60 * 10);
+    if (error || !data?.signedUrl) {
+      toast({
+        title: 'Could not open file',
+        description: error?.message || 'The file link could not be created.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+  };
+
   const handleSubmit = async () => {
     if (!user) return;
-    if (acceptsText && !body.trim() && !url.trim()) {
-      toast({ title: 'Enter a response before submitting', variant: 'destructive' });
+    const hasContent =
+      body.trim() || url.trim() || pendingFiles.length > 0 || attachments.length > 0;
+    if (!hasContent) {
+      toast({ title: 'Add a response or a file before submitting', variant: 'destructive' });
       return;
     }
     setSubmitting(true);
@@ -161,7 +209,12 @@ export function InlineAssignmentSubmit({ item, assignment, onCompleted }: Props)
         user_id: user.id,
         body: body.trim() || null,
         url: url.trim() || null,
-        submission_type: acceptsUrl && url.trim() ? 'online_url' : 'online_text_entry',
+        submission_type:
+          acceptsFiles && (pendingFiles.length > 0 || attachments.length > 0)
+            ? 'online_upload'
+            : acceptsUrl && url.trim()
+              ? 'online_url'
+              : 'online_text_entry',
         submitted_at: new Date().toISOString(),
         workflow_state: 'submitted',
         attempt: nextAttempt,
@@ -186,6 +239,33 @@ export function InlineAssignmentSubmit({ item, assignment, onCompleted }: Props)
         saved = data;
       }
       setSubmission(saved);
+
+      // Upload attachments only after the submission row exists — the RLS
+      // policy on submission_attachments checks ownership through it.
+      if (pendingFiles.length > 0) {
+        const rows: Array<Omit<AttachmentRow, 'id'> & { submission_id: string }> = [];
+        for (const file of pendingFiles) {
+          const uploaded = await uploadFile(file, 'course-documents', assignment.course_id, {
+            submissionUserId: user.id,
+          });
+          if (!uploaded) throw new Error(`Failed to upload ${file.name}`);
+          rows.push({
+            submission_id: saved.id,
+            filename: file.name,
+            content_type: file.type || null,
+            size: file.size,
+            url: uploaded.path,
+          });
+        }
+        const { data: inserted, error: attError } = await supabase
+          .from('submission_attachments')
+          .insert(rows)
+          .select('id, filename, content_type, size, url');
+        if (attError) throw attError;
+        setAttachments((prev) => [...prev, ...((inserted as AttachmentRow[]) || [])]);
+        setPendingFiles([]);
+      }
+
       toast({ title: 'Assignment submitted', description: 'Your instructor will review it shortly.' });
       await onCompleted?.(item.id);
     } catch (err: any) {
@@ -194,6 +274,7 @@ export function InlineAssignmentSubmit({ item, assignment, onCompleted }: Props)
       setSubmitting(false);
     }
   };
+
 
   if (loading) {
     return (
