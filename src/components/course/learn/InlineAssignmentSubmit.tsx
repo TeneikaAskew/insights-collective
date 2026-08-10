@@ -245,7 +245,7 @@ export function InlineAssignmentSubmit({ item, assignment, onCompleted }: Props)
       if (pendingFiles.length > 0) {
         const rows: Array<Omit<AttachmentRow, 'id'> & { submission_id: string }> = [];
         for (const file of pendingFiles) {
-          const uploaded = await uploadFile(file, 'course-documents', assignment.course_id, {
+          const uploaded = await uploadFile(file, 'course-documents', item.course_id, {
             submissionUserId: user.id,
           });
           if (!uploaded) throw new Error(`Failed to upload ${file.name}`);
