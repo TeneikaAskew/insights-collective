@@ -113,7 +113,7 @@ export function useCourseProgress(
 
         completedIds = new Set(
           (progressions || [])
-            .filter((p) => p.workflow_state === 'read' || p.workflow_state === 'completed')
+            .filter((p) => isProgressionDone(p.workflow_state))
             .map((p) => p.content_item_id),
         );
       }
