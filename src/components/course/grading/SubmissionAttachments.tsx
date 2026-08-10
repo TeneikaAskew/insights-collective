@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { createLogger } from '@/utils/logger';
+import { recordSubmissionFileAccess } from '@/services/submissionAuditService';
 import { PdfPreview } from './PdfPreview';
 import {
   FileText,
