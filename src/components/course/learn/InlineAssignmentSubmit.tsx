@@ -405,6 +405,72 @@ export function InlineAssignmentSubmit({ item, assignment, onCompleted }: Props)
                 />
               </div>
             )}
+            {acceptsFiles && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium" htmlFor={`files-${assignment.id}`}>
+                  Files
+                </label>
+                <Input
+                  id={`files-${assignment.id}`}
+                  type="file"
+                  multiple
+                  onChange={(e) => {
+                    addFiles(e.target.files);
+                    e.currentTarget.value = '';
+                  }}
+                  disabled={submitting || uploading || !canResubmit}
+                />
+                <p className="text-xs text-muted-foreground">Up to 25 MB per file.</p>
+                {attachments.map((att) => (
+                  <div
+                    key={att.id}
+                    className="flex items-center justify-between gap-2 rounded-md border p-2 text-sm"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => void openAttachment(att)}
+                      className="flex min-w-0 items-center gap-2 text-left hover:underline"
+                    >
+                      <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <span className="truncate">{att.filename}</span>
+                    </button>
+                    <div className="flex items-center gap-1">
+                      <Download className="h-3.5 w-3.5 text-muted-foreground" />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Remove ${att.filename}`}
+                        onClick={() => void removeAttachment(att.id)}
+                        disabled={submitting || uploading}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+                {pendingFiles.map((file, idx) => (
+                  <div
+                    key={`${file.name}-${idx}`}
+                    className="flex items-center justify-between gap-2 rounded-md border border-dashed p-2 text-sm"
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <span className="truncate">{file.name}</span>
+                      <Badge variant="secondary">Pending</Badge>
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Remove ${file.name}`}
+                      onClick={() => setPendingFiles((prev) => prev.filter((_, i) => i !== idx))}
+                      disabled={submitting || uploading}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
             {!canResubmit ? (
               <Alert>
                 <AlertCircle className="h-4 w-4" />
@@ -415,11 +481,12 @@ export function InlineAssignmentSubmit({ item, assignment, onCompleted }: Props)
                 </AlertDescription>
               </Alert>
             ) : (
-              <Button onClick={() => void handleSubmit()} disabled={submitting}>
-                {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
-                {isSubmitted ? 'Resubmit' : 'Submit assignment'}
+              <Button onClick={() => void handleSubmit()} disabled={submitting || uploading}>
+                {submitting || uploading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+                {uploading ? 'Uploading…' : isSubmitted ? 'Resubmit' : 'Submit assignment'}
               </Button>
             )}
+
           </CardContent>
         </Card>
       )}
