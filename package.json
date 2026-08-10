@@ -8,7 +8,6 @@
     "dev": "vite",
     "prebuild": "bunx tsx scripts/generate-sitemap.ts",
     "build": "vite build",
-
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "typecheck": "tsc -b",
@@ -117,6 +116,7 @@
     "framer-motion": "^12.12.1",
     "input-otp": "^1.2.4",
     "jspdf": "^4.2.1",
+    "jszip": "^3.10.1",
     "lodash": "^4.17.21",
     "lowlight": "^3.3.0",
     "lucide-react": "^0.487.0",

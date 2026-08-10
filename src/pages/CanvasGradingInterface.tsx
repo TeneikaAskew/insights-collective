@@ -19,6 +19,8 @@ import CourseErrorState from '@/components/course/CourseErrorState';
 import { withCoursePermission } from '@/components/course/withCoursePermission';
 import { SubmissionComments } from '@/components/course/grading/SubmissionComments';
 import { SubmissionAttachments } from '@/components/course/grading/SubmissionAttachments';
+import { BulkAttachmentDownload } from '@/components/course/grading/BulkAttachmentDownload';
+
 import {
   CheckCircle,
   Save,
@@ -129,6 +131,19 @@ function CanvasGradingInterface() {
     const graded = submissions.filter((s) => s.workflow_state === 'graded').length;
     return { total: submissions.length, graded, needs: submissions.length - graded };
   }, [submissions]);
+
+  // Bulk download covers every submission for this assignment, not just the
+  // filtered view — a grader asking for "all files" means the whole week.
+  const bulkDownloadStudents = useMemo(
+    () => submissions.map((s) => ({ submissionId: s.id, studentName: formatProfileName(s.user) })),
+    [submissions],
+  );
+
+  const archiveName = useMemo(() => {
+    const module = (contentItem as any)?.module?.title as string | undefined;
+    return [module, contentItem?.title, 'submissions'].filter(Boolean).join(' - ');
+  }, [contentItem]);
+
 
   const currentIndex = filtered.findIndex((s) => s.id === selectedId);
 
@@ -324,15 +339,17 @@ function CanvasGradingInterface() {
               {counts.graded} of {counts.total} graded • {counts.needs} still needs grading • {pointsPossible} pts
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <div className="hidden md:flex items-center gap-1 text-xs text-muted-foreground border rounded-md px-2 py-1">
               <Keyboard className="h-3 w-3" />
               <span><kbd className="font-mono">J</kbd>/<kbd className="font-mono">K</kbd> nav • <kbd className="font-mono">G</kbd> grade • <kbd className="font-mono">⌘↵</kbd> save</span>
             </div>
+            <BulkAttachmentDownload students={bulkDownloadStudents} archiveName={archiveName} />
             <Button variant="outline" asChild size="sm">
               <Link to={`/courses/${courseId}/gradebook`}>Gradebook</Link>
             </Button>
           </div>
+
         </div>
 
         {/* Progress strip */}
