@@ -5342,6 +5342,59 @@ export type Database = {
           },
         ]
       }
+      submission_audit_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          assignment_id: string | null
+          attachment_id: string | null
+          course_id: string | null
+          created_at: string
+          details: Json
+          filename: string | null
+          id: string
+          module_id: string | null
+          student_id: string | null
+          submission_id: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          assignment_id?: string | null
+          attachment_id?: string | null
+          course_id?: string | null
+          created_at?: string
+          details?: Json
+          filename?: string | null
+          id?: string
+          module_id?: string | null
+          student_id?: string | null
+          submission_id: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          assignment_id?: string | null
+          attachment_id?: string | null
+          course_id?: string | null
+          created_at?: string
+          details?: Json
+          filename?: string | null
+          id?: string
+          module_id?: string | null
+          student_id?: string | null
+          submission_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "submission_audit_events_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "assignment_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       submission_comments: {
         Row: {
           attachments: Json | null
@@ -6236,6 +6289,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      log_submission_file_access: {
+        Args: {
+          p_action: string
+          p_attachment_id?: string
+          p_filename?: string
+          p_submission_id: string
+        }
+        Returns: string
+      }
       mark_conversation_read: {
         Args: { p_conversation_id: string }
         Returns: number
@@ -6339,6 +6401,15 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      submission_audit_context: {
+        Args: { p_submission_id: string }
+        Returns: {
+          assignment_id: string
+          course_id: string
+          module_id: string
+          student_id: string
+        }[]
       }
       track_blog_view: {
         Args: { post_id: string; referrer_url?: string; view_date: string }

@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { createLogger } from '@/utils/logger';
+import { recordSubmissionFileAccess } from '@/services/submissionAuditService';
 import { PdfPreview } from './PdfPreview';
 import {
   FileText,
@@ -118,6 +119,21 @@ export function SubmissionAttachments({ submissionId, onCommentOnFile }: Submiss
     [toast],
   );
 
+  // Every read of a student's file is auditable, so the trail is written before
+  // the bytes are fetched: an attempt that then fails is still an attempt, and a
+  // failed audit write must never block a grader from reading the work.
+  const audit = useCallback(
+    (att: SubmissionAttachmentRow, action: 'file_downloaded' | 'file_previewed') => {
+      void recordSubmissionFileAccess({
+        submissionId,
+        action,
+        attachmentId: att.id,
+        filename: att.filename,
+      });
+    },
+    [submissionId],
+  );
+
   // Images are shown from a signed URL. PDFs are downloaded and painted with
   // pdf.js instead: an <iframe> would depend on a native PDF plugin (absent in
   // headless Chromium, so the pane stayed blank there) and a signed supabase.co
@@ -130,6 +146,7 @@ export function SubmissionAttachments({ submissionId, onCommentOnFile }: Submiss
       return;
     }
     setBusyId(att.id);
+    audit(att, 'file_previewed');
     try {
       if (isImage(att)) {
         const url = await signUrl(att);
@@ -159,6 +176,9 @@ export function SubmissionAttachments({ submissionId, onCommentOnFile }: Submiss
 
   const openInTab = async (att: SubmissionAttachmentRow) => {
     setBusyId(att.id);
+    // Opening a signed URL in a new tab hands the grader the raw file, which is
+    // a download in everything but name.
+    audit(att, 'file_downloaded');
     const signed = await signUrl(att);
     setBusyId(null);
     if (signed) window.open(signed, '_blank', 'noopener,noreferrer');
@@ -166,6 +186,7 @@ export function SubmissionAttachments({ submissionId, onCommentOnFile }: Submiss
 
   const download = async (att: SubmissionAttachmentRow) => {
     setBusyId(att.id);
+    audit(att, 'file_downloaded');
     try {
       const { data, error } = await supabase.storage.from(BUCKET).download(att.url);
       if (error || !data) throw error || new Error('File could not be downloaded.');

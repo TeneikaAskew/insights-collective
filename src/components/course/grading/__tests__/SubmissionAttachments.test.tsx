@@ -279,4 +279,80 @@ describe('SubmissionAttachments', () => {
 
     expect(screen.queryByRole('button', { name: /comment/i })).not.toBeInTheDocument();
   });
+
+  // Every read of a student's file has to reach the audit trail. The RPC records
+  // auth.uid() server side, so the component only supplies the target — there is
+  // no actor argument for a caller to spoof.
+  describe('audit trail', () => {
+    const auditCalls = () =>
+      (mockSupabaseClient.rpc as any).mock.calls.filter(
+        ([name]: [string]) => name === 'log_submission_file_access',
+      );
+
+    it('records a download before fetching the bytes', async () => {
+      useAttachments([pdfRow]);
+      download.mockResolvedValue({ data: new Blob(['%PDF-1.4']), error: null });
+      (URL as any).createObjectURL = vi.fn().mockReturnValue('blob:mock');
+      (URL as any).revokeObjectURL = vi.fn();
+      const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+      render(<SubmissionAttachments submissionId="sub-1" />);
+      await screen.findByText('writeup.pdf');
+      await userEvent.click(screen.getByRole('button', { name: /download/i }));
+
+      await waitFor(() => expect(auditCalls()).toHaveLength(1));
+      expect(auditCalls()[0][1]).toEqual({
+        p_submission_id: 'sub-1',
+        p_action: 'file_downloaded',
+        p_attachment_id: 'att-pdf',
+        p_filename: 'writeup.pdf',
+      });
+      clickSpy.mockRestore();
+    });
+
+    it('records a preview, and records nothing extra when the pane is closed again', async () => {
+      useAttachments([imageRow]);
+      render(<SubmissionAttachments submissionId="sub-1" />);
+      await screen.findByText('chart.png');
+
+      await userEvent.click(screen.getByRole('button', { name: /preview/i }));
+      await screen.findByAltText('Preview of chart.png');
+      await waitFor(() => expect(auditCalls()).toHaveLength(1));
+      expect(auditCalls()[0][1].p_action).toBe('file_previewed');
+
+      await userEvent.click(screen.getByRole('button', { name: /hide/i }));
+      expect(auditCalls()).toHaveLength(1);
+    });
+
+    it('counts Open-in-new-tab as a download, since it hands over the raw file', async () => {
+      useAttachments([zipRow]);
+      const openSpy = vi.spyOn(window, 'open').mockReturnValue(null);
+      render(<SubmissionAttachments submissionId="sub-1" />);
+      await screen.findByText('notebook.zip');
+
+      await userEvent.click(screen.getByRole('button', { name: /open/i }));
+
+      await waitFor(() => expect(auditCalls()).toHaveLength(1));
+      expect(auditCalls()[0][1].p_action).toBe('file_downloaded');
+      openSpy.mockRestore();
+    });
+
+    // A trail that can block the grader is worse than one with a gap: the
+    // instructor still has to be able to read the work.
+    it('still opens the file when the audit write fails', async () => {
+      useAttachments([imageRow]);
+      (mockSupabaseClient.rpc as any).mockImplementation(async (name: string) =>
+        name === 'log_submission_file_access'
+          ? { data: null, error: { message: 'insufficient_privilege' } }
+          : { data: null, error: null },
+      );
+      render(<SubmissionAttachments submissionId="sub-1" />);
+      await screen.findByText('chart.png');
+
+      await userEvent.click(screen.getByRole('button', { name: /preview/i }));
+
+      expect(await screen.findByAltText('Preview of chart.png')).toBeInTheDocument();
+      expect(toastMock).not.toHaveBeenCalled();
+    });
+  });
 });
