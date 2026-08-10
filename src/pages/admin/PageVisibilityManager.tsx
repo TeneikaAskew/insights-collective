@@ -24,7 +24,20 @@ interface RowProps {
   asTrigger?: boolean;
 }
 
-const COLUMNS = 'grid grid-cols-[1fr_90px_90px_70px] items-center gap-2 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_90px_90px_70px]';
+// Mobile gets narrow control columns so the page name keeps a usable share of
+// the row: 90px columns for a 44px switch left the name ~84px on a 390px
+// screen, which truncated every name past "Dash…". Widths here are sized to the
+// small switch below plus its header label, not to the desktop switch.
+const COLUMNS =
+  'grid grid-cols-[minmax(0,1fr)_50px_50px_52px] items-center gap-2 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_90px_90px_70px]';
+
+// Radix renders the thumb as Root's only child <span>, so the thumb is sized
+// from here rather than through a prop. The descendant selector outranks the
+// thumb's own translate class, so the checked position follows the smaller
+// track instead of overshooting it.
+const SWITCH_SIZE =
+  'h-5 w-9 [&>span]:h-4 [&>span]:w-4 [&>span]:data-[state=checked]:translate-x-4 ' +
+  'sm:h-6 sm:w-11 sm:[&>span]:h-5 sm:[&>span]:w-5 sm:[&>span]:data-[state=checked]:translate-x-5';
 
 function useVisibilityRow(path: string) {
   const { pageVisibility, updatePageVisibility } = usePageVisibility();
@@ -95,6 +108,7 @@ function PageRow({ page, child, parentHidden, childCount, open, asTrigger }: Row
       </span>
       <span>
         <Switch
+          className={SWITCH_SIZE}
           checked={users}
           disabled={!entry || parentHidden?.users}
           onCheckedChange={v => setFlag('visible_to_users', v)}
@@ -106,6 +120,7 @@ function PageRow({ page, child, parentHidden, childCount, open, asTrigger }: Row
       </span>
       <span>
         <Switch
+          className={SWITCH_SIZE}
           checked={instructors}
           disabled={!entry || parentHidden?.instructors}
           onCheckedChange={v => setFlag('visible_to_instructors', v)}
@@ -230,8 +245,17 @@ export default function PageVisibilityManager() {
         >
           <span>Page</span>
           <span className="hidden sm:block">Path</span>
-          <span>All users</span>
-          <span>Instructors</span>
+          {/* Short forms on mobile so an 11px uppercase label fits its column
+              without wrapping. Each switch carries the full wording in its
+              aria-label, so nothing is lost to a screen reader. */}
+          <span>
+            <span className="sm:hidden">Users</span>
+            <span className="hidden sm:inline">All users</span>
+          </span>
+          <span>
+            <span className="sm:hidden">Instr</span>
+            <span className="hidden sm:inline">Instructors</span>
+          </span>
           <span>Admins</span>
         </div>
         {isLoading ? (
