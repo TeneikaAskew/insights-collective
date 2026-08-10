@@ -5,7 +5,7 @@ import React, { ReactNode, useCallback, useEffect, useMemo, useRef, useState } f
 import { useLocation, useParams } from 'react-router-dom';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { CourseSidebar } from './CourseSidebar';
-import { Toaster } from '@/components/ui/toaster';
+
 import Navbar from '@/components/layout/Navbar';
 import AppFooter from '@/components/layout/AppFooter';
 import { readSidebarCookie, writeSidebarCookie } from '@/lib/sidebarCookie';
@@ -81,9 +81,10 @@ export function CourseLayout({ children }: CourseLayoutProps) {
             <AppFooter />
           </div>
         </div>
-
-        <Toaster />
+        {/* No Toaster here: App mounts the single one. Extra copies each render
+            their own viewport, so one toast appeared two or three times over. */}
       </div>
+
     </SidebarProvider>
   );
 }

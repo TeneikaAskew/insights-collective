@@ -3,9 +3,10 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
-import { Toaster } from '@/components/ui/toaster.tsx'
+import { ToastProvider } from '@/hooks/use-toast'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { HelmetProvider } from 'react-helmet-async'
+
 
 /**
  * Retire the "System" theme for anyone who had chosen it.
@@ -47,9 +48,16 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <HelmetProvider>
       <QueryClientProvider client={queryClient}>
-        <App />
-        <Toaster />
+        {/* `useToast` reads a React context, and that context's provider lives
+            here — it was never mounted, so every consumer got the default
+            no-op `toast` and each <Toaster /> rendered an empty viewport.
+            Confirmations and, worse, error toasts were dropped app-wide.
+            One provider, one Toaster (mounted inside App). */}
+        <ToastProvider>
+          <App />
+        </ToastProvider>
       </QueryClientProvider>
     </HelmetProvider>
   </React.StrictMode>,
 )
+
