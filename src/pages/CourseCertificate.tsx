@@ -29,6 +29,14 @@ const CourseCertificate = () => {
       return data;
     },
     enabled: !!courseId && !!user?.id,
+    // The app-wide default staleTime is 5 minutes, which is wrong for this
+    // question: a student who has just finished the last lesson navigates here
+    // and would be told for up to five minutes that they "must complete all
+    // course requirements" while the certificate already exists. Always
+    // re-ask the database on mount.
+    staleTime: 0,
+    refetchOnMount: 'always',
+
   });
 
   if (!user) {

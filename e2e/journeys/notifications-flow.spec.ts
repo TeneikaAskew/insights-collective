@@ -60,11 +60,33 @@ test.describe('Notifications center — real flow', () => {
     await page.waitForLoadState('networkidle');
 
     const cardSel = '[data-testid="notification-card"]';
+
+    // `networkidle` is not "rendered". This member holds 200+ notification rows,
+    // and over the relay the app was still showing its boot spinner when the
+    // count below ran — so the spec reported "seed gap: no notifications" for an
+    // account that had 204 of them. Wait for the list to actually settle into
+    // one of its two terminal states before counting.
+    await expect
+      .poll(
+        async () => {
+          const cards = await page.locator(cardSel).count();
+          if (cards > 0) return 'cards';
+          const empty = await page
+            .getByText(/nothing here/i)
+            .isVisible()
+            .catch(() => false);
+          return empty ? 'empty' : 'loading';
+        },
+        { timeout: 20_000 },
+      )
+      .not.toBe('loading');
+
     const initial = await page.locator(cardSel).count();
     expect(
       initial,
       'Seed gap: E2E member has no notifications. Reseed at least one notification row (e.g. announcement fan-out) for the member.',
     ).toBeGreaterThan(0);
+
 
     // Identify the row by its notification id, not by title+message.
     // Fan-out notifications repeat verbatim — this account currently holds 36

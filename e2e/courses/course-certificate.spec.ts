@@ -16,20 +16,39 @@ test.describe('Course Certificate', () => {
     await expect(page.locator('.animate-spin')).toHaveCount(0);
   });
 
-  test('the certificate page states its requirement', async ({ page }) => {
+  test('the certificate page presents one self-consistent state', async ({ page }) => {
     await goto(page, certUrl);
-    // The member has NOT completed the reference course, so what this route
-    // renders is the locked state — and that is worth asserting precisely,
-    // because the old locator could not tell it from the unlocked one. Its
-    // bare `:has-text("complete")` also matched every ancestor up to <html>.
-    await expect(page.getByRole('heading', { name: 'Course certificate' })).toBeVisible();
+
+    // This used to assert the locked state outright, on the premise that the
+    // shared member never completes the reference course. That premise is false
+    // in a full-suite run: other specs drive this member's progressions, and by
+    // the time this spec ran the member was at 13/13 with a certificate issued.
+    // What actually matters is that the page never shows two verdicts at once —
+    // which is exactly the bug this caught: the hero read "Your certificate is
+    // ready" above a card reading "Complete the course to unlock certification".
     await expect(page.getByRole('heading', { name: 'Course Certification' })).toBeVisible();
-    await expect(
-      page.getByText('Finish every required lesson and assignment to unlock your certificate.'),
-    ).toBeVisible();
+
+    const ready = page.getByRole('heading', { name: 'Your certificate is ready' });
+    const locked = page.getByRole('heading', { name: 'Course certificate', exact: true });
+
+    await expect
+      .poll(async () => (await ready.count()) + (await locked.count()), { timeout: 10_000 })
+      .toBe(1);
+
+    if (await ready.count()) {
+      // Completed: no locked copy anywhere on the page, at either level.
+      await expect(page.getByText(/must complete all course requirements/i)).toHaveCount(0);
+      await expect(page.getByText(/complete the course to unlock certification/i)).toHaveCount(0);
+    } else {
+      await expect(
+        page.getByText('Finish every required lesson and assignment to unlock your certificate.'),
+      ).toBeVisible();
+      await expect(page.getByText(/must complete all course requirements/i)).toBeVisible();
+    }
     // Deliberately NOT asserting the completion percentage the page shows
     // beside this: it moves whenever any spec touches the member's progress.
   });
+
 
   // The download control only exists once the course is complete, and the
   // shared member never completes it — certificate-generation.spec.ts runs the
