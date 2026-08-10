@@ -5,14 +5,20 @@
 // 3-attempt policy), and that a rubric-criteria failure surfaces an inline
 // notice instead of silently hiding the rubric.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { render } from '@/test/utils/test-utils';
 import { mockSupabaseClient } from '@/test/mocks/supabase';
 import { makeSubmission } from '@/test/utils/course-fixtures';
 import { InlineAssignmentSubmit } from '@/components/course/learn/InlineAssignmentSubmit';
 
-const { toastMock } = vi.hoisted(() => ({
+const { toastMock, uploadFileMock } = vi.hoisted(() => ({
   toastMock: vi.fn(),
+  uploadFileMock: vi.fn(),
+}));
+
+vi.mock('@/hooks/useFileUpload', () => ({
+  useFileUpload: () => ({ uploadFile: uploadFileMock, uploading: false }),
 }));
 
 vi.mock('@/hooks/use-toast', () => ({
@@ -64,7 +70,13 @@ function useTables(tables: Record<string, any>) {
 }
 // ---------------------------------------------------------------------------
 
-const item = { id: 'item-1', title: 'Homework 1', type: 'assignment' } as any;
+const item = {
+  id: 'item-1',
+  title: 'Homework 1',
+  type: 'assignment',
+  course_id: 'course-1',
+} as any;
+
 
 // No max_attempts configured on purpose — the component must not invent one.
 const assignment = {
@@ -76,7 +88,10 @@ const assignment = {
 describe('InlineAssignmentSubmit', () => {
   beforeEach(() => {
     toastMock.mockReset();
+    uploadFileMock.mockReset();
+    uploadFileMock.mockResolvedValue({ path: 'submissions/course-1/user-1/chart.png' });
   });
+
 
   // REGRESSION: a failed prior-submission lookup must render an error state
   // with retry instead of the form — submitting blind would INSERT a
@@ -156,4 +171,121 @@ describe('InlineAssignmentSubmit', () => {
       await screen.findByText(/rubric unavailable/i),
     ).toBeInTheDocument();
   });
+
+  // ── File attachments ──────────────────────────────────────────────────────
+  describe('file attachments', () => {
+    const uploadAssignment = {
+      id: 'assignment-1',
+      submission_types: ['online_upload'],
+      points_possible: 10,
+      max_attempts: 1,
+    } as any;
+
+    const attachFile = async (name = 'chart.png', type = 'image/png') => {
+      const input = screen.getByLabelText(/files/i, { selector: 'input[type="file"]' });
+      await userEvent.upload(input, new File(['bytes'], name, { type }));
+    };
+
+    const emptySubmissionTables = (submissions: any) => ({
+      assignment_submissions: submissions,
+      assignment_rubrics: makeTableBuilder({ data: [], error: null }),
+      submission_attachments: makeTableBuilder({ data: [], error: null }),
+    });
+
+    it('uploads the chosen file and links it to the new submission row', async () => {
+      const submissions = makeTableBuilder(
+        { data: null, error: null }, // no prior submission
+        { data: { id: 'sub-new', workflow_state: 'submitted', attempt: 1 }, error: null },
+      );
+      const attachmentsTable = makeTableBuilder({
+        data: [
+          {
+            id: 'att-1',
+            filename: 'chart.png',
+            content_type: 'image/png',
+            size: 5,
+            url: 'submissions/course-1/user-1/chart.png',
+          },
+        ],
+        error: null,
+      });
+      useTables(emptySubmissionTables(submissions));
+      (mockSupabaseClient.from as any).mockImplementation((table: string) =>
+        table === 'submission_attachments'
+          ? attachmentsTable
+          : table === 'assignment_submissions'
+            ? submissions
+            : makeTableBuilder({ data: [], error: null }),
+      );
+
+      render(<InlineAssignmentSubmit item={item} assignment={uploadAssignment} />);
+      await screen.findByRole('button', { name: /submit assignment/i });
+      await attachFile();
+      await userEvent.click(screen.getByRole('button', { name: /submit assignment/i }));
+
+      await waitFor(() => expect(uploadFileMock).toHaveBeenCalledTimes(1));
+      expect(uploadFileMock).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'chart.png' }),
+        'course-documents',
+        item.course_id,
+        { submissionUserId: 'user-1' },
+      );
+      await waitFor(() => expect(attachmentsTable.insert).toHaveBeenCalledTimes(1));
+      expect(attachmentsTable.insert).toHaveBeenCalledWith([
+        expect.objectContaining({
+          submission_id: 'sub-new',
+          filename: 'chart.png',
+          content_type: 'image/png',
+          url: 'submissions/course-1/user-1/chart.png',
+        }),
+      ]);
+    });
+
+    // REGRESSION: uploads used to run AFTER the submission row was written, so a
+    // rejected upload (e.g. a MIME type the bucket disallows) burned the
+    // student's only attempt and left a "submitted" row with no files.
+    it('does not consume an attempt when the upload fails', async () => {
+      uploadFileMock.mockResolvedValueOnce(null);
+      const submissions = makeTableBuilder({ data: null, error: null });
+      useTables(emptySubmissionTables(submissions));
+
+      render(<InlineAssignmentSubmit item={item} assignment={uploadAssignment} />);
+      await screen.findByRole('button', { name: /submit assignment/i });
+      await attachFile();
+      await userEvent.click(screen.getByRole('button', { name: /submit assignment/i }));
+
+      await waitFor(() =>
+        expect(toastMock).toHaveBeenCalledWith(
+          expect.objectContaining({ title: 'Submission failed', variant: 'destructive' }),
+        ),
+      );
+      expect(submissions.insert).not.toHaveBeenCalled();
+      expect(submissions.update).not.toHaveBeenCalled();
+      // The file is still queued so the student can retry after the fix.
+      expect(screen.getByText('chart.png')).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /submit assignment/i }),
+      ).toBeEnabled();
+    });
+
+    it('rejects a file over the 25 MB cap before any upload is attempted', async () => {
+      const submissions = makeTableBuilder({ data: null, error: null });
+      useTables(emptySubmissionTables(submissions));
+
+      render(<InlineAssignmentSubmit item={item} assignment={uploadAssignment} />);
+      await screen.findByRole('button', { name: /submit assignment/i });
+      const big = new File(['x'], 'huge.pdf', { type: 'application/pdf' });
+      Object.defineProperty(big, 'size', { value: 26 * 1024 * 1024 });
+      await userEvent.upload(
+        screen.getByLabelText(/files/i, { selector: 'input[type="file"]' }),
+        big,
+      );
+
+      expect(toastMock).toHaveBeenCalledWith(
+        expect.objectContaining({ title: 'File too large', variant: 'destructive' }),
+      );
+      expect(uploadFileMock).not.toHaveBeenCalled();
+    });
+  });
 });
+
