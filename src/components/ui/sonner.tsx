@@ -4,7 +4,11 @@ import { Toaster as Sonner } from "sonner"
 type ToasterProps = React.ComponentProps<typeof Sonner>
 
 const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme = "system" } = useTheme()
+  // shadcn ships this defaulting to "system", which outlived the app's system
+  // option: useTheme() is undefined until next-themes mounts, and Sonner reads
+  // "system" as follow-the-OS. A reader on a light page with a dark OS got dark
+  // toasts over it. "light" matches the provider's own default.
+  const { theme = "light" } = useTheme()
 
   return (
     <Sonner

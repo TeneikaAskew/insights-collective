@@ -1,7 +1,7 @@
-// ABOUTME: Sun/moon/system theme switcher for the Ink Studio dark mode.
+// ABOUTME: Light/dark theme switcher for the Ink Studio dark mode.
 // ABOUTME: Persisted by next-themes (storageKey ic-theme), class on <html>.
 
-import { Moon, Sun, Monitor } from 'lucide-react';
+import { Moon, Sun } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -35,9 +35,6 @@ export default function ThemeToggle() {
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => setTheme('dark')} data-active={theme === 'dark'}>
           <Moon className="mr-2 h-4 w-4" /> Dark
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme('system')} data-active={theme === 'system'}>
-          <Monitor className="mr-2 h-4 w-4" /> System
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

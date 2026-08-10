@@ -30,19 +30,31 @@ test.describe('Ink Studio dark mode', () => {
     await expect(page.locator('html')).not.toHaveClass(/dark/);
   });
 
-  test('choosing System hands control back to the OS', async ({ page }) => {
-    // Following the OS is still available — it is an explicit choice now
-    // rather than the default, so it needs its own coverage.
-    await page.emulateMedia({ colorScheme: 'dark' });
+  test('the menu offers light and dark only', async ({ page }) => {
+    // System was removed: it followed the OS rather than the choice, which read
+    // as the toggle not working. The assertion is on the whole menu rather than
+    // on System's absence alone, so an accidental third option fails here too.
     await page.goto('/dashboard');
     await waitForPageLoad(page);
 
     await page.getByTestId('theme-toggle').click();
-    await page.getByRole('menuitem', { name: /system/i }).click();
-    await expect(page.locator('html')).toHaveClass(/dark/);
+    await expect(page.getByRole('menuitem')).toHaveText(['Light', 'Dark']);
+  });
 
-    await page.emulateMedia({ colorScheme: 'light' });
+  test('a browser still holding the old System choice lands on light', async ({ page }) => {
+    // The option is gone from the menu, but `ic-theme: "system"` is still in the
+    // localStorage of everyone who picked it. Left there it names a theme that
+    // no longer resolves, and no menu entry can clear it — so main.tsx rewrites
+    // it before the provider reads it. Emulated dark, because following the OS
+    // is exactly the behaviour that must not survive.
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await page.addInitScript(() => localStorage.setItem('ic-theme', 'system'));
+
+    await page.goto('/dashboard');
+    await waitForPageLoad(page);
+
     await expect(page.locator('html')).not.toHaveClass(/dark/);
+    expect(await page.evaluate(() => localStorage.getItem('ic-theme'))).toBe('light');
   });
 
   test('dark theme applies the Ink Studio ground color', async ({ page }) => {
