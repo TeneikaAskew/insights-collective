@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 import { createLogger } from '@/utils/logger';
+import { htmlToPlainText } from '@/utils/htmlToPlainText';
 
 const logger = createLogger('ModuleCard');
 
@@ -63,7 +64,13 @@ const ModuleCard = ({
               {module.week}
             </div>
           </div>
-          <CardDescription className="mt-1 line-clamp-2">{module.description}</CardDescription>
+          {/* Module descriptions are rich text — CourseModulesList renders the
+              same field through RichTextRenderer — so printing it directly put
+              raw tags in front of the reader. Four of the twenty-three modules
+              in the database carry markup today. */}
+          <CardDescription className="mt-1 line-clamp-2">
+            {htmlToPlainText(module.description ?? '')}
+          </CardDescription>
         </CardHeader>
         
         <CardContent className="pb-2">

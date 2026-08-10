@@ -594,11 +594,16 @@ const Dashboard = () => {
               </Card>
             ) : notifications.length > 0 ? (
               <Card>
-                <CardContent className="p-0 divide-y">
+                {/* NotificationItem is a rounded, filled row of its own — unread
+                    ones carry bg-secondary/50. Stacked flush by `divide-y` they
+                    merged into one purple slab, and the divider line was
+                    invisible against that fill. Spacing them apart is what makes
+                    each one read as a separate item. */}
+                <CardContent className="p-2 space-y-2">
                   {notifications.map((notification) => (
-                    <NotificationItem 
-                      key={notification.id} 
-                      notification={notification} 
+                    <NotificationItem
+                      key={notification.id}
+                      notification={notification}
                     />
                   ))}
                 </CardContent>
