@@ -3,6 +3,8 @@
 // ABOUTME: the admin-users edge function when only admin credentials are supplied,
 // ABOUTME: so a single admin credential is enough to run the full suite.
 import { chromium } from '@playwright/test';
+import { chromiumExecutableOption } from './support/chromium-executable';
+
 import type { FullConfig } from '@playwright/test';
 import { execSync } from 'child_process';
 import * as fs from 'fs';
@@ -130,11 +132,11 @@ async function saveSessionForRole(role: Role, creds: TestUser, baseURL: string):
     user: tokenData.user,
   });
 
-  const browser = await chromium.launch(
-    process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
-      ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH }
-      : {},
-  );
+  // Same resolver playwright.config.ts uses, so setup and specs never disagree
+  // about which browser runs. A launch failure here used to cascade into every
+  // role-scoped project running signed out.
+  const browser = await chromium.launch(chromiumExecutableOption());
+
   const context = await browser.newContext();
   await context.addInitScript(
     ({ key, value }) => {
@@ -146,9 +148,57 @@ async function saveSessionForRole(role: Role, creds: TestUser, baseURL: string):
     { key: 'supabase.auth.token', value: sessionValue },
   );
   const page = await context.newPage();
+
+  /**
+   * Record which Supabase origin the served app actually talks to.
+   *
+   * This is the check that was missing. With `reuseExistingServer: true` and a
+   * dev server already on the app port, Playwright adopted that server instead
+   * of the relay-backed one. It points at https://<ref>.supabase.co, which the
+   * hermetic host-resolver rule maps to a closed port — so every query failed in
+   * the browser and the app rendered "We couldn't load your account's
+   * permissions". Diagnosed for a while as a relay bug; the relay was never in
+   * the request path. Assert the wiring here, once, instead of letting each spec
+   * fail on an unrelated assertion.
+   */
+  const supabaseOrigins = new Set<string>();
+  page.on('request', (req) => {
+    const url = req.url();
+    if (!/\/(rest|auth|storage|functions)\/v1\//.test(url)) return;
+    try {
+      supabaseOrigins.add(new URL(url).origin);
+    } catch {
+      /* ignore unparseable */
+    }
+  });
+
   await page.goto(baseURL, { waitUntil: 'domcontentloaded' });
+  // Give the app's first queries time to leave the page.
+  await page.waitForTimeout(2_000);
   const state = await context.storageState({ path: path.join(SESSIONS_DIR, `${role}.json`) });
   await browser.close();
+
+  /**
+   * In relay mode the app is SUPPOSED to address the loopback relay, so the
+   * expected origin is the relay's, and a request to the project's own https
+   * origin is the symptom to catch: it means a non-relay server answered, and
+   * the hermetic host-resolver rule will kill every one of those requests.
+   */
+  const expectedOrigin =
+    process.env.E2E_USE_RELAY === '1'
+      ? `http://localhost:${process.env.E2E_RELAY_PORT ?? '54399'}`
+      : new URL(SUPABASE_URL).origin;
+  const wrongOrigins = [...supabaseOrigins].filter((o) => o !== expectedOrigin);
+  if (wrongOrigins.length) {
+    throw new Error(
+      `the app served at ${baseURL} is talking to ${wrongOrigins.join(', ')}, not the ` +
+        `expected ${expectedOrigin}. Playwright most likely reused a dev server that was ` +
+        `already listening on that port instead of starting its own. Stop the other server, ` +
+        `or set E2E_APP_PORT to a free port.`,
+    );
+  }
+
+
 
   // Verify before claiming success. "Session saved for <role>" used to print
   // after writing the file, without ever checking the app accepted the token —
