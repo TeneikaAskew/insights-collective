@@ -26,6 +26,7 @@ const entries: SitemapEntry[] = [
   { path: '/assistants', changefreq: 'monthly', priority: '0.6' },
   { path: '/resume', changefreq: 'monthly', priority: '0.6' },
   { path: '/resources', changefreq: 'weekly', priority: '0.7' },
+  { path: '/resources/salary-guide', changefreq: 'monthly', priority: '0.8' },
   { path: '/blog', changefreq: 'weekly', priority: '0.8' },
   { path: '/events', changefreq: 'weekly', priority: '0.7' },
   { path: '/portfolio-explorer', changefreq: 'weekly', priority: '0.6' },
