@@ -1,5 +1,7 @@
 
 import { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
+import { ArrowRight } from 'lucide-react';
 import { urlHostMatches } from '@/utils/videoUrls';
 import AppLayout from '@/components/layout/AppLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
