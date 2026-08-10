@@ -35,9 +35,18 @@ const COLUMNS =
 // from here rather than through a prop. The descendant selector outranks the
 // thumb's own translate class, so the checked position follows the smaller
 // track instead of overshooting it.
+//
+// Root IS the button, so shrinking the track shrinks the tap target with it —
+// 36x20 on its own, well under the ~44px minimum. The grid cell around it is a
+// plain <span> and takes no clicks, so the button has to carry the target
+// itself: a transparent ::before grows the hit area to 44x44 without affecting
+// layout or the visual size. It is confined to mobile, where the small track
+// lives; the sm: track is already the original size.
 const SWITCH_SIZE =
-  'h-5 w-9 [&>span]:h-4 [&>span]:w-4 [&>span]:data-[state=checked]:translate-x-4 ' +
-  'sm:h-6 sm:w-11 sm:[&>span]:h-5 sm:[&>span]:w-5 sm:[&>span]:data-[state=checked]:translate-x-5';
+  'relative h-5 w-9 [&>span]:h-4 [&>span]:w-4 [&>span]:data-[state=checked]:translate-x-4 ' +
+  "before:absolute before:-inset-y-3 before:-inset-x-1 before:content-[''] " +
+  'sm:h-6 sm:w-11 sm:[&>span]:h-5 sm:[&>span]:w-5 sm:[&>span]:data-[state=checked]:translate-x-5 ' +
+  'sm:before:hidden';
 
 function useVisibilityRow(path: string) {
   const { pageVisibility, updatePageVisibility } = usePageVisibility();
