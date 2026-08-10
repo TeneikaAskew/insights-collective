@@ -46,6 +46,8 @@ interface SubmissionCommentsProps {
   submissionType: 'assignment' | 'quiz';
   allowComments?: boolean;
   showPrivateComments?: boolean;
+  /** Seeds the composer, e.g. when commenting on a specific uploaded file. */
+  commentSeed?: { text: string; nonce: number };
 }
 
 const commentTypes = [
