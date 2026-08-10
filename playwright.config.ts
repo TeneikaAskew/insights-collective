@@ -2,6 +2,8 @@ import { defineConfig, devices } from '@playwright/test';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { config as loadDotenv } from 'dotenv';
+import { chromiumExecutableOption } from './e2e/support/chromium-executable';
+
 
 // Load .env so E2E_* credentials are available to global-setup and tests
 loadDotenv();
@@ -9,7 +11,24 @@ loadDotenv();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:8080';
+/**
+ * Relay mode runs on its own port, and that is a correctness requirement rather
+ * than tidiness.
+ *
+ * `reuseExistingServer` is true, so with a dev server already listening on 8080
+ * — the Lovable sandbox always has one — Playwright silently adopted it and
+ * skipped scripts/e2e/serve.mjs entirely. That server points at
+ * https://<ref>.supabase.co, which the hermetic `MAP *` rule resolves to a
+ * closed port, so every Supabase call died in the browser and the app rendered
+ * "We couldn't load your account's permissions" / "We're having trouble
+ * loading". The relay was fine and never involved; the suite was simply
+ * pointed at the wrong server. Using a dedicated port means the relay-backed
+ * server is the only thing that can answer.
+ */
+const RELAY_MODE = process.env.E2E_USE_RELAY === '1';
+const APP_PORT = process.env.E2E_APP_PORT || (RELAY_MODE ? '8090' : '8080');
+const BASE_URL = process.env.E2E_BASE_URL || `http://localhost:${APP_PORT}`;
+
 const SESSIONS_DIR = path.join(__dirname, '.playwright-sessions');
 
 /**
@@ -126,10 +145,11 @@ export default defineConfig({
     navigationTimeout: 15_000,
     launchOptions: {
       args: HERMETIC_ARGS,
-      ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
-        ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH }
-        : {}),
+      // Probed, not assumed: the bundled chrome-headless-shell cannot start in
+      // sandboxes missing its GTK/glib libraries. See e2e/support/chromium-executable.ts.
+      ...chromiumExecutableOption(),
     },
+
   },
   /**
    * Start the app if it is not already up.
@@ -143,16 +163,19 @@ export default defineConfig({
    * defer to it rather than fight for the port.
    */
   webServer: {
-    command:
-      process.env.E2E_USE_RELAY === '1'
-        ? 'node scripts/e2e/serve.mjs'
-        : 'npx vite --host 127.0.0.1 --port 8080',
+    command: RELAY_MODE
+      ? `node scripts/e2e/serve.mjs`
+      : `npx vite --host 127.0.0.1 --port ${APP_PORT}`,
     url: BASE_URL,
+    // In relay mode APP_PORT is dedicated, so "existing" can only mean a relay
+    // server from a previous run — safe to reuse and cheap to keep.
     reuseExistingServer: true,
     timeout: 120_000,
     stdout: 'ignore',
     stderr: 'pipe',
+    env: { E2E_APP_PORT: APP_PORT },
   },
+
   globalSetup: './e2e/global-setup.ts',
   globalTeardown: './e2e/global-teardown.ts',
   projects: [
