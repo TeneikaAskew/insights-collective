@@ -141,3 +141,7 @@ verify_jwt = true
 # lookup calls requireUser(), refresh compares the presented bearer token
 # against the service-role key.
 verify_jwt = false
+
+[functions.admin-storage-config]
+# Admin-gated inside the function via has_role(auth.uid(), 'admin').
+verify_jwt = true

@@ -203,6 +203,19 @@ export function InlineAssignmentSubmit({ item, assignment, onCompleted }: Props)
     }
     setSubmitting(true);
     try {
+      // Files go to storage BEFORE the submission row is written. Doing it the
+      // other way round consumed the student's only attempt when an upload was
+      // rejected (e.g. by the bucket's MIME allowlist), leaving a submitted row
+      // with no files and no way to retry.
+      const uploadedFiles: Array<{ file: File; path: string }> = [];
+      for (const file of pendingFiles) {
+        const uploaded = await uploadFile(file, 'course-documents', item.course_id, {
+          submissionUserId: user.id,
+        });
+        if (!uploaded) throw new Error(`Failed to upload ${file.name}`);
+        uploadedFiles.push({ file, path: uploaded.path });
+      }
+
       const nextAttempt = (attemptsUsed || 0) + 1;
       const payload: any = {
         assignment_id: assignment.id,
@@ -240,23 +253,16 @@ export function InlineAssignmentSubmit({ item, assignment, onCompleted }: Props)
       }
       setSubmission(saved);
 
-      // Upload attachments only after the submission row exists — the RLS
+      // Attachment rows are written after the submission exists — the RLS
       // policy on submission_attachments checks ownership through it.
-      if (pendingFiles.length > 0) {
-        const rows: Array<Omit<AttachmentRow, 'id'> & { submission_id: string }> = [];
-        for (const file of pendingFiles) {
-          const uploaded = await uploadFile(file, 'course-documents', item.course_id, {
-            submissionUserId: user.id,
-          });
-          if (!uploaded) throw new Error(`Failed to upload ${file.name}`);
-          rows.push({
-            submission_id: saved.id,
-            filename: file.name,
-            content_type: file.type || null,
-            size: file.size,
-            url: uploaded.path,
-          });
-        }
+      if (uploadedFiles.length > 0) {
+        const rows = uploadedFiles.map(({ file, path }) => ({
+          submission_id: saved.id,
+          filename: file.name,
+          content_type: file.type || null,
+          size: file.size,
+          url: path,
+        }));
         const { data: inserted, error: attError } = await supabase
           .from('submission_attachments')
           .insert(rows)
@@ -265,6 +271,7 @@ export function InlineAssignmentSubmit({ item, assignment, onCompleted }: Props)
         setAttachments((prev) => [...prev, ...((inserted as AttachmentRow[]) || [])]);
         setPendingFiles([]);
       }
+
 
       toast({ title: 'Assignment submitted', description: 'Your instructor will review it shortly.' });
       await onCompleted?.(item.id);
