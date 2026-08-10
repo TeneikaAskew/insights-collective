@@ -307,6 +307,11 @@ const Dashboard = () => {
   }, [user, toast]);
   
   const [notifications, setNotifications] = useState<any[]>([]);
+  // Counted in the database, not derived from the list. The list is capped at
+  // ten, so deriving the badge from it reports "3 unread" to someone holding
+  // fifty — the cap used to be invisible only because the list was itself
+  // filtered to unread.
+  const [unreadCount, setUnreadCount] = useState(0);
   const [notificationsError, setNotificationsError] = useState<string | null>(null);
   const [notificationsReloadKey, setNotificationsReloadKey] = useState(0);
   // The deadline count comes from the same hook and same filters the Calendar's Upcoming view
@@ -329,14 +334,27 @@ const Dashboard = () => {
       if (!user) return;
       try {
         setNotificationsError(null);
+        // Read and unread both. Filtering to unread meant the tab emptied itself
+        // as you read things and then said "You don't have any notifications" —
+        // measured against an account holding 199 of them. Unread rows are
+        // already distinguishable: NotificationItem tints them, and the counter
+        // above is a separate unread-only query.
         const { data, error } = await supabase
           .from('notifications')
           .select('*')
           .eq('user_id', user.id)
-          .eq('is_read', false)
           .order('created_at', { ascending: false })
           .limit(10);
         if (error) throw error;
+
+        const { count, error: countError } = await supabase
+          .from('notifications')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .eq('is_read', false);
+        if (countError) throw countError;
+        setUnreadCount(count ?? 0);
+
         // Map DB rows (snake_case) to the shape NotificationItem renders
         // (camelCase); passing raw rows made every date show "Invalid Date".
         setNotifications((data || []).map((n: any) => ({
@@ -358,17 +376,25 @@ const Dashboard = () => {
 
   const markAllNotificationsRead = async () => {
     const previous = notifications;
-    const unreadIds = previous.filter((n) => !n.isRead).map((n) => n.id);
-    if (unreadIds.length === 0) return;
+    // Gated on the real count, not on the ten rows in view: with every visible
+    // row already read and unread ones below the cap, the old guard returned
+    // early and the button did nothing while the badge still showed a number.
+    if (unreadCount === 0) return;
+    const previousUnread = unreadCount;
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    setUnreadCount(0);
+    // Every unread row of theirs, not just the ten on screen — the button says
+    // "all", and the badge it clears is now a full count rather than a slice.
     const { error } = await supabase
       .from('notifications')
       .update({ is_read: true })
-      .in('id', unreadIds);
+      .eq('user_id', user!.id)
+      .eq('is_read', false);
     if (error) {
       // Roll back the optimistic update — never report success on a failed write.
       logger.error('Error marking notifications read:', error);
       setNotifications(previous);
+      setUnreadCount(previousUnread);
       toast({
         title: 'Failed to mark notifications as read',
         description: error.message,
@@ -447,7 +473,7 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between">
-                <div className="text-2xl font-bold">{notifications.filter(n => !n.isRead).length}</div>
+                <div className="text-2xl font-bold">{unreadCount}</div>
                 <Bell className="h-5 w-5 text-muted-foreground" />
               </div>
             </CardContent>

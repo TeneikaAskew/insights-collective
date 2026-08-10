@@ -52,7 +52,7 @@ delete. That is deliberate — only two had a real consumer:
 - **Discussions** — real, because the same change wired `InlineDiscussionWidget`
   into `LessonViewer` and made it read the setting.
 - **Delete course** — real, and restores something that had been lost.
-- Auto-enrolment, feedback requests, enrolment notifications, slug — no
+- Auto-enrollment, feedback requests, enrollment notifications, slug — no
   consumer. Shipping them would recreate exactly the lying form we deleted.
 
 A switch that changes nothing is worse than a missing switch, because it looks

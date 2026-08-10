@@ -12,7 +12,7 @@ const CTASection = () => {
 
   useEffect(() => {
     const fetchStats = async () => {
-      // One aggregate call rather than three table reads. The enrolments read
+      // One aggregate call rather than three table reads. The enrollments read
       // could never succeed from here: `anon` has no SELECT grant on that table,
       // and Index redirects authenticated visitors to /dashboard, so every
       // visitor this section renders for is anonymous. It failed with 42501 on

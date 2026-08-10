@@ -246,7 +246,7 @@ async function sweepLeakedAnnouncementProbes(): Promise<void> {
     // enrolled user, and RLS lets the spec delete only its own. Every run
     // without this key therefore left rows behind for everyone else on the
     // course — 4,089 of them across 14 inboxes before anyone looked, on a
-    // published course where 13 of the 15 enrolments are real people. A run
+    // published course where 13 of the 15 enrollments are real people. A run
     // that cannot clean up should say so rather than look identical to one
     // that did.
     console.warn(

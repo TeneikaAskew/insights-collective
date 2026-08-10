@@ -17,7 +17,7 @@ import { structuralIssues, describeIssue } from '../../src/integrations/supabase
  *   • the console fixture's app-logger rule suppressed the message;
  *   • issue-triage did not count 42501 as structural (it does now);
  *   • the replay audit marks a shape OK when *any* role can run it, and admin
- *     can read enrolments, so `anon`'s 42501 was recorded as a pass;
+ *     can read enrollments, so `anon`'s 42501 was recorded as a pass;
  *   • no spec visited the section at all.
  *
  * The first three are fixed, but each only helps where a test already goes. This

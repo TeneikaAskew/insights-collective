@@ -9,7 +9,7 @@
 -- broken.
 --
 -- Reading the table from the client cannot be made to work without granting anon
--- access to individual enrolment rows, which would expose who is enrolled in
+-- access to individual enrollment rows, which would expose who is enrolled in
 -- what to the public internet. This returns the aggregate instead: three
 -- integers, no row ever crossing the boundary.
 --
@@ -35,7 +35,7 @@ as $$
     -- Every account, not just learners: the UI labels this "Community Members"
     -- for that reason.
     (select count(*) from public.profiles)::integer,
-    -- Enrolments with no recorded progress count as 0% rather than dropping out
+    -- Enrollments with no recorded progress count as 0% rather than dropping out
     -- of the average, which is what the client-side version did.
     (select coalesce(round(avg(coalesce(completion_status, 0))), 0)
        from public.enrollments)::integer

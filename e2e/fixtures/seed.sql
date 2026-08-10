@@ -1056,4 +1056,52 @@ BEGIN
   END LOOP;
 END $$;
 
+-- 7. An isolated course for the announcement fan-out probe.
+--
+-- messaging-notifications-hardening.spec.ts inserts a real announcement to
+-- prove notify_enrolled_on_announcement writes rows the recipient can see. That
+-- trigger fans out to EVERY enrolled user, and the spec had been pointed at the
+-- reference course — published, fifteen enrollments, thirteen of them real and
+-- demo accounts. RLS lets the spec delete only its own notification, so the rest
+-- accumulated: 4,089 rows across 14 inboxes before anyone noticed.
+--
+-- Migration 20260810000000 now clears the fan-out when the announcement is
+-- deleted, which fixes it for everyone. This course is the second layer: even a
+-- run that dies before its cleanup can only ever touch test accounts.
+--
+-- Unpublished on purpose — it exists to receive one announcement, and has no
+-- business in the catalogue or in anyone's course list.
+DO $$
+DECLARE
+  v_course_id uuid := '660e8400-e29b-41d4-a716-4466554409e2';
+  v_instructor_id uuid;
+  v_member_id uuid;
+BEGIN
+  SELECT id INTO v_instructor_id FROM auth.users
+   WHERE email = COALESCE(current_setting('e2e.instructor_email', true), 'e2e-instructor@insightscollective.org');
+  SELECT id INTO v_member_id FROM auth.users
+   WHERE email = COALESCE(current_setting('e2e.member_email', true), 'e2e-member@insightscollective.org');
+  IF v_instructor_id IS NULL OR v_member_id IS NULL THEN
+    RAISE EXCEPTION 'E2E SEED FAILED: the e2e instructor or member account is missing, so the isolated announcement course cannot be built';
+  END IF;
+
+  INSERT INTO public.courses (id, title, description, category, level, published, instructor_id)
+  VALUES (
+    v_course_id,
+    'E2E Announcement Probe (test fixture)',
+    'Isolated course for the announcement fan-out probe. Not for humans.',
+    'analytics',
+    'beginner',
+    false,
+    v_instructor_id
+  )
+  ON CONFLICT (id) DO UPDATE
+    SET published = false,            -- never let it drift into the catalogue
+        instructor_id = v_instructor_id;
+
+  INSERT INTO public.enrollments (user_id, course_id, completion_status)
+  VALUES (v_member_id, v_course_id, 0)
+  ON CONFLICT DO NOTHING;
+END $$;
+
 COMMIT;

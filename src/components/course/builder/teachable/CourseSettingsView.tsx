@@ -8,8 +8,8 @@
 //   1. Its save was a placeholder. The write to a `course_settings` table was
 //      commented out and replaced with `await new Promise(r => setTimeout(r, 1000))`
 //      followed by a "Settings have been updated successfully" toast. The table
-//      never existed. Every toggle it offered — discussions, auto-enrolment,
-//      certificate-on-completion, feedback requests, enrolment notifications —
+//      never existed. Every toggle it offered — discussions, auto-enrollment,
+//      certificate-on-completion, feedback requests, enrollment notifications —
 //      was discarded on save.
 //   2. Its delete *did* work, and nothing replaced it. Until now there was no way
 //      to delete a course anywhere in the live application.
@@ -150,7 +150,7 @@ export function CourseSettingsView({ course, onSave }: CourseSettingsViewProps) 
           <div className="flex-1">
             <h3 className="font-semibold text-destructive">Delete this course</h3>
             <p className="text-sm text-foreground/80 mt-1">
-              This removes the course along with its modules, lessons, enrolments and
+              This removes the course along with its modules, lessons, enrollments and
               submissions. Certificates already issued to students are kept. This cannot be
               undone.
             </p>
