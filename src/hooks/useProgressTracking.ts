@@ -38,6 +38,15 @@ export interface CourseProgress {
   modules: ModuleProgress[];
 }
 
+/**
+ * Completion semantics live in one place (src/utils/progressionStates.ts) so
+ * this hook, useCourseProgress and the dashboard metrics can never disagree.
+ * Re-exported here for existing importers.
+ */
+export { DONE_PROGRESSION_STATES, isProgressionDone } from '@/utils/progressionStates';
+import { isProgressionDone } from '@/utils/progressionStates';
+
+
 export function useProgressTracking(courseId?: string, moduleId?: string) {
   const [courseProgress, setCourseProgress] = useState<CourseProgress | null>(null);
   const [moduleProgress, setModuleProgress] = useState<ModuleProgress | null>(null);
@@ -74,20 +83,31 @@ export function useProgressTracking(courseId?: string, moduleId?: string) {
       if (courseError) throw courseError;
       if (!course) throw new Error('Course not found');
 
-      // Get modules
+      // Scope to published modules and published items, and treat the same
+      // workflow states as done that the database does. The DB is the authority
+      // here: check_course_completion() and the auto_issue_certificate_on_progression
+      // trigger both count 'read' or 'completed' rows against published items only.
+      // This hook used to count every content_item on the course (published or
+      // not) and ignore 'read', so a student whose course the trigger had
+      // already certified saw "Your certificate is ready" above a card reading
+      // "Complete the course to unlock certification" at 85%.
       const { data: modules, error: modulesError } = await supabase
         .from('modules')
         .select('id, title, week')
         .eq('course_id', courseId)
+        .eq('published', true)
         .order('week');
 
       if (modulesError) throw modulesError;
 
-      // Get content items for this course
+      const moduleIds = modules?.map(m => m.id) || [];
+
+      // Get published content items belonging to those modules
       const { data: contentItems, error: contentItemsError } = await supabase
         .from('content_items')
         .select('id, module_id')
-        .eq('course_id', courseId);
+        .in('module_id', moduleIds)
+        .eq('published', true);
 
       if (contentItemsError) throw contentItemsError;
 
@@ -109,9 +129,10 @@ export function useProgressTracking(courseId?: string, moduleId?: string) {
           moduleItems.some(item => item.id === p.content_item_id)
         ) || [];
         
-        const completedItems = moduleProgressData.filter(p => 
-          p.workflow_state === 'completed' || p.workflow_state === 'graded'
+        const completedItems = moduleProgressData.filter(p =>
+          isProgressionDone(p.workflow_state)
         ).length;
+
         const totalTimeSpent = 0; // Not tracked in content_item_progressions yet
         const lastAccessed = moduleProgressData.reduce((latest, p) => 
           !latest || new Date(p.updated_at) > new Date(latest) 
@@ -185,7 +206,8 @@ export function useProgressTracking(courseId?: string, moduleId?: string) {
       const { data: contentItems, error: contentItemsError } = await supabase
         .from('content_items')
         .select('id, title')
-        .eq('module_id', moduleId);
+        .eq('module_id', moduleId)
+        .eq('published', true);
 
       if (contentItemsError) throw contentItemsError;
 
@@ -205,8 +227,8 @@ export function useProgressTracking(courseId?: string, moduleId?: string) {
         id: p.id,
         user_id: p.user_id,
         content_block_id: p.content_item_id,
-        completed: p.workflow_state === 'completed' || p.workflow_state === 'graded',
-        completion_percentage: p.workflow_state === 'completed' ? 100 : 0,
+        completed: isProgressionDone(p.workflow_state),
+        completion_percentage: isProgressionDone(p.workflow_state) ? 100 : 0,
         time_spent: 0,
         last_accessed_at: p.updated_at,
         completed_at: p.workflow_state === 'completed' ? p.updated_at : undefined
@@ -214,8 +236,8 @@ export function useProgressTracking(courseId?: string, moduleId?: string) {
 
       setContentProgress(legacyProgress as any);
 
-      const completedItems = progressData?.filter(p => 
-        p.workflow_state === 'completed' || p.workflow_state === 'graded'
+      const completedItems = progressData?.filter(p =>
+        isProgressionDone(p.workflow_state)
       ).length || 0;
       const totalTimeSpent = 0;
       const lastAccessed = progressData?.reduce((latest, p) => 

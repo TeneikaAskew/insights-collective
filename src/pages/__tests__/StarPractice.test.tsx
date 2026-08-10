@@ -41,7 +41,7 @@ const QUESTIONS = [
 
 function mockStudyGuideQuery(questions: typeof QUESTIONS | null = QUESTIONS) {
   mockSupabaseClient.from.mockImplementation((table: string) => {
-    // Modelled on how PostgREST actually behaves, because the difference is
+    // Modeled on how PostgREST actually behaves, because the difference is
     // the whole point: on zero rows `single` returns a PGRST116 error and
     // `maybeSingle` returns a null with no error. A mock that resolved both
     // identically would let the page go back to `single` and stay green.
@@ -99,7 +99,7 @@ describe('StarPractice page (Guided Coach)', () => {
 
   it('shows the no-questions state, not an error, when the user has no study guide', async () => {
     // This used to be an HTTP 406. The query ended in `.single()`, so a user
-    // who had simply never analysed a job description got PGRST116, which the
+    // who had simply never analyzed a job description got PGRST116, which the
     // page rethrew into a red "Failed to load questions. Please try again."
     // toast. There was nothing to retry. `maybeSingle` makes no-row an ordinary
     // null and the empty state below is what they see.

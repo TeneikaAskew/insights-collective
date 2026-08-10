@@ -36,8 +36,11 @@ function iconFor(type: string) {
     case 'course_announcement':
       return <Megaphone className="h-4 w-4 text-ss-teal" />;
     case 'assignment_grade':
+    case 'assignment_graded':
+    case 'assignment_submitted':
     case 'assignment':
       return <FileText className="h-4 w-4 text-ss-lav-deep" />;
+    case 'submission_feedback':
     case 'message':
       return <MessageSquare className="h-4 w-4 text-ss-good" />;
     default:
@@ -129,7 +132,9 @@ const Notifications = () => {
       alive = false;
       supabase.removeChannel(channel);
     };
-  }, [user, authLoading]);
+    // reloadKey is a real dependency: the "Retry" button bumps it and that
+    // must re-run the fetch, otherwise the error state is a dead end.
+  }, [user, authLoading, reloadKey]);
 
   const perCourseCounts = useMemo(() => {
     const map = new Map<string, { total: number; unread: number }>();

@@ -263,7 +263,7 @@ export function BlogManagement() {
         filteredPosts = filteredPosts.filter(p => p.category_id === categoryFilter);
       }
 
-      setPosts(filteredPosts);
+      setPosts(filteredPosts as unknown as BlogPost[]);
 
       // Calculate stats from all posts (not just filtered)
       const totalPosts = enrichedPosts.length;

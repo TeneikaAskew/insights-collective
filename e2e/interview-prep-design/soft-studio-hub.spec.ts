@@ -116,7 +116,7 @@ test.describe('Job description page (Soft Studio, Split Desk)', () => {
 });
 
 test.describe('Code practice page (Soft Studio, Problem Book)', () => {
-  // These assert the logged-out simulation — canned "Correct / 3/3", labelled
+  // These assert the logged-out simulation — canned "Correct / 3/3", labeled
   // Demo. The file previously ran under chromium-member, where a signed-in
   // visitor happened to get the demo too, because Submit resolved before the
   // database challenge loaded. That bug is fixed, so signed-in visitors now
@@ -174,7 +174,7 @@ test.describe('Code practice page (Soft Studio, Problem Book)', () => {
 // They used to run under chromium-member and passed by accident: no
 // code_challenges row matched the default "all" role, so even a signed-in
 // member fell through to the demo. Once a challenge was seeded for that role
-// the member started getting a real evaluation, which is labelled "Executed"
+// the member started getting a real evaluation, which is labeled "Executed"
 // or "AI-judged" and carries the real test count. Pin the context to
 // logged-out so the tests exercise the path they actually describe.
 test.describe('Code practice result card (logged out — canned simulation)', () => {

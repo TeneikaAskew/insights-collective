@@ -16,7 +16,7 @@ test.describe('STAR Practice', () => {
   // Result labels anywhere. So the three assertions below all describe the
   // post-analysis screen this account never reaches, and the count-guards made
   // each of them optional. What CAN be asserted is the gate itself.
-  test('renders the gate until a job description has been analysed', async ({ page }) => {
+  test('renders the gate until a job description has been analyzed', async ({ page }) => {
     await expect(page.getByRole('heading', { name: 'No Questions Available' })).toBeVisible();
     await expect(
       page.getByText('Please analyze a job description first to get personalized STAR questions.'),

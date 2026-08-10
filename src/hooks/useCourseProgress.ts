@@ -7,6 +7,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import CanvasContentService from '@/services/canvasContentService';
 import { createLogger } from '@/utils/logger';
 import { isValidUUID } from '@/utils/idUtils';
+import { isProgressionDone } from '@/utils/progressionStates';
+
 
 const logger = createLogger('useCourseProgress');
 
@@ -46,7 +48,7 @@ const EMPTY: CourseProgress = {
  *  - CourseModulesList.tsx (per-module content_item_progressions query)
  *  - CourseProgressOverview.tsx (legacy content_progress table)
  *
- * Progress is defined as (content_item_progressions.workflow_state in ('read','completed'))
+ * Progress is defined by isProgressionDone() (src/utils/progressionStates.ts)
  * divided by total published content_items for the course's modules.
  */
 export function useCourseProgress(
@@ -113,7 +115,7 @@ export function useCourseProgress(
 
         completedIds = new Set(
           (progressions || [])
-            .filter((p) => p.workflow_state === 'read' || p.workflow_state === 'completed')
+            .filter((p) => isProgressionDone(p.workflow_state))
             .map((p) => p.content_item_id),
         );
       }

@@ -53,8 +53,23 @@ describe('structural issue triage', () => {
     expect(isStructural(issue({ code: 'PGRST116', status: 406 }))).toBe(false);
   });
 
-  it.each([401, 403])('ignores %d, which is the right answer when a role lacks access', (status) => {
-    expect(isStructural(issue({ status, code: '42501', message: 'permission denied' }))).toBe(false);
+  /**
+   * 42501 used to be ignored here on the grounds that a denial is the right
+   * answer when a role lacks access. It is not, when the app's own page is the
+   * one asking: CTASection read `enrollments` — a table `anon` has no grant on
+   * — from a page only anonymous visitors ever see, so it failed on every load
+   * while this predicate called it expected.
+   *
+   * Postgres raises 42501 only for a missing table-level GRANT. RLS filters
+   * rows instead of raising, so "this role may not see these rows" arrives as
+   * an empty result, never as this code.
+   */
+  it.each([401, 403])('fails on %d carrying 42501, a grant the role will never have', (status) => {
+    expect(isStructural(issue({ status, code: '42501', message: 'permission denied' }))).toBe(true);
+  });
+
+  it('ignores a bare 401 with no code, which is an expired or absent JWT', () => {
+    expect(isStructural(issue({ status: 401, code: undefined, message: 'JWT expired' }))).toBe(false);
   });
 
   it('ignores an error with no code, such as a network abort mid-navigation', () => {
@@ -65,10 +80,15 @@ describe('structural issue triage', () => {
     const batch = [
       issue({ code: 'PGRST116' }),
       issue({ code: '42703', target: 'profiles' }),
-      issue({ status: 403, code: '42501' }),
+      issue({ status: 401, code: undefined, message: 'JWT expired' }),
+      issue({ status: 403, code: '42501', target: 'enrollments' }),
       issue({ kind: 'empty-write', target: 'certificates', method: 'DELETE' }),
     ];
-    expect(structuralIssues(batch).map((i) => i.target)).toEqual(['profiles', 'certificates']);
+    expect(structuralIssues(batch).map((i) => i.target)).toEqual([
+      'profiles',
+      'enrollments',
+      'certificates',
+    ]);
   });
 });
 

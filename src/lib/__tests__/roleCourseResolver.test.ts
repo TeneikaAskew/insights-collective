@@ -14,14 +14,14 @@ import {
 } from '@/data/courseraCatalog';
 // The generated file is no longer importable from src/ — it lives outside the
 // bundle now precisely so the app cannot reach it. The `data integrity` block
-// below validates the OFFLINE PIPELINE'S OUTPUT, not app behaviour, so it reads
+// below validates the OFFLINE PIPELINE'S OUTPUT, not app behavior, so it reads
 // the artifact from where the pipeline writes it. `tsconfig.app.json` includes
 // only src/, so this file is outside `tsc` coverage; these assertions are what
 // check it instead.
 import { generatedCourseraCatalog } from '../../../scripts/data/courseraCatalog.generated';
 
 import { roleLearningPaths } from '@/data/roleLearningPaths';
-import { LEARNING_SUBJECTS, SUBJECT_LABELS, inferSubjects } from '@/data/learningSubjects';
+import { BUSINESS_SUBJECTS, LEARNING_SUBJECTS, SUBJECT_LABELS, inferSubjects } from '@/data/learningSubjects';
 import { dataCareerRoles } from '@/data/dataCareerRoles';
 
 const courseraCatalog = generatedCourseraCatalog;
@@ -87,6 +87,28 @@ describe('resolveRoleCourses', () => {
     expect(result.coursera.length).toBeGreaterThan(0);
     expect(result.coursera.every((c) => c.source === 'coursera')).toBe(true);
     expect(result.coursera.every((c) => c.external)).toBe(true);
+  });
+
+  it('reserves the last all-Coursera slot for the business subject', () => {
+    // data-analyst's path ends with communication; with the default limit of
+    // four and five technical subjects uncovered, priority order alone would
+    // never reach it — the reserved slot must.
+    const result = resolveRoleCourses({ id: 'data-analyst' }, [], { catalog });
+
+    expect(result.coursera.length).toBe(4);
+    expect(result.coursera.flatMap((c) => c.matchedSubjects)).toContain('communication');
+  });
+
+  it('releases the reserved slot back to technical subjects when no business course exists', () => {
+    const noBusinessCatalog = catalog.filter(
+      (c) => !c.subjects.some((s) => BUSINESS_SUBJECTS.has(s)),
+    );
+    const result = resolveRoleCourses({ id: 'data-analyst' }, [], { catalog: noBusinessCatalog });
+
+    expect(result.coursera.length).toBe(4);
+    for (const course of result.coursera) {
+      expect(course.matchedSubjects.some((s) => BUSINESS_SUBJECTS.has(s))).toBe(false);
+    }
   });
 
   it('falls back to Coursera when the platform has courses but none are relevant', () => {
@@ -159,7 +181,7 @@ describe('resolveRoleCourses', () => {
     }
   });
 
-  it('honours the platform and Coursera limits independently', () => {
+  it('honors the platform and Coursera limits independently', () => {
     const many = Array.from({ length: 9 }, (_, i) =>
       makeCourse({
         id: `uuid-${i}`,

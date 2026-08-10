@@ -139,7 +139,7 @@ export function BlogAnalyticsDashboard({ postId }: BlogAnalyticsDashboardProps) 
         date: format(new Date(item.date), 'MMM dd'),
         views: item.views,
         unique_visitors: item.unique_visitors,
-        avg_time_on_page: Math.round(item.avg_time_on_page?.seconds || 0),
+        avg_time_on_page: Math.round(Number(item.avg_time_on_page) || 0),
         bounce_rate: item.bounce_rate || 0,
       })) || [];
 

@@ -51,7 +51,7 @@ const ROUTES: RouteSpec[] = [
   // was protecting. A check that cannot distinguish a CSS regression from
   // yesterday's seed run is not a check.
   //
-  // Those pages are not left untested: their behaviour is covered by the
+  // Those pages are not left untested: their behavior is covered by the
   // role-based specs and by the query gate, which asserts what they load rather
   // than what they look like. Removed here: dashboard, enrolled-courses,
   // notifications, profile, admin-dashboard, admin-users, admin-courses,

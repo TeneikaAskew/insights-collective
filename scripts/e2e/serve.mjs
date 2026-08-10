@@ -86,6 +86,11 @@ if (await relayIsUp()) {
   console.error(`relay ready on ${relayUrl}`);
 }
 
-run('vite', 'npx', ['vite', '--host', '127.0.0.1', '--port', APP_PORT], {
+// --strictPort, not vite's default "try the next one": a silent bump left the
+// suite pointed at whatever already owned APP_PORT (a sandbox dev server wired
+// to the real project, unreachable under the hermetic host-resolver rule) while
+// this relay-backed server sat unused on APP_PORT+1. Fail instead.
+run('vite', 'npx', ['vite', '--host', '127.0.0.1', '--port', APP_PORT, '--strictPort'], {
   VITE_SUPABASE_URL: relayUrl,
 });
+

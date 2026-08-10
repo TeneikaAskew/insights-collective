@@ -2630,13 +2630,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_event_registrations_event_id"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "events"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "fk_event_registrations_user_id"
             columns: ["user_id"]
             isOneToOne: false
@@ -3868,6 +3861,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      notification_email_log: {
+        Row: {
+          created_at: string
+          error: string | null
+          id: string
+          notification_id: string | null
+          provider_message_id: string | null
+          recipient: string | null
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          notification_id?: string | null
+          provider_message_id?: string | null
+          recipient?: string | null
+          status: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          notification_id?: string | null
+          provider_message_id?: string | null
+          recipient?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: []
       }
       notifications: {
         Row: {
@@ -5349,6 +5375,59 @@ export type Database = {
           },
         ]
       }
+      submission_audit_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          assignment_id: string | null
+          attachment_id: string | null
+          course_id: string | null
+          created_at: string
+          details: Json
+          filename: string | null
+          id: string
+          module_id: string | null
+          student_id: string | null
+          submission_id: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          assignment_id?: string | null
+          attachment_id?: string | null
+          course_id?: string | null
+          created_at?: string
+          details?: Json
+          filename?: string | null
+          id?: string
+          module_id?: string | null
+          student_id?: string | null
+          submission_id: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          assignment_id?: string | null
+          attachment_id?: string | null
+          course_id?: string | null
+          created_at?: string
+          details?: Json
+          filename?: string | null
+          id?: string
+          module_id?: string | null
+          student_id?: string | null
+          submission_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "submission_audit_events_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "assignment_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       submission_comments: {
         Row: {
           attachments: Json | null
@@ -5977,6 +6056,16 @@ export type Database = {
         Returns: boolean
       }
       clean_old_security_events: { Args: never; Returns: undefined }
+      course_contacts: {
+        Args: { p_course_id: string }
+        Returns: {
+          avatar_url: string
+          first_name: string
+          id: string
+          last_name: string
+          role: string
+        }[]
+      }
       course_roster_stats: {
         Args: never
         Returns: {
@@ -5994,6 +6083,12 @@ export type Database = {
       coursera_verify_refresh_secret: {
         Args: { p_secret: string }
         Returns: boolean
+      }
+      courses_shared_by_users: {
+        Args: { p_user_ids: string[] }
+        Returns: {
+          course_id: string
+        }[]
       }
       delete_all_user_resumes: {
         Args: { user_id_param: string }
@@ -6227,13 +6322,32 @@ export type Database = {
         }
         Returns: undefined
       }
+      log_submission_file_access: {
+        Args: {
+          p_action: string
+          p_attachment_id?: string
+          p_filename?: string
+          p_submission_id: string
+        }
+        Returns: string
+      }
       mark_conversation_read: {
         Args: { p_conversation_id: string }
         Returns: number
       }
+      notification_email_probe: { Args: never; Returns: Json }
+      notification_email_secret: { Args: never; Returns: string }
       open_course_thread: {
         Args: { p_course_id: string; p_other_user_id: string }
         Returns: string
+      }
+      platform_stats: {
+        Args: never
+        Returns: {
+          avg_completion: number
+          community_members: number
+          published_courses: number
+        }[]
       }
       rate_limit_certificate_verify: {
         Args: { p_code: string; p_found: boolean; p_ip_hash: string }
@@ -6295,14 +6409,6 @@ export type Database = {
         }[]
       }
       snapshot_enrollment_progress: { Args: never; Returns: undefined }
-      track_blog_view: {
-        Args: { post_id: string; referrer_url?: string; view_date: string }
-        Returns: undefined
-      }
-      update_user_roles: {
-        Args: { new_roles: string[]; target_user_id: string }
-        Returns: undefined
-      }
       start_quiz_attempt: {
         Args: { p_quiz_id: string }
         Returns: {
@@ -6323,7 +6429,30 @@ export type Database = {
           updated_at: string | null
           user_id: string
           workflow_state: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "quiz_submissions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      submission_audit_context: {
+        Args: { p_submission_id: string }
+        Returns: {
+          assignment_id: string
+          course_id: string
+          module_id: string
+          student_id: string
         }[]
+      }
+      track_blog_view: {
+        Args: { post_id: string; referrer_url?: string; view_date: string }
+        Returns: undefined
+      }
+      update_user_roles: {
+        Args: { new_roles: string[]; target_user_id: string }
+        Returns: undefined
       }
       verify_certificate: {
         Args: { p_code: string }

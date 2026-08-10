@@ -180,8 +180,8 @@ describe('assignmentService', () => {
       const result = await assignmentService.getAssignment('a1');
 
       expect(result.id).toBe('a1');
-      expect(result.submissions[0].student_id).toBe('student-9');
-      expect(result.submissions[0].status).toBe('submitted');
+      expect((result.submissions[0] as any).student_id).toBe('student-9');
+      expect((result.submissions[0] as any).status).toBe('submitted');
     });
 
     it('returns the raw row when there are no submissions', async () => {

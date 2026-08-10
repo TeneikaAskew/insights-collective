@@ -36,7 +36,7 @@ export class CanvasContentService {
       quiz: Array.isArray(item.quiz) && item.quiz.length > 0 ? item.quiz[0] : item.quiz
     }));
 
-    return transformedData || [];
+    return (transformedData || []) as unknown as ContentItem[];
   }
 
   static async getContentItem(id: string): Promise<ContentItem | null> {
@@ -87,7 +87,7 @@ export class CanvasContentService {
         hasQuiz: !!transformedItem.quiz
       });
 
-      return transformedItem;
+      return transformedItem as unknown as ContentItem;
     } catch (error) {
       console.error('Exception in getContentItem:', error);
       throw error;
@@ -161,7 +161,7 @@ export class CanvasContentService {
 
       if (assignmentError) throw assignmentError;
 
-      contentItem.settings = { ...contentItem.settings, assignment_id: assignment.id };
+      contentItem.settings = { ...(contentItem.settings as object), assignment_id: assignment.id };
     } else if (input.type === 'quiz') {
       const quizInput = input as CreateQuizInput;
       const { data: quiz, error: quizError } = await supabase
@@ -190,7 +190,7 @@ export class CanvasContentService {
               points: q.points,
               position: index,
               answers: q.answers,
-            }))
+            })) as any
           );
 
         if (questionsError) throw questionsError;
@@ -219,7 +219,7 @@ export class CanvasContentService {
       .single();
 
     if (error) throw error;
-    return data;
+    return data as unknown as ContentItem;
   }
 
   static async deleteContentItem(id: string): Promise<void> {
@@ -268,7 +268,7 @@ export class CanvasContentService {
       .order('position');
 
     if (error) throw error;
-    return (data as Module[]) || [];
+    return (data as unknown as Module[]) || [];
   }
 
   static async createModule(courseId: string, title: string): Promise<Module> {
@@ -298,19 +298,19 @@ export class CanvasContentService {
       .single();
 
     if (error) throw error;
-    return data as Module;
+    return data as unknown as Module;
   }
 
   static async updateModule(id: string, updates: Partial<Module>): Promise<Module> {
     const { data, error } = await supabase
       .from('modules')
-      .update({ ...updates, updated_at: new Date().toISOString() })
+      .update({ ...updates, updated_at: new Date().toISOString() } as any)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
-    return data as Module;
+    return data as unknown as Module;
   }
 
   static async deleteModule(id: string): Promise<void> {
@@ -327,7 +327,7 @@ export class CanvasContentService {
       .single();
 
     if (error && error.code !== 'PGRST116') throw error;
-    return data;
+    return data as unknown as Assignment;
   }
 
   static async updateAssignment(
@@ -336,13 +336,13 @@ export class CanvasContentService {
   ): Promise<Assignment> {
     const { data, error } = await supabase
       .from('assignments')
-      .update(updates)
+      .update(updates as any)
       .eq('content_item_id', contentItemId)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as unknown as Assignment;
   }
 
   // Quizzes
@@ -365,7 +365,7 @@ export class CanvasContentService {
       .rpc('get_quiz_questions_for_taking', { p_quiz_id: data.id });
     if (questionsError) throw questionsError;
 
-    return { ...data, questions: questions || [] };
+    return { ...data, questions: questions || [] } as unknown as Quiz;
   }
 
   /**
@@ -384,7 +384,7 @@ export class CanvasContentService {
    * renders per-question answers — pairing one quiz's questions with another
    * quiz's answers would be worse than the error it replaces.
    *
-   * Returns the ROW ONLY, unlike getQuiz. Modelling it on getQuiz for symmetry
+   * Returns the ROW ONLY, unlike getQuiz. Modeling it on getQuiz for symmetry
    * meant it ran get_quiz_questions_for_taking and then its one caller ran the
    * identical RPC again a line later: a redundant sequential round trip on
    * every results load, and a second chance for the request to fail and
@@ -400,7 +400,7 @@ export class CanvasContentService {
       .single();
 
     if (error && error.code !== 'PGRST116') throw error;
-    return data ?? null;
+    return (data as unknown as Quiz) ?? null;
   }
 
   /**
@@ -417,7 +417,7 @@ export class CanvasContentService {
       .rpc('get_quiz_questions_for_taking', { p_quiz_id: quizId });
 
     if (error) throw error;
-    return (data || []) as QuizQuestion[];
+    return (data || []) as unknown as QuizQuestion[];
   }
 
   static async updateQuiz(
@@ -426,13 +426,13 @@ export class CanvasContentService {
   ): Promise<Quiz> {
     const { data, error } = await supabase
       .from('quizzes')
-      .update(updates)
+      .update(updates as any)
       .eq('content_item_id', contentItemId)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as unknown as Quiz;
   }
 
   static async addQuizQuestion(
@@ -460,12 +460,12 @@ export class CanvasContentService {
         quiz_id: quizId,
         ...question,
         position: nextPosition
-      })
+      } as any)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as unknown as QuizQuestion;
   }
 
   // Submissions
@@ -509,7 +509,7 @@ export class CanvasContentService {
       .single();
 
     if (error) throw error;
-    return data;
+    return data as unknown as AssignmentSubmission;
   }
 
   // Module Management

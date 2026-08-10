@@ -35,7 +35,7 @@ AS $$
     viewer_id = profile_id
     OR
     -- Anyone on a course you are also on: enrolled, its instructor_id, or an
-    -- instructor that is_course_instructor() recognises — which is
+    -- instructor that is_course_instructor() recognizes — which is
     -- courses.instructor_id or a course_assignments row with role 'instructor',
     -- NOT the course_instructors table. Same predicate as
     -- courses_shared_by_users, so "who I can see" and "who I may message" stay

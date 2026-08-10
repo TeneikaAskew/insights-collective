@@ -61,7 +61,11 @@ export const securityConfig = {
   // Content Security Policy configuration
   csp: {
     defaultSrc: ["'self'"],
-    scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net", "https://esm.sh", "https://cdn.gpteng.co"],
+    // cdn.jsdelivr.net (Monaco) and esm.sh dropped: Monaco is bundled and served
+    // from this origin, and esm.sh is imported only by the Deno edge functions,
+    // which a browser CSP does not govern. cdn.gpteng.co stays — it is Lovable's
+    // editor script and it does load in the browser.
+    scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.gpteng.co"],
     styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
     fontSrc: ["'self'", "https://fonts.gstatic.com"],
     imgSrc: ["'self'", "data:", "https:", "blob:"],

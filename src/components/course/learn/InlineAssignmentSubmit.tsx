@@ -9,11 +9,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Send, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Loader2, Send, CheckCircle2, AlertCircle, Paperclip, X, Download } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useFileUpload } from '@/hooks/useFileUpload';
 import CourseErrorState from '@/components/course/CourseErrorState';
 import type { ContentItem, Assignment } from '@/types/canvas';
+
 
 interface Props {
   item: ContentItem;
@@ -32,6 +34,17 @@ type RubricCriterion = {
 
 type RubricScore = { points?: number; level?: string; comment?: string };
 
+type AttachmentRow = {
+  id: string;
+  filename: string;
+  content_type: string | null;
+  size: number | null;
+  url: string;
+};
+
+const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
+
+
 export function InlineAssignmentSubmit({ item, assignment, onCompleted }: Props) {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -47,12 +60,20 @@ export function InlineAssignmentSubmit({ item, assignment, onCompleted }: Props)
   const [body, setBody] = useState('');
   const [url, setUrl] = useState('');
   const [criteria, setCriteria] = useState<RubricCriterion[]>([]);
+  // Files chosen but not yet uploaded — they are uploaded on submit, because an
+  // attachment row needs the submission id.
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [attachments, setAttachments] = useState<AttachmentRow[]>([]);
+  const { uploadFile, uploading } = useFileUpload();
 
   const submissionTypes = assignment.submission_types || ['online_text_entry'];
   const acceptsText = submissionTypes.includes('online_text_entry');
   const acceptsUrl = submissionTypes.includes('online_url');
+  const acceptsFiles =
+    submissionTypes.includes('online_upload') || submissionTypes.includes('file_upload');
   // No configured limit means unlimited attempts — do not invent a policy.
   const maxAttempts: number | null = (assignment as any).max_attempts ?? null;
+
 
   useEffect(() => {
     let cancelled = false;
@@ -87,7 +108,16 @@ export function InlineAssignmentSubmit({ item, assignment, onCompleted }: Props)
       if (sub) {
         setBody(sub.body || '');
         setUrl(sub.url || '');
+        const { data: files } = await supabase
+          .from('submission_attachments')
+          .select('id, filename, content_type, size, url')
+          .eq('submission_id', sub.id)
+          .order('created_at', { ascending: true });
+        if (!cancelled) setAttachments((files as AttachmentRow[]) || []);
+      } else {
+        setAttachments([]);
       }
+
       const rubricId = rubricRes.data?.[0]?.rubric_id;
       if (rubricId) {
         const { data: crit, error: critError } = await supabase
@@ -117,21 +147,87 @@ export function InlineAssignmentSubmit({ item, assignment, onCompleted }: Props)
   const attemptsUsed = submission?.attempt ?? 0;
   const canResubmit = !isGraded && (maxAttempts == null || attemptsUsed < maxAttempts);
 
+  const addFiles = (files: FileList | null) => {
+    if (!files) return;
+    const accepted: File[] = [];
+    for (const f of Array.from(files)) {
+      if (f.size > MAX_ATTACHMENT_BYTES) {
+        toast({
+          title: 'File too large',
+          description: `${f.name} exceeds the 25 MB limit.`,
+          variant: 'destructive',
+        });
+        continue;
+      }
+      accepted.push(f);
+    }
+    if (accepted.length) setPendingFiles((prev) => [...prev, ...accepted]);
+  };
+
+  const removeAttachment = async (attachmentId: string) => {
+    const { error } = await supabase
+      .from('submission_attachments')
+      .delete()
+      .eq('id', attachmentId);
+    if (error) {
+      toast({ title: 'Could not remove file', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setAttachments((prev) => prev.filter((a) => a.id !== attachmentId));
+  };
+
+  // Attachment rows store the object path; the buckets are private so a URL is
+  // signed at click time with the viewer's session.
+  const openAttachment = async (att: AttachmentRow) => {
+    const { data, error } = await supabase.storage
+      .from('course-documents')
+      .createSignedUrl(att.url, 60 * 10);
+    if (error || !data?.signedUrl) {
+      toast({
+        title: 'Could not open file',
+        description: error?.message || 'The file link could not be created.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+  };
+
   const handleSubmit = async () => {
     if (!user) return;
-    if (acceptsText && !body.trim() && !url.trim()) {
-      toast({ title: 'Enter a response before submitting', variant: 'destructive' });
+    const hasContent =
+      body.trim() || url.trim() || pendingFiles.length > 0 || attachments.length > 0;
+    if (!hasContent) {
+      toast({ title: 'Add a response or a file before submitting', variant: 'destructive' });
       return;
     }
     setSubmitting(true);
     try {
+      // Files go to storage BEFORE the submission row is written. The other way
+      // round consumed the student's attempt when an upload was rejected (e.g.
+      // by the bucket's MIME allowlist), leaving a "submitted" row with no files
+      // and no attempt left to retry with.
+      const uploaded: Array<{ file: File; path: string }> = [];
+      for (const file of pendingFiles) {
+        const result = await uploadFile(file, 'course-documents', item.course_id, {
+          submissionUserId: user.id,
+        });
+        if (!result) throw new Error(`Failed to upload ${file.name}`);
+        uploaded.push({ file, path: result.path });
+      }
+
       const nextAttempt = (attemptsUsed || 0) + 1;
       const payload: any = {
         assignment_id: assignment.id,
         user_id: user.id,
         body: body.trim() || null,
         url: url.trim() || null,
-        submission_type: acceptsUrl && url.trim() ? 'online_url' : 'online_text_entry',
+        submission_type:
+          acceptsFiles && (pendingFiles.length > 0 || attachments.length > 0)
+            ? 'online_upload'
+            : acceptsUrl && url.trim()
+              ? 'online_url'
+              : 'online_text_entry',
         submitted_at: new Date().toISOString(),
         workflow_state: 'submitted',
         attempt: nextAttempt,
@@ -156,6 +252,27 @@ export function InlineAssignmentSubmit({ item, assignment, onCompleted }: Props)
         saved = data;
       }
       setSubmission(saved);
+
+      // Attachment rows are written after the submission exists — the RLS policy
+      // on submission_attachments checks ownership through it.
+      if (uploaded.length > 0) {
+        const rows = uploaded.map(({ file, path }) => ({
+          submission_id: saved.id,
+          filename: file.name,
+          content_type: file.type || null,
+          size: file.size,
+          url: path,
+        }));
+        const { data: inserted, error: attError } = await supabase
+          .from('submission_attachments')
+          .insert(rows)
+          .select('id, filename, content_type, size, url');
+        if (attError) throw attError;
+        setAttachments((prev) => [...prev, ...((inserted as AttachmentRow[]) || [])]);
+        setPendingFiles([]);
+      }
+
+
       toast({ title: 'Assignment submitted', description: 'Your instructor will review it shortly.' });
       await onCompleted?.(item.id);
     } catch (err: any) {
@@ -164,6 +281,7 @@ export function InlineAssignmentSubmit({ item, assignment, onCompleted }: Props)
       setSubmitting(false);
     }
   };
+
 
   if (loading) {
     return (
@@ -259,7 +377,28 @@ export function InlineAssignmentSubmit({ item, assignment, onCompleted }: Props)
         </Card>
       )}
 
+      {/* Graded submissions are read-only, so show the files that were turned in. */}
+      {isGraded && attachments.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle className="text-lg">Your files</CardTitle></CardHeader>
+          <CardContent className="space-y-2">
+            {attachments.map((att) => (
+              <button
+                key={att.id}
+                type="button"
+                onClick={() => void openAttachment(att)}
+                className="flex w-full items-center gap-2 rounded-md border p-2 text-left text-sm hover:bg-muted/60"
+              >
+                <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span className="truncate">{att.filename}</span>
+              </button>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Submission form */}
+
       {(!isGraded) && (
         <Card>
           <CardHeader>
@@ -294,6 +433,72 @@ export function InlineAssignmentSubmit({ item, assignment, onCompleted }: Props)
                 />
               </div>
             )}
+            {acceptsFiles && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium" htmlFor={`files-${assignment.id}`}>
+                  Files
+                </label>
+                <Input
+                  id={`files-${assignment.id}`}
+                  type="file"
+                  multiple
+                  onChange={(e) => {
+                    addFiles(e.target.files);
+                    e.currentTarget.value = '';
+                  }}
+                  disabled={submitting || uploading || !canResubmit}
+                />
+                <p className="text-xs text-muted-foreground">Up to 25 MB per file.</p>
+                {attachments.map((att) => (
+                  <div
+                    key={att.id}
+                    className="flex items-center justify-between gap-2 rounded-md border p-2 text-sm"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => void openAttachment(att)}
+                      className="flex min-w-0 items-center gap-2 text-left hover:underline"
+                    >
+                      <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <span className="truncate">{att.filename}</span>
+                    </button>
+                    <div className="flex items-center gap-1">
+                      <Download className="h-3.5 w-3.5 text-muted-foreground" />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Remove ${att.filename}`}
+                        onClick={() => void removeAttachment(att.id)}
+                        disabled={submitting || uploading}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+                {pendingFiles.map((file, idx) => (
+                  <div
+                    key={`${file.name}-${idx}`}
+                    className="flex items-center justify-between gap-2 rounded-md border border-dashed p-2 text-sm"
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <span className="truncate">{file.name}</span>
+                      <Badge variant="secondary">Pending</Badge>
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Remove ${file.name}`}
+                      onClick={() => setPendingFiles((prev) => prev.filter((_, i) => i !== idx))}
+                      disabled={submitting || uploading}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
             {!canResubmit ? (
               <Alert>
                 <AlertCircle className="h-4 w-4" />
@@ -304,11 +509,12 @@ export function InlineAssignmentSubmit({ item, assignment, onCompleted }: Props)
                 </AlertDescription>
               </Alert>
             ) : (
-              <Button onClick={() => void handleSubmit()} disabled={submitting}>
-                {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
-                {isSubmitted ? 'Resubmit' : 'Submit assignment'}
+              <Button onClick={() => void handleSubmit()} disabled={submitting || uploading}>
+                {submitting || uploading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+                {uploading ? 'Uploading…' : isSubmitted ? 'Resubmit' : 'Submit assignment'}
               </Button>
             )}
+
           </CardContent>
         </Card>
       )}

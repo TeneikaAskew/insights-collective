@@ -100,7 +100,7 @@ export function getSchema(): Schema {
 /**
  * The parse's own smoke test. A regex that silently stops matching would turn
  * every guard below into a no-op that passes forever, which is the failure this
- * whole programme exists to remove — so the guard checks itself before it
+ * whole program exists to remove — so the guard checks itself before it
  * checks anything else.
  */
 export function assertParsedSchema(schema: Schema = getSchema()): void {

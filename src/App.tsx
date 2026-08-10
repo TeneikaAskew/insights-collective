@@ -96,6 +96,7 @@ const BlogPost = lazy(() => import('@/pages/BlogPost'));
 
 // Resources & Tools Pages
 const Resources = lazy(() => import('@/pages/Resources'));
+const SalaryGuide = lazy(() => import('@/pages/SalaryGuide'));
 const TeneikaLinkedIn = lazy(() => import('@/pages/TeneikaLinkedIn'));
 const TeneikaTweets = lazy(() => import('@/pages/TeneikaTweets'));
 
@@ -251,9 +252,13 @@ function RouteTracker() {
 
 function App() {
   return (
-    // Default is light — dark (Ink Studio) and system remain explicit choices
-    // in the theme toggle; only users who never picked get light.
-    <ThemeProvider attribute="class" defaultTheme="light" enableSystem storageKey="ic-theme">
+    // Light by default, dark by explicit choice, and nothing else. `enableSystem`
+    // is off rather than merely hidden from the menu: left on, next-themes keeps
+    // resolving a stored "system" value against the OS, so anyone who had picked
+    // it would still be handed a dark page with no menu entry explaining why.
+    // clearStoredSystemTheme() in main.tsx handles the other half — the value
+    // already sitting in their localStorage.
+    <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} storageKey="ic-theme">
     <Router>
         <AuthProvider>
           <PageVisibilityProvider>
@@ -415,6 +420,7 @@ function App() {
 
                     {/* Resources & Tools Routes */}
                     <Route path="/resources" element={<Resources />} />
+                    <Route path="/resources/salary-guide" element={<SalaryGuide />} />
                     <Route path="/teneika-linkedin" element={<TeneikaLinkedIn />} />
                     <Route path="/teneika-tweets" element={<TeneikaTweets />} />
 

@@ -147,8 +147,14 @@ const SurveyField: React.FC<SurveyFieldProps> = ({ field, fieldName, defaultValu
       setIsUploading(true);
       
       const fileExt = selectedFile.name.split('.').pop();
-      const fileName = `${user.id}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
-      const filePath = `resumes/${fileName}`;
+      // Every policy on the resumes bucket scopes to the first path segment
+      // being the owner's uid. This used to upload to `resumes/<uid>-<rand>`,
+      // whose first segment is the literal string "resumes" — so it satisfied
+      // no scoped policy and only succeeded because a second, unscoped INSERT
+      // policy allowed any authenticated write anywhere in the bucket. Worse,
+      // the file could never be read back: the SELECT policy requires the uid
+      // folder. Match the layout useResumeStorage already uses.
+      const filePath = `${user.id}/resume_${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
       
       // Upload file to storage
       const { error: uploadError } = await supabase.storage
@@ -252,7 +258,7 @@ const SurveyField: React.FC<SurveyFieldProps> = ({ field, fieldName, defaultValu
             // 30 chars) and a URL regex also draws js/regex/missing-regexp-anchor;
             // parsing has neither problem and is a stricter, clearer check. A
             // scheme-less entry ("example.com") is accepted by trying https://
-            // in front, matching the old pattern's optional-scheme behaviour.
+            // in front, matching the old pattern's optional-scheme behavior.
             rules.validate = (value: any) => {
               if (!value) return true; // presence is enforced by `required`
               const raw = String(value).trim();

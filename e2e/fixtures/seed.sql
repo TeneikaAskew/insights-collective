@@ -592,6 +592,36 @@ FROM auth.users u
 WHERE u.email = COALESCE(current_setting('e2e.member_email', true), 'e2e-member@insightscollective.org')
 ON CONFLICT (id) DO NOTHING;
 
+-- Two uploaded files on that fixture submission, so the grader's "Uploaded
+-- files" panel (SubmissionAttachments) has something real to list, preview and
+-- download in e2e/assignments/submission-attachments.spec.ts. Without these the
+-- panel renders NOTHING at all (attachments.length === 0 returns null), which
+-- is indistinguishable from the component being broken.
+--
+-- One image and one PDF on purpose: the panel previews images with <img> and
+-- PDFs with <iframe>, and those are separate code paths.
+--
+-- The `url` column holds the storage OBJECT PATH, not a URL — the bucket is
+-- private and every read is signed at click time. The path layout is
+-- load-bearing: storage policies parse submissions/<courseId>/<userId>/<file>
+-- with split_part(). The objects themselves are uploaded by
+-- scripts/e2e/seed-submission-files.mjs (SQL cannot write to storage); the spec
+-- asserts loudly if they are missing rather than passing on an empty preview.
+INSERT INTO public.submission_attachments
+  (id, submission_id, filename, content_type, size, url, created_at)
+SELECT v.id, 'cccc5555-5555-5555-5555-555555555555', v.filename, v.content_type, v.size,
+       'submissions/660e8400-e29b-41d4-a716-446655440001/' || u.id || '/' || v.filename,
+       now() - interval '1 day'
+FROM auth.users u
+CROSS JOIN (VALUES
+  ('cccc6666-6666-6666-6666-666666666661'::uuid, 'e2e-fixture-chart.png', 'image/png', 6234),
+  ('cccc6666-6666-6666-6666-666666666662'::uuid, 'e2e-fixture-writeup.pdf', 'application/pdf', 1843)
+) AS v(id, filename, content_type, size)
+WHERE u.email = COALESCE(current_setting('e2e.member_email', true), 'e2e-member@insightscollective.org')
+ON CONFLICT (id) DO NOTHING;
+
+
+
 -- The survey the survey specs deep-link to.
 --
 -- /survey/e2e-fixture-survey rendered "Form Not Found", and the reason was not
@@ -976,6 +1006,132 @@ BEGIN
   IF NOT v_ok THEN
     RAISE EXCEPTION 'E2E SEED FAILED: can_view_profile denies the member sight of e2e-journeys — apply migration 20260802140000, which lets people on the same course see each other';
   END IF;
+
+  -- Section 6's pool, asserted because it is consumed. notifications-flow
+  -- deletes one row per run; when the ambient rows ran out the spec failed on
+  -- its own seed-gap message with nothing to reseed it. Checked above the
+  -- twelve seeded so a shortfall is caught before the spec is.
+  SELECT count(*) >= 10 FROM public.notifications
+   WHERE user_id = (SELECT id FROM auth.users
+                     WHERE email = COALESCE(current_setting('e2e.member_email', true), 'e2e-member@insightscollective.org'))
+   INTO v_ok;
+  IF NOT v_ok THEN
+    RAISE EXCEPTION 'E2E SEED FAILED: the member has fewer than 10 notifications, so notifications-flow.spec.ts has nothing to open, mark read or delete';
+  END IF;
+
+  -- And unread ones specifically: "Mark all as read" only exercises the write
+  -- when something is unread, and otherwise passes on the disabled-button path.
+  SELECT EXISTS (
+    SELECT 1 FROM public.notifications
+     WHERE is_read = false
+       AND user_id = (SELECT id FROM auth.users
+                       WHERE email = COALESCE(current_setting('e2e.member_email', true), 'e2e-member@insightscollective.org'))
+  ) INTO v_ok;
+  IF NOT v_ok THEN
+    RAISE EXCEPTION 'E2E SEED FAILED: the member has no unread notifications, so "Mark all as read" asserts the disabled branch and never tests the update';
+  END IF;
+END $$;
+
+-- 6. Notifications for the member, so the notifications specs have something to
+--    act on.
+--
+-- THIS FIXTURE IS CONSUMED BY THE SUITE, so it follows rule 1 at the top of this
+-- file: restore, do not merely create. journeys/notifications-flow.spec.ts
+-- deletes one row per run to prove the delete persists. The account started with
+-- 36 ambient rows and ran dry, at which point that spec failed on its own
+-- "Seed gap" assertion — correctly, and with nothing to reseed it.
+--
+-- Fixed ids are what make the restore work: a deleted row is recreated by the
+-- next seed run because ON CONFLICT keys on the id, not on the content.
+--
+-- Not sourced from a course announcement, deliberately. The announcement
+-- fan-out trigger writes one notification per ENROLLED user, and the reference
+-- course carries thirteen real accounts alongside the two test ones — that path
+-- is how 4,089 probe rows reached fourteen people's inboxes. These rows are
+-- written straight to the member and touch nobody else.
+DO $$
+DECLARE
+  v_member_id uuid;
+  v_course_id uuid := '660e8400-e29b-41d4-a716-446655440001';
+  i int;
+BEGIN
+  SELECT id INTO v_member_id FROM auth.users
+   WHERE email = COALESCE(current_setting('e2e.member_email', true), 'e2e-member@insightscollective.org');
+  IF v_member_id IS NULL THEN
+    RAISE EXCEPTION 'E2E SEED FAILED: no e2e member account, so the notification fixtures cannot be attributed';
+  END IF;
+
+  FOR i IN 1..12 LOOP
+    INSERT INTO public.notifications (id, user_id, title, message, type, link, is_read, course_id, created_at)
+    VALUES (
+      ('77e8a400-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid,
+      v_member_id,
+      'Fixture notification ' || i,
+      'Seeded by e2e/fixtures/seed.sql for the notifications specs.',
+      'course_announcement',
+      '/courses/' || v_course_id || '/announcements',
+      -- A mix, so "Mark all as read" has unread rows to clear and the Unread tab
+      -- is not empty. The spec handles both states, but only one exercises the
+      -- write.
+      (i % 3 = 0),
+      v_course_id,
+      now() - (i || ' hours')::interval
+    )
+    ON CONFLICT (id) DO UPDATE
+      -- Rule 1 again: is_read is consumed too. "Mark all as read" flips every
+      -- unread row, so without this the pool is permanently read after one run
+      -- and that spec asserts the disabled-button branch forever.
+      SET is_read = (i % 3 = 0),
+          created_at = now() - (i || ' hours')::interval;
+  END LOOP;
+END $$;
+
+-- 7. An isolated course for the announcement fan-out probe.
+--
+-- messaging-notifications-hardening.spec.ts inserts a real announcement to
+-- prove notify_enrolled_on_announcement writes rows the recipient can see. That
+-- trigger fans out to EVERY enrolled user, and the spec had been pointed at the
+-- reference course — published, fifteen enrollments, thirteen of them real and
+-- demo accounts. RLS lets the spec delete only its own notification, so the rest
+-- accumulated: 4,089 rows across 14 inboxes before anyone noticed.
+--
+-- Migration 20260810000000 now clears the fan-out when the announcement is
+-- deleted, which fixes it for everyone. This course is the second layer: even a
+-- run that dies before its cleanup can only ever touch test accounts.
+--
+-- Unpublished on purpose — it exists to receive one announcement, and has no
+-- business in the catalogue or in anyone's course list.
+DO $$
+DECLARE
+  v_course_id uuid := '660e8400-e29b-41d4-a716-4466554409e2';
+  v_instructor_id uuid;
+  v_member_id uuid;
+BEGIN
+  SELECT id INTO v_instructor_id FROM auth.users
+   WHERE email = COALESCE(current_setting('e2e.instructor_email', true), 'e2e-instructor@insightscollective.org');
+  SELECT id INTO v_member_id FROM auth.users
+   WHERE email = COALESCE(current_setting('e2e.member_email', true), 'e2e-member@insightscollective.org');
+  IF v_instructor_id IS NULL OR v_member_id IS NULL THEN
+    RAISE EXCEPTION 'E2E SEED FAILED: the e2e instructor or member account is missing, so the isolated announcement course cannot be built';
+  END IF;
+
+  INSERT INTO public.courses (id, title, description, category, level, published, instructor_id)
+  VALUES (
+    v_course_id,
+    'E2E Announcement Probe (test fixture)',
+    'Isolated course for the announcement fan-out probe. Not for humans.',
+    'analytics',
+    'beginner',
+    false,
+    v_instructor_id
+  )
+  ON CONFLICT (id) DO UPDATE
+    SET published = false,            -- never let it drift into the catalogue
+        instructor_id = v_instructor_id;
+
+  INSERT INTO public.enrollments (user_id, course_id, completion_status)
+  VALUES (v_member_id, v_course_id, 0)
+  ON CONFLICT DO NOTHING;
 END $$;
 
 COMMIT;

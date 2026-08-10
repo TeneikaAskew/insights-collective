@@ -16,6 +16,17 @@ describe('safeInternalPath', () => {
       'mailto:someone@example.com',
       'evil.com',
       '/\\/evil.com',
+      // Browsers REMOVE ASCII tab, LF and CR while parsing a URL, so each of
+      // these reaches the network as "//evil.com" — protocol-relative, and off
+      // origin. A prefix-only check ("does it start with //?") passes them all,
+      // which is exactly how the auth-callback edge function was bypassable via
+      // ?redirect=%2F%09%2Fevil.com. safeInternalPath resolves against a
+      // placeholder origin instead, so it rejects them; these lock that in.
+      '/\t/evil.com',
+      '/\n/evil.com',
+      '/\r/evil.com',
+      '/\t\\evil.com',
+      '/\t/\tevil.com',
     ];
 
     it.each(escapes)('rejects %j', (candidate) => {

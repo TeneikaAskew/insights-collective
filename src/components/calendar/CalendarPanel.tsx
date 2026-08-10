@@ -17,6 +17,7 @@ import { useUserCalendar } from '@/hooks/useCourseCalendar';
 import { useAuth } from '@/contexts/AuthContext';
 import { format, isSameDay, isAfter } from 'date-fns';
 import { Link } from 'react-router-dom';
+import { htmlToPlainText } from '@/utils/htmlToPlainText';
 
 type CalendarEvent = {
   id: string;
@@ -51,15 +52,23 @@ const getNavigationUrl = (event: CalendarEvent) => {
 
 function EventCard({ event, showDate }: { event: CalendarEvent; showDate?: boolean }) {
   return (
-    <Link to={getNavigationUrl(event)}>
+    // `block` is load-bearing: an <a> is display:inline by default, and vertical
+    // margins do not apply to inline elements — so the `space-y-3` on the list
+    // resolved to a measured 0px between every card and they read as one slab.
+    <Link to={getNavigationUrl(event)} className="block">
       <Card className="hover:shadow-md transition-shadow">
         <CardContent className="p-4">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
               <h3 className="font-medium">{event.title}</h3>
               <p className="text-sm text-muted-foreground">{event.course_title}</p>
               {event.description && (
-                <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{event.description}</p>
+                // Assignment and quiz descriptions are stored as rich text, so
+                // the raw markup was being printed at the reader: "<h3>Clean and
+                // Transform Data</h3> <p>Take the provided <code>…".
+                <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                  {htmlToPlainText(event.description)}
+                </p>
               )}
               <div className="flex items-center gap-1 text-xs text-muted-foreground mt-2">
                 {showDate && (
@@ -98,8 +107,26 @@ function LoadingCards({ count }: { count: number }) {
   );
 }
 
-export function CalendarPanel() {
+// The inner view (month day list vs. upcoming list) is controllable from outside so the
+// Dashboard's "Upcoming Deadlines" stat can deep-link straight to the Upcoming list.
+export type CalendarPanelView = 'selectedDay' | 'upcoming';
+
+export function CalendarPanel({
+  view,
+  onViewChange,
+}: {
+  view?: CalendarPanelView;
+  onViewChange?: (view: CalendarPanelView) => void;
+} = {}) {
   const { user } = useAuth();
+  const [uncontrolledView, setUncontrolledView] = useState<CalendarPanelView>('selectedDay');
+  const activeView = view ?? uncontrolledView;
+  const handleViewChange = (next: string) => {
+    const value = next === 'upcoming' ? 'upcoming' : 'selectedDay';
+    setUncontrolledView(value);
+    onViewChange?.(value);
+  };
+
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [activeFilters, setActiveFilters] = useState({
     quiz: true,
@@ -169,6 +196,19 @@ export function CalendarPanel() {
                 selected={date}
                 onSelect={setDate}
                 className="w-full"
+                // react-day-picker sizes its month to fixed-width cells, which
+                // leaves the card padded out with dead space. Stretch the month,
+                // table and rows so the grid fills the column at every width.
+                classNames={{
+                  months: 'w-full',
+                  month: 'w-full space-y-4',
+                  table: 'w-full border-collapse',
+                  head_row: 'flex w-full',
+                  head_cell: 'flex-1 text-muted-foreground rounded-md font-normal text-[0.8rem]',
+                  row: 'flex w-full mt-2',
+                  cell: 'flex-1 aspect-square relative p-0 text-center text-sm focus-within:relative focus-within:z-20',
+                  day: 'h-full w-full p-0 font-normal aria-selected:opacity-100 rounded-full',
+                }}
                 modifiers={{ hasEvent: getDatesWithEvents }}
                 modifiersClassNames={{ hasEvent: 'bg-primary/20 rounded-full' }}
               />
@@ -177,7 +217,7 @@ export function CalendarPanel() {
         </div>
 
         <div>
-          <Tabs defaultValue="selectedDay">
+          <Tabs value={activeView} onValueChange={handleViewChange}>
             <TabsList>
               <TabsTrigger value="selectedDay">Selected Day</TabsTrigger>
               <TabsTrigger value="upcoming">Upcoming</TabsTrigger>

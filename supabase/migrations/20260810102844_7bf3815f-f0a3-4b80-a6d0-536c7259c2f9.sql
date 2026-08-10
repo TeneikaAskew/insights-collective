@@ -1,0 +1,1 @@
+REVOKE ALL ON public.submission_attachments FROM anon;

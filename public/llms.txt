@@ -1,0 +1,21 @@
+# Insights Collective
+
+> A learning platform for data, analytics and AI careers: courses, career pathway tools, interview prep and a hands-on quiz that maps your skills to a data role.
+
+## Pages
+
+- [Home](/): What Insights Collective is, plus the career-fit quiz and featured courses.
+- [Courses](/courses): Catalog of data, analytics and AI courses.
+- [Explore data careers](/explore-data-careers): Role profiles, skills and wage data for data careers.
+- [Career pathway](/career-pathway): Build a step-by-step plan toward a target data role.
+- [Interview prep](/interview-prep): Mock interviews, STAR practice and coding practice.
+- [Data & AI salary guide](/resources/salary-guide): US salary bands (10th-90th percentile) for data, analytics and AI roles, sourced from BLS OEWS.
+- [Resources](/resources): Guides, tools and reference material for learners.
+- [Events](/events): Upcoming workshops, cohorts and community sessions.
+- [Blog](/blog): Articles on data careers, skills and learning.
+- [Surveys](/survey): Open surveys and intake forms.
+
+## Optional
+
+- [Privacy policy](/privacy-policy): How learner data is collected and used.
+- [Terms of service](/terms-of-service): Terms for using the platform.

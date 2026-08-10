@@ -74,11 +74,12 @@ export default function SurveyPage() {
             }
             
             logger.log("Fellowship form created:", insertedForm);
-            setFormData(insertedForm);
+            setFormData(insertedForm as unknown as FormData);
             
-            if (insertedForm.form_structure && Array.isArray(insertedForm.form_structure.sections)) {
-              setFormSections(insertedForm.form_structure.sections);
-              logger.log("Set form sections:", insertedForm.form_structure.sections);
+            const insertedFs = insertedForm.form_structure as any;
+            if (insertedFs && Array.isArray(insertedFs.sections)) {
+              setFormSections(insertedFs.sections);
+              logger.log("Set form sections:", insertedFs.sections);
             } else {
               logger.error("Invalid form structure:", insertedForm.form_structure);
             }
@@ -105,11 +106,12 @@ export default function SurveyPage() {
             return;
           }
 
-          setFormData(data);
+          setFormData(data as unknown as FormData);
 
-          if (data.form_structure && Array.isArray(data.form_structure.sections)) {
-            setFormSections(data.form_structure.sections);
-            logger.log("Set form sections:", data.form_structure.sections);
+          const dataFs = data.form_structure as any;
+          if (dataFs && Array.isArray(dataFs.sections)) {
+            setFormSections(dataFs.sections);
+            logger.log("Set form sections:", dataFs.sections);
           } else {
             logger.error("Invalid form structure:", data.form_structure);
           }
@@ -127,7 +129,7 @@ export default function SurveyPage() {
               .single();
 
             if (draftData) {
-              reset(draftData.form_data);
+              reset(draftData.form_data as any);
               setDraftLoaded(true);
             } else {
               // Fall back to localStorage if no draft in database

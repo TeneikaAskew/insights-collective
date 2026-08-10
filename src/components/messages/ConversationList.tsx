@@ -121,7 +121,7 @@ const ConversationList: React.FC<ConversationListProps> = ({
         // thread only within the same course. Keying on the pair alone collapsed those
         // into whichever was touched last, so asking about Course B silently hid the
         // Course A conversation. Legacy unscoped threads have no course_id and key on
-        // '' , which preserves the old collapsing behaviour for exactly those rows.
+        // '' , which preserves the old collapsing behavior for exactly those rows.
         const conversationKey = [...validParticipantIds.sort(), conv.course_id ?? ''].join('-');
         const existingConv = deduplicatedConversationsMap.get(conversationKey);
 

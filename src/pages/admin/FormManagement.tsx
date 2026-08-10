@@ -71,7 +71,7 @@ export default function FormManagement() {
       if (error) throw error;
       
       if (data) {
-        setForm(data);
+        setForm(data as unknown as FormData);
       } else {
         setError('Form not found');
       }

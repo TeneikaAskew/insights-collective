@@ -335,14 +335,48 @@
     "strategy",
     "strategic",
     "consulting",
-    "stakeholder",
     "change management",
     "roi",
     "business acumen",
-    "project management",
-    "leadership",
-    "negotiation",
     "business transformation",
     "operations management"
+  ],
+  "communication": [
+    "communication",
+    "public speaking",
+    "presentation skills",
+    "presentations",
+    "business writing",
+    "storytelling",
+    "technical writing",
+    "interpersonal skills"
+  ],
+  "leadership": [
+    "leadership",
+    "people management",
+    "team management",
+    "managing teams",
+    "emotional intelligence",
+    "coaching",
+    "mentoring",
+    "executive presence"
+  ],
+  "stakeholder-management": [
+    "stakeholder"
+  ],
+  "project-management": [
+    "project management",
+    "agile",
+    "scrum",
+    "kanban",
+    "project planning",
+    "program management",
+    "pmp"
+  ],
+  "negotiation": [
+    "negotiation",
+    "negotiating",
+    "conflict resolution",
+    "persuasion"
   ]
 }

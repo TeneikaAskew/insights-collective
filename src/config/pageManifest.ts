@@ -67,7 +67,11 @@ export const PAGE_MANIFEST: ManifestPage[] = [
   { path: '/portfolio-explorer', name: 'Portfolio Explorer' },
   { path: '/portfolio-editor', name: 'Portfolio Editor' },
   { path: '/blog', name: 'Blog' },
-  { path: '/resources', name: 'Resources' },
+  {
+    path: '/resources',
+    name: 'Resources',
+    children: [{ path: '/resources/salary-guide', name: 'Data & AI Salary Guide' }],
+  },
   { path: '/teneika-linkedin', name: 'Teneika LinkedIn' },
   { path: '/teneika-tweets', name: 'Teneika Tweets' },
   {

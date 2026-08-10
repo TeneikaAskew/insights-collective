@@ -17,39 +17,43 @@ test.describe('Code Practice', () => {
     await expect(page.locator('.animate-spin')).toHaveCount(0);
   });
 
+  /**
+   * These four sat behind `if (await x.count() > 0)` guards, which pass whether
+   * or not the element exists — the branch simply does not run. They were left
+   * that way because Monaco was fetched from cdn.jsdelivr.net at runtime and
+   * that host is unreachable under the relay, so there was never an editor to
+   * assert against. Monaco is bundled now, so each of these can say what it
+   * means.
+   *
+   * Writing them against the real page also retired a stale premise: there is
+   * no language selector to find. The only combobox filters job roles, and the
+   * language is a badge the challenge itself decides.
+   */
+
   test('code editor (Monaco) renders', async ({ page }) => {
-    const editor = page.locator('.monaco-editor, [class*="monaco"], [class*="CodeEditor"], [class*="code-editor"]').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await editor.count() > 0) {
-      await expect(editor).toBeVisible();
-    }
+    // The bundled editor, not a CDN copy: if the loader ever reaches for
+    // jsdelivr again this is what stops being true.
+    await expect(page.locator('.monaco-editor').first()).toBeVisible();
+    await expect(page.locator('.monaco-editor textarea').first()).toBeAttached();
   });
 
-  test('language selector is present', async ({ page }) => {
-    const langSel = page.locator('[role="combobox"]:has-text("Python"), [role="combobox"]:has-text("JavaScript"), [class*="language"]').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await langSel.count() > 0) {
-      await expect(langSel).toBeVisible();
-    }
+  test('the challenge language is stated', async ({ page }) => {
+    await expect(page.getByText(/^(Python|JavaScript)$/).first()).toBeVisible();
   });
 
-  test('run or submit button is present', async ({ page }) => {
-    const runBtn = page.locator('button:has-text("Run"), button:has-text("Submit"), button:has-text("Execute")').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await runBtn.count() > 0) {
-      await expect(runBtn).toBeVisible();
-    }
+  test('the solution can be submitted and reset', async ({ page }) => {
+    await expect(page.getByRole('button', { name: /Submit Solution/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Reset$/i })).toBeVisible();
   });
 
-  test('problem list or question panel renders', async ({ page }) => {
-    const problem = page.locator('[class*="problem"], [class*="question"], [class*="challenge"], h2, h3').first();
-    // TODO(count-guard): this passes whether or not the element exists. Assert the expected state, or seed the data and assert unconditionally.
-    // eslint-disable-next-line no-restricted-syntax
-    if (await problem.count() > 0) {
-      await expect(problem).toBeVisible();
-    }
+  test('a challenge renders rather than a load error', async ({ page }) => {
+    await expect(page.getByRole('heading', { name: /Code Challenge Practice/i })).toBeVisible();
+    // A challenge that failed to load renders this instead, and the panel would
+    // otherwise be empty in a way the old `h2, h3` selector still matched.
+    await expect(page.getByTestId('challenge-load-error')).toHaveCount(0);
+    // The prompt heading is the challenge's own title, so it is whatever the
+    // seeded row says — its presence is the assertion, not its wording.
+    const headings = page.getByRole('heading');
+    expect(await headings.count()).toBeGreaterThan(1);
   });
 });

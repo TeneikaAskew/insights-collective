@@ -162,7 +162,7 @@ const QuizSection: React.FC = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="bg-card p-6 md:p-8 rounded-xl shadow-xl border "
+            className="bg-card p-4 sm:p-6 md:p-8 rounded-xl shadow-xl border "
           >
             <Quiz />
           </motion.div>

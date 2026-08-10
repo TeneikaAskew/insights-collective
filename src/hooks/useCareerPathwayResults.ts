@@ -41,7 +41,7 @@ export const useCareerPathwayResults = () => {
       if (data) {
         // Parse the career report — a parse failure means the stored report is
         // corrupted, which is an error, not a missing assessment.
-        const parsedReport = parseCareerReport(data.report);
+        const parsedReport = parseCareerReport(data.report as string);
         logger.log("Successfully parsed career pathway report data");
 
         // Validate the action plan

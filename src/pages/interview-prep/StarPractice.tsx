@@ -220,7 +220,7 @@ export default function StarPractice() {
       logger.log("Study guides loaded:", studyGuides);
 
       if (studyGuides?.questions) {
-        const behavioralQuestions = studyGuides.questions.filter(
+        const behavioralQuestions = (studyGuides.questions as any[]).filter(
           (q: any) => q.type === 'behavioral'
         );
         logger.log("Filtered behavioral questions:", behavioralQuestions);

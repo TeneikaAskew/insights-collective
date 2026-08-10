@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.notify_student_on_submission_comment() FROM PUBLIC, anon, authenticated;

@@ -32,7 +32,7 @@
 -- already holds, so this costs the gate nothing and keeps the schema shape of
 -- the database off the anon surface.
 
--- ── Function catalogue ──────────────────────────────────────────────────────
+-- ── Function catalog ──────────────────────────────────────────────────────
 --
 -- replay-queries.mjs used to decide whether an RPC exists by calling it with no
 -- arguments. PostgREST answers PGRST202 "could not find the function … without
@@ -54,13 +54,13 @@ WHERE n.nspname = 'public'
   AND public.has_admin_access(auth.uid());
 
 COMMENT ON VIEW public.audit_db_functions IS
-  'Admin-only catalogue of public functions and their parameter names. Exists so '
+  'Admin-only catalog of public functions and their parameter names. Exists so '
   'CI can verify .rpc() call sites over PostgREST instead of holding a Supabase '
   'management token. security_invoker: no privilege beyond what the caller has.';
 
 GRANT SELECT ON public.audit_db_functions TO authenticated;
 
--- ── Column catalogue ────────────────────────────────────────────────────────
+-- ── Column catalog ────────────────────────────────────────────────────────
 --
 -- src/integrations/supabase/types.ts is generated, committed, and had drifted
 -- far enough to produce a ~40% false-positive rate when the audit consulted it:
@@ -88,7 +88,7 @@ WHERE c.table_schema = 'public'
   AND public.has_admin_access(auth.uid());
 
 COMMENT ON VIEW public.audit_db_columns IS
-  'Admin-only column catalogue for public tables and views. Used by the CI '
+  'Admin-only column catalog for public tables and views. Used by the CI '
   'drift check to verify src/integrations/supabase/types.ts still matches the '
   'database. security_invoker: no privilege beyond what the caller has.';
 

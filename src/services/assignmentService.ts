@@ -159,7 +159,7 @@ export const assignmentService = {
   async createSubmission(submission: Partial<AssignmentSubmission>) {
     const { data, error } = await supabase
       .from('assignment_submissions')
-      .insert(submission)
+      .insert(submission as any)
       .select()
       .single();
 

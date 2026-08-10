@@ -9,6 +9,12 @@ import { createMockAuthProvider } from '@/test/mocks/authMocks';
 import { useAuth } from '@/contexts/AuthContext';
 import Notifications from '@/pages/Notifications';
 
+const navigateSpy = vi.fn();
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<any>('react-router-dom');
+  return { ...actual, useNavigate: () => navigateSpy };
+});
+
 vi.mock('@/components/layout/AppLayout', () => ({
   default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
@@ -114,5 +120,58 @@ describe('Notifications page', () => {
 
     expect(await screen.findByText('Nothing here')).toBeInTheDocument();
     expect(screen.queryByText('Failed to load notifications')).not.toBeInTheDocument();
+  });
+  it('re-fetches when Retry is clicked after a failed load', async () => {
+    let calls = 0;
+    mockTables({
+      notifications: {
+        select: () => {
+          calls += 1;
+          return calls === 1
+            ? { data: null, error: { message: 'RLS denied' } }
+            : { data: [notificationRow], error: null };
+        },
+      },
+    });
+
+    render(<Notifications />);
+
+    expect(await screen.findByText('Failed to load notifications')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /retry/i }));
+
+    expect(await screen.findByText('Assignment graded')).toBeInTheDocument();
+    expect(screen.queryByText('Failed to load notifications')).not.toBeInTheDocument();
+  });
+
+  it('renders instructor feedback notifications and navigates to the submission link', async () => {
+    const feedbackRow = {
+      ...notificationRow,
+      id: 'n2',
+      type: 'submission_feedback',
+      title: 'New feedback: Data Cleaning Exercise',
+      message: 'Your instructor left feedback on your submission.',
+      link: '/courses/c1/modules/m1/assignments/a1',
+      course_id: 'c1',
+    };
+    mockTables({
+      notifications: {
+        select: () => ({ data: [feedbackRow], error: null }),
+        update: () => ({ data: null, error: null }),
+      },
+      courses: { select: () => ({ data: [{ id: 'c1', title: 'Python Data Analysis' }], error: null }) },
+    });
+
+    render(<Notifications />);
+
+    expect(await screen.findByText('New feedback: Data Cleaning Exercise')).toBeInTheDocument();
+    expect(
+      screen.getByText('Your instructor left feedback on your submission.'),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('notification-card'));
+
+    await waitFor(() => {
+      expect(navigateSpy).toHaveBeenCalledWith('/courses/c1/modules/m1/assignments/a1');
+    });
   });
 });

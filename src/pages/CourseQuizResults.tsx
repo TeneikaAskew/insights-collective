@@ -96,7 +96,7 @@ const CourseQuizResults = () => {
         setSubmissions((subRes.data ?? []) as SubRow[]);
 
         if (canSeeAll) {
-          const userIds = Array.from(new Set((subRes.data ?? []).map((s: any) => s.user_id)));
+          const userIds = Array.from(new Set((subRes.data ?? []).map((s: any) => s.user_id))) as string[];
           if (userIds.length) {
             // profiles has first_name/last_name and no email at all — email
             // lives on auth.users, which the browser cannot read. Asking for

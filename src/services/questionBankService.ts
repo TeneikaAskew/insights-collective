@@ -19,7 +19,7 @@ export const questionBankService = {
     return (data || []).map(bank => ({
       ...bank,
       question_count: bank.questions?.[0]?.count || 0
-    }));
+    })) as unknown as QuestionBank[];
   },
 
   async getQuestionBank(bankId: string): Promise<QuestionBank | null> {
@@ -115,7 +115,7 @@ export const questionBankService = {
     const { data, error } = await query.order('created_at', { ascending: false });
 
     if (error) throw error;
-    return data || [];
+    return (data || []) as unknown as QuestionBankQuestion[];
   },
 
   async getQuestion(questionId: string): Promise<QuestionBankQuestion | null> {
@@ -126,7 +126,7 @@ export const questionBankService = {
       .single();
 
     if (error) throw error;
-    return data;
+    return data as unknown as QuestionBankQuestion;
   },
 
   async createQuestion(question: Omit<QuestionBankQuestion, 'id' | 'created_at' | 'updated_at' | 'usage_count'>): Promise<QuestionBankQuestion> {
@@ -135,24 +135,24 @@ export const questionBankService = {
       .insert({
         ...question,
         usage_count: 0
-      })
+      } as any)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as unknown as QuestionBankQuestion;
   },
 
   async updateQuestion(questionId: string, updates: Partial<QuestionBankQuestion>): Promise<QuestionBankQuestion> {
     const { data, error } = await supabase
       .from('question_bank_questions')
-      .update(updates)
+      .update(updates as any)
       .eq('id', questionId)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as unknown as QuestionBankQuestion;
   },
 
   async deleteQuestion(questionId: string): Promise<void> {
@@ -167,11 +167,11 @@ export const questionBankService = {
   async bulkCreateQuestions(questions: Array<Omit<QuestionBankQuestion, 'id' | 'created_at' | 'updated_at' | 'usage_count'>>): Promise<QuestionBankQuestion[]> {
     const { data, error } = await supabase
       .from('question_bank_questions')
-      .insert(questions.map(q => ({ ...q, usage_count: 0 })))
+      .insert(questions.map(q => ({ ...q, usage_count: 0 })) as any)
       .select();
 
     if (error) throw error;
-    return data || [];
+    return (data || []) as unknown as QuestionBankQuestion[];
   },
 
   // Categories
@@ -256,30 +256,30 @@ export const questionBankService = {
       .order('position');
 
     if (error) throw error;
-    return data || [];
+    return (data || []) as unknown as QuizQuestionPool[];
   },
 
   async createQuestionPool(pool: Omit<QuizQuestionPool, 'id' | 'created_at'>): Promise<QuizQuestionPool> {
     const { data, error } = await supabase
       .from('quiz_question_pools')
-      .insert(pool)
+      .insert(pool as any)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as unknown as QuizQuestionPool;
   },
 
   async updateQuestionPool(poolId: string, updates: Partial<QuizQuestionPool>): Promise<QuizQuestionPool> {
     const { data, error } = await supabase
       .from('quiz_question_pools')
-      .update(updates)
+      .update(updates as any)
       .eq('id', poolId)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as unknown as QuizQuestionPool;
   },
 
   async deleteQuestionPool(poolId: string): Promise<void> {

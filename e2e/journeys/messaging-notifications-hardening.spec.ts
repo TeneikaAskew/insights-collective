@@ -9,6 +9,23 @@ const ANON =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNpdXF2aHNjdWl5Y3ZkcnRpcXNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQyMDU0MTUsImV4cCI6MjA1OTc4MTQxNX0.CbAWzKbUfbqYKAZr93jAQm8z8chbNoTe0EnK-E_4u9w';
 
 const COURSE_ID = '660e8400-e29b-41d4-a716-446655440001'; // Intro to Data Science; e2e-instructor is instructor_id
+
+/**
+ * The announcement probe posts here instead of COURSE_ID.
+ *
+ * notify_enrolled_on_announcement fans out one notification per ENROLLED user,
+ * and COURSE_ID is a published course carrying fifteen enrollments of which
+ * thirteen are real and demo accounts. RLS scopes notification DELETE to
+ * auth.uid() = user_id, so this spec could only ever clean its own row and left
+ * the rest behind on every run — 4,089 of them across 14 inboxes.
+ *
+ * This course is seeded unpublished with exactly one enrollment, the member who
+ * reads the row back, so the blast radius is a test account. Migration
+ * 20260810000000 also clears the fan-out when the announcement is deleted; the
+ * two together mean neither a missed cleanup nor a crashed run can reach a real
+ * inbox. Seeded in e2e/fixtures/seed.sql section 7.
+ */
+const ANNOUNCEMENT_COURSE_ID = '660e8400-e29b-41d4-a716-4466554409e2';
 const TEST_USER_ID = '30609adf-dc50-4b57-a456-1f38201e40de'; // e2e-instructor@insightscollective.org
 const ENROLLED_STUDENT_ID = '71629ac8-ec88-4ce8-a859-9b29a664041d'; // david.rodriguez — enrolled, not the signed-in member
 const NON_ENROLLED_USER_ID = '891c88ca-cdf5-413c-a0c4-92ee1ef69c87'; // profile with no course role: not enrolled, not instructor
@@ -147,14 +164,15 @@ test.describe('Messaging + notifications — real signed-in RPC gating', () => {
       !memberEmail || !memberPassword,
       'E2E_MEMBER_EMAIL / E2E_MEMBER_PASSWORD (or E2E_TEST_PASSWORD) not set',
     );
-    // The student must also be enrolled in COURSE_ID for the fan-out row to belong to them.
+    // The student must be enrolled in ANNOUNCEMENT_COURSE_ID for the fan-out row
+    // to belong to them; seed.sql section 7 is what puts them there.
 
     const marker = `E2E hardening announcement ${Date.now()}`;
     const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/course_announcements`, {
       method: 'POST',
       headers: { ...authHeaders(instructorToken), Prefer: 'return=representation' },
       body: JSON.stringify({
-        course_id: COURSE_ID,
+        course_id: ANNOUNCEMENT_COURSE_ID,
         title: marker,
         content: 'End-to-end hardening probe. Safe to delete.',
         created_by: TEST_USER_ID,
@@ -173,7 +191,7 @@ test.describe('Messaging + notifications — real signed-in RPC gating', () => {
       .poll(
         async () => {
           const r = await fetch(
-            `${SUPABASE_URL}/rest/v1/notifications?course_id=eq.${COURSE_ID}&title=eq.${encodeURIComponent(
+            `${SUPABASE_URL}/rest/v1/notifications?course_id=eq.${ANNOUNCEMENT_COURSE_ID}&title=eq.${encodeURIComponent(
               expectedTitle,
             )}&select=title,course_id`,
             { headers: authHeaders(studentToken) },

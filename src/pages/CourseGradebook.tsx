@@ -209,7 +209,7 @@ const CourseGradebook = () => {
   const quizzesForGradebook = useMemo(
     () => quizzes.map(quiz => ({
       ...quiz,
-      total_points: quiz.total_points ?? quiz.points_possible ?? 0,
+      total_points: (quiz as any).total_points ?? quiz.points_possible ?? 0,
     })),
     [quizzes],
   );
@@ -425,7 +425,7 @@ const CourseGradebook = () => {
         assignments={assignments}
         quizzes={quizzesForGradebook}
         grades={derivedGrades}
-        submissions={submissionsForGradebook}
+        submissions={submissionsForGradebook as any}
         onGradeUpdate={handleGradeUpdate}
         onBulkGradeUpdate={handleBulkGradeUpdate}
       />

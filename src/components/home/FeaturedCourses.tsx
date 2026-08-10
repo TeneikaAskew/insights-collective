@@ -37,7 +37,7 @@ const FeaturedCourses = ({ courses }: FeaturedCoursesProps) => {
   // Category labels come from the shared map in @/constants/courseCategories.
   // The local switch this replaces had gone stale against the live catalog: it
   // mapped 'Data Science' AND 'Web Development' to "Data Engineering", and fell
-  // back to "Data Engineering" for anything it didn't recognise — which is
+  // back to "Data Engineering" for anything it didn't recognize — which is
   // every category the catalog actually uses ('Analytics & BI', 'ML/AI'). Real
   // Analytics and Data Science courses were relabelled on the landing page.
   const getCategoryColor = (category: string): string => {

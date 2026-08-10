@@ -18,6 +18,9 @@ import CanvasContentService from '@/services/canvasContentService';
 import CourseErrorState from '@/components/course/CourseErrorState';
 import { withCoursePermission } from '@/components/course/withCoursePermission';
 import { SubmissionComments } from '@/components/course/grading/SubmissionComments';
+import { SubmissionAttachments } from '@/components/course/grading/SubmissionAttachments';
+import { BulkAttachmentDownload } from '@/components/course/grading/BulkAttachmentDownload';
+
 import {
   CheckCircle,
   Save,
@@ -57,6 +60,8 @@ function CanvasGradingInterface() {
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState<FilterKey>('needs');
   const [search, setSearch] = useState('');
+  const [commentSeed, setCommentSeed] = useState<{ text: string; nonce: number } | undefined>();
+
 
   const [grade, setGrade] = useState<string>('');
   const [feedback, setFeedback] = useState<string>('');
@@ -127,6 +132,19 @@ function CanvasGradingInterface() {
     return { total: submissions.length, graded, needs: submissions.length - graded };
   }, [submissions]);
 
+  // Bulk download covers every submission for this assignment, not just the
+  // filtered view — a grader asking for "all files" means the whole week.
+  const bulkDownloadStudents = useMemo(
+    () => submissions.map((s) => ({ submissionId: s.id, studentName: formatProfileName(s.user) })),
+    [submissions],
+  );
+
+  const archiveName = useMemo(() => {
+    const module = (contentItem as any)?.module?.title as string | undefined;
+    return [module, contentItem?.title, 'submissions'].filter(Boolean).join(' - ');
+  }, [contentItem]);
+
+
   const currentIndex = filtered.findIndex((s) => s.id === selectedId);
 
   const goTo = useCallback(
@@ -157,7 +175,7 @@ function CanvasGradingInterface() {
           .from('assignment_submissions')
           .update({
             // assignment_submissions has no grader_id column; grader attribution
-            // is modelled on grades.graded_by / grade_history.changed_by. Sending
+            // is modeled on grades.graded_by / grade_history.changed_by. Sending
             // it here made PostgREST reject the whole update, so saving a grade
             // failed outright.
             grade: gradeNum,
@@ -321,15 +339,17 @@ function CanvasGradingInterface() {
               {counts.graded} of {counts.total} graded • {counts.needs} still needs grading • {pointsPossible} pts
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <div className="hidden md:flex items-center gap-1 text-xs text-muted-foreground border rounded-md px-2 py-1">
               <Keyboard className="h-3 w-3" />
               <span><kbd className="font-mono">J</kbd>/<kbd className="font-mono">K</kbd> nav • <kbd className="font-mono">G</kbd> grade • <kbd className="font-mono">⌘↵</kbd> save</span>
             </div>
+            <BulkAttachmentDownload students={bulkDownloadStudents} archiveName={archiveName} />
             <Button variant="outline" asChild size="sm">
               <Link to={`/courses/${courseId}/gradebook`}>Gradebook</Link>
             </Button>
           </div>
+
         </div>
 
         {/* Progress strip */}
@@ -435,10 +455,17 @@ function CanvasGradingInterface() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  <div>
+                  <div className="space-y-4">
                     <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-3">Submission</h3>
                     {renderSubmissionContent()}
+                    <SubmissionAttachments
+                      submissionId={selectedSubmission.id}
+                      onCommentOnFile={(filename) =>
+                        setCommentSeed({ text: `Re: ${filename} — `, nonce: Date.now() })
+                      }
+                    />
                   </div>
+
 
                   <div className="border-t pt-5 space-y-4">
                     <div className="flex flex-wrap items-end gap-3">
@@ -507,8 +534,11 @@ function CanvasGradingInterface() {
                     <SubmissionComments
                       submissionId={selectedSubmission.id}
                       submissionType="assignment"
+                      showPrivateComments
+                      commentSeed={commentSeed}
                     />
                   )}
+
                 </CardContent>
 
                 {/* Sticky save bar */}

@@ -29,7 +29,7 @@ describe('htmlToPlainText', () => {
     expect(out).toContain('keep');
   });
 
-  it('normalises whitespace across block boundaries', () => {
+  it('normalizes whitespace across block boundaries', () => {
     expect(htmlToPlainText('<p>one</p>\n\n<p>two</p>')).toBe('one two');
   });
 
