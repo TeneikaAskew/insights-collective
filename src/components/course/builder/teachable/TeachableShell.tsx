@@ -24,6 +24,12 @@ import {
 import { cn } from '@/lib/utils';
 import { Hint } from '@/components/ui/hint';
 import { Badge } from '@/components/ui/badge';
+import {
+  SIDEBAR_NAV_ACTIVE,
+  SIDEBAR_NAV_INACTIVE,
+  SIDEBAR_NAV_ITEM_BASE,
+  sidebarNavIconClass,
+} from '@/lib/sidebarNav';
 
 export type BuilderNavKey =
   | 'setup'
@@ -140,15 +146,20 @@ export function TeachableShell({
             aria-label={isCollapsed ? 'Expand navigation' : 'Minimize navigation'}
             aria-expanded={!isCollapsed}
             className={cn(
-              'flex items-center gap-2 rounded-md text-sm font-medium text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors',
+              SIDEBAR_NAV_ITEM_BASE,
+              'gap-2 text-sm',
+              SIDEBAR_NAV_INACTIVE,
               isCollapsed ? 'p-2 justify-center' : 'w-full px-3 py-2',
             )}
           >
             {isCollapsed ? (
-              <PanelLeftOpen className="h-4 w-4" />
+              <PanelLeftOpen className="h-4 w-4 flex-shrink-0" />
             ) : (
-              <PanelLeftClose className="h-4 w-4" />
+              <PanelLeftClose className="h-4 w-4 flex-shrink-0" />
             )}
+            {/* The expanded rail had a bare icon here with no word next to it,
+                which is the one control in this menu that isn't self-explanatory. */}
+            {!isCollapsed && <span className="truncate">Collapse menu</span>}
           </button>
         </Hint>
       </div>
@@ -270,19 +281,24 @@ function NavGroup({
             title={collapsed ? label : undefined}
             aria-label={collapsed ? label : undefined}
             className={cn(
-              'w-full flex items-center rounded-md text-sm font-medium text-left transition-colors',
+              SIDEBAR_NAV_ITEM_BASE,
+              'group w-full text-sm text-left',
               collapsed ? 'justify-center px-2 py-2' : 'gap-3 px-3 py-2',
-              active
-                ? 'bg-primary text-primary-foreground font-semibold'
-                : 'text-primary hover:bg-primary hover:text-primary-foreground',
+              active ? SIDEBAR_NAV_ACTIVE : SIDEBAR_NAV_INACTIVE,
             )}
           >
-            <Icon className="h-4 w-4 flex-shrink-0" />
+            <Icon
+              className={cn(
+                'h-4 w-4 flex-shrink-0',
+                sidebarNavIconClass(active),
+                !active && 'group-hover:text-sidebar-accent',
+              )}
+            />
             {!collapsed && <span className="truncate">{label}</span>}
             {!collapsed && comingSoon && (
               <Badge
                 variant="outline"
-                className="ml-auto flex-shrink-0 border-current text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0 text-inherit"
+                className="ml-auto flex-shrink-0 border-current text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0 text-inherit bg-transparent opacity-80"
               >
                 Coming soon
               </Badge>

@@ -59,6 +59,50 @@ describe('TeachableShell placeholder nav items', () => {
   });
 });
 
+describe('TeachableShell nav palette', () => {
+  // The builder rail used to paint every item in `text-primary` on white and the
+  // active item in a solid `bg-primary` slab — its own scheme, unrelated to the
+  // site nav a user had just come from.
+  const renderShell = () =>
+    render(
+      <TeachableShell
+        courseTitle="Intro to Data Analytics"
+        published={false}
+        activeKey="setup"
+        onNavigate={vi.fn()}
+        onTogglePublish={vi.fn()}
+      >
+        <div />
+      </TeachableShell>,
+    );
+
+  const navButtonFor = (label: string) =>
+    screen.getAllByRole('button').find((b) => within(b).queryByText(label))!;
+
+  it('uses the shared --sidebar-* tokens for resting items', () => {
+    renderShell();
+    const className = navButtonFor('Curriculum').getAttribute('class') ?? '';
+
+    expect(className).toContain('text-sidebar-foreground/80');
+    expect(className).toContain('hover:bg-sidebar-accent/10');
+    expect(className).not.toContain('text-primary');
+  });
+
+  it('uses the shared accent pill for the active item', () => {
+    renderShell();
+    const className = navButtonFor('Setup guide').getAttribute('class') ?? '';
+
+    expect(className).toContain('bg-sidebar-accent');
+    expect(className).toContain('text-sidebar-accent-foreground');
+    expect(className).not.toContain('bg-primary ');
+  });
+
+  it('labels the collapse control instead of leaving a bare icon', () => {
+    renderShell();
+    expect(screen.getByText('Collapse menu')).toBeInTheDocument();
+  });
+});
+
 describe('PlaceholderView', () => {
   it('leads with an explicit "not available yet" heading above the descriptive copy', () => {
     render(
