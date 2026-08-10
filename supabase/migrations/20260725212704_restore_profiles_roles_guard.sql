@@ -118,7 +118,7 @@ CREATE TRIGGER enforce_profiles_roles_immutable
 -- ---------------------------------------------------------------------
 -- 3. Backfill user_roles from the legacy column
 --    admin-users now authorizes via has_admin_access (user_roles), so any role
---    that exists only in profiles.roles would stop being honoured.
+--    that exists only in profiles.roles would stop being honored.
 --
 --    'admin' is deliberately NOT backfilled. profiles.roles was self-writable
 --    until this migration, so auto-promoting from it would launder an already

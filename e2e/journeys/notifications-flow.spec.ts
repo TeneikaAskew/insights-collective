@@ -77,10 +77,28 @@ test.describe('Notifications center — real flow', () => {
     expect(targetId, 'notification card exposes its id').toBeTruthy();
     const target = page.locator(`[data-notification-id="${targetId}"]`);
 
+    // The row leaves the list optimistically, before the DELETE is answered, so
+    // the reload below has to be sequenced after the request rather than after
+    // the disappearance. page.reload() aborts whatever is still in flight, and
+    // over the relay the round trip is slow enough to lose the write: measured,
+    // the notification came back on reload and was still in the table
+    // afterwards, while the same delete performed as this user in SQL removed a
+    // row. The test was asserting a race, not persistence.
+    const deleteAccepted = page.waitForResponse(
+      (r) => r.request().method() === 'DELETE' && r.url().includes('/rest/v1/notifications'),
+      { timeout: 10_000 },
+    );
+
     await firstCard.getByRole('button', { name: /delete notification/i }).click();
 
     // Optimistic removal: that exact row is gone.
     await expect(target).toHaveCount(0, { timeout: 5_000 });
+
+    const response = await deleteAccepted;
+    expect(
+      response.status(),
+      `DELETE /notifications answered ${response.status()}; the row was never removed server-side`,
+    ).toBeLessThan(300);
 
     // Reload → persisted delete: that specific notification stays gone.
     // Checked by id, so a concurrently-arriving notification with the same

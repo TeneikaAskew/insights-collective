@@ -7,7 +7,7 @@
 -- happens only through the completion trigger, under the service role.
 --
 -- The asymmetry is a real gap — an admin who revokes by mistake has no way to
--- restore — and it also makes the behaviour untestable without collateral
+-- restore — and it also makes the behavior untestable without collateral
 -- damage: e2e/admin/admin-certificates.spec.ts had to revoke a REAL member
 -- certificate, which erased the row seed.sql issues for the profile specs and
 -- broke the /profile visual baseline on the next run.

@@ -20,13 +20,13 @@
 --
 -- Keeping 20260731000100's pair and dropping this branch's. The two differ:
 -- mine resolved instructors through can_manage_course_content() (which also
--- honours the course_instructors table), theirs matches courses.instructor_id
+-- honors the course_instructors table), theirs matches courses.instructor_id
 -- directly, consistent with how certificates are issued. Converging on theirs
 -- narrows co-instructor access slightly; that is the intended, reviewable
 -- semantics rather than an accident of whichever policy happened to match.
 --
 -- The INSERT policy from 20260801000200 is deliberately NOT dropped. Checking
--- the live catalogue rather than trusting the comment in 20260731000100 showed
+-- the live catalog rather than trusting the comment in 20260731000100 showed
 -- the "Instructors can issue certificates" policy it refers to does not exist —
 -- "Course staff can issue certificates for their courses" is the only path by
 -- which staff can issue at all, and the e2e revoke spec depends on it to create

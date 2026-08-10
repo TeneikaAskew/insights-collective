@@ -14,7 +14,7 @@ import {
 } from '@/data/courseraCatalog';
 // The generated file is no longer importable from src/ — it lives outside the
 // bundle now precisely so the app cannot reach it. The `data integrity` block
-// below validates the OFFLINE PIPELINE'S OUTPUT, not app behaviour, so it reads
+// below validates the OFFLINE PIPELINE'S OUTPUT, not app behavior, so it reads
 // the artifact from where the pipeline writes it. `tsconfig.app.json` includes
 // only src/, so this file is outside `tsc` coverage; these assertions are what
 // check it instead.
@@ -181,7 +181,7 @@ describe('resolveRoleCourses', () => {
     }
   });
 
-  it('honours the platform and Coursera limits independently', () => {
+  it('honors the platform and Coursera limits independently', () => {
     const many = Array.from({ length: 9 }, (_, i) =>
       makeCourse({
         id: `uuid-${i}`,

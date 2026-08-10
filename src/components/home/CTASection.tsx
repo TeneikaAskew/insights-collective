@@ -12,20 +12,27 @@ const CTASection = () => {
 
   useEffect(() => {
     const fetchStats = async () => {
-      const [coursesRes, studentsRes, enrollmentsRes] = await Promise.all([
-        supabase.from('courses').select('id', { count: 'exact', head: true }).eq('published', true),
-        supabase.from('profiles').select('id', { count: 'exact', head: true }),
-        supabase.from('enrollments').select('completion_status'),
-      ]);
+      // One aggregate call rather than three table reads. The enrollments read
+      // could never succeed from here: `anon` has no SELECT grant on that table,
+      // and Index redirects authenticated visitors to /dashboard, so every
+      // visitor this section renders for is anonymous. It failed with 42501 on
+      // every page load and left "Avg. Completion" showing a dash. Granting anon
+      // access to the rows would publish who is enrolled in what, so
+      // platform_stats() returns the three counters and no rows.
+      const { data, error } = await supabase.rpc('platform_stats');
+      if (error) {
+        console.error('[CTASection] platform_stats failed', error);
+        return;
+      }
 
-      const courseCount = coursesRes.count || 0;
-      const studentCount = studentsRes.count || 0;
-      const enrollments = enrollmentsRes.data || [];
-      const avgCompletion = enrollments.length > 0
-        ? Math.round(enrollments.reduce((s, e) => s + (e.completion_status || 0), 0) / enrollments.length)
-        : 0;
+      const row = data?.[0];
+      if (!row) return;
 
-      setStats({ courses: courseCount, students: studentCount, completionRate: avgCompletion });
+      setStats({
+        courses: row.published_courses ?? 0,
+        students: row.community_members ?? 0,
+        completionRate: row.avg_completion ?? 0,
+      });
     };
     fetchStats();
   }, []);

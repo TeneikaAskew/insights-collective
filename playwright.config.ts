@@ -59,11 +59,13 @@ function hermeticArgs(): string[] {
   // E2E_USE_RELAY=1 — do not refresh baselines from a run that blocked fonts.
   if (process.env.E2E_USE_RELAY === '1') {
     return [
-      // Monaco (cdn.jsdelivr.net) and esm.sh are named in the app's own CSP
-      // script-src; the code editor does not start without them. Excluding them
-      // does not make them reachable here, but it keeps the reason for a
-      // code-practice failure honest — the CDN is unreachable, not blocked.
-      '--host-resolver-rules=MAP * 127.0.0.1:1,EXCLUDE localhost,EXCLUDE cdn.jsdelivr.net,EXCLUDE esm.sh',
+      // cdn.jsdelivr.net and esm.sh were excluded here so a code-practice
+      // failure would read as "the CDN is unreachable" rather than "the suite
+      // blocked it". Monaco is bundled now and loads from this origin, so there
+      // is nothing left to be honest about — and blocking them means a
+      // regression to CDN loading fails here instead of quietly working on a
+      // machine with egress.
+      '--host-resolver-rules=MAP * 127.0.0.1:1,EXCLUDE localhost',
     ];
   }
 

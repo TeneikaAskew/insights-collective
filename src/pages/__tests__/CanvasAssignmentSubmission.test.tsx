@@ -356,7 +356,7 @@ describe('CanvasAssignmentSubmission', () => {
   });
 
   // REGRESSION: the media-recording option must be a disabled, honestly
-  // labelled unavailable state — not a selectable tab that dead-ends.
+  // labeled unavailable state — not a selectable tab that dead-ends.
   it('renders the media recording option disabled and never defaults to it', () => {
     const assignment = {
       id: 'a-1',

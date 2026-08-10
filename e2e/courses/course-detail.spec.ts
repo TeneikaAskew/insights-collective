@@ -57,7 +57,7 @@ test.describe('Course Detail', () => {
   // green for the shell, not for a breadcrumb.
   //
   // Skipped with the measurement rather than deleted: a course page with no way
-  // back to the catalogue is a reasonable thing to want to fix, and a skip keeps
+  // back to the catalog is a reasonable thing to want to fix, and a skip keeps
   // that visible in the coverage report where a deletion erases it.
   test.skip(
     'breadcrumb or back link renders',
@@ -65,7 +65,7 @@ test.describe('Course Detail', () => {
       annotation: {
         type: 'skip-reason',
         description:
-          'UI gap: /courses/:id renders no breadcrumb and no back link (no visible a[href="/courses"]); navigation back to the catalogue is only via the app sidebar.',
+          'UI gap: /courses/:id renders no breadcrumb and no back link (no visible a[href="/courses"]); navigation back to the catalog is only via the app sidebar.',
       },
     },
     async ({ page }) => {

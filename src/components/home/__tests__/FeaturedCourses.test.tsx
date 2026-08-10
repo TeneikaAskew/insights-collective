@@ -62,7 +62,7 @@ describe('FeaturedCourses', () => {
 
   // The local label map had gone stale against the live catalog: it mapped
   // 'Data Science' to "Data Engineering" outright, and defaulted everything it
-  // didn't recognise — which is every category the catalog actually uses — to
+  // didn't recognize — which is every category the catalog actually uses — to
   // "Data Engineering" too. Both cases relabelled real courses.
   it.each(['Analytics & BI', 'Data Science', 'ML/AI', 'Data Engineering'])(
     'shows %s as itself rather than relabelling it',

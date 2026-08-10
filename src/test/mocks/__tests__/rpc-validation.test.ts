@@ -8,7 +8,7 @@ import { mockSupabaseClient, resetSupabaseMock } from '../supabase';
  * `rpc: vi.fn()` accepted any string, which is how 893 tests stayed green
  * against `select_random_questions` — a function that had never been created.
  * The guard checks names against src/test/fixtures/db-functions.json, refreshed
- * from the live catalogue by scripts/audit/refresh-db-functions.mjs and
+ * from the live catalog by scripts/audit/refresh-db-functions.mjs and
  * verified in CI.
  */
 describe('supabase mock rpc validation', () => {

@@ -24,8 +24,8 @@
 --
 -- User-visible effect
 -- -------------------
---   * enrollments     — a student cannot read their own enrolments, so
---                       "My Courses", progress and enrolment counts fail
+--   * enrollments     — a student cannot read their own enrollments, so
+--                       "My Courses", progress and enrollment counts fail
 --   * quiz_questions  — the quiz player cannot load its questions
 --   * code_challenges — code practice cannot read the challenge and silently
 --                       falls back to DEMO mode, presenting fake evaluation

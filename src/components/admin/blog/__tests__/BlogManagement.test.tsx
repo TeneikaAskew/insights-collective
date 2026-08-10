@@ -112,7 +112,7 @@ describe('BlogManagement', () => {
 
     // The Featured filter option is exercised in the Playwright suite
     // (e2e/admin/blog-management.spec.ts) rather than here: opening a Radix
-    // Select requires pointer-event behaviour jsdom does not implement, so a
+    // Select requires pointer-event behavior jsdom does not implement, so a
     // unit test for it would be flaky rather than informative.
 
     it('marks a featured post so it is distinguishable in the list', async () => {

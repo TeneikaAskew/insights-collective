@@ -55,7 +55,7 @@ vi.mock('@/hooks/usePortfolio', () => ({
   }),
 }));
 
-const SAVED = { current_role: 'Junior Data Analyst', interests: 'dbt, modelling', hobbies: 'cycling' };
+const SAVED = { current_role: 'Junior Data Analyst', interests: 'dbt, modeling', hobbies: 'cycling' };
 
 /** Shaped to PortfolioInsightData — SkillGapChart reads the nested skillGaps. */
 const RECOMMENDATIONS = {
@@ -148,7 +148,7 @@ describe('PortfolioExplorer landing tab', () => {
     render(<PortfolioExplorer />);
     await waitFor(() => expect(tab(/Discover you/i)).toHaveAttribute('aria-selected', 'true'));
 
-    await user.type(screen.getByPlaceholderText(/data visualization/i), 'dbt, modelling');
+    await user.type(screen.getByPlaceholderText(/data visualization/i), 'dbt, modeling');
     await user.type(screen.getByPlaceholderText(/Junior Data Analyst/i), 'Junior Data Analyst');
     await user.type(screen.getByPlaceholderText(/personal coding projects/i), 'cycling');
     await user.click(screen.getByRole('button', { name: /generate|analyz|submit/i }));
@@ -165,7 +165,7 @@ describe('PortfolioExplorer landing tab', () => {
   });
 
   it('ignores a ?tab= value that is not a real tab', async () => {
-    // `?tab=projects` is the obvious wrong guess — the tab is labelled "Your
+    // `?tab=projects` is the obvious wrong guess — the tab is labeled "Your
     // projects" — and it used to count as a deliberate choice while rendering
     // as `discover`, which pinned an answered reader on the questionnaire.
     window.history.replaceState(null, '', '/portfolio-explorer?tab=projects');
@@ -177,7 +177,7 @@ describe('PortfolioExplorer landing tab', () => {
     await waitFor(() => expect(tab(/Your projects/i)).toHaveAttribute('aria-selected', 'true'));
   });
 
-  it('honours a ?tab= value that is a real tab', async () => {
+  it('honors a ?tab= value that is a real tab', async () => {
     // The other half of the same rule: a valid deep link must still win over
     // the landing choice, or the check above would just be ignoring the param.
     window.history.replaceState(null, '', '/portfolio-explorer?tab=pages');

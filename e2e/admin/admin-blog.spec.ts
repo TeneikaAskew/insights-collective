@@ -67,7 +67,7 @@ test.describe('Admin Blog Management', () => {
       annotation: {
         type: 'skip-reason',
         description:
-          'Needs a testid: /admin/blog has no Edit link or labelled Edit button, and the per-post icon controls cannot be targeted without a positional selector that would pass for the wrong reason.',
+          'Needs a testid: /admin/blog has no Edit link or labeled Edit button, and the per-post icon controls cannot be targeted without a positional selector that would pass for the wrong reason.',
       },
     },
     async ({ page }) => {

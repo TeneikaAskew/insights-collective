@@ -281,7 +281,7 @@ const CareerPathway: React.FC = () => {
     // The report is the deliverable of this whole flow and the user is expected
     // to act on it. Generating one from `data?.text ?? ''` meant that a failed
     // read — or a stored row whose text extraction produced nothing — still
-    // yielded a confident, personalised-looking career plan built from no resume
+    // yielded a confident, personalized-looking career plan built from no resume
     // at all. Refuse instead, and say which of the two happened.
     if (error) {
       logger.error('Could not read the resume after upload', error);

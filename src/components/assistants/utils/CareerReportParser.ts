@@ -120,7 +120,7 @@ export const parseCareerReport = (reportText: string): CareerReportData => {
     
     // If it's already in the correct format, clean focus areas and return
     if (jsonData.recommendedRoles) {
-      // Normalised through the same helper as the other branch. This used to
+      // Normalized through the same helper as the other branch. This used to
       // spread `...role` straight through, so anything extra the model emitted
       // — an invented title, a `salaryRange` — survived into the rendered
       // report on this path while being stripped on the other.

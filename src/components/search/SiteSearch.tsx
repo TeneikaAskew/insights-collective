@@ -99,9 +99,9 @@ const SiteSearch = () => {
       }
     });
 
-    // Career roles, read from the catalogue the page itself renders.
+    // Career roles, read from the catalog the page itself renders.
     //
-    // This used to be six roles typed out by hand against a catalogue of 33,
+    // This used to be six roles typed out by hand against a catalog of 33,
     // so 29 were unfindable — and two of the six, `analytics-engineer` and
     // `data-product-manager`, were slugs that no longer existed, so searching
     // them produced a result that deep-linked to nothing.

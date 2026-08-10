@@ -75,7 +75,7 @@ test.describe('Dashboard', () => {
 
   test('Browse Courses button is visible', async ({ page }) => {
     await goto(page, Routes.dashboard);
-    // It is an anchor, not a button, and it goes to the catalogue. The old
+    // It is an anchor, not a button, and it goes to the catalog. The old
     // union's `button:has-text("Courses")` alternative would also have been
     // satisfied by the "My Courses" tab, so `.first()` could pass with the
     // Browse control gone.

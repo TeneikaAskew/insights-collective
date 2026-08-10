@@ -72,6 +72,7 @@
   "pin_assignment_grade_columns_on_insert",
   "pin_quiz_answer_grading",
   "pin_quiz_submission_score",
+  "platform_stats",
   "rate_limit_certificate_verify",
   "reorder_content_items",
   "reorder_modules",

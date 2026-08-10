@@ -1329,7 +1329,7 @@ export const dataCareerRoles: DataCareerRole[] = [
       },
       {
         "time": "2:30 PM",
-        "activity": "Score generated samples by hand and catalogue the failure modes"
+        "activity": "Score generated samples by hand and catalog the failure modes"
       },
       {
         "time": "3:30 PM",

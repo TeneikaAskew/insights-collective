@@ -160,7 +160,7 @@ function CanvasGradingInterface() {
           .from('assignment_submissions')
           .update({
             // assignment_submissions has no grader_id column; grader attribution
-            // is modelled on grades.graded_by / grade_history.changed_by. Sending
+            // is modeled on grades.graded_by / grade_history.changed_by. Sending
             // it here made PostgREST reject the whole update, so saving a grade
             // failed outright.
             grade: gradeNum,

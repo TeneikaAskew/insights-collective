@@ -100,7 +100,7 @@ export const CourseProgressOverview: React.FC<CourseProgressOverviewProps> = ({
       // this page showed "Failed to load course progress" to every role — the
       // e2e spec passed anyway because it only asserted that <main> was visible.
       //
-      // Prerequisites are modelled as prerequisite_module_ids; whether they are
+      // Prerequisites are modeled as prerequisite_module_ids; whether they are
       // *met* is a per-student question the database does not answer, so it is
       // computed below from the progress this component already loads.
       const { data, error } = await supabase

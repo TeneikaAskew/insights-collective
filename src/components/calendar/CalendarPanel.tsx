@@ -17,6 +17,7 @@ import { useUserCalendar } from '@/hooks/useCourseCalendar';
 import { useAuth } from '@/contexts/AuthContext';
 import { format, isSameDay, isAfter } from 'date-fns';
 import { Link } from 'react-router-dom';
+import { htmlToPlainText } from '@/utils/htmlToPlainText';
 
 type CalendarEvent = {
   id: string;
@@ -51,15 +52,23 @@ const getNavigationUrl = (event: CalendarEvent) => {
 
 function EventCard({ event, showDate }: { event: CalendarEvent; showDate?: boolean }) {
   return (
-    <Link to={getNavigationUrl(event)}>
+    // `block` is load-bearing: an <a> is display:inline by default, and vertical
+    // margins do not apply to inline elements — so the `space-y-3` on the list
+    // resolved to a measured 0px between every card and they read as one slab.
+    <Link to={getNavigationUrl(event)} className="block">
       <Card className="hover:shadow-md transition-shadow">
         <CardContent className="p-4">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
               <h3 className="font-medium">{event.title}</h3>
               <p className="text-sm text-muted-foreground">{event.course_title}</p>
               {event.description && (
-                <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{event.description}</p>
+                // Assignment and quiz descriptions are stored as rich text, so
+                // the raw markup was being printed at the reader: "<h3>Clean and
+                // Transform Data</h3> <p>Take the provided <code>…".
+                <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                  {htmlToPlainText(event.description)}
+                </p>
               )}
               <div className="flex items-center gap-1 text-xs text-muted-foreground mt-2">
                 {showDate && (

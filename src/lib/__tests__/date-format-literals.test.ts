@@ -109,7 +109,7 @@ describe('date-fns format strings', () => {
   });
 
   it("renders 'at' as the word, not as AM/PM plus a Unix timestamp", () => {
-    // The specific regression, pinned by behaviour rather than by source shape.
+    // The specific regression, pinned by behavior rather than by source shape.
     const when = new Date('2026-08-03T12:19:00Z');
     const wrong = format(when, 'MMM d, yyyy at h:mm a');
     const right = format(when, "MMM d, yyyy 'at' h:mm a");

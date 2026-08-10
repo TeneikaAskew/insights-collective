@@ -39,7 +39,7 @@ test.describe('Admin Courses Management', () => {
   });
 
   // The row control is an icon-only button in the Actions column, not a link or
-  // a button labelled "Edit" — so `button:has-text("Edit")` matched nothing and
+  // a button labeled "Edit" — so `button:has-text("Edit")` matched nothing and
   // the count-guard reported that as a pass. Asserting the column is what can
   // be checked reliably today; targeting the control itself needs a testid on
   // it, which is an app change rather than a test one.

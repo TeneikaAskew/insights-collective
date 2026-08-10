@@ -16,10 +16,6 @@ const Footer = () => {
             <p className="text-background/60">
               A modern e-learning platform designed to help you achieve your educational goals
             </p>
-            <address className="text-background/60 not-italic mt-4">
-              <p>Email: info@ic.tech</p>
-              <p>Phone: (123) 456-7890</p>
-            </address>
           </div>
           
           <div>

@@ -14,7 +14,7 @@
 //
 // Writing the convention down is most of the point. The audit found three heading
 // systems and a tail of one-off deviants — `text-2xl` here, no `tracking-tight` there, a
-// subtitle rendered as a sibling `<p>` in a different colour — none of which were
+// subtitle rendered as a sibling `<p>` in a different color — none of which were
 // decisions, just drift. A component means the next page inherits the answer instead of
 // picking one.
 //

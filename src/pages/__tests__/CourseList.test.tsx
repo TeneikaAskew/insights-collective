@@ -148,7 +148,7 @@ describe('CourseList', () => {
   });
 
   it('never queries enrollments — this page is public and anon has no access', async () => {
-    // Replaces a test that pinned the opposite behaviour: the catalog used to
+    // Replaces a test that pinned the opposite behavior: the catalog used to
     // scan `enrollments` for a count no card renders, and treat the failure as
     // fatal. `anon` has no SELECT on that table by design, so every signed-out
     // visitor got an error page instead of the catalog.
