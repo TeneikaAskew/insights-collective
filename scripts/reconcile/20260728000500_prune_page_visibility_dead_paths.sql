@@ -41,7 +41,21 @@
 
 begin;
 
--- 1. No row outside the canonical list the migration defines.
+-- 1. No row outside what is legitimately allowed to be there.
+--
+-- That set is the union of two lists, and it has to be, because "stale" is not
+-- the same question as "in the migration's list". The migration's list is a
+-- snapshot of 2026-07-28; the manifest has grown since. Sync creates a row for
+-- every CURRENT manifest path, so a path added after that date — today,
+-- /resources/salary-guide — is a perfectly valid row that the July list knows
+-- nothing about. Judging it against the snapshot alone would abort this script
+-- on a database that is entirely correct.
+--
+-- The second list is a snapshot too, taken 2026-08-11 from
+-- src/config/pageManifest.ts. That is acceptable here in a way it would not be
+-- in application code: this script runs once, to record one version, and is
+-- then history. If it is ever re-run long afterwards, refresh the list from the
+-- manifest first.
 do $$
 declare
   v_stale text;
@@ -50,6 +64,7 @@ begin
     into v_stale
     from public.page_visibility pv
    where pv.page_path not in (
+     -- The migration's own canonical list (2026-07-28).
      '/', '/dashboard', '/user-dashboard', '/notifications', '/calendar',
      '/profile', '/courses', '/course-management', '/enrolled-courses',
      '/interview-prep', '/interview-prep/code-practice',
@@ -57,7 +72,9 @@ begin
      '/interview-prep/mock-interviews', '/interview-prep/star-practice',
      '/career-pathway', '/assistants', '/explore-data-careers', '/resume',
      '/events', '/messages', '/portfolio-explorer', '/portfolio-editor',
-     '/blog', '/resources', '/teneika-linkedin', '/teneika-tweets', '/survey'
+     '/blog', '/resources', '/teneika-linkedin', '/teneika-tweets', '/survey',
+     -- Manifest paths added since (2026-08-11 snapshot).
+     '/resources/salary-guide'
    );
 
   if v_stale is not null then
