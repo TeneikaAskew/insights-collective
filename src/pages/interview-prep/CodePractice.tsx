@@ -601,26 +601,27 @@ export default function CodePractice() {
 
             {/* Right page: the dark editor sitting in a soft frame */}
             <div className="lg:col-span-3">
-              <MonacoCard className="rounded-[26px] overflow-hidden shadow-[0_14px_34px_-18px_rgba(90,80,120,0.55)] border-[#3A3644]">
-                <div className="flex items-center gap-2 px-5 py-3 border-b border-[#3A3644]">
+              <MonacoCard className="rounded-[26px] overflow-hidden shadow-[0_14px_34px_-18px_rgba(90,80,120,0.55)] ss-ink-stage-border">
+                <div className="flex items-center gap-2 px-5 py-3 border-b ss-ink-stage-border">
+                  {/* macOS window buttons — a real-world metaphor, deliberately literal. */}
                   <span className="h-2.5 w-2.5 rounded-full bg-[#EC6A5E]" aria-hidden="true" />
                   <span className="h-2.5 w-2.5 rounded-full bg-[#F4BF4F]" aria-hidden="true" />
                   <span className="h-2.5 w-2.5 rounded-full bg-[#61C554]" aria-hidden="true" />
-                  <span className="ml-2 font-mono text-xs text-[#9CA3AF]">
+                  <span className="ml-2 font-mono text-xs ss-ink-stage-muted">
                     {language === 'python' ? 'solution.py' : 'solution.js'}
                   </span>
                   <Tabs value={activeTab} onValueChange={setActiveTab} className="ml-auto">
                     <TabsList className="bg-transparent p-0 gap-1">
                       <TabsTrigger
                         value="code"
-                        className="rounded-full text-xs font-bold text-[#9CA3AF] data-[state=active]:bg-[#3A3644] data-[state=active]:text-white data-[state=active]:shadow-none"
+                        className="rounded-full text-xs font-bold ss-ink-stage-muted ss-ink-stage-tab"
                       >
                         Code Editor
                       </TabsTrigger>
                       <TabsTrigger
                         value="feedback"
                         disabled={!feedback}
-                        className="rounded-full text-xs font-bold text-[#9CA3AF] data-[state=active]:bg-[#3A3644] data-[state=active]:text-white data-[state=active]:shadow-none"
+                        className="rounded-full text-xs font-bold ss-ink-stage-muted ss-ink-stage-tab"
                       >
                         Feedback
                       </TabsTrigger>
@@ -647,24 +648,24 @@ export default function CodePractice() {
                   <div
                     data-testid="challenge-load-error"
                     role="alert"
-                    className="flex items-center gap-3 flex-wrap px-5 py-3 border-t border-[#3A3644] text-sm text-[#D1D5DB]"
+                    className="flex items-center gap-3 flex-wrap px-5 py-3 border-t ss-ink-stage-border text-sm ss-ink-stage-text-token"
                   >
                     <span>Couldn’t load this challenge, so it can’t be evaluated yet.</span>
                     <Button
                       variant="outline"
                       onClick={() => setChallengeReloads((n) => n + 1)}
-                      className="rounded-full font-bold border-[#4A445C] bg-transparent text-[#D1D5DB] hover:bg-[#333333] hover:text-white"
+                      className="rounded-full font-bold ss-ink-stage-control"
                     >
                       Try again
                     </Button>
                   </div>
                 )}
 
-                <div className="flex justify-end gap-3 px-5 py-4 border-t border-[#3A3644]">
+                <div className="flex justify-end gap-3 px-5 py-4 border-t ss-ink-stage-border">
                   <Button
                     variant="outline"
                     onClick={handleReset}
-                    className="rounded-full font-bold border-[#4A445C] bg-transparent text-[#D1D5DB] hover:bg-[#333333] hover:text-white"
+                    className="rounded-full font-bold ss-ink-stage-control"
                   >
                     <RotateCcw className="h-4 w-4 mr-2" />
                     Reset

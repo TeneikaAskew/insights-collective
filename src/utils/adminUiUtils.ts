@@ -4,8 +4,8 @@
 
 // Palette mirrors the Soft Studio prototype avatar colors.
 const AVATAR_COLORS = [
-  '#624EBE', '#3FA391', '#A794EB', '#C97F3D', '#4E9B70',
-  '#B97143', '#533FA8', '#3A7A8C', '#8A6FD1', '#2F8F7E',
+  'hsl(var(--ss-lav-deep))', 'hsl(var(--ss-teal))', 'hsl(var(--ss-lav))', 'hsl(var(--ss-warn))', 'hsl(var(--ss-good))',
+  'hsl(var(--ss-peach-deep))', '#533FA8', '#3A7A8C', '#8A6FD1', '#2F8F7E',
 ];
 
 /** Two-letter initials from a name; falls back to 'U'. */

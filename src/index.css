@@ -94,6 +94,17 @@
     --ss-teal: 169 44% 44%;            /* #3FA391 */
     --ss-teal-chip: 168 38% 92%;       /* #E4F3F0 */
     --ss-shadow: 0 14px 34px -18px rgba(90, 80, 120, 0.35);
+
+    /* Ink stage — fixed in BOTH themes on purpose. The code editor and the
+       mock-interview stage keep dark chrome inside the light theme; see
+       docs/design/interview-prep-concepts/README.md. Declared here so the
+       values stop being pasted as literals across those two pages. */
+    --ss-ink-stage: 252 19% 16%;         /* #242130 */
+    --ss-ink-stage-border: 257 11% 24%;  /* #3A3644 */
+    --ss-ink-stage-muted: 218 11% 65%;   /* #9CA3AF */
+    --ss-ink-stage-line: 255 15% 31%;    /* #4A445C — control outlines */
+    --ss-ink-stage-text: 216 12% 84%;    /* #D1D5DB — control labels */
+    --ss-ink-stage-hover: 0 0% 20%;      /* #333333 — control hover */
   }
 
   /* Ink Studio — the Soft Studio dark derivation. The ink deepens into the
@@ -247,6 +258,130 @@
 
   [data-active=true] svg {
     color: hsl(var(--sidebar-accent-foreground));
+  }
+
+  /* ------------------------------------------------------------------
+     Navigation rows — the one definition every rail in the app uses.
+
+     Four rails had each been styled by hand in component files, so the
+     app-wide sidebar, the course rail, the builder rail and the lesson
+     rail drifted apart. The colours live here now: change a nav colour in
+     this block and every rail follows.
+
+     Two specificity problems are solved by the doubled `.ss-nav-item`
+     selectors below, and both are load-bearing:
+
+     1. Tailwind hoists `@layer components` ahead of `@layer utilities` in the
+        emitted stylesheet. shadcn's `SidebarMenuButton` carries its own
+        `hover:bg-sidebar-accent` utility, which compiles to 0-2-0 — the same
+        specificity as a plain `.ss-nav-item:hover`, and it lands later, so it
+        would win and repaint hover as a solid slab instead of the soft tint
+        the site nav actually uses. Doubling the class buys 0-3-0.
+     2. `.ss-nav-item:hover` (0-2-0) would otherwise beat a bare
+        `.ss-nav-item--active` (0-1-0), so the current row would lose its pill
+        the moment the pointer touched it.
+     ------------------------------------------------------------------ */
+  .ss-nav-item {
+    @apply flex items-center transition-colors duration-200;
+    color: hsl(var(--sidebar-foreground) / 0.8);
+  }
+
+  .ss-nav-item.ss-nav-item:hover {
+    background-color: hsl(var(--sidebar-accent) / 0.1);
+    color: hsl(var(--sidebar-accent));
+  }
+
+  .ss-nav-item.ss-nav-item.ss-nav-item--active,
+  .ss-nav-item.ss-nav-item.ss-nav-item--active:hover {
+    @apply font-medium;
+    background-color: hsl(var(--sidebar-accent));
+    color: hsl(var(--sidebar-accent-foreground));
+  }
+
+  /* Icons ride the row: muted at rest, accent on hover, inverted when active. */
+  .ss-nav-icon {
+    color: hsl(var(--muted-foreground));
+  }
+
+  .ss-nav-item.ss-nav-item:hover .ss-nav-icon {
+    color: hsl(var(--sidebar-accent));
+  }
+
+  .ss-nav-item.ss-nav-item.ss-nav-item--active .ss-nav-icon,
+  .ss-nav-item.ss-nav-item.ss-nav-item--active:hover .ss-nav-icon {
+    color: hsl(var(--sidebar-accent-foreground));
+  }
+
+  /* The shadcn Sidebar primitive marks its current row with data-active rather
+     than our modifier class. Match it at 0-3-1 so a row that carries both the
+     primitive's active state and `.ss-nav-item` keeps its pill on hover. */
+  .ss-nav-item.ss-nav-item[data-active='true'],
+  .ss-nav-item.ss-nav-item[data-active='true']:hover {
+    background-color: hsl(var(--sidebar-accent));
+    color: hsl(var(--sidebar-accent-foreground));
+  }
+
+  .ss-nav-item.ss-nav-item[data-active='true'] .ss-nav-icon,
+  .ss-nav-item.ss-nav-item[data-active='true']:hover .ss-nav-icon {
+    color: hsl(var(--sidebar-accent-foreground));
+  }
+
+  /* The rail itself — background and edge, so a rail never picks its own. */
+  .ss-nav-rail.ss-nav-rail {
+    background-color: hsl(var(--sidebar-background));
+    border-color: hsl(var(--sidebar-border));
+  }
+
+  /* ------------------------------------------------------------------
+     Ink stage — the deliberately dark chrome the interview-prep code
+     editor and mock-interview stage keep in BOTH themes, per
+     docs/design/interview-prep-concepts/README.md ("keeps its dark chrome
+     but gets the Soft Studio frame"). These are fixed by design; they are
+     tokens so the values stop being copied around as literals.
+
+     Selectors are doubled for the same reason the nav block above doubles
+     its own: these classes land on shadcn `Button` and `TabsTrigger`, whose
+     variants emit `border-input`, `bg-background` and
+     `data-[state=active]:bg-background` as utilities. Utilities are emitted
+     after `@layer components`, so a single-class rule ties on specificity
+     and loses. Measured, not assumed — at single specificity the editor tab
+     computed to plaster #FAF8F5 and the controls took --input for a border.
+     ------------------------------------------------------------------ */
+  .ss-ink-stage.ss-ink-stage {
+    background-color: hsl(var(--ss-ink-stage));
+    border-color: hsl(var(--ss-ink-stage-border));
+  }
+
+  .ss-ink-stage-border.ss-ink-stage-border {
+    border-color: hsl(var(--ss-ink-stage-border));
+  }
+
+  .ss-ink-stage-muted.ss-ink-stage-muted {
+    color: hsl(var(--ss-ink-stage-muted));
+  }
+
+  /* Buttons sitting on the ink stage — outline, label and hover in one place
+     rather than four literals repeated per control. */
+  .ss-ink-stage-control.ss-ink-stage-control {
+    border-color: hsl(var(--ss-ink-stage-line));
+    color: hsl(var(--ss-ink-stage-text));
+    background-color: transparent;
+  }
+
+  .ss-ink-stage-control.ss-ink-stage-control:hover {
+    background-color: hsl(var(--ss-ink-stage-hover));
+    color: hsl(var(--ss-ink-stage-text));
+  }
+
+  .ss-ink-stage-text-token.ss-ink-stage-text-token {
+    color: hsl(var(--ss-ink-stage-text));
+  }
+
+  /* Tab chip selected on the ink stage. */
+  .ss-ink-stage-tab.ss-ink-stage-tab[data-state='active'] {
+    background-color: hsl(var(--ss-ink-stage-border));
+    color: hsl(var(--ss-ink-stage-text));
+    box-shadow: none;
   }
 }
 

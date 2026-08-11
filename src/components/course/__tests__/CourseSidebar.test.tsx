@@ -65,7 +65,7 @@ describe('CourseSidebar', () => {
     expect(screen.queryByText('Back to Courses')).not.toBeInTheDocument();
   });
 
-  it('styles nav items with the shared sidebar palette, not a course-only primary tint', async () => {
+  it('opts nav items into the shared nav class, not a course-only primary tint', async () => {
     mockIsMobile.mockReturnValue(true);
     renderRail();
 
@@ -73,7 +73,7 @@ describe('CourseSidebar', () => {
     const button = modules.closest('[data-sidebar="menu-button"]') ?? modules;
     const className = button.getAttribute('class') ?? '';
 
-    expect(className).toContain('hover:text-sidebar-accent');
+    expect(className).toContain('ss-nav-item');
     expect(className).not.toContain('bg-primary/10');
     expect(className).not.toContain('border-primary');
   });

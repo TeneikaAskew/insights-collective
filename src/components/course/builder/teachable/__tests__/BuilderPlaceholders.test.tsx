@@ -79,21 +79,23 @@ describe('TeachableShell nav palette', () => {
   const navButtonFor = (label: string) =>
     screen.getAllByRole('button').find((b) => within(b).queryByText(label))!;
 
-  it('uses the shared --sidebar-* tokens for resting items', () => {
+  // Colours live in `.ss-nav-*` (src/index.css); the contract these assert is
+  // that the rail opts into that shared block rather than styling itself.
+  it('opts resting items into the shared nav class', () => {
     renderShell();
     const className = navButtonFor('Curriculum').getAttribute('class') ?? '';
 
-    expect(className).toContain('text-sidebar-foreground/80');
-    expect(className).toContain('hover:bg-sidebar-accent/10');
+    expect(className).toContain('ss-nav-item');
+    expect(className).not.toContain('ss-nav-item--active');
     expect(className).not.toContain('text-primary');
   });
 
-  it('uses the shared accent pill for the active item', () => {
+  it('marks the active item with the shared active class', () => {
     renderShell();
     const className = navButtonFor('Setup guide').getAttribute('class') ?? '';
 
-    expect(className).toContain('bg-sidebar-accent');
-    expect(className).toContain('text-sidebar-accent-foreground');
+    expect(className).toContain('ss-nav-item');
+    expect(className).toContain('ss-nav-item--active');
     expect(className).not.toContain('bg-primary ');
   });
 

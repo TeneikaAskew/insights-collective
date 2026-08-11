@@ -38,6 +38,7 @@ import { LessonViewer } from '@/components/course/learn/LessonViewer';
 import type { ContentItem } from '@/types/canvas';
 import { createLogger } from '@/utils/logger';
 import { cn } from '@/lib/utils';
+import { sidebarNavItemClass, SIDEBAR_NAV_RAIL } from '@/lib/sidebarNav';
 import { Hint } from '@/components/ui/hint';
 import { StudentLearnTour } from '@/components/onboarding/StudentLearnTour';
 
@@ -657,7 +658,12 @@ const CourseLearn = () => {
               className="absolute inset-0 bg-black/50"
               onClick={() => setMobileRailOpen(false)}
             />
-            <aside className="relative w-80 max-w-[85vw] overflow-y-auto bg-card border-r border-border shadow-xl">
+            <aside
+              className={cn(
+                'relative w-80 max-w-[85vw] overflow-y-auto border-r shadow-xl',
+                SIDEBAR_NAV_RAIL,
+              )}
+            >
               <div className="flex items-center justify-between p-3 border-b border-border">
                 <div className="text-sm font-semibold truncate pr-2">{course.title}</div>
                 <button
@@ -686,7 +692,13 @@ const CourseLearn = () => {
         )}
 
         {/* Desktop left curriculum rail */}
-        <aside data-onboarding="learn-rail" className="hidden lg:block w-72 flex-shrink-0 overflow-y-auto bg-muted/40 border-r border-border">
+        <aside
+          data-onboarding="learn-rail"
+          className={cn(
+            'hidden lg:block w-72 flex-shrink-0 overflow-y-auto border-r',
+            SIDEBAR_NAV_RAIL,
+          )}
+        >
           <RailNav
             modules={modules}
             selectedId={selected?.item.id}
@@ -792,22 +804,28 @@ function RailNav({
                       type="button"
                       onClick={() => onSelect(m.id, it.id)}
                       className={cn(
-                        'group w-full flex items-center gap-3 pl-3 pr-4 py-2 rounded-full text-left text-sm transition-colors',
-                        active
-                          ? 'bg-primary text-primary-foreground shadow-sm'
-                          : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                        // Colours come from `.ss-nav-*` in src/index.css, the same
+                        // block the app, course and builder rails read. The pill
+                        // shape stays: this rail is a lesson checklist, and its
+                        // rounded-full row is what separates it from a menu.
+                        'group w-full gap-3 pl-3 pr-4 py-2 rounded-full text-left text-sm',
+                        sidebarNavItemClass(active),
                       )}
                     >
                       <span className="flex-shrink-0" aria-hidden>
+                        {/* Completion state is this rail's own vocabulary — a menu
+                            has no equivalent — so it keeps explicit colours rather
+                            than riding .ss-nav-icon. Both sides are sidebar tokens
+                            so they stay legible on the accent pill. */}
                         {done ? (
                           <CheckCircle2
                             className={cn(
                               'w-4 h-4',
-                              active ? 'text-primary-foreground' : 'text-primary',
+                              active ? 'text-sidebar-accent-foreground' : 'text-sidebar-accent',
                             )}
                           />
                         ) : active ? (
-                          <div className="w-4 h-4 rounded-full border-2 border-primary-foreground bg-primary-foreground/20" />
+                          <div className="w-4 h-4 rounded-full border-2 border-sidebar-accent-foreground bg-sidebar-accent-foreground/20" />
                         ) : (
                           <Circle className="w-4 h-4 text-muted-foreground/60" />
                         )}
@@ -817,7 +835,7 @@ function RailNav({
                           type={it.type}
                           className={cn(
                             'w-3 h-3 flex-shrink-0',
-                            active ? 'text-primary-foreground/80' : 'text-muted-foreground/70',
+                            active ? 'text-sidebar-accent-foreground/80' : 'text-muted-foreground/70',
                           )}
                         />
                         <span className="truncate">{it.title || 'Untitled lesson'}</span>
@@ -827,7 +845,7 @@ function RailNav({
                           className={cn(
                             'text-[9px] uppercase tracking-widest font-bold px-1.5 py-0.5 rounded-full flex-shrink-0',
                             active
-                              ? 'bg-primary-foreground/20 text-primary-foreground'
+                              ? 'bg-sidebar-accent-foreground/20 text-sidebar-accent-foreground'
                               : 'bg-muted text-muted-foreground',
                           )}
                         >

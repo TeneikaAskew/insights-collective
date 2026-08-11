@@ -25,10 +25,9 @@ import { cn } from '@/lib/utils';
 import { Hint } from '@/components/ui/hint';
 import { Badge } from '@/components/ui/badge';
 import {
-  SIDEBAR_NAV_ACTIVE,
-  SIDEBAR_NAV_INACTIVE,
-  SIDEBAR_NAV_ITEM_BASE,
+  SIDEBAR_NAV_ITEM,
   sidebarNavIconClass,
+  sidebarNavItemClass,
 } from '@/lib/sidebarNav';
 
 export type BuilderNavKey =
@@ -146,9 +145,8 @@ export function TeachableShell({
             aria-label={isCollapsed ? 'Expand navigation' : 'Minimize navigation'}
             aria-expanded={!isCollapsed}
             className={cn(
-              SIDEBAR_NAV_ITEM_BASE,
-              'gap-2 text-sm',
-              SIDEBAR_NAV_INACTIVE,
+              'gap-2 text-sm rounded-md',
+              SIDEBAR_NAV_ITEM,
               isCollapsed ? 'p-2 justify-center' : 'w-full px-3 py-2',
             )}
           >
@@ -281,19 +279,12 @@ function NavGroup({
             title={collapsed ? label : undefined}
             aria-label={collapsed ? label : undefined}
             className={cn(
-              SIDEBAR_NAV_ITEM_BASE,
-              'group w-full text-sm text-left',
+              'group w-full text-sm text-left rounded-md',
               collapsed ? 'justify-center px-2 py-2' : 'gap-3 px-3 py-2',
-              active ? SIDEBAR_NAV_ACTIVE : SIDEBAR_NAV_INACTIVE,
+              sidebarNavItemClass(active),
             )}
           >
-            <Icon
-              className={cn(
-                'h-4 w-4 flex-shrink-0',
-                sidebarNavIconClass(active),
-                !active && 'group-hover:text-sidebar-accent',
-              )}
-            />
+            <Icon className={cn('h-4 w-4 flex-shrink-0', sidebarNavIconClass(active))} />
             {!collapsed && <span className="truncate">{label}</span>}
             {!collapsed && comingSoon && (
               <Badge
