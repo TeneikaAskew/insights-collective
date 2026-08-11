@@ -13,6 +13,55 @@ const BASE = process.env.E2E_BASE_URL || 'http://localhost:8080';
 
 
 test.describe('Notifications center — real flow', () => {
+  test('notification message spans the card width at phone width', async ({ page }) => {
+    // The message used to live in the same column as the title, sharing that
+    // column's width with a timestamp and a delete button. On a phone that left
+    // it roughly half the card, so short messages wrapped to four lines while
+    // the space beneath the icon stayed empty. Header row (icon, title, delete)
+    // then a full-width body row is what this measures.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`${BASE}/notifications`, { waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('networkidle');
+
+    const cards = page.locator('[data-testid="notification-card"]');
+    await expect
+      .poll(
+        async () => {
+          const rendered = await cards.count();
+          const empty = await page.getByText(/nothing here/i).isVisible().catch(() => false);
+          return rendered > 0 ? 'cards' : empty ? 'empty' : 'loading';
+        },
+        { timeout: 20_000 },
+      )
+      .not.toBe('loading');
+
+    const cardCount = await cards.count();
+    expect(
+      cardCount,
+      'Seed gap: E2E member has no notifications, so this layout assertion measured nothing.',
+    ).toBeGreaterThan(0);
+
+    const card = cards.first();
+    const cardBox = await card.boundingBox();
+    // The message is the last <p> in the card body, outside the header row.
+    const message = card.locator('p').last();
+    const messageBox = await message.boundingBox();
+
+    expect(cardBox && messageBox, 'card and message both have layout boxes').toBeTruthy();
+    expect(
+      messageBox!.width,
+      `Message is ${Math.round(messageBox!.width)}px wide inside a ${Math.round(cardBox!.width)}px ` +
+        'card — it is still boxed into the title column rather than spanning the card.',
+    ).toBeGreaterThan(cardBox!.width * 0.8);
+
+    // The title gets the full width beside the icon now, so it should not be
+    // clipped down to a couple of words with an ellipsis.
+    const heading = card.locator('h4').first();
+    const clipped = await heading.evaluate((el) => el.scrollWidth > el.clientWidth + 1);
+    expect(clipped, 'notification title is still being clipped horizontally').toBe(false);
+  });
+
+
   test('renders header, tabs, and either items or empty state', async ({ page }) => {
     await page.goto(`${BASE}/notifications`, { waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('heading', { name: 'Notifications', level: 1 })).toBeVisible();

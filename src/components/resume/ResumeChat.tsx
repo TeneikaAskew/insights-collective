@@ -7,6 +7,7 @@ import { sanitizeHTML } from '@/utils/sanitize';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatMessage } from '@/components/assistants/utils/messageFormatting';
 import { useToast } from '@/hooks/use-toast';
+import { assertStorableResult, emptyResultToast, isEmptyResultError } from '@/lib/resultIntegrity';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ResumeAnalysis } from '@/components/assistants/types';
 
@@ -95,7 +96,12 @@ const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
     try {
       // Determine sender type based on message role
       const senderType = message.role;
-      
+
+      // A message with no content is not a message. Storing one leaves a blank
+      // turn in the transcript that the person reads back later as something
+      // they or the assistant said and cannot recover.
+      assertStorableResult('chat message', message.content);
+
       // Store message in database
       await supabase.from('assistant_messages').insert({
         conversation_id: conversationId,
@@ -109,6 +115,18 @@ const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
       logger.log(`Stored ${senderType} message in database`);
     } catch (error) {
       logger.error('Error storing message in database:', error);
+      // This runs alongside the visible chat, so a silent failure means the
+      // conversation on screen and the one in the database quietly diverge.
+      toast(
+        isEmptyResultError(error)
+          ? emptyResultToast(error)
+          : {
+              title: 'Message not saved',
+              description:
+                'Your conversation is on screen but could not be saved, so it may not be here next time.',
+              variant: 'destructive',
+            },
+      );
     }
   };
 

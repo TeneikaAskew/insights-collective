@@ -324,36 +324,41 @@ const Notifications = () => {
                     )}
                     onClick={() => handleClick(n)}
                   >
-                    <CardContent className="p-4 flex items-start gap-3">
-                      <div className="mt-0.5 p-2 rounded-full bg-muted">{iconFor(n.type)}</div>
-                      <div className="flex-1 min-w-0 text-left">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <h4 className="text-sm font-semibold truncate">{n.title}</h4>
+                    {/* Two rows, not three columns.
+                        The message used to sit in the same narrow column as the
+                        title, sharing that column's width with a timestamp and
+                        a delete button — on a phone that left it about half the
+                        card, so a two-line message wrapped to four and the
+                        titles clipped to "Assignment gra…". Header row: icon,
+                        title, delete. Body row: the message, spanning the card.
+                        The timestamp joins the course name on the meta line,
+                        which is where it stops competing for title width. */}
+                    <CardContent className="p-4 text-left">
+                      <div className="flex items-start gap-3">
+                        <div className="mt-0.5 shrink-0 p-2 rounded-full bg-muted">{iconFor(n.type)}</div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-sm font-semibold break-words">{n.title}</h4>
+                          <p className="text-xs text-muted-foreground break-words">
                             {n.course_id && courses[n.course_id] && (
-                              <p className="text-xs text-muted-foreground">
-                                {courses[n.course_id].title}
-                              </p>
+                              <span>{courses[n.course_id].title} · </span>
                             )}
-                          </div>
-                          <span className="text-xs text-muted-foreground whitespace-nowrap">
                             {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
-                          </span>
+                          </p>
                         </div>
-                        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{n.message}</p>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void removeOne(n.id);
+                          }}
+                          aria-label="Delete notification"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void removeOne(n.id);
-                        }}
-                        aria-label="Delete notification"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <p className="mt-2 text-sm text-muted-foreground line-clamp-3">{n.message}</p>
                     </CardContent>
                   </Card>
                 ))}

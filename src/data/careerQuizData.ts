@@ -10,11 +10,28 @@ export interface QuizQuestion {
   id: number;
   text: string;
   type: 'scale' | 'multiple-choice';
-  scaleType?: 'comfort' | 'preference' | 'agree';
+  /**
+   * 'preference' is deliberately absent. It described an A/B scale, but a
+   * two-pole question needs one weight set per pole and this shape carries
+   * only one — so whichever pole the weights described, the other pole scored
+   * it. The single question that used it (id 3) is now an agree scale.
+   */
+  scaleType?: 'comfort' | 'agree';
+  /**
+   * What the answer is evidence of.
+   *
+   * 'affinity' (the default) feeds the track match scores. 'experience' does
+   * not: it establishes how far along the person is, which the match scores
+   * cannot tell you — every other question asks what someone enjoys or
+   * prefers, and enthusiasm is not proficiency.
+   */
+  measures?: 'affinity' | 'experience';
   options?: {
     id: string;
     text: string;
     weights: Record<CareerTrack, number>;
+    /** Set on 'experience' questions: the level this answer establishes. */
+    experienceLevel?: SkillLevel;
   }[];
   weights?: Record<CareerTrack, number>;
 }
@@ -68,9 +85,20 @@ export const quizQuestions: QuizQuestion[] = [
   },
   {
     id: 3,
-    text: "Do you prefer writing scripts and building systems (A) over analyzing trends (B)?",
+    // Reworded from "Do you prefer writing scripts and building systems (A)
+    // over analyzing trends (B)?" on the A/B "preference" scale, which scored
+    // backwards. Scoring runs one direction — higher answer, more of this
+    // question's weights — but the weights here describe pole A (systems, so
+    // Data Engineering 4 / Analytics 0) while the top of the A/B scale is pole
+    // B. "Strongly Prefer B", meaning analysis, awarded Data Engineering all 4
+    // of its points; "Strongly Prefer A", meaning systems, awarded it 0.8. That
+    // is 21% of Data Engineering's ceiling handed out for the opposite answer.
+    //
+    // A two-pole question needs a weight set per pole, which this shape cannot
+    // express. An agree scale can: agreement now means the weights below.
+    text: "I would rather write scripts and build data systems than analyze trends.",
     type: "scale",
-    scaleType: "preference",
+    scaleType: "agree",
     weights: {
       "AI/ML": 2,
       "Analytics": 0,
@@ -194,6 +222,53 @@ export const quizQuestions: QuizQuestion[] = [
           "Data Engineering": 0,
           "Business Intelligence": 3
         }
+      }
+    ]
+  },
+  {
+    /**
+     * The only question that asks about proficiency.
+     *
+     * Every question above it asks what the person enjoys, prefers or is
+     * excited by — "Do you enjoy...", "I like...", "Which tool excites you
+     * most?". Two ask about comfort, which is closer, but still a feeling.
+     * The skill level was previously read off the sum of those answers, so
+     * someone who found four tracks appealing was told they were "Advanced"
+     * in all of them, and the course recommendations keyed on that level sent
+     * an enthusiastic beginner to "MLOps and Model Deployment".
+     *
+     * Weights are all zero: experience says nothing about which track fits,
+     * only how far along the person is, and mixing it into the match scores
+     * would let seniority masquerade as affinity.
+     */
+    id: 15,
+    text: "How much hands-on experience do you have working with data?",
+    type: "multiple-choice",
+    measures: "experience",
+    options: [
+      {
+        id: "none",
+        text: "None yet — I'm exploring what this field involves",
+        experienceLevel: "Beginner",
+        weights: { "AI/ML": 0, "Analytics": 0, "Data Engineering": 0, "Business Intelligence": 0 }
+      },
+      {
+        id: "learning",
+        text: "Some — coursework, personal projects, or under a year on the job",
+        experienceLevel: "Beginner",
+        weights: { "AI/ML": 0, "Analytics": 0, "Data Engineering": 0, "Business Intelligence": 0 }
+      },
+      {
+        id: "working",
+        text: "One to three years using data in a working role",
+        experienceLevel: "Intermediate",
+        weights: { "AI/ML": 0, "Analytics": 0, "Data Engineering": 0, "Business Intelligence": 0 }
+      },
+      {
+        id: "seasoned",
+        text: "More than three years, and I help others with their data work",
+        experienceLevel: "Advanced",
+        weights: { "AI/ML": 0, "Analytics": 0, "Data Engineering": 0, "Business Intelligence": 0 }
       }
     ]
   }
@@ -669,12 +744,93 @@ export const courseRecommendations: CourseRecommendation[] = [
   }
 ];
 
-// Helper function to get SkillLevel based on score
-export const getSkillLevel = (score: number): SkillLevel => {
-  if (score <= 20) return 'Beginner';
-  if (score <= 40) return 'Intermediate';
-  return 'Advanced';
+/**
+ * The highest raw score each track can reach, derived from the questions
+ * themselves rather than assumed.
+ *
+ * A scale question contributes `(answer / 5) * weight`, so its maximum is the
+ * weight. A multiple-choice question contributes the chosen option's weight, so
+ * its maximum is the largest weight among the options. Summing those gives a
+ * per-track ceiling that is currently 19–23 depending on the track — not the
+ * flat 20 that `score * 5` assumed everywhere. That assumption both understated
+ * tracks with a ceiling below 20 and let the others print above 100%.
+ */
+export const CAREER_TRACKS: CareerTrack[] = [
+  'AI/ML',
+  'Analytics',
+  'Data Engineering',
+  'Business Intelligence',
+];
+
+/** Questions that contribute to the track match scores. */
+export const affinityQuestions = quizQuestions.filter((q) => q.measures !== 'experience');
+
+/**
+ * A scale answer's share of its question's weight.
+ *
+ * Was `value / 5`, which gave the bottom of the scale 20% of the weight rather
+ * than none: answering "Strongly Disagree" to all nine scale questions still
+ * scored 16–20% on every track, so the bottom fifth of the range was
+ * unreachable and a total disclaimer of interest still read as partial
+ * interest. `(value - 1) / 4` spans the full range — 1 contributes nothing, 5
+ * contributes the whole weight — and leaves the ceilings unchanged.
+ */
+export const scaleAnswerWeightFraction = (value: number): number =>
+  Math.max(0, Math.min(1, (value - 1) / 4));
+
+export const trackMaxScores: Record<CareerTrack, number> = (() => {
+  const totals = { 'AI/ML': 0, 'Analytics': 0, 'Data Engineering': 0, 'Business Intelligence': 0 } as Record<CareerTrack, number>;
+
+  for (const question of affinityQuestions) {
+    for (const track of CAREER_TRACKS) {
+      if (question.type === 'scale' && question.weights) {
+        totals[track] += question.weights[track] ?? 0;
+      } else if (question.type === 'multiple-choice' && question.options) {
+        totals[track] += Math.max(0, ...question.options.map((o) => o.weights[track] ?? 0));
+      }
+    }
+  }
+
+  return totals;
+})();
+
+/**
+ * Convert a raw track score into the 0–100 "Match Score" the UI shows.
+ *
+ * Guards the degenerate case: a track with no weight anywhere would divide by
+ * zero, and a stored score from an older question set can exceed today's
+ * ceiling, so the result is clamped rather than allowed past 100%.
+ */
+export const toMatchPercentage = (track: CareerTrack, rawScore: number): number => {
+  const max = trackMaxScores[track];
+  if (!max || !Number.isFinite(rawScore)) return 0;
+  return Math.max(0, Math.min(100, Math.round((rawScore / max) * 100)));
 };
+
+/** The question whose answer establishes the person's experience level. */
+export const experienceQuestion = quizQuestions.find((q) => q.measures === 'experience');
+
+/**
+ * The person's self-reported experience level, or null if they have not
+ * answered that question — as every attempt taken before it existed has not.
+ *
+ * Null is a real state and is rendered as "not recorded" rather than being
+ * defaulted to 'Beginner'. Guessing a level for someone is exactly the failure
+ * this replaces: the level used to be inferred from how much they said they
+ * enjoyed each track, which is not evidence of proficiency in any direction.
+ */
+export const getExperienceLevel = (
+  answers: Record<number, number | string> | null | undefined,
+): SkillLevel | null => {
+  if (!answers || !experienceQuestion) return null;
+  const answer = answers[experienceQuestion.id];
+  if (typeof answer !== 'string') return null;
+  return experienceQuestion.options?.find((o) => o.id === answer)?.experienceLevel ?? null;
+};
+
+/** Widen a stored option id (e.g. from the database) back into a level. */
+export const experienceLevelForOptionId = (optionId: string | null | undefined): SkillLevel | null =>
+  (optionId && experienceQuestion?.options?.find((o) => o.id === optionId)?.experienceLevel) || null;
 
 // Helper function to get course recommendations based on track and level
 export const getCourseRecommendations = (track: CareerTrack, level: SkillLevel): CourseRecommendation['courses'] => {

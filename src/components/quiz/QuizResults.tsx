@@ -185,7 +185,7 @@
 
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CareerTrack, getSkillLevel, getTrackPersona, getCourseRecommendations } from '@/data/careerQuizData';
+import { CareerTrack, getExperienceLevel, getTrackPersona, getCourseRecommendations, toMatchPercentage } from '@/data/careerQuizData';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, BarChart2, BarChart3, Brain, Database, Download, Loader2, MessageCircle, Presentation, RefreshCw, Share2 } from 'lucide-react';
@@ -301,13 +301,30 @@ const QuizResults: React.FC<QuizResultsProps> = ({
       localStorage.setItem('quizAnswers', JSON.stringify(answers));
     }
   }, [scores, answers]);
-  const topTracks = Object.entries(scores).sort(([, a], [, b]) => b - a).slice(0, 3).map(([track, score]) => ({
-    track: track as CareerTrack,
-    score: score * 5, // Transform from 20-point scale to 100-point scale
-    level: getSkillLevel(score * 5),
-    persona: getTrackPersona(track as CareerTrack),
-    courses: getCourseRecommendations(track as CareerTrack, getSkillLevel(score * 5))
-  }));
+  // `score * 5` assumed every track topped out at 20. The weights say otherwise
+  // — the ceilings are 19 to 23 — so that arithmetic printed match scores above
+  // 100% for the two tracks that can exceed 20 and understated the one that
+  // cannot reach it. Normalize against each track's own maximum instead.
+  //
+  // The level is no longer read off this percentage. It is one property of the
+  // person, taken from the question that asks about their experience, so it is
+  // the same on every card and course recommendations key on it rather than on
+  // how appealing they found a track.
+  const experienceLevel = getExperienceLevel(answers);
+  // Normalized before ranking, for the same reason it is normalized for
+  // display: raw scores are measured against different per-track ceilings, so
+  // ordering by them can crown a lower match. Analytics 20/23 is 87% and Data
+  // Engineering 17/19 is 89% — the raw sort put the 87% first.
+  const topTracks = Object.entries(scores)
+    .map(([track, score]) => ({
+      track: track as CareerTrack,
+      score: toMatchPercentage(track as CareerTrack, score),
+      level: experienceLevel,
+      persona: getTrackPersona(track as CareerTrack),
+      courses: getCourseRecommendations(track as CareerTrack, experienceLevel ?? 'Beginner')
+    }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3);
   const getTrackIcon = (track: CareerTrack) => {
     switch (track) {
       case 'AI/ML':
@@ -380,7 +397,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
       Career Path Quiz Results
 
       ${topTracks.map((result, i) => `
-      ${i + 1}. ${result.track} - Score: ${Math.round(result.score)} (${result.level})
+      ${i + 1}. ${result.track} - Match Score: ${Math.round(result.score)}%
 
       ${result.persona?.description || ''}
 
@@ -417,6 +434,16 @@ const QuizResults: React.FC<QuizResultsProps> = ({
         <div className="text-center mb-10">
           <h2 className="text-3xl font-bold mb-3">Your Career Path Results</h2>
           <p className="text-muted-foreground">Here are the top data career paths based on your answers.</p>
+          {/* Stated once, because it describes the person rather than a track.
+              Printing it on each card implied three different skill levels
+              measured three different ways; there is one, and it comes from the
+              question that asked about experience. */}
+          {experienceLevel && (
+            <p className="mt-3 text-sm text-muted-foreground" data-testid="experience-level">
+              Course suggestions are pitched at your stated experience:{' '}
+              <span className="font-medium text-foreground">{experienceLevel}</span>
+            </p>
+          )}
           <div className="mt-6 mb-4">
             <Button onClick={handleCareerCoachClick} disabled={isProcessing} className="w-full sm:w-auto py-6 px-8">
               <MessageCircle className="h-5 w-5" /> Chat with Career Coach
@@ -435,7 +462,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">{getTrackIcon(result.track)}<CardTitle>{result.track}</CardTitle></div>
-                  <CardDescription>Match Score: {Math.round(result.score)} - {result.level}</CardDescription>
+                  <CardDescription>Match Score: {Math.round(result.score)}%</CardDescription>
                   <div className="text-xl font-bold bg-primary/10 text-primary w-12 h-12 flex items-center justify-center rounded-full">#{i + 1}</div>
                 </div>
               </CardHeader>

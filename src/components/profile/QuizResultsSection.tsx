@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CareerTrack, getSkillLevel, getTrackPersona } from '@/data/careerQuizData';
+import {
+  CareerTrack,
+  SkillLevel,
+  experienceLevelForOptionId,
+  getTrackPersona,
+  toMatchPercentage,
+} from '@/data/careerQuizData';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Brain, BarChart3, Database, Presentation, ArrowRight, Award } from 'lucide-react';
@@ -16,12 +22,34 @@ const logger = createLogger('QuizResultsSection');
 interface QuizResult {
   track: CareerTrack;
   score: number;
-  level: string;
   persona: any;
 }
 
+/** A score set is only worth showing if at least one track scored above zero. */
+const hasAnyScore = (scores: Partial<Record<CareerTrack, number>> | null | undefined): boolean =>
+  !!scores && Object.values(scores).some((score) => typeof score === 'number' && score > 0);
+
+/** Raw track scores → the top three cards, normalized against each track's real ceiling. */
+const toTopTracks = (scores: Record<CareerTrack, number>): QuizResult[] =>
+  Object.entries(scores)
+    // Normalize BEFORE ranking. Raw scores are not comparable across tracks —
+    // that is the whole reason they are normalized for display — so ranking on
+    // them made the order disagree with the numbers beside it: Analytics 20/23
+    // is 87% and Data Engineering 17/19 is 89%, yet the higher raw score put
+    // Analytics first and gave it the "Top Match" badge over the better match.
+    .map(([track, score]) => ({
+      track: track as CareerTrack,
+      score: toMatchPercentage(track as CareerTrack, score),
+      persona: getTrackPersona(track as CareerTrack),
+    }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3);
+
 const QuizResultsSection = () => {
   const [quizResults, setQuizResults] = useState<QuizResult[] | null>(null);
+  const [rawScores, setRawScores] = useState<Record<CareerTrack, number> | null>(null);
+  const [attemptId, setAttemptId] = useState<string | null>(null);
+  const [experienceLevel, setExperienceLevel] = useState<SkillLevel | null>(null);
   const [hasResults, setHasResults] = useState<boolean>(false);
   const [isLoadingResults, setIsLoadingResults] = useState<boolean>(true);
   const navigate = useNavigate();
@@ -37,7 +65,12 @@ const QuizResultsSection = () => {
     return () => {
       window.removeEventListener('storage', handleStorageChange);
     };
-  }, [user]);
+    // Keyed on the id, not the user object: any provider that hands back a new
+    // object identity per render would otherwise re-run this load on every
+    // render it causes, and each load sets state — a loop that never settles on
+    // a result and leaves the card showing "Loading your quiz results…".
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   const handleStorageChange = (e: StorageEvent) => {
     if (e.key === 'quizScores') {
@@ -48,88 +81,94 @@ const QuizResultsSection = () => {
   const loadQuizResults = async () => {
     setIsLoadingResults(true);
     try {
-      // First, check localStorage for immediate results
-      let hasValidScores = false;
-      let topTracks: QuizResult[] = [];
-      
+      let scores: Record<CareerTrack, number> | null = null;
+      let attemptId: string | null = null;
+      let level: SkillLevel | null = null;
+
+      // localStorage carries scores and nothing else — no attempt id, no
+      // recorded experience — so for a signed-in reader it is a cache of one
+      // third of the answer. Using it to skip the query cost the other two
+      // thirds on every mount after the first: the level fell back to "not
+      // recorded" for someone who had recorded it, and the coach button, having
+      // no attempt to attach to, went back to storing a duplicate row. For a
+      // signed-in reader the database is the source of truth; localStorage is
+      // the fallback for the anonymous case, where the quiz was taken on the
+      // home page and never persisted at all.
       const storedScores = localStorage.getItem('quizScores');
-      
       if (storedScores) {
-        const scores = JSON.parse(storedScores) as Record<CareerTrack, number>;
-        
-        // Verify if we have valid scores in localStorage
-        hasValidScores = Object.values(scores).some(score => score > 0);
-        
-        if (hasValidScores) {
-          logger.log("Found valid quiz scores in localStorage");
-          topTracks = Object.entries(scores)
-            .sort(([, scoreA], [, scoreB]) => scoreB - scoreA)
-            .slice(0, 3)
-            .map(([track, score]) => ({
-              track: track as CareerTrack,
-              score: Math.round(score * 5), // Transform from 20-point scale to 100-point scale
-              level: getSkillLevel(Math.round(score * 5)),
-              persona: getTrackPersona(track as CareerTrack)
-            }));
+        const parsed = JSON.parse(storedScores) as Record<CareerTrack, number>;
+        if (hasAnyScore(parsed)) {
+          logger.log('Found valid quiz scores in localStorage');
+          scores = parsed;
         }
       }
-      
-      // If user is authenticated, try to fetch from Supabase
-      if (user && (!hasValidScores || topTracks.length === 0)) {
-        logger.log("Checking Supabase for quiz results for user:", user.id);
-        
-        const { data: quizAttempt, error } = await supabase
+
+      if (user) {
+        logger.log('Checking Supabase for quiz results for user:', user.id);
+
+        // Deliberately more than one row. `initiateCareerCoachChat` writes an
+        // attempt from whatever scores it is handed, and this profile page used
+        // to hand it an all-zero object whenever localStorage had been cleared —
+        // so accounts hold attempts whose four result columns are 0. Taking
+        // strictly the newest row meant one such write permanently replaced a
+        // real result with three cards reading "Match Score: 0% / Level:
+        // Beginner". Scan back and use the newest attempt that actually scored.
+        const { data: attempts, error } = await supabase
           .from('career_quiz_attempts')
-          .select('*')
+          .select(
+            'id, created_at, self_reported_experience, result_ai_ml_score, result_analytics_score, result_data_engineering_score, result_business_intelligence_score',
+          )
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        
+          .limit(10);
+
         if (error) {
-          logger.error("Error fetching quiz results from Supabase:", error);
+          logger.error('Error fetching quiz results from Supabase:', error);
+          throw error;
         }
-        
-        if (quizAttempt) {
-          logger.log("Found quiz results in Supabase:", quizAttempt);
-          
-          // Create scores object from Supabase data
-          const supabaseScores: Record<CareerTrack, number> = {
-            'AI/ML': quizAttempt.result_ai_ml_score || 0,
-            'Analytics': quizAttempt.result_analytics_score || 0,
-            'Data Engineering': quizAttempt.result_data_engineering_score || 0,
-            'Business Intelligence': quizAttempt.result_business_intelligence_score || 0
+
+        for (const attempt of attempts || []) {
+          const attemptScores: Record<CareerTrack, number> = {
+            'AI/ML': attempt.result_ai_ml_score || 0,
+            'Analytics': attempt.result_analytics_score || 0,
+            'Data Engineering': attempt.result_data_engineering_score || 0,
+            'Business Intelligence': attempt.result_business_intelligence_score || 0,
           };
-          
-          // Save to localStorage for future reference
-          localStorage.setItem('quizScores', JSON.stringify(supabaseScores));
-          
-          // Generate top tracks
-          topTracks = Object.entries(supabaseScores)
-            .sort(([, scoreA], [, scoreB]) => scoreB - scoreA)
-            .slice(0, 3)
-            .map(([track, score]) => ({
-              track: track as CareerTrack,
-              score: Math.round(score * 5), // Transform from 20-point scale to 100-point scale
-              level: getSkillLevel(Math.round(score * 5)),
-              persona: getTrackPersona(track as CareerTrack)
-            }));
-          
-          hasValidScores = true;
+          if (hasAnyScore(attemptScores)) {
+            logger.log('Found scored quiz attempt in Supabase:', attempt.id);
+            scores = attemptScores;
+            attemptId = attempt.id;
+            // Null for every attempt taken before the experience question
+            // existed, which renders as "not recorded" rather than a guess.
+            level = experienceLevelForOptionId((attempt as any).self_reported_experience);
+            // Save to localStorage for future reference.
+            localStorage.setItem('quizScores', JSON.stringify(attemptScores));
+            break;
+          }
         }
       }
-      
-      if (hasValidScores && topTracks.length > 0) {
-        logger.log("Setting quiz results:", topTracks);
+
+      if (scores) {
+        const topTracks = toTopTracks(scores);
+        logger.log('Setting quiz results:', topTracks);
+        setRawScores(scores);
+        setAttemptId(attemptId);
+        setExperienceLevel(level);
         setQuizResults(topTracks);
         setHasResults(true);
       } else {
-        logger.log("No valid quiz results found");
+        logger.log('No valid quiz results found');
+        setRawScores(null);
+        setAttemptId(null);
+        setExperienceLevel(null);
         setQuizResults(null);
         setHasResults(false);
       }
     } catch (error) {
-      logger.error("Error loading quiz results:", error);
+      logger.error('Error loading quiz results:', error);
+      setRawScores(null);
+      setAttemptId(null);
+      setExperienceLevel(null);
       setQuizResults(null);
       setHasResults(false);
       toast({
@@ -172,16 +211,32 @@ const QuizResultsSection = () => {
     }
   };
 
+  /**
+   * The quiz lives on its own route rather than at a hash on the home page.
+   *
+   * `navigate('/#quiz-section')` could never work from here: no element with
+   * that id has ever existed, and `/` sends any signed-in visitor straight to
+   * `/dashboard`. Every person with results to retake is signed in by
+   * definition, so the button bounced them to the dashboard — which, arriving
+   * with no visible change on a page that already looked like the app, read as
+   * the button doing nothing at all.
+   */
   const handleTakeQuiz = () => {
-    navigate('/#quiz-section');
+    navigate('/career-quiz');
   };
 
-  const getDefaultScores = (): Record<CareerTrack, number> => {
+  const getStoredScores = (): Record<CareerTrack, number> => {
+    if (rawScores) return rawScores;
+
     const storedScores = localStorage.getItem('quizScores');
     if (storedScores) {
-      return JSON.parse(storedScores) as Record<CareerTrack, number>;
+      try {
+        return JSON.parse(storedScores) as Record<CareerTrack, number>;
+      } catch {
+        // Corrupt value; fall through to the empty set below.
+      }
     }
-    
+
     return {
       'AI/ML': 0,
       'Analytics': 0,
@@ -190,7 +245,23 @@ const QuizResultsSection = () => {
     };
   };
 
-  const getDefaultAnswers = (): Record<number, number | string> => {
+  /**
+   * The answers behind the loaded scores, when the browser still has them.
+   *
+   * This returned a hardcoded `{}` before, so opening the coach from the
+   * profile wrote an attempt with every question column null — and, paired with
+   * the empty score object above, an all-zero attempt that then became the
+   * newest row for the account.
+   */
+  const getStoredAnswers = (): Record<number, number | string> => {
+    const storedAnswers = localStorage.getItem('quizAnswers');
+    if (storedAnswers) {
+      try {
+        return JSON.parse(storedAnswers) as Record<number, number | string>;
+      } catch {
+        // Corrupt value; the coach still opens, just without question detail.
+      }
+    }
     return {};
   };
 
@@ -228,13 +299,14 @@ const QuizResultsSection = () => {
                   )}
                 </div>
 
-                {/* Score and level info */}
+                {/* Match score only.
+                    "Level" used to sit here too, computed from this very
+                    percentage, so three cards showed three skill levels derived
+                    from how appealing the person found each track. Experience
+                    is one fact about them, so it is stated once below. */}
                 <div className="flex-1 space-y-1 mb-3">
                   <div className="text-sm text-muted-foreground">
                     Match Score: <span className="font-medium text-foreground">{result.score}%</span>
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    Level: <span className="font-medium text-foreground">{result.level}</span>
                   </div>
                 </div>
 
@@ -260,18 +332,30 @@ const QuizResultsSection = () => {
               </div>
             ))}
           </div>
-          
-          <div className="flex gap-2 justify-end mt-4">
-            <Button 
-              variant="outline" 
-              size="sm" 
+
+          <p className="text-sm text-muted-foreground" data-testid="experience-level">
+            Experience level:{' '}
+            <span className="font-medium text-foreground">
+              {experienceLevel ?? 'not recorded'}
+            </span>
+            {!experienceLevel && ' — retake the quiz to record it'}
+          </p>
+
+          <div className="flex flex-wrap gap-2 justify-end mt-4">
+            <Button
+              variant="outline"
+              size="sm"
               onClick={handleTakeQuiz}
             >
               Retake Quiz
             </Button>
-            <Button 
+            <Button
               size="sm"
-              onClick={() => initiateCareerCoachChat(getDefaultAnswers(), getDefaultScores())} 
+              onClick={() =>
+                // The attempt these results came from, so the coach attaches to
+                // it instead of storing a fresh row on every click.
+                initiateCareerCoachChat(getStoredAnswers(), getStoredScores(), attemptId ?? undefined)
+              }
             >
               Chat with Career Coach
             </Button>

@@ -18,6 +18,10 @@ import { createLogger } from '@/utils/logger';
 
 const logger = createLogger('TeneikaTweets');
 
+/** The account this page archives. Individual tweet links are built from it. */
+const TWITTER_HANDLE = 'teneikaask_you';
+const TWITTER_PROFILE_URL = `https://twitter.com/${TWITTER_HANDLE}`;
+
 interface Tweet {
   id: string;
   tweet_id: string;
@@ -122,7 +126,7 @@ const TeneikaTweets = () => {
   };
 
   const getTweetUrl = (tweetId: string) => {
-    return `https://twitter.com/teneikaask_you/status/${tweetId}`;
+    return `${TWITTER_PROFILE_URL}/status/${tweetId}`;
   };
 
   if (error) {
@@ -148,7 +152,21 @@ const TeneikaTweets = () => {
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Teneika's Tweets</h1>
             <p className="text-muted-foreground">
-              Archive of tweets from @teneikaask_you
+              Archive of tweets from{' '}
+              {/* The handle was plain text on a page whose whole subject is that
+                  account, so the one thing a reader wants next — the profile
+                  itself — was the one thing they could not reach from here. */}
+              <a
+                href={TWITTER_PROFILE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 font-medium text-primary underline-offset-4 hover:underline"
+                data-testid="twitter-profile-link"
+              >
+                @teneikaask_you
+                <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                <span className="sr-only">(opens X in a new tab)</span>
+              </a>
             </p>
           </div>
           <Button 

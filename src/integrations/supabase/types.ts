@@ -1280,6 +1280,7 @@ export type Database = {
           result_analytics_score: number | null
           result_business_intelligence_score: number | null
           result_data_engineering_score: number | null
+          self_reported_experience: string | null
           session_id: string | null
           top_recommended_path: string | null
           user_id: string | null
@@ -1305,6 +1306,7 @@ export type Database = {
           result_analytics_score?: number | null
           result_business_intelligence_score?: number | null
           result_data_engineering_score?: number | null
+          self_reported_experience?: string | null
           session_id?: string | null
           top_recommended_path?: string | null
           user_id?: string | null
@@ -1330,6 +1332,7 @@ export type Database = {
           result_analytics_score?: number | null
           result_business_intelligence_score?: number | null
           result_data_engineering_score?: number | null
+          self_reported_experience?: string | null
           session_id?: string | null
           top_recommended_path?: string | null
           user_id?: string | null
