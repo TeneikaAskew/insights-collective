@@ -275,4 +275,37 @@ test.describe('Explore Careers', () => {
       }
     }
   });
+
+  test('every role ends with five similar roles, and following one swaps the dialog', async ({ page }) => {
+    await goto(page, `${Routes.exploreDataCareers}?role=bi-analyst`);
+    await waitForPageLoad(page);
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByRole('heading', { name: 'Similar Roles' })).toBeVisible();
+
+    // `:visible` for the same reason the row helper uses it — count() does not
+    // filter, and the section is inside a dialog that is only ever one deep.
+    const similar = dialog.locator('[data-testid="similar-role"]:visible');
+    await expect(similar).toHaveCount(5);
+
+    const titleText = () =>
+      dialog.locator('[data-testid="similar-role-title"]:visible').allTextContents();
+    const titles = (await titleText()).map((t) => t.trim());
+    expect(titles).not.toContain('Business Intelligence Analyst');
+
+    const target = titles[0];
+    await similar.first().click();
+
+    // Same dialog, now showing the role that was followed — scrolled back to
+    // the top and reset to Overview rather than left on the previous tab.
+    await expect(dialog.getByTestId('role-detail-title')).toHaveText(target);
+    await expect(dialog.getByRole('tab', { name: 'Overview' })).toHaveAttribute(
+      'data-state',
+      'active',
+    );
+
+    // The section follows along: the role now open never recommends itself.
+    await expect(similar).toHaveCount(5);
+    expect((await titleText()).map((t) => t.trim())).not.toContain(target);
+  });
 });
