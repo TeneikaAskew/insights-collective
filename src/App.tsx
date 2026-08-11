@@ -260,7 +260,28 @@ function App() {
     // clearStoredSystemTheme() in main.tsx handles the other half — the value
     // already sitting in their localStorage.
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} storageKey="ic-theme">
-    <Router>
+    {/*
+      Step one of the react-router v6 -> v7 upgrade. These flags turn on v7's
+      behaviour while still running v6, so the version bump afterwards is a
+      version bump rather than a behaviour change, and either flag can be
+      removed in one line if something surfaces.
+
+      Only two of v7's six future flags mean anything here. The other four —
+      fetcherPersist, normalizeFormMethod, partialHydration and
+      skipActionErrorRevalidation — only govern data routers, and this app has
+      none: no createBrowserRouter, no RouterProvider, no loaders, actions,
+      fetchers or router Form. Routing is entirely declarative.
+
+      v7_relativeSplatPath changes how relative links resolve inside splat
+      routes. Three splat routes exist, but every `to=` in the codebase is an
+      absolute path, so this flag has no surface to act on — it is set for
+      completeness, not because anything depends on it.
+
+      v7_startTransition wraps router state updates in React.startTransition.
+      That one is a real behavioural change, and the reason this lands on its
+      own rather than bundled into the version bump.
+    */}
+    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AuthProvider>
           <PageVisibilityProvider>
             <OnboardingProvider>
