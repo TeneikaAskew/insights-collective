@@ -104,33 +104,53 @@ describe('deliverBlob', () => {
 
   it('opens a new tab when framed, because a download there is discarded', () => {
     vi.spyOn(window, 'top', 'get').mockReturnValue({} as Window);
-    const open = vi.fn(() => ({}) as Window);
-    window.open = open as unknown as typeof window.open;
-
-    const method = deliverBlob(new Blob(['x'], { type: 'application/pdf' }), 'cert-ABC.pdf');
-
-    expect(method).toBe('new-tab');
-    expect(open).toHaveBeenCalledWith('blob:mock-0', '_blank', 'noopener,noreferrer');
-  });
-
-  it('falls back to a download when the popup is blocked', () => {
-    // Last resort rather than giving up: on some webviews the download does
-    // land, and a blocked popup plus no download attempt is a dead end.
-    vi.spyOn(window, 'top', 'get').mockReturnValue({} as Window);
-    window.open = vi.fn(() => null) as unknown as typeof window.open;
-
-    const clicks: string[] = [];
+    const clicked: HTMLAnchorElement[] = [];
     const realCreate = document.createElement.bind(document);
     vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
       const el = realCreate(tag) as HTMLAnchorElement;
-      if (tag === 'a') el.click = () => clicks.push(el.download);
+      if (tag === 'a') el.click = () => clicked.push(el);
       return el;
     });
 
     const method = deliverBlob(new Blob(['x'], { type: 'application/pdf' }), 'cert-ABC.pdf');
 
-    expect(method).toBe('download');
-    expect(clicks).toEqual(['cert-ABC.pdf']);
+    expect(method).toBe('new-tab');
+    expect(clicked).toHaveLength(1);
+    expect(clicked[0].target).toBe('_blank');
+    expect(clicked[0].rel).toBe('noopener noreferrer');
+    // No download attribute in this mode: setting it is what a framed context
+    // ignores, and on iOS it is what stops the tab from opening.
+    expect(clicked[0].hasAttribute('download')).toBe(false);
+  });
+
+  it('never delivers twice', () => {
+    // The new-tab path used to read window.open's return value to decide
+    // whether the popup was blocked. With `noopener` a SUCCESSFUL open returns
+    // null by specification, so every success looked like a failure: the code
+    // fell through, clicked a second anchor, reported 'download' and swallowed
+    // the toast — and could navigate the page itself to the blob.
+    vi.spyOn(window, 'top', 'get').mockReturnValue({} as Window);
+    const opens: unknown[] = [];
+    window.open = vi.fn((...args: unknown[]) => {
+      opens.push(args);
+      return null;
+    }) as unknown as typeof window.open;
+
+    const clicked: HTMLAnchorElement[] = [];
+    const realCreate = document.createElement.bind(document);
+    vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
+      const el = realCreate(tag) as HTMLAnchorElement;
+      if (tag === 'a') el.click = () => clicked.push(el);
+      return el;
+    });
+
+    const method = deliverBlob(new Blob(['x'], { type: 'application/pdf' }), 'cert-ABC.pdf');
+
+    expect(method).toBe('new-tab');
+    expect(clicked).toHaveLength(1);
+    // And window.open is not consulted at all, so its return value cannot be
+    // misread again.
+    expect(opens).toHaveLength(0);
   });
 
   it('does not revoke the object URL in the same tick', () => {

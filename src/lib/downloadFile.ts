@@ -52,25 +52,41 @@ export const supportsDownloadAttribute = (): boolean => {
  */
 export function deliverBlob(blob: Blob, filename: string): DeliveryMethod {
   const url = URL.createObjectURL(blob);
-  const revoke = () => window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 
-  if (isFramed() || !supportsDownloadAttribute()) {
-    // `noopener` matters: without it the opened tab gets a handle on this one.
-    const opened = window.open(url, '_blank', 'noopener,noreferrer');
-    revoke();
-    if (opened) return 'new-tab';
-    // Popup blocked. Fall through and try the download anyway — it is the only
-    // remaining option, and on some webviews it does work.
-  }
-
+  // Both routes are an anchor click, which matters.
+  //
+  // The new-tab route was `window.open(url, '_blank', 'noopener,noreferrer')`,
+  // and its return value was read to decide whether the popup had been blocked.
+  // That check cannot work: per spec `noopener` makes a SUCCESSFUL open return
+  // null, precisely so the new context is unreachable. So success and failure
+  // looked identical, the code fell through on every success, clicked a second
+  // anchor, reported 'download' and swallowed the toast — and on a browser that
+  // ignores the download attribute that second anchor could navigate the
+  // current page to the blob, replacing the app with a PDF.
+  //
+  // An anchor carrying target="_blank" rel="noopener noreferrer" gets the same
+  // isolation with no handle to misread, and popup blockers treat a real anchor
+  // click inside a user gesture more permissively than window.open.
   const anchor = document.createElement('a');
   anchor.href = url;
-  anchor.download = filename;
-  anchor.rel = 'noopener';
   anchor.style.display = 'none';
+
+  const openInTab = isFramed() || !supportsDownloadAttribute();
+  if (openInTab) {
+    anchor.target = '_blank';
+    anchor.rel = 'noopener noreferrer';
+  } else {
+    anchor.download = filename;
+    anchor.rel = 'noopener';
+  }
+
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
-  revoke();
-  return 'download';
+
+  // Revoked on a timer, not in this tick: revoking immediately cancels the
+  // navigation the URL was just handed to.
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+
+  return openInTab ? 'new-tab' : 'download';
 }

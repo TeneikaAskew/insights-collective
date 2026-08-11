@@ -112,6 +112,35 @@ test.describe('Profile — My Certificates', () => {
     await expect
       .poll(() => pdfRequests.length, { timeout: 15_000 })
       .toBeGreaterThan(0);
+
+    // And the button must not be tappable until it has arrived. Enabling it
+    // while the fetch is still in flight is the original bug in a new costume:
+    // the tap awaits the network and loses the activation just the same.
+    await expect(page.getByTestId('certificate-download').first()).toBeEnabled({
+      timeout: 15_000,
+    });
+  });
+
+  test('the download button is not tappable until the PDF library has landed', async ({
+    page,
+  }) => {
+    // Hold the chunk and check the button refuses the tap in the meantime.
+    await page.route(/jspdf/i, async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 4_000));
+      await route.continue();
+    });
+
+    await gotoProfile(page);
+    await expect(page.getByTestId('certificates-loading')).toHaveCount(0, { timeout: 20_000 });
+
+    const button = page.getByTestId('certificate-download').first();
+    await expect(button).toBeVisible({ timeout: 15_000 });
+    await expect(button, 'button was tappable while jsPDF was still loading').toBeDisabled();
+    await expect(button).toContainText(/Preparing/i);
+
+    // And it becomes usable once the chunk lands, rather than staying stuck.
+    await expect(button).toBeEnabled({ timeout: 20_000 });
+    await expect(button).toContainText(/Download PDF/i);
   });
 
   test('certificate row keeps its text readable at phone width', async ({ page }) => {

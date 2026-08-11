@@ -60,8 +60,19 @@ export const MyCertificates = () => {
    * already-settled promise instead, which keeps the activation intact.
    */
   const pdfModule = useRef<Promise<typeof import('jspdf')> | null>(null);
+  const [pdfReady, setPdfReady] = useState(false);
   const preloadPdfLibrary = useCallback(() => {
-    if (!pdfModule.current) pdfModule.current = import('jspdf');
+    if (!pdfModule.current) {
+      pdfModule.current = import('jspdf');
+      void pdfModule.current.then(
+        () => setPdfReady(true),
+        () => {
+          // Let the next attempt retry rather than pinning a rejected promise
+          // that every later click would re-await and re-fail.
+          pdfModule.current = null;
+        },
+      );
+    }
     return pdfModule.current;
   }, []);
 
@@ -244,18 +255,23 @@ export const MyCertificates = () => {
               </div>
             </div>
             <div className="flex flex-wrap gap-2 sm:shrink-0">
+              {/* Held disabled until the library has actually arrived.
+                  Enabling it the moment the row renders reintroduced the bug on
+                  a slow connection: the tap would await an in-flight fetch and
+                  lose the activation exactly as before. Starting that fetch a
+                  few milliseconds earlier on pointerdown does not change this —
+                  only waiting for it to settle does. "Preparing…" is also the
+                  honest label, because the action genuinely is not ready. */}
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => handleDownload(cert)}
-                // Second chance at the preload, for anyone who reaches the
-                // button before the effect below has finished fetching.
                 onPointerDown={preloadPdfLibrary}
-                disabled={downloadingId === cert.id}
+                disabled={!pdfReady || downloadingId === cert.id}
                 data-testid="certificate-download"
               >
                 <Download className="h-4 w-4 mr-1" />
-                {downloadingId === cert.id ? 'Preparing…' : 'Download PDF'}
+                {!pdfReady || downloadingId === cert.id ? 'Preparing…' : 'Download PDF'}
               </Button>
               <Button variant="ghost" size="sm" asChild data-testid="certificate-verify-link">
                 <Link to={`/verify-certificate/${cert.verification_code}`} target="_blank" rel="noopener noreferrer">
