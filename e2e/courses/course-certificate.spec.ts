@@ -31,28 +31,34 @@ test.describe('Course Certificate', () => {
     const ready = page.getByRole('heading', { name: 'Your certificate is ready' });
     const locked = page.getByRole('heading', { name: 'Course certificate', exact: true });
 
+    // Resolved to a single verdict string and asserted unconditionally, rather
+    // than branching on `if (await ready.count())`. A conditional guard here
+    // would pass silently in the one case this spec exists to catch — neither
+    // verdict rendering at all — because the body simply would not run. The
+    // returned string names the inconsistency, so a failure reports which of
+    // the states went wrong instead of just "expected 1, got 0".
     await expect
-      .poll(async () => (await ready.count()) + (await locked.count()), { timeout: 10_000 })
-      .toBe(1);
+      .poll(
+        async () => {
+          const readyShown = (await ready.count()) > 0;
+          const lockedShown = (await locked.count()) > 0;
+          const mustComplete =
+            (await page.getByText(/must complete all course requirements/i).count()) > 0;
+          const unlockCta =
+            (await page.getByText(/complete the course to unlock certification/i).count()) > 0;
+          const finishEvery =
+            (await page
+              .getByText('Finish every required lesson and assignment to unlock your certificate.')
+              .count()) > 0;
 
-    // Resolved before the branch, not inside its condition. `if (await
-    // x.count())` is banned because it normally hides a body that silently does
-    // not run — but the poll above has already established that exactly one of
-    // these two headings is present, so both branches are real and one always
-    // executes. Naming the state says that, and keeps the linter's guarantee
-    // intact everywhere it does apply.
-    const isReady = (await ready.count()) === 1;
-
-    if (isReady) {
-      // Completed: no locked copy anywhere on the page, at either level.
-      await expect(page.getByText(/must complete all course requirements/i)).toHaveCount(0);
-      await expect(page.getByText(/complete the course to unlock certification/i)).toHaveCount(0);
-    } else {
-      await expect(
-        page.getByText('Finish every required lesson and assignment to unlock your certificate.'),
-      ).toBeVisible();
-      await expect(page.getByText(/must complete all course requirements/i)).toBeVisible();
-    }
+          if (readyShown === lockedShown) return 'both verdicts at once, or neither';
+          if (readyShown && (mustComplete || unlockCta)) return 'ready verdict beside locked copy';
+          if (lockedShown && !(mustComplete && finishEvery)) return 'locked verdict without its copy';
+          return 'consistent';
+        },
+        { timeout: 10_000 },
+      )
+      .toBe('consistent');
     // Deliberately NOT asserting the completion percentage the page shows
     // beside this: it moves whenever any spec touches the member's progress.
   });
