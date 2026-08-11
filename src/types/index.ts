@@ -41,7 +41,6 @@ export interface User {
   role?: string;
   enrolledCourses?: string[];
   avatar?: string;
-  bio?: string;
   createdCourses?: string[];
   // Add any other properties needed
 }

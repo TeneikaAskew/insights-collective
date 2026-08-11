@@ -3,7 +3,6 @@ export interface Profile {
   first_name: string | null;
   last_name: string | null;
   avatar_url: string | null;
-  bio: string | null;
   roles: string[];
 }
 
@@ -51,7 +50,6 @@ export interface UserWithProfile {
   email: string;
   name?: string; // Computed from profile first_name + last_name
   avatar?: string; // Alias for profile avatar_url
-  bio?: string; // From profile
   roles?: string[]; // Array of roles
   enrolledCourses?: string[]; // From enrollments
   user_metadata?: {

@@ -52,13 +52,13 @@ describe('Profile page', () => {
     expect(await screen.findByText('Failed to load your profile')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
     // REGRESSION: the page used to render a blank editable form after a
-    // failed load — saving it overwrote the user's real name/bio with blanks.
+    // failed load — saving it overwrote the user's real name with blanks.
     expect(screen.queryByLabelText(/first name/i)).not.toBeInTheDocument();
   });
 
   it('renders the populated form when the profile loads', async () => {
     mockProfileQuery({
-      data: { id: 'user-1', first_name: 'Ada', last_name: 'Lovelace', bio: 'Math.' },
+      data: { id: 'user-1', first_name: 'Ada', last_name: 'Lovelace' },
     });
 
     render(<Profile />);
