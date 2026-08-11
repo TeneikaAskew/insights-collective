@@ -67,14 +67,19 @@ jobs:
     - name: Check coverage threshold
       if: matrix.node-version == '20.x'
       run: |
-        # Ratchet baseline: whole-app line coverage measured 16.62% when CI
-        # was repaired (2026-07, vitest 4 — which honestly counts every src
-        # file, imported or not). The courses flow is well covered; most other
-        # areas have no tests yet. Raise this as coverage grows; the old 80%
-        # value predated any green CI run and would keep every PR red.
+        # Ratchet baseline: whole-app line coverage, measured not guessed.
+        # 16.62% when CI was repaired (2026-07, vitest 4 — which honestly
+        # counts every src file, imported or not); 39.32% measured 2026-08-11
+        # across 152 files. The floor moves with it, which is the whole point
+        # of a ratchet: it can only be lowered deliberately, in a diff someone
+        # has to justify.
+        #
+        # Set to 38, not 39.32 — about a point of headroom so a run that
+        # happens to skip a well-covered spec does not fail a PR that changed
+        # nothing. Raise it again the next time coverage climbs.
         COVERAGE=$(cat coverage/coverage-summary.json | jq '.total.lines.pct')
-        if (( $(echo "$COVERAGE < 16" | bc -l) )); then
-          echo "Coverage $COVERAGE% is below the 16% ratchet baseline"
+        if (( $(echo "$COVERAGE < 38" | bc -l) )); then
+          echo "Coverage $COVERAGE% is below the 38% ratchet baseline"
           exit 1
         fi
     
