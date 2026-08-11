@@ -19,7 +19,10 @@ interface SimilarRolesSectionProps {
   onSelectRole?: (roleId: string) => void;
   /** Catalog to rank within. Defaults to the bundled roles; injected by tests. */
   roles?: DataCareerRole[];
-  /** How many neighbours to show. Default 5. */
+  /**
+   * How many neighbours to show. Default 4, which fills the two-up grid
+   * exactly; five left a lone card on a row of its own.
+   */
   limit?: number;
 }
 
@@ -27,7 +30,7 @@ export const SimilarRolesSection: React.FC<SimilarRolesSectionProps> = ({
   role,
   onSelectRole,
   roles,
-  limit = 5,
+  limit = 4,
 }) => {
   // Recomputed only when the open role changes; the tf-idf index itself is
   // built once per catalog and cached inside the resolver.

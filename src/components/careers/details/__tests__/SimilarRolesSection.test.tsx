@@ -1,5 +1,5 @@
 // ABOUTME: Tests the Similar Roles block at the foot of the career role dialog:
-// ABOUTME: five neighbours excluding the open role, the shared-skill chips that
+// ABOUTME: four neighbours excluding the open role, the shared-skill chips that
 // ABOUTME: explain the match, and the click that swaps the dialog to that role.
 // ABOUTME: Also pins that the block renders under every tab, not just Overview.
 
@@ -23,11 +23,11 @@ vi.mock('@/hooks/useCourseraCatalog', () => ({
 const biAnalyst = dataCareerRoles.find(role => role.id === 'bi-analyst')!;
 
 describe('SimilarRolesSection', () => {
-  it('lists five other roles, never the open one', () => {
+  it('lists four other roles, never the open one', () => {
     render(<SimilarRolesSection role={biAnalyst} />);
 
     const entries = screen.getAllByTestId('similar-role');
-    expect(entries).toHaveLength(5);
+    expect(entries).toHaveLength(4);
     for (const entry of entries) {
       expect(entry).not.toHaveTextContent(biAnalyst.title);
     }
@@ -88,6 +88,6 @@ describe('CareerRoleDetails', () => {
 
     await user.click(screen.getByRole('tab', { name: 'Career Path' }));
     expect(screen.getByRole('heading', { name: 'Similar Roles' })).toBeInTheDocument();
-    expect(screen.getAllByTestId('similar-role')).toHaveLength(5);
+    expect(screen.getAllByTestId('similar-role')).toHaveLength(4);
   });
 });

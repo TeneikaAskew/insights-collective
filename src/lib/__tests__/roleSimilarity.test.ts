@@ -1,5 +1,5 @@
 // ABOUTME: Tests for content-based "similar roles" ranking. Pins the contract the
-// ABOUTME: career dialog depends on — five neighbours, never the role itself,
+// ABOUTME: career dialog depends on — four neighbours, never the role itself,
 // ABOUTME: stable order — and the property that makes the feature meaningful:
 // ABOUTME: the ranking follows the role's text, not its pay or its list position.
 
@@ -30,10 +30,10 @@ describe('tokenize', () => {
 });
 
 describe('getSimilarRoles', () => {
-  it('returns five neighbours and never the role itself', () => {
+  it('returns four neighbours and never the role itself', () => {
     for (const role of dataCareerRoles) {
       const similar = getSimilarRoles(role.id);
-      expect(similar).toHaveLength(5);
+      expect(similar).toHaveLength(4);
       expect(similar.map(entry => entry.role.id)).not.toContain(role.id);
     }
   });

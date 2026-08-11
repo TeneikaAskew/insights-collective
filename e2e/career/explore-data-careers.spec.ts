@@ -276,7 +276,7 @@ test.describe('Explore Careers', () => {
     }
   });
 
-  test('every role ends with five similar roles, and following one swaps the dialog', async ({ page }) => {
+  test('every role ends with four similar roles, and following one swaps the dialog', async ({ page }) => {
     await goto(page, `${Routes.exploreDataCareers}?role=bi-analyst`);
     await waitForPageLoad(page);
 
@@ -286,7 +286,7 @@ test.describe('Explore Careers', () => {
     // `:visible` for the same reason the row helper uses it — count() does not
     // filter, and the section is inside a dialog that is only ever one deep.
     const similar = dialog.locator('[data-testid="similar-role"]:visible');
-    await expect(similar).toHaveCount(5);
+    await expect(similar).toHaveCount(4);
 
     const titleText = () =>
       dialog.locator('[data-testid="similar-role-title"]:visible').allTextContents();
@@ -305,7 +305,7 @@ test.describe('Explore Careers', () => {
     );
 
     // The section follows along: the role now open never recommends itself.
-    await expect(similar).toHaveCount(5);
+    await expect(similar).toHaveCount(4);
     expect((await titleText()).map((t) => t.trim())).not.toContain(target);
   });
 });

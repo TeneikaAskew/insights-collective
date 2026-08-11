@@ -265,19 +265,21 @@ const sharedSkillsBetween = (role: DataCareerRole, other: DataCareerRole): strin
 export interface SimilarRolesOptions {
   /** Catalog to rank within. Defaults to the bundled career roles. */
   roles?: DataCareerRole[];
-  /** How many neighbours to return. Default 5. */
+  /** How many neighbours to return. Default 4 — see the section component. */
   limit?: number;
 }
 
 /**
  * The `limit` roles closest in content to `roleId`, most similar first.
+ * Four by default: the section lays them out two-up, and a fifth left an
+ * orphan card on its own row.
  *
  * Returns `[]` for an unknown id or a single-role catalog. Ties break on title
  * so the list is stable across renders — a career page that reshuffled its
  * "similar roles" on every open would read as noise.
  */
 export const getSimilarRoles = (roleId: string, options: SimilarRolesOptions = {}): SimilarRole[] => {
-  const { roles = dataCareerRoles, limit = 5 } = options;
+  const { roles = dataCareerRoles, limit = 4 } = options;
   const index = indexFor(roles);
   const source = index.rolesById.get(roleId);
   if (!source) return [];
