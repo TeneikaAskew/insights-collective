@@ -286,7 +286,7 @@ const AppSidebar = () => {
                     their own posts, so surface the entry rather than leaving the
                     capability unreachable. Admins already get it above. */}
                 {isInstructor && !isAdmin && <SidebarMenuItem className={open ? '' : 'flex justify-center'}>
-                    <SidebarMenuButton asChild isActive={location.pathname.startsWith('/admin/blog')} className={SIDEBAR_NAV_INACTIVE}>
+                    <SidebarMenuButton asChild isActive={location.pathname.startsWith('/admin/blog')} className={location.pathname.startsWith('/admin/blog') ? '' : SIDEBAR_NAV_INACTIVE}>
                       <Link to="/admin/blog" className={`flex items-center rounded-md py-1.5 ${open ? 'space-x-2 px-2' : 'justify-center w-8 h-8 px-0 mx-auto'}`}>
                         <Newspaper className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
                         {open && <span className="text-xs truncate">Manage Blog</span>}

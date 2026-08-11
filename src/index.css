@@ -312,8 +312,22 @@
     color: hsl(var(--sidebar-accent-foreground));
   }
 
+  /* The shadcn Sidebar primitive marks its current row with data-active rather
+     than our modifier class. Match it at 0-3-1 so a row that carries both the
+     primitive's active state and `.ss-nav-item` keeps its pill on hover. */
+  .ss-nav-item.ss-nav-item[data-active='true'],
+  .ss-nav-item.ss-nav-item[data-active='true']:hover {
+    background-color: hsl(var(--sidebar-accent));
+    color: hsl(var(--sidebar-accent-foreground));
+  }
+
+  .ss-nav-item.ss-nav-item[data-active='true'] .ss-nav-icon,
+  .ss-nav-item.ss-nav-item[data-active='true']:hover .ss-nav-icon {
+    color: hsl(var(--sidebar-accent-foreground));
+  }
+
   /* The rail itself — background and edge, so a rail never picks its own. */
-  .ss-nav-rail {
+  .ss-nav-rail.ss-nav-rail {
     background-color: hsl(var(--sidebar-background));
     border-color: hsl(var(--sidebar-border));
   }
@@ -324,39 +338,47 @@
      docs/design/interview-prep-concepts/README.md ("keeps its dark chrome
      but gets the Soft Studio frame"). These are fixed by design; they are
      tokens so the values stop being copied around as literals.
+
+     Selectors are doubled for the same reason the nav block above doubles
+     its own: these classes land on shadcn `Button` and `TabsTrigger`, whose
+     variants emit `border-input`, `bg-background` and
+     `data-[state=active]:bg-background` as utilities. Utilities are emitted
+     after `@layer components`, so a single-class rule ties on specificity
+     and loses. Measured, not assumed — at single specificity the editor tab
+     computed to plaster #FAF8F5 and the controls took --input for a border.
      ------------------------------------------------------------------ */
-  .ss-ink-stage {
+  .ss-ink-stage.ss-ink-stage {
     background-color: hsl(var(--ss-ink-stage));
     border-color: hsl(var(--ss-ink-stage-border));
   }
 
-  .ss-ink-stage-border {
+  .ss-ink-stage-border.ss-ink-stage-border {
     border-color: hsl(var(--ss-ink-stage-border));
   }
 
-  .ss-ink-stage-muted {
+  .ss-ink-stage-muted.ss-ink-stage-muted {
     color: hsl(var(--ss-ink-stage-muted));
   }
 
   /* Buttons sitting on the ink stage — outline, label and hover in one place
      rather than four literals repeated per control. */
-  .ss-ink-stage-control {
+  .ss-ink-stage-control.ss-ink-stage-control {
     border-color: hsl(var(--ss-ink-stage-line));
     color: hsl(var(--ss-ink-stage-text));
     background-color: transparent;
   }
 
-  .ss-ink-stage-control:hover {
+  .ss-ink-stage-control.ss-ink-stage-control:hover {
     background-color: hsl(var(--ss-ink-stage-hover));
     color: hsl(var(--ss-ink-stage-text));
   }
 
-  .ss-ink-stage-text-token {
+  .ss-ink-stage-text-token.ss-ink-stage-text-token {
     color: hsl(var(--ss-ink-stage-text));
   }
 
   /* Tab chip selected on the ink stage. */
-  .ss-ink-stage-tab[data-state='active'] {
+  .ss-ink-stage-tab.ss-ink-stage-tab[data-state='active'] {
     background-color: hsl(var(--ss-ink-stage-border));
     color: hsl(var(--ss-ink-stage-text));
     box-shadow: none;
