@@ -1,6 +1,6 @@
 // ABOUTME: Renders the list of certificates the signed-in user has earned across
 // ABOUTME: every course, with download-as-PDF and public verification-link actions.
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Award, Download, ExternalLink, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { deliverBlob } from '@/lib/downloadFile';
 import { createLogger } from '@/utils/logger';
 
 const logger = createLogger('MyCertificates');
@@ -44,6 +45,26 @@ export const MyCertificates = () => {
   const [reloadKey, setReloadKey] = useState(0);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
+  /**
+   * jsPDF, fetched before anybody clicks.
+   *
+   * This is the whole reason "Download PDF" appeared to do nothing on a phone.
+   * The handler used to `await import('jspdf')` on click, and that import is a
+   * ~460 kB chunk — seconds on a mobile connection. A browser only honours a
+   * programmatic download while the user-activation token from the tap is still
+   * live, and that token does not survive a network round trip of that length.
+   * The download was then discarded with no error to catch and nothing to
+   * toast: the button genuinely did nothing.
+   *
+   * Starting the fetch when the list renders means the click resolves an
+   * already-settled promise instead, which keeps the activation intact.
+   */
+  const pdfModule = useRef<Promise<typeof import('jspdf')> | null>(null);
+  const preloadPdfLibrary = useCallback(() => {
+    if (!pdfModule.current) pdfModule.current = import('jspdf');
+    return pdfModule.current;
+  }, []);
+
   useEffect(() => {
     if (!user?.id) return;
     const load = async () => {
@@ -66,10 +87,17 @@ export const MyCertificates = () => {
     load();
   }, [user?.id, reloadKey]);
 
+  // Warm the PDF library once there is something to download. Deliberately not
+  // on mount: someone with no certificates should never pay for a 460 kB chunk
+  // they have no use for.
+  useEffect(() => {
+    if (certificates.length > 0) void preloadPdfLibrary();
+  }, [certificates.length, preloadPdfLibrary]);
+
   const handleDownload = async (cert: CertificateRow) => {
     setDownloadingId(cert.id);
     try {
-      const { jsPDF } = await import('jspdf');
+      const { jsPDF } = await preloadPdfLibrary();
       const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' });
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
@@ -117,7 +145,22 @@ export const MyCertificates = () => {
       doc.setFontSize(11);
       doc.text(`Issued: ${new Date(cert.issued_at).toLocaleDateString()}`, 80, pageHeight - 80);
 
-      doc.save(`certificate-${cert.verification_code}.pdf`);
+      // Not `doc.save()`. That builds an anchor and clicks it, which an iframe
+      // without `allow-downloads` — the preview this app is often read inside —
+      // ignores without raising anything. deliverBlob opens the PDF in a tab
+      // where a download cannot land, so the file always arrives somehow, and
+      // reports which route it took so the reader is told where to look.
+      const method = deliverBlob(
+        doc.output('blob'),
+        `certificate-${cert.verification_code}.pdf`,
+      );
+
+      if (method === 'new-tab') {
+        toast({
+          title: 'Certificate opened in a new tab',
+          description: 'Your browser blocks direct downloads here — save or share it from the tab that just opened.',
+        });
+      }
     } catch (err) {
       logger.error('PDF download failed', err);
       toast({ title: 'Download failed', description: 'Could not generate the PDF.', variant: 'destructive' });
@@ -205,6 +248,9 @@ export const MyCertificates = () => {
                 variant="outline"
                 size="sm"
                 onClick={() => handleDownload(cert)}
+                // Second chance at the preload, for anyone who reaches the
+                // button before the effect below has finished fetching.
+                onPointerDown={preloadPdfLibrary}
                 disabled={downloadingId === cert.id}
                 data-testid="certificate-download"
               >
