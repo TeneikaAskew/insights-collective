@@ -29,7 +29,7 @@ export const RoleHeader: React.FC<RoleHeaderProps> = ({ role, onClose, wage }) =
               </Badge>
             ))}
           </div>
-          <CardTitle className="text-2xl font-display mb-1">{role.title}</CardTitle>
+          <CardTitle data-testid="role-detail-title" className="text-2xl font-display mb-1">{role.title}</CardTitle>
           <p className="ss-serif text-ss-peach-deep text-base">{role.shortDescription}</p>
         </div>
         <Button variant="ghost" size="icon" onClick={onClose} className="absolute top-4 right-4 rounded-full" aria-label="Close">
