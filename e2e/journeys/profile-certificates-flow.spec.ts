@@ -61,6 +61,88 @@ test.describe('Profile — My Certificates', () => {
     ).toHaveCount(1);
   });
 
+  test('Download PDF produces a real file', async ({ page }) => {
+    // The button did nothing on a phone: the handler fetched jsPDF (~460 kB) on
+    // click, and the user-activation token that permits a programmatic download
+    // does not survive that round trip — so the download was discarded with no
+    // error to catch. Asserting an actual download event is the only check that
+    // would have caught it; "the click did not throw" would have passed.
+    await gotoProfile(page);
+    await expect(page.getByTestId('my-certificates-card')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('certificates-loading')).toHaveCount(0, { timeout: 15_000 });
+
+    const button = page.getByTestId('certificate-download').first();
+    await expect(button).toBeVisible({ timeout: 15_000 });
+
+    const download = page.waitForEvent('download', { timeout: 20_000 });
+    await button.click();
+    const file = await download;
+
+    expect(file.suggestedFilename()).toMatch(/^certificate-[A-Z0-9]+\.pdf$/);
+
+    // And it must be a real PDF, not an empty or truncated blob. Every PDF
+    // starts with %PDF-; a zero-byte file would still fire the download event.
+    const path = await file.path();
+    expect(path, 'download produced no file on disk').toBeTruthy();
+    const fs = await import('node:fs/promises');
+    const bytes = await fs.readFile(path!);
+    expect(bytes.length, 'downloaded PDF is empty').toBeGreaterThan(1000);
+    expect(bytes.subarray(0, 5).toString('latin1')).toBe('%PDF-');
+  });
+
+  test('the PDF library is fetched before anyone clicks', async ({ page }) => {
+    // The preload is the actual fix, so it needs its own assertion: with the
+    // chunk already in flight or cached, the click resolves a settled promise
+    // and the activation survives. If this regresses, the phone bug returns
+    // while the download test above still passes on desktop.
+    // Matched on the module name alone. Under Vite the dependency resolves to
+    // `/node_modules/.vite/deps/jspdf.js?v=<hash>` and in a production build to
+    // a hashed `pdf-*.js` chunk, so anchoring on an extension matches neither
+    // reliably.
+    const pdfRequests: string[] = [];
+    page.on('request', (r) => {
+      if (/jspdf/i.test(r.url())) pdfRequests.push(r.url());
+    });
+
+    await gotoProfile(page);
+    await expect(page.getByTestId('certificates-loading')).toHaveCount(0, { timeout: 15_000 });
+    await expect(page.getByTestId('certificate-download').first()).toBeVisible({ timeout: 15_000 });
+
+    // Never clicked, yet the module should already have been requested.
+    await expect
+      .poll(() => pdfRequests.length, { timeout: 15_000 })
+      .toBeGreaterThan(0);
+
+    // And the button must not be tappable until it has arrived. Enabling it
+    // while the fetch is still in flight is the original bug in a new costume:
+    // the tap awaits the network and loses the activation just the same.
+    await expect(page.getByTestId('certificate-download').first()).toBeEnabled({
+      timeout: 15_000,
+    });
+  });
+
+  test('the download button is not tappable until the PDF library has landed', async ({
+    page,
+  }) => {
+    // Hold the chunk and check the button refuses the tap in the meantime.
+    await page.route(/jspdf/i, async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 4_000));
+      await route.continue();
+    });
+
+    await gotoProfile(page);
+    await expect(page.getByTestId('certificates-loading')).toHaveCount(0, { timeout: 20_000 });
+
+    const button = page.getByTestId('certificate-download').first();
+    await expect(button).toBeVisible({ timeout: 15_000 });
+    await expect(button, 'button was tappable while jsPDF was still loading').toBeDisabled();
+    await expect(button).toContainText(/Preparing/i);
+
+    // And it becomes usable once the chunk lands, rather than staying stuck.
+    await expect(button).toBeEnabled({ timeout: 20_000 });
+    await expect(button).toContainText(/Download PDF/i);
+  });
+
   test('certificate row keeps its text readable at phone width', async ({ page }) => {
     // The row was `flex flex-wrap` with a `flex-1 min-w-0` text column beside
     // the action buttons. min-w-0 lets a flex item shrink without limit, and

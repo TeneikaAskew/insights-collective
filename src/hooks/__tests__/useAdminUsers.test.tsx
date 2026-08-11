@@ -19,7 +19,6 @@ const userRow = {
   first_name: 'Ada',
   last_name: 'Lovelace',
   avatar_url: null,
-  bio: '',
   created_at: '2026-01-01T00:00:00Z',
 };
 

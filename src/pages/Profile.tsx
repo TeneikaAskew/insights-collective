@@ -4,7 +4,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { User, Settings, LogOut, Save } from 'lucide-react';
@@ -25,7 +24,6 @@ const logger = createLogger('Profile');
 interface UserProfile {
   first_name: string;
   last_name: string;
-  bio: string;
   notification_settings?: {
     email: boolean;
     browser: boolean;
@@ -41,7 +39,6 @@ const Profile = () => {
   const [formData, setFormData] = useState<UserProfile>({
     first_name: '',
     last_name: '',
-    bio: '',
   });
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [profileLoadError, setProfileLoadError] = useState<string | null>(null);
@@ -76,7 +73,6 @@ const Profile = () => {
           const profileData = {
             first_name: data.first_name || '',
             last_name: data.last_name || '',
-            bio: data.bio || '',
           };
           setFormData(profileData);
         } else if (error) {
@@ -188,15 +184,6 @@ const Profile = () => {
                   </div>
                 </div>
                 
-                <div className="space-y-2">
-                  <Textarea
-                    placeholder="Tell us about yourself"
-                    value={formData.bio}
-                    onChange={(e) => handleInputChange('bio', e.target.value)}
-                    className="resize-none"
-                    rows={4}
-                  />
-                </div>
               </CardContent>
               <CardFooter>
                 <Button 

@@ -468,6 +468,9 @@ const ExploreDataCareers = () => {
                   role={role}
                   wage={wagesBySlug.get(role.id)}
                   onClose={() => setOpenRoleId(null)}
+                  // Following a similar role swaps this same dialog over to it,
+                  // so the reader keeps browsing without a close/reopen round trip.
+                  onSelectRole={setOpenRoleId}
                 />
               </>;
             })()}

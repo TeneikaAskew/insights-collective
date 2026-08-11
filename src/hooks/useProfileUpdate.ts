@@ -11,7 +11,6 @@ const logger = createLogger('useProfileUpdate');
 export interface ProfileUpdateData {
   first_name?: string;
   last_name?: string;
-  bio?: string;
   avatar_url?: string;
   notification_settings?: {
     email: boolean;

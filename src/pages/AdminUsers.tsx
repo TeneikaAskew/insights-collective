@@ -37,7 +37,6 @@ interface UserData {
   first_name?: string;
   last_name?: string;
   avatar_url?: string;
-  bio?: string;
   roles?: string[];
   created_at?: string;
 }
@@ -577,7 +576,6 @@ const AdminUsers = () => {
               </div>
               {[
                 ['Name', `${selectedUser.first_name || ''} ${selectedUser.last_name || ''}`.trim() || 'Unnamed User'],
-                ['Bio', selectedUser.bio || 'No bio provided'],
               ].map(([k, v]) => (
                 <div key={k} className="grid grid-cols-[80px_1fr] gap-3 py-3 border-t border-border text-sm">
                   <span className="text-muted-foreground font-medium">{k}</span>
