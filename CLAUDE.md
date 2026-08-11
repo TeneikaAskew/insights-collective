@@ -220,3 +220,22 @@ migration on main may not be applied (`/course-art` sat unapplied while prod
 hotlinked Unsplash); a deployed Edge Function may not match the repo (deploy
 from the file, never edit payloads in flight). When debugging anything
 data-shaped, query the live table first.
+
+**Apply migrations through `db-migrate.yml`, never the Supabase MCP.** The MCP's
+`apply_migration` stamps its own version (`20260811114625`) which can never match
+the repo filename it came from (`20260811010000_*.sql`), so the file reads as
+pending forever while its effects are live. Twenty-five such orphan rows
+accumulated over three weeks before anyone reconciled them. The workflow derives
+the version from the filename and commits the schema change and the ledger row in
+one transaction, so the two cannot disagree. Use `execute_sql` for reads freely;
+for DDL, dispatch the workflow.
+
+**Never reuse a migration version.** Supabase records by version, not filename:
+the second file to carry a version is skipped in silence, and the ledger then
+claims both applied. `20260728000000` was carried by two files;
+`hide_quiz_answer_key` ran and `prune_page_visibility_dead_paths` never did, which
+only surfaced two weeks later from `schema_migrations.name`. `npm run
+check:migrations` (also a PR check) catches this at authoring time. If a
+collision is already applied, renumber the skipped file and settle it with
+`RECORD:<version>` plus a `scripts/reconcile/` script — do not blindly run it,
+since a migration written months ago can seed rows the manifest has since retired.

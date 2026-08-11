@@ -10,6 +10,7 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
+    "check:migrations": "node scripts/check-migration-versions.mjs",
     "typecheck": "tsc -b",
     "preview": "vite preview",
     "test": "vitest",
