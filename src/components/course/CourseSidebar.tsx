@@ -40,6 +40,7 @@ import { useCourseData } from '@/hooks/useCourseData';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCoursePermissions } from '@/hooks/useCoursePermissions';
 import { usePageVisibility } from '@/contexts/PageVisibilityContext';
+import { SIDEBAR_NAV_INACTIVE, sidebarNavIconClass } from '@/lib/sidebarNav';
 
 const courseNavItems = [
   { title: 'Course Home', url: '', icon: Home },
@@ -57,7 +58,12 @@ const courseNavItems = [
 ];
 
 export function CourseSidebar() {
-  const { open, isMobile } = useSidebar();
+  const { open: desktopOpen, isMobile } = useSidebar();
+  // On mobile the rail renders inside a Sheet at full drawer width, and that Sheet
+  // is driven by `openMobile` — not by `open`, which only tracks the desktop
+  // collapse cookie. Reading `open` there gave a full-width drawer of bare icons
+  // with every label suppressed. Same reasoning, same line, as AppSidebar.
+  const open = isMobile ? true : desktopOpen;
   const location = useLocation();
   const { courseId } = useParams();
   const { course, isLoading } = useCourseData(courseId);
@@ -76,12 +82,11 @@ export function CourseSidebar() {
     return currentPath === fullPath || (itemUrl === '' && currentPath === basePath);
   };
 
-  const getNavClassName = (itemUrl: string) => {
-    if (isActive(itemUrl)) {
-      return 'bg-primary/10 text-primary font-medium border-r-2 border-primary';
-    }
-    return 'hover:!bg-primary/10 hover:!text-primary transition-all duration-200';
-  };
+  // Active styling comes from SidebarMenuButton's `isActive` (the same
+  // `--sidebar-accent` pill the main site nav uses); only the resting state
+  // needs stating here.
+  const getNavClassName = (itemUrl: string) =>
+    isActive(itemUrl) ? 'transition-colors duration-200' : `transition-colors duration-200 ${SIDEBAR_NAV_INACTIVE}`;
 
   // Filter nav items based on user role
   const filteredNavItems = courseNavItems.filter(item => {
@@ -93,7 +98,7 @@ export function CourseSidebar() {
 
   if (isLoading) {
     return (
-      <Sidebar className={!open ? 'w-14' : 'w-64'} collapsible="icon">
+      <Sidebar className="border-r border-sidebar-border text-sidebar-foreground" collapsible="icon">
         <SidebarContent>
           <div className="animate-pulse p-4">
             <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>
@@ -105,12 +110,21 @@ export function CourseSidebar() {
   }
 
   return (
-    <Sidebar className={!open ? 'w-14' : 'w-64'} collapsible="icon">
-      <SidebarHeader className="border-b">
-        <div className="p-4">
-          <Button variant="ghost" size="sm" asChild className="mb-4 w-full justify-start">
-            <Link to="/enrolled-courses">
-              <ChevronLeft className="h-4 w-4 mr-2" />
+    /* Widths are the primitive's job: it already renders `--sidebar-width` when
+       expanded and `--sidebar-width-icon` under `collapsible="icon"`. The old
+       hand-set w-14/w-64 pair overrode the collapsed width and never reached the
+       mobile Sheet at all. */
+    <Sidebar className="border-r border-sidebar-border text-sidebar-foreground" collapsible="icon">
+      <SidebarHeader className="border-b border-sidebar-border">
+        <div className={open ? 'p-4' : 'p-2'}>
+          <Button
+            variant="ghost"
+            size="sm"
+            asChild
+            className={`mb-4 ${SIDEBAR_NAV_INACTIVE} ${open ? 'w-full justify-start' : 'w-8 h-8 p-0 justify-center mx-auto'}`}
+          >
+            <Link to="/enrolled-courses" aria-label={open ? undefined : 'Back to Courses'}>
+              <ChevronLeft className={`h-4 w-4 ${open ? 'mr-2' : ''}`} />
               {open && 'Back to Courses'}
             </Link>
           </Button>
@@ -132,21 +146,30 @@ export function CourseSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {filteredNavItems.map((item) => (
+              {filteredNavItems.map((item) => {
+                const label = (item.studentTitle && !isInstructor) ? item.studentTitle : item.title;
+                return (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton 
+                  <SidebarMenuButton
                     asChild
+                    isActive={isActive(item.url)}
+                    tooltip={label}
                     className={`${getNavClassName(item.url)} group`}
                   >
                     <Link
                       to={`${basePath}${item.url}`}
+                      // Collapsed, the label is gone and the link is a bare icon —
+                      // without this it reaches assistive tech with no name at all.
+                      aria-label={open ? undefined : label}
                     >
-                      <item.icon className={`h-4 w-4 ${!isActive(item.url) ? 'group-hover:!text-primary' : ''}`} />
+                      <item.icon
+                        className={`h-4 w-4 flex-shrink-0 ${sidebarNavIconClass(isActive(item.url))} ${
+                          !isActive(item.url) ? 'group-hover:text-sidebar-accent' : ''
+                        }`}
+                      />
                       {open && (
                         <>
-                          <span className={`flex-1 ${!isActive(item.url) ? 'group-hover:!text-primary' : ''}`}>
-                            {(item.studentTitle && !isInstructor) ? item.studentTitle : item.title}
-                          </span>
+                          <span className="flex-1 truncate">{label}</span>
                           {item.instructorOnly && (
                             <Lock className="h-3 w-3 ml-1 text-muted-foreground/60 flex-shrink-0" />
                           )}
@@ -155,7 +178,8 @@ export function CourseSidebar() {
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-              ))}
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -184,13 +208,13 @@ export function CourseSidebar() {
         )}
       </SidebarContent>
 
-      <SidebarFooter className="border-t">
+      <SidebarFooter className="border-t border-sidebar-border">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild className="hover:!bg-primary/10 hover:!text-primary transition-all duration-200">
-              <Link to="/dashboard">
-                <Home className="h-4 w-4" />
-                {open && <span>Home</span>}
+            <SidebarMenuButton asChild tooltip="Home" className={`group transition-colors duration-200 ${SIDEBAR_NAV_INACTIVE}`}>
+              <Link to="/dashboard" aria-label={open ? undefined : 'Home'}>
+                <Home className="h-4 w-4 flex-shrink-0 text-muted-foreground group-hover:text-sidebar-accent" />
+                {open && <span className="truncate">Home</span>}
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

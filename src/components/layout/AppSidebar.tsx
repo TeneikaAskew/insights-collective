@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { SIDEBAR_NAV_INACTIVE } from '@/lib/sidebarNav';
 
 const AppSidebar = () => {
   const location = useLocation();
@@ -238,7 +239,7 @@ const AppSidebar = () => {
               {menuItems.map((item, index) => (
                   <motion.div key={item.title} custom={index} initial="hidden" animate="visible" variants={menuItemVariants} className={open ? '' : 'flex justify-center'}>
                     <SidebarMenuItem className={open ? '' : 'w-8'}>
-                      <SidebarMenuButton asChild isActive={item.active} className={`transition-all duration-200 ${item.active ? 'font-medium' : 'text-sidebar-foreground/80 hover:text-sidebar-accent hover:bg-sidebar-accent/10'}`}>
+                      <SidebarMenuButton asChild isActive={item.active} className={`transition-all duration-200 ${item.active ? 'font-medium' : SIDEBAR_NAV_INACTIVE}`}>
                         <Link to={item.url} className={`flex items-center rounded-md py-1.5 ${open ? 'space-x-2 px-2' : 'justify-center w-8 h-8 px-0 mx-auto'} ${item.highlight && open && !item.active ? 'bg-sidebar-accent/10 border border-sidebar-accent/30' : ''}`}>
 
                           <item.icon className={`h-3.5 w-3.5 flex-shrink-0 ${item.active ? 'text-sidebar-accent-foreground' : 'text-muted-foreground'}`} />
@@ -264,7 +265,7 @@ const AppSidebar = () => {
             <SidebarGroupContent>
               <SidebarMenu>
                 {isAdmin && visibleAdminMenuItems.map(item => <SidebarMenuItem key={item.title} className={open ? '' : 'flex justify-center'}>
-                    <SidebarMenuButton asChild isActive={item.active} className={`transition-all duration-200 ${item.active ? 'font-medium' : 'text-sidebar-foreground/80 hover:text-sidebar-accent hover:bg-sidebar-accent/10'}`}>
+                    <SidebarMenuButton asChild isActive={item.active} className={`transition-all duration-200 ${item.active ? 'font-medium' : SIDEBAR_NAV_INACTIVE}`}>
                       <Link to={item.url} className={`flex items-center rounded-md py-1.5 ${open ? 'space-x-2 px-2' : 'justify-center w-8 h-8 px-0 mx-auto'}`}>
                         <item.icon className={`h-3.5 w-3.5 flex-shrink-0 ${item.active ? 'text-sidebar-accent-foreground' : 'text-muted-foreground'}`} />
                         {open && <span className="text-xs truncate">{item.title}</span>}
@@ -273,7 +274,7 @@ const AppSidebar = () => {
                   </SidebarMenuItem>)}
                 
                 {isInstructor && !isAdmin && <SidebarMenuItem className={open ? '' : 'flex justify-center'}>
-                    <SidebarMenuButton asChild className="text-sidebar-foreground/80 hover:text-sidebar-accent hover:bg-sidebar-accent/10">
+                    <SidebarMenuButton asChild className={SIDEBAR_NAV_INACTIVE}>
                       <Link to="/course-management" className={`flex items-center rounded-md py-1.5 ${open ? 'space-x-2 px-2' : 'justify-center w-8 h-8 px-0 mx-auto'}`}>
                         <BookOpen className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
                         {open && <span className="text-xs truncate">My Courses</span>}
@@ -285,7 +286,7 @@ const AppSidebar = () => {
                     their own posts, so surface the entry rather than leaving the
                     capability unreachable. Admins already get it above. */}
                 {isInstructor && !isAdmin && <SidebarMenuItem className={open ? '' : 'flex justify-center'}>
-                    <SidebarMenuButton asChild isActive={location.pathname.startsWith('/admin/blog')} className="text-sidebar-foreground/80 hover:text-sidebar-accent hover:bg-sidebar-accent/10">
+                    <SidebarMenuButton asChild isActive={location.pathname.startsWith('/admin/blog')} className={SIDEBAR_NAV_INACTIVE}>
                       <Link to="/admin/blog" className={`flex items-center rounded-md py-1.5 ${open ? 'space-x-2 px-2' : 'justify-center w-8 h-8 px-0 mx-auto'}`}>
                         <Newspaper className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
                         {open && <span className="text-xs truncate">Manage Blog</span>}
