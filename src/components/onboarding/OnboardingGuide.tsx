@@ -270,7 +270,7 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ tourId }) => {
             left: targetElement.getBoundingClientRect().left - 8,
             width: targetElement.offsetWidth + 16,
             height: targetElement.offsetHeight + 16,
-            border: '3px solid #3b82f6',
+            border: '3px solid hsl(var(--ring))',
             borderRadius: '8px',
             boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.5)',
           }}

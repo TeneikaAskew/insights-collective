@@ -9,12 +9,12 @@ const logger = createLogger('BULLET_CATEGORIES');
 // Labels are logic keys consumed by BulletTextParser; recolor only, never rename.
 // Any color change here must be mirrored in chart/ChartComponents.tsx class maps.
 export const BULLET_CATEGORIES = {
-  action: { label: 'Action', color: '#B97143' },      // ss-peach-deep
-  metrics: { label: 'Metrics', color: '#3FA391' },    // ss-teal
-  clarity: { label: 'Clarity', color: '#A794EB' },    // ss-lav
-  industry: { label: 'Industry', color: '#624EBE' },  // ss-lav-deep
-  achievement: { label: 'Achievement', color: '#4E9B70' }, // ss-good
-  common: { label: 'Common', color: '#837E8C' }       // ss-muted
+  action: { label: 'Action', color: 'hsl(var(--ss-peach-deep))' },      // ss-peach-deep
+  metrics: { label: 'Metrics', color: 'hsl(var(--ss-teal))' },    // ss-teal
+  clarity: { label: 'Clarity', color: 'hsl(var(--ss-lav))' },    // ss-lav
+  industry: { label: 'Industry', color: 'hsl(var(--ss-lav-deep))' },  // ss-lav-deep
+  achievement: { label: 'Achievement', color: 'hsl(var(--ss-good))' }, // ss-good
+  common: { label: 'Common', color: 'hsl(var(--muted-foreground))' }       // ss-muted
 };
 
 // Define type for xyz_scores to avoid empty object type error
