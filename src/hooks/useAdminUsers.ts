@@ -16,7 +16,6 @@ interface AdminUserResponse {
   first_name: string;
   last_name: string;
   avatar_url?: string;
-  bio?: string;
   roles: string[];
   created_at: string;
 }
@@ -42,7 +41,6 @@ const mapRow = (r: any): AdminUserResponse => ({
   first_name: r.first_name || '',
   last_name: r.last_name || '',
   avatar_url: r.avatar_url,
-  bio: r.bio || '',
   roles: Array.isArray(r.roles) && r.roles.length > 0 ? r.roles : ['student'],
   created_at: r.created_at,
 });
