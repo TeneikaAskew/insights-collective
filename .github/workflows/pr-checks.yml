@@ -35,6 +35,12 @@ jobs:
       if: steps.changed-files.outputs.any_changed == 'true'
       run: npm run lint
     
+    # Supabase records an applied migration by version — the leading digits of
+    # the filename — so two files sharing a version means one of them is applied
+    # silently never. This costs a second and needs no database; see the script.
+    - name: Check migration versions
+      run: node scripts/check-migration-versions.mjs
+
     - name: Run tests
       run: npm run test -- --run
     

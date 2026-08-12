@@ -1,6 +1,24 @@
 -- Reconcile page_visibility with the page manifest
 -- (src/config/pageManifest.ts) now that visibility is actually enforced.
 --
+-- RENUMBERED from 20260728000000 to 20260728000500 on 2026-08-11. It shared
+-- that version with 20260728000000_hide_quiz_answer_key.sql, and Supabase
+-- tracks applied migrations by version, not by filename: the version was
+-- recorded once, for hide_quiz_answer_key, and THIS FILE WAS SILENTLY SKIPPED.
+-- It has never run against production. `schema_migrations` names the recorded
+-- row `hide_quiz_answer_key`, which is how the skip was finally identified.
+--
+-- It is being RECORDED rather than executed, via
+-- scripts/reconcile/20260728000500_prune_page_visibility_dead_paths.sql. The
+-- reason is the seed at the foot of this file: two of the paths it inserts,
+-- /user-dashboard and /calendar, have since been retired from the manifest, so
+-- running it now would re-create exactly the dead rows the DELETE above exists
+-- to remove. The in-app Sync has meanwhile performed the same reconciliation
+-- this file describes, which is why the live table already matches the manifest.
+--
+-- The file is kept, unchanged below this header, so a database built from
+-- migrations alone still reaches the state it describes.
+--
 -- Until this release, hiding a page did nothing on ~all routes (the guard
 -- wrapped only 4 of them, and it rendered the page behind a blur anyway),
 -- so the table accumulated years of drift: rows for dead routes, /admin
