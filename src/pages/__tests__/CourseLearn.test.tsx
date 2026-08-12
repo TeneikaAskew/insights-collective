@@ -203,6 +203,28 @@ describe('CourseLearn', () => {
     expect(screen.getByRole('button', { name: /Start course/ })).toBeInTheDocument();
   });
 
+  // REGRESSION: the course-home accordion drew a bare filled disc for a done
+  // lesson, which reads as "you are here" rather than "completed".
+  it('marks completed lessons with a checkmark in the course-home accordion', async () => {
+    mockTables({
+      courses: { data: courseRow, error: null },
+      content_item_progressions: {
+        data: [{ content_item_id: 'i1', workflow_state: 'completed' }],
+        error: null,
+      },
+    });
+    render(<CourseLearn />);
+
+    // The first section with items is expanded on load, so its rows are live.
+    expect(await screen.findByText('1 / 2 complete')).toBeInTheDocument();
+
+    // A done lesson must carry a tick, not just a filled disc.
+    const done = await screen.findAllByLabelText('Completed');
+    expect(done).not.toHaveLength(0);
+    expect(done[0].querySelector('svg.lucide-check')).not.toBeNull();
+    expect(screen.getAllByLabelText('Not started')).not.toHaveLength(0);
+  });
+
   it('handleMarkDone awaits completion before updating the UI', async () => {
     mockParams.moduleId = 'm1';
     mockParams.itemId = 'i1';
