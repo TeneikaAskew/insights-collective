@@ -363,6 +363,9 @@ const Dashboard = () => {
           message: n.message,
           type: n.type,
           link: n.link,
+          // Carried so a row with no stored link can still resolve a
+          // destination from its course and type.
+          courseId: n.course_id,
           isRead: n.is_read,
           createdAt: n.created_at,
         })));
@@ -373,6 +376,34 @@ const Dashboard = () => {
     };
     fetchNotifications();
   }, [user, notificationsReloadKey]);
+
+  // Clicking a single notification marks it read. This handler was simply never
+  // passed to NotificationItem, so the component's mark-as-read branch could not
+  // fire: rows stayed unread (and the badge stayed high) no matter how many you
+  // opened, and "Mark All as Read" was the only way to clear anything.
+  const markNotificationRead = async (id: string) => {
+    const target = notifications.find((n) => n.id === id);
+    if (!target || target.isRead) return;
+    const previous = notifications;
+    const previousUnread = unreadCount;
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
+    setUnreadCount((count) => Math.max(0, count - 1));
+    const { error } = await supabase
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('id', id);
+    if (error) {
+      // Roll back the optimistic update — never report success on a failed write.
+      logger.error('Error marking notification read:', error);
+      setNotifications(previous);
+      setUnreadCount(previousUnread);
+      toast({
+        title: 'Failed to mark notification as read',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
 
   const markAllNotificationsRead = async () => {
     const previous = notifications;
@@ -630,6 +661,7 @@ const Dashboard = () => {
                     <NotificationItem
                       key={notification.id}
                       notification={notification}
+                      onMarkAsRead={markNotificationRead}
                     />
                   ))}
                 </CardContent>
