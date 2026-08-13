@@ -73,6 +73,58 @@ test.describe('Calendar (Dashboard tab)', () => {
     expect(await grid.getByRole('button').count()).toBeGreaterThan(20);
   });
 
+  // Guards the day grid's geometry, because a stale classNames key is silent.
+  // CalendarPanel stretches the grid with react-day-picker v9 names; it used to
+  // pass v8's (`head_cell`, `row`, `cell`, …), which v9 drops without warning.
+  // The result rendered: 36px weekday headers over 51px day columns, so "Sa" sat
+  // a whole column left of Saturday, and each 36px day button hugged the left
+  // edge of its 51px cell while the selected/today/hasEvent background — v9 puts
+  // modifier classNames on the CELL — painted the full cell as an off-centre
+  // oval. Both symptoms are geometry, so nothing but a measurement catches them.
+  test('weekday headers line up with their day columns, and days are centred', async ({
+    page,
+  }) => {
+    await goto(page, Routes.calendar);
+    const grid = page.locator('[role="grid"]').filter({ visible: true }).first();
+    await expect(grid).toBeVisible();
+
+    const geometry = await grid.evaluate((el) => {
+      const centre = (node: Element) => {
+        const r = node.getBoundingClientRect();
+        return { centre: r.x + r.width / 2, width: r.width, height: r.height };
+      };
+      return {
+        // v9 renders each weekday as a bare `<th scope="col">` — it carries the
+        // implicit columnheader role but no role attribute, so an explicit
+        // `[role="columnheader"]` selector matches nothing and the measurement
+        // silently has no columns to compare against.
+        headers: Array.from(el.querySelectorAll('th')).map(centre),
+        // The first week only: enough to pin the column grid, and it avoids
+        // depending on how many weeks the current month spans.
+        days: Array.from(el.querySelectorAll('[role="gridcell"]'))
+          .slice(0, 7)
+          .map((cell) => {
+            const button = cell.querySelector('button');
+            return { cell: centre(cell), button: button ? centre(button) : null };
+          }),
+      };
+    });
+
+    expect(geometry.headers).toHaveLength(7);
+    expect(geometry.days).toHaveLength(7);
+
+    geometry.days.forEach(({ cell, button }, i) => {
+      // Header sits over its own column.
+      expect(Math.abs(geometry.headers[i].centre - cell.centre)).toBeLessThan(1);
+      expect(button).not.toBeNull();
+      // The number's box is centred in the column, and square — so the pill the
+      // event/selected modifiers paint is a circle around it rather than an oval
+      // beside it.
+      expect(Math.abs(button!.centre - cell.centre)).toBeLessThan(1);
+      expect(Math.abs(button!.width - button!.height)).toBeLessThan(2);
+    });
+  });
+
   test('sidebar is visible', async ({ page }) => {
     await goto(page, Routes.calendar);
     await expect(page.locator('[data-sidebar="sidebar"]')).toBeVisible();

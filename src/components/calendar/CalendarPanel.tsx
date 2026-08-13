@@ -8,6 +8,7 @@
 
 import { useState } from 'react';
 import { Calendar } from '@/components/ui/calendar';
+import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -18,6 +19,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { format, isSameDay, isAfter } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { htmlToPlainText } from '@/utils/htmlToPlainText';
+import { cn } from '@/lib/utils';
 
 type CalendarEvent = {
   id: string;
@@ -198,16 +200,48 @@ export function CalendarPanel({
                 className="w-full"
                 // react-day-picker sizes its month to fixed-width cells, which
                 // leaves the card padded out with dead space. Stretch the month,
-                // table and rows so the grid fills the column at every width.
+                // grid and rows so the grid fills the column at every width.
+                //
+                // THESE KEYS WERE v8's, AND v9 IGNORES THE ONES IT DOES NOT KNOW.
+                //
+                // `table`, `head_row`, `head_cell`, `row` and `cell` were renamed
+                // to `month_grid`, `weekdays`, `weekday`, `week` and `day` in
+                // react-day-picker v9 (`day` in turn renamed to `day_button`).
+                // Unknown keys are not an error — they are dropped — so every
+                // stretch rule above except `months`/`month` did nothing, and the
+                // `day` rule landed on the CELL instead of the button. Measured on
+                // /dashboard?tab=calendar at 414px before this change:
+                //
+                //     weekday headers   7 x 36px = 252px   (base calendar's w-9)
+                //     day columns       7 x 51px = 357px   (flex-1, stretched)
+                //     day button        36px at the cell's LEFT edge, cell 51px
+                //
+                // so "Su Mo Tu ..." sat above the wrong columns — Sa was a full
+                // column short of Saturday — the numbers sat 7.5px left of their
+                // own column's centre, and the selected/today/hasEvent background
+                // (v9 puts modifier classNames on the cell, not the button) painted
+                // the full 51x36 cell as an off-centre oval around a number that
+                // was nowhere near its middle.
+                //
+                // v9 names throughout now, and the button fills its cell so the
+                // number and every pill share one square, centred box.
                 classNames={{
                   months: 'w-full',
                   month: 'w-full space-y-4',
-                  table: 'w-full border-collapse',
-                  head_row: 'flex w-full',
-                  head_cell: 'flex-1 text-muted-foreground rounded-md font-normal text-[0.8rem]',
-                  row: 'flex w-full mt-2',
-                  cell: 'flex-1 aspect-square relative p-0 text-center text-sm focus-within:relative focus-within:z-20',
-                  day: 'h-full w-full p-0 font-normal aria-selected:opacity-100 rounded-full',
+                  month_grid: 'w-full border-collapse',
+                  weekdays: 'flex w-full',
+                  weekday: 'flex-1 text-muted-foreground font-normal text-[0.8rem] text-center',
+                  week: 'flex w-full mt-2',
+                  day: 'flex-1 aspect-square relative p-0 text-center text-sm rounded-full focus-within:relative focus-within:z-20',
+                  day_button: cn(
+                    buttonVariants({ variant: 'ghost' }),
+                    'h-full w-full p-0 font-normal rounded-full aria-selected:opacity-100',
+                  ),
+                  // Cell-level backgrounds have to be circles now that the cell is
+                  // the pill: the base classNames leave them square-cornered.
+                  selected:
+                    'rounded-full bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground',
+                  today: 'rounded-full bg-accent text-accent-foreground',
                 }}
                 modifiers={{ hasEvent: getDatesWithEvents }}
                 modifiersClassNames={{ hasEvent: 'bg-primary/20 rounded-full' }}
