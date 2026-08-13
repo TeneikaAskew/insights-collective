@@ -188,6 +188,11 @@ describe('CourseLearn', () => {
     // The module accordion must not claim "0 / 2 complete".
     expect(screen.getByText('Progress unavailable')).toBeInTheDocument();
     expect(screen.queryByText('0 / 2 complete')).not.toBeInTheDocument();
+
+    // Nor may the per-row markers claim it where only a screen reader would hear
+    // it: an empty circle here means "unknown", not "not started".
+    expect(screen.queryByLabelText('Not started')).not.toBeInTheDocument();
+    expect(screen.getAllByLabelText('Progress unavailable')).not.toHaveLength(0);
   });
 
   it('renders the course home with curriculum on success', async () => {

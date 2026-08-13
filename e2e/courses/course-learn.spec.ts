@@ -90,7 +90,11 @@ test.describe('Course Learn Interface', () => {
     const rowCount = await rows.count();
     expect(rowCount).toBeGreaterThan(0);
 
-    const markers = section.getByRole('img', { name: /^(Completed|Not started)$/ });
+    // "Progress unavailable" is the third legitimate state: with the progress
+    // fetch failed an empty circle means unknown, not not-started.
+    const markers = section.getByRole('img', {
+      name: /^(Completed|Not started|Progress unavailable)$/,
+    });
     await expect(markers).toHaveCount(rowCount);
 
     // Whichever rows are done must show a tick rather than a filled disc.
