@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePageVisibility } from '@/contexts/PageVisibilityContext';
 import AppLayout from '@/components/layout/AppLayout';
@@ -25,6 +25,63 @@ import { createLogger } from '@/utils/logger';
 import { PageHeader } from '@/components/ui/page-header';
 
 const logger = createLogger('Dashboard');
+
+/**
+ * A dashboard metric that selects the tab answering it.
+ *
+ * These were `<Card onClick>` — a div, so mouse-only: no tab stop, no Enter or
+ * Space, and nothing announced them as operable. They are buttons, so they say
+ * button and behave like one. The role goes on the Card rather than wrapping it
+ * in a real <button> because a button may only contain phrasing content, and
+ * the card is a stack of divs.
+ *
+ * `action` names what the press does, since "Enrolled Courses 2" describes the
+ * number but not the destination.
+ */
+function StatCard({
+  title,
+  value,
+  icon: Icon,
+  action,
+  onSelect,
+  valueTestId,
+}: {
+  title: string;
+  value: number;
+  icon: React.ComponentType<{ className?: string }>;
+  action: string;
+  onSelect: () => void;
+  valueTestId?: string;
+}) {
+  return (
+    <Card
+      role="button"
+      tabIndex={0}
+      aria-label={`${title}: ${value}. ${action}`}
+      onClick={onSelect}
+      onKeyDown={(event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        // Space scrolls the page by default, which is the opposite of what this
+        // control is for.
+        event.preventDefault();
+        onSelect();
+      }}
+      className="cursor-pointer transition-colors hover:bg-accent/50 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+    >
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base font-medium">{title}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-center justify-between">
+          <div className="text-2xl font-bold" data-testid={valueTestId}>
+            {value}
+          </div>
+          <Icon className="h-5 w-5 text-muted-foreground" />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 const Dashboard = () => {
   const { user, isAuthenticated } = useAuth();
@@ -102,7 +159,28 @@ const Dashboard = () => {
   const [error, setError] = useState<string | null>(null);
   const [teachingCourses, setTeachingCourses] = useState<Course[]>([]);
   const [inProgressCount, setInProgressCount] = useState(0);
-  
+
+  // A stat card selects the tab that answers it, but on a phone that tab's panel is
+  // a full screen below the fold — the viewport never moves, so tapping "Enrolled
+  // Courses" looks like it did nothing at all. Bring the panel to the user.
+  //
+  // The scroll is driven by a counter rather than by `activeTab` so it fires only
+  // for the cards: clicking a tab trigger already has the panel in view, and
+  // scrolling then would yank the page under the finger that just tapped it.
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const [scrollToTabsTick, setScrollToTabsTick] = useState(0);
+
+  useEffect(() => {
+    if (scrollToTabsTick === 0) return;
+    const el = tabsRef.current;
+    // jsdom has no scrollIntoView, and neither do older webviews.
+    if (typeof el?.scrollIntoView !== 'function') return;
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    el.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+  }, [scrollToTabsTick]);
+
+  const revealTabs = () => setScrollToTabsTick((tick) => tick + 1);
+
   // Redirect to login if not authenticated.
   //
   // Built from the current location rather than hardcoded to "/dashboard": the tab now
@@ -405,6 +483,7 @@ const Dashboard = () => {
 
   const handleMetricClick = (tab: string) => {
     setActiveTab(tab);
+    revealTabs();
   };
 
   // The "Upcoming Deadlines" stat now opens the Calendar tab on its Upcoming view, so the
@@ -420,6 +499,7 @@ const Dashboard = () => {
       },
       { replace: true },
     );
+    revealTabs();
   };
 
   
@@ -434,69 +514,41 @@ const Dashboard = () => {
         />
         
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          <Card 
-            className="cursor-pointer hover:bg-accent/50 transition-colors" 
-            onClick={() => handleMetricClick('courses')}
-          >
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-medium">Enrolled Courses</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div className="text-2xl font-bold">{enrolledCourses.length}</div>
-                <BookOpen className="h-5 w-5 text-muted-foreground" />
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card 
-            className="cursor-pointer hover:bg-accent/50 transition-colors" 
-            onClick={() => handleMetricClick('courses')}
-          >
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-medium">In Progress</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div className="text-2xl font-bold" data-testid="metric-in-progress">{inProgressCount}</div>
-                <Clock className="h-5 w-5 text-muted-foreground" />
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card 
-            className="cursor-pointer hover:bg-accent/50 transition-colors" 
-            onClick={() => handleMetricClick('notifications')}
-          >
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-medium">Notifications</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div className="text-2xl font-bold">{unreadCount}</div>
-                <Bell className="h-5 w-5 text-muted-foreground" />
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card 
-            className="cursor-pointer hover:bg-accent/50 transition-colors" 
-            onClick={openUpcoming}
-          >
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-medium">Upcoming Deadlines</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div className="text-2xl font-bold">{upcomingDeadlineCount}</div>
+          <StatCard
+            title="Enrolled Courses"
+            value={enrolledCourses.length}
+            icon={BookOpen}
+            action="Show My Courses"
+            onSelect={() => handleMetricClick('courses')}
+          />
 
-                <Calendar className="h-5 w-5 text-muted-foreground" />
-              </div>
-            </CardContent>
-          </Card>
+          <StatCard
+            title="In Progress"
+            value={inProgressCount}
+            valueTestId="metric-in-progress"
+            icon={Clock}
+            action="Show My Courses"
+            onSelect={() => handleMetricClick('courses')}
+          />
+
+          <StatCard
+            title="Notifications"
+            value={unreadCount}
+            icon={Bell}
+            action="Show notifications"
+            onSelect={() => handleMetricClick('notifications')}
+          />
+
+          <StatCard
+            title="Upcoming Deadlines"
+            value={upcomingDeadlineCount}
+            icon={Calendar}
+            action="Show what's due"
+            onSelect={openUpcoming}
+          />
         </div>
         
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <Tabs ref={tabsRef} value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList>
             <TabsTrigger value="courses">My Courses</TabsTrigger>
             <TabsTrigger value="progress">

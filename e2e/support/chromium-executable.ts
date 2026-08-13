@@ -22,8 +22,10 @@
 // fall back to a system Chromium. The env var still wins when set explicitly.
 
 import { execFileSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { homedir } from 'node:os';
+import path from 'node:path';
 
 
 /** Candidate system browsers, in preference order. */
@@ -41,13 +43,60 @@ const SYSTEM_CANDIDATES = [
  * is an existing file that dies on a missing .so. `--version` is the cheapest
  * launch-equivalent check: it loads the same shared libraries and exits.
  */
-function canRun(path: string): boolean {
+function canRun(binary: string): boolean {
   try {
-    execFileSync(path, ['--version'], { stdio: 'ignore', timeout: 20_000 });
+    execFileSync(binary, ['--version'], { stdio: 'ignore', timeout: 20_000 });
     return true;
   } catch {
     return false;
   }
+}
+
+/**
+ * Chromium builds already sitting in Playwright's browsers directory.
+ *
+ * `chromium.executablePath()` is version-stamped — it names the build this
+ * Playwright wants (chromium-1217) — so an image that pre-installs a different
+ * one leaves it pointing at a path that does not exist. That is not a broken
+ * environment; the browser is right there under a neighbouring version number.
+ * Measured here: PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers holds chromium-1194,
+ * which launches and drives the whole suite, while executablePath() named
+ * chromium-1217 and the run died claiming no Chromium existed.
+ *
+ * Newest build first, and the full browser ahead of the headless shell — the
+ * shell is the one with the GTK/glib dependency this module exists to route
+ * around.
+ */
+function installedChromiumCandidates(): string[] {
+  const roots = [
+    process.env.PLAYWRIGHT_BROWSERS_PATH,
+    path.join(homedir(), '.cache', 'ms-playwright'),
+  ].filter((root): root is string => !!root);
+
+  const found: string[] = [];
+  for (const root of roots) {
+    let entries: string[];
+    try {
+      entries = readdirSync(root);
+    } catch {
+      continue;
+    }
+    const builds = entries
+      .filter((entry) => entry.startsWith('chromium'))
+      .sort()
+      .reverse()
+      .sort((a, b) => Number(a.includes('headless')) - Number(b.includes('headless')));
+
+    for (const build of builds) {
+      for (const dir of ['chrome-linux64', 'chrome-linux']) {
+        for (const binary of ['chrome', 'headless_shell']) {
+          const candidate = path.join(root, build, dir, binary);
+          if (existsSync(candidate)) found.push(candidate);
+        }
+      }
+    }
+  }
+  return found;
 }
 
 let cached: string | null | undefined;
@@ -89,7 +138,9 @@ export function resolveChromiumExecutable(): string | null {
     return cached;
   }
 
-  const fallback = SYSTEM_CANDIDATES.find((path) => existsSync(path) && canRun(path));
+  const fallback = [...installedChromiumCandidates(), ...SYSTEM_CANDIDATES].find(
+    (candidate) => existsSync(candidate) && canRun(candidate),
+  );
   if (fallback) {
     console.error(
       `[e2e] Playwright's bundled Chromium cannot launch here${
@@ -106,7 +157,7 @@ export function resolveChromiumExecutable(): string | null {
   throw new Error(
     '[e2e] No launchable Chromium found. The bundled browser fails to start (usually a ' +
       'missing system library such as libglib-2.0.so.0) and none of these exist or run: ' +
-      `${SYSTEM_CANDIDATES.join(', ')}. Install one, or set ` +
+      `${[...installedChromiumCandidates(), ...SYSTEM_CANDIDATES].join(', ')}. Install one, or set ` +
       'PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH to a working binary.',
   );
 }

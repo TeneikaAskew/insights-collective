@@ -6,6 +6,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
   Award,
+  Check,
   CheckCircle2,
   ChevronDown,
   ChevronLeft,
@@ -977,6 +978,16 @@ function HomeSection({
         <ul className="border-t border-border">
           {module.items.map((it) => {
             const done = completed.has(it.id);
+            // With the progress fetch failed, `completed` is whatever we last knew —
+            // possibly empty, possibly stale — so an empty circle means "we don't
+            // know", not "not started". The header already says as much; saying
+            // "Not started" here would fabricate the very zero-progress the visible
+            // notice exists to avoid, only where sighted users cannot see it.
+            const markerLabel = progressUnavailable
+              ? 'Progress unavailable'
+              : done
+                ? 'Completed'
+                : 'Not started';
             return (
               <li
                 key={it.id}
@@ -984,9 +995,22 @@ function HomeSection({
               >
                 <span className="flex-shrink-0">
                   {done ? (
-                    <div className="w-5 h-5 rounded-full bg-primary" />
+                    // The filled disc alone reads as "current", not "done" — the
+                    // tick is what marks completion, the same signal the rail
+                    // gives with CheckCircle2.
+                    <div
+                      role="img"
+                      aria-label={markerLabel}
+                      className="w-5 h-5 rounded-full bg-primary flex items-center justify-center"
+                    >
+                      <Check className="w-3 h-3 text-primary-foreground" strokeWidth={3} />
+                    </div>
                   ) : (
-                    <Circle className="w-5 h-5 text-muted-foreground/40" />
+                    <Circle
+                      role="img"
+                      aria-label={markerLabel}
+                      className="w-5 h-5 text-muted-foreground/40"
+                    />
                   )}
                 </span>
                 <div className="flex-1 min-w-0">

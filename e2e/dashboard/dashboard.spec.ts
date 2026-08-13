@@ -73,6 +73,62 @@ test.describe('Dashboard', () => {
     }
   });
 
+  // Each stat card selects the tab that answers it. On a phone that tab's panel
+  // is a full screen below the fold, so a card that only changes state reads as
+  // a dead control — the viewport has to follow.
+  test.describe('stat cards', () => {
+    const CARDS = [
+      { name: /Enrolled Courses: \d+/, tab: 'My Courses' },
+      { name: /In Progress: \d+/, tab: 'My Courses' },
+      { name: /Notifications: \d+/, tab: 'Notifications' },
+      { name: /Upcoming Deadlines: \d+/, tab: /Calendar/ },
+    ];
+
+    for (const card of CARDS) {
+      test(`${card.name.source} selects its tab and brings it into view`, async ({ page }) => {
+        await page.setViewportSize({ width: 390, height: 844 });
+        await goto(page, Routes.dashboard);
+
+        const scrollTop = () =>
+          page.evaluate(() => document.querySelector('main')?.scrollTop ?? -1);
+        const before = await scrollTop();
+
+        await page.getByRole('button', { name: card.name }).click();
+
+        const tab = page.getByRole('tab', { name: card.tab });
+        await expect(tab).toHaveAttribute('aria-selected', 'true');
+        await expect(tab).toBeInViewport();
+        // Smooth scrolling is animated, so poll rather than read once.
+        await expect.poll(scrollTop).toBeGreaterThan(before);
+      });
+    }
+
+    test('cards are reachable and operable from the keyboard', async ({ page }) => {
+      await goto(page, Routes.dashboard);
+
+      // REGRESSION: these were <div onClick>, so they had no tab stop and no
+      // Enter/Space handling — mouse-only, and silent to a screen reader.
+      const card = page.getByRole('button', { name: /Upcoming Deadlines: \d+/ });
+      await card.focus();
+      await expect(card).toBeFocused();
+      await page.keyboard.press('Enter');
+
+      await expect(page.getByRole('tab', { name: /Calendar/ })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      );
+    });
+
+    test('a card names the action it performs', async ({ page }) => {
+      await goto(page, Routes.dashboard);
+
+      // "Enrolled Courses 2" describes the number but not the destination.
+      await expect(
+        page.getByRole('button', { name: /Enrolled Courses: \d+\. Show My Courses/ }),
+      ).toBeVisible();
+    });
+  });
+
   test('Browse Courses button is visible', async ({ page }) => {
     await goto(page, Routes.dashboard);
     // It is an anchor, not a button, and it goes to the catalog. The old

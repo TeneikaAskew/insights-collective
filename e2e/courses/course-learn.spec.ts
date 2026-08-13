@@ -68,4 +68,39 @@ test.describe('Course Learn Interface', () => {
       page.getByRole('button', { name: /\d+ \/ \d+ complete/ }).first(),
     ).toBeVisible();
   });
+
+  // REGRESSION: a completed lesson drew a bare filled disc — no tick, nothing to
+  // tell it apart from a "you are here" dot, which is what got reported.
+  //
+  // Asserted by SHAPE for the same reason as the test above: nothing seeds or
+  // restores progress, so "the third row is done" would rot. Every row carries
+  // exactly one labelled marker whatever its state, and that is the invariant a
+  // blank marker breaks.
+  test('every curriculum row carries a labelled completion marker', async ({ page }) => {
+    await goto(page, learnUrl);
+
+    const section = page
+      .getByRole('button', { name: /\d+ \/ \d+ complete/ })
+      .first()
+      .locator('xpath=ancestor::div[contains(@class,"rounded-xl")][1]');
+    await expect(section).toBeVisible();
+
+    const rows = section.locator('li');
+    await expect(rows.first()).toBeVisible();
+    const rowCount = await rows.count();
+    expect(rowCount).toBeGreaterThan(0);
+
+    // "Progress unavailable" is the third legitimate state: with the progress
+    // fetch failed an empty circle means unknown, not not-started.
+    const markers = section.getByRole('img', {
+      name: /^(Completed|Not started|Progress unavailable)$/,
+    });
+    await expect(markers).toHaveCount(rowCount);
+
+    // Whichever rows are done must show a tick rather than a filled disc.
+    const done = section.getByRole('img', { name: 'Completed' });
+    for (let i = 0; i < (await done.count()); i++) {
+      await expect(done.nth(i).locator('svg.lucide-check')).toBeVisible();
+    }
+  });
 });

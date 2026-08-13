@@ -97,6 +97,64 @@ describe('Dashboard', () => {
     expect(document.querySelector('img[src*="unsplash"]')).toBeNull();
   });
 
+  // The stat cards select a tab whose panel is below the fold on a phone. Without
+  // moving the viewport the tap reads as a dead control.
+  describe('stat cards', () => {
+    it('scrolls the tab panels into view and selects the matching tab', async () => {
+      const scrollIntoView = vi.fn();
+      window.HTMLElement.prototype.scrollIntoView = scrollIntoView;
+      render(<Dashboard />);
+
+      await userEvent.click(await screen.findByText('Upcoming Deadlines'));
+
+      expect(screen.getByRole('tab', { name: /Calendar/ })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      );
+      expect(scrollIntoView).toHaveBeenCalled();
+    });
+
+    it('does not scroll when a tab is selected from the tab bar itself', async () => {
+      const scrollIntoView = vi.fn();
+      window.HTMLElement.prototype.scrollIntoView = scrollIntoView;
+      render(<Dashboard />);
+
+      await userEvent.click(await screen.findByRole('tab', { name: 'Notifications' }));
+
+      expect(scrollIntoView).not.toHaveBeenCalled();
+    });
+
+    // They were divs with onClick: mouse-only, and silent to a screen reader.
+    it('exposes each card as a button naming what it does', async () => {
+      render(<Dashboard />);
+
+      expect(
+        await screen.findByRole('button', { name: /Upcoming Deadlines: \d+\. Show what's due/ }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /Notifications: \d+\. Show notifications/ }),
+      ).toBeInTheDocument();
+    });
+
+    it.each([
+      ['Enter', '{Enter}'],
+      ['Space', ' '],
+    ])('activates on %s from the keyboard', async (_label, key) => {
+      window.HTMLElement.prototype.scrollIntoView = vi.fn();
+      render(<Dashboard />);
+
+      const card = await screen.findByRole('button', { name: /Upcoming Deadlines/ });
+      card.focus();
+      expect(card).toHaveFocus();
+      await userEvent.keyboard(key);
+
+      expect(screen.getByRole('tab', { name: /Calendar/ })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      );
+    });
+  });
+
   it('maps notification rows to camelCase so dates render (no "Invalid Date")', async () => {
     mockTables({
       enrollments: { select: () => ({ data: [], error: null }) },
