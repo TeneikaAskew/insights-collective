@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePageVisibility } from '@/contexts/PageVisibilityContext';
 import AppLayout from '@/components/layout/AppLayout';
@@ -102,7 +102,28 @@ const Dashboard = () => {
   const [error, setError] = useState<string | null>(null);
   const [teachingCourses, setTeachingCourses] = useState<Course[]>([]);
   const [inProgressCount, setInProgressCount] = useState(0);
-  
+
+  // A stat card selects the tab that answers it, but on a phone that tab's panel is
+  // a full screen below the fold — the viewport never moves, so tapping "Enrolled
+  // Courses" looks like it did nothing at all. Bring the panel to the user.
+  //
+  // The scroll is driven by a counter rather than by `activeTab` so it fires only
+  // for the cards: clicking a tab trigger already has the panel in view, and
+  // scrolling then would yank the page under the finger that just tapped it.
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const [scrollToTabsTick, setScrollToTabsTick] = useState(0);
+
+  useEffect(() => {
+    if (scrollToTabsTick === 0) return;
+    const el = tabsRef.current;
+    // jsdom has no scrollIntoView, and neither do older webviews.
+    if (typeof el?.scrollIntoView !== 'function') return;
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    el.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+  }, [scrollToTabsTick]);
+
+  const revealTabs = () => setScrollToTabsTick((tick) => tick + 1);
+
   // Redirect to login if not authenticated.
   //
   // Built from the current location rather than hardcoded to "/dashboard": the tab now
@@ -405,6 +426,7 @@ const Dashboard = () => {
 
   const handleMetricClick = (tab: string) => {
     setActiveTab(tab);
+    revealTabs();
   };
 
   // The "Upcoming Deadlines" stat now opens the Calendar tab on its Upcoming view, so the
@@ -420,6 +442,7 @@ const Dashboard = () => {
       },
       { replace: true },
     );
+    revealTabs();
   };
 
   
@@ -496,7 +519,7 @@ const Dashboard = () => {
           </Card>
         </div>
         
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <Tabs ref={tabsRef} value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList>
             <TabsTrigger value="courses">My Courses</TabsTrigger>
             <TabsTrigger value="progress">

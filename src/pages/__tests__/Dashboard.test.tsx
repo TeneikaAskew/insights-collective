@@ -97,6 +97,34 @@ describe('Dashboard', () => {
     expect(document.querySelector('img[src*="unsplash"]')).toBeNull();
   });
 
+  // The stat cards select a tab whose panel is below the fold on a phone. Without
+  // moving the viewport the tap reads as a dead control.
+  describe('stat cards', () => {
+    it('scrolls the tab panels into view and selects the matching tab', async () => {
+      const scrollIntoView = vi.fn();
+      window.HTMLElement.prototype.scrollIntoView = scrollIntoView;
+      render(<Dashboard />);
+
+      await userEvent.click(await screen.findByText('Upcoming Deadlines'));
+
+      expect(screen.getByRole('tab', { name: /Calendar/ })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      );
+      expect(scrollIntoView).toHaveBeenCalled();
+    });
+
+    it('does not scroll when a tab is selected from the tab bar itself', async () => {
+      const scrollIntoView = vi.fn();
+      window.HTMLElement.prototype.scrollIntoView = scrollIntoView;
+      render(<Dashboard />);
+
+      await userEvent.click(await screen.findByRole('tab', { name: 'Notifications' }));
+
+      expect(scrollIntoView).not.toHaveBeenCalled();
+    });
+  });
+
   it('maps notification rows to camelCase so dates render (no "Invalid Date")', async () => {
     mockTables({
       enrollments: { select: () => ({ data: [], error: null }) },
