@@ -123,6 +123,36 @@ describe('Dashboard', () => {
 
       expect(scrollIntoView).not.toHaveBeenCalled();
     });
+
+    // They were divs with onClick: mouse-only, and silent to a screen reader.
+    it('exposes each card as a button naming what it does', async () => {
+      render(<Dashboard />);
+
+      expect(
+        await screen.findByRole('button', { name: /Upcoming Deadlines: \d+\. Show what's due/ }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /Notifications: \d+\. Show notifications/ }),
+      ).toBeInTheDocument();
+    });
+
+    it.each([
+      ['Enter', '{Enter}'],
+      ['Space', ' '],
+    ])('activates on %s from the keyboard', async (_label, key) => {
+      window.HTMLElement.prototype.scrollIntoView = vi.fn();
+      render(<Dashboard />);
+
+      const card = await screen.findByRole('button', { name: /Upcoming Deadlines/ });
+      card.focus();
+      expect(card).toHaveFocus();
+      await userEvent.keyboard(key);
+
+      expect(screen.getByRole('tab', { name: /Calendar/ })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      );
+    });
   });
 
   it('maps notification rows to camelCase so dates render (no "Invalid Date")', async () => {

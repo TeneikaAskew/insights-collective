@@ -27,7 +27,44 @@ const __dirname = path.dirname(__filename);
  */
 const RELAY_MODE = process.env.E2E_USE_RELAY === '1';
 const APP_PORT = process.env.E2E_APP_PORT || (RELAY_MODE ? '8090' : '8080');
-const BASE_URL = process.env.E2E_BASE_URL || `http://localhost:${APP_PORT}`;
+
+/**
+ * Relay mode owns its port, so an E2E_BASE_URL naming a different one is stale
+ * and must lose.
+ *
+ * `.env` ships `E2E_BASE_URL=http://localhost:8080` — correct for a normal run,
+ * and loaded above by loadDotenv() into a variable this line reads. Under
+ * E2E_USE_RELAY=1 the app is served on 8090, so that value pointed the whole
+ * suite at port 8080: the readiness probe found nothing there, Playwright
+ * started serve.mjs anyway, vite died with "Port 8090 is already in use", and
+ * the run failed with "Timed out waiting 120000ms from config.webServer" — a
+ * message that says nothing about the port it was actually watching.
+ *
+ * An explicit E2E_BASE_URL on the command line still wins whenever it agrees
+ * with the port in use, which is what a remote or preview-server run needs.
+ */
+function resolveBaseUrl(): string {
+  const configured = process.env.E2E_BASE_URL;
+  if (!configured) return `http://localhost:${APP_PORT}`;
+  if (!RELAY_MODE) return configured;
+
+  const configuredPort = (() => {
+    try {
+      return new URL(configured).port;
+    } catch {
+      return '';
+    }
+  })();
+  if (configuredPort === APP_PORT) return configured;
+
+  console.error(
+    `[e2e] Ignoring E2E_BASE_URL=${configured}: relay mode serves the app on ` +
+      `port ${APP_PORT}. Set E2E_APP_PORT to move it.`,
+  );
+  return `http://localhost:${APP_PORT}`;
+}
+
+const BASE_URL = resolveBaseUrl();
 
 // Nine spec/helper modules build absolute URLs from
 // `process.env.E2E_BASE_URL || 'http://localhost:8080'` instead of Playwright's
