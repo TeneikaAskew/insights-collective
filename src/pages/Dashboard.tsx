@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePageVisibility } from '@/contexts/PageVisibilityContext';
 import AppLayout from '@/components/layout/AppLayout';
@@ -160,19 +160,6 @@ const Dashboard = () => {
   const [error, setError] = useState<string | null>(null);
   const [teachingCourses, setTeachingCourses] = useState<Course[]>([]);
   const [inProgressCount, setInProgressCount] = useState(0);
-
-  // Every course the user could open a thread in — taken and taught alike, deduped
-  // for the instructor who is also enrolled somewhere. Feeds the Messages tab's
-  // "New message" composer, which needs a course before it can offer people.
-  const messageCourseOptions = useMemo(() => {
-    const byId = new Map<string, { id: string; title: string }>();
-    [...enrolledCourses, ...teachingCourses].forEach((course) => {
-      if (course?.id && !byId.has(course.id)) {
-        byId.set(course.id, { id: course.id, title: course.title || 'Untitled course' });
-      }
-    });
-    return Array.from(byId.values());
-  }, [enrolledCourses, teachingCourses]);
 
   // A stat card selects the tab that answers it, but on a phone that tab's panel is
   // a full screen below the fold — the viewport never moves, so tapping "Enrolled
@@ -731,12 +718,7 @@ const Dashboard = () => {
             <MessagesPanel
               conversationId={openConversationId}
               onSelectConversation={setOpenConversation}
-              actions={
-                <CourseThreadComposer
-                  courses={messageCourseOptions}
-                  onThreadOpened={setOpenConversation}
-                />
-              }
+              actions={<CourseThreadComposer onThreadOpened={setOpenConversation} />}
             />
           </TabsContent>
           )}

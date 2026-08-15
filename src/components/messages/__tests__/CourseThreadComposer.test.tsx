@@ -25,7 +25,7 @@
 // to agree with itself, which is exactly how the previous version stayed green.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fetchCourseContacts } from '../CourseThreadComposer';
+import { fetchCourseContacts, fetchMyCourseOptions } from '../CourseThreadComposer';
 import { mockSupabaseClient, resetSupabaseMock } from '@/test/mocks/supabase';
 
 const COURSE = 'course-1';
@@ -107,6 +107,70 @@ describe('fetchCourseContacts', () => {
 
     await expect(fetchCourseContacts(COURSE, CALLER)).rejects.toMatchObject({
       message: 'permission denied',
+    });
+  });
+});
+
+/**
+ * The Dashboard composer's course list. The membership definition matters: it must
+ * match what open_course_thread accepts, which recognizes enrollment, staff
+ * assignment, AND courses.instructor_id — the last of which the Dashboard's own
+ * teachingCourses state (course_assignments only) misses.
+ */
+describe('fetchMyCourseOptions', () => {
+  beforeEach(() => {
+    resetSupabaseMock();
+  });
+
+  /** The shared builder: the three membership reads end in .eq, in declaration order. */
+  const builder = () => mockSupabaseClient.from('enrollments') as any;
+
+  it('merges enrolled, assigned, and instructor_id-owned courses, sorted by title', async () => {
+    const b = builder();
+    b.eq
+      .mockResolvedValueOnce({ data: [{ course_id: 'c-enrolled' }], error: null })
+      .mockResolvedValueOnce({ data: [{ course_id: 'c-assigned' }], error: null })
+      .mockResolvedValueOnce({ data: [{ id: 'c-owned', title: 'Zeta Owned' }], error: null });
+    b.in.mockResolvedValueOnce({
+      data: [
+        { id: 'c-enrolled', title: 'Alpha Enrolled' },
+        { id: 'c-assigned', title: 'Beta Assigned' },
+      ],
+      error: null,
+    });
+
+    await expect(fetchMyCourseOptions(CALLER)).resolves.toEqual([
+      { id: 'c-enrolled', title: 'Alpha Enrolled' },
+      { id: 'c-assigned', title: 'Beta Assigned' },
+      { id: 'c-owned', title: 'Zeta Owned' },
+    ]);
+  });
+
+  it('offers a course to its primary instructor even with no course_assignments row', async () => {
+    // The Codex-reviewed gap: useCoursesManagement.saveCourse can leave a course
+    // represented only by courses.instructor_id.
+    const b = builder();
+    b.eq
+      .mockResolvedValueOnce({ data: [], error: null })
+      .mockResolvedValueOnce({ data: [], error: null })
+      .mockResolvedValueOnce({ data: [{ id: 'c-owned', title: 'Only Mine' }], error: null });
+
+    await expect(fetchMyCourseOptions(CALLER)).resolves.toEqual([
+      { id: 'c-owned', title: 'Only Mine' },
+    ]);
+    // Nothing was missing a title, so no follow-up read.
+    expect(b.in).not.toHaveBeenCalled();
+  });
+
+  it('throws when a membership read fails, so the dialog can show its error state', async () => {
+    const b = builder();
+    b.eq
+      .mockResolvedValueOnce({ data: null, error: { message: 'enrollments read failed' } })
+      .mockResolvedValueOnce({ data: [], error: null })
+      .mockResolvedValueOnce({ data: [], error: null });
+
+    await expect(fetchMyCourseOptions(CALLER)).rejects.toMatchObject({
+      message: 'enrollments read failed',
     });
   });
 });
