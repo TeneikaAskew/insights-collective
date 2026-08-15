@@ -125,6 +125,58 @@ test.describe('Calendar (Dashboard tab)', () => {
     });
   });
 
+  // The selected day's number was painted in its own pill's colour, so the day
+  // you had just picked was the one you could not read. The cell carries
+  // `text-primary-foreground` and the button inherits it — until the ghost
+  // button variant's `hover:text-accent-foreground` wins, and this theme sets
+  // --accent-foreground and --primary to the same `256 43% 53%`. Measured:
+  // button color rgb(111,84,187) on cell background rgb(111,84,187), a contrast
+  // ratio of 1.0. Hover is not an edge case here — a touch device keeps :hover
+  // on whatever it last tapped, which is always the selected day.
+  test('the selected day number stays legible against its pill', async ({ page }) => {
+    await goto(page, Routes.calendar);
+    const grid = page.locator('[role="grid"]').filter({ visible: true }).first();
+    await expect(grid).toBeVisible();
+
+    // Any in-month day that is not today, so `selected` is the only modifier
+    // painting the cell and the assertion cannot pass on today's styling.
+    const day = grid
+      .locator('[role="gridcell"]:not([data-outside]):not([data-today]) button')
+      .first();
+    await day.click();
+
+    const contrast = async () =>
+      grid.evaluate((el) => {
+        const cell = el.querySelector('[role="gridcell"][data-selected="true"]');
+        const button = cell?.querySelector('button');
+        if (!cell || !button) return null;
+        const parse = (value: string) =>
+          (value.match(/[\d.]+/g) || []).slice(0, 3).map(Number);
+        // WCAG relative luminance.
+        const luminance = ([r, g, b]: number[]) =>
+          [r, g, b]
+            .map((channel) => channel / 255)
+            .map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
+            .reduce((sum, c, i) => sum + c * [0.2126, 0.7152, 0.0722][i], 0);
+        const text = luminance(parse(getComputedStyle(button).color));
+        const pill = luminance(parse(getComputedStyle(cell).backgroundColor));
+        return (
+          (Math.max(text, pill) + 0.05) / (Math.min(text, pill) + 0.05)
+        );
+      });
+
+    // Polled, not read once: the button carries `transition-colors`, so an
+    // immediate read returns an interpolated colour rather than any state the
+    // component actually rests in — measured rgb(140,139,144) a frame after the
+    // click, the midpoint between the resting text colour and white.
+    //
+    // Still hovered, which is the state the bug lived in.
+    await expect.poll(contrast, { timeout: 5_000 }).toBeGreaterThan(4.5);
+    // And with the pointer away, so the fix cannot be hover-only.
+    await page.mouse.move(0, 0);
+    await expect.poll(contrast, { timeout: 5_000 }).toBeGreaterThan(4.5);
+  });
+
   test('sidebar is visible', async ({ page }) => {
     await goto(page, Routes.calendar);
     await expect(page.locator('[data-sidebar="sidebar"]')).toBeVisible();
