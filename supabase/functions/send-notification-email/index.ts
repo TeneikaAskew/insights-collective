@@ -1,6 +1,7 @@
 // ABOUTME: Sends an email copy of an in-app notification through Resend.
 // ABOUTME: Called by the notifications AFTER INSERT trigger via pg_net, or directly for diagnostics.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
+import { isDryRunRecipient } from '../_shared/email-recipients.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -80,14 +81,6 @@ async function resolveFrom(): Promise<string> {
   return cachedFrom;
 }
 
-
-// The E2E suite drives this project through real accounts, so the send path has to
-// run end to end for them — sender resolution, opt-out check, template render, log
-// write — or CI stops covering it. Only the Resend POST is swapped out, for a
-// `dry_run` log row: the run is still observable, but it costs no daily quota.
-function isDryRunRecipient(email: string): boolean {
-  return /^e2e-/i.test(email);
-}
 
 function appUrl(link: string | null): string {
   const base = (Deno.env.get('APP_BASE_URL') ?? 'https://insightscollective.org').replace(/\/$/, '');
@@ -193,7 +186,9 @@ Deno.serve(async (req) => {
       text: `${notification.title}\n\n${notification.message ?? ''}\n\n${url}`,
     };
 
-    // Everything above ran for real; only the provider call is conditional.
+    // Everything above ran for real — secret check, opt-out, sender resolution,
+    // template render — so CI still covers the send path end to end. Only the
+    // provider call is conditional, and the log row records which branch ran.
     const dryRun = isDryRunRecipient(to);
     const sent = dryRun
       ? null

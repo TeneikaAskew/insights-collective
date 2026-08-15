@@ -3,6 +3,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.31.0';
 import { corsHeaders } from '../_shared/utils.ts';
+import { isDryRunRecipient } from '../_shared/email-recipients.ts';
 
 type Payload = {
   course_id?: string;
@@ -62,6 +63,7 @@ serve(async (req) => {
   // Email fan-out (only if Resend is configured). In-app notifications are
   // inserted by the DB trigger on course_announcements, not here.
   let emailed = 0;
+  let dryRun = 0;
   let emailLookupFailures = 0;
   let emailError: string | null = null;
   const resendKey = Deno.env.get('RESEND_API_KEY');
@@ -69,17 +71,25 @@ serve(async (req) => {
   if (resendKey && userIds.length) {
     // Fetch emails via auth admin; a failed lookup must be counted, not
     // silently dropped from the recipient list.
-    const emails: string[] = [];
+    const recipients: Array<{ userId: string; email: string }> = [];
     for (const uid of userIds) {
       const { data, error: lookupError } = await admin.auth.admin.getUserById(uid);
       const email = data?.user?.email;
       if (email) {
-        emails.push(email);
+        recipients.push({ userId: uid, email });
       } else {
         emailLookupFailures++;
         if (lookupError) console.error('user lookup failed', uid, lookupError.message);
       }
     }
+
+    // Test accounts drop out of the BCC list rather than cancelling the batch, so
+    // a course holding both seeded and real students still mails the real ones.
+    const live = recipients.filter((r) => !isDryRunRecipient(r.email));
+    const suppressed = recipients.filter((r) => isDryRunRecipient(r.email));
+    dryRun = suppressed.length;
+
+    const emails = live.map((r) => r.email);
     // Batch send using BCC in a single Resend call for simplicity
     if (emails.length) {
       try {
@@ -113,6 +123,30 @@ serve(async (req) => {
         console.error('resend request failed', e);
       }
     }
+
+    // A BCC batch spends one quota unit per recipient, so this fan-out was the
+    // one email path with no entry in the ledger at all. Record a row each way,
+    // matching send-notification-email, so the log explains the provider's bill.
+    const logRows = [
+      ...live.map((r) => ({
+        notification_id: null,
+        user_id: r.userId,
+        recipient: r.email,
+        status: emailError ? 'failed' : 'sent',
+        error: emailError ? emailError.slice(0, 1000) : null,
+      })),
+      ...suppressed.map((r) => ({
+        notification_id: null,
+        user_id: r.userId,
+        recipient: r.email,
+        status: 'dry_run',
+        error: null,
+      })),
+    ];
+    if (logRows.length) {
+      const { error: logErr } = await admin.from('notification_email_log').insert(logRows);
+      if (logErr) console.error('announcement email log failed', logErr.message);
+    }
   }
 
   // Email is this function's only job (in-app is handled by a DB trigger) —
@@ -123,6 +157,7 @@ serve(async (req) => {
     announcement_id: announcement_id ?? null,
     recipients: userIds.length,
     emailed,
+    dry_run: dryRun,
     email_lookup_failures: emailLookupFailures,
     email_error: emailError,
     email_enabled: !!resendKey,
