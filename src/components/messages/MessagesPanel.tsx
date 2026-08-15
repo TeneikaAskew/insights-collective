@@ -232,6 +232,18 @@ export function MessagesPanel({
   const listLoading = (base: boolean) => base || (scopingList ? scopeLoading : false);
   const listError = (base: unknown) => base ?? (scopingList ? scopeError : null);
 
+  // Bring the opened thread to the user. On a phone the panel sits below the
+  // Dashboard's stat cards (or a course page's header), so tapping a conversation
+  // otherwise renders the thread mostly below the fold — which reads as "the
+  // message box is tiny" when it is actually just out of view. One deliberate
+  // page scroll on open; sending never scrolls the page (MessageThread scrolls
+  // only its own container). Same move the Dashboard makes for its stat cards.
+  const threadTopRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!conversationId) return;
+    threadTopRef.current?.scrollIntoView({ block: 'start', behavior: 'auto' });
+  }, [conversationId]);
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim() || !conversationId || !user) return;
@@ -305,7 +317,8 @@ export function MessagesPanel({
 
     return (
       <div className="space-y-4">
-        <div className="flex items-start gap-2 min-w-0">
+        {/* scroll-mt clears the sticky app header when the open thread scrolls itself into view */}
+        <div ref={threadTopRef} className="flex items-start gap-2 min-w-0 scroll-mt-20">
           <Button
             variant="ghost"
             size="sm"
@@ -326,7 +339,7 @@ export function MessagesPanel({
           </div>
         </div>
 
-        <Card className="h-[calc(100dvh-13rem)] min-h-[24rem] sm:h-[calc(100vh-16rem)] sm:min-h-[600px] sm:max-h-[56rem] flex flex-col">
+        <Card className="h-[calc(100dvh-10.5rem)] min-h-[30rem] sm:h-[calc(100vh-16rem)] sm:min-h-[600px] sm:max-h-[56rem] flex flex-col">
           <MessageActions
             conversationId={conversationId}
             onSuccess={handleConversationAction}
