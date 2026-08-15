@@ -167,7 +167,23 @@ jobs:
       # GitHub does not inject secrets into a job's environment, so a job that
       # never maps one simply does not have it. That is why the sweep kept
       # skipping after the secret was added.
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      #
+      # Withheld from pull_request runs, and that condition is the whole point.
+      # This workflow triggers on pull_request and checks out the PROPOSED
+      # revision, then runs `npm ci` and `npx playwright test` — so a PR author
+      # controls package lifecycle scripts, global-setup.ts and every spec. Repo
+      # secrets ARE passed to same-repo PR branches (only forks are excluded), so
+      # mapping this key unconditionally would let anyone who can push a branch
+      # read a key that bypasses RLS on the shared PRODUCTION project. That turns
+      # ordinary write access into unrestricted production-data access.
+      #
+      # On a push to main the checked-out code is code that has already been
+      # reviewed and merged, which is the trust boundary this repo already
+      # relies on. The sweep is pre-run cleanup, so running it there still
+      # prevents the accumulation it exists to prevent: every merge triggers a
+      # push run, which clears whatever the PR runs left behind. Gating on the
+      # branch too, since `push` also covers develop.
+      SUPABASE_SERVICE_ROLE_KEY: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') && secrets.SUPABASE_SERVICE_ROLE_KEY || '' }}
       VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://siuqvhscuiycvdrtiqsh.supabase.co' }}
       VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
       VITE_SUPABASE_PROJECT_ID: ${{ secrets.VITE_SUPABASE_PROJECT_ID || 'siuqvhscuiycvdrtiqsh' }}
