@@ -28,6 +28,7 @@ type CalendarEvent = {
   course_title?: string;
   description?: string;
   related_id?: string;
+  module_id?: string;
 };
 
 const getEventColor = (type: string) => {
@@ -40,12 +41,27 @@ const getEventColor = (type: string) => {
   }
 };
 
+// Every destination here must correspond to a route in App.tsx.
+//
+// Both item branches used to build URLs that matched NOTHING, so every
+// assignment and quiz card in this panel landed on the 404 page:
+//   /courses/:c/assignments/:id  — the only routes under /assignments are the
+//                                  bare list and .../:contentItemId/grade
+//   /courses/:c/quizzes/:id      — there is no /quizzes segment at all
+// The real pages are nested under a module, and the quiz one is addressed by
+// content item rather than by quiz. Falling back to a section that does exist
+// beats a dead URL: a student who lands on the assignments list can find their
+// assignment, whereas the 404 page tells them nothing.
 const getNavigationUrl = (event: CalendarEvent) => {
-  if (event.type === 'assignment' && event.related_id) {
-    return `/courses/${event.course_id}/assignments/${event.related_id}`;
+  if (event.type === 'assignment') {
+    return event.related_id && event.module_id
+      ? `/courses/${event.course_id}/modules/${event.module_id}/assignments/${event.related_id}`
+      : `/courses/${event.course_id}/assignments`;
   }
-  if (event.type === 'quiz' && event.related_id) {
-    return `/courses/${event.course_id}/quizzes/${event.related_id}`;
+  if (event.type === 'quiz') {
+    return event.related_id && event.module_id
+      ? `/courses/${event.course_id}/modules/${event.module_id}/quizzes/${event.related_id}`
+      : `/courses/${event.course_id}/modules`;
   }
   return `/courses/${event.course_id}/calendar`;
 };

@@ -331,7 +331,14 @@ export interface CourseCalendarEvent {
   course_id: string;
   course_title: string;
   course_color?: string;
-  related_id?: string; // assignment_id, quiz_id, etc.
+  // The id the destination route expects. For assignments that is the
+  // assignment id; for quizzes it is the CONTENT ITEM id, not the quiz id —
+  // CanvasQuizTaking loads by content item (getContentItem/getQuiz both take
+  // contentItemId), so the quiz id routes nowhere.
+  related_id?: string;
+  // Assignment and quiz pages live under a module. Without this the only URL
+  // that can be built is one that matches no route.
+  module_id?: string;
   location?: string;
   all_day?: boolean;
   link?: string;
