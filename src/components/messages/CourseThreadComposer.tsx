@@ -18,6 +18,13 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Loader2, MessageSquarePlus, Search } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -80,13 +87,25 @@ export async function fetchCourseContacts(
   }));
 }
 
+export interface CourseOption {
+  id: string;
+  title: string;
+}
+
 interface CourseThreadComposerProps {
-  courseId: string;
+  /** Fixed course — the composer on a course's own Messages page. */
+  courseId?: string;
+  /**
+   * Courses to pick from — the Dashboard inbox, where no course is implied. Threads
+   * still belong to a course, so the picker asks which one before offering people.
+   * Exactly one of `courseId` / `courses` should be provided.
+   */
+  courses?: CourseOption[];
   /** Called with the thread id open_course_thread returned. */
   onThreadOpened: (conversationId: string) => void;
 }
 
-export function CourseThreadComposer({ courseId, onThreadOpened }: CourseThreadComposerProps) {
+export function CourseThreadComposer({ courseId, courses, onThreadOpened }: CourseThreadComposerProps) {
   const [open, setOpen] = useState(false);
   const [contacts, setContacts] = useState<CourseContact[]>([]);
   const [loading, setLoading] = useState(false);
@@ -94,11 +113,28 @@ export function CourseThreadComposer({ courseId, onThreadOpened }: CourseThreadC
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<CourseContact | null>(null);
   const [opening, setOpening] = useState(false);
+  const [pickedCourseId, setPickedCourseId] = useState<string | undefined>(undefined);
   const { user } = useAuth();
   const { toast } = useToast();
 
+  // The course whose people are on offer: fixed on a course page, chosen in the dialog
+  // on the Dashboard. A single-course account skips the choice.
+  const activeCourseId =
+    courseId ?? pickedCourseId ?? (courses && courses.length === 1 ? courses[0].id : undefined);
+
   useEffect(() => {
-    if (!open || !user) return;
+    if (!open) {
+      setPickedCourseId(undefined);
+      return;
+    }
+    setContacts([]);
+    setSelected(null);
+    setQuery('');
+    setLoadError(null);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || !user || !activeCourseId) return;
 
     let cancelled = false;
     setLoading(true);
@@ -106,7 +142,7 @@ export function CourseThreadComposer({ courseId, onThreadOpened }: CourseThreadC
     setSelected(null);
     setQuery('');
 
-    fetchCourseContacts(courseId, user.id)
+    fetchCourseContacts(activeCourseId, user.id)
       .then((result) => {
         if (!cancelled) setContacts(result);
       })
@@ -123,18 +159,18 @@ export function CourseThreadComposer({ courseId, onThreadOpened }: CourseThreadC
     return () => {
       cancelled = true;
     };
-  }, [open, courseId, user]);
+  }, [open, activeCourseId, user]);
 
   const visible = contacts.filter((contact) =>
     displayName(contact).toLowerCase().includes(query.trim().toLowerCase()),
   );
 
   const handleOpenThread = async () => {
-    if (!selected) return;
+    if (!selected || !activeCourseId) return;
     setOpening(true);
     try {
       const { data, error } = await supabase.rpc('open_course_thread', {
-        p_course_id: courseId,
+        p_course_id: activeCourseId,
         p_other_user_id: selected.id,
       });
       if (error) throw error;
@@ -165,12 +201,35 @@ export function CourseThreadComposer({ courseId, onThreadOpened }: CourseThreadC
           <DialogHeader>
             <DialogTitle>New message</DialogTitle>
             <DialogDescription>
-              Choose anyone from this course — classmates or teaching staff. You can only message
-              people you share a course with.
+              {courseId
+                ? 'Choose anyone from this course — classmates or teaching staff. You can only message people you share a course with.'
+                : 'Messages belong to a course. Pick one of yours, then choose anyone in it — classmates or teaching staff.'}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3">
+            {!courseId && (
+              (courses?.length ?? 0) === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  You are not in any courses yet, so there is nobody to message. Enroll in a
+                  course to start a conversation.
+                </p>
+              ) : (courses?.length ?? 0) > 1 ? (
+                <Select value={pickedCourseId ?? ''} onValueChange={setPickedCourseId}>
+                  <SelectTrigger aria-label="Course">
+                    <SelectValue placeholder="Choose a course" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {courses!.map((course) => (
+                      <SelectItem key={course.id} value={course.id}>
+                        {course.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : null
+            )}
+
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
@@ -179,11 +238,16 @@ export function CourseThreadComposer({ courseId, onThreadOpened }: CourseThreadC
                 placeholder="Search this course"
                 className="pl-8"
                 aria-label="Search this course"
+                disabled={!activeCourseId}
               />
             </div>
 
             <div className="max-h-64 overflow-y-auto space-y-1">
-              {loading ? (
+              {!activeCourseId ? (
+                <p className="p-4 text-sm text-muted-foreground">
+                  {(courses?.length ?? 0) > 0 ? 'Choose a course to see who you can message.' : ''}
+                </p>
+              ) : loading ? (
                 <div className="flex items-center gap-2 p-4 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Loading people in this course…

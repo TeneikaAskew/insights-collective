@@ -12,10 +12,17 @@ interface MessageThreadProps {
 
 const MessageThread: React.FC<MessageThreadProps> = ({ messages, loading }) => {
   const { user } = useAuth();
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const hasScrolledRef = useRef(false);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Scroll the thread's own container, never the page. scrollIntoView walks every
+    // scrollable ancestor, so each send (and the initial load) also dragged the
+    // document itself down to wherever the composer happened to sit.
+    const el = containerRef.current;
+    if (!el || messages.length === 0) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: hasScrolledRef.current ? 'smooth' : 'auto' });
+    hasScrolledRef.current = true;
   }, [messages]);
 
   if (loading) {
@@ -72,7 +79,7 @@ const MessageThread: React.FC<MessageThreadProps> = ({ messages, loading }) => {
   });
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto p-4">
+    <div ref={containerRef} className="flex flex-col h-full overflow-y-auto p-4">
       {groupedMessages.map((group, groupIndex) => (
         <div key={group.date} className="mb-4">
           <div className="flex justify-center mb-4">
@@ -122,7 +129,6 @@ const MessageThread: React.FC<MessageThreadProps> = ({ messages, loading }) => {
           })}
         </div>
       ))}
-      <div ref={messagesEndRef} />
     </div>
   );
 };

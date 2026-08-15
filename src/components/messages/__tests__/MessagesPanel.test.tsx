@@ -127,6 +127,40 @@ describe('MessagesPanel', () => {
     expect(screen.getByText('Ada Teacher')).toBeInTheDocument();
   });
 
+  /**
+   * A thread with no messages yet is listed only for its creator, who needs a way
+   * back to it to write the first message. To anybody else it is a "Start a
+   * conversation" row from somebody who never wrote — which got reported as a bug.
+   */
+  it('lists a message-less thread for its creator but not for the other participant', () => {
+    const mineEmpty = { ...conversation('conv-mine-empty', 'Pending'), last_message: null };
+    const theirsEmpty = {
+      ...conversation('conv-theirs-empty', 'Silent'),
+      created_by: 'user-2',
+      last_message: null,
+    };
+    const theirsStarted = { ...conversation('conv-theirs-started', 'Vocal'), created_by: 'user-2' };
+    setLists({
+      inbox: [mineEmpty, theirsEmpty, theirsStarted],
+      // Distinct courses per thread: the list dedupes 1:1 threads on the pair+course
+      // key, and all three share the same pair.
+      scoping: {
+        'conv-mine-empty': DATA_SCIENCE,
+        'conv-theirs-empty': MACHINE_LEARNING,
+        'conv-theirs-started': 'course-statistics',
+      },
+    });
+
+    render(<MessagesPanel onSelectConversation={vi.fn()} />);
+
+    // I started this one — it stays reachable so I can send the first message.
+    expect(screen.getByText('Pending Teacher')).toBeInTheDocument();
+    // Someone opened a thread with me and never wrote: not inbox material yet.
+    expect(screen.queryByText('Silent Teacher')).not.toBeInTheDocument();
+    // The moment a message exists, it is a real conversation regardless of creator.
+    expect(screen.getByText('Vocal Teacher')).toBeInTheDocument();
+  });
+
   it('reports the clicked conversation to its host instead of navigating to /messages/:id', () => {
     const onSelect = vi.fn();
     render(<MessagesPanel onSelectConversation={onSelect} />);

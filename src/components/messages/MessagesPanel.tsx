@@ -178,9 +178,19 @@ export function MessagesPanel({
     [courseId, courseByConversation],
   );
 
-  const inbox = scopeToCourse(inboxConversations);
-  const archived = scopeToCourse(archivedConversations);
-  const deleted = scopeToCourse(deletedConversations);
+  // A thread with no messages yet is listed only for the person who started it — they
+  // need a way back to it to write the first message. To the other participant it is a
+  // "Start a conversation" row from somebody who never wrote anything, which reads as a
+  // bug (and was reported as one). It appears for them when the first message does.
+  const hideUnstartedForeign = useMemo(
+    () => (conversations: any[]) =>
+      conversations.filter((conv) => conv?.last_message || conv?.created_by === user?.id),
+    [user?.id],
+  );
+
+  const inbox = hideUnstartedForeign(scopeToCourse(inboxConversations));
+  const archived = hideUnstartedForeign(scopeToCourse(archivedConversations));
+  const deleted = hideUnstartedForeign(scopeToCourse(deletedConversations));
 
   // On a course page the scoping read is part of the answer, so its loading and failure
   // states are the list's. Treating a failed read as "no threads" would show a confident
@@ -283,7 +293,7 @@ export function MessagesPanel({
           </div>
         </div>
 
-        <Card className="h-[calc(100vh-18rem)] sm:h-[600px] flex flex-col">
+        <Card className="h-[calc(100dvh-13rem)] min-h-[24rem] sm:h-[calc(100vh-16rem)] sm:min-h-[600px] sm:max-h-[56rem] flex flex-col">
           <MessageActions
             conversationId={conversationId}
             onSuccess={handleConversationAction}
