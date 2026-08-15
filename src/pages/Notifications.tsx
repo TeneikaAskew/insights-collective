@@ -13,6 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { resolveNotificationLink } from '@/lib/notificationLink';
 
 interface DbNotification {
   id: string;
@@ -206,7 +207,10 @@ const Notifications = () => {
 
   const handleClick = (n: DbNotification) => {
     if (!n.is_read) void markAsRead(n.id);
-    if (n.link) navigate(n.link);
+    // Rows written before the triggers set `link` have none; the type and
+    // course still say where the row belongs, so a click is never a no-op.
+    const destination = resolveNotificationLink(n);
+    if (destination) navigate(destination);
   };
 
   if (!authLoading && !user) {

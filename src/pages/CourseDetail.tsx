@@ -15,6 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
+import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -89,6 +90,9 @@ const CourseDetail = () => {
   // Determine current section from URL
   const currentSection = location.pathname.split('/').pop() || 'home';
   const isMainCourse = currentSection === courseId;
+
+  // Set by notification links so the section can point at one row, not just the list.
+  const targetAnnouncementId = new URLSearchParams(location.search).get('announcement');
   
   const { canEdit, isAdmin, isInstructor } = useCoursePermissions(courseId);
 
@@ -119,6 +123,24 @@ const CourseDetail = () => {
   useEffect(() => {
     if (currentSection === 'announcements') void fetchAnnouncements();
   }, [courseId, currentSection]);
+
+  // An announcement notification names one announcement, but its link could only
+  // open the whole list — you arrived at a page of announcements with no way to
+  // tell which one you were called about. The link now carries
+  // `?announcement=<id>`; scroll that one into view and ring it so the item the
+  // notification was about is the item you land on.
+  useEffect(() => {
+    if (currentSection !== 'announcements') return;
+    if (!targetAnnouncementId || announcementsLoading) return;
+    if (!announcements.some((a) => a.id === targetAnnouncementId)) return;
+    // Wait for the row to be in the DOM before measuring it.
+    const raf = requestAnimationFrame(() => {
+      document
+        .getElementById(`announcement-${targetAnnouncementId}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [currentSection, targetAnnouncementId, announcements, announcementsLoading]);
 
   // Load enrolled people. Failures surface as an inline error with retry in
   // the People tab — never as a fake "No students enrolled yet." empty state.
@@ -838,10 +860,26 @@ const CourseDetail = () => {
                 </div>
               ) : (
                 <div className="space-y-3">
+                  {/* Arriving from a notification whose announcement has since
+                      been deleted used to be indistinguishable from arriving at
+                      the list on purpose: the page just showed other people's
+                      announcements and left you hunting for one that is gone. */}
+                  {targetAnnouncementId &&
+                    !announcements.some((a) => a.id === targetAnnouncementId) && (
+                      <div className="border rounded-lg p-4 bg-muted/20 text-sm text-muted-foreground">
+                        That announcement is no longer available. Here are the current
+                        announcements for this course.
+                      </div>
+                    )}
                   {announcements.map((ann) => (
                     <div
                       key={ann.id}
-                      className="border rounded-lg p-4 bg-card relative"
+                      id={`announcement-${ann.id}`}
+                      className={cn(
+                        'border rounded-lg p-4 bg-card relative scroll-mt-24',
+                        ann.id === targetAnnouncementId &&
+                          'ring-2 ring-primary border-primary bg-primary/5',
+                      )}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0">

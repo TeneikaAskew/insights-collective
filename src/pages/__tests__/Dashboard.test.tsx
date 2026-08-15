@@ -253,6 +253,55 @@ describe('Dashboard', () => {
       expect(redirect).toBe('/dashboard?tab=calendar');
     });
 
+    it('marks a notification read when it is clicked', async () => {
+      // REGRESSION: Dashboard rendered NotificationItem without onMarkAsRead, so
+      // the component's mark-as-read branch could never fire. Rows stayed unread
+      // however many you opened, and only "Mark All as Read" cleared anything.
+      const update = vi.fn(() => ({ data: null, error: null }));
+      mockTables({
+        enrollments: { select: () => ({ data: [], error: null }) },
+        content_item_progressions: { select: () => ({ data: [], error: null }) },
+        certificates: { select: () => ({ data: [], error: null }) },
+        courses: { select: () => ({ data: [], error: null }) },
+        course_assignments: { select: () => ({ data: [], error: null }) },
+        assignments: { select: () => ({ data: [], error: null }) },
+        notifications: {
+          select: () => ({
+            data: [
+              {
+                id: 'n1',
+                title: 'New announcement: Week 3 materials are up',
+                message: 'Slides and the notebook for this week are posted.',
+                type: 'course_announcement',
+                link: '/courses/course-1/announcements?announcement=a1',
+                course_id: 'course-1',
+                is_read: false,
+                created_at: new Date('2026-08-10T04:19:00Z').toISOString(),
+              },
+            ],
+            error: null,
+          }),
+          update,
+        },
+      });
+
+      render(
+        <Routes>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/courses/:courseId/announcements" element={<div data-testid="announcements-stub" />} />
+        </Routes>
+      );
+
+      await userEvent.click(await screen.findByRole('tab', { name: 'Notifications' }));
+      await userEvent.click(
+        await screen.findByText('New announcement: Week 3 materials are up')
+      );
+
+      expect(update).toHaveBeenCalledWith({ is_read: true });
+      // and it still navigates to the linked item
+      expect(await screen.findByTestId('announcements-stub')).toBeInTheDocument();
+    });
+
     it('opens the calendar directly from ?tab=calendar', async () => {
       // How the profile menu and the notifications dropdown reach it now that
       // /calendar is gone — a plain /dashboard link would land on My Courses.

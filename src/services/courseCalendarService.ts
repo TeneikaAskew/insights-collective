@@ -62,7 +62,8 @@ export const courseCalendarService = {
           description,
           due_date,
           points,
-          course_id
+          course_id,
+          module_id
         `)
         .eq('course_id', courseId)
         .not('due_date', 'is', null);
@@ -80,6 +81,11 @@ export const courseCalendarService = {
             course_id: courseId,
             course_title: courseTitle,
             related_id: assignment.id,
+            // Rarely set: 2 of 19 assignments have one, and none of the 17
+            // that carry a due_date (so none that reach this list) do. The
+            // card falls back to the assignments list rather than building a
+            // URL that matches no route.
+            module_id: assignment.module_id || undefined,
             course_color: '#3b82f6',
           });
         }
@@ -99,13 +105,28 @@ export const courseCalendarService = {
           lock_at,
           time_limit,
           allowed_attempts,
+          content_item_id,
           content_items!inner(course_id, module_id)
         `)
         .eq('content_items.course_id', courseId);
 
       if (quizzesError) throw quizzesError;
 
+      // PostgREST returns an embedded to-one either as an object or wrapped in
+      // a single-element array depending on how it infers the relationship, so
+      // normalise rather than assuming one shape.
+      const moduleIdOf = (quiz: any): string | undefined => {
+        const item = Array.isArray(quiz.content_items) ? quiz.content_items[0] : quiz.content_items;
+        return item?.module_id || undefined;
+      };
+
       (quizzes || []).forEach(quiz => {
+        const moduleId = moduleIdOf(quiz);
+        // The quiz PAGE is addressed by content item, not by quiz — the route
+        // param is :contentItemId and CanvasQuizTaking calls
+        // getContentItem/getQuiz with it. Passing quiz.id here produced a URL
+        // that matched no route at all.
+        const targetId = quiz.content_item_id || undefined;
         // Due date event
         if (quiz.due_at) {
           events.push({
@@ -116,7 +137,8 @@ export const courseCalendarService = {
             type: 'quiz',
             course_id: courseId,
             course_title: courseTitle,
-            related_id: quiz.id,
+            related_id: targetId,
+            module_id: moduleId,
             course_color: '#8b5cf6', // Purple for quizzes
           });
         }
@@ -131,7 +153,8 @@ export const courseCalendarService = {
             type: 'quiz',
             course_id: courseId,
             course_title: courseTitle,
-            related_id: quiz.id,
+            related_id: targetId,
+            module_id: moduleId,
             course_color: '#10b981', // Green for unlock
           });
         }
@@ -146,7 +169,8 @@ export const courseCalendarService = {
             type: 'quiz',
             course_id: courseId,
             course_title: courseTitle,
-            related_id: quiz.id,
+            related_id: targetId,
+            module_id: moduleId,
             course_color: '#ef4444', // Red for lock
           });
         }
