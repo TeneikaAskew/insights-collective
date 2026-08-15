@@ -294,8 +294,41 @@ describe('courseCalendarService', () => {
       expect(result.map(e => e.id)).toEqual(['quiz-due-q9', 'assignment-due-a1']);
     });
 
-    it('rejects when any course fetch fails', async () => {
+    // REGRESSION: one unreadable course used to empty the entire calendar.
+    //
+    // getCourseCalendarEvents opens with .single() on courses, and the
+    // student-facing RLS policy is `published = true`. A student enrolled in a
+    // course that is unpublished gets PGRST116 for that course alone — and
+    // because this loop let the rejection propagate, React Query failed the
+    // whole query and every OTHER course's events vanished with it. Observed on
+    // the E2E member (enrolled in one draft fixture course): zero upcoming
+    // events while a quiz sat two days out in a course they could read.
+    it('keeps the readable courses when one course fails', async () => {
+      const readable: CourseCalendarEvent[] = [
+        {
+          id: 'quiz-due-q9',
+          title: 'Quiz - Due',
+          start_date: '2026-03-01T00:00:00Z',
+          type: 'quiz',
+          course_id: 'c2',
+          course_title: 'Course Two',
+        },
+      ];
       vi.spyOn(courseCalendarService, 'getCourseCalendarEvents')
+        .mockRejectedValueOnce(Object.assign(new Error('no rows'), { code: 'PGRST116' }))
+        .mockResolvedValueOnce(readable);
+
+      const result = await courseCalendarService.getMultiCourseCalendarEvents(['c1', 'c2']);
+
+      expect(result.map((e) => e.id)).toEqual(['quiz-due-q9']);
+    });
+
+    // Partial is fine; total silence is not. The panel renders an error for a
+    // rejection and an empty state for [], so a real outage must still reject —
+    // otherwise it reads to the student as "nothing scheduled".
+    it('still rejects when every course fails', async () => {
+      vi.spyOn(courseCalendarService, 'getCourseCalendarEvents')
+        .mockRejectedValueOnce(new Error('boom'))
         .mockRejectedValueOnce(new Error('boom'));
 
       await expect(

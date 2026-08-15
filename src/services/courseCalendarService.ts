@@ -265,10 +265,34 @@ export const courseCalendarService = {
     filters?: CalendarFilters
   ): Promise<CourseCalendarEvent[]> {
     const allEvents: CourseCalendarEvent[] = [];
+    const failures: unknown[] = [];
 
+    // One unreadable course must not empty the whole calendar.
+    //
+    // getCourseCalendarEvents opens with .select('title').eq('id', …).single()
+    // on courses, and the student-facing RLS policy is `published = true`. So a
+    // student enrolled in a course that is unpublished — draft, archived,
+    // withdrawn — gets PGRST116 ("multiple (or no) rows returned") for that one
+    // course, and because this loop let the rejection propagate, React Query
+    // failed the whole query: every OTHER course's assignments, quizzes and
+    // events disappeared too, and the panel showed an empty calendar. Measured
+    // on the E2E member, who is enrolled in one draft fixture course: 0 upcoming
+    // events while a quiz sat two days out in a course they can read.
     for (const courseId of courseIds) {
-      const courseEvents = await this.getCourseCalendarEvents(courseId, filters);
-      allEvents.push(...courseEvents);
+      try {
+        const courseEvents = await this.getCourseCalendarEvents(courseId, filters);
+        allEvents.push(...courseEvents);
+      } catch (error) {
+        failures.push(error);
+      }
+    }
+
+    // Partial is fine; total silence is not. If every course failed then this is
+    // a real outage rather than one inaccessible course, and the caller must be
+    // able to tell that from "nothing scheduled" — the panel renders an error
+    // for a rejection and an empty state for [].
+    if (courseIds.length > 0 && failures.length === courseIds.length) {
+      throw failures[0];
     }
 
     // Sort all events by date
