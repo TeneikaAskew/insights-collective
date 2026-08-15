@@ -155,6 +155,35 @@ jobs:
       E2E_TEST_ADMIN_COURSE_ID: ${{ secrets.E2E_TEST_ADMIN_COURSE_ID || '660e8400-e29b-41d4-a716-446655440001' }}
       E2E_TEST_COURSE_TITLE: ${{ secrets.E2E_TEST_COURSE_TITLE || 'Introduction to Data Science' }}
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      # Lets global-setup's announcement-probe sweep actually run. Without it
+      # the sweep prints its warning and returns, and
+      # messaging-notifications-hardening.spec.ts leaves one notification per
+      # enrolled user of the reference course behind on EVERY run — 4,089 rows
+      # across 14 inboxes had accumulated before anyone looked. RLS scopes
+      # notification DELETE to auth.uid()=user_id, so the spec can only clean
+      # its own row; the fan-out needs a key that bypasses RLS.
+      #
+      # Defining the secret in repository settings is not enough on its own:
+      # GitHub does not inject secrets into a job's environment, so a job that
+      # never maps one simply does not have it. That is why the sweep kept
+      # skipping after the secret was added.
+      #
+      # Withheld from pull_request runs, and that condition is the whole point.
+      # This workflow triggers on pull_request and checks out the PROPOSED
+      # revision, then runs `npm ci` and `npx playwright test` — so a PR author
+      # controls package lifecycle scripts, global-setup.ts and every spec. Repo
+      # secrets ARE passed to same-repo PR branches (only forks are excluded), so
+      # mapping this key unconditionally would let anyone who can push a branch
+      # read a key that bypasses RLS on the shared PRODUCTION project. That turns
+      # ordinary write access into unrestricted production-data access.
+      #
+      # On a push to main the checked-out code is code that has already been
+      # reviewed and merged, which is the trust boundary this repo already
+      # relies on. The sweep is pre-run cleanup, so running it there still
+      # prevents the accumulation it exists to prevent: every merge triggers a
+      # push run, which clears whatever the PR runs left behind. Gating on the
+      # branch too, since `push` also covers develop.
+      SUPABASE_SERVICE_ROLE_KEY: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') && secrets.SUPABASE_SERVICE_ROLE_KEY || '' }}
       VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://siuqvhscuiycvdrtiqsh.supabase.co' }}
       VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
       VITE_SUPABASE_PROJECT_ID: ${{ secrets.VITE_SUPABASE_PROJECT_ID || 'siuqvhscuiycvdrtiqsh' }}
