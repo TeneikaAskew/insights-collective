@@ -71,10 +71,29 @@ const AppLayout = ({ children, fullWidth = false }: AppLayoutProps) => {
         <div className="flex flex-col flex-1 w-full h-full overflow-hidden">
           <Navbar />
           <RoleLoadWarning />
-          <main data-component-name="main" className={`flex-1 w-full overflow-auto ${fullWidth ? 'p-0' : 'p-4'}`}>
-            {children}
-          </main>
-          <AppFooter />
+          {/* The scroll container wraps main AND the footer — CourseLayout's
+              signed-off structure — so the footer sits below the content rather
+              than pinned over it. Pinned, it permanently spent ~3.5rem of every
+              phone screen and — because it hugged the app box's bottom edge —
+              drew a border above whatever dead band a webview's dvh
+              disagreement leaves, which read as one enormous footer.
+
+              The footer stays a SIBLING of <main>, never a child: a <footer>
+              nested inside <main> stops being the page's contentinfo landmark,
+              so screen-reader landmark navigation would lose it. As a sibling
+              it also spans the full width without gutter-cancelling margins.
+
+              e2e reads this element's scrollTop by its data-component-name
+              (dashboard.spec.ts) — rename both together. */}
+          <div
+            data-component-name="main-scroll"
+            className="flex-1 flex flex-col overflow-auto"
+          >
+            <main data-component-name="main" className={`flex-1 w-full ${fullWidth ? 'p-0' : 'p-4'}`}>
+              {children}
+            </main>
+            <AppFooter />
+          </div>
         </div>
       </div>
     </SidebarProvider>

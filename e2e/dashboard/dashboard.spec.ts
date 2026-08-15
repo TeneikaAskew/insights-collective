@@ -89,8 +89,13 @@ test.describe('Dashboard', () => {
         await page.setViewportSize({ width: 390, height: 844 });
         await goto(page, Routes.dashboard);
 
+        // The app's scroll container is the wrapper that holds <main> and the
+        // footer (AppLayout's data-component-name="main-scroll"); <main> itself
+        // no longer scrolls, so its scrollTop would read 0 forever.
         const scrollTop = () =>
-          page.evaluate(() => document.querySelector('main')?.scrollTop ?? -1);
+          page.evaluate(
+            () => document.querySelector('[data-component-name="main-scroll"]')?.scrollTop ?? -1,
+          );
         const before = await scrollTop();
 
         await page.getByRole('button', { name: card.name }).click();
