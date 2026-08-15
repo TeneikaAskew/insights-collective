@@ -232,10 +232,30 @@ export function CalendarPanel({
                   weekdays: 'flex w-full',
                   weekday: 'flex-1 text-muted-foreground font-normal text-[0.8rem] text-center',
                   week: 'flex w-full mt-2',
-                  day: 'flex-1 aspect-square relative p-0 text-center text-sm rounded-full focus-within:relative focus-within:z-20',
+                  // `group` lets the button style itself from the cell's
+                  // data-selected, which is where v9 puts the selection state.
+                  day: 'group flex-1 aspect-square relative p-0 text-center text-sm rounded-full focus-within:relative focus-within:z-20',
+                  // THE SELECTED DAY'S NUMBER WAS THE SAME PURPLE AS ITS PILL.
+                  //
+                  // The cell carries `text-primary-foreground` (white) and the
+                  // button inherits it — until the ghost variant's
+                  // `hover:text-accent-foreground` wins, and this theme sets
+                  // --accent-foreground and --primary to the same `256 43% 53%`.
+                  // Measured on the selected day: cell color rgb(255,255,255) on
+                  // rgb(111,84,187), button color rgb(111,84,187) — the number
+                  // painted in its own background colour. A touch device keeps
+                  // :hover on whatever it last tapped, so on mobile the day you
+                  // just picked is the one you cannot read.
+                  //
+                  // Hold the white through hover/focus while the cell is selected,
+                  // and drop the ghost hover wash that would tint the pill.
                   day_button: cn(
                     buttonVariants({ variant: 'ghost' }),
-                    'h-full w-full p-0 font-normal rounded-full aria-selected:opacity-100',
+                    'h-full w-full p-0 font-normal rounded-full',
+                    'group-data-[selected=true]:text-primary-foreground',
+                    'group-data-[selected=true]:hover:bg-transparent',
+                    'group-data-[selected=true]:hover:text-primary-foreground',
+                    'group-data-[selected=true]:focus:text-primary-foreground',
                   ),
                   // Cell-level backgrounds have to be circles now that the cell is
                   // the pill: the base classNames leave them square-cornered.
