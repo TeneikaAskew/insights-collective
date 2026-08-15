@@ -73,8 +73,16 @@ const AppLayout = ({ children, fullWidth = false }: AppLayoutProps) => {
           <RoleLoadWarning />
           <main data-component-name="main" className={`flex-1 w-full overflow-auto ${fullWidth ? 'p-0' : 'p-4'}`}>
             {children}
+            {/* Inside the scroll container, matching CourseLayout's signed-off
+                placement: the footer sits below the content rather than pinned
+                over it. Pinned, it permanently spent ~3.5rem of every phone
+                screen and — because it hugged the app box's bottom edge — drew
+                a border above whatever dead band a webview's dvh disagreement
+                leaves, which read as one enormous footer. */}
+            {/* The negative margins undo main's p-4 gutter so the border spans
+                edge to edge and the footer sits flush with the scroll end. */}
+            <AppFooter className={fullWidth ? '' : '-mx-4 -mb-4 mt-4'} />
           </main>
-          <AppFooter />
         </div>
       </div>
     </SidebarProvider>
