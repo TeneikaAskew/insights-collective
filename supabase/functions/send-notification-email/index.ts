@@ -81,6 +81,14 @@ async function resolveFrom(): Promise<string> {
 }
 
 
+// The E2E suite drives this project through real accounts, so the send path has to
+// run end to end for them — sender resolution, opt-out check, template render, log
+// write — or CI stops covering it. Only the Resend POST is swapped out, for a
+// `dry_run` log row: the run is still observable, but it costs no daily quota.
+function isDryRunRecipient(email: string): boolean {
+  return /^e2e-/i.test(email);
+}
+
 function appUrl(link: string | null): string {
   const base = (Deno.env.get('APP_BASE_URL') ?? 'https://insightscollective.org').replace(/\/$/, '');
   if (!link) return base;
@@ -177,26 +185,34 @@ Deno.serve(async (req) => {
 
     const from = await resolveFrom();
     const url = appUrl(notification.link);
-    const sent = await resend('/emails', {
-      method: 'POST',
-      body: JSON.stringify({
-        from,
-        to: [to],
-        subject: notification.title,
-        html: template(notification.title, notification.message ?? '', url),
-        text: `${notification.title}\n\n${notification.message ?? ''}\n\n${url}`,
-      }),
-    });
+    const payload = {
+      from,
+      to: [to],
+      subject: notification.title,
+      html: template(notification.title, notification.message ?? '', url),
+      text: `${notification.title}\n\n${notification.message ?? ''}\n\n${url}`,
+    };
+
+    // Everything above ran for real; only the provider call is conditional.
+    const dryRun = isDryRunRecipient(to);
+    const sent = dryRun
+      ? null
+      : ((await resend('/emails', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        })) as { id?: string });
 
     await admin.from('notification_email_log').insert({
       notification_id: notification.id,
       user_id: notification.user_id,
       recipient: to,
-      provider_message_id: (sent as { id?: string })?.id ?? null,
-      status: 'sent',
+      provider_message_id: sent?.id ?? null,
+      status: dryRun ? 'dry_run' : 'sent',
     });
 
-    return json({ sent: true, id: (sent as { id?: string })?.id ?? null });
+    return dryRun
+      ? json({ dry_run: true, to, subject: payload.subject })
+      : json({ sent: true, id: sent?.id ?? null });
   } catch (e) {
     const detail = e instanceof Error ? e.message : String(e);
     console.error('send-notification-email failed:', detail);
