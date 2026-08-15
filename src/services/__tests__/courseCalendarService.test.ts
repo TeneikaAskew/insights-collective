@@ -199,14 +199,18 @@ describe('courseCalendarService', () => {
       ).rejects.toMatchObject({ message: 'course fetch failed' });
     });
 
-    it('throws "Course not found" when the course row is null', async () => {
+    it('returns no events when the course row is not visible to the caller', async () => {
+      // A null row here is RLS, not a data error: an enrollment can point at a
+      // course whose `courses` row the caller cannot read (e.g. unpublished).
+      // This used to throw — and because getUserCalendarEvents fans out over
+      // every enrollment, one hidden course rejected the user's entire calendar.
       mockTables(happyTables({
         courses: createBuilder({ data: null, error: null }),
       }));
 
       await expect(
         courseCalendarService.getCourseCalendarEvents(COURSE_ID)
-      ).rejects.toThrow(/Course not found/);
+      ).resolves.toEqual([]);
     });
 
     it('throws when the assignments query fails', async () => {
