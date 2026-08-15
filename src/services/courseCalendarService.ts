@@ -45,10 +45,14 @@ export const courseCalendarService = {
       .from('courses')
       .select('title')
       .eq('id', courseId)
-      .single();
+      .maybeSingle();
 
     if (courseError) throw courseError;
-    if (!course) throw new Error(`Course not found: ${courseId}`);
+    // A course the caller cannot read — an enrollment into a course whose row RLS
+    // hides — has no calendar the caller can read either. This was .single(), whose
+    // PGRST116 on zero rows rejected the whole user calendar because one enrollment
+    // pointed at a hidden course; every other course's events vanished with it.
+    if (!course) return events;
 
     const courseTitle = course.title;
 

@@ -178,9 +178,52 @@ export function MessagesPanel({
     [courseId, courseByConversation],
   );
 
-  const inbox = scopeToCourse(inboxConversations);
-  const archived = scopeToCourse(archivedConversations);
-  const deleted = scopeToCourse(deletedConversations);
+  // A thread with no messages yet is listed only for people who chose to be in it: the
+  // person who started it, or a participant who explicitly opened it themselves. Both
+  // need a way back in to write the first message. To anyone else it is a "Start a
+  // conversation" row from somebody who never wrote anything, which reads as a bug
+  // (and was reported as one). It appears for them when the first message does.
+  //
+  // "Opened it themselves" matters because open_course_thread reuses an existing empty
+  // thread regardless of who created it — the non-creator can land in one via the
+  // composer, and `created_by` alone would hide it from them again the moment they
+  // backed out. Session storage, not persistence: after this browser session the
+  // empty thread they abandoned goes back to being the creator's alone.
+  const openedThreadsKey = user ? `messages:opened-threads:${user.id}` : null;
+
+  useEffect(() => {
+    if (!openedThreadsKey || !conversationId) return;
+    try {
+      const opened = new Set<string>(JSON.parse(sessionStorage.getItem(openedThreadsKey) ?? '[]'));
+      if (!opened.has(conversationId)) {
+        opened.add(conversationId);
+        sessionStorage.setItem(openedThreadsKey, JSON.stringify([...opened]));
+      }
+    } catch {
+      // Storage unavailable — the creator rule below still applies.
+    }
+  }, [openedThreadsKey, conversationId]);
+
+  const hideUnstartedForeign = useMemo(() => {
+    let opened = new Set<string>();
+    try {
+      if (openedThreadsKey) {
+        opened = new Set<string>(JSON.parse(sessionStorage.getItem(openedThreadsKey) ?? '[]'));
+      }
+    } catch {
+      // Unreadable storage falls back to the creator rule.
+    }
+    return (conversations: any[]) =>
+      conversations.filter(
+        (conv) => conv?.last_message || conv?.created_by === user?.id || opened.has(conv?.id),
+      );
+    // conversationId is a dependency so the set is re-read after the effect above
+    // records a newly opened thread — by the time the user is back on the list.
+  }, [openedThreadsKey, user?.id, conversationId]);
+
+  const inbox = hideUnstartedForeign(scopeToCourse(inboxConversations));
+  const archived = hideUnstartedForeign(scopeToCourse(archivedConversations));
+  const deleted = hideUnstartedForeign(scopeToCourse(deletedConversations));
 
   // On a course page the scoping read is part of the answer, so its loading and failure
   // states are the list's. Treating a failed read as "no threads" would show a confident
@@ -188,6 +231,18 @@ export function MessagesPanel({
   const scopingList = courseId;
   const listLoading = (base: boolean) => base || (scopingList ? scopeLoading : false);
   const listError = (base: unknown) => base ?? (scopingList ? scopeError : null);
+
+  // Bring the opened thread to the user. On a phone the panel sits below the
+  // Dashboard's stat cards (or a course page's header), so tapping a conversation
+  // otherwise renders the thread mostly below the fold — which reads as "the
+  // message box is tiny" when it is actually just out of view. One deliberate
+  // page scroll on open; sending never scrolls the page (MessageThread scrolls
+  // only its own container). Same move the Dashboard makes for its stat cards.
+  const threadTopRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!conversationId) return;
+    threadTopRef.current?.scrollIntoView({ block: 'start', behavior: 'auto' });
+  }, [conversationId]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -262,7 +317,8 @@ export function MessagesPanel({
 
     return (
       <div className="space-y-4">
-        <div className="flex items-start gap-2 min-w-0">
+        {/* scroll-mt clears the sticky app header when the open thread scrolls itself into view */}
+        <div ref={threadTopRef} className="flex items-start gap-2 min-w-0 scroll-mt-20">
           <Button
             variant="ghost"
             size="sm"
@@ -283,7 +339,7 @@ export function MessagesPanel({
           </div>
         </div>
 
-        <Card className="h-[calc(100vh-18rem)] sm:h-[600px] flex flex-col">
+        <Card className="h-[calc(100dvh-10.5rem)] min-h-[30rem] sm:h-[calc(100vh-16rem)] sm:min-h-[600px] sm:max-h-[56rem] flex flex-col">
           <MessageActions
             conversationId={conversationId}
             onSuccess={handleConversationAction}

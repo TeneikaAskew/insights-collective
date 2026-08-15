@@ -20,6 +20,7 @@ import { CalendarPanel, type CalendarPanelView } from '@/components/calendar/Cal
 import { useUserCalendar } from '@/hooks/useCourseCalendar';
 
 import { MessagesPanel } from '@/components/messages/MessagesPanel';
+import { CourseThreadComposer } from '@/components/messages/CourseThreadComposer';
 
 import { createLogger } from '@/utils/logger';
 import { PageHeader } from '@/components/ui/page-header';
@@ -742,13 +743,14 @@ const Dashboard = () => {
             <div>
               <h2 className="text-xl font-semibold">Messages</h2>
               <p className="text-sm text-muted-foreground">
-                Every course you are in, in one inbox. Start a new conversation from the course itself —
-                students message the instructor, instructors message their students.
+                Every course you are in, in one inbox. Use New message to start a conversation with
+                anyone in one of your courses — classmates or teaching staff.
               </p>
             </div>
             <MessagesPanel
               conversationId={openConversationId}
               onSelectConversation={setOpenConversation}
+              actions={<CourseThreadComposer onThreadOpened={setOpenConversation} />}
             />
           </TabsContent>
           )}

@@ -82,6 +82,7 @@ function setLists({
 
 describe('MessagesPanel', () => {
   beforeEach(() => {
+    sessionStorage.clear();
     sendMessage.mockReset().mockResolvedValue(true);
     refreshScope.mockReset();
     vi.mocked(useAuth).mockReturnValue({ user: { id: 'user-1' } } as any);
@@ -125,6 +126,67 @@ describe('MessagesPanel', () => {
 
     expect(screen.queryByText(/error loading conversations/i)).not.toBeInTheDocument();
     expect(screen.getByText('Ada Teacher')).toBeInTheDocument();
+  });
+
+  /**
+   * A thread with no messages yet is listed only for its creator, who needs a way
+   * back to it to write the first message. To anybody else it is a "Start a
+   * conversation" row from somebody who never wrote — which got reported as a bug.
+   */
+  it('lists a message-less thread for its creator but not for the other participant', () => {
+    const mineEmpty = { ...conversation('conv-mine-empty', 'Pending'), last_message: null };
+    const theirsEmpty = {
+      ...conversation('conv-theirs-empty', 'Silent'),
+      created_by: 'user-2',
+      last_message: null,
+    };
+    const theirsStarted = { ...conversation('conv-theirs-started', 'Vocal'), created_by: 'user-2' };
+    setLists({
+      inbox: [mineEmpty, theirsEmpty, theirsStarted],
+      // Distinct courses per thread: the list dedupes 1:1 threads on the pair+course
+      // key, and all three share the same pair.
+      scoping: {
+        'conv-mine-empty': DATA_SCIENCE,
+        'conv-theirs-empty': MACHINE_LEARNING,
+        'conv-theirs-started': 'course-statistics',
+      },
+    });
+
+    render(<MessagesPanel onSelectConversation={vi.fn()} />);
+
+    // I started this one — it stays reachable so I can send the first message.
+    expect(screen.getByText('Pending Teacher')).toBeInTheDocument();
+    // Someone opened a thread with me and never wrote: not inbox material yet.
+    expect(screen.queryByText('Silent Teacher')).not.toBeInTheDocument();
+    // The moment a message exists, it is a real conversation regardless of creator.
+    expect(screen.getByText('Vocal Teacher')).toBeInTheDocument();
+  });
+
+  /**
+   * open_course_thread reuses an existing empty thread regardless of creator, so the
+   * non-creator can land in one through the composer. Having explicitly opened it,
+   * they need the same way back in as the creator — for this browser session.
+   */
+  it('keeps an empty thread visible for a participant who explicitly opened it', () => {
+    sessionStorage.setItem('messages:opened-threads:user-1', JSON.stringify(['conv-reopened']));
+    const reopened = {
+      ...conversation('conv-reopened', 'Silent'),
+      created_by: 'user-2',
+      last_message: null,
+    };
+    setLists({ inbox: [reopened], scoping: { 'conv-reopened': DATA_SCIENCE } });
+
+    render(<MessagesPanel onSelectConversation={vi.fn()} />);
+
+    expect(screen.getByText('Silent Teacher')).toBeInTheDocument();
+  });
+
+  it('records an open thread so it survives backing out while still empty', () => {
+    render(<MessagesPanel conversationId="conv-ds" onSelectConversation={vi.fn()} />);
+
+    expect(JSON.parse(sessionStorage.getItem('messages:opened-threads:user-1') ?? '[]')).toContain(
+      'conv-ds',
+    );
   });
 
   it('reports the clicked conversation to its host instead of navigating to /messages/:id', () => {

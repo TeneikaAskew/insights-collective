@@ -18,6 +18,13 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Loader2, MessageSquarePlus, Search } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -80,8 +87,59 @@ export async function fetchCourseContacts(
   }));
 }
 
+export interface CourseOption {
+  id: string;
+  title: string;
+}
+
+/**
+ * Every course the signed-in user could open a thread in — the same membership
+ * `open_course_thread` recognizes: enrolled, assigned as staff, or the course's
+ * primary instructor. All three reads are RLS-safe for one's own rows.
+ *
+ * The Dashboard's own course fetches are deliberately not reused here. They run in a
+ * mount effect that can beat session restoration (the documented `enrollments` 42501
+ * race), and `teachingCourses` there is built from `course_assignments` alone, which
+ * misses courses represented only by `courses.instructor_id`. Fetching when the
+ * dialog opens sidesteps the race — a click can't happen before the session exists.
+ */
+export async function fetchMyCourseOptions(userId: string): Promise<CourseOption[]> {
+  const [enrolledRes, assignedRes, taughtRes] = await Promise.all([
+    supabase.from('enrollments').select('course_id').eq('user_id', userId),
+    supabase.from('course_assignments').select('course_id').eq('user_id', userId),
+    supabase.from('courses').select('id, title').eq('instructor_id', userId),
+  ]);
+  if (enrolledRes.error) throw enrolledRes.error;
+  if (assignedRes.error) throw assignedRes.error;
+  if (taughtRes.error) throw taughtRes.error;
+
+  const byId = new Map<string, CourseOption>();
+  for (const course of taughtRes.data ?? []) {
+    if (course?.id) byId.set(course.id, { id: course.id, title: course.title || 'Untitled course' });
+  }
+
+  const memberIds = [...(enrolledRes.data ?? []), ...(assignedRes.data ?? [])]
+    .map((row: any) => row?.course_id)
+    .filter((id: any): id is string => !!id && !byId.has(id));
+  const missing = [...new Set(memberIds)];
+  if (missing.length > 0) {
+    const { data, error } = await supabase.from('courses').select('id, title').in('id', missing);
+    if (error) throw error;
+    for (const course of data ?? []) {
+      if (course?.id) byId.set(course.id, { id: course.id, title: course.title || 'Untitled course' });
+    }
+  }
+
+  return [...byId.values()].sort((a, b) => a.title.localeCompare(b.title));
+}
+
 interface CourseThreadComposerProps {
-  courseId: string;
+  /**
+   * Fixed course — the composer on a course's own Messages page. When omitted (the
+   * Dashboard inbox), the dialog fetches the user's courses itself on open and asks
+   * which one before offering people.
+   */
+  courseId?: string;
   /** Called with the thread id open_course_thread returned. */
   onThreadOpened: (conversationId: string) => void;
 }
@@ -94,11 +152,56 @@ export function CourseThreadComposer({ courseId, onThreadOpened }: CourseThreadC
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<CourseContact | null>(null);
   const [opening, setOpening] = useState(false);
+  const [pickedCourseId, setPickedCourseId] = useState<string | undefined>(undefined);
+  const [courseOptions, setCourseOptions] = useState<CourseOption[]>([]);
+  const [optionsLoading, setOptionsLoading] = useState(false);
+  const [optionsError, setOptionsError] = useState<string | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
 
+  // The course whose people are on offer: fixed on a course page, chosen in the dialog
+  // on the Dashboard. A single-course account skips the choice.
+  const activeCourseId =
+    courseId ?? pickedCourseId ?? (courseOptions.length === 1 ? courseOptions[0].id : undefined);
+
   useEffect(() => {
-    if (!open || !user) return;
+    if (!open) {
+      setPickedCourseId(undefined);
+      return;
+    }
+    setContacts([]);
+    setSelected(null);
+    setQuery('');
+    setLoadError(null);
+  }, [open]);
+
+  // Dashboard mode: the dialog owns its course list, loaded on open.
+  useEffect(() => {
+    if (!open || !user || courseId) return;
+
+    let cancelled = false;
+    setOptionsLoading(true);
+    setOptionsError(null);
+
+    fetchMyCourseOptions(user.id)
+      .then((result) => {
+        if (!cancelled) setCourseOptions(result);
+      })
+      .catch((error: any) => {
+        logger.error('Failed to load course options:', error);
+        if (!cancelled) setOptionsError(error?.message ?? 'Could not load your courses.');
+      })
+      .finally(() => {
+        if (!cancelled) setOptionsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, courseId, user]);
+
+  useEffect(() => {
+    if (!open || !user || !activeCourseId) return;
 
     let cancelled = false;
     setLoading(true);
@@ -106,7 +209,7 @@ export function CourseThreadComposer({ courseId, onThreadOpened }: CourseThreadC
     setSelected(null);
     setQuery('');
 
-    fetchCourseContacts(courseId, user.id)
+    fetchCourseContacts(activeCourseId, user.id)
       .then((result) => {
         if (!cancelled) setContacts(result);
       })
@@ -123,18 +226,18 @@ export function CourseThreadComposer({ courseId, onThreadOpened }: CourseThreadC
     return () => {
       cancelled = true;
     };
-  }, [open, courseId, user]);
+  }, [open, activeCourseId, user]);
 
   const visible = contacts.filter((contact) =>
     displayName(contact).toLowerCase().includes(query.trim().toLowerCase()),
   );
 
   const handleOpenThread = async () => {
-    if (!selected) return;
+    if (!selected || !activeCourseId) return;
     setOpening(true);
     try {
       const { data, error } = await supabase.rpc('open_course_thread', {
-        p_course_id: courseId,
+        p_course_id: activeCourseId,
         p_other_user_id: selected.id,
       });
       if (error) throw error;
@@ -165,12 +268,44 @@ export function CourseThreadComposer({ courseId, onThreadOpened }: CourseThreadC
           <DialogHeader>
             <DialogTitle>New message</DialogTitle>
             <DialogDescription>
-              Choose anyone from this course — classmates or teaching staff. You can only message
-              people you share a course with.
+              {courseId
+                ? 'Choose anyone from this course — classmates or teaching staff. You can only message people you share a course with.'
+                : 'Messages belong to a course. Pick one of yours, then choose anyone in it — classmates or teaching staff.'}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3">
+            {!courseId && (
+              optionsLoading ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading your courses…
+                </div>
+              ) : optionsError ? (
+                <p className="text-sm text-destructive" role="alert">
+                  {optionsError}
+                </p>
+              ) : courseOptions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  You are not in any courses yet, so there is nobody to message. Enroll in a
+                  course to start a conversation.
+                </p>
+              ) : courseOptions.length > 1 ? (
+                <Select value={pickedCourseId ?? ''} onValueChange={setPickedCourseId}>
+                  <SelectTrigger aria-label="Course">
+                    <SelectValue placeholder="Choose a course" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {courseOptions.map((course) => (
+                      <SelectItem key={course.id} value={course.id}>
+                        {course.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : null
+            )}
+
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
@@ -179,11 +314,16 @@ export function CourseThreadComposer({ courseId, onThreadOpened }: CourseThreadC
                 placeholder="Search this course"
                 className="pl-8"
                 aria-label="Search this course"
+                disabled={!activeCourseId}
               />
             </div>
 
             <div className="max-h-64 overflow-y-auto space-y-1">
-              {loading ? (
+              {!activeCourseId ? (
+                <p className="p-4 text-sm text-muted-foreground">
+                  {courseOptions.length > 1 ? 'Choose a course to see who you can message.' : ''}
+                </p>
+              ) : loading ? (
                 <div className="flex items-center gap-2 p-4 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Loading people in this course…
