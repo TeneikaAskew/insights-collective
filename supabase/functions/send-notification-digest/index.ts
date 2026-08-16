@@ -26,6 +26,7 @@ function adminClient() {
 type Pending = {
   id: string;
   user_id: string;
+  course_id: string | null;
   title: string | null;
   message: string | null;
   link: string | null;
@@ -100,19 +101,67 @@ Deno.serve(async (req) => {
   try {
     const { data: pending, error: pErr } = await admin
       .from('notifications')
-      .select('id, user_id, title, message, link, created_at')
+      .select('id, user_id, course_id, title, message, link, created_at')
       .is('email_digest_sent_at', null)
       .order('created_at', { ascending: true })
       .limit(5000);
     if (pErr) return json({ error: `pending lookup failed: ${pErr.message}` }, 500);
 
+    const all = (pending ?? []) as Pending[];
+
+    // Course membership is re-checked at send time, not trusted from when the row
+    // was written. A notification can outlive the relationship that justified it:
+    // unenrol someone in the morning and the afternoon digest would otherwise mail
+    // them about a course they have left.
+    //
+    // Membership is enrolled OR course staff. Instructors are never enrolled in
+    // their own course, and notify_on_assignment_submission writes to
+    // course_instructors and courses.instructor_id — an enrolment-only test would
+    // silently drop every "new submission" notice an instructor gets.
+    const courseScoped = all.filter((n) => n.course_id);
+    const member = new Set<string>();
+    if (courseScoped.length) {
+      const userIds = Array.from(new Set(courseScoped.map((n) => n.user_id)));
+      const courseIds = Array.from(new Set(courseScoped.map((n) => n.course_id as string)));
+      const [enrolled, staff, owned] = await Promise.all([
+        admin.from('enrollments').select('user_id, course_id').in('user_id', userIds).in('course_id', courseIds),
+        admin.from('course_instructors').select('user_id, course_id').in('user_id', userIds).in('course_id', courseIds),
+        admin.from('courses').select('id, instructor_id').in('id', courseIds),
+      ]);
+      for (const r of enrolled.data ?? []) member.add(`${r.user_id}:${r.course_id}`);
+      for (const r of staff.data ?? []) member.add(`${r.user_id}:${r.course_id}`);
+      for (const c of owned.data ?? []) if (c.instructor_id) member.add(`${c.instructor_id}:${c.id}`);
+    }
+
+    const deliverable: Pending[] = [];
+    const orphaned: Pending[] = [];
+    for (const n of all) {
+      if (!n.course_id || member.has(`${n.user_id}:${n.course_id}`)) deliverable.push(n);
+      else orphaned.push(n);
+    }
+
+    // Marked rather than left pending: the relationship is gone, so re-evaluating
+    // these every night would suppress them again forever.
+    if (orphaned.length && !preview) {
+      const { error } = await admin
+        .from('notifications')
+        .update({ email_digest_sent_at: new Date().toISOString() })
+        .in('id', orphaned.map((n) => n.id));
+      if (error) console.error('marking orphaned notifications failed:', error.message);
+    }
+
     const byUser = new Map<string, Pending[]>();
-    for (const n of (pending ?? []) as Pending[]) {
+    for (const n of deliverable) {
       const list = byUser.get(n.user_id) ?? [];
       list.push(n);
       byUser.set(n.user_id, list);
     }
-    if (byUser.size === 0) return json({ status: 'ok', users: 0, sent: 0, dry_run: 0, skipped: 0, failed: 0 });
+    if (byUser.size === 0) {
+      return json({
+        status: 'ok', users: 0, sent: 0, dry_run: 0, skipped: 0, failed: 0,
+        suppressed_not_in_course: orphaned.length,
+      });
+    }
 
     const { data: profiles } = await admin
       .from('profiles')
@@ -225,7 +274,8 @@ Deno.serve(async (req) => {
       status: 'ok',
       preview,
       users: byUser.size,
-      pending_notifications: pending?.length ?? 0,
+      pending_notifications: all.length,
+      suppressed_not_in_course: orphaned.length,
       sent,
       dry_run: dryRun,
       skipped,
