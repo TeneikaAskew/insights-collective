@@ -36,6 +36,14 @@ const STORAGE_KEYS = {
   CONVERSATION_ID: 'resume_conversation_id'
 };
 
+// `together-ai` forwards this id straight to the Lovable AI gateway, which only
+// serves its own model ids. This was `meta-llama/Llama-3-8b-chat-hf` — a Together
+// AI id the gateway rejected with `400 invalid model` on every send, with no
+// fallback, so the chat errored instead of replying. One constant for both the
+// request and the row we write about it, so the two cannot drift apart again.
+const CHAT_MODEL = 'google/gemini-2.5-flash';
+const CHAT_MAX_TOKENS = 1024;
+
 const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -107,8 +115,8 @@ const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
         conversation_id: conversationId,
         content: message.content,
         sender_type: senderType,
-        model: model || 'meta-llama/Llama-3-8b-chat-hf', // Default model
-        max_tokens: maxTokens || 1024,
+        model: model || CHAT_MODEL,
+        max_tokens: maxTokens || CHAT_MAX_TOKENS,
         stream: stream || false
       });
       
@@ -489,8 +497,8 @@ Let's start by discussing your experience: **What specific challenges did you ta
       
       logger.log('Invoking together-ai function with chat history');
       
-      const selectedModel = 'meta-llama/Llama-3-8b-chat-hf';
-      const maxTokens = 1024;
+      const selectedModel = CHAT_MODEL;
+      const maxTokens = CHAT_MAX_TOKENS;
       
       const response = await supabase.functions.invoke('together-ai', {
         body: { 
