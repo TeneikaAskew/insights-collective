@@ -277,7 +277,9 @@ async function evaluateStarResponse(responseId: string, callerId: string) {
         Authorization: `Bearer ${GROQ}`,
       },
       body: JSON.stringify({
-        model: "llama3-8b-8192",
+        // Replaces llama3-8b-8192, decommissioned 2025-08-30, which had been
+        // returning 400 on every submission and 500ing this function since.
+        model: "openai/gpt-oss-120b",
         messages: [
           {
             role: "system",

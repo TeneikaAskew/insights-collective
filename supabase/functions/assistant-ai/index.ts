@@ -437,7 +437,11 @@ serve(async (req) => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: 'llama3-8b-8192', // Using Llama3 8B model
+          // Replaces llama3-8b-8192, decommissioned 2025-08-30, which had been
+          // 500ing every message since. This model is markedly more verbose than
+          // the 8b: at the old max_tokens of 1024 it hit finish_reason 'length'
+          // and truncated mid-answer, so the ceiling below moved with it.
+          model: 'openai/gpt-oss-120b',
           messages: [
             {
               role: 'system',
@@ -461,7 +465,7 @@ produce would be undated and unsourced.`}
               content: query
             }
           ],
-          max_tokens: 1024,
+          max_tokens: 4096,
           temperature: 0.7
         }),
         signal: controller.signal
