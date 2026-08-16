@@ -17,9 +17,37 @@ three of them have been broken since 2025-08-30.
 | Career assistant chat | `assistant-ai/index.ts:440` | `llama3-8b-8192` | **dead since 2025-08-30** | hard 500 |
 | STAR interview feedback | `evaluate-star-response/index.ts:280` | `llama3-8b-8192` | **dead since 2025-08-30** | hard 500 |
 | Study guide → assessment areas | `generate-study-guide/index.ts:127` | `llama3-8b-8192` | **dead since 2025-08-30** | *silent* — caught, guide generates without behavioural questions |
-| Resume analyzer (Groq fallback) | `resume-analyzer/utils.ts:249` | `compound-beta-mini` | serving | legacy alias of `groq/compound-mini` |
+| Resume analyzer (Groq fallback) | `resume-analyzer/utils.ts:249` | `compound-beta-mini` | **cannot serve its caller** | model resolves, but rejects tool calls — see below |
+| resume-services · sentence detect | deployed only, no repo source | `llama3-8b-8192` | **dead since 2025-08-30** | orphan function |
+| resume-services · bullet improve | deployed only, no repo source | `llama3-8b-8192` | **dead since 2025-08-30** | orphan function |
 
 Ten further AI call sites run on `google/gemini-2.5-flash` via the Lovable gateway and are unaffected.
+
+## The resume stack
+
+Resume is the largest AI surface on the site and none of it runs on the decommissioned 70B, so the
+vendor email would not have surfaced any of it. Its primary path (Gemini via Lovable) is healthy.
+Two things around that path are not.
+
+**Resume Chat's send path is broken.** `ResumeChat.tsx:492` hardcodes `meta-llama/Llama-3-8b-chat-hf`
+— a *Together AI* model ID — and `together-ai` forwards it verbatim to the Lovable gateway, which
+returns `400 invalid model`. There is no fallback: the 400 throws, the function 500s, the chat errors.
+Unrelated to Groq; it has never been pointed at a model the gateway serves.
+
+**The Groq fallback cannot serve the enhancer.** `AI_ENHANCER` (elevator pitch, three improvement
+themes, grade explanation) uses tool calling. `compound-beta-mini` returns
+`400 · "tool calling" is not supported with this model`. So when Gemini is unavailable the Groq
+fallback fails structurally at any setting, drops to the third-party ANWAN endpoint, and if that also
+fails the enhancer returns empty content **without raising an error**. Of 33 resumes on file, 27 have a
+pitch but only 14 have themes. Both fallbacks are also capped at `max_tokens: 500` against the
+primary's 2,000.
+
+On the exact enhancer tool-call payload, `gpt-oss-120b` returned a well-formed `analyze_resume` call
+in 1,160 ms with all three fields populated; the current 70B also handles it (1,090 ms). Only
+`compound-beta-mini` cannot. Replacing it restores a fallback that has never worked.
+
+`assistant_messages.model` is not evidence of which model served a request — `ResumeChat` writes a
+hardcoded default into that column regardless, and `assistant-ai` never writes it at all.
 
 ### Live verification
 
@@ -89,13 +117,35 @@ one to propose a concrete rewrite containing numbers.
 
 ## Unrelated findings
 
-- **Four Edge Functions are deployed with no source in this repo**: `resume-services`,
-  `generate-course-content`, `analyze-job-description`, `admin-storage-config`. They cannot be
-  reviewed or redeployed from main.
-- `analyze-job-description` (deployed-only) calls Together AI `meta-llama/Llama-3.1-70B-Instruct`
-  and OpenAI `gpt-4`.
-- `ResumeChat.tsx` sends `meta-llama/Llama-3-8b-chat-hf` — a Together AI ID — to the Lovable
-  gateway, which everything else addresses as `google/gemini-2.5-flash`.
+**Four Edge Functions are deployed with no source in this repo**: `resume-services`,
+`generate-course-content`, `analyze-job-description`, `admin-storage-config`. They are live and
+reachable with any signed-in user's JWT, and cannot be reviewed or redeployed from main.
+`analyze-job-description` calls Together AI `meta-llama/Llama-3.1-70B-Instruct` and OpenAI `gpt-4`.
+
+They are **superseded predecessors, not dead features**. Every AI feature their names suggest exists
+and is wired up — to a newer function in the repo. The orphans were last deployed April–May 2025;
+their replacements landed July–August 2026.
+
+| Feature in the UI | What actually serves it | Superseded orphan |
+|---|---|---|
+| Course → generate content with AI | `generate-lesson-content`, `generate-course-outline`, `generate-section-summary` | `generate-course-content` (2025-04-16) |
+| Analyze a job description | `scrape-job-description`, `generate-study-guide`, `analyze-job-match` | `analyze-job-description` (2025-05-18) |
+| Resume sentence detect / bullet improve | `resume-analyzer` (same logic, in repo) | `resume-services` (2025-04-11) |
+| *no UI found* | — | `admin-storage-config` (2026-08-10) |
+
+Note `generate-study-guide` — the live half of "analyze a job description" — is the function whose
+assessment-area selection sits on the dead 8B. That feature runs, quietly missing its behavioural
+questions.
+
+`admin-storage-config` is the odd one: deployed 2026-08-10, superseded by nothing, not in the repo,
+not referenced in `src/`. That reads as an edit made outside git, not an old leftover.
+
+**How far the "not used" claim goes.** Those four slugs appear zero times anywhere in `src/` — not in
+an `invoke`, not in a variable, not in a string — and all 39 `functions.invoke` call sites in the
+frontend were enumerated, none targeting them. What that does not prove: this is a Lovable app, so a
+published build may differ from this repo, and any other client or signed-in user can still reach the
+endpoints directly. "Not called by this frontend" is accurate; "never called" is not establishable
+from source.
 
 ## Harness
 
