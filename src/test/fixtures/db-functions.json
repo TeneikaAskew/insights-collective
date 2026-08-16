@@ -70,6 +70,7 @@
   "log_security_event",
   "log_submission_file_access",
   "mark_conversation_read",
+  "notification_digest_dispatch",
   "notification_email_probe",
   "notification_email_secret",
   "notify_enrolled_on_announcement",

@@ -142,6 +142,12 @@ verify_jwt = true
 # against the service-role key.
 verify_jwt = false
 
+[functions.send-notification-digest]
+# Called by the notification-digest cron through pg_net, which cannot present a
+# user JWT. The real gate is the x-notify-secret header, compared in code against
+# the same vault secret the immediate sender uses.
+verify_jwt = false
+
 [functions.send-notification-email]
 # Called by the notifications AFTER INSERT trigger through pg_net, which cannot
 # present a user JWT. The real gate is the x-notify-secret header, compared in

@@ -3902,6 +3902,7 @@ export type Database = {
         Row: {
           course_id: string | null
           created_at: string
+          email_digest_sent_at: string | null
           id: string
           is_read: boolean
           link: string | null
@@ -3913,6 +3914,7 @@ export type Database = {
         Insert: {
           course_id?: string | null
           created_at?: string
+          email_digest_sent_at?: string | null
           id?: string
           is_read?: boolean
           link?: string | null
@@ -3924,6 +3926,7 @@ export type Database = {
         Update: {
           course_id?: string | null
           created_at?: string
+          email_digest_sent_at?: string | null
           id?: string
           is_read?: boolean
           link?: string | null

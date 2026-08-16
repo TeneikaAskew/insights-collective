@@ -323,14 +323,14 @@ const CourseDetail = () => {
         .single();
       if (err) throw err;
 
-      // Fan out push/email notifications to enrolled students (non-blocking).
+      // Report how many enrolled students the announcement reached (non-blocking).
+      // The notifications and their emails are raised by DB triggers on insert.
       supabase.functions
         .invoke('notify-course-announcement', {
           body: {
             course_id: courseId,
             announcement_id: inserted?.id,
             title: announcementTitle.trim(),
-            content: announcementContent.trim() || '',
           },
         })
         .then(({ data, error }) => {
@@ -339,10 +339,9 @@ const CourseDetail = () => {
             return;
           }
           const recipients = (data as any)?.recipients ?? 0;
-          const emailed = (data as any)?.emailed ?? 0;
           toast({
             title: 'Announcement posted',
-            description: `Notified ${recipients} student${recipients === 1 ? '' : 's'}${emailed ? ` · ${emailed} emailed` : ''}.`,
+            description: `Notified ${recipients} student${recipients === 1 ? '' : 's'}.`,
           });
         });
 

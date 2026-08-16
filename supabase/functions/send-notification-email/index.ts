@@ -1,96 +1,20 @@
-// ABOUTME: Sends an email copy of an in-app notification through Resend.
-// ABOUTME: Called by the notifications AFTER INSERT trigger via pg_net, or directly for diagnostics.
+// ABOUTME: Sends an email copy of one in-app notification through Resend.
+// ABOUTME: Routine mail is batched by send-notification-digest; this serves the
+// ABOUTME: notification_email_probe diagnostics and one-off resends by id.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
+import { isDryRunRecipient } from '../_shared/email-recipients.ts';
+import { appUrl, escapeHtml, resend, resolveFrom } from '../_shared/email.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-notify-secret',
 };
 
-const RESEND_API = 'https://api.resend.com';
-
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
-}
-
-// Resend is used directly (the key is a provider key, not a connector-gateway key).
-async function resend(path: string, init: RequestInit = {}) {
-  const key = Deno.env.get('RESEND_API_KEY');
-  if (!key) throw new Error('RESEND_API_KEY is not configured');
-  const res = await fetch(`${RESEND_API}${path}`, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${key}`,
-      'Content-Type': 'application/json',
-      ...(init.headers ?? {}),
-    },
-  });
-  const text = await res.text();
-  if (!res.ok) throw new Error(`[${res.status}] ${text}`);
-  return text ? JSON.parse(text) : {};
-}
-
-type ResendDomain = {
-  id: string;
-  name: string;
-  status: string;
-  records?: Array<{ record: string; name: string; type: string; value: string; status?: string }>;
-};
-
-// A domain sitting at `not_started` has never had its DNS checked. Kicking
-// verification here means the first send after DNS is in place succeeds on its own,
-// and the error we raise carries the exact records the operator still owes.
-async function senderSetupHint(list: ResendDomain[]): Promise<string> {
-  if (list.length === 0) return 'no sender domain has been added in Resend';
-  const domain = list[0];
-  const parts: string[] = [`${domain.name}:${domain.status}`];
-  try {
-    if (domain.status === 'not_started' || domain.status === 'failed') {
-      await resend(`/domains/${domain.id}/verify`, { method: 'POST' });
-      parts.push('verification requested');
-    }
-    const detail = (await resend(`/domains/${domain.id}`)) as ResendDomain;
-    const records = (detail.records ?? [])
-      .map((r) => `${r.type} ${r.name} -> ${r.value}`)
-      .join(' | ');
-    if (records) parts.push(`required DNS: ${records}`);
-  } catch (e) {
-    parts.push(`detail lookup failed: ${e instanceof Error ? e.message : String(e)}`);
-  }
-  return parts.join('; ');
-}
-
-// The sender domain is whatever is verified in Resend, so it is discovered rather
-// than hardcoded — a wrong `from` is a 403 that looks like a broken key.
-let cachedFrom: string | null = null;
-async function resolveFrom(): Promise<string> {
-  const override = Deno.env.get('NOTIFICATION_EMAIL_FROM');
-  if (override) return override;
-  if (cachedFrom) return cachedFrom;
-  const domains = await resend('/domains');
-  const list: ResendDomain[] = domains?.data ?? [];
-  const verified = list.find((d) => d.status === 'verified');
-  if (!verified) {
-    throw new Error(`no verified sender domain in Resend (${await senderSetupHint(list)})`);
-  }
-  cachedFrom = `Insights Collective <notifications@${verified.name}>`;
-  return cachedFrom;
-}
-
-
-function appUrl(link: string | null): string {
-  const base = (Deno.env.get('APP_BASE_URL') ?? 'https://insightscollective.org').replace(/\/$/, '');
-  if (!link) return base;
-  return `${base}${link.startsWith('/') ? '' : '/'}${link}`;
-}
-
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, (c) =>
-    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string,
-  );
 }
 
 function template(title: string, message: string, url: string): string {
@@ -177,26 +101,47 @@ Deno.serve(async (req) => {
 
     const from = await resolveFrom();
     const url = appUrl(notification.link);
-    const sent = await resend('/emails', {
-      method: 'POST',
-      body: JSON.stringify({
-        from,
-        to: [to],
-        subject: notification.title,
-        html: template(notification.title, notification.message ?? '', url),
-        text: `${notification.title}\n\n${notification.message ?? ''}\n\n${url}`,
-      }),
-    });
+    const payload = {
+      from,
+      to: [to],
+      subject: notification.title,
+      html: template(notification.title, notification.message ?? '', url),
+      text: `${notification.title}\n\n${notification.message ?? ''}\n\n${url}`,
+    };
+
+    // Everything above ran for real — secret check, opt-out, sender resolution,
+    // template render — so CI still covers the send path end to end. Only the
+    // provider call is conditional, and the log row records which branch ran.
+    const dryRun = isDryRunRecipient(to);
+    const sent = dryRun
+      ? null
+      : ((await resend('/emails', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        })) as { id?: string });
+
+    // Stamped here as well as by the digest, because this notification has now
+    // been dealt with either way. Without it a one-off resend left the row
+    // pending and the next digest mailed the same notification again — the one
+    // seam where two senders could both claim the same row.
+    const { error: stampErr } = await admin
+      .from('notifications')
+      .update({ email_digest_sent_at: new Date().toISOString() })
+      .eq('id', notification.id);
+    if (stampErr) console.error('failed to stamp notification as emailed:', stampErr.message);
 
     await admin.from('notification_email_log').insert({
       notification_id: notification.id,
       user_id: notification.user_id,
       recipient: to,
-      provider_message_id: (sent as { id?: string })?.id ?? null,
-      status: 'sent',
+      provider_message_id: sent?.id ?? null,
+      status: dryRun ? 'dry_run' : 'sent',
+      error: stampErr ? 'sent, but the notification could not be stamped; the digest may repeat it' : null,
     });
 
-    return json({ sent: true, id: (sent as { id?: string })?.id ?? null });
+    return dryRun
+      ? json({ dry_run: true, to, subject: payload.subject })
+      : json({ sent: true, id: sent?.id ?? null });
   } catch (e) {
     const detail = e instanceof Error ? e.message : String(e);
     console.error('send-notification-email failed:', detail);

@@ -13,6 +13,7 @@ import {
   Activity,
   Eye,
   Database,
+  Mail,
 } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
 import { useAuth } from '@/contexts/AuthContext';
@@ -46,6 +47,7 @@ const SECTIONS: AdminSection[] = [
 
 const PLATFORM_SECTIONS: AdminSection[] = [
   { title: 'Page visibility', url: '/admin/page-visibility', icon: Eye },
+  { title: 'Email log', url: '/admin/email-log', icon: Mail },
   ...(import.meta.env.DEV
     ? [{ title: 'Debug tools', url: '/admin/debug/storage', icon: Database }]
     : []),
