@@ -128,6 +128,14 @@ Deno.serve(async (req) => {
         admin.from('course_instructors').select('user_id, course_id').in('user_id', userIds).in('course_id', courseIds),
         admin.from('courses').select('id, instructor_id').in('id', courseIds),
       ]);
+      // A failed lookup returns no rows, which is indistinguishable from "not a
+      // member" — and the orphan branch below stamps those rows permanently, so a
+      // transient error would silently bin real notifications forever. Abort
+      // instead: nothing is marked, and the next run retries intact.
+      const lookupErr = enrolled.error ?? staff.error ?? owned.error;
+      if (lookupErr) {
+        return json({ error: `membership lookup failed: ${lookupErr.message}`, aborted: true }, 503);
+      }
       for (const r of enrolled.data ?? []) member.add(`${r.user_id}:${r.course_id}`);
       for (const r of staff.data ?? []) member.add(`${r.user_id}:${r.course_id}`);
       for (const c of owned.data ?? []) if (c.instructor_id) member.add(`${c.instructor_id}:${c.id}`);
@@ -163,13 +171,19 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data: profiles } = await admin
+    const { data: profiles, error: profilesErr } = await admin
       .from('profiles')
       .select('id, first_name, notification_settings')
       .in('id', Array.from(byUser.keys()));
+    // Preferences are the opt-out. A missing row reads as {}, which defaults to
+    // daily with email enabled — so swallowing this error would mail exactly the
+    // people who asked not to be mailed. Nothing is sent or marked on failure.
+    if (profilesErr) {
+      return json({ error: `preference lookup failed: ${profilesErr.message}`, aborted: true }, 503);
+    }
     const profileById = new Map((profiles ?? []).map((p) => [p.id as string, p]));
 
-    let sent = 0, dryRun = 0, skipped = 0, failed = 0, held = 0, marked = 0;
+    let sent = 0, dryRun = 0, skipped = 0, failed = 0, held = 0, marked = 0, unmarked = 0;
     const detail: Array<Record<string, unknown>> = [];
 
     for (const [userId, items] of byUser) {
@@ -181,14 +195,18 @@ Deno.serve(async (req) => {
       // predates the control has no value at all, which is the same intent.
       const frequency = (settings.frequency as string) ?? 'daily';
 
-      const markDigested = async (reason: string) => {
-        if (preview) return;
+      const markDigested = async (reason: string): Promise<boolean> => {
+        if (preview) return true;
         const { error } = await admin
           .from('notifications')
           .update({ email_digest_sent_at: new Date().toISOString() })
           .in('id', items.map((i) => i.id));
-        if (error) console.error(`mark failed (${reason}) for ${userId}:`, error.message);
-        else marked += items.length;
+        if (error) {
+          console.error(`mark failed (${reason}) for ${userId}:`, error.message);
+          return false;
+        }
+        marked += items.length;
+        return true;
       };
 
       if (settings.email === false || frequency === 'never') {
@@ -224,6 +242,11 @@ Deno.serve(async (req) => {
           const from = await resolveFrom();
           const res = (await resend('/emails', {
             method: 'POST',
+            // Derived from the exact set being sent, so a retry after a failed
+            // marking presents the same key and the provider drops it instead of
+            // mailing twice. A genuinely new digest has a different newest id and
+            // is therefore a different key.
+            headers: { 'Idempotency-Key': `digest:${userId}:${items[items.length - 1].id}` },
             body: JSON.stringify({
               from,
               to: [to],
@@ -239,8 +262,17 @@ Deno.serve(async (req) => {
           template(profile?.first_name ?? null, listed, items.length);
         }
 
+        // Marked before the log row is written, so the log can record which of the
+        // two actually happened rather than claiming a clean send either way.
+        const stamped = await markDigested('delivered');
+        if (!stamped) unmarked++;
         if (isDry) dryRun++; else sent++;
-        detail.push({ user_id: userId, outcome: isDry ? 'dry_run' : 'sent', recipient: to, count: items.length });
+        detail.push({
+          user_id: userId,
+          outcome: isDry ? 'dry_run' : stamped ? 'sent' : 'sent_unmarked',
+          recipient: to,
+          count: items.length,
+        });
 
         if (!preview) {
           await admin.from('notification_email_log').insert({
@@ -249,8 +281,10 @@ Deno.serve(async (req) => {
             recipient: to,
             provider_message_id: providerId,
             status: isDry ? 'dry_run' : 'sent',
+            error: stamped
+              ? null
+              : 'sent, but the notifications could not be marked; a retry presents the same idempotency key',
           });
-          await markDigested('delivered');
         }
       } catch (e) {
         // Left unmarked on purpose: an unsent digest must be retried, not lost.
@@ -282,11 +316,15 @@ Deno.serve(async (req) => {
       held_until_monday: held,
       failed,
       notifications_marked: marked,
+      sent_but_unmarked: unmarked,
       detail,
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
+    // The detail goes to the function log and to notification_email_log, both of
+    // which are operator-only. Echoing it back here adds no diagnostic reach and
+    // is what CodeQL flags as exposing internals through an error response.
     console.error('send-notification-digest failed:', message);
-    return json({ error: message }, 502);
+    return json({ error: 'digest run failed; see function logs' }, 502);
   }
 });
