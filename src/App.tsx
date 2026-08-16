@@ -120,6 +120,7 @@ const PageVisibilityManager = lazy(() => import('@/pages/admin/PageVisibilityMan
 const FormManagement = lazy(() => import('@/pages/admin/FormManagement'));
 const UnifiedFormManagement = lazy(() => import('@/pages/admin/UnifiedFormManagement'));
 const LocalStorageDebug = lazy(() => import('@/pages/admin/LocalStorageDebug'));
+const EmailLog = lazy(() => import('@/pages/admin/EmailLog'));
 
 // Legal & Info Pages
 const PrivacyPolicy = lazy(() => import('@/pages/PrivacyPolicy'));
@@ -480,6 +481,7 @@ function App() {
                       <Route path="unified-form-management/submissions/:slug" element={<FormManagement />} />
                       <Route path="unified-form-management/submissions/:slug/submission/:submissionId" element={<FormManagement />} />
                       <Route path="page-visibility" element={<PageVisibilityManager />} />
+                      <Route path="email-log" element={<EmailLog />} />
                       {/* Debug Tools is a dev-only surface: it inspects raw
                           localStorage and should not ship to production. */}
                       {import.meta.env.DEV && (
