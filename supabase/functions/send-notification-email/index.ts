@@ -120,12 +120,23 @@ Deno.serve(async (req) => {
           body: JSON.stringify(payload),
         })) as { id?: string });
 
+    // Stamped here as well as by the digest, because this notification has now
+    // been dealt with either way. Without it a one-off resend left the row
+    // pending and the next digest mailed the same notification again — the one
+    // seam where two senders could both claim the same row.
+    const { error: stampErr } = await admin
+      .from('notifications')
+      .update({ email_digest_sent_at: new Date().toISOString() })
+      .eq('id', notification.id);
+    if (stampErr) console.error('failed to stamp notification as emailed:', stampErr.message);
+
     await admin.from('notification_email_log').insert({
       notification_id: notification.id,
       user_id: notification.user_id,
       recipient: to,
       provider_message_id: sent?.id ?? null,
       status: dryRun ? 'dry_run' : 'sent',
+      error: stampErr ? 'sent, but the notification could not be stamped; the digest may repeat it' : null,
     });
 
     return dryRun
