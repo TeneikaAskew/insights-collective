@@ -55,8 +55,8 @@ const sendMessage = vi.fn();
 const refreshScope = vi.fn();
 
 function setLists({
-  inbox = [DS_THREAD, ML_THREAD],
-  scoping = { 'conv-ds': DATA_SCIENCE, 'conv-ml': MACHINE_LEARNING },
+  inbox = [DS_THREAD, ML_THREAD] as Record<string, unknown>[],
+  scoping = { 'conv-ds': DATA_SCIENCE, 'conv-ml': MACHINE_LEARNING } as Record<string, string>,
   scopeLoading = false,
   scopeError = null as unknown,
 } = {}) {
