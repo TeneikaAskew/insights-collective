@@ -246,13 +246,20 @@ async function callGROQAPI(system, user, options?: LLMCallOptions) {
   await enforceRateLimit('GROQ');
 
   const body: any = {
-    model: 'compound-beta-mini',
+    // Replaces compound-beta-mini, which answers `400 tool calling is not
+    // supported with this model`. AI_ENHANCER — the elevator pitch, the three
+    // improvement themes, the grade explanation — is a tool call, so this
+    // fallback could never serve it: whenever Gemini was unavailable the
+    // enhancer fell through to empty content without raising an error.
+    model: 'openai/gpt-oss-120b',
     messages: [
       { role: 'system', content: system },
       { role: 'user', content: user }
     ],
     temperature: 0.7,
-    max_tokens: 500
+    // Was 500 against the Gemini primary's 2000, so even the non-tool paths
+    // came back quartered whenever this branch served them.
+    max_tokens: 2000
   };
   if (options?.tools) body.tools = options.tools;
   if (options?.tool_choice) body.tool_choice = options.tool_choice;

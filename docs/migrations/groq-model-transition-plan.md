@@ -41,7 +41,8 @@ Phases 1 and 2 are **deployed and verified live**, signed in against the real pr
 | `evaluate-star-response` | v167 | S7/T8/A9/R6 overall 8, arithmetic correct, 4/4/3 feedback, all 5 analysis keys |
 | `assistant-ai` | v616 | 8,126 chars in 5.4s, not truncated, quotes the injected BLS figures with reference period |
 
-Phase 3's ResumeChat half is also done. Phases 3 (resume-analyzer), 4 and 5 remain.
+Phase 3's ResumeChat half is deployed. The `resume-analyzer` change is committed and validated
+against the live API but **not yet deployed** — see Phase 3. Phases 4 and 5 remain.
 
 ## Phase 1 — restore what is already broken
 
@@ -79,9 +80,17 @@ Verify: `scripts/model-migration/judge-suite.mjs` — expect 6/6 with 0 parse fa
   `max_tokens` from 500 to 2000** to match the Gemini primary. This is the change that actually
   repairs the enhancer: `compound-beta-mini` rejects tool calls outright, so the fallback has never
   been able to serve the elevator pitch and themes.
-- **Decide on the ANWAN fallback** (`utils.ts:208`, `Meta-Llama-3-8B-Instruct` on awanllm.com). It is
-  a third-party endpoint, untested here, also capped at 500 tokens. Recommend removing it: with a
-  working Groq fallback it adds a dependency without adding resilience.
+- **ANWAN fallback — left in place, still open.** (`utils.ts:208`,
+  `Meta-Llama-3-8B-Instruct` on awanllm.com.) Removing it is not needed to repair anything, and it
+  cannot be exercised from here: its key is a secret this environment does not hold, so there is no
+  way to establish whether the endpoint works before deleting it. Deliberately out of scope rather
+  than done quietly — the recommendation stands, but it should be a decision made with knowledge of
+  whether `ANWAN` is even configured, which the Supabase secrets page will answer in a glance.
+
+**Status: code change done and validated, deployment pending.** The new configuration was exercised
+against the live API with the exact production payload — the `analyze_resume` tool call returned with
+`elevator_pitch`, three `themes` and `explanation` all populated, 463 completion tokens in 2.4s, and
+the production parser accepted it. What remains is deploying it.
 
 Verify: `scripts/model-migration/resume-tool-suite.mjs` — expect `made_tool_call=true` with pitch,
 three themes and explanation populated.

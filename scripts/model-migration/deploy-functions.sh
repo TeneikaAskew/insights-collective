@@ -21,6 +21,7 @@ DEFAULT_FUNCTIONS=(
   assistant-ai             # phase 1 — decommissioned llama3-8b-8192
   evaluate-star-response   # phase 1 — decommissioned llama3-8b-8192
   generate-study-guide     # phase 1 — decommissioned llama3-8b-8192
+  resume-analyzer          # phase 3 — compound-beta-mini cannot do tool calls
 )
 
 if [ "$#" -gt 0 ]; then
