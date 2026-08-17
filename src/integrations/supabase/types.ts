@@ -6338,6 +6338,7 @@ export type Database = {
         Args: { p_conversation_id: string }
         Returns: number
       }
+      notification_digest_dispatch: { Args: never; Returns: number }
       notification_email_probe: { Args: never; Returns: Json }
       notification_email_secret: { Args: never; Returns: string }
       open_course_thread: {
