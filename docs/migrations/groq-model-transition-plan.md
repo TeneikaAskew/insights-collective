@@ -87,10 +87,29 @@ Verify: `scripts/model-migration/judge-suite.mjs` — expect 6/6 with 0 parse fa
   than done quietly — the recommendation stands, but it should be a decision made with knowledge of
   whether `ANWAN` is even configured, which the Supabase secrets page will answer in a glance.
 
-**Status: code change done and validated, deployment pending.** The new configuration was exercised
-against the live API with the exact production payload — the `analyze_resume` tool call returned with
-`elevator_pitch`, three `themes` and `explanation` all populated, 463 completion tokens in 2.4s, and
-the production parser accepted it. What remains is deploying it.
+**Status: code change done and validated. Deploy it by merging to main.**
+
+The new configuration was exercised against the live API with the exact production payload — the
+`analyze_resume` tool call returned with `elevator_pitch`, three `themes` and `explanation` all
+populated, 463 completion tokens in 2.4s, and the production parser accepted it.
+
+### Edge Functions deploy automatically on push to main
+
+Worth knowing before anyone hand-deploys anything again. Every Edge Function in this project shares
+the identical `updated_at` of 2026-08-10 14:25:05 UTC, and commit `1023e3a` landed on main at
+14:24:49 — sixteen seconds earlier. One timestamp across ~30 functions is a pipeline redeploying all
+of them on push, not someone running the CLI thirty times. This is a Lovable project, which syncs
+from GitHub and redeploys on merge.
+
+That also explains the byte-for-byte result: `review-code`'s deployed source was verified identical
+to the repo (sha256 `e05cf853…`), which is what an automated deploy from this repo produces.
+
+So `resume-analyzer` needs no manual deployment. Merging this branch redeploys it byte-exact from
+source — no transcription, no drift, and the same route every other function already takes. Confirm
+after merging by re-checking the function's `updated_at`; it should move to the merge time.
+
+`deploy-functions.sh` stays for the case where a function must be pushed without a merge, but it is
+the exception, not the route.
 
 Verify: `scripts/model-migration/resume-tool-suite.mjs` — expect `made_tool_call=true` with pitch,
 three themes and explanation populated.
