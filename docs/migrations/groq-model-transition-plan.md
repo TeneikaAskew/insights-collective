@@ -30,6 +30,19 @@ Eight, across five functions. Three are in functions with no source in this repo
    byte-identical; `resume-analyzer` (2,666 lines / 9 files) was not, and it is the one function
    here whose deployment could differ from what we are about to edit.
 
+## Status
+
+Phases 1 and 2 are **deployed and verified live**, signed in against the real project:
+
+| Function | Version | Verified behaviour |
+|---|---|---|
+| `review-code` | v20 | correct solution grades correct 4/4; missing-rounding solution grades incorrect 3/4 |
+| `generate-study-guide` | v153 | 2 assessment areas populated with reasoning, 4 behavioural questions merged into 14 |
+| `evaluate-star-response` | v167 | S7/T8/A9/R6 overall 8, arithmetic correct, 4/4/3 feedback, all 5 analysis keys |
+| `assistant-ai` | v616 | 8,126 chars in 5.4s, not truncated, quotes the injected BLS figures with reference period |
+
+Phase 3's ResumeChat half is also done. Phases 3 (resume-analyzer), 4 and 5 remain.
+
 ## Phase 1 — restore what is already broken
 
 No regression risk: these three return 500s or empty content today, so any working model is an
@@ -47,7 +60,8 @@ STAR response and generate one study guide and confirm behavioural questions com
 
 ## Phase 2 — beat the decommission
 
-- **`review-code:16`** — model → `openai/gpt-oss-120b`. `max_tokens: 2500` stays (measured ~1,020).
+- **`review-code:16`** — model → `openai/gpt-oss-120b`, `max_tokens` 2500 → 4000 (peak measured 1,419;
+  a truncated response here is an unparseable verdict), plus a bounded retry on 429.
   Also correct the comment above the constant, which still says the 8B "used elsewhere in the repo"
   is not reliable enough — that 8B has been decommissioned for a year.
 
@@ -116,3 +130,15 @@ this point on.
 
 Phase 2 is the only deadline-bound item. Phase 1 is the largest user-visible win and carries the least
 risk, so it can ship first or alongside. Phases 3–5 are independent of the decommission entirely.
+
+## Found while deploying
+
+`review-code` needed a rate-limit retry that the plan did not anticipate. `gpt-oss-120b` spends
+roughly 4x the output tokens the 70b did, while `MAX_SUBMISSIONS_PER_MINUTE` still allows 10 grades
+a minute against a free-tier budget of 8K tokens per minute. A second submission inside a minute
+reproduced a Groq 429 as a hard 500 for the student. `callGroq` now retries twice, honouring
+`retry-after` and capping the wait at 8s so it stays inside the request the browser is waiting on.
+
+The same arithmetic applies to any other function that starts seeing real traffic on this model.
+Upgrading to the Developer plan removes the constraint; until then the retry is what keeps a burst
+of submissions from surfacing as errors.
