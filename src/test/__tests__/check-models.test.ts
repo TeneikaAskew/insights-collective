@@ -14,7 +14,7 @@
 // check:models` to come back green against whatever the repo contains today.
 
 import { describe, expect, it } from 'vitest';
-// @ts-expect-error — plain .mjs script, no type declarations
+
 import { ALLOWED, DECOMMISSIONED, findModelProblems } from '../../../scripts/check-models.mjs';
 
 type Problem = { line: number; id: string; decommissioned: boolean; why: string };
