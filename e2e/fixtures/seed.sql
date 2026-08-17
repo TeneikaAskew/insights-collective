@@ -1007,29 +1007,8 @@ BEGIN
     RAISE EXCEPTION 'E2E SEED FAILED: can_view_profile denies the member sight of e2e-journeys — apply migration 20260802140000, which lets people on the same course see each other';
   END IF;
 
-  -- Section 6's pool, asserted because it is consumed. notifications-flow
-  -- deletes one row per run; when the ambient rows ran out the spec failed on
-  -- its own seed-gap message with nothing to reseed it. Checked above the
-  -- twelve seeded so a shortfall is caught before the spec is.
-  SELECT count(*) >= 10 FROM public.notifications
-   WHERE user_id = (SELECT id FROM auth.users
-                     WHERE email = COALESCE(current_setting('e2e.member_email', true), 'e2e-member@insightscollective.org'))
-   INTO v_ok;
-  IF NOT v_ok THEN
-    RAISE EXCEPTION 'E2E SEED FAILED: the member has fewer than 10 notifications, so notifications-flow.spec.ts has nothing to open, mark read or delete';
-  END IF;
-
-  -- And unread ones specifically: "Mark all as read" only exercises the write
-  -- when something is unread, and otherwise passes on the disabled-button path.
-  SELECT EXISTS (
-    SELECT 1 FROM public.notifications
-     WHERE is_read = false
-       AND user_id = (SELECT id FROM auth.users
-                       WHERE email = COALESCE(current_setting('e2e.member_email', true), 'e2e-member@insightscollective.org'))
-  ) INTO v_ok;
-  IF NOT v_ok THEN
-    RAISE EXCEPTION 'E2E SEED FAILED: the member has no unread notifications, so "Mark all as read" asserts the disabled branch and never tests the update';
-  END IF;
+  -- The notification pool is asserted after section 6 writes it, not here. See
+  -- the block that follows section 6 for why.
 END $$;
 
 -- 6. Notifications for the member, so the notifications specs have something to
@@ -1084,6 +1063,44 @@ BEGIN
       SET is_read = (i % 3 = 0),
           created_at = now() - (i || ' hours')::interval;
   END LOOP;
+END $$;
+
+-- 6b. The pool section 6 has just written, asserted because the suite consumes
+--     it: notifications-flow deletes a row per run to prove the delete persists.
+--
+-- These two checks used to live in the invariant block above section 6, on the
+-- reasoning that a shortfall should surface before the spec hits it. That
+-- stopped being satisfiable once global-teardown began deleting every
+-- notification belonging to the test accounts at the end of each run: by the
+-- next seed the member owns none, so the assertion fired before section 6 could
+-- restore them, and — because this file is one transaction — took the entire
+-- seed down with it. Every run then tested whatever state the database already
+-- held, and the workflow reports a seed failure as a warning, so nothing said so.
+--
+-- A guard has to describe what the seed produced, not what it inherited.
+DO $$
+DECLARE
+  v_ok boolean;
+BEGIN
+  SELECT count(*) >= 10 FROM public.notifications
+   WHERE user_id = (SELECT id FROM auth.users
+                     WHERE email = COALESCE(current_setting('e2e.member_email', true), 'e2e-member@insightscollective.org'))
+   INTO v_ok;
+  IF NOT v_ok THEN
+    RAISE EXCEPTION 'E2E SEED FAILED: the member has fewer than 10 notifications, so notifications-flow.spec.ts has nothing to open, mark read or delete';
+  END IF;
+
+  -- And unread ones specifically: "Mark all as read" only exercises the write
+  -- when something is unread, and otherwise passes on the disabled-button path.
+  SELECT EXISTS (
+    SELECT 1 FROM public.notifications
+     WHERE is_read = false
+       AND user_id = (SELECT id FROM auth.users
+                       WHERE email = COALESCE(current_setting('e2e.member_email', true), 'e2e-member@insightscollective.org'))
+  ) INTO v_ok;
+  IF NOT v_ok THEN
+    RAISE EXCEPTION 'E2E SEED FAILED: the member has no unread notifications, so "Mark all as read" asserts the disabled branch and never tests the update';
+  END IF;
 END $$;
 
 -- 7. An isolated course for the announcement fan-out probe.

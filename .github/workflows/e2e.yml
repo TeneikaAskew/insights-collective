@@ -229,13 +229,27 @@ jobs:
       # the specs that actually need fixtures already fail with their own
       # explicit "Seed gap: ..." messages naming what to reseed.
       - name: Seed E2E fixtures
-        if: env.SUPABASE_DB_URL != ''
         run: |
+          # Every way of not seeding is fatal, not just a seed that errors.
+          #
+          # This step used to carry `if: env.SUPABASE_DB_URL != ''` and to exit 0
+          # on a malformed URL, so a missing or broken secret skipped seeding
+          # silently and the suite ran against whatever the database already
+          # held — the same blind spot that hid two seed bugs behind a green job.
+          #
+          # Forks receive no secrets, but they receive no E2E_*_PASSWORD either,
+          # so global-setup cannot sign in and there was never a green fork run
+          # to protect. Failing here only moves that failure ten minutes earlier
+          # and names the real cause.
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "::error title=SUPABASE_DB_URL is not set::The suite cannot seed its fixtures, so it would test whatever state the database already holds. Map the secret into this job's env, or run from a branch in this repository rather than a fork."
+            exit 1
+          fi
           case "$SUPABASE_DB_URL" in
             postgres://*|postgresql://*) ;;
             *)
-              echo "::error title=SUPABASE_DB_URL is not a connection URI::The secret is set but its scheme is missing, so psql read it as a database name and tried the local socket. It must be a full libpq connection URI - scheme, then credentials, host, port and database name. Skipping seed."
-              exit 0
+              echo "::error title=SUPABASE_DB_URL is not a connection URI::The secret is set but its scheme is missing, so psql read it as a database name and tried the local socket. It must be a full libpq connection URI - scheme, then credentials, host, port and database name."
+              exit 1
               ;;
           esac
           # A scheme alone is not enough: a database password containing URI
@@ -245,15 +259,16 @@ jobs:
           # makes those two detectable here rather than fifteen minutes later.
           # A malformed percent-escape is NOT caught that way (urlsplit does not
           # decode escapes, and unquote leaves an invalid one literal), so it
-          # gets its own check. Skip rather than fail, for the same reason the
-          # scheme check does. Deliberately no worked example: an inline
+          # gets its own check. Fatal, like the checks above it: a secret that
+          # is set but unusable is a misconfiguration, and a run that cannot
+          # seed has not tested anything. Deliberately no worked example: an inline
           # connection-string literal, even a fabricated one, trips TruffleHog's
           # Postgres detector and fails the Secret Detection job.
           if ! python3 - <<'PY'
           import os, re, sys
           from urllib.parse import urlsplit
           raw = os.environ["SUPABASE_DB_URL"]
-          advice = "Percent-encode the password if it contains reserved characters: % becomes %25, ? becomes %3F, # becomes %23, / becomes %2F, @ becomes %40, : becomes %3A. Skipping seed."
+          advice = "Percent-encode the password if it contains reserved characters: % becomes %25, ? becomes %3F, # becomes %23, / becomes %2F, @ becomes %40, : becomes %3A."
           if re.search(r"%(?![0-9A-Fa-f]{2})", raw):
               print("::error title=SUPABASE_DB_URL contains a malformed percent-escape::A '%' must be followed by two hex digits. " + advice)
               sys.exit(1)
@@ -268,7 +283,7 @@ jobs:
               sys.exit(1)
           PY
           then
-            exit 0
+            exit 1
           fi
           # ON_ERROR_STOP so a failed statement (including the seed's own
           # invariant RAISE EXCEPTIONs) aborts psql. Without it psql prints the
@@ -277,8 +292,17 @@ jobs:
           # -v e2e_password: the seed provisions the dedicated journeys account
           # and needs the shared password to set. It is read from the secret
           # here and never stored in the SQL file.
+          # Fatal, deliberately. This used to warn and carry on, on the theory
+          # that a partial seed still lets most specs run. It does not: the file
+          # is a single BEGIN/COMMIT, so a failure anywhere rolls back all of it
+          # and the suite then tests whatever state the database happened to
+          # hold. Two seed bugs survived that way — a cast of '' to jsonb, and a
+          # notification invariant asserted above the section that writes it —
+          # because a red seed and a green seed produced the same green job.
+          # A run that could not build its fixtures has not tested anything.
           if ! psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -v e2e_password="$E2E_TEST_PASSWORD" -f e2e/fixtures/seed.sql; then
-            echo "::error title=E2E seeding failed::psql could not apply e2e/fixtures/seed.sql. Continuing so the suite still runs; fixture-dependent specs will report their own 'Seed gap' errors."
+            echo "::error title=E2E seeding failed::psql could not apply e2e/fixtures/seed.sql. The file is one transaction, so nothing was applied and the suite would be testing pre-existing state. Fix the seed rather than re-running."
+            exit 1
           fi
 
       # Every TestIds default must resolve to a row the role that loads the page
