@@ -11,6 +11,7 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "check:migrations": "node scripts/check-migration-versions.mjs",
+    "check:models": "node scripts/check-models.mjs",
     "typecheck": "tsc -b",
     "preview": "vite preview",
     "test": "vitest",

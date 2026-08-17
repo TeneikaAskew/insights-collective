@@ -124,7 +124,10 @@ Return ONLY the JSON object with no additional text.`;
       Authorization: `Bearer ${GROQ_API_KEY}`,
     },
     body: JSON.stringify({
-      model: "llama3-8b-8192",
+      // Replaces llama3-8b-8192, decommissioned 2025-08-30. This call sits
+      // inside a try/catch that continues on failure, so the dead model never
+      // surfaced an error - guides just generated without behavioural questions.
+      model: "openai/gpt-oss-120b",
       messages: [
         {
           role: "system", 

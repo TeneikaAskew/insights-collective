@@ -11,9 +11,14 @@ const GROQ = Deno.env.get("GROQ");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-// Strong tracing matters for judge mode; the 8b model used elsewhere in the
-// repo is not reliable enough for step-by-step code evaluation.
-const MODEL = "llama-3.3-70b-versatile";
+// Strong tracing matters for judge mode. Replaces llama-3.3-70b-versatile,
+// decommissioned 2026-08-16. On six submissions with known-correct verdicts
+// this model graded 6/6 where the 70b graded 4/6 - the 70b passed a log
+// parser using `>=` where it needed `>`, and failed a correct solution for
+// returning results in a different order on a challenge whose compare_mode
+// is "set". Costs ~2.3s per grade against the 70b's ~0.9s; if that is ever
+// too slow, reach for reasoning_effort: "low" before a smaller model.
+const MODEL = "openai/gpt-oss-120b";
 
 // Simple per-user rate limit: max submissions per minute, counted from code_attempts.
 const MAX_SUBMISSIONS_PER_MINUTE = 10;
@@ -94,27 +99,51 @@ Return ONLY this JSON object, no other text:
 }`;
 }
 
+// Groq's per-minute token budget is the binding limit here, not the request
+// count. This model spends ~4x the tokens the old 70b did, and the submission
+// limit above allows 10 grades a minute, so a working student can outrun the
+// budget. A 429 is "try again in a moment", not a failure worth surfacing.
+const RATE_LIMIT_RETRIES = 2;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 async function callGroq(prompt: string): Promise<any> {
-  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${GROQ}`,
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a precise code evaluation engine. You mentally execute code line by line and never guess. You respond with valid JSON only.",
-        },
-        { role: "user", content: prompt },
-      ],
-      temperature: 0.1,
-      max_tokens: 2500,
-    }),
-  });
+  let response!: Response;
+
+  for (let attempt = 0; ; attempt++) {
+    response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${GROQ}`,
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a precise code evaluation engine. You mentally execute code line by line and never guess. You respond with valid JSON only.",
+          },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0.1,
+        // Peak observed on the known-verdict suite was 1,419 completion tokens
+        // against the 70b's 346: this model reasons before it answers. A
+        // truncated response is an unparseable verdict, so keep real headroom.
+        max_tokens: 4000,
+      }),
+    });
+
+    if (response.status !== 429 || attempt >= RATE_LIMIT_RETRIES) break;
+
+    // Honour the server's own backoff when it gives one, but stay well inside
+    // the request the browser is waiting on.
+    const retryAfter = Number(response.headers.get("retry-after") ?? "2");
+    const waitMs = Math.min(Number.isFinite(retryAfter) ? retryAfter : 2, 8) * 1000;
+    console.warn(`[review-code] rate limited, retrying in ${waitMs}ms`);
+    await sleep(waitMs);
+  }
 
   if (!response.ok) {
     const errorData = await response.text();

@@ -41,6 +41,9 @@ jobs:
     - name: Check migration versions
       run: node scripts/check-migration-versions.mjs
 
+    - name: Check model ids
+      run: node scripts/check-models.mjs
+
     - name: Run tests
       run: npm run test -- --run
     
