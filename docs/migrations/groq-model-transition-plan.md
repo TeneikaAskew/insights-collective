@@ -41,8 +41,8 @@ Phases 1 and 2 are **deployed and verified live**, signed in against the real pr
 | `evaluate-star-response` | v167 | S7/T8/A9/R6 overall 8, arithmetic correct, 4/4/3 feedback, all 5 analysis keys |
 | `assistant-ai` | v616 | 8,126 chars in 5.4s, not truncated, quotes the injected BLS figures with reference period |
 
-Phase 3's ResumeChat half is deployed. The `resume-analyzer` change is committed and validated
-against the live API but **not yet deployed** — see Phase 3. Phases 4 and 5 remain.
+Phase 3's ResumeChat half is deployed; the `resume-analyzer` change deploys on merge (see Phase 3).
+Phases 4 and 5 are done except for three function deletions that need the Supabase dashboard.
 
 ## Phase 1 — restore what is already broken
 
@@ -132,19 +132,43 @@ that its source is not in git. **Commit the source to `supabase/functions/admin-
 | `analyze-job-description` | `analyze-job-match`, `generate-study-guide` | 404 on a nonexistent id — live and reachable; stale Together AI and `gpt-4` ids |
 
 Delete rather than repair: fixing them would mean maintaining a second implementation of features the
-repo already serves. Before deleting, confirm no non-repo client calls them — the source search only
-proves this frontend does not.
+repo already serves.
+
+**Status.** `admin-storage-config`'s source is now in the repo at
+`supabase/functions/admin-storage-config/index.ts`, transcribed verbatim from what is deployed, so
+the auto-deploy pipeline manages it from here.
+
+**The three deletions are not done, and cannot be done from here.** There is no delete-function tool
+in this project's Supabase tooling — removing a function slug needs the dashboard or a Management API
+token, neither of which is available in the session environment. Delete these three in the dashboard:
+
+    resume-services
+    generate-course-content
+    analyze-job-description
+
+The pre-delete confirmation the plan asked for came back clean: none of the three recorded a single
+invocation across the log window. That window is 24 hours, so it is evidence rather than proof — a
+caller that runs weekly would not show up in it.
 
 ## Phase 5 — cleanup and a guard
 
-1. **Delete the four temporary harness functions** from the project: `model-compare`,
-   `model-compare-judge`, `model-compare-prompt`, `gateway-probe`. The runner scripts stay in
-   `scripts/model-migration/` for the next migration.
-2. **Add `npm run check:models`** as a PR check, in the same spirit as `check:migrations`: fail the
-   build when a known-decommissioned model id (`llama3-8b-8192`, `llama3-70b-8192`,
-   `mixtral-8x7b-32768`, `gemma-7b-it`, `gemma2-9b-it`, `compound-beta*`) or a model id from the
-   wrong provider (a Together AI id sent to the Lovable gateway) appears in the source. Every failure
-   in this audit would have been caught at authoring time by that one check.
+1. **The four temporary harness functions are retired** — `model-compare`, `model-compare-judge`,
+   `model-compare-prompt`, `gateway-probe`. Same constraint as above: the slugs cannot be deleted
+   from here, so each was redeployed as an inert stub that returns `410 Gone` and does nothing. All
+   four verified returning 410. That removes the live surface — they no longer hold a Groq-calling,
+   database-reading body — but the slugs remain and should be deleted in the dashboard. The runner
+   scripts stay in `scripts/model-migration/` for the next migration.
+2. **`npm run check:models` is added and wired into `pr-checks.yml`**, alongside
+   `check:migrations`. It works from an allowlist rather than a blocklist: any model id the source
+   assigns that is not explicitly permitted fails the build, and ids known to be decommissioned fail
+   with the shutdown date attached.
+
+   It was tested by reintroducing both of this audit's real failures and confirming each one fails
+   the check — which is how a genuine gap surfaced. The first draft matched `/\b(?:model|MODEL)\s*[:=]/`
+   and silently missed `CHAT_MODEL`, because the character before `MODEL` is an underscore and `\b`
+   needs a non-word character there. `CHAT_MODEL` is the exact constant that sent a Together AI id to
+   the Lovable gateway, so the check would have missed the bug it was written for. A green run on a
+   clean tree proved nothing; running it against the known failures is what found it.
 
 ## Rollback
 
