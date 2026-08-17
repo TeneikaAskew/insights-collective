@@ -194,3 +194,25 @@ reproduced a Groq 429 as a hard 500 for the student. `callGroq` now retries twic
 The same arithmetic applies to any other function that starts seeing real traffic on this model.
 Upgrading to the Developer plan removes the constraint; until then the retry is what keeps a burst
 of submissions from surfacing as errors.
+
+## E2E results and attribution
+
+Full suite via `npm run e2e:relay` on this branch: **712 passed, 3 failed, 1 flaky, 22 skipped**
+(17.1m). Each failure was attributed before merging rather than assumed:
+
+| Spec | On this branch | On `origin/main` | Verdict |
+|---|---|---|---|
+| `journeys/career-quiz-results.spec.ts:22` | fail | **fail** | pre-existing |
+| `admin/admin-instructor-roster.spec.ts:38` | fail | **fail** | pre-existing |
+| `career/career-pathway.spec.ts:134` | fail in full suite | pass | flake — passes in isolation on this branch (6.4s) |
+| `journeys/certificate-generation.spec.ts:21` | flaky (passed on retry) | — | flake |
+
+`career-quiz-results` and `admin-instructor-roster` fail on main by themselves, so main is not
+currently green and these are worth someone's attention independently of this migration. Neither
+touches anything this branch changed: the specs reference `courses`, `enrollments`, `profiles` and
+quiz attempts, none of which appear in this diff.
+
+One process note. The first run was invoked as `npm run e2e:relay | tail -60`, which reports
+**tail's** exit status, not Playwright's — so it looked like a clean exit 0 while three tests were
+failing, and the truncation also discarded the failure detail for the spec that most needed it. Pipe
+Playwright to a file and read the file; do not pipe it to `tail`.
