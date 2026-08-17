@@ -45,6 +45,15 @@ verify_jwt = false
 [functions.resume-analyzer]
 verify_jwt = true
 
+[functions.admin-storage-config]
+# Adopted into the repo during the 2026-08 model migration. It had been deployed
+# with verify_jwt = true, but was deployed from the repo without an entry here,
+# so it picked up the default of false and silently lost that gate. The function
+# does authenticate the caller itself and check has_role, so it was never open —
+# but the deployed posture should match what was there before, not drift because
+# the config forgot to mention it.
+verify_jwt = true
+
 [functions.analyze-job-match]
 # Was deployed with verify_jwt = false — an unauthenticated LLM endpoint.
 # requireUser() inside the function is the real gate; this stops unauthenticated
