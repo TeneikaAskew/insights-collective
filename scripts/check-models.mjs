@@ -29,10 +29,16 @@
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { extname, join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const ROOTS = ['src', 'supabase/functions', 'scripts'];
 const EXTS = new Set(['.ts', '.tsx', '.js', '.mjs']);
-const SKIP_DIRS = new Set(['node_modules', 'dist', 'build', '.git', 'coverage']);
+const SKIP_DIRS = new Set(['node_modules', 'dist', 'build', '.git', 'coverage', '__tests__']);
+
+// Test files name dead model ids on purpose — that is what they assert about.
+// Scanning them makes the guard fail on its own fixtures, which is how it was
+// first written, and would have taught everyone to ignore it.
+const TEST_FILE = /\.(test|spec)\.[jt]sx?$|\.(test|spec)\.mjs$/;
 
 // Model ids this repo is allowed to send. Adding one is a deliberate act:
 // confirm the provider serves it, and that it is reachable from the gateway the
@@ -81,7 +87,7 @@ function* walk(dir) {
     if (SKIP_DIRS.has(entry)) continue;
     const full = join(dir, entry);
     if (statSync(full).isDirectory()) yield* walk(full);
-    else if (EXTS.has(extname(full))) yield full;
+    else if (EXTS.has(extname(full)) && !TEST_FILE.test(full)) yield full;
   }
 }
 
@@ -93,31 +99,53 @@ function stripLineComments(source) {
     .join('\n');
 }
 
+/**
+ * Every disallowed model id assigned in one file's source, with the line it is
+ * on. Exported and pure so the rules can be tested directly — the regex here
+ * has already been wrong once in a way a green run on a clean tree did not
+ * reveal, so it needs tests of its own rather than only being exercised by
+ * whatever the repo happens to contain today.
+ */
+export function findModelProblems(rawSource) {
+  const found = [];
+  const source = stripLineComments(rawSource);
+  source.split('\n').forEach((line, i) => {
+    ASSIGNMENT.lastIndex = 0;
+    let match;
+    while ((match = ASSIGNMENT.exec(line)) !== null) {
+      const id = match[1];
+      // Template placeholders and variables are resolved elsewhere.
+      if (id.includes('${') || !id.trim()) continue;
+      if (ALLOWED.has(id)) continue;
+      const dead = DECOMMISSIONED.get(id);
+      found.push({
+        line: i + 1,
+        id,
+        decommissioned: Boolean(dead),
+        why: dead
+          ? `decommissioned (${dead})`
+          : 'not in the allowlist — confirm the provider serves it, then add it to ALLOWED',
+      });
+    }
+  });
+  return found;
+}
+
+export { ALLOWED, DECOMMISSIONED };
+
+// Importing this module for its rules must not run the scan or exit the process.
+const invokedDirectly = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (!invokedDirectly) {
+  // Loaded as a library (tests). Nothing further to do.
+} else {
+
 const problems = [];
 
 for (const root of ROOTS) {
   for (const file of walk(root)) {
-    const source = stripLineComments(readFileSync(file, 'utf8'));
-    const lines = source.split('\n');
-    lines.forEach((line, i) => {
-      ASSIGNMENT.lastIndex = 0;
-      let match;
-      while ((match = ASSIGNMENT.exec(line)) !== null) {
-        const id = match[1];
-        // Template placeholders and variables are resolved elsewhere.
-        if (id.includes('${') || !id.trim()) continue;
-        if (ALLOWED.has(id)) continue;
-        const dead = DECOMMISSIONED.get(id);
-        problems.push({
-          file,
-          line: i + 1,
-          id,
-          why: dead
-            ? `decommissioned (${dead})`
-            : 'not in the allowlist — confirm the provider serves it, then add it to ALLOWED',
-        });
-      }
-    });
+    for (const p of findModelProblems(readFileSync(file, 'utf8'))) {
+      problems.push({ file, ...p });
+    }
   }
 }
 
@@ -137,3 +165,5 @@ for (const [id, where] of ALLOWED) console.error(`  ${id}  (${where})`);
 console.error('\nIf a model here is genuinely new, add it to ALLOWED in scripts/check-models.mjs');
 console.error('after confirming the provider serves it from the gateway that call site posts to.');
 process.exit(1);
+
+}
