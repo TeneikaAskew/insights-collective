@@ -42,7 +42,7 @@ Phases 1 and 2 are **deployed and verified live**, signed in against the real pr
 | `assistant-ai` | v616 | 8,126 chars in 5.4s, not truncated, quotes the injected BLS figures with reference period |
 
 Phase 3's ResumeChat half is deployed; the `resume-analyzer` change deploys on merge (see Phase 3).
-Phases 4 and 5 are done except for three function deletions that need the Supabase dashboard.
+Phases 4 and 5 are complete. All seven leftover function slugs were deleted and verified gone.
 
 ## Phase 1 — restore what is already broken
 
@@ -138,17 +138,21 @@ repo already serves.
 `supabase/functions/admin-storage-config/index.ts`, transcribed verbatim from what is deployed, so
 the auto-deploy pipeline manages it from here.
 
-**The three deletions are not done, and cannot be done from here.** There is no delete-function tool
-in this project's Supabase tooling — removing a function slug needs the dashboard or a Management API
-token, neither of which is available in the session environment. Delete these three in the dashboard:
+**The three deletions are done.** `resume-services`, `generate-course-content` and
+`analyze-job-description` were removed and verified returning 404.
 
-    resume-services
-    generate-course-content
-    analyze-job-description
+What made the deletion safe was not the absence of references — it was that none of the three worked.
+`resume-services` and `generate-course-content` both returned 500s, so any unseen caller was already
+receiving errors and deleting only turns a 500 into a 404. Nothing that worked stopped working.
 
-The pre-delete confirmation the plan asked for came back clean: none of the three recorded a single
-invocation across the log window. That window is 24 hours, so it is evidence rather than proof — a
-caller that runs weekly would not show up in it.
+`analyze-job-description` deserved more care and nearly got less: it is the only one of the seven that
+writes to the database, and it had only ever been tested with a nonexistent id, so its behaviour on a
+real one was never established. Checking properly settled it — `parsed_fields` appears only in the
+generated types file, no repo function writes it, and **0 of 9 `job_descriptions` rows have it
+populated, ever**. It never successfully wrote anything, and nothing reads the column it targets.
+
+Afterwards, `resume-analyzer`'s `detect-sentences` was exercised live and still returns bullets, which
+is the capability that justified removing `resume-services` in the first place.
 
 ## Phase 5 — cleanup and a guard
 
@@ -156,8 +160,9 @@ caller that runs weekly would not show up in it.
    `model-compare-prompt`, `gateway-probe`. Same constraint as above: the slugs cannot be deleted
    from here, so each was redeployed as an inert stub that returns `410 Gone` and does nothing. All
    four verified returning 410. That removes the live surface — they no longer hold a Groq-calling,
-   database-reading body — but the slugs remain and should be deleted in the dashboard. The runner
-   scripts stay in `scripts/model-migration/` for the next migration.
+   database-reading body, and the slugs were then deleted and verified gone. The runner scripts stay
+   in `scripts/model-migration/` for the next migration, and `delete-functions.sh` alongside them for
+   the next time a slug outlives its source.
 2. **`npm run check:models` is added and wired into `pr-checks.yml`**, alongside
    `check:migrations`. It works from an allowlist rather than a blocklist: any model id the source
    assigns that is not explicitly permitted fails the build, and ids known to be decommissioned fail
