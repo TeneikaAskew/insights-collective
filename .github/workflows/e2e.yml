@@ -277,8 +277,17 @@ jobs:
           # -v e2e_password: the seed provisions the dedicated journeys account
           # and needs the shared password to set. It is read from the secret
           # here and never stored in the SQL file.
+          # Fatal, deliberately. This used to warn and carry on, on the theory
+          # that a partial seed still lets most specs run. It does not: the file
+          # is a single BEGIN/COMMIT, so a failure anywhere rolls back all of it
+          # and the suite then tests whatever state the database happened to
+          # hold. Two seed bugs survived that way — a cast of '' to jsonb, and a
+          # notification invariant asserted above the section that writes it —
+          # because a red seed and a green seed produced the same green job.
+          # A run that could not build its fixtures has not tested anything.
           if ! psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -v e2e_password="$E2E_TEST_PASSWORD" -f e2e/fixtures/seed.sql; then
-            echo "::error title=E2E seeding failed::psql could not apply e2e/fixtures/seed.sql. Continuing so the suite still runs; fixture-dependent specs will report their own 'Seed gap' errors."
+            echo "::error title=E2E seeding failed::psql could not apply e2e/fixtures/seed.sql. The file is one transaction, so nothing was applied and the suite would be testing pre-existing state. Fix the seed rather than re-running."
+            exit 1
           fi
 
       # Every TestIds default must resolve to a row the role that loads the page
