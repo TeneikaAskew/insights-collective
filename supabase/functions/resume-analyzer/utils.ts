@@ -1,5 +1,5 @@
 // ABOUTME: Utility functions for the resume-analyzer edge function including LLM API calls
-// ABOUTME: Provides multi-provider fallback (Gemini primary, GROQ/ANWAN fallbacks) and rate limiting
+// ABOUTME: Provides provider fallback (Gemini primary, GROQ fallback) and rate limiting
 
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
@@ -31,11 +31,6 @@ const API_CONFIG = {
     MAX_RETRIES: 3,
     DAILY_LIMIT: 5000
   },
-  ANWAN: {
-    DELAY_MS: 2000,
-    MAX_RETRIES: 3,
-    DAILY_LIMIT: 1000
-  },
   GROQ: {
     DELAY_MS: 1000,
     MAX_RETRIES: 3,
@@ -44,13 +39,6 @@ const API_CONFIG = {
 };
 const endpointStatus = {
   GEMINI: {
-    lastCallTime: 0,
-    dailyCallCount: 0,
-    failureCount: 0,
-    isDisabled: false,
-    resetTime: undefined
-  },
-  ANWAN: {
     lastCallTime: 0,
     dailyCallCount: 0,
     failureCount: 0,
@@ -195,47 +183,6 @@ async function callGeminiAPI(system, user, options?: LLMCallOptions) {
     throw new Error(`Failed to parse Gemini response: ${e.message}`);
   }
 }
-// ANWAN API call
-async function callANWANAPI(system, user, options?: LLMCallOptions) {
-  if (!canUseEndpoint('ANWAN')) {
-    throw new Error('ANWAN API is currently disabled');
-  }
-  const ANWAN_API_KEY = Deno.env.get('ANWAN');
-  if (!ANWAN_API_KEY) throw new Error('ANWAN API key not found');
-  await enforceRateLimit('ANWAN');
-
-  const body: any = {
-    model: 'Meta-Llama-3-8B-Instruct',
-    messages: [
-      { role: 'system', content: system },
-      { role: 'user', content: user }
-    ],
-    temperature: 0.7,
-    max_tokens: 500
-  };
-  if (options?.tools) body.tools = options.tools;
-  if (options?.tool_choice) body.tool_choice = options.tool_choice;
-
-  const resp = await fetch('https://api.awanllm.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${ANWAN_API_KEY}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(body)
-  });
-  const responseText = await resp.text();
-  handleApiResponse('ANWAN', resp, responseText);
-  if (!resp.ok) {
-    throw new Error(`ANWAN API failed: ${resp.status} ${responseText}`);
-  }
-  try {
-    const json = JSON.parse(responseText);
-    return extractToolCallResult(json);
-  } catch (e) {
-    throw new Error(`Failed to parse ANWAN response: ${e.message}`);
-  }
-}
 // GROQ API call
 async function callGROQAPI(system, user, options?: LLMCallOptions) {
   if (!canUseEndpoint('GROQ')) {
@@ -321,7 +268,7 @@ export async function callLLMAPI(system, user, label = "LLM", options?: LLMCallO
   console.log(`[${label}] Prompt uses ${n} tokens`);
   
   // Get available endpoints - Gemini first, then fallbacks
-  const preferredOrder = ['GEMINI', 'GROQ', 'ANWAN'];
+  const preferredOrder = ['GEMINI', 'GROQ'];
   
   // Filter available endpoints in the preferred order
   const availableEndpoints = preferredOrder.filter(canUseEndpoint);
@@ -346,9 +293,6 @@ export async function callLLMAPI(system, user, label = "LLM", options?: LLMCallO
               break;
             case 'GROQ':
               resultPromise = callGROQAPI(system, user, options);
-              break;
-            case 'ANWAN':
-              resultPromise = callANWANAPI(system, user, options);
               break;
           }
           const result = await Promise.race([resultPromise, timeoutPromise]);

@@ -46,9 +46,6 @@ const TEST_FILE = /\.(test|spec)\.[jt]sx?$|\.(test|spec)\.mjs$/;
 const ALLOWED = new Map([
   ['openai/gpt-oss-120b', 'Groq — api.groq.com'],
   ['google/gemini-2.5-flash', 'Lovable AI gateway — ai.gateway.lovable.dev'],
-  // Third-party fallback inside resume-analyzer. Untested and still under
-  // review; listed so the check reflects reality rather than intent.
-  ['Meta-Llama-3-8B-Instruct', 'ANWAN — api.awanllm.com'],
 ]);
 
 // Named so the failure explains itself instead of just saying "not allowed".
