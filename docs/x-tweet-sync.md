@@ -84,11 +84,27 @@ npm run import:x-archive -- ~/Downloads/twitter-archive.zip
 and the date range, prints one sample row per table, and writes nothing. Run that
 first.
 
-Point it at the **.zip**, an unzipped archive folder, or that folder's `data/`
-directory — all three work. It finds `tweets.js` and every `tweets-part*.js`
-(X splits large exports across numbered parts). Both writes upsert on `tweet_id`,
-so **re-running is safe** — importing a newer archive over an older one updates the
-existing rows and adds only what is new.
+Both writes upsert on `tweet_id`, so **re-running is safe** — importing a newer
+archive over an older one updates the existing rows and adds only what is new.
+
+### What you can point it at
+
+| Input | Notes |
+| --- | --- |
+| `twitter-archive.zip` | The zip X emailed you, read in place. No unzipping. |
+| `tweets.js` | A single tweet file. Sibling `tweets-part*.js` in the same folder are picked up automatically. |
+| A folder | An unzipped archive, or its `data/` directory. |
+| Several of the above | e.g. `tweets.js tweets-part1.js`, or two archives at once. Duplicates across them collapse. |
+
+X splits large exports across `tweets.js`, `tweets-part1.js`, `tweets-part2.js`,
+and so on. That is why naming a single `tweets.js` sweeps in its siblings: passing
+just the first file and quietly importing a fraction of the account's history —
+reported as a success — is the worst available outcome. To override the sweep,
+list the files you want explicitly; an explicit list is taken as the instruction.
+
+Aiming it at a different `window.YTD` file (`direct-messages.js`, `like.js`) is
+caught rather than half-imported: it warns on the filename, and if nothing
+tweet-shaped comes out it exits non-zero saying so.
 
 ### What the import reads out of the zip
 

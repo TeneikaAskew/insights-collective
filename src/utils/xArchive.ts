@@ -29,6 +29,30 @@
 export const ARCHIVE_USERNAME = 'teneikaask_you';
 export const ARCHIVE_DISPLAY_NAME = 'Teneika Askew';
 
+/**
+ * The only filenames the import will read. An X archive also ships
+ * direct-messages.js, like.js, account.js and a couple of dozen other
+ * `window.YTD` files; matching narrowly is what keeps them out of the database.
+ */
+export const TWEET_FILE = /^tweets(-part\d+)?\.js$/i;
+
+/** 0 for the base `tweets.js`, N for `tweets-partN.js`. */
+export function partNumber(name: string): number {
+  return Number(/-part(\d+)\.js$/i.exec(name)?.[1] ?? 0);
+}
+
+/**
+ * Pick the tweet files out of a directory listing (or a zip's entry names),
+ * ordered so the base `tweets.js` leads.
+ *
+ * The ordering is not cosmetic. A plain string sort puts "tweets-part1.js" ahead
+ * of "tweets.js" because '-' sorts before '.', which decides which slice of the
+ * account's history `--limit` keeps.
+ */
+export function selectTweetFiles(names: string[]): string[] {
+  return names.filter((name) => TWEET_FILE.test(name)).sort((a, b) => partNumber(a) - partNumber(b));
+}
+
 /** One entry of the archive's tweet array, after the `{ tweet: ... }` unwrap. */
 export interface ArchiveTweet {
   id_str?: string;

@@ -3,20 +3,24 @@
 // ABOUTME: public.resources (Resources -> Top Tweets). This is the no-API-key route
 // ABOUTME: for refreshing both sections: request the archive from X, point this at
 // ABOUTME: the zip. Re-running is safe; both writes upsert on tweet_id.
-// ABOUTME: Usage: npm run import:x-archive -- <archive.zip|dir> [--dry-run] [--limit N]
+// ABOUTME: Usage: npm run import:x-archive -- <archive.zip|tweets.js|dir> [--dry-run]
 //
 // GETTING THE ARCHIVE
 //
 //   x.com -> Settings -> Your account -> Download an archive of your data
 //
-// X emails a zip within a few hours to a couple of days. Point this straight at
-// that .zip — there is no need to unzip it, and no need to upload it anywhere.
-// The script runs on your own machine, reads only `data/tweets.js` and any
-// `tweets-part1.js`, `-part2.js`, ... beside it, and writes to the database over
-// the network. An unzipped directory (or its `data/` folder) works too.
+// X emails a zip within a few hours to a couple of days. Any of these work, and
+// several can be passed at once:
 //
-// The rest of the archive — direct messages, contacts, ad-interest data — is
-// never opened. Only files matching TWEET_FILE below are read.
+//   twitter-archive.zip   read in place — no unzipping, no uploading anywhere
+//   tweets.js             a single tweet file; sibling tweets-part*.js in the
+//                         same folder are swept in (see readSingleFile)
+//   <folder>              an unzipped archive, or its data/ folder
+//
+// The script runs on your own machine and writes to the database over the
+// network; the archive never leaves the machine. The rest of it — direct
+// messages, contacts, ad-interest data — is never opened, because only files
+// matching TWEET_FILE are read.
 //
 // CREDENTIALS
 //
@@ -37,7 +41,7 @@
 // through db-migrate.yml — see CLAUDE.md.
 
 import { readFile, readdir, stat } from 'node:fs/promises';
-import { join, resolve, basename } from 'node:path';
+import { join, resolve, basename, dirname } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import {
   parseArchiveJs,
@@ -46,6 +50,9 @@ import {
   tweetId,
   isRetweet,
   isReply,
+  selectTweetFiles,
+  partNumber,
+  TWEET_FILE,
   ARCHIVE_USERNAME,
   type ArchiveTweet,
 } from '../src/utils/xArchive';
@@ -80,7 +87,9 @@ for (let i = 0; i < argv.length; i += 1) {
   }
 }
 
-const archivePath = positional[0];
+// Several paths are allowed at once so a split export can be passed as
+// `tweets.js tweets-part1.js` without unzipping or moving anything.
+const archivePaths = positional;
 const dryRun = flags.has('--dry-run');
 const skipRetweets = flags.has('--skip-retweets');
 const skipReplies = flags.has('--skip-replies');
@@ -89,13 +98,16 @@ const limit = limitRaw === undefined ? Infinity : Number(limitRaw);
 const createdBy = flags.get('--created-by') || DEFAULT_CREATED_BY;
 const only = flags.get('--only');
 
-if (!archivePath) {
+if (archivePaths.length === 0) {
   console.error(
-    'Usage: npm run import:x-archive -- <archive.zip|dir> [--dry-run] [--limit N]\n' +
-      '                                 [--only tweets|resources] [--skip-retweets] [--skip-replies]\n' +
-      '                                 [--created-by <uuid>]\n\n' +
-      'Pass the .zip X emailed you (no need to unzip), the unzipped archive\n' +
-      'folder, or its data/ directory.',
+    'Usage: npm run import:x-archive -- <archive.zip|tweets.js|dir> [...more]\n' +
+      '                                 [--dry-run] [--limit N] [--only tweets|resources]\n' +
+      '                                 [--skip-retweets] [--skip-replies] [--created-by <uuid>]\n\n' +
+      'Any of these work:\n' +
+      '  twitter-archive.zip     the zip X emailed you, read in place — no unzipping\n' +
+      '  tweets.js               a single tweet file; sibling tweets-part*.js are\n' +
+      '                          picked up automatically from the same folder\n' +
+      '  <folder>                an unzipped archive, or its data/ directory',
   );
   process.exit(1);
 }
@@ -123,20 +135,12 @@ if (!dryRun && (!supabaseUrl || !serviceKey)) {
 
 /** One tweet file pulled out of the archive, already decoded to text. */
 interface ArchiveFile {
+  /** Display name, e.g. "tweets-part1.js". */
   name: string;
+  /** Stable identity for deduping: absolute path on disk, or zip path. */
+  key: string;
   text: string;
 }
-
-/** Only these files are read. Everything else in the archive is ignored. */
-const TWEET_FILE = /^tweets(-part\d+)?\.js$/i;
-
-/**
- * Order by part number so the base tweets.js leads. Plain string sort puts
- * "tweets-part1.js" ahead of "tweets.js" ('-' < '.'), which only matters when
- * --limit truncates the run, but a limited import that silently starts midway
- * through the account's history is a confusing thing to hand someone.
- */
-const partNumber = (name: string): number => Number(/-part(\d+)\.js$/i.exec(name)?.[1] ?? 0);
 
 /**
  * Read the archive's tweet files, from either the .zip X emails you or an
@@ -148,35 +152,83 @@ const partNumber = (name: string): number => Number(/-part(\d+)\.js$/i.exec(name
  * your contacts, your ad-interest profile and more; only files matching
  * TWEET_FILE are ever opened, so nothing else can reach the database by accident.
  */
-async function readArchiveFiles(inputPath: string): Promise<ArchiveFile[]> {
+async function readArchiveFiles(inputPath: string, sweepSiblings: boolean): Promise<ArchiveFile[]> {
   const root = resolve(process.cwd(), inputPath);
 
   const info = await stat(root).catch(() => null);
   if (!info) throw new Error(`No such path: ${root}`);
 
   if (info.isFile() && /\.zip$/i.test(root)) return readFromZip(root);
-
-  // A .js file was passed directly — use it as-is.
-  if (info.isFile()) return [{ name: basename(root), text: await readFile(root, 'utf8') }];
+  if (info.isFile()) return readSingleFile(root, sweepSiblings);
 
   // Accept either the archive root (which holds data/) or the data/ dir itself.
   const dataDir = (await stat(join(root, 'data')).catch(() => null))?.isDirectory()
     ? join(root, 'data')
     : root;
 
-  const matches = (await readdir(dataDir))
-    .filter((name) => TWEET_FILE.test(name))
-    .sort((a, b) => partNumber(a) - partNumber(b));
+  const matches = await tweetFilesIn(dataDir);
 
   if (matches.length === 0) {
     throw new Error(
       `No tweets.js found in ${dataDir}. Point this at the .zip X sent you, ` +
-        'the unzipped archive, or its data/ directory.',
+        'a tweets.js file, the unzipped archive, or its data/ directory.',
     );
   }
 
   return Promise.all(
-    matches.map(async (name) => ({ name, text: await readFile(join(dataDir, name), 'utf8') })),
+    matches.map(async (name) => ({
+      name,
+      key: join(dataDir, name),
+      text: await readFile(join(dataDir, name), 'utf8'),
+    })),
+  );
+}
+
+/** Tweet files in a directory, ordered so the base tweets.js leads. */
+async function tweetFilesIn(dir: string): Promise<string[]> {
+  return selectTweetFiles(await readdir(dir).catch(() => [] as string[]));
+}
+
+/**
+ * A single file was named. Read it — and, when it is the archive's `tweets.js`,
+ * pull in the `tweets-part*.js` files sitting beside it.
+ *
+ * That sweep is the point of this function. X splits a large export across
+ * numbered parts, and naming just `tweets.js` is the obvious thing to do; without
+ * the sweep that quietly imports the first slice of the account's history and
+ * reports success, which is a far worse outcome than an error. Files the caller
+ * listed explicitly are left alone — see the dedupe in the caller.
+ */
+async function readSingleFile(filePath: string, sweepSiblings: boolean): Promise<ArchiveFile[]> {
+  const name = basename(filePath);
+  const dir = dirname(filePath);
+
+  if (!TWEET_FILE.test(name)) {
+    // Not fatal: people rename downloads ("tweets (1).js"). But an X archive also
+    // contains direct-messages.js, like.js and a dozen other window.YTD files that
+    // would parse into nonsense rows, so say what was expected before going on.
+    console.warn(
+      `Warning: "${name}" is not named like an X tweet file (tweets.js, ` +
+        'tweets-part1.js, ...). Reading it anyway; check the counts below.',
+    );
+    return [{ name, key: filePath, text: await readFile(filePath, 'utf8') }];
+  }
+
+  const siblings = sweepSiblings ? (await tweetFilesIn(dir)).filter((other) => other !== name) : [];
+  if (siblings.length > 0) {
+    console.log(
+      `Also found beside ${name}: ${siblings.join(', ')} — including ` +
+        '(pass the files you want individually to override).',
+    );
+  }
+
+  const chosen = [name, ...siblings].sort((a, b) => partNumber(a) - partNumber(b));
+  return Promise.all(
+    chosen.map(async (each) => ({
+      name: each,
+      key: join(dir, each),
+      text: await readFile(join(dir, each), 'utf8'),
+    })),
   );
 }
 
@@ -205,6 +257,7 @@ async function readFromZip(zipPath: string): Promise<ArchiveFile[]> {
   return Promise.all(
     entries.map(async (entry) => ({
       name: basename(entry.name),
+      key: `${zipPath}!${entry.name}`,
       text: await entry.async('string'),
     })),
   );
@@ -212,7 +265,23 @@ async function readFromZip(zipPath: string): Promise<ArchiveFile[]> {
 
 let files: ArchiveFile[];
 try {
-  files = await readArchiveFiles(archivePath);
+  // Sweep for sibling parts only when a single path was named. If the caller
+  // listed files themselves, that list is the instruction — sweeping on top of it
+  // would re-read the very files they just enumerated.
+  const sweepSiblings = archivePaths.length === 1;
+  const collected = await Promise.all(
+    archivePaths.map((path) => readArchiveFiles(path, sweepSiblings)),
+  );
+
+  // Dedupe by resolved identity, not by basename: two different archives can each
+  // hold a "tweets.js", and both should be read.
+  const seenFiles = new Set<string>();
+  files = collected.flat().filter((file) => {
+    const key = file.key;
+    if (seenFiles.has(key)) return false;
+    seenFiles.add(key);
+    return true;
+  });
 } catch (error) {
   // A wrong path is the most likely way to run this, so it gets a plain message
   // rather than a stack trace.
@@ -224,8 +293,17 @@ console.log(`Reading ${files.length} archive file(s):`);
 
 const rawTweets: ArchiveTweet[] = [];
 for (const file of files) {
-  const parsed = parseArchiveJs(file.text);
-  console.log(`  ${file.name}: ${parsed.length} tweets`);
+  let parsed: ArchiveTweet[];
+  try {
+    parsed = parseArchiveJs(file.text);
+  } catch (error) {
+    // Name the file. Pointing this at the wrong window.YTD file (like.js,
+    // direct-messages.js) is an easy mistake once single files are accepted, and
+    // a bare stack trace does not say which of several inputs was the bad one.
+    console.error(`${file.name}: ${(error as Error).message}`);
+    process.exit(1);
+  }
+  console.log(`  ${file.name}: ${parsed.length} entries`);
   rawTweets.push(...parsed);
 }
 
@@ -281,15 +359,21 @@ if (selected.length > 0) {
   console.log(`  targets: ${[writeTweets && 'public.tweets', writeResources && 'public.resources'].filter(Boolean).join(', ')}`);
 }
 
+// Checked before the dry-run sample below, which would otherwise print
+// "undefined" for a file that parsed but held no tweets — the shape you get from
+// aiming this at the wrong window.YTD file.
+if (selected.length === 0) {
+  console.error(
+    '\nNo tweets found. If you passed a single .js file, check it is the ' +
+      "archive's tweets.js rather than another window.YTD file.",
+  );
+  process.exit(1);
+}
+
 if (dryRun) {
   console.log('\n--dry-run: nothing written. Sample rows:');
   console.log('public.tweets    ', JSON.stringify(tweetRows[0], null, 2));
   console.log('public.resources ', JSON.stringify(resourceRows[0], null, 2));
-  process.exit(0);
-}
-
-if (selected.length === 0) {
-  console.log('\nNothing to import.');
   process.exit(0);
 }
 

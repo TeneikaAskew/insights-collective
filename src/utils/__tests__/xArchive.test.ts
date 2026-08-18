@@ -9,6 +9,9 @@ import {
   isReply,
   firstLink,
   tweetId,
+  selectTweetFiles,
+  partNumber,
+  TWEET_FILE,
   ARCHIVE_USERNAME,
 } from '../xArchive';
 
@@ -201,5 +204,68 @@ describe('tweet predicates', () => {
     expect(tweetId({ id_str: '1' })).toBe('1');
     expect(tweetId({ id: '2' })).toBe('2');
     expect(tweetId({})).toBeNull();
+  });
+});
+
+describe('selectTweetFiles', () => {
+  // Ordering decides which slice of history --limit keeps: a plain string sort
+  // puts "tweets-part1.js" ahead of "tweets.js" because '-' sorts before '.'.
+  it('puts the base tweets.js before its numbered parts', () => {
+    const picked = selectTweetFiles(['tweets-part1.js', 'tweets.js', 'tweets-part2.js']);
+    expect(picked).toEqual(['tweets.js', 'tweets-part1.js', 'tweets-part2.js']);
+  });
+
+  it('orders parts numerically, not lexically', () => {
+    const picked = selectTweetFiles(['tweets-part10.js', 'tweets-part2.js', 'tweets.js']);
+    expect(picked).toEqual(['tweets.js', 'tweets-part2.js', 'tweets-part10.js']);
+  });
+
+  // The archive is full of other window.YTD files. Letting one through would put
+  // rows that are not tweets into two tables the site renders publicly.
+  it('ignores every other file in the archive', () => {
+    const picked = selectTweetFiles([
+      'tweets.js',
+      'direct-messages.js',
+      'like.js',
+      'account.js',
+      'tweet-headers.js',
+      'note-tweet.js',
+      'manifest.js',
+      'README.txt',
+    ]);
+    expect(picked).toEqual(['tweets.js']);
+  });
+
+  it('returns nothing when the listing holds no tweet files', () => {
+    expect(selectTweetFiles(['direct-messages.js', 'ad-engagements.js'])).toEqual([]);
+  });
+
+  it('does not match names that merely start with tweets', () => {
+    expect(selectTweetFiles(['tweets-media.js', 'tweetsomething.js', 'tweet-headers.js'])).toEqual(
+      [],
+    );
+  });
+
+  it('matches case-insensitively, as some unzip tools rewrite case', () => {
+    expect(selectTweetFiles(['Tweets.js'])).toEqual(['Tweets.js']);
+  });
+});
+
+describe('partNumber', () => {
+  it('reads 0 for the base file and N for a part', () => {
+    expect(partNumber('tweets.js')).toBe(0);
+    expect(partNumber('tweets-part1.js')).toBe(1);
+    expect(partNumber('tweets-part12.js')).toBe(12);
+  });
+});
+
+describe('TWEET_FILE', () => {
+  it('accepts the names X actually emits', () => {
+    expect(TWEET_FILE.test('tweets.js')).toBe(true);
+    expect(TWEET_FILE.test('tweets-part1.js')).toBe(true);
+  });
+
+  it('rejects a renamed download, so the CLI can warn before reading it', () => {
+    expect(TWEET_FILE.test('tweets (1).js')).toBe(false);
   });
 });
