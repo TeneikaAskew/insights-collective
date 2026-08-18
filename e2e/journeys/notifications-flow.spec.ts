@@ -1,7 +1,19 @@
 // ABOUTME: Genuine end-to-end test for the notification center. Signs in as the
 // ABOUTME: seeded test member, loads /notifications, and exercises mark-as-read,
-// ABOUTME: delete, and tab filtering against real DB state.
-import { test, expect } from '@playwright/test';
+// ABOUTME: delete, and dropdown filtering against real DB state.
+import { test, expect, type Page } from '@playwright/test';
+
+// The filter is a Radix Select: the trigger is a combobox, the choices are
+// options that only exist in the DOM while the menu is open.
+function filterTrigger(page: Page) {
+  return page.getByRole('combobox', { name: /filter notifications/i });
+}
+
+async function chooseFilter(page: Page, name: RegExp) {
+  await filterTrigger(page).click();
+  await page.getByRole('option', { name }).click();
+  await expect(page.getByRole('option', { name })).toBeHidden();
+}
 
 // This spec runs under the chromium-member project, whose storageState is the
 // session global-setup already established, so it starts authenticated. Driving
@@ -62,11 +74,17 @@ test.describe('Notifications center — real flow', () => {
   });
 
 
-  test('renders header, tabs, and either items or empty state', async ({ page }) => {
+  test('renders header, filter dropdown, and either items or empty state', async ({ page }) => {
     await page.goto(`${BASE}/notifications`, { waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('heading', { name: 'Notifications', level: 1 })).toBeVisible();
-    await expect(page.getByRole('tab', { name: /^All/ })).toBeVisible();
-    await expect(page.getByRole('tab', { name: /^Unread/ })).toBeVisible();
+    await expect(filterTrigger(page)).toBeVisible();
+
+    // "All" is the default selection, and the menu offers at least All + Unread.
+    await expect(filterTrigger(page)).toContainText('All');
+    await filterTrigger(page).click();
+    await expect(page.getByRole('option', { name: /^All/ })).toBeVisible();
+    await expect(page.getByRole('option', { name: /^Unread/ })).toBeVisible();
+    await page.keyboard.press('Escape');
 
     // Wait for the fetch to settle: either an item card renders or the "Nothing here" empty state does.
     await expect
@@ -86,20 +104,20 @@ test.describe('Notifications center — real flow', () => {
     // If the button is enabled, at least one unread exists → clicking must clear the Unread badge.
     if (await markAllBtn.isEnabled().catch(() => false)) {
       await markAllBtn.click();
-      // The unread tab badge (a small pill) should disappear; button becomes disabled.
+      // The unread badge (a small pill) should disappear; button becomes disabled.
       await expect(markAllBtn).toBeDisabled({ timeout: 5_000 });
-      await page.getByRole('tab', { name: /^Unread/ }).click();
+      await chooseFilter(page, /^Unread/);
       await expect(page.getByText(/nothing here/i)).toBeVisible({ timeout: 5_000 });
 
       // Reload from server — should still show no unread (persisted, not just local state).
       await page.reload({ waitUntil: 'domcontentloaded' });
       await page.waitForLoadState('networkidle');
-      await page.getByRole('tab', { name: /^Unread/ }).click();
+      await chooseFilter(page, /^Unread/);
       await expect(page.getByText(/nothing here/i)).toBeVisible({ timeout: 5_000 });
     } else {
-      // No unread — verify the disabled state and Unread tab genuinely empty.
+      // No unread — verify the disabled state and the Unread filter genuinely empty.
       await expect(markAllBtn).toBeDisabled();
-      await page.getByRole('tab', { name: /^Unread/ }).click();
+      await chooseFilter(page, /^Unread/);
       await expect(page.getByText(/nothing here/i)).toBeVisible();
     }
   });

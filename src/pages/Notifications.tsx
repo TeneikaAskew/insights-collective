@@ -8,7 +8,12 @@ import AppLayout from '@/components/layout/AppLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -58,7 +63,7 @@ const Notifications = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
-  const [activeTab, setActiveTab] = useState<string>('all');
+  const [activeFilter, setActiveFilter] = useState<string>('all');
 
   useEffect(() => {
     if (authLoading) return;
@@ -151,12 +156,42 @@ const Notifications = () => {
 
   const totalUnread = items.filter((n) => !n.is_read).length;
 
+  // One entry per dropdown option, in the order they appear in the menu.
+  const filterOptions = useMemo(() => {
+    const general = perCourseCounts.get('__none__');
+    const options: { value: string; label: string; badge: number; variant: 'secondary' | 'default' }[] = [
+      { value: 'all', label: 'All', badge: items.length, variant: 'secondary' },
+      { value: 'unread', label: 'Unread', badge: totalUnread, variant: 'default' },
+    ];
+    for (const [id, counts] of perCourseCounts.entries()) {
+      if (id === '__none__') continue;
+      options.push({
+        value: id,
+        label: courses[id]?.title ?? 'Course',
+        badge: counts.unread,
+        variant: 'default',
+      });
+    }
+    if (general) {
+      options.push({ value: 'general', label: 'General', badge: general.unread, variant: 'default' });
+    }
+    return options;
+  }, [items.length, totalUnread, perCourseCounts, courses]);
+
+  // A course option disappears once its last notification is deleted. Falling
+  // back to "All" keeps the trigger from going blank over an empty list.
+  useEffect(() => {
+    if (!filterOptions.some((o) => o.value === activeFilter)) setActiveFilter('all');
+  }, [filterOptions, activeFilter]);
+
+  const activeOption = filterOptions.find((o) => o.value === activeFilter) ?? filterOptions[0];
+
   const filtered = useMemo(() => {
-    if (activeTab === 'all') return items;
-    if (activeTab === 'unread') return items.filter((n) => !n.is_read);
-    if (activeTab === 'general') return items.filter((n) => !n.course_id);
-    return items.filter((n) => n.course_id === activeTab);
-  }, [items, activeTab]);
+    if (activeFilter === 'all') return items;
+    if (activeFilter === 'unread') return items.filter((n) => !n.is_read);
+    if (activeFilter === 'general') return items.filter((n) => !n.course_id);
+    return items.filter((n) => n.course_id === activeFilter);
+  }, [items, activeFilter]);
 
   // Optimistic mutations below roll back on a failed write and surface a
   // destructive toast — the UI must never claim a write happened that didn't.
@@ -193,10 +228,16 @@ const Notifications = () => {
 
   const removeOne = async (id: string) => {
     const previous = items;
+    // Deleting the last row under a course or General filter empties that
+    // option, and the fallback effect above switches the selection to All.
+    // Restoring only the rows would leave the user looking at All with their
+    // notification back, so the filter is part of what rolls back.
+    const previousFilter = activeFilter;
     setItems((prev) => prev.filter((n) => n.id !== id));
     const { error } = await supabase.from('notifications').delete().eq('id', id);
     if (error) {
       setItems(previous);
+      setActiveFilter(previousFilter);
       toast({
         title: 'Failed to delete notification',
         description: error.message,
@@ -230,10 +271,6 @@ const Notifications = () => {
     );
   }
 
-  const courseTabs = Array.from(perCourseCounts.entries())
-    .filter(([id]) => id !== '__none__')
-    .map(([id, counts]) => ({ id, ...counts }));
-
   return (
     <AppLayout>
       <div className="container mx-auto py-8 px-4 space-y-6 max-w-4xl">
@@ -254,38 +291,39 @@ const Notifications = () => {
           </Button>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="flex flex-wrap h-auto">
-            <TabsTrigger value="all">
-              All
-              <Badge variant="secondary" className="ml-2">
-                {items.length}
-              </Badge>
-            </TabsTrigger>
-            <TabsTrigger value="unread">
-              Unread
-              {totalUnread > 0 && (
-                <Badge className="ml-2" variant="default">
-                  {totalUnread}
-                </Badge>
-              )}
-            </TabsTrigger>
-            {courseTabs.map(({ id, unread }) => (
-              <TabsTrigger key={id} value={id}>
-                {courses[id]?.title ?? 'Course'}
-                {unread > 0 && (
-                  <Badge className="ml-2" variant="default">
-                    {unread}
-                  </Badge>
+        {/* One dropdown instead of a tab strip: the course list grows with
+            enrollment, and a wrapping TabsList ate three rows of the page on a
+            phone before any notification was visible. */}
+        <div className="flex items-center gap-2">
+          <Select value={activeFilter} onValueChange={setActiveFilter}>
+            <SelectTrigger
+              className="w-full sm:w-[300px] justify-between"
+              aria-label="Filter notifications"
+            >
+              {/* `!flex` beats the trigger's own `[&>span]:line-clamp-1`, which
+                  would otherwise turn this row into a -webkit-box and stack the
+                  badge under the label. */}
+              <span className="!flex items-center gap-2 min-w-0">
+                <span className="truncate">{activeOption?.label ?? 'All'}</span>
+                {activeOption && activeOption.badge > 0 && (
+                  <Badge variant={activeOption.variant}>{activeOption.badge}</Badge>
                 )}
-              </TabsTrigger>
-            ))}
-            {perCourseCounts.has('__none__') && (
-              <TabsTrigger value="general">General</TabsTrigger>
-            )}
-          </TabsList>
+              </span>
+            </SelectTrigger>
+            <SelectContent>
+              {filterOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  <span className="flex items-center gap-2">
+                    <span className="truncate">{option.label}</span>
+                    {option.badge > 0 && <Badge variant={option.variant}>{option.badge}</Badge>}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
-          <TabsContent value={activeTab} className="mt-4">
+        <div className="mt-4">
             {isLoading ? (
               <div className="py-16 text-center text-muted-foreground">
                 <Bell className="h-6 w-6 mx-auto opacity-60 animate-spin" />
@@ -368,8 +406,7 @@ const Notifications = () => {
                 ))}
               </div>
             )}
-          </TabsContent>
-        </Tabs>
+        </div>
       </div>
     </AppLayout>
   );
