@@ -1,15 +1,19 @@
-// Guards the challenge test data seeded by supabase/migrations, which no other
-// test covers: it is SQL, so typecheck and the component tests never read it.
+// Guards the challenge test data seeded by supabase/migrations, which nothing
+// else covers: it is SQL, so typecheck and the component tests never read it.
 //
-// The bug this exists for: Two Sum's `[-1,0,1,2], 1` case had TWO right answers
-// ([0,3] and [1,2]) while compare_mode is 'exact'. The canonical single-pass
-// hash map returns [1,2], so the challenge failed everyone who solved it the
-// standard way. It surfaced only because an AI-judged submission came back 3/4
-// and the judge turned out to be correct.
+// Two real defects motivate this, and they fail in opposite directions:
 //
-// A test case with more than one valid answer is unfixable at grading time —
-// whichever value is stored, some correct solution disagrees with it. So the
-// assertion is on the data, not on the grader.
+//   Two Sum          `[-1,0,1,2]` target 1 had TWO right answers ([0,3] and
+//                    [1,2]) under compare_mode 'exact', so the canonical
+//                    single-pass hash map was graded WRONG. Data that FAILS
+//                    correct solutions.
+//
+//   Pandas Filter    specified as "exceeds" the threshold, but no case put a
+//                    value ON the threshold, so `>=` passed everything. Data
+//                    that PASSES incorrect solutions.
+//
+// Both are unfixable at grading time — the grader can only compare against what
+// it was given — so the assertions are on the data itself.
 
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -17,35 +21,71 @@ import { join } from 'node:path';
 
 const MIGRATIONS = 'supabase/migrations';
 
-/** The seeded challenges, read from whichever migration last wrote each one. */
-function twoSumCases(): Array<{ input: string; expected: string }> {
-  // Later migrations override earlier ones, so scan in version order and keep
-  // the last block that carries Two Sum's cases.
+interface TestCase {
+  input: string;
+  expected: string;
+  hidden?: boolean;
+}
+
+/**
+ * Replay the migrations to get a challenge's final test_cases.
+ *
+ * Migrations touch this data three ways and all of them have to be honoured, or
+ * the test reads a state the database was never in:
+ *
+ *   INSERT ... VALUES (... '[...]'::jsonb ...)   the original seed
+ *   SET test_cases = '[...]'                     wholesale replacement
+ *   SET test_cases = test_cases || '[...]'       append
+ *
+ * `marker` identifies the challenge by a substring of its seeded cases;
+ * `family` recognises later appends, which do not repeat the marker.
+ */
+function casesFor(marker: string, family: RegExp): TestCase[] {
   const files = readdirSync(MIGRATIONS)
     .filter((f) => f.endsWith('.sql'))
     .sort();
 
-  let latest: Array<{ input: string; expected: string }> | null = null;
+  let cases: TestCase[] = [];
+
   for (const file of files) {
     const sql = readFileSync(join(MIGRATIONS, file), 'utf8');
-    // Every Two Sum case list starts with the [2,7,11,15] case. Anchor the end
-    // on the SQL cast, not on the first `]` — that one closes an expected value
-    // like "[0, 1]", and a lazy match there yields unparseable JSON.
-    const block = sql.match(/'(\[\s*\{"input": "\[2,7,11,15\], 9".*?\])'::jsonb/s);
-    if (block) {
+
+    // End on the SQL cast, not on the first `]` — that one closes an expected
+    // value like "[0, 1]", and a lazy match there yields unparseable JSON.
+    for (const match of sql.matchAll(/'(\[.*?\])'::jsonb/gs)) {
+      // Migrations double single quotes for SQL; undo that before parsing.
+      const json = match[1].replace(/''/g, "'");
+
+      let parsed: TestCase[];
       try {
-        latest = JSON.parse(block[1]);
+        parsed = JSON.parse(json);
       } catch {
-        // A block we cannot parse is itself worth failing on below.
-        latest = null;
+        continue; // not a test_cases array — constraints, hints, and so on
+      }
+      if (!Array.isArray(parsed) || !parsed.every((c) => typeof c?.input === 'string')) continue;
+
+      const before = sql.slice(Math.max(0, match.index - 80), match.index);
+      const isAppend = /test_cases\s*=\s*test_cases\s*\|\|\s*$/.test(before);
+
+      if (isAppend) {
+        // Only ours if we are already tracking this challenge and the appended
+        // rows are the same shape of input.
+        if (cases.length > 0 && parsed.every((c) => family.test(c.input))) {
+          cases = [...cases, ...parsed];
+        }
+      } else if (parsed.some((c) => c.input.includes(marker))) {
+        cases = parsed;
       }
     }
   }
-  return latest ?? [];
+  return cases;
 }
 
-/** Parse `"[2,7,11,15], 9"` into its list and target. */
-function parseInput(input: string): { nums: number[]; target: number } {
+// ---------------------------------------------------------------- Two Sum ---
+
+const TWO_SUM_MARKER = '[2,7,11,15], 9';
+
+function parseTwoSumInput(input: string): { nums: number[]; target: number } {
   const match = input.match(/^\s*\[([^\]]*)\]\s*,\s*(-?\d+)\s*$/);
   if (!match) throw new Error(`unparseable Two Sum input: ${input}`);
   return {
@@ -65,7 +105,7 @@ function validPairs(nums: number[], target: number): number[][] {
 }
 
 /** The textbook answer: return as soon as the complement has been seen. */
-function canonicalSolution(nums: number[], target: number): number[] {
+function canonicalTwoSum(nums: number[], target: number): number[] {
   const seen = new Map<number, number>();
   for (let i = 0; i < nums.length; i++) {
     const need = target - nums[i];
@@ -76,7 +116,7 @@ function canonicalSolution(nums: number[], target: number): number[] {
 }
 
 describe('Two Sum challenge test data', () => {
-  const cases = twoSumCases();
+  const cases = casesFor(TWO_SUM_MARKER, /^\s*\[[-\d,\s]*\]\s*,\s*-?\d+\s*$/);
 
   it('is present and parseable in the migrations', () => {
     expect(cases.length).toBeGreaterThanOrEqual(4);
@@ -85,19 +125,59 @@ describe('Two Sum challenge test data', () => {
   it.each(cases.map((c, i) => [i + 1, c] as const))(
     'case %i has exactly one valid answer',
     (_n, testCase) => {
-      const { nums, target } = parseInput(testCase.input);
-      const pairs = validPairs(nums, target);
+      const { nums, target } = parseTwoSumInput(testCase.input);
       // More than one and the stored expectation is arbitrary; zero and the
       // challenge is unsolvable.
-      expect(pairs).toHaveLength(1);
+      expect(validPairs(nums, target)).toHaveLength(1);
     },
   );
 
   it.each(cases.map((c, i) => [i + 1, c] as const))(
     'case %i is what the canonical hash-map solution returns',
     (_n, testCase) => {
-      const { nums, target } = parseInput(testCase.input);
-      expect(canonicalSolution(nums, target)).toEqual(JSON.parse(testCase.expected));
+      const { nums, target } = parseTwoSumInput(testCase.input);
+      expect(canonicalTwoSum(nums, target)).toEqual(JSON.parse(testCase.expected));
+    },
+  );
+});
+
+// --------------------------------------------------------- Pandas filter ---
+
+const FILTER_MARKER = "'sales': [100,200,50,300]";
+
+function parseFilterInput(input: string): { sales: number[]; threshold: number } {
+  const sales = input.match(/'sales':\s*\[([^\]]*)\]/);
+  const threshold = input.match(/,\s*(\d+)\s*$/);
+  if (!sales || !threshold) throw new Error(`unparseable filter input: ${input}`);
+  return {
+    sales: sales[1].split(',').map((n) => Number(n.trim())),
+    threshold: Number(threshold[1]),
+  };
+}
+
+describe('Pandas DataFrame Filter challenge test data', () => {
+  const cases = casesFor(FILTER_MARKER, /pd\.DataFrame/);
+
+  it('is present and parseable in the migrations', () => {
+    expect(cases.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it('exercises the threshold boundary, so ">=" cannot pass as ">"', () => {
+    // The only input on which the two operators differ is one where a value
+    // sits exactly on the threshold. Without it the suite cannot tell them apart.
+    const boundaryTested = cases.some((c) => {
+      const { sales, threshold } = parseFilterInput(c.input);
+      return sales.includes(threshold);
+    });
+    expect(boundaryTested).toBe(true);
+  });
+
+  it.each(cases.map((c, i) => [i + 1, c] as const))(
+    'case %i expects strictly-greater rows',
+    (_n, testCase) => {
+      const { sales, threshold } = parseFilterInput(testCase.input);
+      const expected = JSON.parse(testCase.expected) as Array<{ sales: number }>;
+      expect(expected.map((r) => r.sales)).toEqual(sales.filter((s) => s > threshold));
     },
   );
 });
