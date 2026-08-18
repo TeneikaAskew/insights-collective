@@ -1177,6 +1177,29 @@ BEGIN
     RAISE EXCEPTION 'E2E SEED FAILED: no e2e member account, so the career quiz attempts cannot be seeded';
   END IF;
 
+  -- This seed owns the fixture account's attempt history outright, and has to.
+  -- The pair below is stamped at fixed offsets from now(), and the invariant at
+  -- the end of this block requires the zero row to be the newest — so ANY other
+  -- attempt written in the last day outranks it and aborts the whole seed.
+  --
+  -- The suite writes exactly that, every run: career-quiz-results.spec.ts walks
+  -- the quiz to the end as this member, and submitting stamps a real attempt at
+  -- now(). So a green run left the NEXT run unable to seed. That is what took
+  -- e2e.yml red on main from 2026-08-17 (a leftover attempt scored 18/23/15/21)
+  -- and it could not clear on a re-run, because re-running does not remove the
+  -- row that causes it.
+  --
+  -- Deleting is right rather than merely stamping the pair later: the first
+  -- test asserts the seeded scores specifically (89% and 87%), so a leftover
+  -- attempt that is newer than the scored row but older than the zero row would
+  -- pass the invariant and then fail the spec on the wrong numbers.
+  DELETE FROM public.career_quiz_attempts
+   WHERE user_id = v_member_id
+     AND id NOT IN (
+       '88e8a400-0000-4000-8000-000000000001',
+       '88e8a400-0000-4000-8000-000000000002'
+     );
+
   -- The genuine attempt. Analytics 20 of a possible 23 is 87%; Data Engineering
   -- 17 of a possible 19 is 89% and therefore sorts above it once each track is
   -- normalized against its own ceiling rather than a flat 20.
