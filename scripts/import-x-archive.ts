@@ -1,17 +1,22 @@
 // ABOUTME: Loads an X (Twitter) data-archive export into both tables the site
 // ABOUTME: renders tweets from — public.tweets (the /teneika-tweets page) and
 // ABOUTME: public.resources (Resources -> Top Tweets). This is the no-API-key route
-// ABOUTME: for refreshing both sections: request the archive from X, unzip it, run
-// ABOUTME: this. Re-running is safe; both writes upsert on tweet_id.
-// ABOUTME: Usage: npm run import:x-archive -- <archive-dir> [--dry-run] [--limit N]
+// ABOUTME: for refreshing both sections: request the archive from X, point this at
+// ABOUTME: the zip. Re-running is safe; both writes upsert on tweet_id.
+// ABOUTME: Usage: npm run import:x-archive -- <archive.zip|dir> [--dry-run] [--limit N]
 //
 // GETTING THE ARCHIVE
 //
 //   x.com -> Settings -> Your account -> Download an archive of your data
 //
-// X emails a zip within a few hours to a couple of days. Unzip it and point this
-// script at either the unzipped root or its `data/` directory; it finds
-// `data/tweets.js` and any `tweets-part1.js`, `-part2.js`, ... beside it.
+// X emails a zip within a few hours to a couple of days. Point this straight at
+// that .zip — there is no need to unzip it, and no need to upload it anywhere.
+// The script runs on your own machine, reads only `data/tweets.js` and any
+// `tweets-part1.js`, `-part2.js`, ... beside it, and writes to the database over
+// the network. An unzipped directory (or its `data/` folder) works too.
+//
+// The rest of the archive — direct messages, contacts, ad-interest data — is
+// never opened. Only files matching TWEET_FILE below are read.
 //
 // CREDENTIALS
 //
@@ -26,9 +31,10 @@
 //
 // PREREQUISITE
 //
-// Migration 20260818000000_resources_tweet_id_unique must be applied first — it
-// adds the conflict target the resources upsert names. Apply it through
-// db-migrate.yml, never the Supabase MCP (see CLAUDE.md).
+// Migration 20260818000000_resources_tweet_id_unique adds the conflict target the
+// resources upsert names. Applied to the live project on 2026-08-18, so there is
+// nothing to do there; a fresh database (a branch, a local stack) needs it first,
+// through db-migrate.yml — see CLAUDE.md.
 
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { join, resolve, basename } from 'node:path';
@@ -85,10 +91,11 @@ const only = flags.get('--only');
 
 if (!archivePath) {
   console.error(
-    'Usage: npm run import:x-archive -- <archive-dir> [--dry-run] [--limit N]\n' +
+    'Usage: npm run import:x-archive -- <archive.zip|dir> [--dry-run] [--limit N]\n' +
       '                                 [--only tweets|resources] [--skip-retweets] [--skip-replies]\n' +
       '                                 [--created-by <uuid>]\n\n' +
-      '<archive-dir> is the unzipped X archive, or its data/ directory.',
+      'Pass the .zip X emailed you (no need to unzip), the unzipped archive\n' +
+      'folder, or its data/ directory.',
   );
   process.exit(1);
 }
@@ -114,51 +121,98 @@ if (!dryRun && (!supabaseUrl || !serviceKey)) {
   process.exit(1);
 }
 
+/** One tweet file pulled out of the archive, already decoded to text. */
+interface ArchiveFile {
+  name: string;
+  text: string;
+}
+
+/** Only these files are read. Everything else in the archive is ignored. */
+const TWEET_FILE = /^tweets(-part\d+)?\.js$/i;
+
 /**
- * Locate the archive's tweet files. X splits large exports across
- * tweets.js, tweets-part1.js, tweets-part2.js, ... — importing only the first
- * would silently drop most of the account's history, so all parts are collected.
+ * Order by part number so the base tweets.js leads. Plain string sort puts
+ * "tweets-part1.js" ahead of "tweets.js" ('-' < '.'), which only matters when
+ * --limit truncates the run, but a limited import that silently starts midway
+ * through the account's history is a confusing thing to hand someone.
  */
-async function findTweetFiles(inputPath: string): Promise<string[]> {
+const partNumber = (name: string): number => Number(/-part(\d+)\.js$/i.exec(name)?.[1] ?? 0);
+
+/**
+ * Read the archive's tweet files, from either the .zip X emails you or an
+ * unzipped copy of it. X splits large exports across tweets.js, tweets-part1.js,
+ * tweets-part2.js, ... — importing only the first would silently drop most of the
+ * account's history, so every part is collected.
+ *
+ * Note what this does NOT touch. An X archive also contains your direct messages,
+ * your contacts, your ad-interest profile and more; only files matching
+ * TWEET_FILE are ever opened, so nothing else can reach the database by accident.
+ */
+async function readArchiveFiles(inputPath: string): Promise<ArchiveFile[]> {
   const root = resolve(process.cwd(), inputPath);
 
   const info = await stat(root).catch(() => null);
   if (!info) throw new Error(`No such path: ${root}`);
 
-  // A file was passed directly — use it as-is.
-  if (info.isFile()) return [root];
+  if (info.isFile() && /\.zip$/i.test(root)) return readFromZip(root);
+
+  // A .js file was passed directly — use it as-is.
+  if (info.isFile()) return [{ name: basename(root), text: await readFile(root, 'utf8') }];
 
   // Accept either the archive root (which holds data/) or the data/ dir itself.
   const dataDir = (await stat(join(root, 'data')).catch(() => null))?.isDirectory()
     ? join(root, 'data')
     : root;
 
-  const entries = await readdir(dataDir);
-  // Order by part number so the base tweets.js leads. Plain string sort puts
-  // "tweets-part1.js" ahead of "tweets.js" ('-' < '.'), which only matters when
-  // --limit truncates the run, but a limited import that silently starts midway
-  // through the account's history is a confusing thing to hand someone.
-  const partNumber = (name: string): number =>
-    Number(/-part(\d+)\.js$/i.exec(name)?.[1] ?? 0);
-
-  const matches = entries
-    .filter((name) => /^tweets(-part\d+)?\.js$/i.test(name))
-    .sort((a, b) => partNumber(a) - partNumber(b))
-    .map((name) => join(dataDir, name));
+  const matches = (await readdir(dataDir))
+    .filter((name) => TWEET_FILE.test(name))
+    .sort((a, b) => partNumber(a) - partNumber(b));
 
   if (matches.length === 0) {
     throw new Error(
-      `No tweets.js found in ${dataDir}. Point this at the unzipped X archive ` +
-        'or its data/ directory.',
+      `No tweets.js found in ${dataDir}. Point this at the .zip X sent you, ` +
+        'the unzipped archive, or its data/ directory.',
     );
   }
 
-  return matches;
+  return Promise.all(
+    matches.map(async (name) => ({ name, text: await readFile(join(dataDir, name), 'utf8') })),
+  );
 }
 
-let files: string[];
+/**
+ * Pull the tweet files straight out of the .zip so nobody has to unzip a
+ * multi-gigabyte archive (nearly all of which is media this import never reads)
+ * just to load a few megabytes of text.
+ */
+async function readFromZip(zipPath: string): Promise<ArchiveFile[]> {
+  const { default: JSZip } = await import('jszip');
+  const zip = await JSZip.loadAsync(await readFile(zipPath));
+
+  const entries = Object.values(zip.files).filter(
+    (entry) => !entry.dir && TWEET_FILE.test(basename(entry.name)),
+  );
+
+  if (entries.length === 0) {
+    throw new Error(
+      `No data/tweets.js inside ${basename(zipPath)}. Is this the X archive zip? ` +
+        'It should contain a data/ folder with tweets.js in it.',
+    );
+  }
+
+  entries.sort((a, b) => partNumber(basename(a.name)) - partNumber(basename(b.name)));
+
+  return Promise.all(
+    entries.map(async (entry) => ({
+      name: basename(entry.name),
+      text: await entry.async('string'),
+    })),
+  );
+}
+
+let files: ArchiveFile[];
 try {
-  files = await findTweetFiles(archivePath);
+  files = await readArchiveFiles(archivePath);
 } catch (error) {
   // A wrong path is the most likely way to run this, so it gets a plain message
   // rather than a stack trace.
@@ -170,8 +224,8 @@ console.log(`Reading ${files.length} archive file(s):`);
 
 const rawTweets: ArchiveTweet[] = [];
 for (const file of files) {
-  const parsed = parseArchiveJs(await readFile(file, 'utf8'));
-  console.log(`  ${basename(file)}: ${parsed.length} tweets`);
+  const parsed = parseArchiveJs(file.text);
+  console.log(`  ${file.name}: ${parsed.length} tweets`);
   rawTweets.push(...parsed);
 }
 

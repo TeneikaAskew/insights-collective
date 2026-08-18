@@ -221,14 +221,48 @@ hotlinked Unsplash); a deployed Edge Function may not match the repo (deploy
 from the file, never edit payloads in flight). When debugging anything
 data-shaped, query the live table first.
 
-**Apply migrations through `db-migrate.yml`, never the Supabase MCP.** The MCP's
-`apply_migration` stamps its own version (`20260811114625`) which can never match
-the repo filename it came from (`20260811010000_*.sql`), so the file reads as
-pending forever while its effects are live. Twenty-five such orphan rows
+**Apply migrations through `db-migrate.yml`, never the Supabase MCP's
+`apply_migration`.** That tool stamps its own version (`20260811114625`) which can
+never match the repo filename it came from (`20260811010000_*.sql`), so the file
+reads as pending forever while its effects are live. Twenty-five such orphan rows
 accumulated over three weeks before anyone reconciled them. The workflow derives
 the version from the filename and commits the schema change and the ledger row in
 one transaction, so the two cannot disagree. Use `execute_sql` for reads freely;
 for DDL, dispatch the workflow.
+
+**Dispatch that workflow yourself — do not hand it back to the user.** This is a
+tooling rule, not a permission boundary: the GitHub MCP can run it, and telling
+someone "now go dispatch db-migrate.yml" when you could have done it is a handoff
+with no purpose. Use `actions_run_trigger` with `method: run_workflow`,
+`workflow_id: db-migrate.yml`, and **`ref` set to your working branch** — the
+workflow resolves the migration file on the ref it runs on, so dispatching against
+`main` cannot see a file that only exists on your branch:
+
+```
+inputs: { migration: '<filename>.sql', confirm: 'apply', verify_table: '<table>' }
+```
+
+Then confirm against the live database rather than the green check — the object
+exists and `schema_migrations` holds the filename's version:
+
+```sql
+select indexdef from pg_indexes where indexname = '...';
+select count(*) from supabase_migrations.schema_migrations where version = '<version>';
+```
+
+A green run whose ledger version does not equal the filename's leading digits is
+the orphan-row failure above, not a success.
+
+If the workflow is genuinely unavailable, `execute_sql` may run the DDL **only**
+when the matching ledger row goes in with it — `insert into
+supabase_migrations.schema_migrations (version) values ('<leading digits of the
+filename>')` — because a schema change without its ledger row is the same
+divergence from the other direction: `db push` would later run the file a second
+time. Still never `apply_migration`; the version it invents is the whole problem.
+
+Ask first only when the migration is destructive or hard to reverse (dropping a
+column, rewriting data). An additive index or constraint on a branch the user
+asked you to work on does not need a second confirmation.
 
 **Never reuse a migration version.** Supabase records by version, not filename:
 the second file to carry a version is skipped in silence, and the ledger then

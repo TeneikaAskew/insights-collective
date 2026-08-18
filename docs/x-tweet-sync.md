@@ -8,12 +8,12 @@ refresh both from an X data-archive export without an API key.
 
 ```
                                              ┌─► public.tweets ──────► /teneika-tweets
-X archive export                             │   (tweet_id, content,   "Teneika's Tweets"
-  data/tweets.js  ──► import:x-archive ──────┤    tweeted_at, counts)   archive page
-  data/tweets-part1.js                       │
-  ...                                        └─► public.resources ───► Resources ▸ Top Tweets
-                                                 (tweet_id, full_text,  sorted by engagement
-                                                  source, created_at)
+twitter-archive.zip                          │   (tweet_id, content,   "Teneika's Tweets"
+  data/tweets.js       ──► import:x-archive ─┤    tweeted_at, counts)   archive page
+  data/tweets-part1.js     (reads the zip    │
+  ...                       in place)        └─► public.resources ───► Resources ▸ Top Tweets
+  (DMs, media, contacts:                        (tweet_id, full_text,  sorted by engagement
+   never opened)                                 source, created_at)
 
 X API v2 ──► scrape-teneika-tweets ──────────────► public.tweets
  (needs a paid credential; no schedule; last produced rows 2025-06-13)
@@ -55,31 +55,48 @@ everything.
 ### 1. Request the archive
 
 **x.com → Settings → Your account → Download an archive of your data.** X emails a
-zip within a few hours to a couple of days. Unzip it anywhere.
+zip within a few hours to a couple of days.
 
-### 2. Apply the migration once
+**Keep the zip as it is.** Do not unzip it, and do not upload it anywhere. The
+import runs on your own machine and reads the zip in place.
+
+### 2. The migration (already applied)
 
 `20260818000000_resources_tweet_id_unique` adds the unique index the import needs
-as a conflict target on `public.resources`. Without it, a second import would
+as a conflict target on `public.resources`. Without it a second import would
 duplicate every tweet it had already loaded rather than updating it.
 
-Apply it through the `db-migrate.yml` workflow — never the Supabase MCP. See
-`docs/lessons-learned/03-database-and-migrations.md` for why.
+This was applied on 2026-08-18 via `db-migrate.yml` and is recorded in
+`schema_migrations` under version `20260818000000`. Nothing to do — noted here
+because a fresh database (a branch, a local stack) needs it before importing.
 
 ### 3. Run the import
 
 ```bash
-export SUPABASE_URL=https://<project-ref>.supabase.co
+export SUPABASE_URL=https://siuqvhscuiycvdrtiqsh.supabase.co
 export SUPABASE_SERVICE_ROLE_KEY=<service role key>
 
-npm run import:x-archive -- ~/Downloads/twitter-archive --dry-run   # inspect first
-npm run import:x-archive -- ~/Downloads/twitter-archive
+npm run import:x-archive -- ~/Downloads/twitter-archive.zip --dry-run   # inspect first
+npm run import:x-archive -- ~/Downloads/twitter-archive.zip
 ```
 
-Point it at the unzipped archive root or its `data/` directory; it finds
-`tweets.js` and every `tweets-part*.js` beside it. Both writes upsert on
-`tweet_id`, so **re-running is safe** — importing a newer archive over an older one
-updates the existing rows and adds only what is new.
+`--dry-run` needs no credentials at all — it parses the zip, reports what it found
+and the date range, prints one sample row per table, and writes nothing. Run that
+first.
+
+Point it at the **.zip**, an unzipped archive folder, or that folder's `data/`
+directory — all three work. It finds `tweets.js` and every `tweets-part*.js`
+(X splits large exports across numbered parts). Both writes upsert on `tweet_id`,
+so **re-running is safe** — importing a newer archive over an older one updates the
+existing rows and adds only what is new.
+
+### What the import reads out of the zip
+
+Only `data/tweets.js` and its numbered parts. An X archive also contains your
+direct messages, contacts, ad-interest profile, and every image and video you have
+posted — usually most of the file's size. None of it is opened, and none of it can
+reach the database. That is also why there is no need to unzip: the import pulls a
+few megabytes of text out of a file that is often several gigabytes.
 
 | Flag | Effect |
 | --- | --- |
