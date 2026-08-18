@@ -228,10 +228,16 @@ const Notifications = () => {
 
   const removeOne = async (id: string) => {
     const previous = items;
+    // Deleting the last row under a course or General filter empties that
+    // option, and the fallback effect above switches the selection to All.
+    // Restoring only the rows would leave the user looking at All with their
+    // notification back, so the filter is part of what rolls back.
+    const previousFilter = activeFilter;
     setItems((prev) => prev.filter((n) => n.id !== id));
     const { error } = await supabase.from('notifications').delete().eq('id', id);
     if (error) {
       setItems(previous);
+      setActiveFilter(previousFilter);
       toast({
         title: 'Failed to delete notification',
         description: error.message,
