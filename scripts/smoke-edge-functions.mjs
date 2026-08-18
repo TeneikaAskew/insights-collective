@@ -18,10 +18,20 @@
 //
 // WHY PREFLIGHT AND NOT POST
 //
-// Several of these functions send email, refresh catalogues or scrape. Probing
-// them with a POST would boot them and then do the thing. An OPTIONS preflight
-// boots the worker and returns before any of that, so this is safe to run
-// against production as often as you like.
+// A preflight exercises booting and nothing else, so this stays safe to run
+// against production without needing to know what each handler does.
+//
+// The original version of this comment claimed a POST would have sent real
+// email. That was wrong, and worth correcting rather than quietly deleting:
+// the functions that spend Resend quota or trigger a refresh are gated on a
+// shared secret held in the database vault — send-notification-digest and
+// send-notification-email on `x-notify-secret`, coursera-refresh on
+// `x-refresh-secret` — and answer 401 without it. notify-course-announcement
+// sends nothing at all; DB triggers raise those emails, it only reports counts.
+// A blind POST would have been rejected, not destructive.
+//
+// The preflight is still the right probe, for the weaker but real reason: it
+// does not depend on having read the auth posture of all 34 functions first.
 //
 //   node scripts/smoke-edge-functions.mjs
 //
