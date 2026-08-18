@@ -4,6 +4,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
 import { corsHeaders, handleError, safeParseJSON } from "../_shared/utils.ts";
 import { requireUser } from "../_shared/auth.ts";
+import { callGroq, GroqRateLimitError, rateLimitResponse } from "../_shared/groq.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const GROQ_API_KEY = Deno.env.get("GROQ");
@@ -117,13 +118,7 @@ Return ONLY the JSON object with no additional text.`;
 
   console.log(`[selectRelevantAssessmentAreas] Calling AI for assessment area selection`);
 
-  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${GROQ_API_KEY}`,
-    },
-    body: JSON.stringify({
+  const result = await callGroq(GROQ_API_KEY!, {
       // Replaces llama3-8b-8192, decommissioned 2025-08-30. This call sits
       // inside a try/catch that continues on failure, so the dead model never
       // surfaced an error - guides just generated without behavioural questions.
@@ -140,16 +135,8 @@ Return ONLY the JSON object with no additional text.`;
       ],
       temperature: 0.3,
       max_tokens: 2000
-    }),
-  });
+  }, "generate-study-guide");
 
-  if (!response.ok) {
-    const errorData = await response.text();
-    console.error(`[selectRelevantAssessmentAreas] AI API error:`, errorData);
-    throw new Error(`AI API error: ${response.status}`);
-  }
-
-  const result = await response.json();
   const content = result.choices[0].message.content;
   
   console.log(`[selectRelevantAssessmentAreas] AI response received, parsing...`);
@@ -408,6 +395,15 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
   } catch (error) {
+    // A rate limit is not a failure: the request was well formed and the model
+    // is willing, the per-minute token budget just has not refreshed yet.
+    // Answering 429 with retryAfterMs lets the client wait it out and retry;
+    // collapsing it into a 500 told the user the service was down when it was
+    // not, and threw the work away.
+    if (error instanceof GroqRateLimitError) {
+      return rateLimitResponse(error, corsHeaders);
+    }
+
     console.error(`[generate-study-guide] Error in edge function:`, error);
     
     return new Response(

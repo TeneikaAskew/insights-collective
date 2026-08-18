@@ -7,6 +7,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
 import { corsHeaders, handleError, safeParseJSON } from "../_shared/utils.ts";
 import { requireUser } from "../_shared/auth.ts";
+import { callGroq, GroqRateLimitError, rateLimitResponse } from "../_shared/groq.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const GROQ = Deno.env.get("GROQ");
@@ -242,6 +243,19 @@ async function evaluateStarResponse(responseId: string, callerId: string) {
       }
     }
 
+    // Make the defaults the warning above promises real. They were computed and
+    // then never used: the null questionData went straight into
+    // createStandardEvaluationPrompt, which reads `questionData.question`, so
+    // the function answered 500 on a path it had explicitly decided to survive.
+    //
+    // Not a synthetic case. It is reached whenever a saved answer outlives the
+    // study guide it came from — regenerate a guide for the same job and the
+    // question ids change, so every earlier answer stops resolving — and by any
+    // response stored with no question_id at all.
+    if (!questionData) {
+      questionData = { question: questionText, targetCompetency };
+    }
+
     // Get rubric criteria if it's an assessment question
     let rubricCriteria = [];
     if (isAssessmentQuestion && assessmentArea) {
@@ -270,13 +284,7 @@ async function evaluateStarResponse(responseId: string, callerId: string) {
     // Call the AI model to evaluate the STAR response
     console.log(`[evaluate-star-response] Calling AI API to evaluate STAR response`);
 
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${GROQ}`,
-      },
-      body: JSON.stringify({
+    const result = await callGroq(GROQ!, {
         // Replaces llama3-8b-8192, decommissioned 2025-08-30, which had been
         // returning 400 on every submission and 500ing this function since.
         model: "openai/gpt-oss-120b",
@@ -294,20 +302,10 @@ async function evaluateStarResponse(responseId: string, callerId: string) {
         ],
         temperature: 0.3,
         max_tokens: 3000
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error(`[evaluate-star-response] AI API error status: ${response.status}`);
-      console.error(`[evaluate-star-response] AI API error body:`, errorData);
-      throw new Error(`AI API error: ${response.status}`);
-    }
+    }, "evaluate-star-response");
 
     console.log(`[evaluate-star-response] AI API response received successfully`);
 
-    // Parse the AI response
-    const result = await response.json();
     const content = result.choices[0].message.content;
     console.log(`[evaluate-star-response] Retrieved content length: ${content?.length || 0}`);
 
@@ -457,6 +455,15 @@ serve(async (req) => {
     });
     
   } catch (error) {
+    // A rate limit is not a failure: the request was well formed and the model
+    // is willing, the per-minute token budget just has not refreshed yet.
+    // Answering 429 with retryAfterMs lets the client wait it out and retry;
+    // collapsing it into a 500 told the user the service was down when it was
+    // not, and threw the work away.
+    if (error instanceof GroqRateLimitError) {
+      return rateLimitResponse(error, corsHeaders);
+    }
+
     console.error(`[evaluate-star-response] Error in edge function:`, error);
     
     return new Response(

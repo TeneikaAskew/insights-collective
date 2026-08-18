@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { useRateLimitedInvoke } from '@/hooks/useRateLimitedInvoke';
 import { useUser } from '@/hooks/use-user';
 import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -198,6 +199,7 @@ interface DbChallenge {
 
 export default function CodePractice() {
   const { toast } = useToast();
+  const invokeWithRateLimit = useRateLimitedInvoke();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useUser();
   const [code, setCode] = useState('// Write your solution here');
@@ -309,12 +311,12 @@ export default function CodePractice() {
 
         // Review mode only needs the attemptId — the function derives the
         // verdict from the execution record stored server-side on the attempt.
-        const { data: review, error: reviewError } = await supabase.functions.invoke('review-code', {
-          body: execution?.attemptId
+        const review = await invokeWithRateLimit<{ error?: string } & Record<string, unknown>>(
+          'review-code',
+          execution?.attemptId
             ? { challengeId: dbChallenge.id, code, language, attemptId: execution.attemptId }
             : { challengeId: dbChallenge.id, code, language },
-        });
-        if (reviewError) throw reviewError;
+        );
         if (review?.error) throw new Error(review.error);
 
         if (execution) {

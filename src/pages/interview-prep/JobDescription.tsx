@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { useRateLimitedInvoke } from '@/hooks/useRateLimitedInvoke';
 import { useUser } from '@/hooks/use-user';
 import { supabase } from '@/integrations/supabase/client';
 import { Spinner } from '@/components/ui/spinner';
@@ -46,6 +47,7 @@ const priorityBadgeClass = (importance: 'high' | 'medium' | 'low') =>
 
 export default function JobDescription() {
   const { toast } = useToast();
+  const invokeWithRateLimit = useRateLimitedInvoke();
   const { user } = useUser();
   const navigate = useNavigate();
   const [jobUrl, setJobUrl] = useState('');
@@ -140,12 +142,10 @@ export default function JobDescription() {
       if (jobError) throw jobError;
 
       // Generate study guide
-      const { data: guideData, error: guideError } = await supabase
-        .functions.invoke('generate-study-guide', {
-          body: { jobDescriptionId: jobData.id }
-        });
-
-      if (guideError) throw guideError;
+      const guideData = await invokeWithRateLimit<Record<string, unknown>>(
+        'generate-study-guide',
+        { jobDescriptionId: jobData.id },
+      );
 
       // Save study guide to local storage for future access
       if (user && guideData) {

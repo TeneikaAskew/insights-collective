@@ -2,6 +2,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.31.0'
 import { requireUser } from '../_shared/auth.ts'
+import { callGroq, GroqRateLimitError, rateLimitResponse } from '../_shared/groq.ts'
 
 // Define CORS headers
 const corsHeaders = {
@@ -424,19 +425,13 @@ serve(async (req) => {
     // data, so the caller's own client can read it.
     const wageContext = await fetchWageContext(auth.asUser);
 
-    // Prepare the API call to GROQ
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
-    
     try {
       console.log("Calling GROQ API...");
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
+      // The 15s AbortController that used to wrap this call is now a
+      // per-attempt timeout inside callGroq. It could not stay out here: the
+      // quick retries below take seconds, and a deadline spanning them would
+      // abort a call that was only waiting its turn.
+      const data = await callGroq(apiKey!, {
           // Replaces llama3-8b-8192, decommissioned 2025-08-30, which had been
           // 500ing every message since. This model is markedly more verbose than
           // the 8b: at the old max_tokens of 1024 it hit finish_reason 'length'
@@ -467,19 +462,8 @@ produce would be undated and unsourced.`}
           ],
           max_tokens: 4096,
           temperature: 0.7
-        }),
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('GROQ API error:', errorText);
-        throw new Error(`GROQ API returned ${response.status}: ${errorText}`);
-      }
-      
-      const data = await response.json();
+      }, "assistant-ai");
+
       let aiResponse = data.choices[0].message.content;
       
       // Apply formatting function
@@ -510,8 +494,9 @@ produce would be undated and unsourced.`}
         }
       );
     } catch (fetchError) {
-      clearTimeout(timeoutId);
-      
+      // callGroq owns the timeout now and clears it in a finally, so there is
+      // nothing left to tidy here — but an AbortError still has to keep its
+      // specific message rather than becoming a generic failure.
       if (fetchError.name === 'AbortError') {
         console.error('GROQ API request timed out');
         throw new Error('Request timed out. The AI service is taking too long to respond.');
@@ -520,6 +505,15 @@ produce would be undated and unsourced.`}
       }
     }
   } catch (error) {
+    // A rate limit is not a failure: the request was well formed and the model
+    // is willing, the per-minute token budget just has not refreshed yet.
+    // Answering 429 with retryAfterMs lets the client wait it out and retry;
+    // collapsing it into a 500 told the user the service was down when it was
+    // not, and threw the work away.
+    if (error instanceof GroqRateLimitError) {
+      return rateLimitResponse(error, corsHeaders);
+    }
+
     console.error('Error processing request:', error.message);
     
     // Create a user-friendly error response

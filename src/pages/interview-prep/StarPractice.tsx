@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { useRateLimitedInvoke } from '@/hooks/useRateLimitedInvoke';
 import { useUser } from '@/hooks/use-user';
 import { supabase } from '@/integrations/supabase/client';
 import { Spinner } from '@/components/ui/spinner';
@@ -77,6 +78,7 @@ const STEP_STYLES: Record<StarStep, { label: string; prompt: string; bar: string
 
 export default function StarPractice() {
   const { toast } = useToast();
+  const invokeWithRateLimit = useRateLimitedInvoke();
   const { user } = useUser();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -372,12 +374,10 @@ export default function StarPractice() {
 
       // Get AI feedback
       logger.log("Calling evaluate-star-response function with responseId:", savedResponse.id);
-      const { data: evaluatedResponse, error: evalError } = await supabase
-        .functions.invoke('evaluate-star-response', {
-          body: { responseId: savedResponse.id },
-        });
-
-      if (evalError) throw evalError;
+      const evaluatedResponse = await invokeWithRateLimit<{ ai_feedback?: unknown }>(
+        'evaluate-star-response',
+        { responseId: savedResponse.id },
+      );
 
       logger.log("Received function response:", evaluatedResponse);
 

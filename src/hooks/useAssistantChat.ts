@@ -8,6 +8,7 @@ import { Assistant } from '@/types/assistants';
 import { allAssistants, careerExplorerAssistant } from '@/data/assistantData';
 
 import { createLogger } from '@/utils/logger';
+import { invokeWithBackoff, describeWait } from '@/lib/rateLimitRetry';
 
 const logger = createLogger('useAssistantChat');
 
@@ -171,19 +172,29 @@ export const useAssistantChat = (initialAssistant: Assistant) => {
       
       // Call the OpenAI edge function with the user's message and context
       const { careerFocus, careerPath, salaryCap } = settings;
-      const { data, error } = await supabase.functions.invoke('assistant-ai', {
-        body: {
-          query: userMessage.content,
-          careerFocus,
-          careerPath,
-          salaryCap,
-          assistantType: assistant.name,
-          conversationId: conversationId || undefined,
-          quizAttemptId: quizAttemptId || undefined
-        }
-      });
-      
-      if (error) throw error;
+      const data = await invokeWithBackoff<{ response?: string } & Record<string, unknown>>(
+        'assistant-ai',
+        {
+          body: {
+            query: userMessage.content,
+            careerFocus,
+            careerPath,
+            salaryCap,
+            assistantType: assistant.name,
+            conversationId: conversationId || undefined,
+            quizAttemptId: quizAttemptId || undefined
+          },
+          onWait: ({ waitMs, remaining }) => {
+            toast({
+              title: 'Rate limit reached',
+              description:
+                `The AI model's per-minute budget is full. Retrying in ${describeWait(waitMs)}` +
+                (remaining > 0 ? ` — ${remaining + 1} attempts left.` : ' — last attempt.'),
+              duration: waitMs,
+            });
+          },
+        },
+      );
 
       // An empty payload is a failure, not a response — do not fabricate one.
       if (!data?.response) {

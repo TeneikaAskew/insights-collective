@@ -6,6 +6,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
 import { corsHeaders, handleError, safeParseJSON } from "../_shared/utils.ts";
+import { callGroq as sharedCallGroq, GroqRateLimitError, rateLimitResponse } from "../_shared/groq.ts";
 
 const GROQ = Deno.env.get("GROQ");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
@@ -102,56 +103,26 @@ Return ONLY this JSON object, no other text:
 // Groq's per-minute token budget is the binding limit here, not the request
 // count. This model spends ~4x the tokens the old 70b did, and the submission
 // limit above allows 10 grades a minute, so a working student can outrun the
-// budget. A 429 is "try again in a moment", not a failure worth surfacing.
-const RATE_LIMIT_RETRIES = 2;
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
+// budget. The quick retries live in _shared/groq.ts; once they are spent the
+// wait is too long to hold a request open for, and becomes the client's.
 async function callGroq(prompt: string): Promise<any> {
-  let response!: Response;
-
-  for (let attempt = 0; ; attempt++) {
-    response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${GROQ}`,
+  const result = await sharedCallGroq(GROQ!, {
+    model: MODEL,
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are a precise code evaluation engine. You mentally execute code line by line and never guess. You respond with valid JSON only.",
       },
-      body: JSON.stringify({
-        model: MODEL,
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are a precise code evaluation engine. You mentally execute code line by line and never guess. You respond with valid JSON only.",
-          },
-          { role: "user", content: prompt },
-        ],
-        temperature: 0.1,
-        // Peak observed on the known-verdict suite was 1,419 completion tokens
-        // against the 70b's 346: this model reasons before it answers. A
-        // truncated response is an unparseable verdict, so keep real headroom.
-        max_tokens: 4000,
-      }),
-    });
+      { role: "user", content: prompt },
+    ],
+    temperature: 0.1,
+    // Peak observed on the known-verdict suite was 1,419 completion tokens
+    // against the 70b's 346: this model reasons before it answers. A
+    // truncated response is an unparseable verdict, so keep real headroom.
+    max_tokens: 4000,
+  }, "review-code");
 
-    if (response.status !== 429 || attempt >= RATE_LIMIT_RETRIES) break;
-
-    // Honour the server's own backoff when it gives one, but stay well inside
-    // the request the browser is waiting on.
-    const retryAfter = Number(response.headers.get("retry-after") ?? "2");
-    const waitMs = Math.min(Number.isFinite(retryAfter) ? retryAfter : 2, 8) * 1000;
-    console.warn(`[review-code] rate limited, retrying in ${waitMs}ms`);
-    await sleep(waitMs);
-  }
-
-  if (!response.ok) {
-    const errorData = await response.text();
-    console.error(`[review-code] AI API error ${response.status}:`, errorData);
-    throw new Error(`AI API error: ${response.status}`);
-  }
-
-  const result = await response.json();
   const content = result.choices[0].message.content;
   const parsed = safeParseJSON(content);
   if (!parsed.success || !parsed.data) {
@@ -331,6 +302,15 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
+    // A rate limit is not a failure: the request was well formed and the model
+    // is willing, the per-minute token budget just has not refreshed yet.
+    // Answering 429 with retryAfterMs lets the client wait it out and retry;
+    // collapsing it into a 500 told the user the service was down when it was
+    // not, and threw the work away.
+    if (error instanceof GroqRateLimitError) {
+      return rateLimitResponse(error, corsHeaders);
+    }
+
     handleError(error);
     return new Response(
       JSON.stringify({ error: (error as Error).message || "Failed to evaluate code" }),
