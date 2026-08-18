@@ -27,8 +27,16 @@ Deno.serve(async (req) => {
 
     const { chatHistory, prompt, model = 'google/gemini-2.5-flash', max_tokens = 1024, stream = false } = requestBody;
 
+    // Thrown errors all land in the catch below, which answers 500. That is
+    // right for a missing key — the server really is misconfigured — but wrong
+    // for a caller who sent the wrong body: it reported "the server broke" for
+    // "you sent nothing", so ResumeChat could not tell a bug of its own from an
+    // outage, and every malformed request looked like an incident.
     if (!chatHistory && !prompt) {
-      throw new Error('Either chatHistory or prompt is required');
+      return new Response(
+        JSON.stringify({ success: false, error: 'Either chatHistory or prompt is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
     }
     if (!lovableApiKey) {
       throw new Error('LOVABLE_API_KEY not configured');
