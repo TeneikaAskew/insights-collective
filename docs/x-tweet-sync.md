@@ -50,7 +50,52 @@ The resume pointer is still in the database, so if the credential is ever
 restored the scraper picks up exactly where it stopped rather than re-fetching
 everything.
 
-## Refreshing both sections from an archive
+## Two ways to import
+
+| | Upload dialog | CLI |
+| --- | --- | --- |
+| Where | The upload icon on `/teneika-tweets`, admin only | Your terminal |
+| Needs | An admin login | `SUPABASE_SERVICE_ROLE_KEY` |
+| Best for | The normal case | Scripting, `--only`, `--skip-retweets`, large one-offs |
+
+Both read the archive locally and write the same rows to the same two tables.
+
+## The upload dialog (admin only)
+
+An upload icon sits next to **Refresh Tweets** in the page header. It renders
+only when `useAuth().isAdmin` is true — but hiding a button is presentation, not
+authorization, so the `import-x-archive` Edge Function re-checks every request
+with `requireAdmin`, which reads `user_roles` through `has_admin_access()` rather
+than the owner-writable `profiles.roles` column.
+
+Drop in the zip (or a `tweets.js`). The dialog parses it, shows how many tweets it
+found, their date range and anything skipped, and waits for you to confirm before
+writing anything.
+
+**The file is never uploaded.** The zip is opened in your browser with `jszip`,
+and only the mapped tweet rows are posted, in batches of 500. That is what makes
+it safe to hand a multi-gigabyte archive to a web page: the direct messages,
+contacts and media never leave your machine, and the request bodies stay small.
+
+Batches are not a transaction. If one fails the earlier ones stay written, which
+is safe because every write upserts on `tweet_id` — the error says how far it got,
+and re-running finishes the job rather than duplicating it.
+
+### Why an Edge Function and not a direct write
+
+The browser cannot write these tables at all, admin or not:
+
+- **`public.tweets`** has RLS on and exactly one policy, for `SELECT`. There is no
+  insert or update policy for any role.
+- **`public.resources`** allows `INSERT` for `authenticated`, but `UPDATE` requires
+  `auth.uid() = created_by OR auth.role() = 'admin'` — and `auth.role()` returns
+  the *Postgres* role (`authenticated`, `anon`, `service_role`), never `'admin'`,
+  so that branch is dead. An upsert needs the update half.
+
+So the privileged write lives in the function, which holds the service-role client
+behind the admin check. Rows are attributed to the importing admin.
+
+## Refreshing both sections from the CLI
 
 ### 1. Request the archive
 
@@ -168,8 +213,13 @@ flattening it to a readable label: the href in it is load-bearing.
 
 | Path | Role |
 | --- | --- |
-| `src/utils/xArchive.ts` | Parsing and row mapping — pure, unit-tested |
+| `src/utils/xArchive.ts` | Parsing and row mapping — pure, unit-tested, shared by both routes |
 | `scripts/import-x-archive.ts` | CLI wrapper (file discovery, upserts) |
+| `src/utils/xArchiveUpload.ts` | Browser side: reads the zip in the page, batches to the function |
+| `src/components/tweets/TweetArchiveUploadDialog.tsx` | The upload dialog |
+| `supabase/functions/import-x-archive/index.ts` | Admin-gated privileged write |
 | `src/utils/__tests__/xArchive.test.ts` | Mapping tests |
+| `src/utils/__tests__/xArchiveUpload.test.ts` | Zip reading and batching tests |
+| `src/pages/__tests__/TeneikaTweets.adminUpload.test.tsx` | Admin-gate tests for the icon |
 | `src/pages/__tests__/Resources.classify.test.ts` | Classifier regression tests |
 | `supabase/migrations/20260818000000_resources_tweet_id_unique.sql` | Conflict target |

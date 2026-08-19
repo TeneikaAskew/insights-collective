@@ -11,8 +11,11 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO } from 'date-fns';
-import { CalendarIcon, SearchIcon, RefreshCw, ExternalLink, Heart, Repeat, MessageCircle } from 'lucide-react';
+import { CalendarIcon, SearchIcon, RefreshCw, ExternalLink, Heart, Repeat, MessageCircle, Upload } from 'lucide-react';
 import type { DateRange } from 'react-day-picker';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useAuth } from '@/contexts/AuthContext';
+import TweetArchiveUploadDialog from '@/components/tweets/TweetArchiveUploadDialog';
 
 import { createLogger } from '@/utils/logger';
 
@@ -40,7 +43,12 @@ const TeneikaTweets = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [isScrapingModalOpen, setIsScrapingModalOpen] = useState(false);
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
   const { toast } = useToast();
+  // Admin-only: the archive import writes both tweet tables, so the control is
+  // hidden from everyone else. The Edge Function re-checks with requireAdmin —
+  // hiding a button is presentation, never authorization.
+  const { user, isAdmin } = useAuth();
 
   // Fetch tweets with filtering
   const { data: tweets = [], isLoading, error, refetch } = useQuery({
@@ -169,14 +177,36 @@ const TeneikaTweets = () => {
               </a>
             </p>
           </div>
-          <Button 
-            onClick={triggerScrape} 
-            disabled={isScrapingModalOpen}
-            className="flex items-center gap-2"
-          >
-            <RefreshCw className={`h-4 w-4 ${isScrapingModalOpen ? 'animate-spin' : ''}`} />
-            {isScrapingModalOpen ? 'Scraping...' : 'Refresh Tweets'}
-          </Button>
+          <div className="flex items-center gap-2">
+            {/* Admin only. Hiding it is presentation; the import-x-archive Edge
+                Function re-checks with requireAdmin, which is the real gate. */}
+            {isAdmin && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setIsUploadOpen(true)}
+                      aria-label="Import tweets from X archive"
+                      data-testid="import-archive-button"
+                    >
+                      <Upload className="h-4 w-4" aria-hidden="true" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Import tweets from your X archive</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            <Button
+              onClick={triggerScrape}
+              disabled={isScrapingModalOpen}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${isScrapingModalOpen ? 'animate-spin' : ''}`} />
+              {isScrapingModalOpen ? 'Scraping...' : 'Refresh Tweets'}
+            </Button>
+          </div>
         </div>
 
         {/* Filters */}
@@ -348,6 +378,15 @@ const TeneikaTweets = () => {
               ))
             )}
           </div>
+        )}
+
+        {isAdmin && (
+          <TweetArchiveUploadDialog
+            open={isUploadOpen}
+            onOpenChange={setIsUploadOpen}
+            createdBy={user?.id ?? null}
+            onImported={refetch}
+          />
         )}
 
         {/* Load More Button - Placeholder for future pagination */}
