@@ -142,7 +142,7 @@ export default function JobDescription() {
       if (jobError) throw jobError;
 
       // Generate study guide
-      const guideData = await invokeWithRateLimit<Record<string, unknown>>(
+      const guideData = await invokeWithRateLimit<StudyGuide>(
         'generate-study-guide',
         { jobDescriptionId: jobData.id },
       );
