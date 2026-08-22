@@ -30,10 +30,21 @@ test.describe('Social Archive Pages', () => {
     await expect(page.locator('button:has-text("Refresh Posts")')).toBeVisible();
   });
 
-  test('tweets archive renders filters and refresh affordance', async ({ page }) => {
+  // This project signs in as a member, which is what makes the negative
+  // assertions below worth having: the import control is admin-only, and a
+  // non-admin session is the case that must never see it.
+  //
+  // The "Refresh Tweets" button this used to assert has been removed. It invoked
+  // scrape-teneika-tweets, which is behind requireAdminOrService, so for the very
+  // member session this spec runs as it could only ever return 401 and raise a
+  // failure toast.
+  test('tweets archive renders filters, and no scrape or import control for a member', async ({ page }) => {
     await goto(page, Routes.teneikaTweets);
     await expect(page.locator('h1:has-text("Tweets")')).toBeVisible();
     await expect(page.locator('input[placeholder*="Search tweets"]')).toBeVisible();
-    await expect(page.locator('button:has-text("Refresh Tweets")')).toBeVisible();
+
+    await expect(page.locator('button:has-text("Refresh Tweets")')).toHaveCount(0);
+    await expect(page.locator('button:has-text("Scrape Tweets")')).toHaveCount(0);
+    await expect(page.getByTestId('import-archive-button')).toHaveCount(0);
   });
 });

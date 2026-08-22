@@ -162,3 +162,9 @@ verify_jwt = false
 # present a user JWT. The real gate is the x-notify-secret header, compared in
 # code against NOTIFICATION_EMAIL_SECRET.
 verify_jwt = false
+
+[functions.import-x-archive]
+# Called from the browser by the admin-only upload dialog on /teneika-tweets, so
+# a user JWT is always present. The real gate is requireAdmin in the handler —
+# verify_jwt only proves the anon key was sent, which ships in the bundle.
+verify_jwt = true
