@@ -217,7 +217,7 @@ serve(async (req) => {
     console.error("Error scraping job description:", error);
     
     return new Response(
-      JSON.stringify({ error: error.message || "Failed to scrape job description" }),
+      JSON.stringify({ error: (error instanceof Error && error.message) || "Failed to scrape job description" }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
     );
   }

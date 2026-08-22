@@ -467,7 +467,7 @@ serve(async (req) => {
     console.error(`[evaluate-star-response] Error in edge function:`, error);
     
     return new Response(
-      JSON.stringify({ error: error.message || "Failed to evaluate STAR response" }),
+      JSON.stringify({ error: (error instanceof Error && error.message) || "Failed to evaluate STAR response" }),
       { 
         status: 500, 
         headers: { ...corsHeaders, "Content-Type": "application/json" }

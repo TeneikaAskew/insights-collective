@@ -293,7 +293,7 @@ async function getPreviousMessages(conversationId: string, supabaseClient: any, 
     // Format conversation history
     const history = data
       .reverse()
-      .map(msg => `${msg.sender_type.toUpperCase()}: ${msg.content.substring(0, 200)}${msg.content.length > 200 ? '...' : ''}`)
+      .map((msg: { sender_type: string; content: string }) => `${msg.sender_type.toUpperCase()}: ${msg.content.substring(0, 200)}${msg.content.length > 200 ? '...' : ''}`)
       .join('\n\n');
       
     return `PREVIOUS CONVERSATION CONTEXT:\n${history}`;
@@ -497,7 +497,7 @@ produce would be undated and unsourced.`}
       // callGroq owns the timeout now and clears it in a finally, so there is
       // nothing left to tidy here — but an AbortError still has to keep its
       // specific message rather than becoming a generic failure.
-      if (fetchError.name === 'AbortError') {
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
         console.error('GROQ API request timed out');
         throw new Error('Request timed out. The AI service is taking too long to respond.');
       } else {
@@ -514,10 +514,11 @@ produce would be undated and unsourced.`}
       return rateLimitResponse(error, corsHeaders);
     }
 
-    console.error('Error processing request:', error.message);
-    
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('Error processing request:', message);
+
     // Create a user-friendly error response
-    const errorMessage = error.message || 'An unexpected error occurred';
+    const errorMessage = message || 'An unexpected error occurred';
     const userFriendlyMessage = errorMessage.includes('API') || errorMessage.includes('GROQ')
       ? 'The AI service is currently unavailable. Please try again in a few moments.'
       : errorMessage;

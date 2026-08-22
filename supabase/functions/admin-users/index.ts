@@ -316,7 +316,7 @@ serve(async (req) => {
         console.log('[admin-users] Sending password reset for:', actionData.email);
 
         // Send password reset email
-        const { error } = await supabaseAdmin.auth.admin.sendPasswordResetEmail(actionData.email)
+        const { error } = await supabaseAdmin.auth.resetPasswordForEmail(actionData.email)
 
         if (error) {
           console.error('[admin-users] Error sending password reset:', error)
@@ -380,7 +380,7 @@ serve(async (req) => {
     }
   } catch (error) {
     console.error('[admin-users] Edge function error:', error)
-    return new Response(JSON.stringify({ error: error.message || 'An error occurred' }), {
+    return new Response(JSON.stringify({ error: (error instanceof Error && error.message) || 'An error occurred' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })

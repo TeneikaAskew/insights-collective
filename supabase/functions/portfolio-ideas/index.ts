@@ -3,7 +3,7 @@
 
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -241,7 +241,7 @@ serve(async (req) => {
       }
     } catch (dbError) {
       console.error('Error storing portfolio data in database:', dbError);
-      saveError = dbError?.message || String(dbError);
+      saveError = (dbError instanceof Error && dbError.message) || String(dbError);
     }
 
     // For backward compatibility, also save to resumes table
@@ -276,7 +276,7 @@ serve(async (req) => {
     console.error('Error in portfolio-ideas function:', error);
     return new Response(JSON.stringify({
       success: false,
-      error: error.message
+      error: error instanceof Error ? error.message : String(error)
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

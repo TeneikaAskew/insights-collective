@@ -273,7 +273,7 @@ Keep your output format strictly as valid JSON without any additional explanatio
 
     // Add UUIDs to original questions if they don't have them
     if (originalStudyGuideData && originalStudyGuideData.questions) {
-      originalStudyGuideData.questions = originalStudyGuideData.questions.map(question => ({
+      originalStudyGuideData.questions = originalStudyGuideData.questions.map((question: { id?: string } & Record<string, unknown>) => ({
         ...question,
         id: question.id || generateQuestionId(),
         isAssessmentQuestion: false,
@@ -282,8 +282,8 @@ Keep your output format strictly as valid JSON without any additional explanatio
     }
 
     // Select relevant assessment areas and questions
-    let assessmentAreas = [];
-    let assessmentQuestions = [];
+    let assessmentAreas: SelectedAssessmentArea[] = [];
+    let assessmentQuestions: Record<string, unknown>[] = [];
     
     try {
       console.log(`[generateStudyGuide] Selecting relevant assessment areas`);
@@ -407,7 +407,7 @@ serve(async (req) => {
     console.error(`[generate-study-guide] Error in edge function:`, error);
     
     return new Response(
-      JSON.stringify({ error: error.message || "Failed to generate study guide" }),
+      JSON.stringify({ error: (error instanceof Error && error.message) || "Failed to generate study guide" }),
       { 
         status: 500, 
         headers: { ...corsHeaders, "Content-Type": "application/json" }

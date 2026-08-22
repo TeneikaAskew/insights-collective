@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7';
+import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7';
 
 // Inlined (previously from ../_shared/utils.ts) so the function bundle is
 // self-contained for dashboard/MCP deploys as well as the CLI.
@@ -8,7 +8,7 @@ const corsHeaders = {
 };
 
 // CORS handling for preflight requests
-function handleCors(req) {
+function handleCors(req: Request) {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -18,7 +18,7 @@ function handleCors(req) {
 // Fetch user's latest resume and career pathway report.
 // A missing row (maybeSingle -> null) falls back to defaults; a real query
 // error throws so a user WITH data never silently gets a generic plan.
-async function getUserCareerData(supabase, userId) {
+async function getUserCareerData(supabase: SupabaseClient, userId: string) {
   const { data: resumeData, error: resumeError } = await supabase
     .from('resumes')
     .select('sentences, analysis')
@@ -64,7 +64,7 @@ function parseModelJson(content: string) {
 }
 
 // Generate the career action plan via the AI gateway
-async function generateActionPlan(userData) {
+async function generateActionPlan(userData: Awaited<ReturnType<typeof getUserCareerData>>) {
   const systemPrompt = `SYSTEM INSTRUCTIONS (ENFORCE EXACT FORMAT):
 - OUTPUT ONLY a single JSON object with EXACT keys:
   "6_weeks","9_weeks","12_weeks","6_months","12_months".
@@ -141,27 +141,27 @@ Using only this information, generate the Career Action Plan in the exact JSON f
 // NOTE: the old recommendedSkills/careerPathRoles synthesis was removed — it
 // fabricated random salaries and random hard/soft types and presented them as
 // personalized data. Nothing in the app consumes those keys anymore.
-function normalizeActionPlan(rawPlan) {
+function normalizeActionPlan(rawPlan: Record<string, any>) {
   const keys = ['6_weeks', '9_weeks', '12_weeks', '6_months', '12_months'];
-  const normalized = {};
+  const normalized: Record<string, any> = {};
   keys.forEach((k) => {
     const data = rawPlan[k] || {};
     normalized[k] = {
       narrative: data.motivational_narrative || data.narrative || '',
-      skills: Array.isArray(data.skills_to_acquire) ? data.skills_to_acquire.map((skillObj) => {
+      skills: Array.isArray(data.skills_to_acquire) ? data.skills_to_acquire.map((skillObj: any) => {
         const skillName = typeof skillObj.name === 'string' ? skillObj.name
           : typeof skillObj.skill === 'string' ? skillObj.skill : '';
-        const courses = Array.isArray(skillObj.courses) ? skillObj.courses.map((c) => {
+        const courses = Array.isArray(skillObj.courses) ? skillObj.courses.map((c: any) => {
           if (typeof c === 'string') return { title: c, provider: '' };
           return { title: c?.title ?? '', provider: c?.provider ?? '', ...(c?.url ? { url: c.url } : {}) };
         }) : [];
         return { name: skillName, courses };
       }) : [],
-      projects: Array.isArray(data.projects_to_build) ? data.projects_to_build.map((p) => ({
+      projects: Array.isArray(data.projects_to_build) ? data.projects_to_build.map((p: any) => ({
         title: p.title,
         description: p.description,
       })) : [],
-      content: Array.isArray(data.content_to_post) ? data.content_to_post.map((c) => ({
+      content: Array.isArray(data.content_to_post) ? data.content_to_post.map((c: any) => ({
         platform: c.platform,
         topics: Array.isArray(c.topics) ? c.topics : [],
       })) : [],
@@ -189,7 +189,7 @@ function escapeRegExp(value: string): string {
 }
 
 // Mutates `plan` in place; any failure leaves it exactly as generated.
-async function enrichWithCourseraCourses(plan, supabase) {
+async function enrichWithCourseraCourses(plan: Record<string, any>, supabase: SupabaseClient) {
   const { data: keywordRows, error: keywordError } = await supabase
     .from('coursera_subject_keywords')
     .select('subject, keyword');
@@ -197,14 +197,14 @@ async function enrichWithCourseraCourses(plan, supabase) {
   if (!keywordRows?.length) return;
 
   // Word-boundary containment, same as inferSubjects in learningSubjects.ts.
-  const patternsBySubject = new Map();
-  for (const row of keywordRows) {
+  const patternsBySubject = new Map<string, RegExp[]>();
+  for (const row of keywordRows as { subject: string; keyword: string }[]) {
     if (!patternsBySubject.has(row.subject)) patternsBySubject.set(row.subject, []);
     patternsBySubject
-      .get(row.subject)
+      .get(row.subject)!
       .push(new RegExp(`(^|[^a-z0-9])${escapeRegExp(row.keyword)}([^a-z0-9]|$)`, 'i'));
   }
-  const inferSubjects = (text) => {
+  const inferSubjects = (text: string) => {
     const out: string[] = [];
     for (const [subject, patterns] of patternsBySubject) {
       if (patterns.some((p) => p.test(text))) out.push(subject);
@@ -240,11 +240,11 @@ async function enrichWithCourseraCourses(plan, supabase) {
 
   // Per-subject lists: primary-subject courses first; sort is stable, so the
   // rating order from the query is preserved within each group.
-  const coursesBySubject = new Map();
-  for (const course of courses) {
+  const coursesBySubject = new Map<string, any[]>();
+  for (const course of courses as any[]) {
     for (const subject of course.subjects ?? []) {
       if (!coursesBySubject.has(subject)) coursesBySubject.set(subject, []);
-      coursesBySubject.get(subject).push(course);
+      coursesBySubject.get(subject)!.push(course);
     }
   }
   for (const [subject, list] of coursesBySubject) {
@@ -289,7 +289,7 @@ Deno.serve(async (req) => {
       });
     }
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const authClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY'), {
+    const authClient = createClient(supabaseUrl!, Deno.env.get('SUPABASE_ANON_KEY')!, {
       global: { headers: { Authorization: authHeader } },
     });
     const { data: { user }, error: authError } = await authClient.auth.getUser();
@@ -301,7 +301,7 @@ Deno.serve(async (req) => {
     }
     const userId = user.id;
 
-    const supabase = createClient(supabaseUrl, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'));
+    const supabase = createClient(supabaseUrl!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
     const userData = await getUserCareerData(supabase, userId);
     const rawPlan = await generateActionPlan(userData);
     const actionPlan = normalizeActionPlan(rawPlan);
@@ -347,7 +347,7 @@ Deno.serve(async (req) => {
       }
     } catch (e) {
       console.error('Exception saving action plan:', e);
-      saveError = e?.message || String(e);
+      saveError = (e instanceof Error && e.message) || String(e);
     }
 
     return new Response(JSON.stringify({
@@ -360,7 +360,7 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     console.error('Handler error:', error);
-    return new Response(JSON.stringify({ success: false, error: error.message }), {
+    return new Response(JSON.stringify({ success: false, error: error instanceof Error ? error.message : String(error) }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

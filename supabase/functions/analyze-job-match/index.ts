@@ -9,7 +9,7 @@ function countTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
 // Function to call LLM API specifically for skills and suggestions analysis
-async function callLLMForSkillsAnalysis(resume, jobDescription, preCalculatedKeywords) {
+async function callLLMForSkillsAnalysis(resume: string, jobDescription: string, preCalculatedKeywords: { matchedKeywords: string[]; missingKeywords: string[] }) {
   const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
   if (!LOVABLE_API_KEY) {
     throw new Error('LOVABLE_API_KEY not found');
@@ -100,12 +100,12 @@ async function callLLMForSkillsAnalysis(resume, jobDescription, preCalculatedKey
     const skillsAnalysis = JSON.parse(cleanedJson);
     return skillsAnalysis;
   } catch (jsonError) {
-    console.error("JSON parsing error:", jsonError.message);
+    console.error("JSON parsing error:", jsonError instanceof Error ? jsonError.message : String(jsonError));
     throw jsonError;
   }
 }
 // Helper function to clean JSON from LLM response
-function extractCleanJson(text) {
+function extractCleanJson(text: string) {
   // First try to find JSON between curly braces
   let jsonText = text;
   // Remove markdown formatting
@@ -165,10 +165,11 @@ serve(async (req)=>{
         }
       });
     } catch (apiError) {
-      console.error("API or parsing error:", apiError.message);
+      const apiErrorMessage = apiError instanceof Error ? apiError.message : String(apiError);
+      console.error("API or parsing error:", apiErrorMessage);
       // Upstream AI failure: report it honestly instead of a canned "analysis"
       return new Response(JSON.stringify({
-        error: `AI skills analysis failed: ${apiError.message}`
+        error: `AI skills analysis failed: ${apiErrorMessage}`
       }), {
         status: 502,
         headers: {
