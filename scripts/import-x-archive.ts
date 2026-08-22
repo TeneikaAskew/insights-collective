@@ -41,7 +41,7 @@
 // a partial one. A fresh database (a branch, a local stack) needs both, applied
 // through db-migrate.yml — see CLAUDE.md.
 
-import { readFile, readdir, stat } from 'node:fs/promises';
+import { open, readFile, readdir, stat } from 'node:fs/promises';
 import { join, resolve, basename, dirname } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import {
@@ -251,18 +251,30 @@ const MAX_ZIP_BYTES = 1_500_000_000;
  * just to load a few megabytes of text.
  */
 async function readFromZip(zipPath: string): Promise<ArchiveFile[]> {
-  const { size } = await stat(zipPath);
-  if (size > MAX_ZIP_BYTES) {
-    const gb = (size / 1_000_000_000).toFixed(1);
-    throw new Error(
-      `${basename(zipPath)} is ${gb} GB, too large to open in memory. ` +
-        'Unzip it and pass the folder (or its data/ directory) instead — that ' +
-        'reads only tweets.js and its parts, and never touches the media.',
-    );
+  // Size-check and read through ONE file handle rather than stat(path) followed
+  // by readFile(path). Two calls against a path are a check of one file and a
+  // read of whatever sits at that name afterwards (CodeQL js/file-system-race);
+  // a handle pins the file the check was made against, so the guard below is
+  // guaranteed to describe the bytes actually loaded.
+  const handle = await open(zipPath, 'r');
+  let contents: Buffer;
+  try {
+    const { size } = await handle.stat();
+    if (size > MAX_ZIP_BYTES) {
+      const gb = (size / 1_000_000_000).toFixed(1);
+      throw new Error(
+        `${basename(zipPath)} is ${gb} GB, too large to open in memory. ` +
+          'Unzip it and pass the folder (or its data/ directory) instead — that ' +
+          'reads only tweets.js and its parts, and never touches the media.',
+      );
+    }
+    contents = await handle.readFile();
+  } finally {
+    await handle.close();
   }
 
   const { default: JSZip } = await import('jszip');
-  const zip = await JSZip.loadAsync(await readFile(zipPath));
+  const zip = await JSZip.loadAsync(contents);
 
   const entries = Object.values(zip.files).filter(
     (entry) => !entry.dir && TWEET_FILE.test(basename(entry.name)),
