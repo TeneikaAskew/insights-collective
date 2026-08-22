@@ -30,7 +30,24 @@ export type ResourceWithSourceType = Resource & {
 
 // Helper functions remain here for now as they are used by useMemo hooks in this component.
 // They could be moved to useResources.ts or a utils file in a further refactoring step.
-const classifyResourceSource = (resource: Resource): 'Tweet' | 'LinkedIn' | 'Standard' => {
+
+/**
+ * `resources.source` holds the raw client anchor from the X export, e.g.
+ * `<a href="http://twitter.com/download/android" rel="nofollow">Twitter for Android</a>`.
+ *
+ * Rows imported from a post-rebrand archive say `X for Android` / `X Web App` and
+ * point at x.com, so the `includes('twitter')` label check alone misses them and
+ * they classify as 'Standard' — fetched by useAllTweetsData, then silently dropped
+ * before the Top Tweets tab ever sees them. Read the host out of the anchor's href
+ * instead of substring-matching 'x.com', which would also hit box.com and phoenix.com.
+ */
+const sourceLinksToHost = (source: string | null | undefined, hosts: string[]): boolean => {
+  if (!source) return false;
+  const href = /<a[^>]+href=["']([^"']+)["']/i.exec(source)?.[1];
+  return !!href && urlHostMatches(href, hosts);
+};
+
+export const classifyResourceSource = (resource: Resource): 'Tweet' | 'LinkedIn' | 'Standard' => {
   // `source` is a free-text label, so a substring check is the right tool
   // there. `resource_link` is a URL, so it is matched by parsed hostname —
   // an unanchored includes('twitter.com') also matched
@@ -38,6 +55,7 @@ const classifyResourceSource = (resource: Resource): 'Tweet' | 'LinkedIn' | 'Sta
   // js/incomplete-url-substring-sanitization).
   if (
     resource.source?.toLowerCase().includes('twitter') ||
+    sourceLinksToHost(resource.source, ['twitter.com', 'x.com']) ||
     (resource.resource_link && urlHostMatches(resource.resource_link, ['twitter.com', 'x.com']))
   ) {
     return 'Tweet';
@@ -100,7 +118,15 @@ const matchesFilters = (resource: ResourceWithSourceType, searchQuery: string, c
 // Export adapter functions so they can be imported by child components
 export const adaptResourceToTweet = (resource: Resource) => {
   let tweetUrl = resource.resource_link;
-  if (!tweetUrl && resource.source?.toLowerCase().includes('twitter') && resource.tweet_id) {
+  // Same post-rebrand blind spot as classifyResourceSource: without the href check
+  // an 'X for Android' row with no outbound link renders with an empty URL, so the
+  // card's link goes nowhere.
+  if (
+    !tweetUrl &&
+    resource.tweet_id &&
+    (resource.source?.toLowerCase().includes('twitter') ||
+      sourceLinksToHost(resource.source, ['twitter.com', 'x.com']))
+  ) {
     tweetUrl = `https://x.com/teneikaask_you/status/${resource.tweet_id}`;
   }
   const likes = Math.max(Number(resource.favorite_count) || 0, Number(resource.tweet_likes) || 0);

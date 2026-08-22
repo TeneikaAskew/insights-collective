@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useRateLimitedInvoke } from '@/hooks/useRateLimitedInvoke';
 import { useUser } from '@/hooks/use-user';
 import { supabase } from '@/integrations/supabase/client';
+import { functionErrorMessage } from '@/lib/functionErrorMessage';
 import { Spinner } from '@/components/ui/spinner';
 import { Badge } from '@/components/ui/badge';
 import { FileSearch, Link as LinkIcon, RefreshCw, ExternalLink, ChevronLeft } from 'lucide-react';
@@ -105,9 +106,10 @@ export default function JobDescription() {
       }
     } catch (error) {
       logger.error('Error extracting job description:', error);
+      const serverMessage = await functionErrorMessage(error);
       toast({
         title: 'Extraction Error',
-        description: 'An error occurred while extracting the job description',
+        description: serverMessage ?? 'An error occurred while extracting the job description',
         variant: 'destructive',
       });
     } finally {

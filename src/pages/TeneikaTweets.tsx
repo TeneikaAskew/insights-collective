@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import AppLayout from '@/components/layout/AppLayout';
@@ -9,14 +9,14 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { useToast } from '@/hooks/use-toast';
 import { format, parseISO } from 'date-fns';
-import { CalendarIcon, SearchIcon, RefreshCw, ExternalLink, Heart, Repeat, MessageCircle } from 'lucide-react';
+import { CalendarIcon, SearchIcon, ExternalLink, Heart, Repeat, MessageCircle, Upload } from 'lucide-react';
 import type { DateRange } from 'react-day-picker';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useAuth } from '@/contexts/AuthContext';
+import TweetArchiveUploadDialog from '@/components/tweets/TweetArchiveUploadDialog';
 
-import { createLogger } from '@/utils/logger';
 
-const logger = createLogger('TeneikaTweets');
 
 /** The account this page archives. Individual tweet links are built from it. */
 const TWITTER_HANDLE = 'teneikaask_you';
@@ -39,8 +39,11 @@ interface Tweet {
 const TeneikaTweets = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
-  const [isScrapingModalOpen, setIsScrapingModalOpen] = useState(false);
-  const { toast } = useToast();
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
+  // Admin-only: the archive import writes both tweet tables, so the control is
+  // hidden from everyone else. The Edge Function re-checks with requireAdmin —
+  // hiding a button is presentation, never authorization.
+  const { user, isAdmin } = useAuth();
 
   // Fetch tweets with filtering
   const { data: tweets = [], isLoading, error, refetch } = useQuery({
@@ -78,39 +81,17 @@ const TeneikaTweets = () => {
     refetchInterval: 5 * 60 * 1000, // Refetch every 5 minutes
   });
 
-  const triggerScrape = async () => {
-    try {
-      setIsScrapingModalOpen(true);
-      
-      const { data, error } = await supabase.functions.invoke('scrape-teneika-tweets');
-      
-      if (error) {
-        throw error;
-      }
-
-      // Handle structured error payloads (edge function returns 200 with success: false)
-      if (data && data.success === false) {
-        throw new Error(data.error || data.message || 'Scraping failed');
-      }
-
-      toast({
-        title: 'Scraping Complete',
-        description: data?.message || 'Successfully scraped tweets',
-      });
-
-      // Refetch the tweets to show new data
-      refetch();
-    } catch (error: any) {
-      logger.error('Error triggering scrape:', error);
-      toast({
-        title: 'Scraping Failed',
-        description: error.message || 'Failed to scrape tweets',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsScrapingModalOpen(false);
-    }
-  };
+  // The "Refresh Tweets" button that used to live here invoked
+  // scrape-teneika-tweets, and was shown to every visitor. It could not work for
+  // almost anyone: that function is behind requireAdminOrService, so a signed-out
+  // or non-admin click returned 401 and raised a "Scraping Failed" toast. Even
+  // for an admin it had produced nothing since 2025-06-13, when X stopped serving
+  // timeline reads on the free tier, and reads are now billed per post — so the
+  // best case was a button that quietly spent money.
+  //
+  // The function itself is still deployed and still correct. Nothing calls it, so
+  // it costs nothing; restoring the credential and scheduling it is the plan in
+  // docs/x-tweet-sync.md. Importing an archive is what works today.
 
   const clearFilters = () => {
     setSearchTerm('');
@@ -169,14 +150,26 @@ const TeneikaTweets = () => {
               </a>
             </p>
           </div>
-          <Button 
-            onClick={triggerScrape} 
-            disabled={isScrapingModalOpen}
-            className="flex items-center gap-2"
-          >
-            <RefreshCw className={`h-4 w-4 ${isScrapingModalOpen ? 'animate-spin' : ''}`} />
-            {isScrapingModalOpen ? 'Scraping...' : 'Refresh Tweets'}
-          </Button>
+          {/* Admin only. Hiding it is presentation; the import-x-archive Edge
+              Function re-checks with requireAdmin, which is the real gate. */}
+          {isAdmin && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setIsUploadOpen(true)}
+                    aria-label="Import tweets from X archive"
+                    data-testid="import-archive-button"
+                  >
+                    <Upload className="h-4 w-4" aria-hidden="true" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Import tweets from your X archive</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </div>
 
         {/* Filters */}
@@ -265,11 +258,11 @@ const TeneikaTweets = () => {
                   <p className="text-muted-foreground mb-4">
                     {searchTerm || dateRange?.from || dateRange?.to
                       ? 'No tweets found matching your filters.'
-                      : 'No tweets available. Try refreshing to scrape new tweets.'}
+                      : 'No tweets have been imported yet.'}
                   </p>
-                  {!searchTerm && !dateRange?.from && !dateRange?.to && (
-                    <Button onClick={triggerScrape}>
-                      Scrape Tweets
+                  {!searchTerm && !dateRange?.from && !dateRange?.to && isAdmin && (
+                    <Button onClick={() => setIsUploadOpen(true)}>
+                      Import from X archive
                     </Button>
                   )}
                 </CardContent>
@@ -348,6 +341,15 @@ const TeneikaTweets = () => {
               ))
             )}
           </div>
+        )}
+
+        {isAdmin && (
+          <TweetArchiveUploadDialog
+            open={isUploadOpen}
+            onOpenChange={setIsUploadOpen}
+            createdBy={user?.id ?? null}
+            onImported={refetch}
+          />
         )}
 
         {/* Load More Button - Placeholder for future pagination */}

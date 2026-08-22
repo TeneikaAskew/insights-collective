@@ -98,12 +98,26 @@ serve(async (req) => {
 
     // Fetch the URL content. `redirect: 'manual'` stops a public URL from
     // bouncing the fetch into a private address after the checks above.
-    const response = await fetch(target.toString(), {
+    const fetchPage = () => fetch(target.toString(), {
       redirect: 'manual',
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
       }
     });
+
+    // Career sites behind CDNs answer with a one-off 502/503/504 and then
+    // serve the same URL fine seconds later (careers.homedepot.com did exactly
+    // this), so a gateway failure gets two short retries before it becomes the
+    // user's problem.
+    let response = await fetchPage();
+    for (const delayMs of [1000, 2000]) {
+      if (![502, 503, 504].includes(response.status)) break;
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      // The wait gives a hostile DNS record time to move behind the hostname,
+      // so every retry repeats the public-address check the first fetch got.
+      await assertPublicHttpUrl(url);
+      response = await fetchPage();
+    }
 
     if (response.status >= 300 && response.status < 400) {
       return new Response(
@@ -113,7 +127,11 @@ serve(async (req) => {
     }
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch URL: ${response.statusText}`);
+      const status = `${response.status}${response.statusText ? ` ${response.statusText}` : ''}`;
+      return new Response(
+        JSON.stringify({ error: `The job site responded with ${status}. It may be temporarily unavailable — try again in a moment.` }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 502 }
+      );
     }
 
     const raw = await response.arrayBuffer();

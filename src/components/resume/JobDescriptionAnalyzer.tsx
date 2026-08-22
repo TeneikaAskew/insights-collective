@@ -14,6 +14,7 @@ import { Form, FormControl, FormField, FormItem } from '@/components/ui/form';
 import { useForm } from 'react-hook-form';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
+import { functionErrorMessage } from '@/lib/functionErrorMessage';
 
 // Storage keys for local storage
 const STORAGE_KEYS = {
@@ -370,8 +371,8 @@ const evaluateKeywords = (jobText: string, resumeText: string): KeywordEvaluatio
         body: { url: jobUrl }
       });
 
-      if (error) throw new Error(error.message);
-      
+      if (error) throw error;
+
       if (data?.jobDescription) {
         setJobDescription(data.jobDescription);
         toast({
@@ -387,9 +388,10 @@ const evaluateKeywords = (jobText: string, resumeText: string): KeywordEvaluatio
       }
     } catch (error) {
       logger.error("Error extracting job description:", error);
+      const serverMessage = await functionErrorMessage(error);
       toast({
         title: "Extraction Error",
-        description: "An error occurred while extracting the job description",
+        description: serverMessage ?? "An error occurred while extracting the job description",
         variant: "destructive",
       });
     } finally {
