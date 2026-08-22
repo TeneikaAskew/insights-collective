@@ -3,7 +3,7 @@
 import { supabase, callLLMWithRetry } from './utils.ts';
 const bulletCache = new Map(); // Cache for storing bullet points by user ID
 
-export function getSentencesFromCache(userId) {
+export function getSentencesFromCache(userId?: string) {
   if (!userId) return null;
   
   console.log(`getSentencesFromCache: Checking cache for userId=${userId}`);
@@ -14,7 +14,7 @@ export function getSentencesFromCache(userId) {
 }
 
 // Modified detectSentences function to use the retry logic
-export async function detectSentences(text, userId) {
+export async function detectSentences(text: string, userId?: string) {
   console.log('Sentence Detection function hit');
   // First check if we have cached sentences for this user
   // if (userId) {
@@ -134,10 +134,12 @@ export async function detectSentences(text, userId) {
     return sentences;
     
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const stack = error instanceof Error ? error.stack : undefined;
     const errorTime = Date.now() - startTime;
-    console.error(`detectSentences: Error after ${errorTime}ms:`, error.message);
-    if (error.stack) {
-      console.error('detectSentences: Error stack:', error.stack);
+    console.error(`detectSentences: Error after ${errorTime}ms:`, message);
+    if (stack) {
+      console.error('detectSentences: Error stack:', stack);
     }
     throw error;
   }
@@ -145,7 +147,7 @@ export async function detectSentences(text, userId) {
 
 
 // Helper function to extract sentences from the response with multiple fallback strategies
-export function extractSentencesFromResponse(content) {
+export function extractSentencesFromResponse(content: string) {
   console.log('extractSentencesFromResponse: Starting extraction');
   let sentences = [];
   // Try multiple extraction methods, from most structured to least
@@ -191,7 +193,7 @@ export function extractSentencesFromResponse(content) {
           console.log('extractSentencesFromResponse: Method 2 - no JSON array pattern found');
         }
       } catch (e) {
-        console.log(`extractSentencesFromResponse: Method 2 failed - ${e.message}`);
+        console.log(`extractSentencesFromResponse: Method 2 failed - ${e instanceof Error ? e.message : String(e)}`);
       // Continue to next method
       }
     } else {
@@ -223,7 +225,7 @@ export function extractSentencesFromResponse(content) {
           console.log('extractSentencesFromResponse: Method 3 - no JSON array pattern found after fixing');
         }
       } catch (e) {
-        console.log(`extractSentencesFromResponse: Method 3 failed - ${e.message}`);
+        console.log(`extractSentencesFromResponse: Method 3 failed - ${e instanceof Error ? e.message : String(e)}`);
       // Continue to next method
       }
     } else {
@@ -265,7 +267,7 @@ export function extractSentencesFromResponse(content) {
         console.log('extractSentencesFromResponse: Method 4 parsed successfully but result is not a valid array or is empty');
       }
     } catch (e) {
-      console.log(`extractSentencesFromResponse: Method 4 failed - ${e.message}`);
+      console.log(`extractSentencesFromResponse: Method 4 failed - ${e instanceof Error ? e.message : String(e)}`);
     // Continue to next method if this fails
     }
   } else {
@@ -315,7 +317,7 @@ export function extractSentencesFromResponse(content) {
 
 
 // Helper function to clean and deduplicate the extracted sentences
-function cleanAndDeduplicate(sentences) {
+function cleanAndDeduplicate(sentences: unknown[]) {
   console.log(`cleanAndDeduplicate: Starting cleanup of ${sentences.length} sentences`);
   const uniqueMap = new Map();
   let cleanedCount = 0;
@@ -356,7 +358,7 @@ function cleanAndDeduplicate(sentences) {
 
 
 // Helper function to save sentences to database
-export async function saveSentencesToDatabase(userId, sentences) {
+export async function saveSentencesToDatabase(userId: string, sentences: unknown[]) {
   if (userId) {
     try {
       await supabase.from('resumes').update({

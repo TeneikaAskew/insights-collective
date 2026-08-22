@@ -11,20 +11,27 @@ export const config = {
   BATCH_SIZE: 6,
   BULLET_PROCESS_SEQUENTIAL: true
 };
+interface BulletData {
+  id?: string;
+  original: string;
+  xyz_scores?: any;
+  word_balance_score?: number;
+  word_balance?: any;
+}
 // Utility function for exponential backoff
-async function backoffDelay(attempt) {
+async function backoffDelay(attempt: number) {
   const delay = Math.min(config.RATE_LIMIT_DELAY_MS * Math.pow(config.BACKOFF_MULTIPLIER, attempt), 10000 // Max 10 second delay
   );
   const jitter = Math.random() * config.RATE_LIMIT_JITTER_MS;
   await new Promise((resolve)=>setTimeout(resolve, delay + jitter));
 }
 // Helper to capitalize the first word of a string
-function capitalizeFirstWord(text) {
+function capitalizeFirstWord(text: string) {
   if (!text || typeof text !== 'string') return text;
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 // This is the primary function that needs to be exported - it's imported in bulletSuggestions.ts
-export async function improveBullet(bulletData) {
+export async function improveBullet(bulletData: BulletData) {
   let attempts = 0;
   while(attempts < config.MAX_RETRIES){
     try {
@@ -58,7 +65,7 @@ export async function improveBullet(bulletData) {
   }
 }
 // Helper function to construct the prompt for GROQ
-function constructGroqPrompt(bulletData) {
+function constructGroqPrompt(bulletData: BulletData) {
   // Construct a prompt based on the bullet data;
   const system = `You are a professional resume writer specializing in optimizing bullet points. 
 Your task is to rewrite resume bullets to be more impactful, achievement-focused, 
@@ -103,7 +110,7 @@ Do not use arrays or nested quotes in your response. Keep it simple.`;
   };
 }
 // Helper function to process the GROQ response
-function processGroqResponse(response, bulletData) {
+function processGroqResponse(response: any, bulletData: BulletData) {
   try {
     // If the response is already in the expected format, return it
     if (response.rewritten && response.tips) {
@@ -230,7 +237,9 @@ async function processBulletsInParallel(bullets: any[], userId: string) {
             improvedBullets.push(improvedBullet);
           }
         } catch (error) {
-          console.error(`Error processing bullet: ${error.message}, ${error.stack}`);
+          const message = error instanceof Error ? error.message : String(error);
+          const stack = error instanceof Error ? error.stack : undefined;
+          console.error(`Error processing bullet: ${message}, ${stack}`);
           improvedBullets.push({
           id: bullet.id,
           original: bullet.original,

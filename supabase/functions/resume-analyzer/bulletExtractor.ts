@@ -2,7 +2,7 @@
 import { actionWords } from './bulletAnalysis.ts';
 import { detectSentences } from './sentenceDetector.ts';
 // Function to extract bullet points from resume text
-export async function extractBulletPoints(text) {
+export async function extractBulletPoints(text: string) {
   console.log("Bullet Extractor Endpoint hit")
   if (!text || typeof text !== 'string') {
     console.warn("Invalid text input for bullet extraction:", text);
@@ -36,7 +36,7 @@ export async function extractBulletPoints(text) {
   return results.filter(Boolean);
 }
 // Helper function for fallback sentence detection
-function fallbackExtractSentences(text) {
+function fallbackExtractSentences(text: string) {
   console.log("Fallback Sentence Extractor Endpoint hit")
   if (!text) return [];
   // Date range pattern to filter out
@@ -46,7 +46,7 @@ function fallbackExtractSentences(text) {
   return sentences;
 }
 // Fallback function to extract content as bullets by splitting on newlines
-export function fallbackExtractBullets(text) {
+export function fallbackExtractBullets(text: string) {
   console.log("Fallback Bullet Extractor Endpoint hit")
   if (!text || typeof text !== 'string') {
     return [];

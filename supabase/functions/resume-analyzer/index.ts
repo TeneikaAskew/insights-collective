@@ -49,7 +49,7 @@ serve(async (req) => {
     if (requestCache.has(cacheKey)) {
       console.log('Using cached request result');
       return new Response(JSON.stringify(requestCache.get(cacheKey)), {
-        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        headers: { ...corsHeaders },
       });
     }
 
@@ -112,18 +112,18 @@ serve(async (req) => {
     const endTime = Date.now();
     console.log(`Resume analyzer completed in ${(endTime - startTime) / 1000}s`);
     return new Response(JSON.stringify(payload), {
-      headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      headers: { ...corsHeaders },
     });
   } catch (err) {
     console.error(err);
-    return new Response(JSON.stringify({ error: err.message }),
+    return new Response(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }),
                       { status: 500, headers: corsHeaders });
   }
   
 });
 
 // Optimize the resume analysis function to process in batches with parallelism
-export async function analyzeResume(resumeText, userId, sentences = []) {
+export async function analyzeResume(resumeText: string, userId: string, sentences: any[] = []) {
   console.log('Running Resume Analyzer');
   const startTime = Date.now();
   // Early return for empty inputs
@@ -160,7 +160,7 @@ export async function analyzeResume(resumeText, userId, sentences = []) {
     try {
       // Use Promise.race with timeout for bullet extraction
       const extractionPromise = extractBulletPoints(resumeText);
-      const timeoutPromise = new Promise((_, reject) => 
+      const timeoutPromise = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('Bullet extraction timed out')), 15000) // Reduced timeout
       );
       
@@ -253,7 +253,7 @@ export async function analyzeResume(resumeText, userId, sentences = []) {
 }
 
 // Helper function to analyze bullets in parallel with controlled concurrency
-async function analyzeBulletsInParallel(bulletPoints) {
+async function analyzeBulletsInParallel(bulletPoints: any[]) {
   const BATCH_SIZE = 10; // Increased from 5
   const MAX_CONCURRENT_BATCHES = 3;
   const analyzed = [];
@@ -285,7 +285,7 @@ async function analyzeBulletsInParallel(bulletPoints) {
 }
 
 // Process a single batch of bullets
-async function processBulletBatch(batch) {
+async function processBulletBatch(batch: any[]) {
   const batchPromises = batch.map(bullet => analyzeOneBullet(bullet));
   
   try {
@@ -309,7 +309,7 @@ async function processBulletBatch(batch) {
 }
 
 // Analyze a single bullet point
-async function analyzeOneBullet(bullet) {
+async function analyzeOneBullet(bullet: any) {
   try {
     const wb = analyzeWordBalance(bullet);
     const xyz = xyzCheck(bullet);
@@ -343,12 +343,12 @@ async function analyzeOneBullet(bullet) {
 }
 
 // Generate a unique ID for a bullet based on its content
-function generateBulletId(bullet) {
+function generateBulletId(bullet: unknown) {
   return `bullet-${Math.random().toString(36).substring(2, 9)}`;
 }
 
 // Calculate scores and grades based on analyzed bullets
-function calculateScoresAndGrades(analyzed) {
+function calculateScoresAndGrades(analyzed: any[]) {
   // Sort bullets by score (highest first)
   const sortedBullets = analyzed.sort((a, b) => b.bullet_total - a.bullet_total);
   
@@ -383,7 +383,7 @@ function calculateScoresAndGrades(analyzed) {
 }
 
 // Save analysis to database
-async function saveAnalysisToDatabase(userId, analysisData) {
+async function saveAnalysisToDatabase(userId: string, analysisData: unknown) {
   try {
     const { error: updateError } = await supabase.from('resumes').update({
       analyzed_at: new Date().toISOString(),
@@ -404,7 +404,7 @@ async function saveAnalysisToDatabase(userId, analysisData) {
 }
 
 // Update analysis in database with AI results
-async function updateAnalysisInDatabase(userId, finalAnalysisData) {
+async function updateAnalysisInDatabase(userId: string, finalAnalysisData: unknown) {
   try {
     const { error: updateError } = await supabase.from('resumes').update({
       analysis: finalAnalysisData
@@ -435,7 +435,7 @@ function getDefaultErrorResponse() {
 }
 
 // Optimized version of bulletImprover with improved caching and execution
-export async function bulletImprover(userId, enhanced = null) {
+export async function bulletImprover(userId: string, enhanced: { bullets?: any[] } | null = null) {
   console.log('Running bullet improver');
   const startTime = Date.now();
   // Use cache if available (keyed by userId)
@@ -486,7 +486,7 @@ export async function bulletImprover(userId, enhanced = null) {
 }
 
 // Helper function to get analysis data
-async function getAnalysisData(userId, enhanced = null) {
+async function getAnalysisData(userId: string, enhanced: { bullets?: any[] } | null = null): Promise<{ success: false; error: string } | { success: true; bullets: any[]; analysis: any }> {
   // Use provided enhanced analysis if available
   if (enhanced?.bullets && enhanced.bullets.length > 0) {
     console.log('Using provided enhanced analysis');
@@ -559,7 +559,7 @@ async function getAnalysisData(userId, enhanced = null) {
 }
 
 // Helper function to map enhancements back to original bullets
-function mapEnhancementsToBullets(originalBullets, enhancedBullets) {
+function mapEnhancementsToBullets(originalBullets: any[], enhancedBullets: any[]) {
   return originalBullets.map(originalBullet => {
     const enhanced = enhancedBullets.find(eb => eb.id === originalBullet.id);
     return enhanced || {
@@ -572,7 +572,7 @@ function mapEnhancementsToBullets(originalBullets, enhancedBullets) {
 }
 
 // Helper function to save enhanced analysis
-async function saveEnhancedAnalysis(userId, updatedAnalysis) {
+async function saveEnhancedAnalysis(userId: string, updatedAnalysis: unknown) {
   const { error: updateError } = await supabase
     .from('resumes')
     .update({ 
@@ -590,7 +590,7 @@ async function saveEnhancedAnalysis(userId, updatedAnalysis) {
 }
 
 // Optimized getResumeRoast function with better caching and timeouts
-async function getResumeRoast(resumeText, userId) {
+async function getResumeRoast(resumeText: string, userId: string) {
   console.log('Running Resume Roast');
   const startTime = Date.now();
   
@@ -612,7 +612,7 @@ async function getResumeRoast(resumeText, userId) {
   try {
     
     // Set up timeout promise to abort if taking too long
-    const timeoutPromise = new Promise((_, reject) => 
+    const timeoutPromise = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error('Roast generation timed out')), 45000)
     );
     
