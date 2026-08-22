@@ -23,7 +23,7 @@
 // Inside, every count is a STRING ("105", not 105), the date is Ruby-style
 // ("Tue Oct 15 01:18:33 +0000 2024"), and `reply_count`/`quote_count` are absent
 // entirely — the export simply does not carry them. That last point is why
-// imported rows show 0 replies rather than a real number; see toTweetRow.
+// toTweetRow OMITS those two columns rather than writing 0 into them.
 
 /** The account these archives belong to. Both tables key their tweets to it. */
 export const ARCHIVE_USERNAME = 'teneikaask_you';
@@ -80,8 +80,12 @@ export interface TweetRow {
   tweeted_at: string;
   like_count: number;
   retweet_count: number;
-  reply_count: number;
-  quote_count: number;
+  /**
+   * Deliberately absent, not zero — see toTweetRow. The archive does not carry
+   * these, and writing a placeholder into an upsert destroys real values.
+   */
+  reply_count?: never;
+  quote_count?: never;
 }
 
 /** A row destined for public.resources — the Top Tweets tab reads this table. */
@@ -239,6 +243,19 @@ export function toTweetRow(tweet: ArchiveTweet): TweetRow | null {
   const tweetedAt = parseTwitterDate(tweet.created_at);
   if (!id || !tweetedAt) return null;
 
+  // reply_count and quote_count are OMITTED, not set to 0.
+  //
+  // The archive does not carry them. An earlier version wrote 0 and reasoned
+  // that the API scraper would repair it on its next run — but that scraper has
+  // no schedule and no working credential, so "next run" is not a thing that
+  // happens, and /teneika-tweets renders reply_count. Since these writes upsert
+  // on tweet_id, a full archive covering tweets the scraper already collected
+  // would have overwritten every real count with a placeholder: 88 rows in the
+  // live table carry a real reply count (up to 51) and 16 a real quote count.
+  //
+  // Leaving the keys out means the columns take their DEFAULT 0 on a genuinely
+  // new row and are simply not touched on an existing one, which is exactly the
+  // distinction between "unknown" and "zero" that the old comment claimed.
   return {
     tweet_id: id,
     content: tweetText(tweet),
@@ -247,12 +264,6 @@ export function toTweetRow(tweet: ArchiveTweet): TweetRow | null {
     tweeted_at: tweetedAt.toISOString(),
     like_count: toCount(tweet.favorite_count),
     retweet_count: toCount(tweet.retweet_count),
-    // The archive carries neither of these. Writing 0 is a statement that the
-    // number is unknown, not that it is zero — the API scraper is the only thing
-    // that can fill them, and it will on its next run because the upsert below
-    // conflicts on tweet_id.
-    reply_count: 0,
-    quote_count: 0,
   };
 }
 

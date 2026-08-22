@@ -35,9 +35,10 @@
 //
 // PREREQUISITE
 //
-// Migration 20260818000000_resources_tweet_id_unique adds the conflict target the
-// resources upsert names. Applied to the live project on 2026-08-18, so there is
-// nothing to do there; a fresh database (a branch, a local stack) needs it first,
+// The resources upsert needs a unique index on tweet_id as its conflict target:
+// 20260818000000 added one, and 20260822000000 replaced it with a NON-PARTIAL
+// index because PostgREST emits a bare ON CONFLICT (tweet_id), which cannot infer
+// a partial one. A fresh database (a branch, a local stack) needs both, applied
 // through db-migrate.yml — see CLAUDE.md.
 
 import { readFile, readdir, stat } from 'node:fs/promises';
@@ -233,11 +234,33 @@ async function readSingleFile(filePath: string, sweepSiblings: boolean): Promise
 }
 
 /**
+ * Above this, refuse the zip and point at the unzipped directory instead.
+ *
+ * JSZip has no streaming reader, so the whole archive is materialised in memory
+ * before the few megabytes of tweet text can be picked out of it. That is fine
+ * for a text-heavy export and bad for a media-heavy one, and this path exists
+ * precisely to support large archives. The directory path reads only the
+ * matching .js files and never holds the media at all, so there is a real answer
+ * to give rather than an out-of-memory crash halfway through.
+ */
+const MAX_ZIP_BYTES = 1_500_000_000;
+
+/**
  * Pull the tweet files straight out of the .zip so nobody has to unzip a
  * multi-gigabyte archive (nearly all of which is media this import never reads)
  * just to load a few megabytes of text.
  */
 async function readFromZip(zipPath: string): Promise<ArchiveFile[]> {
+  const { size } = await stat(zipPath);
+  if (size > MAX_ZIP_BYTES) {
+    const gb = (size / 1_000_000_000).toFixed(1);
+    throw new Error(
+      `${basename(zipPath)} is ${gb} GB, too large to open in memory. ` +
+        'Unzip it and pass the folder (or its data/ directory) instead — that ' +
+        'reads only tweets.js and its parts, and never touches the media.',
+    );
+  }
+
   const { default: JSZip } = await import('jszip');
   const zip = await JSZip.loadAsync(await readFile(zipPath));
 

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import AppLayout from '@/components/layout/AppLayout';
@@ -16,9 +16,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useAuth } from '@/contexts/AuthContext';
 import TweetArchiveUploadDialog from '@/components/tweets/TweetArchiveUploadDialog';
 
-import { createLogger } from '@/utils/logger';
 
-const logger = createLogger('TeneikaTweets');
 
 /** The account this page archives. Individual tweet links are built from it. */
 const TWITTER_HANDLE = 'teneikaask_you';

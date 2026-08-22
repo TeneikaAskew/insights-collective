@@ -125,10 +125,23 @@ describe('toTweetRow', () => {
     expect(typeof row.retweet_count).toBe('number');
   });
 
-  it('writes 0 for the counts the archive does not carry', () => {
+  // Regression: these used to be written as 0. Because the write is an upsert on
+  // tweet_id, importing an archive that overlaps tweets the API scraper already
+  // collected overwrote real values — 88 rows in the live table carry a real
+  // reply count, 16 a real quote count, and /teneika-tweets renders reply_count.
+  // Omitting the keys lets the column DEFAULT 0 apply to genuinely new rows while
+  // leaving existing rows untouched.
+  it('omits the counts the archive does not carry, rather than zeroing them', () => {
     const row = toTweetRow(modernEntry.tweet)!;
-    expect(row.reply_count).toBe(0);
-    expect(row.quote_count).toBe(0);
+    expect('reply_count' in row).toBe(false);
+    expect('quote_count' in row).toBe(false);
+  });
+
+  it('sends no undefined placeholder for them either', () => {
+    // `{reply_count: undefined}` would serialise to null in JSON and null out the
+    // column, which is the same bug wearing a different hat.
+    expect(Object.keys(toTweetRow(modernEntry.tweet)!)).not.toContain('reply_count');
+    expect(Object.keys(toTweetRow(modernEntry.tweet)!)).not.toContain('quote_count');
   });
 
   it('never emits NaN for a missing or malformed count', () => {
