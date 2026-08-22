@@ -316,7 +316,7 @@ serve(async (req) => {
         console.log('[admin-users] Sending password reset for:', actionData.email);
 
         // Send password reset email
-        const { error } = await supabaseAdmin.auth.admin.sendPasswordResetEmail(actionData.email)
+        const { error } = await supabaseAdmin.auth.resetPasswordForEmail(actionData.email)
 
         if (error) {
           console.error('[admin-users] Error sending password reset:', error)

@@ -14,7 +14,7 @@ export function getSentencesFromCache(userId) {
 }
 
 // Modified detectSentences function to use the retry logic
-export async function detectSentences(text, userId) {
+export async function detectSentences(text, userId?) {
   console.log('Sentence Detection function hit');
   // First check if we have cached sentences for this user
   // if (userId) {

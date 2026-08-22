@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    "strict": false,
+    "noImplicitAny": false,
+    "strictNullChecks": false,
+    "lib": ["deno.window", "deno.ns", "dom", "esnext"]
+  }
+}

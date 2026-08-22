@@ -160,7 +160,7 @@ export async function analyzeResume(resumeText, userId, sentences = []) {
     try {
       // Use Promise.race with timeout for bullet extraction
       const extractionPromise = extractBulletPoints(resumeText);
-      const timeoutPromise = new Promise((_, reject) => 
+      const timeoutPromise = new Promise<never>((_, reject) => 
         setTimeout(() => reject(new Error('Bullet extraction timed out')), 15000) // Reduced timeout
       );
       
@@ -612,7 +612,7 @@ async function getResumeRoast(resumeText, userId) {
   try {
     
     // Set up timeout promise to abort if taking too long
-    const timeoutPromise = new Promise((_, reject) => 
+    const timeoutPromise = new Promise<never>((_, reject) => 
       setTimeout(() => reject(new Error('Roast generation timed out')), 45000)
     );
     
