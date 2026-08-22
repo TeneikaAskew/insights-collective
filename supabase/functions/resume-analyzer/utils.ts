@@ -1,7 +1,7 @@
 // ABOUTME: Utility functions for the resume-analyzer edge function including LLM API calls
 // ABOUTME: Provides provider fallback (Gemini primary, GROQ fallback) and rate limiting
 
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 
 // Simple token estimation without external dependency
 function countTokens(text: string): number {
@@ -310,7 +310,7 @@ export async function callLLMAPI(system, user, label = "LLM", options?: LLMCallO
   });
 }
 // Retry wrapper with exponential backoff
-export async function callLLMWithRetry(system, user, attempt = 1, maxAttempts = 3, label = "LLM", options?: LLMCallOptions) {
+export async function callLLMWithRetry(system, user, attempt = 1, maxAttempts = 3, label = "LLM", options?: LLMCallOptions): Promise<string> {
   try {
     return await callLLMAPI(system, user, label, options);
   } catch (error) {
