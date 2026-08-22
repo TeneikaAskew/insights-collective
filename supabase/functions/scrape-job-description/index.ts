@@ -113,6 +113,9 @@ serve(async (req) => {
     for (const delayMs of [1000, 2000]) {
       if (![502, 503, 504].includes(response.status)) break;
       await new Promise((resolve) => setTimeout(resolve, delayMs));
+      // The wait gives a hostile DNS record time to move behind the hostname,
+      // so every retry repeats the public-address check the first fetch got.
+      await assertPublicHttpUrl(url);
       response = await fetchPage();
     }
 
