@@ -342,11 +342,6 @@ async function analyzeOneBullet(bullet: any) {
   }
 }
 
-// Generate a unique ID for a bullet based on its content
-function generateBulletId(bullet: unknown) {
-  return `bullet-${Math.random().toString(36).substring(2, 9)}`;
-}
-
 // Calculate scores and grades based on analyzed bullets
 function calculateScoresAndGrades(analyzed: any[]) {
   // Sort bullets by score (highest first)
