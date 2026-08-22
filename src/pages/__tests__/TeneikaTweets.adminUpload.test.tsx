@@ -80,12 +80,54 @@ describe('TeneikaTweets archive import control', () => {
     });
   });
 
-  it('leaves the refresh button in place for everyone', async () => {
+  // The old "Refresh Tweets" button invoked scrape-teneika-tweets, which sits
+  // behind requireAdminOrService — so for a signed-out or non-admin visitor it was
+  // a visible control that could only ever return 401 and raise a failure toast.
+  it('no longer offers a scrape button to anyone', async () => {
     render(<TeneikaTweets />);
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /refresh tweets/i })).toBeInTheDocument();
+      expect(screen.getByText("Teneika's Tweets")).toBeInTheDocument();
     });
+    expect(screen.queryByRole('button', { name: /refresh tweets/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /scrape/i })).not.toBeInTheDocument();
+  });
+
+  it('does not offer a scrape button to an admin either', async () => {
+    authState.isAdmin = true;
+
+    render(<TeneikaTweets />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('import-archive-button')).toBeInTheDocument();
+    });
+    expect(screen.queryByRole('button', { name: /refresh tweets/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /scrape/i })).not.toBeInTheDocument();
+  });
+
+  // The empty state used to offer "Scrape Tweets" to everyone. An admin now gets
+  // the import that actually works; a visitor gets no dead control at all.
+  it('offers the archive import from the empty state, admins only', async () => {
+    authState.isAdmin = true;
+
+    render(<TeneikaTweets />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /import from x archive/i }),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('shows a non-admin an empty state with no action', async () => {
+    render(<TeneikaTweets />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/no tweets have been imported yet/i)).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByRole('button', { name: /import from x archive/i }),
+    ).not.toBeInTheDocument();
   });
 
   it('opens the upload dialog when an admin clicks it', async () => {

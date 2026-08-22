@@ -36,10 +36,21 @@ scraper collected (May–Jun 2025).
 
 1. **Nothing schedules it.** The live `cron.job` table has no entry for it. The
    function logs to a job named `daily-tweet-scraper` that has never existed, so
-   the "automatic" part was written but never wired. Today it only runs when
-   someone clicks **Refresh Tweets** on the page.
+   the "automatic" part was written but never wired.
 2. **The credential no longer reads.** Rows stop at 2025-06-13, which is when X's
    free tier stopped serving timeline reads.
+
+The page used to carry a **Refresh Tweets** button that invoked it, plus a
+**Scrape Tweets** button in the empty state. Both were removed, because neither
+could work for the people who could see them: the function is behind
+`requireAdminOrService`, so every signed-out or non-admin click returned 401 and
+raised a "Scraping Failed" toast. For an admin it had produced nothing in over a
+year, and reads are now billed per post — so the best case was a button that
+quietly spent money.
+
+Nothing calls the function now, so it costs nothing while it sits there. It is
+still deployed and still correct; restoring a credential and adding the cron is
+the route below.
 
 Restarting it needs a paid X API credential. Reading your *own* timeline is billed
 as an "owned read" ($0.001/post at the time of writing) rather than the general
@@ -62,8 +73,8 @@ Both read the archive locally and write the same rows to the same two tables.
 
 ## The upload dialog (admin only)
 
-An upload icon sits next to **Refresh Tweets** in the page header. It renders
-only when `useAuth().isAdmin` is true — but hiding a button is presentation, not
+An upload icon sits in the page header — the page's only action, now that the
+scrape buttons are gone. It renders only when `useAuth().isAdmin` is true — but hiding a button is presentation, not
 authorization, so the `import-x-archive` Edge Function re-checks every request
 with `requireAdmin`, which reads `user_roles` through `has_admin_access()` rather
 than the owner-writable `profiles.roles` column.
