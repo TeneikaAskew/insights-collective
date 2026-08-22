@@ -261,7 +261,7 @@ const callQueue = {
   }
 };
 // Main LLM API call function with smart endpoint selection
-export async function callLLMAPI(system, user, label = "LLM", options?: LLMCallOptions) {
+export async function callLLMAPI(system, user, label = "LLM", options?: LLMCallOptions): Promise<string> {
   validateInput(system, user);
   callTracking.addCall();
   const n = countTokens(system + user);
