@@ -8,31 +8,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
 import { corsHeaders, handleError, safeParseJSON } from "../_shared/utils.ts";
 import { requireUser } from "../_shared/auth.ts";
 import { callGroq, GroqRateLimitError, rateLimitResponse } from "../_shared/groq.ts";
+import { clampScore, normalizeScores, SCORE_SCALE } from "./scoring.ts";
 
 const GROQ = Deno.env.get("GROQ");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-
-// The assessment rubric in `assesment_rubric` only defines levels 1-5 (Concern
-// through Strength), so 5 is the scale this feature actually reasons on. Both
-// question types score on it; nothing is doubled for display any more.
-const SCORE_SCALE = 5;
-
-// A component the model put outside the scale is a repairable mistake — it has
-// returned a 9 and an 8.2 — and since the UI draws each score as a percentage of
-// the scale, an out-of-range value renders as an over-full bar. Clamping keeps
-// the ranking the model intended.
-//
-// A component that is absent or unparseable is NOT repairable. Defaulting it to
-// the bottom of the scale would tell the user their answer scored the worst
-// possible when in fact the model malformed its output, so this returns null and
-// the caller rejects the whole evaluation instead of inventing a score.
-function clampScore(value: unknown): number | null {
-  if (value === null || value === undefined || value === "") return null;
-  const num = typeof value === "number" ? value : Number(value);
-  if (!Number.isFinite(num)) return null;
-  return Math.min(SCORE_SCALE, Math.max(1, Math.round(num)));
-}
 
 function createAssessmentEvaluationPrompt(response: any, questionData: any, assessmentArea: string, rubricCriteria: any[]): string {
   const rubricText = rubricCriteria && rubricCriteria.length > 0 ? 
@@ -349,28 +329,14 @@ async function evaluateStarResponse(responseId: string, callerId: string) {
     // Normalise the scores before anything stores or renders them. The model's
     // own overall has disagreed with its own components (an 8.2 next to a 9, 7, 8,
     // 8), and the prompt asks for the average, so the average is what it gets.
-    const rawScores = feedbackData.scores ?? {};
-    const situationScore = clampScore(rawScores.situation);
-    const taskScore = clampScore(rawScores.task);
-    const actionScore = clampScore(rawScores.action);
-    const resultScore = clampScore(rawScores.result);
-
-    // The page renders every component and the overall unconditionally, so a
-    // payload missing any of them is not partially usable — it is a failed
-    // evaluation, in the same class as the missing-feedback cases below.
-    if (situationScore === null || taskScore === null || actionScore === null || resultScore === null) {
+    const normalizedScores = normalizeScores(feedbackData.scores);
+    if (!normalizedScores) {
       console.error(`[evaluate-star-response] Unusable component scores:`, feedbackData.scores);
       throw new Error("AI response missing valid scores");
     }
 
     console.log(`[evaluate-star-response] Raw model scores:`, feedbackData.scores);
-    feedbackData.scores = {
-      situation: situationScore,
-      task: taskScore,
-      action: actionScore,
-      result: resultScore,
-      overall: Math.round((situationScore + taskScore + actionScore + resultScore) / 4),
-    };
+    feedbackData.scores = normalizedScores;
     console.log(`[evaluate-star-response] Normalised to 1-${SCORE_SCALE}:`, feedbackData.scores);
 
     // Assessment scores used to be doubled into a 10-point display, which is where
