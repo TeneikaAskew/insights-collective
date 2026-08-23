@@ -176,7 +176,8 @@ describe('StarPractice page (Guided Coach)', () => {
       q1: {
         response: { situation: 'S text', task: 'T text', action: 'A text', result: 'R text' },
         feedback: {
-          scores: { situation: 8, task: 7, action: 6, result: 5, overall: 6.5 },
+          score_scale: 5,
+          scores: { situation: 5, task: 4, action: 2, result: 1, overall: 3 },
           analysis: { completeness: 'ok', specificity: 'ok', relevance: 'ok', impact: 'ok', communication: 'ok' },
           feedback: {
             strengths: ['Clear scene-setting'],
@@ -193,11 +194,40 @@ describe('StarPractice page (Guided Coach)', () => {
     expect(await screen.findByText('AI Feedback')).toBeInTheDocument();
     expect(screen.getByText('Your response')).toBeInTheDocument();
     // Situation score appears twice by design: recap chip + rail bar
-    expect(screen.getAllByText('8/10').length).toBe(2);
-    expect(screen.getByText('6.5/10')).toBeInTheDocument(); // overall
+    expect(screen.getAllByText('5/5').length).toBe(2);
+    expect(screen.getByText('3/5')).toBeInTheDocument(); // overall
     expect(screen.getByText('Clear scene-setting')).toBeInTheDocument();
     expect(screen.getByText('Quantify the result')).toBeInTheDocument();
     expect(screen.getByText('Add a number to the outcome')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /update response/i })).toBeInTheDocument();
+  });
+
+  // Everything scored before the switch to the rubric's 1-5 scale is stored out
+  // of 10 with no score_scale stamp. Redrawing those as /5 would print an 8/5,
+  // so the old denominator has to survive the change.
+  it('keeps the 10-point denominator for feedback saved before the 5-point switch', async () => {
+    userState.user = { id: 'user-1' };
+    mockStudyGuideQuery();
+    vi.spyOn(LocalStorageUtils, 'getSavedStarResponses').mockReturnValue({
+      q1: {
+        response: { situation: 'S text', task: 'T text', action: 'A text', result: 'R text' },
+        feedback: {
+          scores: { situation: 8, task: 7, action: 6, result: 5, overall: 6.5 },
+          analysis: { completeness: 'ok', specificity: 'ok', relevance: 'ok', impact: 'ok', communication: 'ok' },
+          feedback: {
+            strengths: ['Clear scene-setting'],
+            improvements: ['Quantify the result'],
+            suggestions: ['Add a number to the outcome'],
+          },
+        },
+        timestamp: 1,
+      },
+    } as any);
+
+    render(<StarPractice />);
+
+    expect(await screen.findByText('AI Feedback')).toBeInTheDocument();
+    expect(screen.getAllByText('8/10').length).toBe(2);
+    expect(screen.getByText('6.5/10')).toBeInTheDocument();
   });
 });

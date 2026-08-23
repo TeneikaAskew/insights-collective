@@ -14,6 +14,25 @@ const GROQ = Deno.env.get("GROQ");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
+// The assessment rubric in `assesment_rubric` only defines levels 1-5 (Concern
+// through Strength), so 5 is the scale this feature actually reasons on. Both
+// question types score on it; nothing is doubled for display any more.
+const SCORE_SCALE = 5;
+
+// Models have returned components the prompt never allowed (a 9, an 8.2) and the
+// UI draws each score as a percentage of the scale, so an out-of-range component
+// renders as an over-full bar. A component that comes back missing or unparseable
+// scores at the bottom rather than being dropped: dropping it would quietly leave
+// the overall average taken over fewer than four components.
+function clampScore(value: unknown): number {
+  const num = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(num)) {
+    console.warn(`[evaluate-star-response] Unusable component score ${JSON.stringify(value)}; scoring it 1`);
+    return 1;
+  }
+  return Math.min(SCORE_SCALE, Math.max(1, Math.round(num)));
+}
+
 function createAssessmentEvaluationPrompt(response: any, questionData: any, assessmentArea: string, rubricCriteria: any[]): string {
   const rubricText = rubricCriteria && rubricCriteria.length > 0 ? 
     rubricCriteria.map(criteria => 
@@ -113,13 +132,19 @@ Action: ${response.action}
 Result: ${response.result}
 
 CRITICAL SCORING INSTRUCTIONS:
-1. Score each component (situation, task, action, result) individually on a 1-10 scale based on:
+1. Score each component (situation, task, action, result) individually on a 1-5 scale based on:
    - Situation: How well the context is established and relevant
    - Task: How clearly the challenge/responsibility is explained
    - Action: How effectively specific actions are described
    - Result: How well outcomes are quantified and demonstrate impact
-2. The overall score MUST be calculated as: (situation + task + action + result) / 4
-3. Round the overall score to the nearest integer (1-10)
+2. Use these anchors for every component score:
+   5 - Strength: specific, complete, and quantified
+   4 - Mild Strength: strong, with one minor gap
+   3 - Mixed: adequate but generic or missing detail
+   2 - Mild Concern: vague or incomplete
+   1 - Concern: missing or unusable
+3. The overall score MUST be calculated as: (situation + task + action + result) / 4
+4. Round the overall score to the nearest integer (1-5)
 
 FEEDBACK REQUIREMENTS - BE VERY SPECIFIC:
 - Strengths: Provide exactly 3-5 SPECIFIC examples with concrete details from the response
@@ -129,11 +154,11 @@ FEEDBACK REQUIREMENTS - BE VERY SPECIFIC:
 Evaluate this STAR response and provide feedback in the following JSON format:
 {
   "scores": {
-    "situation": number (1-10),
-    "task": number (1-10),
-    "action": number (1-10),
-    "result": number (1-10),
-    "overall": number (1-10)
+    "situation": number (1-5),
+    "task": number (1-5),
+    "action": number (1-5),
+    "result": number (1-5),
+    "overall": number (1-5)
   },
   "analysis": {
     "completeness": "Comment on whether all STAR elements are present and complete",
@@ -320,38 +345,32 @@ async function evaluateStarResponse(responseId: string, callerId: string) {
     
     const feedbackData = parsedResult.data;
 
-    // Calculate and verify the overall score is the average of the 4 component scores
+    // Normalise the scores before anything stores or renders them. The model's
+    // own overall has disagreed with its own components (an 8.2 next to a 9, 7, 8,
+    // 8), and the prompt asks for the average, so the average is what it gets.
     if (feedbackData.scores) {
-      const { situation, task, action, result } = feedbackData.scores;
-      const calculatedOverall = Math.round((situation + task + action + result) / 4);
-      
-      console.log(`[evaluate-star-response] Score verification: Situation=${situation}, Task=${task}, Action=${action}, Result=${result}`);
-      console.log(`[evaluate-star-response] Calculated average: ${(situation + task + action + result) / 4}, Rounded: ${calculatedOverall}`);
-      console.log(`[evaluate-star-response] AI provided overall: ${feedbackData.scores.overall}`);
-      
-      // Override the overall score with the correct calculated average
-      feedbackData.scores.overall = calculatedOverall;
-      console.log(`[evaluate-star-response] Corrected overall score to: ${calculatedOverall}`);
+      const raw = { ...feedbackData.scores };
+      const situation = clampScore(raw.situation);
+      const task = clampScore(raw.task);
+      const action = clampScore(raw.action);
+      const result = clampScore(raw.result);
+      const overall = Math.round((situation + task + action + result) / 4);
+
+      console.log(`[evaluate-star-response] Raw model scores:`, raw);
+      feedbackData.scores = { situation, task, action, result, overall };
+      console.log(`[evaluate-star-response] Normalised to 1-${SCORE_SCALE}:`, feedbackData.scores);
     }
 
-    // Convert 5-point scale to 10-point scale if it's an assessment question
-    if (isAssessmentQuestion && feedbackData.scores) {
-      console.log(`[evaluate-star-response] Converting scores from 5-point to 10-point scale`);
-      const originalScores = { ...feedbackData.scores };
-      feedbackData.scores = {
-        situation: originalScores.situation * 2,
-        task: originalScores.task * 2, 
-        action: originalScores.action * 2,
-        result: originalScores.result * 2,
-        overall: originalScores.overall * 2
-      };
-      
-      console.log(`[evaluate-star-response] Converted scores:`, feedbackData.scores);
-      
-      // Add assessment-specific scoring
-      if (feedbackData.assessment_evaluation) {
-        feedbackData.assessment_evaluation.performance_score = feedbackData.assessment_evaluation.performance_score * 2;
-      }
+    // Assessment scores used to be doubled into a 10-point display, which is where
+    // the all-even feedback came from: a rubric defining only levels 1-5 can never
+    // produce a 3, 5, 7 or 9 out of 10. Both question types now keep the rubric's
+    // scale, and this stamp tells the UI which denominator to draw. Feedback saved
+    // before this change carries no stamp and keeps rendering out of 10.
+    feedbackData.score_scale = SCORE_SCALE;
+
+    if (feedbackData.assessment_evaluation?.performance_score != null) {
+      feedbackData.assessment_evaluation.performance_score =
+        clampScore(feedbackData.assessment_evaluation.performance_score);
     }
 
     // Validate feedback structure
