@@ -9,7 +9,6 @@ import { corsHeaders, handleError, safeParseJSON } from "../_shared/utils.ts";
 import { requireUser } from "../_shared/auth.ts";
 import { callGroq, GroqRateLimitError, rateLimitResponse } from "../_shared/groq.ts";
 
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const GROQ = Deno.env.get("GROQ");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -407,7 +406,10 @@ async function evaluateStarResponse(responseId: string, callerId: string) {
 
     // Update the STAR response with the feedback
     console.log(`[evaluate-star-response] Updating STAR response with feedback`);
-    const { data: updatedResponse, error: updateError } = await supabase
+    // `.select().single()` stays: on an UPDATE that matches no row PostgREST
+    // answers PGRST116 rather than a silent success, so it is the check that the
+    // feedback actually landed. Only the returned row is unused.
+    const { error: updateError } = await supabase
       .from("star_responses")
       .update({ 
         ai_feedback: feedbackData,
