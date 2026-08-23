@@ -230,4 +230,33 @@ describe('StarPractice page (Guided Coach)', () => {
     expect(screen.getAllByText('8/10').length).toBe(2);
     expect(screen.getByText('6.5/10')).toBeInTheDocument();
   });
+
+  // The score bars read feedback.scores unconditionally. A payload without it
+  // used to take the whole rail down with a TypeError, losing the written
+  // feedback the user could still have acted on.
+  it('renders the written feedback when the payload carries no scores', async () => {
+    userState.user = { id: 'user-1' };
+    mockStudyGuideQuery();
+    vi.spyOn(LocalStorageUtils, 'getSavedStarResponses').mockReturnValue({
+      q1: {
+        response: { situation: 'S text', task: 'T text', action: 'A text', result: 'R text' },
+        feedback: {
+          analysis: { completeness: 'ok', specificity: 'ok', relevance: 'ok', impact: 'ok', communication: 'ok' },
+          feedback: {
+            strengths: ['Clear scene-setting'],
+            improvements: ['Quantify the result'],
+            suggestions: ['Add a number to the outcome'],
+          },
+        },
+        timestamp: 1,
+      },
+    } as any);
+
+    render(<StarPractice />);
+
+    expect(await screen.findByText('AI Feedback')).toBeInTheDocument();
+    expect(screen.getByText('Clear scene-setting')).toBeInTheDocument();
+    expect(screen.getByText('Quantify the result')).toBeInTheDocument();
+    expect(screen.queryByText('Overall')).not.toBeInTheDocument();
+  });
 });

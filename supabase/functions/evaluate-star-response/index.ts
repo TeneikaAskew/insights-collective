@@ -18,17 +18,19 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 // question types score on it; nothing is doubled for display any more.
 const SCORE_SCALE = 5;
 
-// Models have returned components the prompt never allowed (a 9, an 8.2) and the
-// UI draws each score as a percentage of the scale, so an out-of-range component
-// renders as an over-full bar. A component that comes back missing or unparseable
-// scores at the bottom rather than being dropped: dropping it would quietly leave
-// the overall average taken over fewer than four components.
-function clampScore(value: unknown): number {
+// A component the model put outside the scale is a repairable mistake — it has
+// returned a 9 and an 8.2 — and since the UI draws each score as a percentage of
+// the scale, an out-of-range value renders as an over-full bar. Clamping keeps
+// the ranking the model intended.
+//
+// A component that is absent or unparseable is NOT repairable. Defaulting it to
+// the bottom of the scale would tell the user their answer scored the worst
+// possible when in fact the model malformed its output, so this returns null and
+// the caller rejects the whole evaluation instead of inventing a score.
+function clampScore(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
   const num = typeof value === "number" ? value : Number(value);
-  if (!Number.isFinite(num)) {
-    console.warn(`[evaluate-star-response] Unusable component score ${JSON.stringify(value)}; scoring it 1`);
-    return 1;
-  }
+  if (!Number.isFinite(num)) return null;
   return Math.min(SCORE_SCALE, Math.max(1, Math.round(num)));
 }
 
@@ -347,18 +349,29 @@ async function evaluateStarResponse(responseId: string, callerId: string) {
     // Normalise the scores before anything stores or renders them. The model's
     // own overall has disagreed with its own components (an 8.2 next to a 9, 7, 8,
     // 8), and the prompt asks for the average, so the average is what it gets.
-    if (feedbackData.scores) {
-      const raw = { ...feedbackData.scores };
-      const situation = clampScore(raw.situation);
-      const task = clampScore(raw.task);
-      const action = clampScore(raw.action);
-      const result = clampScore(raw.result);
-      const overall = Math.round((situation + task + action + result) / 4);
+    const rawScores = feedbackData.scores ?? {};
+    const situationScore = clampScore(rawScores.situation);
+    const taskScore = clampScore(rawScores.task);
+    const actionScore = clampScore(rawScores.action);
+    const resultScore = clampScore(rawScores.result);
 
-      console.log(`[evaluate-star-response] Raw model scores:`, raw);
-      feedbackData.scores = { situation, task, action, result, overall };
-      console.log(`[evaluate-star-response] Normalised to 1-${SCORE_SCALE}:`, feedbackData.scores);
+    // The page renders every component and the overall unconditionally, so a
+    // payload missing any of them is not partially usable — it is a failed
+    // evaluation, in the same class as the missing-feedback cases below.
+    if (situationScore === null || taskScore === null || actionScore === null || resultScore === null) {
+      console.error(`[evaluate-star-response] Unusable component scores:`, feedbackData.scores);
+      throw new Error("AI response missing valid scores");
     }
+
+    console.log(`[evaluate-star-response] Raw model scores:`, feedbackData.scores);
+    feedbackData.scores = {
+      situation: situationScore,
+      task: taskScore,
+      action: actionScore,
+      result: resultScore,
+      overall: Math.round((situationScore + taskScore + actionScore + resultScore) / 4),
+    };
+    console.log(`[evaluate-star-response] Normalised to 1-${SCORE_SCALE}:`, feedbackData.scores);
 
     // Assessment scores used to be doubled into a 10-point display, which is where
     // the all-even feedback came from: a rubric defining only levels 1-5 can never
@@ -367,9 +380,13 @@ async function evaluateStarResponse(responseId: string, callerId: string) {
     // before this change carries no stamp and keeps rendering out of 10.
     feedbackData.score_scale = SCORE_SCALE;
 
+    // Metadata, not rendered anywhere, so an unusable value is dropped rather
+    // than failing an otherwise-good evaluation.
     if (feedbackData.assessment_evaluation?.performance_score != null) {
-      feedbackData.assessment_evaluation.performance_score =
-        clampScore(feedbackData.assessment_evaluation.performance_score);
+      const performance = clampScore(feedbackData.assessment_evaluation.performance_score);
+      if (performance !== null) {
+        feedbackData.assessment_evaluation.performance_score = performance;
+      }
     }
 
     // Validate feedback structure

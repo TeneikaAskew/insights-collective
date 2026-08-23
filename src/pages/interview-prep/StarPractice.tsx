@@ -819,6 +819,12 @@ export default function StarPractice() {
                     <CardDescription>Analysis of your STAR response</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-5">
+                    {/* Feedback saved before evaluate-star-response rejected
+                        score-less payloads can be missing `scores` entirely; the
+                        bars below read it unconditionally, so without this the
+                        whole rail throws and the user loses the written feedback
+                        too. */}
+                    {feedback.scores ? (
                     <div>
                       {STAR_STEPS.map((step) => (
                         <div key={step} className="mb-3">
@@ -847,6 +853,7 @@ export default function StarPractice() {
                         </div>
                       </div>
                     </div>
+                    ) : null}
 
                     <div className="rounded-2xl bg-background border border-border p-4">
                       <h3 className="text-sm font-bold mb-3">Analysis</h3>
