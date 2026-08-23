@@ -380,7 +380,7 @@ serve(async (req) => {
     }
   } catch (error) {
     console.error('[admin-users] Edge function error:', error)
-    return new Response(JSON.stringify({ error: error.message || 'An error occurred' }), {
+    return new Response(JSON.stringify({ error: (error instanceof Error && error.message) || 'An error occurred' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })

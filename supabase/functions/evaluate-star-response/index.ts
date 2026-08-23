@@ -8,8 +8,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
 import { corsHeaders, handleError, safeParseJSON } from "../_shared/utils.ts";
 import { requireUser } from "../_shared/auth.ts";
 import { callGroq, GroqRateLimitError, rateLimitResponse } from "../_shared/groq.ts";
+import { clampScore, normalizeScores, SCORE_SCALE } from "./scoring.ts";
 
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const GROQ = Deno.env.get("GROQ");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -113,13 +113,19 @@ Action: ${response.action}
 Result: ${response.result}
 
 CRITICAL SCORING INSTRUCTIONS:
-1. Score each component (situation, task, action, result) individually on a 1-10 scale based on:
+1. Score each component (situation, task, action, result) individually on a 1-5 scale based on:
    - Situation: How well the context is established and relevant
    - Task: How clearly the challenge/responsibility is explained
    - Action: How effectively specific actions are described
    - Result: How well outcomes are quantified and demonstrate impact
-2. The overall score MUST be calculated as: (situation + task + action + result) / 4
-3. Round the overall score to the nearest integer (1-10)
+2. Use these anchors for every component score:
+   5 - Strength: specific, complete, and quantified
+   4 - Mild Strength: strong, with one minor gap
+   3 - Mixed: adequate but generic or missing detail
+   2 - Mild Concern: vague or incomplete
+   1 - Concern: missing or unusable
+3. The overall score MUST be calculated as: (situation + task + action + result) / 4
+4. Round the overall score to the nearest integer (1-5)
 
 FEEDBACK REQUIREMENTS - BE VERY SPECIFIC:
 - Strengths: Provide exactly 3-5 SPECIFIC examples with concrete details from the response
@@ -129,11 +135,11 @@ FEEDBACK REQUIREMENTS - BE VERY SPECIFIC:
 Evaluate this STAR response and provide feedback in the following JSON format:
 {
   "scores": {
-    "situation": number (1-10),
-    "task": number (1-10),
-    "action": number (1-10),
-    "result": number (1-10),
-    "overall": number (1-10)
+    "situation": number (1-5),
+    "task": number (1-5),
+    "action": number (1-5),
+    "result": number (1-5),
+    "overall": number (1-5)
   },
   "analysis": {
     "completeness": "Comment on whether all STAR elements are present and complete",
@@ -320,37 +326,32 @@ async function evaluateStarResponse(responseId: string, callerId: string) {
     
     const feedbackData = parsedResult.data;
 
-    // Calculate and verify the overall score is the average of the 4 component scores
-    if (feedbackData.scores) {
-      const { situation, task, action, result } = feedbackData.scores;
-      const calculatedOverall = Math.round((situation + task + action + result) / 4);
-      
-      console.log(`[evaluate-star-response] Score verification: Situation=${situation}, Task=${task}, Action=${action}, Result=${result}`);
-      console.log(`[evaluate-star-response] Calculated average: ${(situation + task + action + result) / 4}, Rounded: ${calculatedOverall}`);
-      console.log(`[evaluate-star-response] AI provided overall: ${feedbackData.scores.overall}`);
-      
-      // Override the overall score with the correct calculated average
-      feedbackData.scores.overall = calculatedOverall;
-      console.log(`[evaluate-star-response] Corrected overall score to: ${calculatedOverall}`);
+    // Normalise the scores before anything stores or renders them. The model's
+    // own overall has disagreed with its own components (an 8.2 next to a 9, 7, 8,
+    // 8), and the prompt asks for the average, so the average is what it gets.
+    const normalizedScores = normalizeScores(feedbackData.scores);
+    if (!normalizedScores) {
+      console.error(`[evaluate-star-response] Unusable component scores:`, feedbackData.scores);
+      throw new Error("AI response missing valid scores");
     }
 
-    // Convert 5-point scale to 10-point scale if it's an assessment question
-    if (isAssessmentQuestion && feedbackData.scores) {
-      console.log(`[evaluate-star-response] Converting scores from 5-point to 10-point scale`);
-      const originalScores = { ...feedbackData.scores };
-      feedbackData.scores = {
-        situation: originalScores.situation * 2,
-        task: originalScores.task * 2, 
-        action: originalScores.action * 2,
-        result: originalScores.result * 2,
-        overall: originalScores.overall * 2
-      };
-      
-      console.log(`[evaluate-star-response] Converted scores:`, feedbackData.scores);
-      
-      // Add assessment-specific scoring
-      if (feedbackData.assessment_evaluation) {
-        feedbackData.assessment_evaluation.performance_score = feedbackData.assessment_evaluation.performance_score * 2;
+    console.log(`[evaluate-star-response] Raw model scores:`, feedbackData.scores);
+    feedbackData.scores = normalizedScores;
+    console.log(`[evaluate-star-response] Normalised to 1-${SCORE_SCALE}:`, feedbackData.scores);
+
+    // Assessment scores used to be doubled into a 10-point display, which is where
+    // the all-even feedback came from: a rubric defining only levels 1-5 can never
+    // produce a 3, 5, 7 or 9 out of 10. Both question types now keep the rubric's
+    // scale, and this stamp tells the UI which denominator to draw. Feedback saved
+    // before this change carries no stamp and keeps rendering out of 10.
+    feedbackData.score_scale = SCORE_SCALE;
+
+    // Metadata, not rendered anywhere, so an unusable value is dropped rather
+    // than failing an otherwise-good evaluation.
+    if (feedbackData.assessment_evaluation?.performance_score != null) {
+      const performance = clampScore(feedbackData.assessment_evaluation.performance_score);
+      if (performance !== null) {
+        feedbackData.assessment_evaluation.performance_score = performance;
       }
     }
 
@@ -388,7 +389,10 @@ async function evaluateStarResponse(responseId: string, callerId: string) {
 
     // Update the STAR response with the feedback
     console.log(`[evaluate-star-response] Updating STAR response with feedback`);
-    const { data: updatedResponse, error: updateError } = await supabase
+    // `.select().single()` stays: on an UPDATE that matches no row PostgREST
+    // answers PGRST116 rather than a silent success, so it is the check that the
+    // feedback actually landed. Only the returned row is unused.
+    const { error: updateError } = await supabase
       .from("star_responses")
       .update({ 
         ai_feedback: feedbackData,
@@ -467,7 +471,7 @@ serve(async (req) => {
     console.error(`[evaluate-star-response] Error in edge function:`, error);
     
     return new Response(
-      JSON.stringify({ error: error.message || "Failed to evaluate STAR response" }),
+      JSON.stringify({ error: (error instanceof Error && error.message) || "Failed to evaluate STAR response" }),
       { 
         status: 500, 
         headers: { ...corsHeaders, "Content-Type": "application/json" }

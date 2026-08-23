@@ -96,6 +96,11 @@ export default function StarPractice() {
     result: '',
   });
   const [feedback, setFeedback] = useState<any>(null);
+  // Scores are on the assessment rubric's own 1-5 scale, and evaluate-star-response
+  // stamps score_scale so the bars know what to divide by. Feedback saved before
+  // that switch carries no stamp and was stored out of 10, so it keeps its old
+  // denominator instead of being redrawn as an impossible 8/5.
+  const scoreScale = typeof feedback?.score_scale === 'number' ? feedback.score_scale : 10;
   const [isFlipped, setIsFlipped] = useState(false);
   const [currentStarStep, setCurrentStarStep] = useState<StarStep>('situation');
   const [hasSubmittedResponse, setHasSubmittedResponse] = useState(false);
@@ -786,7 +791,7 @@ export default function StarPractice() {
                         >
                           {feedback?.scores?.[step] != null && (
                             <span className="float-right rounded-full bg-ss-track px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-                              {feedback.scores[step]}/10
+                              {feedback.scores[step]}/{scoreScale}
                             </span>
                           )}
                           <h3 className={`text-xs font-bold tracking-widest uppercase ${STEP_STYLES[step].hintText}`}>
@@ -814,17 +819,23 @@ export default function StarPractice() {
                     <CardDescription>Analysis of your STAR response</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-5">
+                    {/* Feedback saved before evaluate-star-response rejected
+                        score-less payloads can be missing `scores` entirely; the
+                        bars below read it unconditionally, so without this the
+                        whole rail throws and the user loses the written feedback
+                        too. */}
+                    {feedback.scores ? (
                     <div>
                       {STAR_STEPS.map((step) => (
                         <div key={step} className="mb-3">
                           <div className="flex justify-between text-sm mb-1">
                             <span className="text-muted-foreground">{STEP_STYLES[step].label}</span>
-                            <span className="font-bold">{feedback.scores[step]}/10</span>
+                            <span className="font-bold">{feedback.scores[step]}/{scoreScale}</span>
                           </div>
                           <div className="h-2 w-full bg-ss-track rounded-full overflow-hidden">
                             <div
                               className={`h-full rounded-full ${STEP_STYLES[step].bar}`}
-                              style={{ width: `${feedback.scores[step] * 10}%` }}
+                              style={{ width: `${(feedback.scores[step] / scoreScale) * 100}%` }}
                             ></div>
                           </div>
                         </div>
@@ -832,16 +843,17 @@ export default function StarPractice() {
                       <div className="pt-3 mt-1 border-t border-border">
                         <div className="flex justify-between text-sm mb-1">
                           <span className="font-bold">Overall</span>
-                          <span className="font-bold">{feedback.scores.overall}/10</span>
+                          <span className="font-bold">{feedback.scores.overall}/{scoreScale}</span>
                         </div>
                         <div className="h-3 w-full bg-ss-track rounded-full overflow-hidden">
                           <div
                             className="h-full bg-ss-lav-deep rounded-full"
-                            style={{ width: `${feedback.scores.overall * 10}%` }}
+                            style={{ width: `${(feedback.scores.overall / scoreScale) * 100}%` }}
                           ></div>
                         </div>
                       </div>
                     </div>
+                    ) : null}
 
                     <div className="rounded-2xl bg-background border border-border p-4">
                       <h3 className="text-sm font-bold mb-3">Analysis</h3>

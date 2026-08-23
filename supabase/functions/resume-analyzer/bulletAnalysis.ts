@@ -233,7 +233,7 @@ export function analyzeWordBalance(bullet: string): {
   //   return Math.max(0, score);
   // };
 
-  const getBucketScore = (actual, ideal) => {
+  const getBucketScore = (actual: number, ideal: number) => {
     const dev = Math.abs(actual - ideal);
     if (dev <= 5) return 25;
     if (dev <= 10) return 20;

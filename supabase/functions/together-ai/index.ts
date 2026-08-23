@@ -6,7 +6,7 @@ import { requireUser } from '../_shared/auth.ts';
 const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
 
 // Handle CORS preflight requests
-const handleCors = (req) => {
+const handleCors = (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -108,7 +108,7 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('Error in together-ai function:', error);
-    return new Response(JSON.stringify({ success: false, error: error.message }), {
+    return new Response(JSON.stringify({ success: false, error: error instanceof Error ? error.message : String(error) }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });

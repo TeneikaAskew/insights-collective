@@ -89,7 +89,7 @@ async function getValidAccessToken(): Promise<string> {
     }
   } catch (error) {
     console.log('Error testing access token:', error)
-    if (error.message.includes('Rate limit')) {
+    if (error instanceof Error && error.message.includes('Rate limit')) {
       throw error
     }
     return await refreshAccessToken()

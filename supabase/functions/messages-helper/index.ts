@@ -111,8 +111,9 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error(`[messages-helper] Error in action '${action}':`, error?.message ?? String(error));
-    return new Response(JSON.stringify({ error: error.message }), {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[messages-helper] Error in action '${action}':`, message);
+    return new Response(JSON.stringify({ error: message }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -192,7 +193,7 @@ async function getConversations(supabaseAdmin: any, userId: string) {
   }
 
   // Process conversations to include latest message and generate subject if missing
-  const processedConversations = (conversationData || []).map(conv => {
+  const processedConversations = (conversationData || []).map((conv: any) => {
     let subject = conv.subject;
     
     // Generate subject for conversations without one
@@ -246,7 +247,7 @@ async function getArchivedConversations(supabaseAdmin: any, userId: string) {
     return { conversations: [] };
   }
 
-  const archivedConversationIds = participantData.map(p => p.conversation_id);
+  const archivedConversationIds = participantData.map((p: { conversation_id: string }) => p.conversation_id);
   console.log(`[messages-helper/getArchivedConversations] Fetching details for conversation IDs:`, archivedConversationIds);
 
   // Fetch conversation details
@@ -291,7 +292,7 @@ async function getArchivedConversations(supabaseAdmin: any, userId: string) {
   }
 
   // Process conversations with proper subject generation
-  const processedConversations = (conversationData || []).map(conv => {
+  const processedConversations = (conversationData || []).map((conv: any) => {
     let subject = conv.subject;
     
     if (isBlankSubject(subject)) {
@@ -342,7 +343,7 @@ async function getDeletedConversations(supabaseAdmin: any, userId: string) {
     return { conversations: [] };
   }
 
-  const conversationIds = participantData.map(p => p.conversation_id);
+  const conversationIds = participantData.map((p: { conversation_id: string }) => p.conversation_id);
   console.log(`[messages-helper/getDeletedConversations] Fetching details for conversation IDs:`, conversationIds);
 
   // Fetch conversation details
@@ -386,7 +387,7 @@ async function getDeletedConversations(supabaseAdmin: any, userId: string) {
   }
 
   // Process conversations with proper subject generation
-  const processedConversations = (conversationData || []).map(conv => {
+  const processedConversations = (conversationData || []).map((conv: any) => {
     let subject = conv.subject;
     
     if (isBlankSubject(subject)) {

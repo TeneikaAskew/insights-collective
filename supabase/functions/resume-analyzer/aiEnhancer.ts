@@ -37,7 +37,7 @@ const ANALYZE_RESUME_TOOL = {
 const TOOL_CHOICE = { type: "function", function: { name: "analyze_resume" } };
 
 // Use LLM API to enhance analysis with AI via tool calling
-export async function enhanceWithGroq(resumeText, analysis) {
+export async function enhanceWithGroq(resumeText: string, analysis: { bullets: any[]; letter_grade: string; resume_percent: number; [key: string]: any }) {
   console.log('Resume scoring and feedback function hit');
   const startTime = Date.now();
   try {

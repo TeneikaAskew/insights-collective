@@ -22,6 +22,9 @@ export async function rewriteBullet(bullet: string, analysis: any): Promise<stri
         metric_pct: 0
       }
     });
+    if (!result) {
+      throw new Error("Empty result from improveBullet");
+    }
     console.log("Bullet Rewrite Result:", result.rewritten);
     const endTime = Date.now();
     console.log(`[rewriteBullet]: Function completed in ${(endTime - startTime)/1000}s`);
@@ -50,6 +53,9 @@ export async function generateTips(bullet: string, analysis: any): Promise<strin
         metric_pct: 0
       }
     });
+    if (!result) {
+      throw new Error("Empty result from improveBullet");
+    }
     console.log("Generate Tips Result:", result.tips);
     const endTime = Date.now();
     console.log(`[generateTips]: Function completed in ${(endTime - startTime)/1000}s`);

@@ -1,7 +1,8 @@
 // ABOUTME: Utility functions for the resume-analyzer edge function including LLM API calls
 // ABOUTME: Provides provider fallback (Gemini primary, GROQ fallback) and rate limiting
 
-import { createClient } from 'npm:@supabase/supabase-js@2';
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 // Simple token estimation without external dependency
 function countTokens(text: string): number {
@@ -10,7 +11,7 @@ function countTokens(text: string): number {
 }
 // Call tracking system
 export const callTracking = {
-  calls: [],
+  calls: [] as number[],
   lastMinute: Math.floor(Date.now() / 60000),
   addCall () {
     const currentMinute = Math.floor(Date.now() / 60000);
@@ -37,7 +38,15 @@ const API_CONFIG = {
     DAILY_LIMIT: 1000
   }
 };
-const endpointStatus = {
+type ApiEndpoint = keyof typeof API_CONFIG;
+interface EndpointState {
+  lastCallTime: number;
+  dailyCallCount: number;
+  failureCount: number;
+  isDisabled: boolean;
+  resetTime?: number;
+}
+const endpointStatus: Record<ApiEndpoint, EndpointState> = {
   GEMINI: {
     lastCallTime: 0,
     dailyCallCount: 0,
@@ -60,7 +69,7 @@ function scheduleCounterReset() {
   tomorrow.setUTCHours(24, 0, 0, 0);
   const timeUntilReset = tomorrow.getTime() - now;
   setTimeout(()=>{
-    Object.keys(endpointStatus).forEach((endpoint)=>{
+    (Object.keys(endpointStatus) as ApiEndpoint[]).forEach((endpoint)=>{
       endpointStatus[endpoint].dailyCallCount = 0;
       endpointStatus[endpoint].failureCount = 0;
       endpointStatus[endpoint].isDisabled = false;
@@ -71,7 +80,7 @@ function scheduleCounterReset() {
 }
 scheduleCounterReset();
 // Input validation
-function validateInput(system, user) {
+function validateInput(system: string, user: string) {
   if (!system?.trim()) {
     throw new Error('System prompt cannot be empty');
   }
@@ -80,7 +89,7 @@ function validateInput(system, user) {
   }
 }
 // Rate limiting helper
-async function enforceRateLimit(endpoint) {
+async function enforceRateLimit(endpoint: ApiEndpoint) {
   const status = endpointStatus[endpoint];
   const config = API_CONFIG[endpoint];
   const now = Date.now();
@@ -94,7 +103,7 @@ async function enforceRateLimit(endpoint) {
   status.dailyCallCount++;
 }
 // Check if endpoint should be used
-function canUseEndpoint(endpoint) {
+function canUseEndpoint(endpoint: ApiEndpoint) {
   const status = endpointStatus[endpoint];
   const config = API_CONFIG[endpoint];
   if (status.isDisabled) return false;
@@ -109,7 +118,7 @@ function canUseEndpoint(endpoint) {
   return true;
 }
 // Handle API response
-function handleApiResponse(endpoint, response, responseText) {
+function handleApiResponse(endpoint: ApiEndpoint, response: Response, responseText: string) {
   const status = endpointStatus[endpoint];
   if (response.status === 429) {
     status.failureCount++;
@@ -143,7 +152,7 @@ function extractToolCallResult(json: any): string {
 }
 
 // Gemini API call via Lovable AI Gateway
-async function callGeminiAPI(system, user, options?: LLMCallOptions) {
+async function callGeminiAPI(system: string, user: string, options?: LLMCallOptions) {
   if (!canUseEndpoint('GEMINI')) {
     throw new Error('Gemini API is currently disabled');
   }
@@ -180,11 +189,11 @@ async function callGeminiAPI(system, user, options?: LLMCallOptions) {
     const json = JSON.parse(responseText);
     return extractToolCallResult(json);
   } catch (e) {
-    throw new Error(`Failed to parse Gemini response: ${e.message}`);
+    throw new Error(`Failed to parse Gemini response: ${e instanceof Error ? e.message : String(e)}`);
   }
 }
 // GROQ API call
-async function callGROQAPI(system, user, options?: LLMCallOptions) {
+async function callGROQAPI(system: string, user: string, options?: LLMCallOptions) {
   if (!canUseEndpoint('GROQ')) {
     throw new Error('GROQ API is currently disabled');
   }
@@ -228,7 +237,7 @@ async function callGROQAPI(system, user, options?: LLMCallOptions) {
     const json = JSON.parse(responseText);
     return extractToolCallResult(json);
   } catch (e) {
-    throw new Error(`Failed to parse GROQ response: ${e.message}`);
+    throw new Error(`Failed to parse GROQ response: ${e instanceof Error ? e.message : String(e)}`);
   }
 }
 // Call queue system
@@ -261,14 +270,14 @@ const callQueue = {
   }
 };
 // Main LLM API call function with smart endpoint selection
-export async function callLLMAPI(system, user, label = "LLM", options?: LLMCallOptions): Promise<string> {
+export async function callLLMAPI(system: string, user: string, label = "LLM", options?: LLMCallOptions): Promise<string> {
   validateInput(system, user);
   callTracking.addCall();
   const n = countTokens(system + user);
   console.log(`[${label}] Prompt uses ${n} tokens`);
   
   // Get available endpoints - Gemini first, then fallbacks
-  const preferredOrder = ['GEMINI', 'GROQ'];
+  const preferredOrder: ApiEndpoint[] = ['GEMINI', 'GROQ'];
   
   // Filter available endpoints in the preferred order
   const availableEndpoints = preferredOrder.filter(canUseEndpoint);
@@ -278,15 +287,15 @@ export async function callLLMAPI(system, user, label = "LLM", options?: LLMCallO
   }
 
   // Wrap the API call in a queue
-  return new Promise((resolve, reject) => {
+  return new Promise<string>((resolve, reject) => {
     callQueue.add(async () => {
       // Try each available endpoint with a per-call timeout
       for (const endpoint of availableEndpoints) {
         try {
-          const timeoutPromise = new Promise((_, timeoutReject) => 
+          const timeoutPromise = new Promise<never>((_, timeoutReject) =>
             setTimeout(() => timeoutReject(new Error(`${endpoint} timed out after 15s`)), 15000)
           );
-          let resultPromise;
+          let resultPromise: Promise<string>;
           switch(endpoint) {
             case 'GEMINI':
               resultPromise = callGeminiAPI(system, user, options);
@@ -310,7 +319,7 @@ export async function callLLMAPI(system, user, label = "LLM", options?: LLMCallO
   });
 }
 // Retry wrapper with exponential backoff
-export async function callLLMWithRetry(system, user, attempt = 1, maxAttempts = 3, label = "LLM", options?: LLMCallOptions): Promise<string> {
+export async function callLLMWithRetry(system: string, user: string, attempt = 1, maxAttempts = 3, label = "LLM", options?: LLMCallOptions): Promise<string> {
   try {
     return await callLLMAPI(system, user, label, options);
   } catch (error) {
@@ -337,7 +346,7 @@ export const corsHeaders = {
   'Access-Control-Max-Age': '86400'
 };
 // Utility functions
-export function handleOptions(req) {
+export function handleOptions(req: Request) {
   if (req.method === 'OPTIONS') {
     return new Response('ok', {
       headers: corsHeaders
@@ -345,17 +354,17 @@ export function handleOptions(req) {
   }
   return null;
 }
-function getSupabaseClient() {
+function getSupabaseClient(): SupabaseClient {
   const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
   const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
   if (!supabaseUrl || !supabaseKey) {
     throw new Error('Missing Supabase credentials');
   }
-  return createClient(supabaseUrl, supabaseKey);
+  return createClient(supabaseUrl, supabaseKey) as unknown as SupabaseClient;
 }
 // Export endpoint status checking functions
 export function getEndpointStatus() {
-  return Object.entries(endpointStatus).map(([endpoint, status])=>({
+  return (Object.entries(endpointStatus) as [ApiEndpoint, EndpointState][]).map(([endpoint, status])=>({
       endpoint,
       isAvailable: canUseEndpoint(endpoint),
       dailyCallCount: status.dailyCallCount,
@@ -364,9 +373,9 @@ export function getEndpointStatus() {
       resetTime: status.resetTime
     }));
 }
-export function resetEndpoint(endpoint) {
+export function resetEndpoint(endpoint: string) {
   if (endpoint in endpointStatus) {
-    endpointStatus[endpoint] = {
+    endpointStatus[endpoint as ApiEndpoint] = {
       lastCallTime: 0,
       dailyCallCount: 0,
       failureCount: 0,
