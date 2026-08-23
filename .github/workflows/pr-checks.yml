@@ -44,6 +44,18 @@ jobs:
     - name: Check model ids
       run: node scripts/check-models.mjs
 
+    # The Edge Functions are Deno, so vitest never sees them. Their specs — the
+    # STAR scoring rules, the response reader, the recipient rule in
+    # _shared/email-recipients.test.ts — existed but no check ran them, which
+    # meant the invariant they protect was only ever verified by hand.
+    - name: Set up Deno
+      uses: denoland/setup-deno@v1
+      with:
+        deno-version: v2.x
+
+    - name: Run Edge Function tests
+      run: deno test --allow-env supabase/functions/
+
     - name: Run tests
       run: npm run test -- --run
     

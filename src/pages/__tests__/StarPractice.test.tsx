@@ -202,10 +202,11 @@ describe('StarPractice page (Guided Coach)', () => {
     expect(screen.getByRole('button', { name: /update response/i })).toBeInTheDocument();
   });
 
-  // Everything scored before the switch to the rubric's 1-5 scale is stored out
-  // of 10 with no score_scale stamp. Redrawing those as /5 would print an 8/5,
-  // so the old denominator has to survive the change.
-  it('keeps the 10-point denominator for feedback saved before the 5-point switch', async () => {
+  // This cache is read before the database and returns early, so an entry left
+  // from before the 1-5 switch would shadow the row forever — and it holds
+  // scores out of 10. Skipping it is what makes the server-side cleanup visible
+  // in a browser that already has the old blob.
+  it('ignores cached feedback saved before the 5-point switch', async () => {
     userState.user = { id: 'user-1' };
     mockStudyGuideQuery();
     vi.spyOn(LocalStorageUtils, 'getSavedStarResponses').mockReturnValue({
@@ -226,9 +227,11 @@ describe('StarPractice page (Guided Coach)', () => {
 
     render(<StarPractice />);
 
-    expect(await screen.findByText('AI Feedback')).toBeInTheDocument();
-    expect(screen.getAllByText('8/10').length).toBe(2);
-    expect(screen.getByText('6.5/10')).toBeInTheDocument();
+    // Falls through to the database, which has nothing, so the user is back on
+    // the compose view rather than looking at a stale 8/10.
+    await screen.findByText('Your coach');
+    expect(screen.queryByText('AI Feedback')).not.toBeInTheDocument();
+    expect(screen.queryByText('8/10')).not.toBeInTheDocument();
   });
 
   // The score bars read feedback.scores unconditionally. A payload without it
@@ -241,6 +244,7 @@ describe('StarPractice page (Guided Coach)', () => {
       q1: {
         response: { situation: 'S text', task: 'T text', action: 'A text', result: 'R text' },
         feedback: {
+          score_scale: 5,
           analysis: { completeness: 'ok', specificity: 'ok', relevance: 'ok', impact: 'ok', communication: 'ok' },
           feedback: {
             strengths: ['Clear scene-setting'],
