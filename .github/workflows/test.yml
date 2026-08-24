@@ -35,7 +35,11 @@ jobs:
       matrix:
         node-version: [20.x, 22.x]
       fail-fast: false
-    
+
+    # See nightly.yml: the `secrets` context is not readable from a step `if`.
+    env:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
     steps:
     - uses: actions/checkout@v4
     
@@ -55,10 +59,16 @@ jobs:
       if: matrix.node-version == '20.x'
       run: npm run test:coverage -- --run
     
+    # Never fatal here, so this failure was silent rather than red — but it was
+    # the same failure: an anonymous upload, rate-limited every time, meaning
+    # Codecov has never actually received coverage for this repo. Nothing in CI
+    # depends on it (the threshold below reads coverage-summary.json off disk),
+    # so it is skipped rather than attempted-and-dropped when no token is set.
     - name: Upload coverage to Codecov
-      if: matrix.node-version == '20.x'
-      uses: codecov/codecov-action@v3
+      if: matrix.node-version == '20.x' && env.CODECOV_TOKEN != ''
+      uses: codecov/codecov-action@v5
       with:
+        token: ${{ env.CODECOV_TOKEN }}
         files: ./coverage/coverage-final.json
         flags: unittests
         name: codecov-umbrella
