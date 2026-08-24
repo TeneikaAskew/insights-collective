@@ -10,10 +10,13 @@ jobs:
     name: Comprehensive Testing
     runs-on: ubuntu-latest
 
-    # Lifted to the job so the upload step's `if` can test it: the `secrets`
-    # context is not available in a step-level `if`, but `env` is.
+    # Only whether a token exists, never the token. The `secrets` context is
+    # not readable from a step-level `if` but `env` is, and a job-level env is
+    # visible to every step in the job — including `npm install`, which runs
+    # dependency install scripts, and the test run itself. The secret goes
+    # straight into the one step that needs it instead.
     env:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      HAS_CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN != '' }}
 
     steps:
     - uses: actions/checkout@v4
@@ -55,10 +58,10 @@ jobs:
     # always used fail_ci_if_error: false for the identical upload, which is why
     # only the nightly went red.
     - name: Upload comprehensive coverage
-      if: env.CODECOV_TOKEN != ''
+      if: env.HAS_CODECOV_TOKEN == 'true'
       uses: codecov/codecov-action@v5
       with:
-        token: ${{ env.CODECOV_TOKEN }}
+        token: ${{ secrets.CODECOV_TOKEN }}
         files: ./coverage/coverage-final.json
         flags: nightly
         fail_ci_if_error: false

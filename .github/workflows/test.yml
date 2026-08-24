@@ -36,9 +36,11 @@ jobs:
         node-version: [20.x, 22.x]
       fail-fast: false
 
-    # See nightly.yml: the `secrets` context is not readable from a step `if`.
+    # See nightly.yml: presence only, never the token itself. This job runs
+    # `npm install` and the test suite on same-repo pull requests, so a
+    # job-scoped secret would be readable by any install script or test.
     env:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      HAS_CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN != '' }}
 
     steps:
     - uses: actions/checkout@v4
@@ -65,10 +67,10 @@ jobs:
     # depends on it (the threshold below reads coverage-summary.json off disk),
     # so it is skipped rather than attempted-and-dropped when no token is set.
     - name: Upload coverage to Codecov
-      if: matrix.node-version == '20.x' && env.CODECOV_TOKEN != ''
+      if: matrix.node-version == '20.x' && env.HAS_CODECOV_TOKEN == 'true'
       uses: codecov/codecov-action@v5
       with:
-        token: ${{ env.CODECOV_TOKEN }}
+        token: ${{ secrets.CODECOV_TOKEN }}
         files: ./coverage/coverage-final.json
         flags: unittests
         name: codecov-umbrella
