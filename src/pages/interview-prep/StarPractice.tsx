@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Spinner } from '@/components/ui/spinner';
 import { Check, AlertCircle, ChevronLeft, ChevronRight, RotateCw, Star } from 'lucide-react';
 import { LocalStorageUtils } from '@/utils/localStorageUtils';
+import { functionErrorMessage } from '@/lib/functionErrorMessage';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
 
@@ -39,6 +40,15 @@ interface Question {
 type StarStep = 'situation' | 'task' | 'action' | 'result';
 
 const STAR_STEPS: StarStep[] = ['situation', 'task', 'action', 'result'];
+
+// Feedback written before the switch to the rubric's 1-5 scale carries no
+// score_scale and holds scores out of 10. There is no honest way to redraw those
+// on the new scale — the two prompts asked different questions with different
+// anchors — so they are not treated as feedback at all, and the answer re-scores
+// on the next submit. Every path that can set feedback checks this: the
+// localStorage cache, the database fallback, and a fresh evaluation.
+const isCurrentFeedback = (feedback: any): boolean =>
+  typeof feedback?.score_scale === 'number';
 
 // Soft Studio step accents: Situation lavender, Task teal, Action peach, Result green.
 const STEP_STYLES: Record<StarStep, { label: string; prompt: string; bar: string; hintBox: string; hintText: string; recapBorder: string }> = {
@@ -96,11 +106,10 @@ export default function StarPractice() {
     result: '',
   });
   const [feedback, setFeedback] = useState<any>(null);
-  // Scores are on the assessment rubric's own 1-5 scale, and evaluate-star-response
-  // stamps score_scale so the bars know what to divide by. Feedback saved before
-  // that switch carries no stamp and was stored out of 10, so it keeps its old
-  // denominator instead of being redrawn as an impossible 8/5.
-  const scoreScale = typeof feedback?.score_scale === 'number' ? feedback.score_scale : 10;
+  // Guaranteed present: isCurrentFeedback() gates every path that sets feedback,
+  // so an unstamped blob never reaches the bars and there is no denominator to
+  // guess at.
+  const scoreScale = feedback?.score_scale;
   const [isFlipped, setIsFlipped] = useState(false);
   const [currentStarStep, setCurrentStarStep] = useState<StarStep>('situation');
   const [hasSubmittedResponse, setHasSubmittedResponse] = useState(false);
@@ -257,12 +266,18 @@ export default function StarPractice() {
       logger.log("[StarPractice] Saved responses from localStorage:", savedResponses);
       if (savedResponses && savedResponses[currentQuestion.id]) {
         const savedData = savedResponses[currentQuestion.id];
-        logger.log("[StarPractice] Found saved response with feedback in localStorage:", savedData);
-        setResponse(savedData.response);
-        setFeedback(savedData.feedback);
-        setHasSubmittedResponse(true);
-        setIsFlipped(false);
-        return;
+        // This cache is read before the database and returns early, so a blob
+        // left here from before the 1-5 switch would shadow the row forever.
+        if (!isCurrentFeedback(savedData.feedback)) {
+          logger.log("[StarPractice] Ignoring cached feedback with no score_scale:", currentQuestion.id);
+        } else {
+          logger.log("[StarPractice] Found saved response with feedback in localStorage:", savedData);
+          setResponse(savedData.response);
+          setFeedback(savedData.feedback);
+          setHasSubmittedResponse(true);
+          setIsFlipped(false);
+          return;
+        }
       }
 
       // If no saved response with feedback found, check for draft
@@ -298,7 +313,14 @@ export default function StarPractice() {
           result: dbResponses[0].result,
         });
 
-        if (dbResponses[0].ai_feedback) {
+        if (dbResponses[0].ai_feedback && !isCurrentFeedback(dbResponses[0].ai_feedback)) {
+          // Without this the cache filter above accomplishes nothing: the row is
+          // read here, marked submitted, and written straight back into the
+          // cache that just rejected it.
+          logger.log("[StarPractice] Ignoring stored feedback with no score_scale");
+          setHasSubmittedResponse(false);
+          setFeedback(null);
+        } else if (dbResponses[0].ai_feedback) {
           logger.log("[StarPractice] Response has feedback:", dbResponses[0].ai_feedback);
           setFeedback(dbResponses[0].ai_feedback);
           setHasSubmittedResponse(true);
@@ -363,18 +385,42 @@ export default function StarPractice() {
     setSubmitting(true);
     try {
       logger.log("Submitting STAR response for question:", currentQuestion.id);
-      // Save response
-      const { data: savedResponse, error: saveError } = await supabase
+
+      // Reuse this question's row rather than inserting another. The answer is
+      // saved before the model is called — deliberately, so an AI outage cannot
+      // lose what the user typed — but that meant every failed evaluation left a
+      // scoreless row behind and every retry added one more. Six such rows exist
+      // from a single afternoon, five of them the same answer minutes apart.
+      const { data: existing, error: lookupError } = await supabase
         .from('star_responses')
-        .insert({
-          user_id: user.id,
-          question_id: currentQuestion.id,
-          ...response,
-        })
-        .select()
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('question_id', currentQuestion.id)
+        .order('submitted_at', { ascending: false })
+        .limit(1)
         .maybeSingle();
 
+      if (lookupError) throw lookupError;
+
+      const { data: savedResponse, error: saveError } = existing
+        ? await supabase
+            .from('star_responses')
+            .update({ ...response, ai_feedback: null, submitted_at: new Date().toISOString() })
+            .eq('id', existing.id)
+            .select()
+            .maybeSingle()
+        : await supabase
+            .from('star_responses')
+            .insert({
+              user_id: user.id,
+              question_id: currentQuestion.id,
+              ...response,
+            })
+            .select()
+            .maybeSingle();
+
       if (saveError) throw saveError;
+      if (!savedResponse) throw new Error('Could not save your response. Please try again.');
       logger.log("Saved response:", savedResponse);
 
       // Get AI feedback
@@ -414,9 +460,13 @@ export default function StarPractice() {
       }
     } catch (error) {
       logger.error('Error submitting response:', error);
+      // The function says which way it failed — cut off, unreadable, a score
+      // outside the scale — and that body sits unread on `error.context`.
+      // Showing "try again" for all of them made every failure look identical.
+      const serverMessage = await functionErrorMessage(error);
       toast({
         title: 'Error',
-        description: 'Failed to submit response. Please try again.',
+        description: serverMessage ?? 'Failed to submit response. Please try again.',
         variant: 'destructive',
       });
     } finally {
@@ -776,6 +826,14 @@ export default function StarPractice() {
                           setHasSubmittedResponse(false);
                           setFeedback(null);
                           setCurrentStarStep('situation');
+                          // Drop the cached feedback too. Clearing only React
+                          // state meant navigating away without resubmitting
+                          // resurrected the old evaluation from localStorage.
+                          if (user?.id && currentQuestion) {
+                            const cached = LocalStorageUtils.getSavedStarResponses(user.id) || {};
+                            delete cached[currentQuestion.id];
+                            LocalStorageUtils.saveSavedStarResponses(user.id, cached);
+                          }
                         }}
                         className="rounded-full font-bold"
                       >

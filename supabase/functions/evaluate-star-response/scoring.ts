@@ -1,11 +1,14 @@
-// ABOUTME: The scoring rules for STAR evaluations — the scale, what the model is
-// ABOUTME: allowed to get wrong, and what disqualifies an evaluation entirely.
+// ABOUTME: The scoring rules for STAR evaluations — the scale, and what
+// ABOUTME: disqualifies an evaluation entirely. Nothing here repairs a score.
 // ABOUTME: Kept out of index.ts so it can be tested without booting the server.
 
 // The assessment rubric in `assesment_rubric` only defines levels 1-5 (Concern
 // through Strength), so 5 is the scale this feature actually reasons on. Both
 // question types score on it; nothing is doubled for display any more.
 export const SCORE_SCALE = 5;
+
+const COMPONENTS = ["situation", "task", "action", "result"] as const;
+type Component = typeof COMPONENTS[number];
 
 export interface StarScores {
   situation: number;
@@ -15,58 +18,76 @@ export interface StarScores {
   overall: number;
 }
 
+export type ScoreResult =
+  | { ok: true; scores: StarScores }
+  | { ok: false; reasons: string[] };
+
 /**
- * A component the model put outside the scale is a repairable mistake — it has
- * returned a 9 and an 8.2 — and since the UI draws each score as a percentage of
- * the scale, an out-of-range value renders as an over-full bar. Clamping keeps
- * the ranking the model intended.
+ * Accept a component score, or return null.
  *
- * A component that is absent or unparseable is NOT repairable. Defaulting it to
- * the bottom of the scale would tell the user their answer scored the worst
- * possible when in fact the model malformed its output, so this returns null and
- * the caller rejects the whole evaluation instead of inventing a score.
+ * This used to clamp: a 9 became a 5, "4" became 4, 8.2 rounded to 8. All of
+ * that was compensating for a prompt that merely *asked* for 1-5. The request is
+ * now a `json_schema` response format whose integer bound the decoder enforces —
+ * proven by instructing the model to emit 9s and getting 5s back, and by setting
+ * the bound to 3 and getting 3s — so a value outside the scale is no longer the
+ * model being sloppy. It means the constraint did not hold, and quietly turning
+ * it into a 5 would hide that from everyone.
+ *
+ * Strictly an integer in range: `strict: true` cannot produce a quoted "4" or a
+ * fractional 3.5 either, so accepting them would be accepting a broken contract.
  */
-export function clampScore(value: unknown): number | null {
-  // Only a number, or a string that parses as one — models do quote their
-  // numbers. Everything else is rejected by type rather than by coercion,
-  // because Number() turns [], true and "  " into finite numbers (0, 1, 0),
-  // which would score a malformed payload instead of refusing it.
-  const num =
-    typeof value === "number"
-      ? value
-      : typeof value === "string" && value.trim() !== ""
-        ? Number(value)
-        : NaN;
-  if (!Number.isFinite(num)) return null;
-  return Math.min(SCORE_SCALE, Math.max(1, Math.round(num)));
+export function assertScore(value: unknown): number | null {
+  if (typeof value !== "number") return null;
+  if (!Number.isInteger(value)) return null;
+  if (value < 1 || value > SCORE_SCALE) return null;
+  return value;
+}
+
+/** What went wrong, in words, so a log line names the field and the value. */
+function violation(field: Component, value: unknown): string {
+  if (value === undefined) return `${field} was missing`;
+  if (typeof value !== "number") {
+    return `${field} was ${JSON.stringify(value)} (${typeof value}), not a number`;
+  }
+  if (!Number.isInteger(value)) return `${field} was ${value}, not a whole number`;
+  return `${field} was ${value}, outside 1-${SCORE_SCALE}`;
 }
 
 /**
- * Normalise a model's `scores` object, or return null if it cannot be trusted.
+ * Validate a model's `scores` object.
  *
- * The overall is always recomputed rather than taken from the model: both
- * prompts ask for the average of the four components, and the model has
- * disagreed with its own arithmetic (an 8.2 next to a 9, 7, 8, 8).
+ * Every violation is collected rather than short-circuiting on the first, so one
+ * log line describes the whole payload instead of leading to a fix-and-rerun
+ * loop. The overall is recomputed rather than read: both prompts define it as
+ * the average of the four components, and asking the model for a number the
+ * server then discards is how the stored `8.2` came to sit beside a 9, 7, 8, 8.
  */
-export function normalizeScores(raw: unknown): StarScores | null {
+export function normalizeScores(raw: unknown): ScoreResult {
   const scores = (raw ?? {}) as Record<string, unknown>;
-  const situation = clampScore(scores.situation);
-  const task = clampScore(scores.task);
-  const action = clampScore(scores.action);
-  const result = clampScore(scores.result);
 
-  // The page renders every component and the overall unconditionally, so a
-  // payload missing any of them is not partially usable — it is a failed
-  // evaluation, in the same class as feedback with no strengths.
-  if (situation === null || task === null || action === null || result === null) {
-    return null;
+  const accepted: Partial<Record<Component, number>> = {};
+  const reasons: string[] = [];
+
+  for (const field of COMPONENTS) {
+    const score = assertScore(scores[field]);
+    if (score === null) {
+      reasons.push(violation(field, scores[field]));
+    } else {
+      accepted[field] = score;
+    }
   }
 
+  if (reasons.length > 0) return { ok: false, reasons };
+
+  const { situation, task, action, result } = accepted as Record<Component, number>;
   return {
-    situation,
-    task,
-    action,
-    result,
-    overall: Math.round((situation + task + action + result) / 4),
+    ok: true,
+    scores: {
+      situation,
+      task,
+      action,
+      result,
+      overall: Math.round((situation + task + action + result) / 4),
+    },
   };
 }
