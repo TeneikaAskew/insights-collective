@@ -41,6 +41,15 @@ type StarStep = 'situation' | 'task' | 'action' | 'result';
 
 const STAR_STEPS: StarStep[] = ['situation', 'task', 'action', 'result'];
 
+// Feedback written before the switch to the rubric's 1-5 scale carries no
+// score_scale and holds scores out of 10. There is no honest way to redraw those
+// on the new scale — the two prompts asked different questions with different
+// anchors — so they are not treated as feedback at all, and the answer re-scores
+// on the next submit. Every path that can set feedback checks this: the
+// localStorage cache, the database fallback, and a fresh evaluation.
+const isCurrentFeedback = (feedback: any): boolean =>
+  typeof feedback?.score_scale === 'number';
+
 // Soft Studio step accents: Situation lavender, Task teal, Action peach, Result green.
 const STEP_STYLES: Record<StarStep, { label: string; prompt: string; bar: string; hintBox: string; hintText: string; recapBorder: string }> = {
   situation: {
@@ -97,11 +106,10 @@ export default function StarPractice() {
     result: '',
   });
   const [feedback, setFeedback] = useState<any>(null);
-  // Scores are on the assessment rubric's own 1-5 scale, and evaluate-star-response
-  // stamps score_scale so the bars know what to divide by. Feedback saved before
-  // that switch carries no stamp and was stored out of 10, so it keeps its old
-  // denominator instead of being redrawn as an impossible 8/5.
-  const scoreScale = typeof feedback?.score_scale === 'number' ? feedback.score_scale : 10;
+  // Guaranteed present: isCurrentFeedback() gates every path that sets feedback,
+  // so an unstamped blob never reaches the bars and there is no denominator to
+  // guess at.
+  const scoreScale = feedback?.score_scale;
   const [isFlipped, setIsFlipped] = useState(false);
   const [currentStarStep, setCurrentStarStep] = useState<StarStep>('situation');
   const [hasSubmittedResponse, setHasSubmittedResponse] = useState(false);
@@ -259,10 +267,8 @@ export default function StarPractice() {
       if (savedResponses && savedResponses[currentQuestion.id]) {
         const savedData = savedResponses[currentQuestion.id];
         // This cache is read before the database and returns early, so a blob
-        // left here from before the 1-5 switch would shadow the row forever —
-        // and it was scored out of 10. Skipping it falls through to the DB,
-        // which re-scores on the next submit.
-        if (typeof savedData.feedback?.score_scale !== 'number') {
+        // left here from before the 1-5 switch would shadow the row forever.
+        if (!isCurrentFeedback(savedData.feedback)) {
           logger.log("[StarPractice] Ignoring cached feedback with no score_scale:", currentQuestion.id);
         } else {
           logger.log("[StarPractice] Found saved response with feedback in localStorage:", savedData);
@@ -307,7 +313,14 @@ export default function StarPractice() {
           result: dbResponses[0].result,
         });
 
-        if (dbResponses[0].ai_feedback) {
+        if (dbResponses[0].ai_feedback && !isCurrentFeedback(dbResponses[0].ai_feedback)) {
+          // Without this the cache filter above accomplishes nothing: the row is
+          // read here, marked submitted, and written straight back into the
+          // cache that just rejected it.
+          logger.log("[StarPractice] Ignoring stored feedback with no score_scale");
+          setHasSubmittedResponse(false);
+          setFeedback(null);
+        } else if (dbResponses[0].ai_feedback) {
           logger.log("[StarPractice] Response has feedback:", dbResponses[0].ai_feedback);
           setFeedback(dbResponses[0].ai_feedback);
           setHasSubmittedResponse(true);

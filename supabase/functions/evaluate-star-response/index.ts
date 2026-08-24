@@ -307,10 +307,12 @@ async function evaluateStarResponse(responseId: string, callerId: string) {
 
     // Update the STAR response with the feedback
     console.log(`[evaluate-star-response] Updating STAR response with feedback`);
-    // `.select().single()` stays: on an UPDATE that matches no row PostgREST
-    // answers PGRST116 rather than a silent success, so it is the check that the
-    // feedback actually landed. Only the returned row is unused.
-    const { error: updateError } = await supabase
+    // Conditioned on the answer this evaluation actually read. The page now
+    // reuses one row per question, so two tabs submitting the same question hold
+    // the same id: without this, the slower evaluation would overwrite the newer
+    // answer's feedback with a verdict on text that is no longer there. Matching
+    // on submitted_at makes the write lose rather than win.
+    const { data: updated, error: updateError } = await supabase
       .from("star_responses")
       .update({ 
         ai_feedback: feedbackData,
@@ -318,12 +320,21 @@ async function evaluateStarResponse(responseId: string, callerId: string) {
         is_assessment_question: isAssessmentQuestion
       })
       .eq("id", responseId)
+      .eq("submitted_at", starResponse.submitted_at)
       .select()
-      .single();
+      .maybeSingle();
 
     if (updateError) {
       console.error(`[evaluate-star-response] Error updating STAR response:`, updateError);
       throw handleError(updateError);
+    }
+
+    if (!updated) {
+      console.warn(`[evaluate-star-response] Response ${responseId} changed during evaluation; discarding`);
+      throw new EvaluationResponseError(
+        "superseded",
+        "This answer was edited while it was being evaluated. Submit again to score the current version.",
+      );
     }
 
     console.log(`[evaluate-star-response] STAR response updated successfully with feedback`);
