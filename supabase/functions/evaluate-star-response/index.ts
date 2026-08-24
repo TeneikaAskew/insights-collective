@@ -11,6 +11,7 @@ import { callGroq, GroqRateLimitError, rateLimitResponse } from "../_shared/groq
 import { normalizeScores, SCORE_SCALE } from "./scoring.ts";
 import { responseFormat, starEvaluationSchema } from "./schema.ts";
 import { EvaluationResponseError, readEvaluation } from "./response.ts";
+import { createAssessmentEvaluationPrompt, createStandardEvaluationPrompt } from "./prompts.ts";
 
 // Measured: 775 completion tokens for a standard evaluation, 1,581 for an
 // assessment one, reasoning included. Named so the truncation log can report the
@@ -20,89 +21,6 @@ const MAX_TOKENS = 3000;
 const GROQ = Deno.env.get("GROQ");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-
-function createAssessmentEvaluationPrompt(response: any, questionData: any, assessmentArea: string, rubricCriteria: any[]): string {
-  const rubricText = rubricCriteria && rubricCriteria.length > 0 ?
-    rubricCriteria.map(criteria =>
-      `${criteria.performance_level} (Score: ${criteria.score}): ${criteria.criteria_description}`
-    ).join('\n') :
-    // The rubric's own vocabulary, so the prompt and the schema's enum agree.
-    // This fallback used to say Exceptional/Strong/Adequate/Limited/Poor, words
-    // `assesment_rubric` does not contain, and the stored assessment
-    // evaluations duly came back labelled "Adequate" and "Strong".
-    `Assessment scoring guidelines:
-5 - Strength: consistently and clearly demonstrates ${assessmentArea}
-4 - Mild Strength: demonstrates ${assessmentArea} with a minor gap
-3 - Mixed: some evidence of ${assessmentArea}, inconsistent or generic
-2 - Mild Concern: limited evidence of ${assessmentArea}
-1 - Concern: no usable evidence of ${assessmentArea}`;
-
-  return `You are an expert behavioral interviewer evaluating this STAR response for: ${assessmentArea}
-
-Question: ${questionData.question}
-Assessment Area: ${assessmentArea}
-
-STAR Response:
-Situation: ${response.situation}
-Task: ${response.task}
-Action: ${response.action}
-Result: ${response.result}
-
-Evaluation Criteria:
-${rubricText}
-
-SCORING:
-Score each component against ${assessmentArea} using the levels above:
-- Situation: how well the context demonstrates relevance to ${assessmentArea}
-- Task: how clearly the challenge shows ${assessmentArea} requirements
-- Action: how effectively the specific actions demonstrate ${assessmentArea}
-- Result: how well the outcomes show impact and ${assessmentArea} success
-
-FEEDBACK — BE SPECIFIC:
-- Strengths: cite concrete details from the response, not generic praise
-- Improvements: name the specific gap and why it weakens the answer for ${assessmentArea}
-- Suggestions: actionable, with the reasoning behind each one, ideally showing how
-  to quantify impact
-
-Every strength, improvement and suggestion must reference something the candidate
-actually wrote.`;
-}
-
-function createStandardEvaluationPrompt(response: any, questionData: any): string {
-  return `You are an expert interview coach evaluating this STAR response.
-
-Question: ${questionData.question}
-Target Competency: ${questionData.targetCompetency}
-
-STAR Response:
-Situation: ${response.situation}
-Task: ${response.task}
-Action: ${response.action}
-Result: ${response.result}
-
-SCORING:
-Score each component on these anchors:
-5 - Strength: specific, complete, and quantified
-4 - Mild Strength: strong, with one minor gap
-3 - Mixed: adequate but generic or missing detail
-2 - Mild Concern: vague or incomplete
-1 - Concern: missing or unusable
-
-Judge each on its own terms:
-- Situation: how well the context is established and relevant
-- Task: how clearly the challenge and your responsibility are explained
-- Action: how effectively the specific actions are described
-- Result: how well outcomes are quantified and demonstrate impact
-
-FEEDBACK — BE SPECIFIC:
-- Strengths: cite concrete details from the response, not generic praise
-- Improvements: name the specific gap and why it weakens the answer
-- Suggestions: actionable, with the reasoning behind each one, ideally showing how
-  to quantify impact
-
-Every strength, improvement and suggestion must reference something the candidate
-actually wrote.`;
-}
 
 async function evaluateStarResponse(responseId: string, callerId: string) {
   console.log(`[evaluate-star-response] Starting evaluation for response ID: ${responseId}`);
