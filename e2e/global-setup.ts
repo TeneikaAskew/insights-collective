@@ -341,6 +341,114 @@ async function sweepLeakedAnnouncementProbes(): Promise<void> {
   }
 }
 
+/**
+ * Remove abandoned attempts on the shared quiz fixture.
+ *
+ * quiz-taking.spec.ts starts an attempt on "Foundations Check-in" to assert the
+ * question navigator appears, and it CANNOT clean that up: quiz_submissions has
+ * SELECT and UPDATE policies but no DELETE policy, so the acting student is not
+ * permitted to remove their own attempt. Every full run therefore leaves one
+ * unscored row behind. 194 had accumulated between 2026-07-27 and 2026-08-25,
+ * beside the single seeded submission quiz-results.spec.ts reads.
+ *
+ * Nothing was failing because of it — allowed_attempts is 9999, so the fixture
+ * is nowhere near the self-consumption that broke it once before (see the
+ * header of quiz-taking.spec.ts). It is unbounded growth on a shared project,
+ * which is worth stopping before it becomes the interesting kind of problem.
+ *
+ * SCOPED TO THE TEST MEMBER ON PURPOSE. "Introduction to Data Science" is a
+ * published course whose enrollments are mostly real people, so a filter of
+ * quiz_id + score IS NULL would also match a real student's in-progress
+ * attempt and delete their work mid-quiz. The user_id filter is the guard;
+ * do not drop it to simplify this.
+ *
+ * `score=is.null` then keeps it to attempts that were never completed, and the
+ * seeded submission is excluded by id as well — it is graded, so the score
+ * filter already spares it, but the results spec fails completely without that
+ * row and one belt-and-braces filter is cheaper than that failure.
+ */
+async function sweepAbandonedQuizAttempts(): Promise<void> {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceKey) {
+    console.warn(
+      '[global-setup] SUPABASE_SERVICE_ROLE_KEY is not set, so abandoned quiz attempts cannot be\n' +
+        '               swept. quiz-taking.spec.ts adds one unscored submission per run and RLS\n' +
+        '               has no DELETE policy for the student who created it, so they accumulate.',
+    );
+    return;
+  }
+
+  const SEEDED_SUBMISSION =
+    process.env.E2E_TEST_SUBMISSION_ID || 'dddd4444-4444-4444-4444-444444444444';
+  const QUIZ_CONTENT_ITEM =
+    process.env.E2E_TEST_QUIZ_ID || 'aaaa1111-1111-1111-1111-111111111111';
+
+  try {
+    const headers = {
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
+      'Content-Type': 'application/json',
+    };
+
+    const member = TEST_USERS.member;
+    if (!member.email || !member.password) return;
+    // The member's own id, from a real sign-in rather than a hard-coded uuid:
+    // this has to be the account the specs actually run as, or the filter that
+    // keeps real students' attempts safe is pointing at the wrong person.
+    const session = await signInViaApi(member.email, member.password);
+    const memberId = (session as { user?: { id?: string } }).user?.id;
+    if (!memberId) {
+      console.warn('[global-setup] Abandoned-attempt sweep skipped: member id unavailable.');
+      return;
+    }
+
+    // Resolved rather than hard-coded, so reseeding the fixture cannot leave
+    // this pointed at a quiz that no longer exists — it would then delete
+    // nothing and report success, which is the failure mode the sweeps above
+    // were rewritten to remove.
+    const quizRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/quizzes?content_item_id=eq.${QUIZ_CONTENT_ITEM}&select=id`,
+      { headers },
+    );
+    if (!quizRes.ok) {
+      console.warn(
+        `[global-setup] Abandoned-attempt sweep could not resolve the quiz: ${quizRes.status}`,
+      );
+      return;
+    }
+    const quizzes = (await quizRes.json()) as Array<{ id: string }>;
+    if (!quizzes.length) {
+      console.warn(
+        `[global-setup] Abandoned-attempt sweep found no quiz for content item ${QUIZ_CONTENT_ITEM}.`,
+      );
+      return;
+    }
+
+    const filter =
+      `quiz_id=eq.${quizzes[0].id}` +
+      `&user_id=eq.${memberId}` +
+      `&score=is.null` +
+      `&id=neq.${SEEDED_SUBMISSION}`;
+
+    const del = await fetch(`${SUPABASE_URL}/rest/v1/quiz_submissions?${filter}`, {
+      method: 'DELETE',
+      headers: { ...headers, Prefer: 'return=representation' },
+    });
+    if (!del.ok) {
+      console.warn(
+        `[global-setup] Abandoned-attempt sweep failed: ${del.status} ${(await del.text()).slice(0, 160)}`,
+      );
+      return;
+    }
+    const removed = ((await del.json()) as unknown[]).length;
+    if (removed) {
+      console.log(`[global-setup] Swept ${removed} abandoned quiz attempt(s) from prior runs.`);
+    }
+  } catch (err) {
+    console.warn(`[global-setup] Abandoned-attempt sweep skipped: ${(err as Error).message}`);
+  }
+}
+
 async function globalSetup(config: FullConfig): Promise<void> {
   fs.mkdirSync(SESSIONS_DIR, { recursive: true });
 
@@ -395,6 +503,9 @@ async function globalSetup(config: FullConfig): Promise<void> {
       console.warn(`[global-setup] Admin bootstrap skipped: ${(err as Error).message}`);
     }
   }
+
+  // After the bootstrap above, so the member sign-in this needs is known good.
+  await sweepAbandonedQuizAttempts();
 
   // Fail the run rather than degrade it. Writing an empty storageState here let
   // ~60 member specs continue as signed-out smoke tests, green, with no signal.
