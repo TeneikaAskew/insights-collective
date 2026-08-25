@@ -7,7 +7,29 @@ const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://siuqvhscuiycvdrti
 const SUPABASE_KEY =
   process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNpdXF2aHNjdWl5Y3ZkcnRpcXNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQyMDU0MTUsImV4cCI6MjA1OTc4MTQxNX0.CbAWzKbUfbqYKAZr93jAQm8z8chbNoTe0EnK-E_4u9w';
-const COURSE_ID = process.env.E2E_TEST_COURSE_ID || '660e8400-e29b-41d4-a716-446655440001';
+// A DIFFERENT COURSE FROM full-completion-sequence.spec.ts, AND THAT IS THE POINT.
+//
+// Both specs run in the chromium-member-journeys project as the same account,
+// and both begin by DELETING that account's certificate and content-item
+// progressions for their course before rebuilding them to prove auto-issuance.
+// Pointed at the same course they were deleting each other's rows: the sibling
+// spec's reset lands while this one is polling for the certificate its own
+// progressions just triggered, and the poll then finds nothing. Playwright
+// distributes the two files to two workers, so they genuinely do overlap — a
+// local run has them starting together and finishing 5s apart.
+//
+// Serialising them would have worked, but Playwright has no cross-file serial
+// mode, and the two are only in conflict over data. Certificates are keyed
+// (user_id, course_id) and progressions hang off a course's content items, so
+// a different course makes the two sets disjoint and the specs independent —
+// no ordering constraint, no lock, and they still run in parallel.
+//
+// This spec is course-agnostic by construction: it completes EVERY published
+// item in whatever course it is given and derives its assertions from that
+// count. The sibling is not — it submits a specific seeded assignment — which
+// is why this is the one that moved. Keep them different.
+const COURSE_ID =
+  process.env.E2E_TEST_CERTIFICATE_COURSE_ID || '660e8400-e29b-41d4-a716-446655440002';
 
 async function getAccessToken(page: any): Promise<string> {
   const token = await getSupabaseAccessToken(page);
@@ -37,6 +59,35 @@ test.describe('Certificate generation — end to end', () => {
     ).toBeTruthy();
     const userId = (await meRes.json()).id as string;
     expect(userId).toBeTruthy();
+
+    // 2b) Ensure the account is enrolled, creating the row only if missing.
+    //
+    // Not optional, and not merely tidiness: RLS gates `content_items` on
+    // enrollment, so an unenrolled account reads the course as having zero
+    // published items and step 3's assertion fails with "seeded course has
+    // published content items" — which reads like an unseeded database rather
+    // than a permissions result. This spec previously shared a course with its
+    // sibling and inherited that spec's enrollment; on its own course it has to
+    // establish its own. Mirrors full-completion-sequence.spec.ts, which needs
+    // the same thing for the same reason.
+    const existingEnroll = await page.request.get(
+      `${SUPABASE_URL}/rest/v1/enrollments?user_id=eq.${userId}&course_id=eq.${COURSE_ID}&select=id`,
+      { headers: authHeaders },
+    );
+    const enrollRows = existingEnroll.ok() ? await existingEnroll.json() : [];
+    if (!enrollRows.length) {
+      const enrollRes = await page.request.post(
+        `${SUPABASE_URL}/rest/v1/enrollments`,
+        {
+          headers: { ...authHeaders, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+          data: JSON.stringify({ user_id: userId, course_id: COURSE_ID }),
+        },
+      );
+      expect(
+        enrollRes.ok(),
+        `enrollment insert (${enrollRes.status()}: ${await enrollRes.text()})`,
+      ).toBeTruthy();
+    }
 
     // 3) Fetch every published content item in every published module for this course.
     const itemsRes = await page.request.get(
