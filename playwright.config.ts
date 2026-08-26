@@ -155,6 +155,8 @@ function firefoxHermeticOptions(): {
   if (process.env.E2E_USE_RELAY !== '1') return { ...executable };
 
   return {
+    ...executable,
+
     firefoxUserPrefs: {
       'network.proxy.type': 1,
       'network.proxy.http': '127.0.0.1',
