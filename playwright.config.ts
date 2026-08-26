@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { config as loadDotenv } from 'dotenv';
-import { chromiumExecutableOption } from './e2e/support/chromium-executable';
+import { chromiumExecutableOption, firefoxExecutableOption } from './e2e/support/chromium-executable';
 
 
 // Load .env so E2E_* credentials are available to global-setup and tests
