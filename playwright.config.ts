@@ -145,8 +145,15 @@ function hermeticArgs(): string[] {
  * but loopback goes to a closed port, and the relay — which is what Supabase
  * traffic actually goes to there — is exempted by `no_proxies_on`.
  */
-function firefoxHermeticOptions(): { firefoxUserPrefs?: Record<string, unknown> } {
-  if (process.env.E2E_USE_RELAY !== '1') return {};
+function firefoxHermeticOptions(): {
+  firefoxUserPrefs?: Record<string, unknown>;
+  executablePath?: string;
+} {
+  // Probed, not assumed — same reason as Chromium above: the version-stamped
+  // bundled Firefox may not exist or may die on a missing system library.
+  const executable = firefoxExecutableOption();
+  if (process.env.E2E_USE_RELAY !== '1') return { ...executable };
+
   return {
     firefoxUserPrefs: {
       'network.proxy.type': 1,
