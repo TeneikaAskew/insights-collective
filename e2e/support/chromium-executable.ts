@@ -167,3 +167,105 @@ export function chromiumExecutableOption(): { executablePath?: string } {
   const path = resolveChromiumExecutable();
   return path ? { executablePath: path } : {};
 }
+
+// ---------------------------------------------------------------------------
+// Firefox
+// ---------------------------------------------------------------------------
+//
+// Same failure mode, different browser. `firefox.executablePath()` is
+// version-stamped (firefox-1511) while the environment provisions a
+// neighbouring build (firefox-1495), and the stamped one dies on a missing
+// libgtk-3.so.0 — which Playwright reports as "Target page, context or browser
+// has been closed" and every firefox-project spec then fails in a few ms.
+
+/** Candidate system Firefox binaries, in preference order. */
+const SYSTEM_FIREFOX_CANDIDATES = [
+  '/bin/firefox',
+  '/usr/bin/firefox',
+  '/usr/bin/firefox-esr',
+];
+
+/** Firefox builds already sitting in Playwright's browsers directory. */
+function installedFirefoxCandidates(): string[] {
+  const roots = [
+    process.env.PLAYWRIGHT_BROWSERS_PATH,
+    path.join(homedir(), '.cache', 'ms-playwright'),
+  ].filter((root): root is string => !!root);
+
+  const found: string[] = [];
+  for (const root of roots) {
+    let entries: string[];
+    try {
+      entries = readdirSync(root);
+    } catch {
+      continue;
+    }
+    const builds = entries
+      .filter((entry) => entry.startsWith('firefox'))
+      .sort()
+      .reverse();
+
+    for (const build of builds) {
+      const candidate = path.join(root, build, 'firefox', 'firefox');
+      if (existsSync(candidate)) found.push(candidate);
+    }
+  }
+  return found;
+}
+
+let cachedFirefox: string | null | undefined;
+
+/** The Firefox to launch, or `null` to let Playwright use its own default. */
+export function resolveFirefoxExecutable(): string | null {
+  if (cachedFirefox !== undefined) return cachedFirefox;
+
+  const explicit = process.env.PLAYWRIGHT_FIREFOX_EXECUTABLE_PATH;
+  if (explicit) {
+    if (!existsSync(explicit)) {
+      throw new Error(
+        `PLAYWRIGHT_FIREFOX_EXECUTABLE_PATH points at a file that does not exist: ${explicit}`,
+      );
+    }
+    cachedFirefox = explicit;
+    return cachedFirefox;
+  }
+
+  let bundled: string | undefined;
+  try {
+    const { firefox } = createRequire(import.meta.url)('@playwright/test');
+    bundled = firefox.executablePath();
+  } catch {
+    bundled = undefined;
+  }
+
+  if (bundled && existsSync(bundled) && canRun(bundled)) {
+    cachedFirefox = null;
+    return cachedFirefox;
+  }
+
+  const fallback = [...installedFirefoxCandidates(), ...SYSTEM_FIREFOX_CANDIDATES].find(
+    (candidate) => existsSync(candidate) && canRun(candidate),
+  );
+  if (fallback) {
+    console.error(
+      `[e2e] Playwright's bundled Firefox cannot launch here${
+        bundled ? ` (${bundled})` : ''
+      }; using ${fallback} instead.`,
+    );
+    cachedFirefox = fallback;
+    return cachedFirefox;
+  }
+
+  throw new Error(
+    '[e2e] No launchable Firefox found. The bundled browser fails to start (usually a ' +
+      'missing system library such as libgtk-3.so.0) and none of these exist or run: ' +
+      `${[...installedFirefoxCandidates(), ...SYSTEM_FIREFOX_CANDIDATES].join(', ')}. Install one, or ` +
+      'set PLAYWRIGHT_FIREFOX_EXECUTABLE_PATH to a working binary.',
+  );
+}
+
+/** `launchOptions`-shaped fragment, empty when the bundled Firefox is fine. */
+export function firefoxExecutableOption(): { executablePath?: string } {
+  const resolved = resolveFirefoxExecutable();
+  return resolved ? { executablePath: resolved } : {};
+}
