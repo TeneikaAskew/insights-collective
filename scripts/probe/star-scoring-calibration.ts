@@ -82,8 +82,8 @@ const LADDER: Record<string, Rung> = {
       action: "I did some work on it.",
       result: "It was fine.",
     },
-    expect: (s) => s.overall === 1 && Math.max(s.situation, s.task, s.action, s.result) <= 2,
-    why: "content-free fragments reach the floor: overall 1, no component above 2",
+    expect: (s) => s.overall <= 1.25 && Math.max(s.situation, s.task, s.action, s.result) <= 2,
+    why: "content-free fragments reach the floor: at most one component above 1, none above 2",
   },
   "L2 vague filler": {
     answer: {
@@ -92,8 +92,8 @@ const LADDER: Record<string, Rung> = {
       action: "I used Python and SQL to analyze the data and built some visualizations.",
       result: "Leadership liked the analysis and we made some changes based on it.",
     },
-    expect: (s) => s.overall === 2,
-    why: "interchangeable filler sits at 2, above the non-answer",
+    expect: (s) => s.overall >= 1.75 && s.overall <= 2.5,
+    why: "interchangeable filler sits around 2, above the non-answer",
   },
   "L3 concrete, unquantified": {
     answer: {
@@ -104,7 +104,7 @@ const LADDER: Record<string, Rung> = {
         "I pulled two years of transaction data, joined it against the discount authorization table, and ran a cohort analysis by rep and product line. I found that discounting had crept up on a handful of SKUs.",
       result: "I presented the findings and the sales leadership team tightened the discount approval threshold.",
     },
-    expect: (s) => s.overall === 3,
+    expect: (s) => s.overall >= 2.75 && s.overall <= 3.5,
     why: "concrete but unquantified lands mid-scale",
   },
   "L4 quantified ownership": {
@@ -117,14 +117,14 @@ const LADDER: Record<string, Rung> = {
       result:
         "Margin erosion was 71% attributable to product mix, not discounting. Sales comp was restructured to weight margin instead of revenue, and margin recovered 2.6 points over the next two quarters.",
     },
-    // The overall may round to 5 — three of these components genuinely clear
-    // their bars — but the Action must be held at 4: it shows a method and a
-    // reason, yet no validation and no stakeholder handling, and Action is the
-    // component where that judgment lives. This is the L4|L5 boundary the
-    // scorer used to collapse: it now shows up as A=4 plus improvements naming
-    // the gap, not necessarily as a lower overall.
-    expect: (s) => s.overall >= 4 && s.action <= 4,
-    why: "quantified but judgment-light is detected where judgment lives: Action capped at 4",
+    // Three of these components genuinely clear their bars, but the Action must
+    // be held at 4: it shows a method and a reason, yet no validation and no
+    // stakeholder handling, and Action is the component where that judgment
+    // lives. This is the L4|L5 boundary the scorer used to collapse — and since
+    // the overall is the exact mean rather than a rounded one, the held-back
+    // Action keeps this rung's overall strictly below L5's 5.0.
+    expect: (s) => s.overall >= 4 && s.overall < 5 && s.action <= 4,
+    why: "quantified but judgment-light is detected where judgment lives: Action capped at 4, overall below 5",
   },
   "L5 judgment shown": {
     answer: {

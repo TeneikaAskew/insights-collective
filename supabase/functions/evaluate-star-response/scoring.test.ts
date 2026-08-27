@@ -37,12 +37,18 @@ Deno.test('assertScore rejects what the schema should have prevented', () => {
   }
 });
 
-Deno.test('normalizeScores computes the overall as the average', () => {
+Deno.test('normalizeScores computes the overall as the exact average', () => {
   const result = normalizeScores({ situation: 4, task: 3, action: 4, result: 2 });
   assert(result.ok);
-  // A mixed set producing an odd overall — impossible under the old scale, which
-  // doubled a 1-5 rubric and so could only ever emit even numbers.
-  assertEquals(result.scores, { situation: 4, task: 3, action: 4, result: 2, overall: 3 });
+  // Exact, not rounded: rounding made 5,5,4,5 indistinguishable from a perfect
+  // 5,5,5,5, which was precisely the top-band collapse the anchors were
+  // recalibrated to prevent. Quarters are exact in floating point, so no
+  // tolerance is needed here.
+  assertEquals(result.scores, { situation: 4, task: 3, action: 4, result: 2, overall: 3.25 });
+
+  const nearCeiling = normalizeScores({ situation: 5, task: 5, action: 4, result: 5 });
+  assert(nearCeiling.ok);
+  assertEquals(nearCeiling.scores.overall, 4.75);
 });
 
 Deno.test('normalizeScores ignores an overall the model volunteers', () => {

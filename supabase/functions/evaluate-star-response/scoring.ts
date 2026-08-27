@@ -61,6 +61,12 @@ function violation(field: Component, value: unknown): string {
  * loop. The overall is recomputed rather than read: both prompts define it as
  * the average of the four components, and asking the model for a number the
  * server then discards is how the stored `8.2` came to sit beside a 9, 7, 8, 8.
+ *
+ * The overall is the EXACT mean, not rounded. Rounding hid the one distinction
+ * the calibration ladder fought hardest for: an excellent-but-mechanical answer
+ * scoring 5,5,4,5 rounded up to the same 5/5 as a flawless one. Four integers
+ * averaged can only produce .0, .25, .5 or .75, all exact in floating point, so
+ * there is nothing to round away.
  */
 export function normalizeScores(raw: unknown): ScoreResult {
   const scores = (raw ?? {}) as Record<string, unknown>;
@@ -87,7 +93,7 @@ export function normalizeScores(raw: unknown): ScoreResult {
       task,
       action,
       result,
-      overall: Math.round((situation + task + action + result) / 4),
+      overall: (situation + task + action + result) / 4,
     },
   };
 }
