@@ -29,8 +29,6 @@ interface AvailabilityManagerProps {
 }
 
 interface AvailabilitySlot {
-  id?: string;
-  user_id: string; // Added user_id to the interface to fix the TypeScript error
   weekday: number;
   time_slot: string;
   is_available: boolean;
@@ -59,12 +57,6 @@ export function AvailabilityManager({ timeBlocks, onAvailabilityChange }: Availa
   const [saving, setSaving] = useState(false);
   const [userTimezone, setUserTimezone] = useState<string>('');
   const [activeDays, setActiveDays] = useState<number[]>([]);
-  // Whether any rows exist for this user in availability_slots — including
-  // is_available=false rows and stale slot ids the UI no longer renders. Save
-  // clears-then-inserts, and a clear issued when no rows exist is a DELETE that
-  // affects 0 rows: a real no-op the Supabase instrumentation reports as an
-  // empty write. Tracking this lets a first-time save skip the pointless DELETE.
-  const [hasPersistedSlots, setHasPersistedSlots] = useState(false);
   
   // State to track selected time slots for each day
   const [selectedTimesByDay, setSelectedTimesByDay] = useState<Record<number, TimeRange[]>>({});
@@ -130,7 +122,6 @@ export function AvailabilityManager({ timeBlocks, onAvailabilityChange }: Availa
       
       setSelectedTimesByDay(timesByDay);
       setActiveDays(activeDaysList);
-      setHasPersistedSlots((data?.length ?? 0) > 0);
     } catch (error: any) {
       logger.error('Error loading availability:', error);
       toast({
@@ -225,45 +216,32 @@ export function AvailabilityManager({ timeBlocks, onAvailabilityChange }: Availa
       setSaving(true);
       
       // Prepare the data for saving
-      const availabilitySlots: Omit<AvailabilitySlot, 'id'>[] = [];
-      
+      const availabilitySlots: AvailabilitySlot[] = [];
+
       // For each active day
       Object.entries(selectedTimesByDay).forEach(([dayIdStr, timeSlots]) => {
         const dayId = parseInt(dayIdStr, 10);
-        
+
         // For each time slot on this day
         timeSlots.forEach(timeSlot => {
           availabilitySlots.push({
-            user_id: user.id,
             weekday: dayId,
             time_slot: timeSlot.id,
             is_available: true
           });
         });
       });
-      
-      // First, delete all existing slots — but only when there are rows to
-      // delete. On a first-time save the table holds nothing for this user, and
-      // an unconditional DELETE affecting 0 rows is exactly the silent no-op
-      // write the Supabase instrumentation flags as a defect.
-      if (hasPersistedSlots) {
-        const { error: deleteError } = await supabase
-          .from('availability_slots')
-          .delete()
-          .eq('user_id', user.id);
 
-        if (deleteError) throw deleteError;
-      }
+      // Replace-what-exists in one server-side transaction. Doing it here as
+      // delete-then-insert needed the client to know whether a clearing DELETE
+      // was warranted, and any cached answer goes stale (another tab saving, a
+      // failed initial load); the RPC scopes both statements to auth.uid() and
+      // makes the swap atomic.
+      const { error } = await supabase.rpc('replace_availability', {
+        p_slots: availabilitySlots,
+      });
 
-      // Then insert the new slots
-      if (availabilitySlots.length > 0) {
-        const { error: insertError } = await supabase
-          .from('availability_slots')
-          .insert(availabilitySlots);
-
-        if (insertError) throw insertError;
-      }
-      setHasPersistedSlots(availabilitySlots.length > 0);
+      if (error) throw error;
       
       toast({
         title: 'Success',

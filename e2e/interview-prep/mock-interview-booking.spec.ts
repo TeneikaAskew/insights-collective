@@ -36,11 +36,6 @@ const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://siuqvhscuiycvdrti
 const SUPABASE_ANON_KEY =
   process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNpdXF2aHNjdWl5Y3ZkcnRpcXNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQyMDU0MTUsImV4cCI6MjA1OTc4MTQxNX0.CbAWzKbUfbqYKAZr93jAQm8z8chbNoTe0EnK-E_4u9w';
-// Optional. mock_sessions has no DELETE policy (participants may only cancel),
-// so removing the booked row outright needs service role; without it, cleanup
-// cancels the session instead, which keeps it out of Upcoming Sessions.
-const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-
 const SHOTS = path.join(process.cwd(), 'e2e', 'screenshots', 'mock-interview-booking');
 const SESSIONS_DIR = path.join(process.cwd(), '.playwright-sessions');
 
@@ -101,14 +96,6 @@ function userHeaders(token: string): Record<string, string> {
   };
 }
 
-function serviceHeaders(): Record<string, string> {
-  return {
-    apikey: SERVICE_ROLE_KEY,
-    Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
-    'Content-Type': 'application/json',
-  };
-}
-
 async function rest(pathAndQuery: string, init: RequestInit): Promise<Response> {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${pathAndQuery}`, init);
   if (!res.ok) {
@@ -129,19 +116,16 @@ function pairFilter(): string {
   return `or=(and(user1_id.eq.${m},user2_id.eq.${p}),and(user1_id.eq.${p},user2_id.eq.${m}))`;
 }
 
-// Remove (or, without service role, cancel) pair sessions and both users'
-// availability rows, so each run starts from the clean slate the assertions
-// assume and leaves nothing behind for other specs to trip on.
+// Remove pair sessions and both users' availability rows, so each run starts
+// from the clean slate the assertions assume and leaves nothing behind for
+// other specs to trip on. Sessions are deleted as the member: the
+// participant-scoped DELETE policy on mock_sessions covers both directions of
+// the pair, so no privileged credential is needed.
 async function wipePairState(): Promise<void> {
-  if (SERVICE_ROLE_KEY) {
-    await rest(`mock_sessions?${pairFilter()}`, { method: 'DELETE', headers: serviceHeaders() });
-  } else {
-    await rest(`mock_sessions?${pairFilter()}&status=eq.scheduled`, {
-      method: 'PATCH',
-      headers: userHeaders(member.access_token),
-      body: JSON.stringify({ status: 'canceled' }),
-    });
-  }
+  await rest(`mock_sessions?${pairFilter()}`, {
+    method: 'DELETE',
+    headers: userHeaders(member.access_token),
+  });
   for (const who of [member, partner]) {
     await rest(`availability_slots?user_id=eq.${who.user.id}`, {
       method: 'DELETE',
