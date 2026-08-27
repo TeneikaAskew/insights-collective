@@ -86,6 +86,7 @@
   "rate_limit_certificate_verify",
   "reorder_content_items",
   "reorder_modules",
+  "replace_availability",
   "resolve_calendar_feed_token",
   "rotate_my_calendar_feed_token",
   "search_admin_users",
