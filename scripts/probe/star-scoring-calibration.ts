@@ -201,7 +201,17 @@ async function evaluate(prompt: string): Promise<StarScores> {
   }
 }
 
-const TRIALS = Math.max(1, Number(env("TRIALS") ?? 1));
+// A rung passes only if every trial passes, so zero trials would be a vacuous
+// pass — which is exactly what `TRIALS=three` (NaN) used to produce. A probe
+// that certifies calibration must refuse input it cannot count, and the cap
+// keeps a fat-fingered `TRIALS=Infinity` (or 3000) from burning the day's
+// quota in one run.
+const rawTrials = env("TRIALS") ?? "1";
+const TRIALS = Number(rawTrials);
+if (!Number.isInteger(TRIALS) || TRIALS < 1 || TRIALS > 20) {
+  console.error(`TRIALS must be an integer between 1 and 20, got "${rawTrials}".`);
+  exit(1);
+}
 let failures = 0;
 
 for (const [name, rung] of Object.entries(LADDER)) {

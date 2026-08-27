@@ -60,6 +60,27 @@ Deno.test('a second json_validate_failed 400 is a real failure, not a loop', asy
   }
 });
 
+Deno.test('a schema retry does not spend the 429 quick-retry budget', async () => {
+  // One decode accident followed by two rate limits must still leave both
+  // quick 429 retries available: 400 → 429 → 429 → 200 succeeds in four calls.
+  // Under a shared loop counter the second 429 was already handed to the client.
+  const rateLimited = () =>
+    new Response('rate limited', { status: 429, headers: { 'retry-after': '0.001' } });
+  const stub = stubFetch([
+    new Response(VALIDATE_FAILED_BODY, { status: 400 }),
+    rateLimited(),
+    rateLimited(),
+    new Response(OK_BODY, { status: 200 }),
+  ]);
+  try {
+    const result = await callGroq('key', {}, 'test');
+    assertEquals(stub.calls(), 4);
+    assertEquals(result.choices[0].finish_reason, 'stop');
+  } finally {
+    stub.restore();
+  }
+});
+
 Deno.test('a 400 that is not a decode accident fails on the first attempt', async () => {
   const stub = stubFetch([
     new Response(JSON.stringify({ error: { code: 'model_decommissioned' } }), { status: 400 }),
