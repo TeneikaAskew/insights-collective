@@ -59,6 +59,12 @@ export function AvailabilityManager({ timeBlocks, onAvailabilityChange }: Availa
   const [saving, setSaving] = useState(false);
   const [userTimezone, setUserTimezone] = useState<string>('');
   const [activeDays, setActiveDays] = useState<number[]>([]);
+  // Whether any rows exist for this user in availability_slots — including
+  // is_available=false rows and stale slot ids the UI no longer renders. Save
+  // clears-then-inserts, and a clear issued when no rows exist is a DELETE that
+  // affects 0 rows: a real no-op the Supabase instrumentation reports as an
+  // empty write. Tracking this lets a first-time save skip the pointless DELETE.
+  const [hasPersistedSlots, setHasPersistedSlots] = useState(false);
   
   // State to track selected time slots for each day
   const [selectedTimesByDay, setSelectedTimesByDay] = useState<Record<number, TimeRange[]>>({});
@@ -69,7 +75,13 @@ export function AvailabilityManager({ timeBlocks, onAvailabilityChange }: Availa
     }
     // Get user's timezone
     setUserTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone);
-  }, [user]);
+    // Keyed on the id, not the object: useUser emits a NEW user object for
+    // every auth event (getUser resolving, INITIAL_SESSION, TOKEN_REFRESHED),
+    // and each one re-ran loadAvailability, which resets activeDays and
+    // selectedTimesByDay to what the database holds — silently wiping the
+    // selections someone was in the middle of making.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   const loadAvailability = async () => {
     if (!user?.id) return;
@@ -118,6 +130,7 @@ export function AvailabilityManager({ timeBlocks, onAvailabilityChange }: Availa
       
       setSelectedTimesByDay(timesByDay);
       setActiveDays(activeDaysList);
+      setHasPersistedSlots((data?.length ?? 0) > 0);
     } catch (error: any) {
       logger.error('Error loading availability:', error);
       toast({
@@ -229,22 +242,28 @@ export function AvailabilityManager({ timeBlocks, onAvailabilityChange }: Availa
         });
       });
       
-      // First, delete all existing slots
-      const { error: deleteError } = await supabase
-        .from('availability_slots')
-        .delete()
-        .eq('user_id', user.id);
-        
-      if (deleteError) throw deleteError;
-      
+      // First, delete all existing slots — but only when there are rows to
+      // delete. On a first-time save the table holds nothing for this user, and
+      // an unconditional DELETE affecting 0 rows is exactly the silent no-op
+      // write the Supabase instrumentation flags as a defect.
+      if (hasPersistedSlots) {
+        const { error: deleteError } = await supabase
+          .from('availability_slots')
+          .delete()
+          .eq('user_id', user.id);
+
+        if (deleteError) throw deleteError;
+      }
+
       // Then insert the new slots
       if (availabilitySlots.length > 0) {
         const { error: insertError } = await supabase
           .from('availability_slots')
           .insert(availabilitySlots);
-          
+
         if (insertError) throw insertError;
       }
+      setHasPersistedSlots(availabilitySlots.length > 0);
       
       toast({
         title: 'Success',
