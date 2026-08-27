@@ -6368,6 +6368,10 @@ export type Database = {
         Args: { p_course_id: string; p_module_ids: string[] }
         Returns: undefined
       }
+      replace_availability: {
+        Args: { p_slots: Json }
+        Returns: undefined
+      }
       resolve_calendar_feed_token: {
         Args: { p_course_id: string; p_token: string }
         Returns: string
