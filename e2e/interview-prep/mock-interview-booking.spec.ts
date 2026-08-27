@@ -29,7 +29,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import type { Page } from '@playwright/test';
-import { test, expect, goto, waitForPageLoad, clickTab } from '../fixtures/page-helpers';
+import { test, expect, goto, clickTab } from '../fixtures/page-helpers';
 import { Routes } from '../helpers/route-helpers';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://siuqvhscuiycvdrtiqsh.supabase.co';
