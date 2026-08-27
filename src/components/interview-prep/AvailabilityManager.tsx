@@ -238,7 +238,9 @@ export function AvailabilityManager({ timeBlocks, onAvailabilityChange }: Availa
       // failed initial load); the RPC scopes both statements to auth.uid() and
       // makes the swap atomic.
       const { error } = await supabase.rpc('replace_availability', {
-        p_slots: availabilitySlots,
+        // The RPC's generated param type is Json; these plain records satisfy it
+        // structurally but lack the index signature TypeScript requires.
+        p_slots: availabilitySlots as unknown as Json,
       });
 
       if (error) throw error;
