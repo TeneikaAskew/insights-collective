@@ -98,7 +98,7 @@ export default function MockInterviews() {
       // Logged out: render the page instead of spinning forever
       setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [user?.id]);
 
   useEffect(() => {
@@ -107,7 +107,7 @@ export default function MockInterviews() {
     } else {
       setAvailableUsers([]);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [selectedDate, selectedTimeSlot, selectedType, isInterviewer, user?.id]);
 
   const checkAvailabilityStatus = async () => {

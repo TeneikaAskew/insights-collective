@@ -80,7 +80,7 @@ export function AvailabilityManager({ timeBlocks, onAvailabilityChange }: Availa
     // and each one re-ran loadAvailability, which resets activeDays and
     // selectedTimesByDay to what the database holds — silently wiping the
     // selections someone was in the middle of making.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [user?.id]);
 
   const loadAvailability = async () => {

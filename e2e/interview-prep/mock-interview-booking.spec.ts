@@ -180,7 +180,9 @@ async function setAvailabilityViaUi(page: Page): Promise<void> {
   await expect(page.getByText('8:00 AM').first()).toBeVisible();
 
   await page.getByRole('button', { name: 'Save Availability' }).click();
-  await expect(page.getByText('Your availability has been saved.')).toBeVisible();
+  // .first(): toast text renders twice — the visible toast and its aria-live
+  // status mirror.
+  await expect(page.getByText('Your availability has been saved.').first()).toBeVisible();
 }
 
 test.describe.serial('Mock interview booking — both users', () => {
@@ -248,9 +250,9 @@ test.describe.serial('Mock interview booking — both users', () => {
     // Booking survives the video-link step either way (Zoom or the Jitsi
     // fallback), but the success toast only fires when the link also persisted
     // to the row the partner will read — which is what "it works" means here.
-    await expect(page.getByText('Mock interview session scheduled successfully.')).toBeVisible({
-      timeout: 20_000,
-    });
+    await expect(
+      page.getByText('Mock interview session scheduled successfully.').first(),
+    ).toBeVisible({ timeout: 20_000 });
 
     // The booking shows up immediately in the Upcoming Sessions rail.
     const upcoming = page.locator('.ss-card', { hasText: 'Upcoming Sessions' });
