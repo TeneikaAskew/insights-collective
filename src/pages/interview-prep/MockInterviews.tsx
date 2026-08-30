@@ -87,6 +87,9 @@ export default function MockInterviews() {
   const [activeTab, setActiveTab] = useState<string>('schedule');
   const [hasSetAvailability, setHasSetAvailability] = useState(false);
 
+  // Both effects key on user?.id, not the user object: useUser emits a new
+  // object for every auth event (getUser resolving, TOKEN_REFRESHED), and each
+  // identity change re-ran these fetches for the same signed-in user.
   useEffect(() => {
     if (user) {
       loadSessions();
@@ -95,7 +98,8 @@ export default function MockInterviews() {
       // Logged out: render the page instead of spinning forever
       setLoading(false);
     }
-  }, [user]);
+     
+  }, [user?.id]);
 
   useEffect(() => {
     if (selectedDate && selectedTimeSlot && user) {
@@ -103,7 +107,8 @@ export default function MockInterviews() {
     } else {
       setAvailableUsers([]);
     }
-  }, [selectedDate, selectedTimeSlot, selectedType, isInterviewer, user]);
+     
+  }, [selectedDate, selectedTimeSlot, selectedType, isInterviewer, user?.id]);
 
   const checkAvailabilityStatus = async () => {
     if (!user?.id) return;
@@ -717,7 +722,7 @@ export default function MockInterviews() {
                         <li>Increase confidence and boost overall morale</li>
                         <li>Reduce stress and anxiety before real job interviews</li>
                         <li>Gain useful feedback in a low-stress environment</li>
-                        <li>Better prepare for sessions with DS4A Mentors or CSC</li>
+                        <li>Better prepare for sessions with mentors and career coaches</li>
                         <li>Coordinate study sessions with other fellows in the program</li>
                       </ul>
                     </div>
@@ -741,7 +746,7 @@ export default function MockInterviews() {
                       <div className="space-y-3">
                         <h4 className="font-medium">Question Selection</h4>
                         <ul className="list-disc pl-5 space-y-1">
-                          <li>Leverage DS4A resources or outside resources for practice questions</li>
+                          <li>Leverage community resources or outside resources for practice questions</li>
                           <li>Inform your partner which questions you want to review</li>
                           <li>Share why you want to practice specific questions</li>
                           <li>Try to solve your partner's questions in advance for better feedback</li>

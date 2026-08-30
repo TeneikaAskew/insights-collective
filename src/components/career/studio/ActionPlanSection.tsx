@@ -150,7 +150,7 @@ const ActionPlanSection: React.FC<ActionPlanSectionProps> = ({ initialActionPlan
     setStatusIndex(0);
     const timer = setInterval(() => {
       setStatusIndex((i) => (i + 1) % GENERATION_STATUSES.length);
-    }, 1400);
+    }, 3000);
     return () => clearInterval(timer);
   }, [isGenerating]);
 

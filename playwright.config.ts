@@ -2,8 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { config as loadDotenv } from 'dotenv';
-import { chromiumExecutableOption } from './e2e/support/chromium-executable';
-import { firefoxCanLaunch } from './e2e/support/firefox-executable';
+import { chromiumExecutableOption, firefoxExecutableOption } from './e2e/support/chromium-executable';
 
 
 // Load .env so E2E_* credentials are available to global-setup and tests
@@ -146,9 +145,18 @@ function hermeticArgs(): string[] {
  * but loopback goes to a closed port, and the relay — which is what Supabase
  * traffic actually goes to there — is exempted by `no_proxies_on`.
  */
-function firefoxHermeticOptions(): { firefoxUserPrefs?: Record<string, unknown> } {
-  if (process.env.E2E_USE_RELAY !== '1') return {};
+function firefoxHermeticOptions(): {
+  firefoxUserPrefs?: Record<string, unknown>;
+  executablePath?: string;
+} {
+  // Probed, not assumed — same reason as Chromium above: the version-stamped
+  // bundled Firefox may not exist or may die on a missing system library.
+  const executable = firefoxExecutableOption();
+  if (process.env.E2E_USE_RELAY !== '1') return { ...executable };
+
   return {
+    ...executable,
+
     firefoxUserPrefs: {
       'network.proxy.type': 1,
       'network.proxy.http': '127.0.0.1',
@@ -161,17 +169,6 @@ function firefoxHermeticOptions(): { firefoxUserPrefs?: Record<string, unknown> 
 }
 
 const HERMETIC_ARGS = hermeticArgs();
-
-// Probed once here rather than per-project so the explanation is printed a
-// single time instead of once per worker.
-const FIREFOX_AVAILABLE = firefoxCanLaunch();
-if (!FIREFOX_AVAILABLE) {
-  console.error(
-    '[e2e] Firefox cannot launch here, so the `firefox` project is skipped. ' +
-      'Cross-browser coverage is NOT being checked in this run. ' +
-      'Install it with `npx playwright install --with-deps firefox`.',
-  );
-}
 
 export default defineConfig({
   testDir: './e2e',
@@ -367,13 +364,7 @@ export default defineConfig({
     // Cross-browser smoke tests: Firefox + WebKit on critical paths
     // These use higher timeouts because Firefox/WebKit are substantially
     // slower than Chromium in this codespace environment.
-    //
-    // Included only when Firefox can actually start. Where it cannot, every
-    // test in this project fails in single-digit milliseconds — 22 of them in
-    // one sandbox run — which reads as 22 regressions and is in fact 22
-    // non-results. See e2e/support/firefox-executable.ts. CI installs the
-    // browser explicitly, so this is a no-op there.
-    ...(FIREFOX_AVAILABLE ? [{
+    {
       name: 'firefox',
       use: {
         ...devices['Desktop Firefox'],
@@ -398,7 +389,7 @@ export default defineConfig({
         '**/dashboard/**',
         '**/courses/course-list.spec.ts',
       ],
-    }] : []),
+    },
     // WebKit (Safari) is extremely slow in this codespace environment (>90s per test)
     // and is disabled until a faster runner is available.
     // {

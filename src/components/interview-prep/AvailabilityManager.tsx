@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
 import { useUser } from '@/hooks/use-user';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent } from '@/components/ui/card';
@@ -29,8 +30,6 @@ interface AvailabilityManagerProps {
 }
 
 interface AvailabilitySlot {
-  id?: string;
-  user_id: string; // Added user_id to the interface to fix the TypeScript error
   weekday: number;
   time_slot: string;
   is_available: boolean;
@@ -69,7 +68,13 @@ export function AvailabilityManager({ timeBlocks, onAvailabilityChange }: Availa
     }
     // Get user's timezone
     setUserTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone);
-  }, [user]);
+    // Keyed on the id, not the object: useUser emits a NEW user object for
+    // every auth event (getUser resolving, INITIAL_SESSION, TOKEN_REFRESHED),
+    // and each one re-ran loadAvailability, which resets activeDays and
+    // selectedTimesByDay to what the database holds — silently wiping the
+    // selections someone was in the middle of making.
+     
+  }, [user?.id]);
 
   const loadAvailability = async () => {
     if (!user?.id) return;
@@ -212,39 +217,34 @@ export function AvailabilityManager({ timeBlocks, onAvailabilityChange }: Availa
       setSaving(true);
       
       // Prepare the data for saving
-      const availabilitySlots: Omit<AvailabilitySlot, 'id'>[] = [];
-      
+      const availabilitySlots: AvailabilitySlot[] = [];
+
       // For each active day
       Object.entries(selectedTimesByDay).forEach(([dayIdStr, timeSlots]) => {
         const dayId = parseInt(dayIdStr, 10);
-        
+
         // For each time slot on this day
         timeSlots.forEach(timeSlot => {
           availabilitySlots.push({
-            user_id: user.id,
             weekday: dayId,
             time_slot: timeSlot.id,
             is_available: true
           });
         });
       });
-      
-      // First, delete all existing slots
-      const { error: deleteError } = await supabase
-        .from('availability_slots')
-        .delete()
-        .eq('user_id', user.id);
-        
-      if (deleteError) throw deleteError;
-      
-      // Then insert the new slots
-      if (availabilitySlots.length > 0) {
-        const { error: insertError } = await supabase
-          .from('availability_slots')
-          .insert(availabilitySlots);
-          
-        if (insertError) throw insertError;
-      }
+
+      // Replace-what-exists in one server-side transaction. Doing it here as
+      // delete-then-insert needed the client to know whether a clearing DELETE
+      // was warranted, and any cached answer goes stale (another tab saving, a
+      // failed initial load); the RPC scopes both statements to auth.uid() and
+      // makes the swap atomic.
+      const { error } = await supabase.rpc('replace_availability', {
+        // The RPC's generated param type is Json; these plain records satisfy it
+        // structurally but lack the index signature TypeScript requires.
+        p_slots: availabilitySlots as unknown as Json,
+      });
+
+      if (error) throw error;
       
       toast({
         title: 'Success',

@@ -73,7 +73,21 @@ export async function callGroq(
 ): Promise<any> {
   let response!: Response;
 
-  for (let attempt = 0; ; attempt++) {
+  // Groq's constrained decoder sometimes fails its own schema check and answers
+  // 400 `json_validate_failed` — observed twice in fifteen calibration calls
+  // against evaluate-star-response's json_schema format, e.g. emitting a
+  // top-level array. It is a sampling accident, not a property of the request:
+  // the identical request succeeds on resubmission. One retry, separate from
+  // the 429 budget, keeps that accident from surfacing as "AI API error: 400".
+  //
+  // "Separate" is why the counters are separate: a shared loop counter would
+  // spend one of the two quick 429 retries on the schema resample, handing the
+  // wait back to the client one attempt early whenever both failures occur in
+  // the same call.
+  let schemaRetrySpent = false;
+  let rateLimitWaits = 0;
+
+  for (;;) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), perAttemptTimeoutMs);
     try {
@@ -90,19 +104,35 @@ export async function callGroq(
       clearTimeout(timeoutId);
     }
 
+    if (response.status === 400 && !schemaRetrySpent) {
+      // Read the body to tell a decode accident from a genuinely bad request;
+      // Response bodies are single-use, so a non-matching 400 re-throws from
+      // the text already in hand rather than falling through to the reader
+      // below.
+      const detail = await response.text();
+      if (detail.includes("json_validate_failed")) {
+        schemaRetrySpent = true;
+        console.warn(`[${label}] constrained decode failed schema validation, retrying once`);
+        continue;
+      }
+      console.error(`[${label}] Groq error 400:`, detail);
+      throw new Error(`AI API error: 400`);
+    }
+
     if (response.status !== 429) break;
 
-    if (attempt >= QUICK_RETRIES) {
+    if (rateLimitWaits >= QUICK_RETRIES) {
       // Hand the client the server's own number rather than a guess. 60s is the
       // fallback because the limit is per *minute*: if Groq declined to say,
       // one full window is the shortest wait that can actually clear it.
       const retryAfterMs = retryAfterMsFrom(response, 60);
-      console.warn(`[${label}] rate limited after ${attempt + 1} attempts, deferring ${retryAfterMs}ms to client`);
+      console.warn(`[${label}] rate limited after ${rateLimitWaits + 1} attempts, deferring ${retryAfterMs}ms to client`);
       throw new GroqRateLimitError(retryAfterMs);
     }
 
+    rateLimitWaits++;
     const waitMs = Math.min(retryAfterMsFrom(response, 2), MAX_QUICK_WAIT_S * 1000);
-    console.warn(`[${label}] rate limited, quick retry ${attempt + 1}/${QUICK_RETRIES} in ${waitMs}ms`);
+    console.warn(`[${label}] rate limited, quick retry ${rateLimitWaits}/${QUICK_RETRIES} in ${waitMs}ms`);
     await sleep(waitMs);
   }
 
