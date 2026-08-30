@@ -213,15 +213,49 @@ test.describe('Assignment feedback notifications (student inbox)', () => {
         body: JSON.stringify({ rubric_scores: rubric }),
       });
 
+    // IDENTIFIED BY ID, NOT BY TIMESTAMP, AND THAT IS THE WHOLE FIX.
+    //
+    // This used to capture `before = new Date().toISOString()` between the two
+    // patches and then ask for notifications with `created_at >= before`. But
+    // `created_at` is written by the DATABASE clock while `new Date()` reads
+    // THIS machine's, and the two disagree — measured 1.5s apart here, with the
+    // database ahead. So the notification the ADD step legitimately produced
+    // carried a `created_at` later than `before`, landed inside the "after
+    // clear" window, and was reported as the clear having notified the student.
+    // The trigger was innocent: notify_student_on_grade only sets
+    // v_rubric_changed when NEW.rubric_scores IS NOT NULL, so a clear cannot
+    // notify.
+    //
+    // It fails 3/3 alone here and passed in a slower sandbox, which looks
+    // backwards until you see why: the gap between the add and `before` is one
+    // HTTP round trip, so a slow relay lets wall-clock overtake the skew and a
+    // fast one does not. A timing assumption that inverts with latency is not
+    // one to re-tune — comparing ids removes the clock from the question
+    // entirely.
+    //
+    // The window start stays deliberately generous for the same reason: both
+    // reads use it, so only the id difference between them matters.
+    const RUBRIC_NOTIFICATION = /^Rubric feedback:/;
+    const windowStart = new Date(Date.now() - 60_000).toISOString();
+
     const added = await patch({ clarity: { points: 4, comment: 'E2E rubric' } });
     expect(added.status, await added.text()).toBe(200);
-    const afterAdd = await studentNotifications(studentToken, new Date(Date.now() - 2000).toISOString());
-    expect(afterAdd.some((r) => /^Rubric feedback:/.test(r.title))).toBe(true);
+    const afterAdd = (await studentNotifications(studentToken, windowStart)).filter((r) =>
+      RUBRIC_NOTIFICATION.test(r.title),
+    );
+    expect(afterAdd.length, 'adding a rubric notifies the student').toBeGreaterThan(0);
+    const knownIds = new Set(afterAdd.map((r) => r.id));
 
-    const before = new Date().toISOString();
     const cleared = await patch(null);
     expect(cleared.status, await cleared.text()).toBe(200);
-    const afterClear = await studentNotifications(studentToken, before);
+    // Only rubric notifications that did not already exist. Scoping to the
+    // title also keeps a concurrent spec's traffic out of this assertion: the
+    // shared member is graded by journeys/assignment-submission-feedback.spec.ts
+    // too, and an unrelated `assignment_graded` for a different assignment used
+    // to fail this test as well.
+    const afterClear = (await studentNotifications(studentToken, windowStart)).filter(
+      (r) => RUBRIC_NOTIFICATION.test(r.title) && !knownIds.has(r.id),
+    );
     expect(
       afterClear,
       `clearing the rubric notified the student: ${JSON.stringify(afterClear)}`,
