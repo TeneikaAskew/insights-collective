@@ -20,6 +20,7 @@ import { CourseInformationView } from '@/components/course/builder/teachable/Cou
 import { CourseDesignView } from '@/components/course/builder/teachable/CourseDesignView';
 import { CourseCertificatesView } from '@/components/course/builder/teachable/CourseCertificatesView';
 import { CourseSettingsView } from '@/components/course/builder/teachable/CourseSettingsView';
+import { StudentsView } from '@/components/course/builder/teachable/StudentsView';
 import { InstructorBuilderTour } from '@/components/onboarding/InstructorBuilderTour';
 import {
   NewCourseWizard,
@@ -698,7 +699,12 @@ const CourseBuilder = () => {
         <CourseSettingsView course={course} onSave={persistCourse} />
       )}
 
+      {activeView === 'students' && (
+        <StudentsView courseId={course.id} courseTitle={course.title} />
+      )}
+
       {activeView !== 'setup' &&
+        activeView !== 'students' &&
         activeView !== 'curriculum' &&
         activeView !== 'lesson' &&
         activeView !== 'information' &&
