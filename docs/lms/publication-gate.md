@@ -30,15 +30,35 @@ For the `pull_request` event GitHub checks out and executes the workflow files f
 | Push to `main` (merge, or Lovable commit) | `test.yml`, `security.yml`, `e2e.yml` | same as above |
 | Dispatch `db-migrate.yml` with `confirm: apply` | that workflow | applies the named migration to the live database |
 
-## Production-safe PR workflow (prepared on this branch, pending owner confirmation)
+## Production-safe PR workflow (on this branch)
 
-1. **Guard script** `scripts/e2e/assert-safe-target.mjs` resolves the project ref from `VITE_SUPABASE_URL`, `SUPABASE_DB_URL`, `E2E_RELAY_TARGET` and `VITE_SUPABASE_PROJECT_ID`. An **unset** variable counts as production, because every code default is the production URL. In `--mutating` mode it exits 3 unless `E2E_ALLOW_PRODUCTION_TARGET` equals the production ref exactly. Verified locally: unset → refused; explicit production URL → refused; loopback targets → accepted; explicit opt-in → accepted; `--read-only` → never blocks.
-2. **Seed step** in `e2e.yml` now runs the guard first. The opt-in is set only when `github.event_name != 'pull_request'`, so a PR run stops at the guard, red, with the reason printed. Pushes to `main` and manual dispatches keep today's behaviour until the owner decides otherwise.
-3. **`e2e/global-setup.ts`** runs the same guard before any sign-in or password bootstrap, so a local `npm run e2e` or `e2e:relay` with default variables refuses rather than mutating production.
-4. **Local isolated database** (`scripts/local-db/`): a disposable PostgreSQL 16 built from a read-only catalog snapshot plus a Supabase shim. Policies, triggers and the seed script run there; `scripts/local-db/tests/*.sql` are role-scoped RLS tests. Runners refuse non-loopback connection strings.
+1. **Guard script** `scripts/e2e/assert-safe-target.mjs` is an allow-list, not a deny-list. In `--mutating` mode every target variable (`VITE_SUPABASE_URL`, `SUPABASE_DB_URL`, `E2E_RELAY_TARGET`) must be set and must be either loopback (`localhost`, `127.0.0.1`, `::1`) or a Supabase host whose project ref equals `E2E_ISOLATED_TARGET_REF`, which itself must differ from the production ref. Everything else is refused: the production ref anywhere in any value, look-alike hosts (`<prod>.supabase.co.attacker.tld`, `localhost.attacker.tld`), pooler hosts whose user is not the isolated ref, other IP literals, percent-encoded or unparseable values, and `VITE_SUPABASE_PROJECT_ID` equal to production. Unit tests: `src/test/__tests__/assertSafeTarget.test.ts` (10 cases, including deceptive URLs).
+2. **No automatic production opt-in.** The workflow no longer grants `E2E_ALLOW_PRODUCTION_TARGET` for any event. The only way to run the mutating suite against the live project is the `allow_production_target` `workflow_dispatch` input, typed by a person as the exact production ref. Pushes and pull requests always stop at the guard step until a repository variable `E2E_ISOLATED_TARGET_REF` names an isolated project and the target secrets point at it.
+3. **`e2e/global-setup.ts`** runs the same guard before any sign-in or password bootstrap.
+4. **Local isolated database** (`scripts/local-db/`): `build-from-snapshot.sh` now fails on any non-idempotency DDL error and on any mismatch against `manifest.env` (tables, views, functions, policies, triggers, RLS tables, enums recorded from the live catalog). Verified: correct snapshot builds and matches (tables 120, views 6 of 7 with `quiz_analytics` declared broken live, functions 118, policies 341, triggers 51); a tampered manifest and a partial snapshot are both rejected.
 
-Open points for the owner before any PR is opened:
+## Publication-safety report (local run, 2026-10-31, head of `claude/inspiring-shannon-wkmu6y`)
 
-- Accept that PR runs of `e2e.yml` fail closed (red) until an isolated target exists, **or** approve a policy that the Playwright job does not run on `pull_request` and instead runs the local-database policy tests plus the existing unit suite. The second option is a workflow change, not a skipped failing test, but it is the owner's call.
-- Decide whether `main` pushes may keep seeding the live project (status quo, inherited from the repository's own CI design).
-- Confirm the branch and PR naming: this session is bound to `claude/inspiring-shannon-wkmu6y`; the handoff asks for `fix/lms-*` style branches. Creating additional branches needs explicit permission under this session's rules.
+| Check | Result | Tier |
+|---|---|---|
+| Branch push fires a workflow | No (verified on the first push: zero runs) | ci |
+| PR event reaches the seed step | No: run 41207463923 stopped at the guard step; seed, fixture check and suite skipped | ci |
+| Guard refuses unset, production, look-alike and encoded targets | 10/10 unit tests pass | local |
+| Guard accepts loopback and a declared isolated project only | covered by the same tests | local |
+| Any event grants production opt-in automatically | No; only the typed dispatch input | code |
+| Seed script rehearsal | `e2e/fixtures/seed.sql` exit 0 on the local snapshot after `local-preseed.sql` | local-db |
+| Teardown with default env | logs "DB teardown disabled", no network writes | local |
+| Schema replay completeness | fail-closed with manifest; one live-broken view declared explicitly | local-db |
+| RLS matrix (3 tables × 9 actors, 54 checks) | 51/54 on live-equivalent policies: the enrolled-instructor actor reads another learner's progressions, quiz submissions and quiz answers; 54/54 with migration `20261101000000` applied locally | local-db |
+| Assessed-progression guard (16 checks) | assignment without or with draft submission refused; submitted accepted; quiz without submission refused; **started-only quiz accepted** and certificate issued (policy gap T-09); `graded` not counted by the certificate trigger (T-10) | local-db |
+| `start_quiz_attempt` authorization (10 checks) | 6/10 on live-equivalent: unenrolled learner starts attempts on published and unpublished quizzes, another course's instructor too; 10/10 with migration `20261101000100` applied locally | local-db |
+| `public.quiz_analytics` | broken in the live catalog: `SELECT` raises 42P17 infinite recursion; no consumer in `src/` | live-catalog |
+
+Nothing in this report was produced by writing to the live project. Both migrations remain unapplied.
+
+Open points for the owner:
+
+- Provide an isolated Supabase project and set the repository variable `E2E_ISOLATED_TARGET_REF` plus matching secrets, **or** accept that the Playwright job stays red on every push and pull request. A production dispatch is possible but requires typing the ref.
+- Approve `db-migrate.yml` dispatches for `20261101000000` (RLS scope) and `20261101000100` (quiz-start authorization) after review.
+- Decide the completion policy for started-only quizzes (T-09) and the `graded` vocabulary (T-10).
+- Confirm the branch and PR naming (this session is bound to `claude/inspiring-shannon-wkmu6y`).
