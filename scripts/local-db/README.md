@@ -56,7 +56,9 @@ Why a snapshot and not a migration replay: the base tables (`courses`, `profiles
   use `assertLocalDsn` (loopback only). Its semantics were checked against libpq's own
   `PQconninfoParse` (ctypes, no connection) by `tests/dsn-differential.py`: `'#'` is data to libpq, not
   a fragment; userinfo splits at the first `'@'`; percent-decoding applies everywhere; query
-  `host`/`hostaddr`/`port` override the authority. All of those are refused outright.
+  `host`/`hostaddr`/`port` override the authority; in keyword form a backslash escapes the next character
+  even unquoted, so `password=x\ host=localhost` hides the real host. All of those are refused outright;
+  the keyword form accepts only plain `key=value` tokens with a safe value charset.
 - `tests/build-negative.sh` is itself an entrypoint (it creates and drops databases) and validates its
   `PGBASE` and strips the libpq environment before its first `psql`; `tests/guard-negative.sh` drives it
   with remote and override inputs too.
