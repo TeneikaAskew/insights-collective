@@ -80,6 +80,25 @@ check "build-negative.sh ← PGBASE with hostaddr" "$ROOT/scripts/local-db/tests
 check "build-negative.sh ← loopback PGBASE but PGHOSTADDR override" env PGHOSTADDR=203.0.113.9 "$ROOT/scripts/local-db/tests/build-negative.sh" "postgresql://postgres@127.0.0.1:54329" /tmp/x
 check "build-negative.sh ← PGHOST override"      env PGHOST="db.${PROD}.supabase.co" "$ROOT/scripts/local-db/tests/build-negative.sh" "postgresql://postgres@127.0.0.1:54329" /tmp/x
 
+# ---- credential-leak regressions: refusal output (CLI and the actual seed wrapper) must never echo a secret ----
+SENT='SYNTHETIC_SECRET!'
+leakcheck() { # name, command... → PASS iff refused, psql not invoked, and output lacks the sentinel
+  local name="$1"; shift; rm -f "$MARK"; n=$((n+1))
+  local out; out=$("$@" 2>&1); local st=$?
+  if [ $st -eq 0 ]; then echo "FAIL $name (exit 0; expected refusal)"; rc=1
+  elif [ -f "$MARK" ]; then echo "FAIL $name (psql WAS invoked)"; rc=1
+  elif printf '%s' "$out" | grep -qF "$SENT"; then echo "FAIL $name (refusal output echoed the credential)"; rc=1
+  else echo "PASS $name (refused with exit $st, psql never invoked, credential absent from output)"; fi
+}
+for d in "host=localhost password=${SENT}" "host=remote.example password=${SENT}x host=localhost" "postgresql://u:${SENT}@remote.example/db" "postgresql://u:${SENT}@localhost/db?hostaddr=203.0.113.9" "postgresql://${SENT}@remote.example/db"; do
+  leakcheck "assert-local-dsn CLI ← credential-bearing refused DSN" node "$ROOT/scripts/local-db/assert-local-dsn.mjs" "$d"
+  leakcheck "run-sql-tests.sh ← credential-bearing refused DSN" "$ROOT/scripts/local-db/run-sql-tests.sh" "$d"
+  leakcheck "seed.sh ← credential-bearing refused SUPABASE_DB_URL" env VITE_SUPABASE_URL="$LOOP_API" E2E_RELAY_TARGET="$LOOP_API" SUPABASE_DB_URL="$d" "$ROOT/scripts/e2e/seed.sh"
+done
+# the E2E guard CLI prints a redacted summary for an ACCEPTED loopback DSN that carries a password
+rm -f "$MARK"; out=$(env VITE_SUPABASE_URL="$LOOP_API" E2E_RELAY_TARGET="$LOOP_API" SUPABASE_DB_URL="postgresql://postgres:${SENT}@127.0.0.1:54329/db" node "$ROOT/scripts/e2e/assert-safe-target.mjs" --mutating 2>&1); n=$((n+1))
+if printf '%s' "$out" | grep -qF "$SENT"; then echo "FAIL assert-safe-target CLI echoed an accepted DSN's password"; rc=1; else echo "PASS assert-safe-target CLI redacts an accepted DSN's password"; fi
+
 # ---- genuine positive controls: a valid target MUST reach the (fake) psql process ----
 pos=0; posfail=0
 positive() { # name, command... → PASS iff the fake psql was invoked

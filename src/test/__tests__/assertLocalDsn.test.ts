@@ -92,4 +92,27 @@ describe('assert-local-dsn', () => {
     expect(ev(`postgresql://postgres:x@db.${PROD}.supabase.co:5432/postgres`, PROD).ok).toBe(false);     // isolated == production
     expect(ev(`postgresql://postgres.${ISO}:x@aws-0-eu-west-1.pooler.supabase.com.attacker.example:6543/postgres`, ISO).ok).toBe(false);
   });
+
+  it('never echoes a credential in a refusal reason or a redacted summary', () => {
+    const S = 'SYNTHETIC_SECRET!';
+    const inputs = [
+      `host=localhost password=${S}`,                               // invalid keyword value → refused
+      `host=remote.example password=${S}x host=localhost`,          // refused by host rule
+      `postgresql://u:${S}@remote.example/db`,                      // URI, refused by host rule
+      `postgresql://u:${S}@localhost,remote.example/db`,            // multihost
+      `postgresql://u:${S}@localhost/db?hostaddr=203.0.113.9`,      // hostaddr
+      `postgresql://postgres.abc:${S}@aws-0-eu-west-1.pooler.supabase.com:6543/postgres`, // pooler, no isolated ref
+      `postgresql://${S}@remote.example/db`,                        // secret as user name
+      `host=localhost user=${S}`,                                   // '!' makes it an invalid token
+    ];
+    for (const dsn of inputs) {
+      const r = ok(dsn);
+      expect(JSON.stringify(r), dsn).not.toContain(S);
+      const e = evaluateLibpqDsn(dsn, { env: {}, isolatedRef: 'abcdefghijklmnopqrst', productionRef: 'siuqvhscuiycvdrtiqsh' });
+      expect(JSON.stringify(e), dsn).not.toContain(S);
+    }
+    const accepted = ok(`postgresql://u:${S}@localhost/db`);
+    expect(accepted.ok).toBe(true);
+    expect(JSON.stringify(accepted)).not.toContain(S);
+  });
 });

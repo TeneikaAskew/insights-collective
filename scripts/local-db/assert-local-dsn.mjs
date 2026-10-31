@@ -37,9 +37,17 @@ const KEYWORD_KEYS = new Set(['host', 'hostaddr', 'port', 'dbname', 'user', 'pas
 function parseKeywordDsn(s) {
   if (/['"\\]/.test(s)) return { error: "quotes or backslashes in a keyword DSN are refused: libpq treats them as escapes that can hide a second host" };
   const out = {};
-  for (const tok of s.trim().split(/\s+/)) {
+  const toks = s.trim().split(/\s+/);
+  for (let i = 0; i < toks.length; i++) {
+    const tok = toks[i];
     const m = tok.match(/^([a-z_]+)=([A-Za-z0-9._:\/@-]+)$/);
-    if (!m) return { error: `keyword token ${JSON.stringify(tok.length > 40 ? tok.slice(0, 40) + '…' : tok)} is not a plain key=value with a safe value (letters, digits, . _ : / @ -)` };
+    if (!m) {
+      // Diagnostics name the position and, when it parses, the KEY only. The raw token is never
+      // echoed: it may be a password or contain one.
+      const km = tok.match(/^([a-z_]+)=/);
+      const where = km ? `keyword "${km[1]}" (token ${i + 1})` : `token ${i + 1}`;
+      return { error: `${where} is not a plain key=value with a safe value (letters, digits, . _ : / @ -); value not shown` };
+    }
     const [, k, v] = m;
     if (!KEYWORD_KEYS.has(k)) return { error: `unsupported connection parameter ${k}= is refused` };
     if (k in out) return { error: `duplicate keyword ${k}= is refused` };
@@ -144,7 +152,7 @@ export function evaluateLibpqDsn(dsn, { env = process.env, isolatedRef, producti
     if (SUPABASE_POOLER_HOST.test(p.host)) {
       const um = (p.user ?? '').match(/^postgres\.([a-z0-9]{15,})$/);
       if (um && um[1] === isolatedRef) return { ...p, target: `isolated:${isolatedRef}` };
-      return refuse(`pooler user ${p.user ?? '(none)'} does not name the isolated ref`);
+      return refuse('pooler user does not name the isolated ref (user not shown)');
     }
   }
   return refuse(`host "${p.host}" is not loopback (localhost, 127.0.0.1, ::1)${isolatedRef ? ' or the declared isolated project' : ''}`);

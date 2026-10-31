@@ -126,4 +126,12 @@ describe('assert-safe-target', () => {
     expect(t.shown).toContain('password=<redacted>');
     expect(JSON.stringify(r)).not.toContain('SECRET');
   });
+
+  it('never echoes a database credential in any target verdict', () => {
+    const S = 'SYNTHETIC_SECRET!';
+    for (const dsn of [`host=localhost password=${S}`, `postgresql://u:${S}@remote.example/db`, `postgresql://u:${S}@localhost/db?host=remote.example`, `postgresql://u:${S}@127.0.0.1:5432/db`]) {
+      const r = run(base({ SUPABASE_DB_URL: dsn }));
+      expect(JSON.stringify(r), dsn).not.toContain(S);
+    }
+  });
 });
