@@ -17,13 +17,27 @@ Why a snapshot and not a migration replay: the base tables (`courses`, `profiles
    queries** against the project (`pg_type`, `pg_attribute`, `pg_constraint`, `pg_indexes`,
    `pg_get_functiondef`, `pg_policies`, `pg_get_triggerdef`, `role_table_grants`). Keep the
    snapshot outside the repository and scan it for secret-shaped strings before use.
-3. `createdb ic_snapshot` then `scripts/local-db/build-from-snapshot.sh postgresql://postgres@127.0.0.1:54329/ic_snapshot <snapshot dir>`.
+3. Write `manifest.env` into the snapshot directory with the live counts the replay must reproduce
+   (`TABLES`, `VIEWS`, `MATVIEWS`, `FUNCTION_NAMES`, `POLICIES`, `TRIGGERS`, `RLS_TABLES`, `ENUMS`), and
+   `VIEWS_BROKEN_LIVE=<name,...>` for any view the live catalog cannot evaluate (today: `quiz_analytics`,
+   which raises 42P17 infinite recursion on read).
+4. `createdb ic_snapshot` then `scripts/local-db/build-from-snapshot.sh postgresql://postgres@127.0.0.1:54329/ic_snapshot <snapshot dir>`.
+   The build **fails** on any non-idempotency DDL error and on any manifest mismatch; a partial or
+   tampered snapshot cannot pass as complete.
 
 ## Use
 
-- `scripts/local-db/run-sql-tests.sh <loopback url>` runs every `tests/*.sql`; each prints `PASS`/`FAIL`
-  lines and exits non-zero on failure. Tests impersonate users the way PostgREST does
-  (`set_config('request.jwt.claims', …)` plus `set role authenticated`) and roll back.
+- `scripts/local-db/run-sql-tests.sh <loopback url> [test.sql ...]` runs every `tests/*.sql` (or the named
+  ones); each prints `PASS`/`FAIL` lines and exits non-zero on failure. Tests impersonate users the way
+  PostgREST does (`set_config('request.jwt.claims', …)` plus `set role …`) and roll back.
+  - `01_cross_course_rls.sql`: 3 learner-data tables × 9 actors (course owner, co-instructor via
+    `course_assignments`, instructor enrolled as a learner, unrelated instructor, two students, admin,
+    anon). 51/54 on the live-equivalent schema, 54/54 with `20261101000000` applied.
+  - `02_assessed_progression_guard.sql`: which assessment states may reach a done state and when the
+    certificate trigger fires. Started-only quizzes are tested separately from submitted work; the
+    checks tagged `[policy gap T-09]` and `[inconsistency T-10]` assert current behaviour on purpose.
+  - `03_start_quiz_attempt_authz.sql`: who may start a quiz attempt. 6/10 on the live-equivalent
+    schema, 10/10 with `20261101000100` applied.
 - `scripts/local-db/local-preseed.sql` supplies the rows `e2e/fixtures/seed.sql` assumes already
   exist in production (reference course, modules, the three `e2e-*` accounts) so the seed can be
   rehearsed offline: `psql <url> -f scripts/local-db/local-preseed.sql` then
