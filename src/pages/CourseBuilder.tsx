@@ -304,12 +304,12 @@ const CourseBuilder = () => {
       if (typeof patch.published === 'boolean') Object.assign(dbPatch, publishPatch(patch.published));
       setCourse((c) => (c ? { ...c, ...patch } : c));
       const result = await updateCourse<BuilderCourse>(course.id, dbPatch);
-      if (!result.ok) {
+      if (result.ok === false) {
         setCourse(previous);
-        toast({ title: 'Changes not saved', description: result.error, variant: 'destructive' });
+        toast({ title: 'Changes not saved', description: (result as { error: string }).error, variant: 'destructive' });
         return false;
       }
-      setCourse((c) => (c ? { ...c, ...patch, published: !!result.row.published } : c));
+      setCourse((c) => (c ? { ...c, ...patch, published: !!(result as { row: BuilderCourse }).row.published } : c));
       return true;
     },
     [course, toast],
