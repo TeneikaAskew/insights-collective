@@ -22,10 +22,10 @@
 //    `localhost.attacker.tld`), pooler hosts whose user is not the isolated ref, IP literals
 //    other than 127.0.0.1, percent-encoded or otherwise unparseable values, and any value that
 //    merely *contains* the production ref as a substring.
-// 4. There is NO environment variable that unlocks production. A deliberate production run is a
-//    human decision made outside this script: a workflow_dispatch input the operator types, which
-//    the workflow passes through as E2E_ALLOW_PRODUCTION_TARGET. The value must equal the
-//    production ref exactly, and the CLI prints that it was used.
+// 4. There is NO opt-in. Nothing in the environment, in a workflow input or on the command line can
+//    make this script accept the production project for a mutating run. Mutating tests against
+//    production are not a supported operation of this repository (handoff: DOT_START_HERE line 29,
+//    master plan lines 36, 108, 149, 490, 513).
 // 5. `--read-only` only reports the resolved targets; it never blocks.
 // Secrets are never printed: hosts are shown, passwords and keys are masked.
 
@@ -78,7 +78,7 @@ export function classifyTarget(value) {
 
 /**
  * @param {{ mutating: boolean, env?: NodeJS.ProcessEnv, prod?: string }} opts
- * @returns {{ ok: boolean, prod: string, isolatedRef?: string, targets: Array<{name:string, kind:string, ref?:string, shown:string, verdict:'ok'|'refused', why?:string}>, reason?: string, productionAllowed?: boolean }}
+ * @returns {{ ok: boolean, prod: string, isolatedRef?: string, targets: Array<{name:string, kind:string, ref?:string, shown:string, verdict:'ok'|'refused', why?:string}>, reason?: string }}
  */
 export function assessTarget({ mutating, env = process.env, prod = productionRef() }) {
   const isolatedRef = (env.E2E_ISOLATED_TARGET_REF || '').trim() || undefined;
@@ -114,12 +114,6 @@ export function assessTarget({ mutating, env = process.env, prod = productionRef
   if (!mutating) return { ok: true, prod, isolatedRef, targets };
   const refused = targets.filter((t) => t.verdict === 'refused');
   if (refused.length === 0) return { ok: true, prod, isolatedRef, targets };
-  // The only path to production: an operator-typed value equal to the ref. Never set by a
-  // workflow expression; see .github/workflows/e2e.yml.
-  if (env.E2E_ALLOW_PRODUCTION_TARGET === prod) {
-    return { ok: true, prod, isolatedRef, targets, productionAllowed: true,
-      reason: `PRODUCTION MUTATION EXPLICITLY ALLOWED by E2E_ALLOW_PRODUCTION_TARGET=${prod} (operator decision)` };
-  }
   return {
     ok: false, prod, isolatedRef, targets,
     reason: 'refusing to mutate: ' + refused.map((t) => `${t.name}=${t.shown} (${t.why})`).join('; ') +

@@ -74,13 +74,12 @@ describe('assert-safe-target', () => {
     expect(run(base({ VITE_SUPABASE_PROJECT_ID: PROD })).ok).toBe(false);
   });
 
-  it('allows production only through the exact operator opt-in and says so', () => {
+  it('has no opt-in: no environment value makes production acceptable for a mutating run', () => {
     const prodEnv = { VITE_SUPABASE_URL: `https://${PROD}.supabase.co`, SUPABASE_DB_URL: `postgresql://postgres:x@db.${PROD}.supabase.co:5432/postgres`, E2E_RELAY_TARGET: `https://${PROD}.supabase.co` };
-    expect(run({ ...prodEnv, E2E_ALLOW_PRODUCTION_TARGET: 'yes' }).ok).toBe(false);
-    expect(run({ ...prodEnv, E2E_ALLOW_PRODUCTION_TARGET: 'true' }).ok).toBe(false);
-    const r = run({ ...prodEnv, E2E_ALLOW_PRODUCTION_TARGET: PROD });
-    expect(r.ok).toBe(true);
-    expect(r.productionAllowed).toBe(true);
+    for (const v of ['yes', 'true', PROD, 'I_UNDERSTAND', '1']) {
+      expect(run({ ...prodEnv, E2E_ALLOW_PRODUCTION_TARGET: v }).ok, v).toBe(false);
+      expect(run({ ...prodEnv, E2E_ISOLATED_TARGET_REF: PROD, E2E_ALLOW_PRODUCTION_TARGET: v }).ok, v).toBe(false);
+    }
   });
 
   it('never blocks in read-only mode', () => {
