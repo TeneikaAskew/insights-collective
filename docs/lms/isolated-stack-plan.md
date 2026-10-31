@@ -106,14 +106,35 @@ fixture content that only exists after real reads resolve and that the error car
 Evidence gate: every row is PASS, FAIL or BLOCKED with a real screenshot artifact at the three
 viewports; no row may be reported from code reading.
 
+## Production-mutating paths on `origin/main` today (inspected read-only, never triggered)
+
+The handoff prohibits running Playwright seed or cleanup against production (Start Here line 29;
+master plan lines 36, 108, 149, 490, 513). This is a requirement, not an owner choice. On
+`origin/main` at `99f81e3e` these paths still exist:
+
+| Path | Trigger | What it writes |
+|---|---|---|
+| `e2e.yml` "Seed E2E fixtures" | every `push` to `main`/`develop`, every `pull_request` to them, `workflow_dispatch` | `psql "$SUPABASE_DB_URL" -f e2e/fixtures/seed.sql` against the live project; then `global-setup.ts` resets the three `e2e-*` passwords through the `admin-users` function and the journeys insert and delete rows |
+| `e2e.yml` visual baseline regeneration | `workflow_dispatch` with `update_snapshots=true` | `git commit` and `git push origin HEAD:<branch>` from the runner |
+| `db-migrate.yml` | `workflow_dispatch` with `confirm: apply` | applies a named migration to the live database (by design; owner-driven) |
+
+`nightly.yml`, `test.yml`, `security.yml` and `pr-checks.yml` do not write to the project.
+
+On this branch the first path is already closed: `e2e.yml` runs `assert-safe-target.mjs --mutating`
+before the seed, calls `scripts/e2e/seed.sh`, has no production opt-in of any kind, and the guard
+accepts only loopback or a declared isolated project. Merging the reviewed safety checkpoint is what
+removes the production-test path from `main`; the isolated job in PR-B is what replaces it. The
+baseline-regeneration push remains in `e2e.yml` and is a separate write path to remove in PR-B's
+review (the isolated workflow carries no commit or push step at all).
+
 ## Prerequisites that are not in this repository today
 
-- Owner confirmation to commit the sanitized schema snapshot (PR-A step 1).
+- Owner confirmation to commit the sanitized schema snapshot (PR-A step 1; scan attached: no secrets,
+  no e-mail addresses, no UUID literals, no data rows; one public reference URL to bls.gov in a column
+  default; the production project ref appears nowhere in the artifact).
 - A maintainer to review PR-B's workflow file before the first PR run, because `pull_request`
   workflows execute on the PR's own copy; the file must carry no secret references and read-only
   permissions, which review confirms.
-- Decision on whether `e2e.yml` keeps running against production on `main` pushes once the isolated
-  job exists (recommendation: it stops; the isolated job becomes the only E2E gate).
 
 ## What this plan does not do
 
