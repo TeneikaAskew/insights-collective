@@ -15,3 +15,21 @@ export const DONE_PROGRESSION_STATES = ['read', 'completed', 'graded'] as const;
 export function isProgressionDone(workflowState?: string | null): boolean {
   return !!workflowState && (DONE_PROGRESSION_STATES as readonly string[]).includes(workflowState);
 }
+
+/**
+ * Assessed content (assignments, quizzes) is only done once the learner has
+ * actually submitted it. Reading, scrolling, "Next" and "Mark as done" must
+ * never complete it — only the submission handlers may.
+ */
+export const ASSESSED_CONTENT_TYPES = ['assignment', 'quiz'] as const;
+
+export function isAssessedContentType(type?: string | null): boolean {
+  return !!type && (ASSESSED_CONTENT_TYPES as readonly string[]).includes(type);
+}
+
+export type CompletionSource = 'view' | 'submission';
+
+/** Whether a completion request from this source may mark an item of this type done. */
+export function canMarkComplete(type: string | null | undefined, source: CompletionSource): boolean {
+  return !isAssessedContentType(type) || source === 'submission';
+}

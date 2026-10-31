@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { canMarkComplete, isAssessedContentType, type CompletionSource } from '@/utils/progressionStates';
 import {
   ArrowLeft,
   Award,
@@ -290,20 +291,28 @@ const CourseLearn = () => {
   }, []);
 
   const handleMarkDone = useCallback(
-    async (id: string) => {
+    async (id: string, source: CompletionSource = 'view') => {
+      const type = flatItems.find((fi) => fi.item.id === id)?.item.type;
+      if (!canMarkComplete(type, source)) return false;
       try {
         await markItemComplete(id);
         setCompleted((prev) => new Set(prev).add(id));
+        return true;
       } catch (err: any) {
-        toast({ title: 'Error', description: err.message, variant: 'destructive' });
+        toast({ title: 'Progress not saved', description: err.message, variant: 'destructive' });
+        return false;
       }
     },
-    [markItemComplete, toast],
+    [flatItems, markItemComplete, toast],
   );
 
   const handleContinue = useCallback(async () => {
     if (!selected) return;
-    if (!isSelectedComplete) await handleMarkDone(selected.item.id);
+    // Next completes informational content only; assessed items stay
+    // incomplete until submitted (handleMarkDone enforces this).
+    if (!isSelectedComplete && !isAssessedContentType(selected.item.type)) {
+      await handleMarkDone(selected.item.id, 'view');
+    }
     if (next) {
       goTo(next.module.id, next.item.id);
     } else {
@@ -618,7 +627,7 @@ const CourseLearn = () => {
               onClick={handleContinue}
               className="inline-flex items-center gap-1.5 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90"
             >
-              <span className="hidden sm:inline">{isSelectedComplete ? 'Continue' : 'Complete and Continue'}</span>
+              <span className="hidden sm:inline">{isSelectedComplete || isAssessedContentType(selected?.item.type) ? 'Continue' : 'Complete and Continue'}</span>
               <span className="sm:hidden">{isSelectedComplete ? 'Next' : 'Complete'}</span>
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -737,7 +746,7 @@ const CourseLearn = () => {
                 onClick={handleContinue}
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90"
               >
-                {isSelectedComplete ? 'Continue' : 'Complete and Continue'}
+                {isSelectedComplete || isAssessedContentType(selected?.item.type) ? 'Continue' : 'Complete and Continue'}
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
