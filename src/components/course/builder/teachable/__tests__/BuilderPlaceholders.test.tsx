@@ -14,7 +14,7 @@ vi.mock('@/components/ui/hint', () => ({
 }));
 
 describe('TeachableShell placeholder nav items', () => {
-  it('marks Pricing, Sales pages, and Reports as "Coming soon"', () => {
+  it('marks Pricing and Sales pages as "Coming soon"', () => {
     render(
       <TeachableShell
         courseTitle="Intro to Data Analytics"
@@ -27,7 +27,7 @@ describe('TeachableShell placeholder nav items', () => {
       </TeachableShell>,
     );
 
-    for (const label of ['Pricing', 'Sales pages', 'Reports']) {
+    for (const label of ['Pricing', 'Sales pages']) {
       const navButton = screen
         .getAllByRole('button')
         .find((b) => within(b).queryByText(label));
@@ -49,7 +49,7 @@ describe('TeachableShell placeholder nav items', () => {
       </TeachableShell>,
     );
 
-    for (const label of ['Setup guide', 'Curriculum', 'Design templates', 'Certificates', 'Information', 'Students']) {
+    for (const label of ['Setup guide', 'Curriculum', 'Design templates', 'Certificates', 'Information', 'Students', 'Reports']) {
       const navButton = screen
         .getAllByRole('button')
         .find((b) => within(b).queryByText(label));

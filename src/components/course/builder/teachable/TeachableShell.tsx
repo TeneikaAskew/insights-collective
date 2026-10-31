@@ -71,7 +71,7 @@ const NAV_ITEMS: {
   { key: 'pricing', label: 'Pricing', icon: DollarSign, group: 'secondary', comingSoon: true },
   { key: 'sales', label: 'Sales pages', icon: Megaphone, group: 'secondary', comingSoon: true },
   { key: 'students', label: 'Students', icon: Users, group: 'secondary' },
-  { key: 'reports', label: 'Reports', icon: BarChart3, group: 'secondary', comingSoon: true },
+  { key: 'reports', label: 'Reports', icon: BarChart3, group: 'secondary' },
 ];
 
 export function TeachableShell({
