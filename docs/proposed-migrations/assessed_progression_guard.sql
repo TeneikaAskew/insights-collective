@@ -1,3 +1,8 @@
+-- STATUS UPDATE 2026-10-31 (read-only check of supabase_migrations.schema_migrations and pg_trigger):
+-- this guard IS APPLIED to the live project as supabase/migrations/20261031120009_… and the EXECUTE
+-- revoke as 20261031120030_…; trg_enforce_assessed_progression exists and is enabled. The
+-- "PROPOSED, NOT APPLIED" wording below is historical. Kept for the rationale; the migration
+-- files are canonical. See docs/lms/baseline-inventory.md §4.
 -- ABOUTME: PROPOSED, NOT APPLIED. Server-side guard so assignment/quiz progressions can only be marked
 -- ABOUTME: done once a real submission exists. Additive: touches no existing rows. Needs explicit approval.
 --
