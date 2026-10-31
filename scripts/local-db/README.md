@@ -51,6 +51,18 @@ Why a snapshot and not a migration replay: the base tables (`courses`, `profiles
 
 ## Safety and negative tests
 
+- `assert-local-dsn.mjs` is the single libpq DSN validator for the repository: the E2E guard imports
+  `evaluateLibpqDsn` from it for `SUPABASE_DB_URL` (with isolated-project support), and the local tools
+  use `assertLocalDsn` (loopback only). Its semantics were checked against libpq's own
+  `PQconninfoParse` (ctypes, no connection) by `tests/dsn-differential.py`: `'#'` is data to libpq, not
+  a fragment; userinfo splits at the first `'@'`; percent-decoding applies everywhere; query
+  `host`/`hostaddr`/`port` override the authority. All of those are refused outright.
+- `tests/build-negative.sh` is itself an entrypoint (it creates and drops databases) and validates its
+  `PGBASE` and strips the libpq environment before its first `psql`; `tests/guard-negative.sh` drives it
+  with remote and override inputs too.
+- `tests/guard-negative.sh` ends with genuine positive controls: valid loopback and declared-isolated
+  targets must reach the fake `psql`, so an always-refusing guard cannot look green.
+
 - Every entrypoint runs `assert-local-dsn.mjs` before `psql`: one loopback endpoint only; multihost,
   `hostaddr`, query/keyword host overrides, `service=`, `options=`, percent-encoding and libpq
   environment overrides are refused, and `psql` runs with `PGHOST`/`PGHOSTADDR`/`PGSERVICE`/`PGPORT`
