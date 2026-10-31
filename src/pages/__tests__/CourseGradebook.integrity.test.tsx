@@ -74,7 +74,7 @@ describe('CourseGradebook integrity', () => {
     await screen.findByText('Ada Lovelace');
     await userEvent.click(screen.getByRole('button', { name: /Export/ }));
     expect(blobs).toHaveLength(1);
-    const text = await blobs[0].text();
+    const text: string = await new Promise((res) => { const fr = new FileReader(); fr.onload = () => res(fr.result as string); fr.readAsText(blobs[0]); });
     const lines = text.replace(/^\uFEFF/, '').split('\r\n');
     expect(lines[0]).toContain('"Essay, ""one"" (assignment) - earned"');
     expect(lines[1]).toBe('s1,Ada Lovelace,,0,100,graded,6,10,graded,6,110,5.45');
