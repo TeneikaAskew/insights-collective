@@ -627,7 +627,7 @@ const CourseLearn = () => {
               onClick={handleContinue}
               className="inline-flex items-center gap-1.5 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90"
             >
-              <span className="hidden sm:inline">{isSelectedComplete ? 'Continue' : 'Complete and Continue'}</span>
+              <span className="hidden sm:inline">{isSelectedComplete || isAssessedContentType(selected?.item.type) ? 'Continue' : 'Complete and Continue'}</span>
               <span className="sm:hidden">{isSelectedComplete ? 'Next' : 'Complete'}</span>
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -746,7 +746,7 @@ const CourseLearn = () => {
                 onClick={handleContinue}
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90"
               >
-                {isSelectedComplete ? 'Continue' : 'Complete and Continue'}
+                {isSelectedComplete || isAssessedContentType(selected?.item.type) ? 'Continue' : 'Complete and Continue'}
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
