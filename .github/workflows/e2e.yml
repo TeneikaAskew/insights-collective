@@ -155,6 +155,9 @@ jobs:
       E2E_TEST_ADMIN_COURSE_ID: ${{ secrets.E2E_TEST_ADMIN_COURSE_ID || '660e8400-e29b-41d4-a716-446655440001' }}
       E2E_TEST_COURSE_TITLE: ${{ secrets.E2E_TEST_COURSE_TITLE || 'Introduction to Data Science' }}
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      # Production mutation is allowed only when the run was NOT triggered by a pull
+      # request. Pull requests get no opt-in, so the guard step above fails closed.
+      E2E_ALLOW_PRODUCTION_TARGET: ${{ github.event_name != 'pull_request' && 'siuqvhscuiycvdrtiqsh' || '' }}
       # Lets global-setup's announcement-probe sweep actually run. Without it
       # the sweep prints its warning and returns, and
       # messaging-notifications-hardening.spec.ts leaves one notification per
@@ -228,6 +231,15 @@ jobs:
       # whole suite down with it. Both paths raise a workflow annotation, and
       # the specs that actually need fixtures already fail with their own
       # explicit "Seed gap: ..." messages naming what to reseed.
+      # Fail-closed target check. This suite seeds, tears down and submits as
+      # real accounts, so the database it points at must be stated, not assumed.
+      # The guard refuses the production project unless E2E_ALLOW_PRODUCTION_TARGET
+      # names it exactly. That opt-in is set ONLY for push/dispatch runs below, so a
+      # pull_request run from any branch cannot seed production: it stops here, red,
+      # and says why. Draft status is not a safety control; this is.
+      - name: Verify the E2E target is not production unless explicitly allowed
+        run: node scripts/e2e/assert-safe-target.mjs --mutating
+
       - name: Seed E2E fixtures
         run: |
           # Every way of not seeding is fatal, not just a seed that errors.
