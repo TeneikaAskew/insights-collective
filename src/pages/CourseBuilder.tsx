@@ -21,6 +21,7 @@ import { CourseDesignView } from '@/components/course/builder/teachable/CourseDe
 import { CourseCertificatesView } from '@/components/course/builder/teachable/CourseCertificatesView';
 import { CourseSettingsView } from '@/components/course/builder/teachable/CourseSettingsView';
 import { StudentsView } from '@/components/course/builder/teachable/StudentsView';
+import { ReportsView } from '@/components/course/builder/teachable/ReportsView';
 import { InstructorBuilderTour } from '@/components/onboarding/InstructorBuilderTour';
 import {
   NewCourseWizard,
@@ -703,8 +704,13 @@ const CourseBuilder = () => {
         <StudentsView courseId={course.id} courseTitle={course.title} />
       )}
 
+      {activeView === 'reports' && (
+        <ReportsView courseId={course.id} courseTitle={course.title} />
+      )}
+
       {activeView !== 'setup' &&
         activeView !== 'students' &&
+        activeView !== 'reports' &&
         activeView !== 'curriculum' &&
         activeView !== 'lesson' &&
         activeView !== 'information' &&
