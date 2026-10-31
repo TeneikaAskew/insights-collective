@@ -41,9 +41,51 @@ done
 check "run-sql-tests.sh  ← PGHOST override"   env PGHOST="db.${PROD}.supabase.co" "$ROOT/scripts/local-db/run-sql-tests.sh" "postgresql://postgres@127.0.0.1:54329/x"
 check "build-from-snapshot ← PGHOSTADDR override" env PGHOSTADDR=203.0.113.9 "$ROOT/scripts/local-db/build-from-snapshot.sh" "postgresql://postgres@127.0.0.1:54329/x" /tmp/x
 # the live seed entrypoint: production, unset, look-alike, and declared-isolated-but-mismatched
+LOOP_API="http://localhost:54321"
 check "seed.sh ← unset targets"                 env -u VITE_SUPABASE_URL -u SUPABASE_DB_URL -u E2E_RELAY_TARGET "$ROOT/scripts/e2e/seed.sh"
 check "seed.sh ← production targets"            env VITE_SUPABASE_URL="https://${PROD}.supabase.co" SUPABASE_DB_URL="postgresql://postgres:x@db.${PROD}.supabase.co:5432/postgres" E2E_RELAY_TARGET="https://${PROD}.supabase.co" "$ROOT/scripts/e2e/seed.sh"
-check "seed.sh ← production + every opt-in string" env E2E_ALLOW_PRODUCTION_TARGET="$PROD" E2E_ISOLATED_TARGET_REF="$PROD" VITE_SUPABASE_URL="https://${PROD}.supabase.co" SUPABASE_DB_URL="postgresql://postgres:x@db.${PROD}.supabase.co:5432/postgres" E2E_RELAY_TARGET="https://${PROD}.supabase.co" "$ROOT/scripts/e2e/seed.sh"
+check "seed.sh ← production + every former opt-in string" env E2E_ALLOW_PRODUCTION_TARGET="$PROD" E2E_ISOLATED_TARGET_REF="$PROD" VITE_SUPABASE_URL="https://${PROD}.supabase.co" SUPABASE_DB_URL="postgresql://postgres:x@db.${PROD}.supabase.co:5432/postgres" E2E_RELAY_TARGET="https://${PROD}.supabase.co" "$ROOT/scripts/e2e/seed.sh"
 check "seed.sh ← look-alike host"               env VITE_SUPABASE_URL="https://${PROD}.supabase.co.attacker.example" SUPABASE_DB_URL="postgresql://postgres:x@localhost.attacker.example:5432/postgres" E2E_RELAY_TARGET="http://localhost:1" "$ROOT/scripts/e2e/seed.sh"
 check "seed.sh ← isolated ref declared but DB url is production" env E2E_ISOLATED_TARGET_REF=abcdefghijklmnopqrst VITE_SUPABASE_URL="https://abcdefghijklmnopqrst.supabase.co" SUPABASE_DB_URL="postgresql://postgres:x@db.${PROD}.supabase.co:5432/postgres" E2E_RELAY_TARGET="https://abcdefghijklmnopqrst.supabase.co" "$ROOT/scripts/e2e/seed.sh"
-echo "guard-negative: $n cases, exit $rc"; rm -rf "$FAKE"; exit $rc
+# libpq redirection through SUPABASE_DB_URL while the API targets are loopback (the reviewer's bypass)
+SEED_DSNS=(
+  "postgresql://u@localhost:5432/db?hostaddr=203.0.113.9"
+  "postgresql://u@localhost:5432/db?host=remote.example"
+  "postgresql://u@localhost:5432/db?service=production"
+  "postgresql://u@localhost:5432/db#?host=remote.example"
+  "postgresql://u@localhost:5432/db#?hostaddr=203.0.113.9"
+  "postgresql://u@localhost/db%3F?host=remote.example"
+  "postgresql://a@b@localhost/db"
+  "postgresql://u@localhost,remote.example/db"
+  "host=localhost hostaddr=203.0.113.9 dbname=db"
+  "postgresql://127.0.0.1@remote.example/db"
+  "postgresql:///db"
+  "postgresql://u@localhost/db?options=-c%20x"
+  "postgresql://u@localhost/db?passfile=/tmp/pgpass"
+  "${DSNS[@]}"
+)
+for d in "${SEED_DSNS[@]}"; do
+  check "seed.sh ← SUPABASE_DB_URL=$d" env VITE_SUPABASE_URL="$LOOP_API" E2E_RELAY_TARGET="$LOOP_API" SUPABASE_DB_URL="$d" "$ROOT/scripts/e2e/seed.sh"
+done
+check "seed.sh ← loopback DSN but PGHOSTADDR override" env PGHOSTADDR=203.0.113.9 VITE_SUPABASE_URL="$LOOP_API" E2E_RELAY_TARGET="$LOOP_API" SUPABASE_DB_URL="postgresql://postgres@127.0.0.1:54329/db" "$ROOT/scripts/e2e/seed.sh"
+# the negative-test harness is itself an entrypoint (it creates/drops databases)
+check "build-negative.sh ← remote PGBASE"       "$ROOT/scripts/local-db/tests/build-negative.sh" "postgresql://postgres:x@db.${PROD}.supabase.co:5432" /tmp/x
+check "build-negative.sh ← PGBASE with hostaddr" "$ROOT/scripts/local-db/tests/build-negative.sh" "postgresql://postgres@127.0.0.1:54329?hostaddr=203.0.113.9" /tmp/x
+check "build-negative.sh ← loopback PGBASE but PGHOSTADDR override" env PGHOSTADDR=203.0.113.9 "$ROOT/scripts/local-db/tests/build-negative.sh" "postgresql://postgres@127.0.0.1:54329" /tmp/x
+check "build-negative.sh ← PGHOST override"      env PGHOST="db.${PROD}.supabase.co" "$ROOT/scripts/local-db/tests/build-negative.sh" "postgresql://postgres@127.0.0.1:54329" /tmp/x
+
+# ---- genuine positive controls: a valid target MUST reach the (fake) psql process ----
+pos=0; posfail=0
+positive() { # name, command... → PASS iff the fake psql was invoked
+  local name="$1"; shift; rm -f "$MARK"; pos=$((pos+1))
+  "$@" >/dev/null 2>&1 || true
+  if [ -f "$MARK" ]; then echo "PASS(positive) $name (psql invoked: $(head -1 "$MARK" | cut -c1-90))"; else echo "FAIL(positive) $name (psql was NOT invoked for a valid target)"; posfail=1; rc=1; fi
+}
+positive "run-sql-tests.sh ← loopback DSN"      "$ROOT/scripts/local-db/run-sql-tests.sh" "postgresql://postgres@127.0.0.1:54329/ic_snapshot"
+positive "replay-migrations ← loopback DSN"      "$ROOT/scripts/local-db/replay-migrations.sh" "postgresql://postgres@127.0.0.1:54329/ic_snapshot"
+positive "build-from-snapshot ← loopback DSN"    "$ROOT/scripts/local-db/build-from-snapshot.sh" "postgresql://postgres@127.0.0.1:54329/ic_snapshot" /tmp/does-not-matter
+positive "build-negative.sh ← loopback PGBASE"   "$ROOT/scripts/local-db/tests/build-negative.sh" "postgresql://postgres@127.0.0.1:54329" /tmp/does-not-matter
+positive "seed.sh ← loopback targets"            env VITE_SUPABASE_URL="$LOOP_API" E2E_RELAY_TARGET="$LOOP_API" SUPABASE_DB_URL="postgresql://postgres@127.0.0.1:54329/db" E2E_TEST_PASSWORD=local-only "$ROOT/scripts/e2e/seed.sh"
+positive "seed.sh ← declared isolated project (pooler DSN)" env E2E_ISOLATED_TARGET_REF=abcdefghijklmnopqrst VITE_SUPABASE_URL="https://abcdefghijklmnopqrst.supabase.co" E2E_RELAY_TARGET="https://abcdefghijklmnopqrst.supabase.co" SUPABASE_DB_URL="postgresql://postgres.abcdefghijklmnopqrst:x@aws-0-eu-west-1.pooler.supabase.com:6543/postgres" E2E_TEST_PASSWORD=local-only "$ROOT/scripts/e2e/seed.sh"
+positive "seed.sh ← declared isolated project (db host DSN)" env E2E_ISOLATED_TARGET_REF=abcdefghijklmnopqrst VITE_SUPABASE_URL="https://abcdefghijklmnopqrst.supabase.co" E2E_RELAY_TARGET="https://abcdefghijklmnopqrst.supabase.co" SUPABASE_DB_URL="postgresql://postgres:x@db.abcdefghijklmnopqrst.supabase.co:5432/postgres" E2E_TEST_PASSWORD=local-only "$ROOT/scripts/e2e/seed.sh"
+echo "guard-negative: $n refusal cases (all must refuse before psql), $pos positive controls (all must reach psql); exit $rc"; rm -rf "$FAKE"; exit $rc

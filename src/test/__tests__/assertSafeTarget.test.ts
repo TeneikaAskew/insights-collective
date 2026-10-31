@@ -86,9 +86,44 @@ describe('assert-safe-target', () => {
     expect(run({}, false).ok).toBe(true);
   });
 
-  it('classifies hosts without leaking credentials', () => {
-    const c = classifyTarget('postgresql://postgres:SECRET@127.0.0.1:5432/db');
-    expect(c.kind).toBe('loopback');
-    expect(c.shown).not.toContain('SECRET');
+  it('evaluates SUPABASE_DB_URL as a libpq DSN: query/fragment/multihost redirections are refused', () => {
+    const redirects = [
+      'postgresql://u@localhost:5432/db?hostaddr=203.0.113.9',
+      'postgresql://u@localhost:5432/db?host=remote.example',
+      'postgresql://u@localhost:5432/db?service=production',
+      'postgresql://u@localhost:5432/db#?host=remote.example',
+      'postgresql://u@localhost:5432/db#?hostaddr=203.0.113.9',
+      'postgresql://u@localhost/db%3F?host=remote.example',
+      'postgresql://a@b@localhost/db',
+      'postgresql://u@localhost,remote.example/db',
+      'host=localhost hostaddr=203.0.113.9 dbname=db',
+      'postgresql://127.0.0.1@remote.example/db',
+      'postgresql:///db',
+      'postgresql://u@localhost/db?options=-c%20x',
+      'postgresql://u@localhost/db?passfile=/tmp/x',
+      'postgresql://u@LOCALHOST/db',
+    ];
+    for (const dsn of redirects) {
+      const r = run(base({ SUPABASE_DB_URL: dsn }));
+      expect(r.ok, dsn).toBe(false);
+      expect(r.targets.find((t: { name: string }) => t.name === 'SUPABASE_DB_URL')?.verdict, dsn).toBe('refused');
+    }
+    expect(run(base({ SUPABASE_DB_URL: 'host=127.0.0.1 port=54329 dbname=db user=postgres' })).ok).toBe(true);
+  });
+
+  it('refuses API targets carrying userinfo, query or fragment', () => {
+    for (const v of ['http://u@localhost:54321', 'http://localhost:54321/?x=1', 'http://localhost:54321/#frag', 'ftp://localhost']) {
+      expect(run(base({ VITE_SUPABASE_URL: v })).ok, v).toBe(false);
+    }
+  });
+
+  it('classifies API hosts, and the libpq evaluator redacts credentials', () => {
+    expect(classifyTarget('http://localhost:54321').kind).toBe('loopback');
+    expect(classifyTarget(`https://${PROD}.supabase.co`).kind).toBe('supabase');
+    const r = run(base({ SUPABASE_DB_URL: 'postgresql://postgres:SECRET@127.0.0.1:5432/db' }));
+    expect(r.ok).toBe(true);
+    const t = r.targets.find((x: { name: string }) => x.name === 'SUPABASE_DB_URL');
+    expect(t.shown).toContain('password=<redacted>');
+    expect(JSON.stringify(r)).not.toContain('SECRET');
   });
 });

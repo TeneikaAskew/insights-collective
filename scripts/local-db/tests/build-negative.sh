@@ -5,6 +5,12 @@
 set -u
 PGBASE="${1:?loopback libpq url WITHOUT database, e.g. postgresql://postgres@127.0.0.1:54329}"; SNAP="${2:?snapshot dir}"
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"; rc=0
+# This harness creates and drops databases, so it is itself a database-touching entrypoint: validate
+# the effective libpq endpoint BEFORE the first psql process, and run every psql with the libpq
+# environment overrides removed. The same strict parser the tools use; no second validator.
+case "$PGBASE" in *\?*|*\#*) echo "refusing: PGBASE must be a bare scheme://user@host:port with no query or fragment" >&2; exit 2;; esac
+node "$ROOT/scripts/local-db/assert-local-dsn.mjs" "$PGBASE/postgres" || exit 2
+psql() { command env -u PGHOST -u PGHOSTADDR -u PGSERVICE -u PGSERVICEFILE -u PGPORT -u PGPASSFILE psql "$@"; }
 mk() { local db="$1"; psql "$PGBASE/postgres" -qc "drop database if exists $db" >/dev/null 2>&1; psql "$PGBASE/postgres" -qc "create database $db" >/dev/null; }
 expect() { # name expected-exit snapshot-dir db must-match-regex
   local name="$1" want="$2" snap="$3" db="$4" re="$5"; mk "$db"

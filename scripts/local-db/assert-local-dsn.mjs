@@ -18,7 +18,9 @@
 //   - `service=` reads ~/.pg_service.conf / PGSERVICEFILE, which can name any host.
 // * Environment: PGHOST, PGHOSTADDR, PGPORT, PGSERVICE, PGSERVICEFILE, PGPASSFILE, PGREQUIRESSL…
 //   The callers also run psql under `env -u` for these, but we refuse here first so the message is clear.
-const LOOPBACK = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
+// Exact, case-sensitive: libpq hands the host to the resolver as written, so 'LOCALHOST', 'localhost.'
+// or '127.1' are not the same string and are refused rather than reasoned about.
+const LOOPBACK = new Set(['localhost', '127.0.0.1', '::1']);
 const UNSAFE_ENV = ['PGHOST', 'PGHOSTADDR', 'PGSERVICE', 'PGSERVICEFILE', 'PGPORT'];
 
 function refuse(reason, extra = {}) { return { ok: false, reason, ...extra }; }
@@ -41,18 +43,35 @@ function parseKeywordDsn(s) {
   return out;
 }
 
-export function assertLocalDsn(dsn, env = process.env) {
+/**
+ * Parse a libpq DSN (URI or keyword form) into its effective connection endpoint, resolving every
+ * place a host can come from. Returns { ok:false, reason } for anything ambiguous.
+ */
+export function parseLibpqDsn(dsn) {
   if (typeof dsn !== 'string' || dsn.trim() === '') return refuse('empty DSN');
-  for (const k of UNSAFE_ENV) if (env[k] !== undefined && env[k] !== '') return refuse(`environment override ${k} is set; unset it (callers run psql with it removed)`);
   const raw = dsn.trim();
   let hosts = [], hostaddr, port, database, user, hasPassword = false, params = {};
   if (/^postgres(ql)?:\/\//i.test(raw)) {
-    // Do our own authority split: URL() cannot represent multihost and would throw or mis-parse.
-    const m = raw.match(/^postgres(?:ql)?:\/\/(?:([^@/?#]*)@)?([^/?#]*)(?:\/([^?#]*))?(?:\?([^#]*))?(?:#.*)?$/i);
+    // libpq's URI grammar is NOT the web URL grammar. Verified against PQconninfoParse (libpq 16):
+    //   * '#' is an ordinary character, so "db#?host=remote" means dbname "db#" with host=remote —
+    //     a web parser that treats '#' as a fragment silently drops the redirect. Refuse '#' outright.
+    //   * userinfo is split at the FIRST '@'; "a@b@localhost" means user a, host "b@localhost". Refuse >1 '@'.
+    //   * percent-decoding applies to every component ("d%62" → "db", "%3F" → "?"), so an encoded
+    //     delimiter changes the parse. Allow '%' only inside the password, where it is legitimately needed.
+    //   * several hosts may be listed, and query parameters host/hostaddr/port override the authority.
+    if (raw.includes('#')) return refuse("'#' is refused: libpq treats it as data, so 'db#?host=…' redirects while looking like a fragment");
+    if (/[\s'"\\]/.test(raw)) return refuse('whitespace, quotes or backslashes in a URI DSN are refused');
+    const m = raw.match(/^postgres(?:ql)?:\/\/(?:([^@/?]*)@)?([^/?]*)(?:\/([^?]*))?(?:\?(.*))?$/i);
     if (!m) return refuse('URI does not parse');
     const [, userinfo = '', authority = '', dbpart = '', query = ''] = m;
+    if ((raw.match(/@/g) || []).length > 1) return refuse("more than one '@' is refused: libpq splits userinfo at the first one");
     if (/%/.test(authority)) return refuse('percent-encoding in host/port is refused');
-    if (userinfo) { const idx = userinfo.indexOf(':'); user = idx >= 0 ? userinfo.slice(0, idx) : userinfo; hasPassword = idx >= 0; }
+    if (/%/.test(dbpart)) return refuse('percent-encoding in the database name is refused');
+    if (/%/.test(query)) return refuse('percent-encoding in query parameters is refused');
+    if (userinfo) {
+      const idx = userinfo.indexOf(':'); user = idx >= 0 ? userinfo.slice(0, idx) : userinfo; hasPassword = idx >= 0;
+      if (/%/.test(user)) return refuse('percent-encoding in the user name is refused');
+    }
     if (authority !== '') {
       for (const hp of authority.split(',')) {
         let h = hp, p;
@@ -60,25 +79,31 @@ export function assertLocalDsn(dsn, env = process.env) {
         if (v6) { h = v6[1]; p = v6[2]; }
         else { const idx = hp.lastIndexOf(':'); if (idx >= 0) { h = hp.slice(0, idx); p = hp.slice(idx + 1); } }
         if (h === '' && hp !== '') return refuse('empty host in authority list');
-        hosts.push(h.toLowerCase()); if (p !== undefined) { if (port !== undefined && port !== p) return refuse('conflicting ports in multihost list'); port = p; }
+        hosts.push(h); if (p !== undefined) { if (port !== undefined && port !== p) return refuse('conflicting ports in multihost list'); port = p; }
       }
     }
-    database = dbpart ? decodeURIComponent(dbpart) : undefined;
+    database = dbpart || undefined;
     if (query) {
-      for (const kv of query.split('&')) { if (!kv) continue; const [k, v = ''] = kv.split('='); params[decodeURIComponent(k).toLowerCase()] = decodeURIComponent(v); }
+      for (const kv of query.split('&')) {
+        if (!kv) return refuse('empty query parameter is refused');
+        const eq = kv.indexOf('='); if (eq <= 0) return refuse('malformed query parameter is refused');
+        const k = kv.slice(0, eq).toLowerCase(), v = kv.slice(eq + 1);
+        if (k in params) return refuse(`duplicate query parameter ${k}= is refused`);
+        params[k] = v;
+      }
     }
   } else {
     const kv = parseKeywordDsn(raw);
     if (!kv) return refuse('keyword DSN does not parse');
     params = { ...kv };
-    if (kv.host !== undefined) { hosts = kv.host.split(',').map((h) => h.toLowerCase()); delete params.host; }
+    if (kv.host !== undefined) { hosts = kv.host.split(','); delete params.host; }
     if (kv.port !== undefined) { port = kv.port; delete params.port; }
     if (kv.dbname !== undefined) { database = kv.dbname; delete params.dbname; }
     if (kv.user !== undefined) { user = kv.user; delete params.user; }
     if (kv.password !== undefined) { hasPassword = true; delete params.password; }
   }
   // Query/keyword parameters that can redirect the connection
-  if (params.host !== undefined) { if (hosts.length) return refuse('host given both in authority and as a parameter'); hosts = String(params.host).split(',').map((h) => h.toLowerCase()); }
+  if (params.host !== undefined) { if (hosts.length) return refuse('host given both in authority and as a parameter'); hosts = String(params.host).split(','); }
   if (params.hostaddr !== undefined) hostaddr = String(params.hostaddr);
   if (params.port !== undefined) { if (port !== undefined && port !== params.port) return refuse('conflicting port values'); port = params.port; }
   if (params.service !== undefined) return refuse('service= is refused (service files can name any host)');
@@ -87,19 +112,56 @@ export function assertLocalDsn(dsn, env = process.env) {
   for (const k of Object.keys(params)) if (!['host', 'hostaddr', 'port', 'dbname', 'user', 'password', 'sslmode', 'application_name', 'options', 'connect_timeout', 'client_encoding'].includes(k)) return refuse(`unsupported connection parameter ${k}= is refused`);
   if (params.options !== undefined) return refuse('options= is refused');
 
-  if (hosts.length === 0) return refuse('no host given: libpq would fall back to PGHOST or the default socket; name the loopback host explicitly');
+  if (hosts.length === 0) return refuse('no host given: libpq would fall back to PGHOST or the default socket; name the host explicitly');
   if (hosts.length > 1) return refuse(`multihost list (${hosts.length} hosts) is refused: libpq tries each in turn`);
-  const host = hosts[0];
-  const isSocketDir = host.startsWith('/') && (host.startsWith('/tmp/') || host === '/tmp');
-  if (!LOOPBACK.has(host) && !isSocketDir) return refuse(`host "${host}" is not loopback (localhost, 127.0.0.1, ::1) or a /tmp socket directory`);
-  if (hostaddr !== undefined && !['127.0.0.1', '::1'].includes(hostaddr)) return refuse(`hostaddr=${hostaddr} would bypass the host name and connect elsewhere`);
+  if (hostaddr !== undefined) return refuse(`hostaddr=${hostaddr} is refused: it bypasses the host name and connects elsewhere`);
   if (port !== undefined && !/^\d{1,5}$/.test(String(port))) return refuse('port is not numeric');
+  const host = hosts[0];
   const redacted = `${host}${port ? ':' + port : ''}/${database ?? '(default db)'} user=${user ?? '(default)'}${hasPassword ? ' password=<redacted>' : ''}`;
-  return { ok: true, redacted, hosts, port, database, user };
+  return { ok: true, host, port, database, user, hasPassword, redacted };
+}
+
+const SUPABASE_DB_HOST = /^db\.([a-z0-9]{15,})\.supabase\.(?:co|in|red)$/;
+const SUPABASE_POOLER_HOST = /^aws-\d+-[a-z0-9-]+\.pooler\.supabase\.com$/;
+
+/**
+ * Evaluate a libpq DSN against the allow-list: loopback always; additionally the Supabase database
+ * host (db.<ref>.supabase.co) or Supavisor pooler with user postgres.<ref> when `isolatedRef` is
+ * given. `productionRef`, when given, is refused anywhere it appears.
+ */
+export function evaluateLibpqDsn(dsn, { env = process.env, isolatedRef, productionRef } = {}) {
+  for (const k of UNSAFE_ENV) if (env[k] !== undefined && env[k] !== '') return refuse(`environment override ${k} is set; unset it (callers run psql with it removed)`);
+  if (productionRef && typeof dsn === 'string' && dsn.toLowerCase().includes(String(productionRef).toLowerCase())) return refuse('contains the production project ref');
+  const p = parseLibpqDsn(dsn);
+  if (!p.ok) return p;
+  const isSocketDir = p.host.startsWith('/') && (p.host.startsWith('/tmp/') || p.host === '/tmp');
+  if (LOOPBACK.has(p.host) || isSocketDir) return { ...p, target: 'loopback' };
+  if (isolatedRef) {
+    if (productionRef && isolatedRef === productionRef) return refuse('E2E_ISOLATED_TARGET_REF equals the production ref');
+    const m = p.host.match(SUPABASE_DB_HOST);
+    if (m) return m[1] === isolatedRef ? { ...p, target: `isolated:${isolatedRef}` } : refuse(`host ref ${m[1]} does not equal the isolated ref`);
+    if (SUPABASE_POOLER_HOST.test(p.host)) {
+      const um = (p.user ?? '').match(/^postgres\.([a-z0-9]{15,})$/);
+      if (um && um[1] === isolatedRef) return { ...p, target: `isolated:${isolatedRef}` };
+      return refuse(`pooler user ${p.user ?? '(none)'} does not name the isolated ref`);
+    }
+  }
+  return refuse(`host "${p.host}" is not loopback (localhost, 127.0.0.1, ::1)${isolatedRef ? ' or the declared isolated project' : ''}`);
+}
+
+/** Local tooling entrypoint: loopback only, no isolated-project allowance. */
+export function assertLocalDsn(dsn, env = process.env) {
+  return evaluateLibpqDsn(dsn, { env });
 }
 
 const isMain = process.argv[1] && path_resolve(process.argv[1]) === new URL(import.meta.url).pathname;
 function path_resolve(p) { return p.startsWith('/') ? p : process.cwd() + '/' + p; }
+if (isMain && process.argv[2] === '--json') {
+  // Differential-test mode: print the GUARD DECISION (policy applied, environment ignored) for a DSN,
+  // so the oracle compares what the guard would allow against what libpq would connect to.
+  const r = evaluateLibpqDsn(process.argv[3] ?? '', { env: {} });
+  console.log(JSON.stringify(r)); process.exit(0);
+}
 if (isMain) {
   const r = assertLocalDsn(process.argv[2]);
   if (!r.ok) { console.error(`[assert-local-dsn] REFUSED: ${r.reason}`); process.exit(2); }

@@ -32,6 +32,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { evaluateLibpqDsn } from '../local-db/assert-local-dsn.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CONFIG_TOML = path.resolve(HERE, '../../supabase/config.toml');
@@ -59,20 +60,17 @@ export function classifyTarget(value) {
   } catch {
     return { kind: 'unparseable', shown: '(unparseable value, not shown)' };
   }
-  // Reject anything with percent-escapes or whitespace in host/userinfo: these are how a value
-  // that reads as one host resolves as another.
-  if (/%|\s/.test(u.hostname) || /%/.test(u.username)) {
-    return { kind: 'unparseable', shown: '(encoded host or user, not shown)' };
-  }
+  // HTTP(S) API targets only here; libpq DSNs are evaluated by evaluateLibpqDsn, which understands
+  // multihost, hostaddr, query overrides and service files that URL() cannot see.
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return { kind: 'unparseable', shown: '(non-http scheme for an API target)' };
+  if (u.username || u.password) return { kind: 'unparseable', shown: '(userinfo in an API target is refused)' };
+  if (u.search || u.hash) return { kind: 'unparseable', shown: '(query or fragment in an API target is refused)' };
+  if (/%|\s/.test(u.hostname)) return { kind: 'unparseable', shown: '(encoded host, not shown)' };
   const host = u.hostname.toLowerCase();
-  const shown = `${u.protocol}//${u.username ? u.username + '@' : ''}${host}${u.port ? ':' + u.port : ''}${u.pathname}`;
+  const shown = `${u.protocol}//${host}${u.port ? ':' + u.port : ''}${u.pathname}`;
   if (LOOPBACK_HOSTS.has(host)) return { kind: 'loopback', host, shown };
-  let m = host.match(/^(?:db\.)?([a-z0-9]{15,})\.supabase\.(?:co|in|red)$/);
+  const m = host.match(/^([a-z0-9]{15,})\.supabase\.(?:co|in|red)$/);
   if (m) return { kind: 'supabase', ref: m[1], host, shown };
-  if (/\.pooler\.supabase\.com$/.test(host)) {
-    const pm = u.username.match(/^postgres\.([a-z0-9]{15,})$/);
-    return { kind: 'pooler', ref: pm ? pm[1] : undefined, host, shown };
-  }
   return { kind: 'other', host, shown };
 }
 
@@ -84,16 +82,24 @@ export function assessTarget({ mutating, env = process.env, prod = productionRef
   const isolatedRef = (env.E2E_ISOLATED_TARGET_REF || '').trim() || undefined;
   const targets = TARGET_VARS.map((name) => {
     const raw = env[name];
+    if (name === 'SUPABASE_DB_URL') {
+      // libpq DSN: evaluated by the strict parser (effective endpoint, not the URL host).
+      if (raw === undefined || String(raw).trim() === '') {
+        return { name, kind: 'unset', shown: '(unset → code default = production)', verdict: 'refused', why: 'unset, so the code default (production) would be used' };
+      }
+      const r = evaluateLibpqDsn(String(raw), { env, isolatedRef, productionRef: prod });
+      if (!r.ok) return { name, kind: 'libpq', shown: '(libpq DSN, not shown)', verdict: 'refused', why: r.reason };
+      return { name, kind: 'libpq', ref: r.target.startsWith('isolated:') ? isolatedRef : undefined, shown: r.redacted, verdict: 'ok' };
+    }
     const c = classifyTarget(raw);
     const t = { name, kind: c.kind, ref: c.ref, shown: c.shown, verdict: 'refused', why: undefined };
     const containsProd = raw ? String(raw).toLowerCase().includes(prod.toLowerCase()) : false;
     if (containsProd) { t.why = 'contains the production project ref'; return t; }
     switch (c.kind) {
       case 'unset': t.why = 'unset, so the code default (production) would be used'; break;
-      case 'unparseable': t.why = 'not a parseable, unencoded URL'; break;
+      case 'unparseable': t.why = 'not a parseable, plain http(s) URL (no userinfo, query or fragment)'; break;
       case 'loopback': t.verdict = 'ok'; break;
       case 'supabase':
-      case 'pooler':
         if (!isolatedRef) t.why = 'Supabase host but E2E_ISOLATED_TARGET_REF is not set';
         else if (isolatedRef === prod) t.why = 'E2E_ISOLATED_TARGET_REF equals the production ref';
         else if (c.ref !== isolatedRef) t.why = `host ref ${c.ref ?? '(none)'} does not equal E2E_ISOLATED_TARGET_REF`;
