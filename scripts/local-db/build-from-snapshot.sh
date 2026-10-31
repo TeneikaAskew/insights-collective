@@ -9,14 +9,18 @@
 #   TABLES=120 VIEWS=7 MATVIEWS=0 FUNCTION_NAMES=118 POLICIES=341 TRIGGERS=51 RLS_TABLES=120 ENUMS=6
 set -u
 PGURL="${1:?url}"; SNAP="${2:?snapshot dir}"
-case "$PGURL" in *127.0.0.1*|*localhost*|*/tmp/*) ;; *) echo "refusing: not loopback" >&2; exit 2;; esac
-if [ "$(psql "$PGURL" -Atc "select count(*) from pg_roles where rolname in ('supabase_auth_admin','supabase_storage_admin','authenticator')" 2>/dev/null)" != "0" ]; then
-  echo "refusing: this looks like a real Supabase database, not the local shim" >&2; exit 2
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+# Strict DSN check BEFORE any psql call: single loopback endpoint, no multihost/hostaddr/service/env overrides.
+node "$ROOT/scripts/local-db/assert-local-dsn.mjs" "$PGURL" || exit 2
+# psql always runs with libpq environment overrides removed, so the DSN we checked is the one used.
+psql() { command env -u PGHOST -u PGHOSTADDR -u PGSERVICE -u PGSERVICEFILE -u PGPORT -u PGPASSFILE psql "$@"; }
+if ! probe=$(psql "$PGURL" -Atc "select count(*) from pg_roles where rolname in ('supabase_auth_admin','supabase_storage_admin','authenticator')" 2>&1); then
+  echo "cannot connect to the local database: ${probe}" >&2; exit 2
 fi
+if [ "$probe" != "0" ]; then echo "refusing: this looks like a real Supabase database, not the local shim" >&2; exit 2; fi
 if [ "$(psql "$PGURL" -Atc "select count(*) from pg_tables where schemaname='public'")" != "0" ]; then
   echo "refusing: target database is not empty (public schema has tables)" >&2; exit 2
 fi
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 ERRLOG=$(mktemp); FAIL=0
 run_strict() { # file -> apply with ON_ERROR_STOP; any error is fatal
   if ! psql "$PGURL" -v ON_ERROR_STOP=1 -q -f "$1" >>"$ERRLOG" 2>&1; then echo "FATAL in $(basename "$1"):"; grep -E "ERROR" "$ERRLOG" | tail -3; FAIL=1; fi
@@ -83,6 +87,27 @@ if [ -f "$SNAP/manifest.env" ]; then
   [ $FAIL -ne 0 ] && { echo "BUILD FAILED: replay does not match the live catalog manifest"; exit 1; }
   echo "manifest OK: replay matches the live catalog counts"
 else
-  echo "WARNING: no manifest.env in $SNAP — counts above were not verified against the live catalog" >&2
+  echo "BUILD FAILED: no manifest.env in $SNAP — counts cannot be verified against the live catalog" >&2
   exit 1
 fi
+
+# Identity verification: every function, policy, trigger, RLS flag and grant must match the live
+# definition hash object-by-object (identities.tsv, produced from the live catalog with the same query
+# as scripts/local-db/identities.sql). Counts alone cannot catch a same-count wrong-definition replay.
+if [ ! -f "$SNAP/identities.tsv" ]; then echo "BUILD FAILED: no identities.tsv in $SNAP — object definitions cannot be verified" >&2; exit 1; fi
+LOCAL_ID=$(mktemp); LIVE_ID=$(mktemp)
+psql "$PGURL" -Atq -f "$ROOT/scripts/local-db/identities.sql" | sort > "$LOCAL_ID"
+sort "$SNAP/identities.tsv" > "$LIVE_ID"
+BROKEN_FILTER='^$'
+if [ -n "${VIEWS_BROKEN_LIVE:-}" ]; then BROKEN_FILTER="^(table_grant)	($(echo "$VIEWS_BROKEN_LIVE" | tr ',' '|'))→"; fi
+missing=$(comm -23 "$LIVE_ID" "$LOCAL_ID" | grep -vE "$BROKEN_FILTER" || true)
+extra=$(comm -13 "$LIVE_ID" "$LOCAL_ID" || true)
+omitted=$(comm -23 "$LIVE_ID" "$LOCAL_ID" | grep -E "$BROKEN_FILTER" | cut -f1,2 || true)
+if [ -n "$omitted" ]; then echo "note: identities omitted because they belong to live-broken objects:"; echo "$omitted" | sed 's/^/   /'; fi
+if [ -n "$missing" ] || [ -n "$extra" ]; then
+  echo "IDENTITY MISMATCH against the live catalog:"
+  [ -n "$missing" ] && { echo "  live but not reproduced (or definition differs):"; echo "$missing" | cut -f1,2 | sed 's/^/   /' | head -20; }
+  [ -n "$extra" ] && { echo "  local but not live (or definition differs):"; echo "$extra" | cut -f1,2 | sed 's/^/   /' | head -20; }
+  echo "BUILD FAILED: replayed object definitions do not match the live catalog"; exit 1
+fi
+echo "identities OK: $(wc -l < "$LOCAL_ID") object identities match the live catalog ($(echo "$omitted" | grep -c . ) omitted for live-broken objects)"

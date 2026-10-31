@@ -3,7 +3,9 @@
 # ABOUTME: Refuses any non-loopback connection string so it can never target a Supabase project.
 set -u
 PGURL="${1:?connection string required}"; shift || true
-case "$PGURL" in *127.0.0.1*|*localhost*|*/tmp/*) ;; *) echo "refusing: not loopback" >&2; exit 2;; esac
+ROOT_FOR_GUARD="$(cd "$(dirname "$0")/../.." && pwd)"
+node "$ROOT_FOR_GUARD/scripts/local-db/assert-local-dsn.mjs" "$PGURL" || exit 2
+psql() { command env -u PGHOST -u PGHOSTADDR -u PGSERVICE -u PGSERVICEFILE -u PGPORT -u PGPASSFILE psql "$@"; }
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"; rc=0
 if [ "$#" -gt 0 ]; then FILES=("$@"); else FILES=("$ROOT"/scripts/local-db/tests/*.sql); fi
 for f in "${FILES[@]}"; do

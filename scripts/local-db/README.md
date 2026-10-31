@@ -17,7 +17,11 @@ Why a snapshot and not a migration replay: the base tables (`courses`, `profiles
    queries** against the project (`pg_type`, `pg_attribute`, `pg_constraint`, `pg_indexes`,
    `pg_get_functiondef`, `pg_policies`, `pg_get_triggerdef`, `role_table_grants`). Keep the
    snapshot outside the repository and scan it for secret-shaped strings before use.
-3. Write `manifest.env` into the snapshot directory with the live counts the replay must reproduce
+3. Write `identities.tsv` into the snapshot directory by running the same query as
+   `scripts/local-db/identities.sql` against the live catalog (read-only): one line per function,
+   policy, trigger, RLS flag, table grant and function grant with the md5 of its definition. The
+   build verifies every object against it; counts alone cannot catch a same-count wrong definition.
+3b. Write `manifest.env` into the snapshot directory with the live counts the replay must reproduce
    (`TABLES`, `VIEWS`, `MATVIEWS`, `FUNCTION_NAMES`, `POLICIES`, `TRIGGERS`, `RLS_TABLES`, `ENUMS`), and
    `VIEWS_BROKEN_LIVE=<name,...>` for any view the live catalog cannot evaluate (today: `quiz_analytics`,
    which raises 42P17 infinite recursion on read).
@@ -44,6 +48,16 @@ Why a snapshot and not a migration replay: the base tables (`courses`, `profiles
   `psql <url> -v ON_ERROR_STOP=1 -v e2e_password=local-only -f e2e/fixtures/seed.sql`.
 - To try a drafted migration: apply it to the local database with `psql -f`, rerun the tests, and
   keep a second database built without it as the baseline.
+
+## Safety and negative tests
+
+- Every entrypoint runs `assert-local-dsn.mjs` before `psql`: one loopback endpoint only; multihost,
+  `hostaddr`, query/keyword host overrides, `service=`, `options=`, percent-encoding and libpq
+  environment overrides are refused, and `psql` runs with `PGHOST`/`PGHOSTADDR`/`PGSERVICE`/`PGPORT`
+  removed. `tests/guard-negative.sh` proves refusal happens before any `psql` process (fake `psql` on
+  `PATH` records invocations); `tests/build-negative.sh` proves the build rejects a same-count
+  wrong-identity snapshot, an injected DDL failure, a tampered manifest and a missing identities file,
+  and that the live-broken view omission is reported explicitly.
 
 ## Limits
 

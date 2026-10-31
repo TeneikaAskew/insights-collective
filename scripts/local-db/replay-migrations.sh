@@ -5,10 +5,9 @@
 # Refuses to run against anything that is not loopback: this is a local-only tool by design.
 set -u
 PGURL="${1:?connection string required}"
-case "$PGURL" in
-  *127.0.0.1*|*localhost*|*/tmp/*) ;;
-  *) echo "refusing: target is not loopback: $PGURL" >&2; exit 2 ;;
-esac
+ROOT_FOR_GUARD="$(cd "$(dirname "$0")/../.." && pwd)"
+node "$ROOT_FOR_GUARD/scripts/local-db/assert-local-dsn.mjs" "$PGURL" || exit 2
+psql() { command env -u PGHOST -u PGHOSTADDR -u PGSERVICE -u PGSERVICEFILE -u PGPORT -u PGPASSFILE psql "$@"; }
 if psql "$PGURL" -Atc "select 1" >/dev/null 2>&1; then :; else echo "cannot connect" >&2; exit 2; fi
 # Belt and braces: a Supabase-hosted database identifies itself by these roles/schemas.
 if [ "$(psql "$PGURL" -Atc "select count(*) from pg_roles where rolname in ('supabase_auth_admin','supabase_storage_admin','authenticator')")" != "0" ]; then
