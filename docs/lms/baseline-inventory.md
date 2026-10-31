@@ -89,3 +89,16 @@ Result: 120 tables, 341 policies, 51 public triggers plus the `on_auth_user_crea
 | `e2e.yml` run 611 (commit `99f81e3`) | failure | same two plus `course-management.spec.ts` "students management is still a placeholder" (stale assertion after the roster shipped) |
 | `test.yml` runs 1026 to 1032 | success | unit, lint, build |
 | `nightly.yml` runs 391 to 393 | success | vitest only |
+
+## 7. Served release lineage (owner read-only live-screen audit, 2026-10-31)
+
+| Item | Value | Source |
+|---|---|---|
+| Public deployment commit | `ffa7d23082432add6ba1df42fe68e95bfda91115` ("Fix two E2E flakes at their root…", PR #132, 2026-08-30) | `data-commit-sha` in the served HTML |
+| Deployment UUID | `7d58930f-286a-4045-83c3-559743516c7d` | served HTML |
+| Source maps | CourseBuilder, CourseShell, Curriculum match that release exactly, not `main` | owner source comparison |
+| Distance to `main` | 39 commits (`ffa7d230..99f81e3e`) | `git log` |
+| Consequence | Students/Reports "Coming Soon", the DRIP badge and missing grades shown as 0/F are observations of the old release; `main` already changes them (IC-LMS-03/04/05). They are **not** to be reimplemented. No deployment is authorized by the audit; a verified build/QA release lineage is to be prepared later | tracker T-38 |
+| Persistent in served source AND `main`/`3370e5dd` | Navbar over rail (T-39); public detail page blank instructor / 0 lessons / error toast (T-40); calendar RPC on mount for anon (T-41); no custom-certificate consumer (T-23) | owner audit + code |
+| Audit scope | 9 actual observations across 11 screens; public and authenticated; no progress, quiz or certificate writes; tiers kept separate from write-dependent full acceptance | owner |
+
