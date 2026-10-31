@@ -34,6 +34,7 @@
   "delete_all_user_resumes",
   "delete_resume_records",
   "email_notification_fanout",
+  "enforce_assessed_progression",
   "enforce_conversation_has_course",
   "enforce_conversation_participant_in_course",
   "enforce_profiles_roles_immutable",

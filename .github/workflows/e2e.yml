@@ -155,6 +155,11 @@ jobs:
       E2E_TEST_ADMIN_COURSE_ID: ${{ secrets.E2E_TEST_ADMIN_COURSE_ID || '660e8400-e29b-41d4-a716-446655440001' }}
       E2E_TEST_COURSE_TITLE: ${{ secrets.E2E_TEST_COURSE_TITLE || 'Introduction to Data Science' }}
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      # There is no production opt-in at all: no event, input or secret can make the
+      # guard accept the live project for a mutating run. An isolated project is
+      # declared with the repository variable E2E_ISOLATED_TARGET_REF and must match
+      # the target secrets; until then every run stops at the guard step.
+      E2E_ISOLATED_TARGET_REF: ${{ vars.E2E_ISOLATED_TARGET_REF || '' }}
       # Lets global-setup's announcement-probe sweep actually run. Without it
       # the sweep prints its warning and returns, and
       # messaging-notifications-hardening.spec.ts leaves one notification per
@@ -228,6 +233,15 @@ jobs:
       # whole suite down with it. Both paths raise a workflow annotation, and
       # the specs that actually need fixtures already fail with their own
       # explicit "Seed gap: ..." messages naming what to reseed.
+      # Fail-closed target check. This suite seeds, tears down and submits as
+      # real accounts, so the database it points at must be stated, not assumed.
+      # The guard accepts only loopback or the isolated project named by
+      # E2E_ISOLATED_TARGET_REF; production, look-alike hosts, unset and unparseable
+      # values are refused, and nothing can opt production back in. Every push,
+      # pull_request and dispatch run stops here, red, until an isolated target exists.
+      - name: Verify the E2E target is not production unless explicitly allowed
+        run: node scripts/e2e/assert-safe-target.mjs --mutating
+
       - name: Seed E2E fixtures
         run: |
           # Every way of not seeding is fatal, not just a seed that errors.
@@ -300,7 +314,7 @@ jobs:
           # notification invariant asserted above the section that writes it —
           # because a red seed and a green seed produced the same green job.
           # A run that could not build its fixtures has not tested anything.
-          if ! psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -v e2e_password="$E2E_TEST_PASSWORD" -f e2e/fixtures/seed.sql; then
+          if ! scripts/e2e/seed.sh; then
             echo "::error title=E2E seeding failed::psql could not apply e2e/fixtures/seed.sql. The file is one transaction, so nothing was applied and the suite would be testing pre-existing state. Fix the seed rather than re-running."
             exit 1
           fi
