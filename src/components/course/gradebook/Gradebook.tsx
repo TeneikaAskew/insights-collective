@@ -115,7 +115,8 @@ export const Gradebook: React.FC<GradebookProps> = ({
       }),
     [students, assignments, quizzes, submissions, quizSubmissions],
   );
-  const gradeData: Record<string, NormalizedCell & { status: string }> = model.cells;
+  // 'late' is kept as a status the UI understands, though nothing derives it yet.
+  const gradeData = model.cells as Record<string, Omit<NormalizedCell, 'status'> & { status: string }>;
   const studentTotals = model.totals;
   const classAverage = useMemo(() => {
     const pcts = students.map((s) => studentTotals[s.id]?.percentage).filter((p): p is number => typeof p === 'number');
