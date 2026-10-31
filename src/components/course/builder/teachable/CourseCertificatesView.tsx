@@ -8,7 +8,7 @@ import { TeachableBreadcrumb } from './TeachableBreadcrumb';
 
 interface CourseCertificatesViewProps {
   course: BuilderCourse;
-  onSave: (patch: Partial<BuilderCourse>) => Promise<void>;
+  onSave: (patch: Partial<BuilderCourse>) => Promise<boolean | void>;
 }
 
 export function CourseCertificatesView({ course, onSave }: CourseCertificatesViewProps) {
@@ -29,7 +29,8 @@ export function CourseCertificatesView({ course, onSave }: CourseCertificatesVie
         ...(course.settings || {}),
         certificate: { enabled, title, body },
       };
-      await onSave({ settings: nextSettings });
+      const ok = await onSave({ settings: nextSettings });
+      if (ok === false) return;
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } finally {

@@ -8,7 +8,7 @@ import { TeachableBreadcrumb } from './TeachableBreadcrumb';
 
 interface CourseInformationViewProps {
   course: BuilderCourse;
-  onSave: (patch: Partial<BuilderCourse>) => Promise<void>;
+  onSave: (patch: Partial<BuilderCourse>) => Promise<boolean | void>;
 }
 
 const LEVELS = ['Beginner', 'Intermediate', 'Advanced'];
@@ -49,7 +49,7 @@ export function CourseInformationView({ course, onSave }: CourseInformationViewP
   const handleSave = async () => {
     setSaving(true);
     try {
-      await onSave({
+      const ok = await onSave({
         category: category || null,
         level: level || null,
         difficulty_level: difficulty || null,
@@ -58,6 +58,7 @@ export function CourseInformationView({ course, onSave }: CourseInformationViewP
         description,
         tags: tags.length ? tags : null,
       } as Partial<BuilderCourse>);
+      if (ok === false) return;
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } finally {

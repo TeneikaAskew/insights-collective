@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import CanvasContentService from '@/services/canvasContentService';
 import type { ContentItem, ContentItemType, Module } from '@/types/canvas';
 import { createLogger } from '@/utils/logger';
+import { publishPatch, publishReadinessIssues, updateCourse } from '@/utils/coursePublish';
 import { TeachableShell, type BuilderNavKey } from '@/components/course/builder/teachable/TeachableShell';
 import { SetupGuideView } from '@/components/course/builder/teachable/SetupGuideView';
 import { CurriculumView } from '@/components/course/builder/teachable/CurriculumView';
@@ -293,28 +294,44 @@ const CourseBuilder = () => {
   );
 
   // --- Course-level actions ---
+  // Optimistic update, confirmed against the returned row; reverted on failure.
+  // Returns false (and toasts the reason) when the write did not land.
   const persistCourse = useCallback(
-    async (patch: Partial<BuilderCourse>) => {
-      if (!course) return;
+    async (patch: Partial<BuilderCourse>): Promise<boolean> => {
+      if (!course) return false;
+      const previous = course;
+      const dbPatch: Record<string, unknown> = { ...patch };
+      if (typeof patch.published === 'boolean') Object.assign(dbPatch, publishPatch(patch.published));
       setCourse((c) => (c ? { ...c, ...patch } : c));
-      try {
-        await supabase
-          .from('courses')
-          .update({ ...patch, updated_at: new Date().toISOString() } as any)
-          .eq('id', course.id);
-      } catch (err: any) {
-        toast({ title: 'Error', description: err.message, variant: 'destructive' });
+      const result = await updateCourse<BuilderCourse>(course.id, dbPatch);
+      if (result.ok === false) {
+        setCourse(previous);
+        toast({ title: 'Changes not saved', description: (result as { error: string }).error, variant: 'destructive' });
+        return false;
       }
+      setCourse((c) => (c ? { ...c, ...patch, published: !!(result as { row: BuilderCourse }).row.published } : c));
+      return true;
     },
     [course, toast],
   );
 
   const handleTogglePublish = useCallback(
     async (next: boolean) => {
-      await persistCourse({ published: next });
-      toast({ title: next ? 'Course published' : 'Course unpublished' });
+      if (next && course) {
+        const issues = publishReadinessIssues(course, modules);
+        if (issues.length) {
+          toast({
+            title: 'Not ready to publish',
+            description: issues.join(' '),
+            variant: 'destructive',
+          });
+          return;
+        }
+      }
+      const ok = await persistCourse({ published: next });
+      if (ok) toast({ title: next ? 'Course published' : 'Course unpublished' });
     },
-    [persistCourse, toast],
+    [course, modules, persistCourse, toast],
   );
 
   const renameCourse = useCallback(
@@ -335,8 +352,8 @@ const CourseBuilder = () => {
           .upload(path, file, { upsert: true, contentType: file.type });
         if (error) throw error;
         const { data: pub } = supabase.storage.from('course-materials').getPublicUrl(path);
-        await persistCourse({ image_url: pub.publicUrl, thumbnail: pub.publicUrl });
-        toast({ title: 'Thumbnail uploaded' });
+        const ok = await persistCourse({ image_url: pub.publicUrl, thumbnail: pub.publicUrl });
+        if (ok) toast({ title: 'Thumbnail uploaded' });
       } catch (err: any) {
         toast({
           title: 'Upload failed',

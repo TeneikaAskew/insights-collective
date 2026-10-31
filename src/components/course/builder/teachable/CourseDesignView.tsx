@@ -8,7 +8,7 @@ import { TeachableBreadcrumb } from './TeachableBreadcrumb';
 
 interface CourseDesignViewProps {
   course: BuilderCourse;
-  onSave: (patch: Partial<BuilderCourse>) => Promise<void>;
+  onSave: (patch: Partial<BuilderCourse>) => Promise<boolean | void>;
 }
 
 const ACCENTS = [
@@ -40,7 +40,8 @@ export function CourseDesignView({ course, onSave }: CourseDesignViewProps) {
         ...(course.settings || {}),
         theme: { accent, preset },
       };
-      await onSave({ settings: nextSettings });
+      const ok = await onSave({ settings: nextSettings });
+      if (ok === false) return;
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } finally {

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { publishPatch } from '@/utils/coursePublish';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Course, CourseFormData, CourseEnrollment, CourseStats } from '@/types/course';
@@ -316,7 +317,7 @@ export function useCoursesManagement() {
     try {
       const { error } = await supabase
         .from('courses')
-        .update({ published: true })
+        .update(publishPatch(true))
         .eq('id', courseId);
 
       if (error) throw error;
@@ -355,7 +356,7 @@ export function useCoursesManagement() {
     try {
       const { error } = await supabase
         .from('courses')
-        .update({ published: false })
+        .update(publishPatch(false))
         .eq('id', courseId);
 
       if (error) throw error;
