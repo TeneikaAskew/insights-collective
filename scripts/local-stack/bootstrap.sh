@@ -50,15 +50,19 @@ if [ -n "$VIEWS_BROKEN_LIVE" ]; then
 fi
 FAIL=0
 run_strict() { # a non-zero psql status is fatal, whatever the output says
-  if ! psql "$PGURL" -v ON_ERROR_STOP=1 -q -f "$1" >"$LOG/strict.out" 2>&1; then echo "FATAL in $(basename "$1") (psql exit $?):"; grep -E "ERROR|FATAL|PANIC" "$LOG/strict.out" | tail -3; FAIL=1; fi
+  local st; psql "$PGURL" -v ON_ERROR_STOP=1 -q -f "$1" >"$LOG/strict.out" 2>&1; st=$?
+  if [ $st -ne 0 ]; then echo "FATAL in $(basename "$1") (psql exit $st):"; grep -E "ERROR|FATAL|PANIC" "$LOG/strict.out" | tail -3; FAIL=1; fi
 }
-run_passes() { # dependency order unknown: repeat until no real ERROR lines; a non-zero psql status that is
-  # NOT explained by ON_ERROR_STOP-free SQL errors (connection loss, FATAL, signal) is fatal immediately.
+run_passes() { # dependency order unknown: repeat until no real ERROR lines.
+  # Process status first, text second. These passes run WITHOUT ON_ERROR_STOP, and psql then exits 0 even when
+  # statements fail (3 is only possible with ON_ERROR_STOP; 1 = psql's own fatal error; 2 = connection lost).
+  # So ANY non-zero status is abnormal and fatal on its own; no output text can explain it away. Only the
+  # per-statement ERROR lines of a status-0 run are classified, against the exact benign set above.
   local f="$1" pass st real
   for pass in 1 2 3 4 5 6; do
     psql "$PGURL" -q -f "$f" >"$LOG/pass.out" 2>&1; st=$?
-    if grep -qE "^psql: (FATAL|error)|^(FATAL|PANIC):|server closed the connection|connection to server .* lost" "$LOG/pass.out" || { [ $st -ne 0 ] && [ $st -ne 3 ]; }; then
-      echo "FATAL: psql exited $st applying $(basename "$f") (not a plain SQL error):"; tail -3 "$LOG/pass.out"; FAIL=1; return 1
+    if [ $st -ne 0 ] || grep -qE "^psql: (FATAL|error)|^(FATAL|PANIC):|server closed the connection|connection to server .* lost" "$LOG/pass.out"; then
+      echo "FATAL: psql exited $st applying $(basename "$f") (process status or connection failure, not a statement error):"; tail -3 "$LOG/pass.out"; FAIL=1; return 1
     fi
     real=$(grep "ERROR" "$LOG/pass.out" | grep -vE "$BENIGN" | wc -l)
     [ "$real" = "0" ] && return 0
@@ -74,4 +78,6 @@ run_strict "$SNAP/01_types_tables.sql"
 [ $FAIL -eq 0 ] && run_strict "$ROOT/scripts/local-stack/localize.sql"
 [ $FAIL -ne 0 ] && { echo "BOOTSTRAP FAILED: incomplete schema replay"; exit 1; }
 "$ROOT/scripts/local-stack/verify-identities.sh" "$PGURL" || { echo "BOOTSTRAP FAILED: identity verification"; exit 1; }
-echo "bootstrap OK on $(q 'show server_version') (local stack; PG15 parity and browser acceptance are separate gates)"
+ver=$(q 'show server_version') || { echo "BOOTSTRAP FAILED: server version probe (psql exit $?)"; exit 1; }
+[ -n "$ver" ] || { echo "BOOTSTRAP FAILED: server version probe returned nothing"; exit 1; }
+echo "bootstrap OK on $ver (local stack; PG15 parity and browser acceptance are separate gates)"
