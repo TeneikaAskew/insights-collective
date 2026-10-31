@@ -124,18 +124,24 @@ describe('useCourseData', () => {
     );
   });
 
-  it('sets error state when the enrollment count query fails (regression)', async () => {
+  it('keeps the course and omits the count when the enrollment count query fails (public viewer)', async () => {
+    // Replaces a test that pinned the opposite behavior. `anon` has no SELECT on enrollments by design, so
+    // the old throw blanked the course in the rail, profile menu, rubrics and question banks and toasted a
+    // destructive error for every signed-out visitor (live audit: Data Engineering Fundamentals).
+    // CourseDetail already tolerates this; the hook now does the same.
     stubCourseQuery(
       { data: makeCourseRow(), error: null },
-      { count: null, error: { message: 'count failed', code: 'PGRST000' } }
+      { count: null, error: { message: 'permission denied for table enrollments', code: '42501' } }
     );
 
     const { result } = renderHook(() => useCourseData(COURSE_ID));
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    expect(result.current.course).toBeNull();
-    expect(result.current.error).toBe('count failed');
+    expect(result.current.course?.title).toBe('Intro to Data Analytics');
+    expect(result.current.course?.enrollmentCount).toBeUndefined();
+    expect(result.current.error).toBeNull();
+    expect(mockToast).not.toHaveBeenCalled();
   });
 
   it('skips fetching for a missing or "new" courseId', async () => {

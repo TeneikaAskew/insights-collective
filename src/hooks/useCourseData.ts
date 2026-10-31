@@ -104,11 +104,15 @@ export function useCourseData(courseId?: string) {
           .eq('course_id', courseId);
 
         if (countError) {
-          logger.error('Enrollment count fetch error:', countError);
-          throw countError;
+          // NOT fatal. Course pages are public and `anon` has no SELECT on enrollments by design
+          // (20260731000800_restore_missing_select_grants.sql), so throwing here blanked the course in the
+          // rail, menus, rubrics and question banks and raised a destructive toast for every signed-out
+          // visitor (live audit: Data Engineering Fundamentals). CourseDetail already tolerates this;
+          // mirror it: leave the count undefined so nothing claims "0 enrolled", and keep the course.
+          logger.warn('Enrollment count unavailable for this viewer:', countError);
+        } else {
+          transformedCourse.enrollmentCount = count || 0;
         }
-
-        transformedCourse.enrollmentCount = count || 0;
 
         // Set the course data
         setCourse(transformedCourse);
