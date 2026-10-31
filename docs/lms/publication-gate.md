@@ -32,33 +32,39 @@ For the `pull_request` event GitHub checks out and executes the workflow files f
 
 ## Production-safe PR workflow (on this branch)
 
-1. **Guard script** `scripts/e2e/assert-safe-target.mjs` is an allow-list, not a deny-list. In `--mutating` mode every target variable (`VITE_SUPABASE_URL`, `SUPABASE_DB_URL`, `E2E_RELAY_TARGET`) must be set and must be either loopback (`localhost`, `127.0.0.1`, `::1`) or a Supabase host whose project ref equals `E2E_ISOLATED_TARGET_REF`, which itself must differ from the production ref. Everything else is refused: the production ref anywhere in any value, look-alike hosts (`<prod>.supabase.co.attacker.tld`, `localhost.attacker.tld`), pooler hosts whose user is not the isolated ref, other IP literals, percent-encoded or unparseable values, and `VITE_SUPABASE_PROJECT_ID` equal to production. Unit tests: `src/test/__tests__/assertSafeTarget.test.ts` (10 cases, including deceptive URLs).
-2. **No automatic production opt-in.** The workflow no longer grants `E2E_ALLOW_PRODUCTION_TARGET` for any event. The only way to run the mutating suite against the live project is the `allow_production_target` `workflow_dispatch` input, typed by a person as the exact production ref. Pushes and pull requests always stop at the guard step until a repository variable `E2E_ISOLATED_TARGET_REF` names an isolated project and the target secrets point at it.
-3. **`e2e/global-setup.ts`** runs the same guard before any sign-in or password bootstrap.
-4. **Local isolated database** (`scripts/local-db/`): `build-from-snapshot.sh` now fails on any non-idempotency DDL error and on any mismatch against `manifest.env` (tables, views, functions, policies, triggers, RLS tables, enums recorded from the live catalog). Verified: correct snapshot builds and matches (tables 120, views 6 of 7 with `quiz_analytics` declared broken live, functions 118, policies 341, triggers 51); a tampered manifest and a partial snapshot are both rejected.
+1. **Guard script** `scripts/e2e/assert-safe-target.mjs` is an allow-list with **no opt-in of any kind**. In `--mutating` mode every target variable (`VITE_SUPABASE_URL`, `SUPABASE_DB_URL`, `E2E_RELAY_TARGET`) must be set and be either loopback (`localhost`, `127.0.0.1`, `::1`) or a Supabase host whose project ref equals the repository variable `E2E_ISOLATED_TARGET_REF`, which itself must differ from the production ref. Refused: the production ref anywhere in any value, look-alike hosts, pooler hosts whose user is not the isolated ref, other IP literals, percent-encoded or unparseable values, `VITE_SUPABASE_PROJECT_ID` equal to production, and every value of the former `E2E_ALLOW_PRODUCTION_TARGET`, which is no longer read. The `workflow_dispatch` input that could type the production ref has been removed. Unit tests: `src/test/__tests__/assertSafeTarget.test.ts` (10 cases).
+2. **Direct entrypoints are guarded, not just their usual caller.** `scripts/e2e/seed.sh` is the only supported way to apply `e2e/fixtures/seed.sql`: it runs the guard before `psql` and strips `PGHOST`, `PGHOSTADDR`, `PGSERVICE`, `PGSERVICEFILE`, `PGPORT`, `PGPASSFILE` so the URL it checked is the URL libpq uses. `e2e.yml` now calls the wrapper. `e2e/global-setup.ts` and `e2e/global-teardown.ts` run the guard before any sign-in, password bootstrap or delete.
+3. **Local tooling parses the DSN strictly** (`scripts/local-db/assert-local-dsn.mjs`, 4 test groups covering 18 refusal forms): one loopback endpoint only; multihost lists, `hostaddr`, `host=`/`port=` query overrides, `service=`, `options=`, `passfile=`, percent-encoding, loopback-as-user tricks and libpq environment overrides are refused before `psql` starts. All three `scripts/local-db` entrypoints call it and run `psql` with the environment overrides removed.
+4. **Negative harnesses demonstrate no database call.** `scripts/local-db/tests/guard-negative.sh` puts a fake `psql` on `PATH` that records any invocation and drives the four entrypoints with 40 remote or deceptive targets, including every former opt-in string: 40/40 refused, `psql` never invoked; a positive control confirms a loopback DSN does reach `psql`, so the negatives are meaningful. Exit 126/127 (entrypoint not found) counts as a harness failure, not a refusal.
+5. **Schema replay verifies identities, not counts alone.** `build-from-snapshot.sh` compares every function, policy, trigger, RLS flag, table grant and function grant against `identities.tsv` (md5 of the live definition, produced by `scripts/local-db/identities.sql`), after the count manifest. `scripts/local-db/tests/build-negative.sh` proves: correct snapshot passes and prints the live-broken view omission explicitly (`quiz_analytics` and its three grants); a same-count snapshot with one altered function body is rejected (`IDENTITY MISMATCH … start_quiz_attempt`); an injected DDL failure is rejected; a tampered manifest count is rejected; a snapshot without `identities.tsv` is rejected.
 
-## Publication-safety report (local run, 2026-10-31, head of `claude/inspiring-shannon-wkmu6y`)
+## Local full Supabase stack for real Playwright QA: investigated, blocked here
+
+The repository already describes its local stack: `supabase/config.toml` (API 54321, DB 54322, auth, storage, studio 54323) is what `supabase start` runs, and the guard accepts `localhost:54321` as a target. It cannot run in this session's container: the Docker binary is present but no daemon socket exists, the Supabase CLI is absent and requires Docker, and GitHub release downloads for PostgREST, GoTrue, Storage and Deno return HTTP 403 through the egress proxy (npm registry is reachable, but these components are not npm packages; no apt candidate exists). No paid service and no new account is needed to unblock this: `supabase start` on any Docker-capable machine (the owner's, or a CI runner with Docker) gives an isolated stack the guard already accepts, and `scripts/e2e/seed.sh` then seeds it. Until that exists, browser-tier acceptance remains BLOCKED and is reported as such; SQL-level proof is on the local PostgreSQL snapshot only.
+
+## Publication-safety report (local run, head of `claude/inspiring-shannon-wkmu6y`)
 
 | Check | Result | Tier |
 |---|---|---|
 | Branch push fires a workflow | No (verified on the first push: zero runs) | ci |
 | PR event reaches the seed step | No: run 41207463923 stopped at the guard step; seed, fixture check and suite skipped | ci |
-| Guard refuses unset, production, look-alike and encoded targets | 10/10 unit tests pass | local |
-| Guard accepts loopback and a declared isolated project only | covered by the same tests | local |
-| Any event grants production opt-in automatically | No; only the typed dispatch input | code |
+| Any event, input or environment value grants production for a mutating run | No; the opt-in path is removed from guard, workflow and tests | code, local |
+| Guard refuses unset, production, look-alike and encoded targets | 10/10 unit tests | local |
+| DSN parser refuses multihost, hostaddr, query/keyword overrides, service, options, env overrides | 4/4 test groups (18 refusal forms) | local |
+| Entrypoints refuse before any `psql` process | 40/40, fake-psql marker never written; positive control reaches psql | local |
 | Seed script rehearsal | `e2e/fixtures/seed.sql` exit 0 on the local snapshot after `local-preseed.sql` | local-db |
-| Teardown with default env | logs "DB teardown disabled", no network writes | local |
-| Schema replay completeness | fail-closed with manifest; one live-broken view declared explicitly | local-db |
-| RLS matrix (3 tables × 9 actors, 54 checks) | 51/54 on live-equivalent policies: the enrolled-instructor actor reads another learner's progressions, quiz submissions and quiz answers; 54/54 with migration `20261101000000` applied locally | local-db |
-| Assessed-progression guard (16 checks) | assignment without or with draft submission refused; submitted accepted; quiz without submission refused; **started-only quiz accepted** and certificate issued (policy gap T-09); `graded` not counted by the certificate trigger (T-10) | local-db |
-| `start_quiz_attempt` authorization (10 checks) | 6/10 on live-equivalent: unenrolled learner starts attempts on published and unpublished quizzes, another course's instructor too; 10/10 with migration `20261101000100` applied locally | local-db |
-| `public.quiz_analytics` | broken in the live catalog: `SELECT` raises 42P17 infinite recursion; no consumer in `src/` | live-catalog |
+| Teardown with default env | logs "DB teardown disabled", no network writes; now also guarded when enabled | local |
+| Schema replay completeness | counts and 1,124 object identities match the live catalog; 3 grants on the live-broken `quiz_analytics` omitted explicitly; wrong-identity, injected-DDL, tampered-manifest and missing-identities snapshots rejected | local-db |
+| RLS matrix (3 tables × 9 actors, 54 checks) | 51/54 on live-equivalent policies; 54/54 with migration `20261101000000` applied locally | local-db |
+| Assessed-progression guard (16 checks) | started-only quiz accepted and certificate issued (policy gap T-09); `graded` not counted by the certificate trigger (T-10) | local-db |
+| `start_quiz_attempt` authorization (10 checks) | 6/10 live-equivalent; 10/10 with migration `20261101000100` applied locally | local-db |
+| `public.quiz_analytics` | broken live (42P17); no consumer in `src/` | live-catalog |
+| Browser-tier acceptance (WP-01, A6, A7, A8) | **BLOCKED**: no isolated API stack reachable from this container | n/a |
 
-Nothing in this report was produced by writing to the live project. Both migrations remain unapplied.
+Nothing here wrote to the live project. Both migrations remain unapplied. Policy questions are in `completion-policy-trace.md`.
 
-Open points for the owner:
+## Residual blockers
 
-- Provide an isolated Supabase project and set the repository variable `E2E_ISOLATED_TARGET_REF` plus matching secrets, **or** accept that the Playwright job stays red on every push and pull request. A production dispatch is possible but requires typing the ref.
-- Approve `db-migrate.yml` dispatches for `20261101000000` (RLS scope) and `20261101000100` (quiz-start authorization) after review.
-- Decide the completion policy for started-only quizzes (T-09) and the `graded` vocabulary (T-10).
-- Confirm the branch and PR naming (this session is bound to `claude/inspiring-shannon-wkmu6y`).
+- **Isolated Supabase stack for browser QA**: needs a Docker-capable machine running `supabase start`, or an isolated project declared via the repository variable `E2E_ISOLATED_TARGET_REF` and matching secrets (owner action; no new grants were created from this session).
+- **Workflow consequence**: with the opt-in removed, `e2e.yml` fails closed on every push, pull request and dispatch until an isolated target is declared. This is the handoff's requirement (Start Here line 29; master plan lines 36, 108, 149, 490, 513), stated here so it is not mistaken for a regression.
+- **Owner decisions** (unchanged): apply `20261101000000` and `20261101000100` through `db-migrate.yml`; completion policy for started-only quizzes and the `graded` vocabulary; historical reconciliation; branch and PR naming.

@@ -48,3 +48,6 @@ coverage/
 
 # tsc -b writes these on every typecheck
 *.tsbuildinfo
+
+# Local review bundles produced inside the session (hashes reported in chat); never committed
+.review-bundles/
