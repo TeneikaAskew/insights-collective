@@ -2,6 +2,7 @@
 // ABOUTME: Replaces the 100-line type switch in CanvasModuleDetail and adds lesson-level Prev/Next + Mark done.
 
 import { useEffect, useRef, useState } from 'react';
+import { isAssessedContentType, type CompletionSource } from '@/utils/progressionStates';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -33,7 +34,7 @@ export interface LessonViewerProps {
   /** Called when user clicks Prev/Next. Receives the target item's id. */
   onNavigate: (itemId: string) => void;
   /** Called when user clicks "Mark as done". Should upsert content_item_progressions. */
-  onMarkDone: (itemId: string) => void | Promise<void>;
+  onMarkDone: (itemId: string, source?: CompletionSource) => void | Promise<void>;
   /** Base path used for Submit/Take-quiz buttons, e.g. `/courses/:courseId/learn/:moduleId`. */
   actionBasePath: string;
   /** When true, hide the internal Prev/Mark done/Next footer (parent renders its own). */
@@ -62,9 +63,12 @@ export function LessonViewer({
   const autoCompletedRef = useRef<string | null>(null);
   const [autoCompleted, setAutoCompleted] = useState(false);
 
-  // Auto-mark content as complete when user scrolls to bottom (non-quiz items only)
+  const isAssessed = isAssessedContentType(item?.type);
+
+  // Auto-mark informational content as complete when the user scrolls to the
+  // bottom. Assignments and quizzes only complete through a real submission.
   useEffect(() => {
-    if (!item || item.type === 'quiz' || isCompleted) return;
+    if (!item || isAssessedContentType(item.type) || isCompleted) return;
     // Reset when item changes
     if (autoCompletedRef.current !== item.id) {
       setAutoCompleted(false);
@@ -157,12 +161,12 @@ export function LessonViewer({
 
         {/* Assignment metadata + submit CTA */}
         {item.type === 'assignment' && item.assignment && (
-          <InlineAssignmentSubmit item={item} assignment={item.assignment} onCompleted={onMarkDone} />
+          <InlineAssignmentSubmit item={item} assignment={item.assignment} onCompleted={(id) => onMarkDone(id, 'submission')} />
         )}
 
         {/* Quiz player */}
         {item.type === 'quiz' && item.quiz && (
-          <InlineQuizPlayer item={item} quiz={item.quiz} onCompleted={onMarkDone} />
+          <InlineQuizPlayer item={item} quiz={item.quiz} onCompleted={(id) => onMarkDone(id, 'submission')} />
         )}
 
         {/* External URL */}
@@ -183,7 +187,7 @@ export function LessonViewer({
         )}
 
         {/* Scroll sentinel for auto-completion */}
-        {item.type !== 'quiz' && <div ref={sentinelRef} className="h-1" aria-hidden />}
+        {!isAssessed && <div ref={sentinelRef} className="h-1" aria-hidden />}
 
         {/*
           Discussion thread for this lesson.
@@ -211,11 +215,15 @@ export function LessonViewer({
             </Button>
             <Button
               variant={isCompleted || autoCompleted ? 'secondary' : 'default'}
-              onClick={() => onMarkDone(item.id)}
-              disabled={isCompleted || autoCompleted}
+              onClick={() => onMarkDone(item.id, 'view')}
+              disabled={isCompleted || autoCompleted || isAssessed}
             >
               <CheckCircle2 className="h-4 w-4 mr-1" />
-              {isCompleted || autoCompleted ? 'Completed' : 'Mark as done'}
+              {isCompleted || autoCompleted
+                ? 'Completed'
+                : isAssessed
+                  ? 'Submit to complete'
+                  : 'Mark as done'}
             </Button>
             <Button
               variant="outline"

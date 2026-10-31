@@ -290,20 +290,28 @@ const CourseLearn = () => {
   }, []);
 
   const handleMarkDone = useCallback(
-    async (id: string) => {
+    async (id: string, source: CompletionSource = 'view') => {
+      const type = flatItems.find((fi) => fi.item.id === id)?.item.type;
+      if (!canMarkComplete(type, source)) return false;
       try {
         await markItemComplete(id);
         setCompleted((prev) => new Set(prev).add(id));
+        return true;
       } catch (err: any) {
-        toast({ title: 'Error', description: err.message, variant: 'destructive' });
+        toast({ title: 'Progress not saved', description: err.message, variant: 'destructive' });
+        return false;
       }
     },
-    [markItemComplete, toast],
+    [flatItems, markItemComplete, toast],
   );
 
   const handleContinue = useCallback(async () => {
     if (!selected) return;
-    if (!isSelectedComplete) await handleMarkDone(selected.item.id);
+    // Next completes informational content only; assessed items stay
+    // incomplete until submitted (handleMarkDone enforces this).
+    if (!isSelectedComplete && !isAssessedContentType(selected.item.type)) {
+      await handleMarkDone(selected.item.id, 'view');
+    }
     if (next) {
       goTo(next.module.id, next.item.id);
     } else {
