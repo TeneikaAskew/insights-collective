@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.enforce_assessed_progression() FROM PUBLIC, anon, authenticated;
