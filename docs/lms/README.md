@@ -10,6 +10,8 @@ performed in the Claude Code session that owns this branch.
 | [`backlog-tracker.md`](./backlog-tracker.md) | One traceable backlog: every work package WP-00 to WP-17, every Lovable prompt A0 to A10, every audit finding, with source, status, evidence tier and acceptance gate |
 | [`baseline-inventory.md`](./baseline-inventory.md) | Provenance (document hashes, baseline SHAs), route matrix, schema and policy facts verified against the live catalog, CI trigger inventory, environment safety findings |
 | [`publication-gate.md`](./publication-gate.md) | Exactly what a branch push, a pull request and a merge trigger today, and the production-safe workflow proposed for review |
+| [`completion-policy-trace.md`](./completion-policy-trace.md) | T-09/T-10 traced to the handoff documents: clear requirements versus unresolved owner choices |
+| [`isolated-stack-plan.md`](./isolated-stack-plan.md) | Implementation-ready, dependency-ordered plan for an isolated full-stack QA job on GitHub Actions (not dispatched) |
 
 Status vocabulary used throughout:
 
