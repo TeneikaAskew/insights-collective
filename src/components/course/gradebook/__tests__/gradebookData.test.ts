@@ -74,7 +74,7 @@ describe('csv', () => {
     expect(csvCell('-2')).toBe("'-2");
     expect(csvCell('@cmd')).toBe("'@cmd");
     expect(csvCell('  =HYPERLINK("x")')).toBe(`"'  =HYPERLINK(""x"")"`);
-    expect(csvCell('\t=1')).toBe(`"'\t=1"`);
+    expect(csvCell('\t=1')).toBe("'\t=1");
   });
 
   it('keeps numbers numeric, including 0, and blanks for missing', () => {
