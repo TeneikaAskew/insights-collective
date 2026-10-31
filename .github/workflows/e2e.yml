@@ -7,6 +7,13 @@ on:
     branches: [main, develop]
   workflow_dispatch:
     inputs:
+      allow_production_target:
+        description: >-
+          DANGER. Type the production project ref (from supabase/config.toml) to let this
+          run seed and mutate the LIVE project. Leave empty for the isolated target. No
+          other event can grant this.
+        type: string
+        default: ''
       update_snapshots:
         description: >-
           Regenerate the visual regression baselines on this runner and commit
@@ -155,9 +162,13 @@ jobs:
       E2E_TEST_ADMIN_COURSE_ID: ${{ secrets.E2E_TEST_ADMIN_COURSE_ID || '660e8400-e29b-41d4-a716-446655440001' }}
       E2E_TEST_COURSE_TITLE: ${{ secrets.E2E_TEST_COURSE_TITLE || 'Introduction to Data Science' }}
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-      # Production mutation is allowed only when the run was NOT triggered by a pull
-      # request. Pull requests get no opt-in, so the guard step above fails closed.
-      E2E_ALLOW_PRODUCTION_TARGET: ${{ github.event_name != 'pull_request' && 'siuqvhscuiycvdrtiqsh' || '' }}
+      # No event grants production mutation automatically. The only way to run this
+      # suite against the production project is a human typing the project ref into
+      # the allow_production_target dispatch input; pushes and pull requests always
+      # fail closed at the guard step. An isolated project is declared with
+      # E2E_ISOLATED_TARGET_REF (repository variable) and must match the target URLs.
+      E2E_ALLOW_PRODUCTION_TARGET: ${{ inputs.allow_production_target || '' }}
+      E2E_ISOLATED_TARGET_REF: ${{ vars.E2E_ISOLATED_TARGET_REF || '' }}
       # Lets global-setup's announcement-probe sweep actually run. Without it
       # the sweep prints its warning and returns, and
       # messaging-notifications-hardening.spec.ts leaves one notification per
@@ -233,10 +244,11 @@ jobs:
       # explicit "Seed gap: ..." messages naming what to reseed.
       # Fail-closed target check. This suite seeds, tears down and submits as
       # real accounts, so the database it points at must be stated, not assumed.
-      # The guard refuses the production project unless E2E_ALLOW_PRODUCTION_TARGET
-      # names it exactly. That opt-in is set ONLY for push/dispatch runs below, so a
-      # pull_request run from any branch cannot seed production: it stops here, red,
-      # and says why. Draft status is not a safety control; this is.
+      # The guard accepts only loopback or the isolated project named by
+      # E2E_ISOLATED_TARGET_REF; production, look-alike hosts, unset and unparseable
+      # values are refused. No event sets the production opt-in: only the
+      # allow_production_target dispatch input does, typed by a person. So every
+      # push and pull_request run stops here, red, until an isolated target exists.
       - name: Verify the E2E target is not production unless explicitly allowed
         run: node scripts/e2e/assert-safe-target.mjs --mutating
 
