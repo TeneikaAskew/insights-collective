@@ -38,7 +38,10 @@ CORPUS = [
   'host=localhost hostaddr=203.0.113.9 dbname=db', 'postgresql://127.0.0.1@remote.example/db', 'postgresql:///db', 'postgresql://u@%6cocalhost/db',
   'postgresql://u@localhost/db?options=-c%20x', 'postgresql://u@localhost/db?passfile=/tmp/x', 'service=production', 'postgresql://u@localhost.attacker.example/db',
   'postgresql://u@10.0.0.5/db', 'postgresql://u@localhost/db?host=localhost', 'postgresql://u@localhost/db?hostaddr=127.0.0.1', 'postgresql://u@localhost:5432/db?port=5433',
-  'postgresql://u@localhost/db?sslmode=require', "host='localhost' dbname='db'", 'postgresql://u@LOCALHOST/db', 'postgresql://u@localhost./db', 'postgresql://u@127.0.0.1.nip.io/db',
+  'postgresql://u@localhost/db?sslmode=require', "host='localhost' dbname='db'",
+  'host=remote.example password=x\\ host=localhost', 'host=remote.example dbname=x\\ host=localhost', 'host=localhost\\ hostaddr=203.0.113.9',
+  "host=remote.example password='x host=localhost'", 'host = localhost dbname=db', 'host=localhost dbname=db=x', 'host=localhost host=remote.example',
+  'hostaddr=203.0.113.9 host=localhost', 'host=localhost port=54329 dbname=db user=postgres password=plain-pw', 'postgresql://u@LOCALHOST/db', 'postgresql://u@localhost./db', 'postgresql://u@127.0.0.1.nip.io/db',
   'postgresql://u@0.0.0.0/db', 'postgresql://u@127.1/db', 'postgresql://u@2130706433/db', 'postgresql://u@[::ffff:127.0.0.1]/db', 'postgresql://u@localhost%2Cremote.example/db',
 ]
 fails = 0

@@ -25,28 +25,29 @@ const UNSAFE_ENV = ['PGHOST', 'PGHOSTADDR', 'PGSERVICE', 'PGSERVICEFILE', 'PGPOR
 
 function refuse(reason, extra = {}) { return { ok: false, reason, ...extra }; }
 
+// Deliberately narrow keyword grammar. libpq's real grammar lets a backslash escape the next
+// character even in an UNQUOTED value ("password=x\ host=localhost" is ONE value, so the real host
+// stays remote.example) and lets single quotes span whitespace. Implementing that exactly is another
+// approximate parser waiting to diverge, so instead only plain tokens are supported:
+//   key=value [key=value ...]   with key in an allow-list and value matching /^[A-Za-z0-9._:\/@-]+$/
+// Anything else (quotes, backslashes, '=' or ',' inside a value, repeated keys, spaces around '=')
+// is refused before any psql call. Passwords with special characters belong in the URI form,
+// percent-encoded, which the URI branch already handles.
+const KEYWORD_KEYS = new Set(['host', 'hostaddr', 'port', 'dbname', 'user', 'password', 'sslmode', 'application_name', 'connect_timeout', 'client_encoding', 'service', 'options', 'passfile']);
 function parseKeywordDsn(s) {
-  // key=value pairs; values may be single-quoted with backslash escapes
-  const out = {}; let i = 0;
-  while (i < s.length) {
-    while (i < s.length && /\s/.test(s[i])) i++;
-    if (i >= s.length) break;
-    let k = ''; while (i < s.length && s[i] !== '=' && !/\s/.test(s[i])) k += s[i++];
-    while (i < s.length && /\s/.test(s[i])) i++;
-    if (s[i] !== '=') return null;
-    i++; while (i < s.length && /\s/.test(s[i])) i++;
-    let v = '';
-    if (s[i] === "'") { i++; while (i < s.length && s[i] !== "'") { if (s[i] === '\\') i++; v += s[i++]; } i++; }
-    else { while (i < s.length && !/\s/.test(s[i])) v += s[i++]; }
-    out[k.toLowerCase()] = v;
+  if (/['"\\]/.test(s)) return { error: "quotes or backslashes in a keyword DSN are refused: libpq treats them as escapes that can hide a second host" };
+  const out = {};
+  for (const tok of s.trim().split(/\s+/)) {
+    const m = tok.match(/^([a-z_]+)=([A-Za-z0-9._:\/@-]+)$/);
+    if (!m) return { error: `keyword token ${JSON.stringify(tok.length > 40 ? tok.slice(0, 40) + '…' : tok)} is not a plain key=value with a safe value (letters, digits, . _ : / @ -)` };
+    const [, k, v] = m;
+    if (!KEYWORD_KEYS.has(k)) return { error: `unsupported connection parameter ${k}= is refused` };
+    if (k in out) return { error: `duplicate keyword ${k}= is refused` };
+    out[k] = v;
   }
   return out;
 }
 
-/**
- * Parse a libpq DSN (URI or keyword form) into its effective connection endpoint, resolving every
- * place a host can come from. Returns { ok:false, reason } for anything ambiguous.
- */
 export function parseLibpqDsn(dsn) {
   if (typeof dsn !== 'string' || dsn.trim() === '') return refuse('empty DSN');
   const raw = dsn.trim();
@@ -94,7 +95,7 @@ export function parseLibpqDsn(dsn) {
     }
   } else {
     const kv = parseKeywordDsn(raw);
-    if (!kv) return refuse('keyword DSN does not parse');
+    if (kv.error) return refuse(kv.error);
     params = { ...kv };
     if (kv.host !== undefined) { hosts = kv.host.split(','); delete params.host; }
     if (kv.port !== undefined) { port = kv.port; delete params.port; }

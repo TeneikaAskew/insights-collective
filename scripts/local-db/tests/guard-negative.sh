@@ -26,6 +26,12 @@ DSNS=(
   "postgresql://u@localhost/db?hostaddr=203.0.113.9"
   "postgresql:///db?host=db.${PROD}.supabase.co"
   "host=localhost hostaddr=203.0.113.9 dbname=postgres"
+  "host=remote.example password=x\\ host=localhost"
+  "host=remote.example dbname=x\\ host=localhost"
+  "host=localhost\\ hostaddr=203.0.113.9"
+  "host=remote.example password='x host=localhost'"
+  "host=localhost host=remote.example"
+  "hostaddr=203.0.113.9 host=localhost"
   "postgresql://127.0.0.1@db.${PROD}.supabase.co/postgres"
   "postgresql://u@localhost.attacker.example/db"
   "postgresql://u@%6cocalhost/db"
@@ -85,6 +91,8 @@ positive "run-sql-tests.sh ← loopback DSN"      "$ROOT/scripts/local-db/run-sq
 positive "replay-migrations ← loopback DSN"      "$ROOT/scripts/local-db/replay-migrations.sh" "postgresql://postgres@127.0.0.1:54329/ic_snapshot"
 positive "build-from-snapshot ← loopback DSN"    "$ROOT/scripts/local-db/build-from-snapshot.sh" "postgresql://postgres@127.0.0.1:54329/ic_snapshot" /tmp/does-not-matter
 positive "build-negative.sh ← loopback PGBASE"   "$ROOT/scripts/local-db/tests/build-negative.sh" "postgresql://postgres@127.0.0.1:54329" /tmp/does-not-matter
+positive "run-sql-tests.sh ← keyword-form loopback DSN" "$ROOT/scripts/local-db/run-sql-tests.sh" "host=127.0.0.1 port=54329 dbname=ic_snapshot user=postgres"
+positive "seed.sh ← keyword-form loopback DSN"      env VITE_SUPABASE_URL="$LOOP_API" E2E_RELAY_TARGET="$LOOP_API" SUPABASE_DB_URL="host=127.0.0.1 port=54329 dbname=db user=postgres password=plain-pw" E2E_TEST_PASSWORD=local-only "$ROOT/scripts/e2e/seed.sh"
 positive "seed.sh ← loopback targets"            env VITE_SUPABASE_URL="$LOOP_API" E2E_RELAY_TARGET="$LOOP_API" SUPABASE_DB_URL="postgresql://postgres@127.0.0.1:54329/db" E2E_TEST_PASSWORD=local-only "$ROOT/scripts/e2e/seed.sh"
 positive "seed.sh ← declared isolated project (pooler DSN)" env E2E_ISOLATED_TARGET_REF=abcdefghijklmnopqrst VITE_SUPABASE_URL="https://abcdefghijklmnopqrst.supabase.co" E2E_RELAY_TARGET="https://abcdefghijklmnopqrst.supabase.co" SUPABASE_DB_URL="postgresql://postgres.abcdefghijklmnopqrst:x@aws-0-eu-west-1.pooler.supabase.com:6543/postgres" E2E_TEST_PASSWORD=local-only "$ROOT/scripts/e2e/seed.sh"
 positive "seed.sh ← declared isolated project (db host DSN)" env E2E_ISOLATED_TARGET_REF=abcdefghijklmnopqrst VITE_SUPABASE_URL="https://abcdefghijklmnopqrst.supabase.co" E2E_RELAY_TARGET="https://abcdefghijklmnopqrst.supabase.co" SUPABASE_DB_URL="postgresql://postgres:x@db.abcdefghijklmnopqrst.supabase.co:5432/postgres" E2E_TEST_PASSWORD=local-only "$ROOT/scripts/e2e/seed.sh"

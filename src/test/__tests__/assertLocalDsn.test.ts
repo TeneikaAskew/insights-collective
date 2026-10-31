@@ -44,6 +44,16 @@ describe('assert-local-dsn', () => {
       ['postgresql://u@[::ffff:127.0.0.1]/db', /not loopback/],
       ['postgresql://u@0.0.0.0/db', /not loopback/],
       ['postgresql://u@localhost/db?hostaddr=127.0.0.1', /hostaddr/],                   // even loopback hostaddr is refused: one endpoint source only
+      // keyword-form escapes (libpq: backslash escapes the next char even unquoted; quotes span spaces)
+      ['host=remote.example password=x\\ host=localhost', /quotes or backslashes/],  // libpq: host=remote.example, password "x host=localhost"
+      ['host=remote.example dbname=x\\ host=localhost', /quotes or backslashes/],
+      ['host=localhost\\ hostaddr=203.0.113.9', /quotes or backslashes/],
+      ["host=remote.example password='x host=localhost'", /quotes or backslashes/],
+      ['host = localhost dbname=db', /not a plain key=value/],
+      ['host=localhost dbname=db=x', /not a plain key=value/],
+      ['host=localhost host=remote.example', /duplicate keyword/],
+      ['hostaddr=203.0.113.9 host=localhost', /hostaddr/],
+      ['host=localhost foo=bar', /unsupported connection parameter/],
       ['postgresql://u@10.0.0.5/db', /not loopback/],
       ['postgresql:///db', /no host given/],                                        // PGHOST fallback
       ['service=prod', /service=/],
@@ -54,7 +64,7 @@ describe('assert-local-dsn', () => {
       ['postgresql://u@localhost/db?passfile=/tmp/x', /passfile/],
       ['host=/var/run/postgresql dbname=db', /not loopback/],
       ['', /empty/],
-      ['not a dsn', /does not parse/],
+      ['not a dsn', /does not parse|not a plain key=value/],
     ];
     for (const [dsn, why] of bad) {
       const r = ok(dsn);
