@@ -60,6 +60,7 @@ The repository already describes its local stack: `supabase/config.toml` (API 54
 | `start_quiz_attempt` authorization (10 checks) | 6/10 live-equivalent; 10/10 with migration `20261101000100` applied locally | local-db |
 | `public.quiz_analytics` | broken live (42P17); no consumer in `src/` | live-catalog |
 | Browser-tier acceptance (WP-01, A6, A7, A8) | **BLOCKED**: no isolated API stack reachable from this container | n/a |
+| Secret scan of the PR range (`security.yml`, TruffleHog) | **Red, caused by this branch**: 4 unverified results on fabricated `user:placeholder@host` test DSNs (tracker T-35); fix assembled from parts committed locally, not pushed; the range scan cannot turn green without a fresh branch or owner acceptance | ci |
 
 Nothing here wrote to the live project. Both migrations remain unapplied. Policy questions are in `completion-policy-trace.md`.
 

@@ -34,27 +34,45 @@ Each item is one small PR, built and verified locally before the workflow is eve
 
 ### PR-A `tooling(local-stack): authentic bootstrap` (prerequisite for everything else)
 
-1. Commit the sanitized schema snapshot under `scripts/local-stack/schema/` with its `manifest.env`
-   and `identities.tsv` (owner is asked once, in the PR, to confirm committing function bodies; they
-   are the same definitions as the migrations plus live-only drift, and the secret scan is attached).
-2. `scripts/local-stack/bootstrap.sh <loopback DSN>`: validates the DSN with `assert-local-dsn.mjs`,
-   **requires** the managed roles to be present (the inverse of the snapshot builder's guard, so the
-   two tools can never be confused), refuses a non-empty `public` schema, applies `01..05` with the
-   same pass/identity logic as `build-from-snapshot.sh` but **without** the shim, creates the storage
-   buckets the app expects (`course-documents`, `course-images`, `course-videos`), unschedules every
-   `cron.job`, and sets local placeholder values for the vault secrets the functions read.
-3. `scripts/local-stack/verify-identities.sh`: runs `identities.sql` on the bootstrapped database and
-   diffs against `identities.tsv`; exits non-zero on any difference other than the declared broken
-   view. This is the PG15 parity gate.
-4. Negative tests: bootstrap refuses a shim database and a database without managed roles; the
-   snapshot builder still refuses a managed database (existing test).
+1. Sanitized schema-only snapshot under `scripts/local-stack/schema/` with `manifest.env`, two identity
+   manifests and `ORIGIN.md`/`DIVERGENCES.md`. Scanned across all five DDL files including column
+   defaults, constraints, indexes and views: one production identity (a fixed user-id default on
+   `resources.created_by`) was found and removed, recorded as a local-only divergence; no other UUIDs,
+   secrets, e-mails or data rows. The unsanitized form exists only in unpushed local history.
+2. **Startup ordering.** The CLI applies `supabase/migrations` and `seed.sql` on `supabase start`, and
+   the historical chain replays only 28 of 233 files. `scripts/local-stack/workdir.sh` prepares a
+   disposable workdir with the repository's `config.toml` copied **unchanged** (`project_id` stays the
+   production ref, so the guard's deny identity is intact), an **empty** migrations directory, the seed
+   disabled, and functions linked. `supabase start --workdir <dir>` runs there, local only; no `--linked`
+   and no remote command. The bootstrap runs after start, before the E2E seed.
+3. `scripts/local-stack/bootstrap.sh <loopback DSN>`: DSN validated by the single libpq parser;
+   authenticity checked by **object identity and ownership**, not schema ownership: the seven managed
+   roles exist, `auth.users`/`auth.identities`/`auth.schema_migrations` and `auth.uid()` are owned by
+   `supabase_auth_admin`, `storage.buckets`/`storage.objects`/`storage.migrations` by
+   `supabase_storage_admin` (the official init creates the schemas `AUTHORIZATION supabase_admin`; the
+   services own their objects). These checks were derived from the documented layout and exercised only
+   against a simulated layout; the first real `supabase start` run may show the check needs correcting,
+   in which case the check is corrected, never relaxed to a role-name test. Every `psql` exit status
+   is propagated: a FATAL or connection loss fails the run even when no `ERROR` line was printed.
+4. `localize.sql`: unschedules cron, sets a loopback placeholder for each **distinct** vault secret
+   name (create on first run, `vault.update_secret` afterwards; Vault names are unique), creates empty
+   buckets. Idempotent.
+5. `verify-identities.sh`: two comparisons, labelled separately. **Live-verified** (functions, policies,
+   triggers, RLS flags, table and function grants; manifest read from the live catalog on 2026-10-31)
+   and **snapshot-derived** (tables, columns with type/null/default, constraints, indexes, views, enums;
+   manifest derived from applying the sanitized DDL, so it proves the DDL applies identically, and its
+   comparison to the current live catalog is **UNVERIFIED**). Declared divergences (`DIVERGENCES.tsv`)
+   are reported, anything else fails. Not covered by either: sequences, comments, ownership of public
+   objects, storage parameters, objects outside `public`.
+6. Omission semantics: `quiz_analytics` is absent locally; a local `SELECT` raises 42P01
+   undefined_table. The live 42P17 recursion is **not** reproduced; the object is omitted and reported.
+7. Tests (`tests/bootstrap-negative.sh`, PG16 with the managed layout simulated by
+   `tests/simulate-managed-stack.sql`): mutual refusal of the two bootstraps; positive smoke; idempotent
+   localization; fail-closed on fake-psql FATAL during constraints and on partial identity output; parity
+   catches a drifted column default and a drifted index; omission yields 42P01.
 
-Evidence gate: bootstrap exits 0 on a local `supabase start` database, identities verify with 0
-unexplained differences, seed applies with exit 0, `select count(*) from public.quiz_analytics` still
-raises 42P17 (the live-broken view is reproduced, not hidden).
-
-Estimated setup: 1 to 2 hours of runner time to iterate, mostly `supabase start` (3 to 5 minutes per
-cold start) and identity reconciliation on PG15.
+Evidence gate for PR-A on a real stack (not yet run): bootstrap exits 0 on a `supabase start` database
+(PG15), both identity comparisons pass with only the declared divergences, the seed applies with exit 0.
 
 ### PR-B `ci: isolated E2E workflow` (depends on PR-A)
 
@@ -65,7 +83,7 @@ New workflow `e2e-isolated.yml`, deliberately separate from `e2e.yml`:
   regeneration, no commit step, no `git push`.
 - Steps: checkout, Node 20, `npm ci`, `npx supabase start` (Docker is preinstalled on
   `ubuntu-latest`), `supabase status -o env` into job env (`VITE_SUPABASE_URL=http://127.0.0.1:54321`,
-  anon key, `SUPABASE_DB_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres`,
+  anon key, `SUPABASE_DB_URL` exactly as `supabase status -o env` prints it (the loopback DSN on port 54322),
   `E2E_RELAY_TARGET=http://127.0.0.1:54321`), `node scripts/e2e/assert-safe-target.mjs --mutating`
   (must pass on loopback), `scripts/local-stack/bootstrap.sh`, `verify-identities.sh`,
   `scripts/local-db/local-preseed.sql`, `scripts/e2e/seed.sh` with a synthetic `E2E_TEST_PASSWORD`,
