@@ -305,11 +305,6 @@ function SectionCard({
             {module.title || 'Untitled section'}
           </h3>
         )}
-        <Hint label="Content is released on a schedule instead of all at once">
-          <span className="text-[10px] uppercase tracking-widest font-bold px-2 py-1 rounded cursor-help bg-muted text-muted-foreground">
-            Drip
-          </span>
-        </Hint>
         <Hint label="Rename or delete this section">
           <button
             type="button"
