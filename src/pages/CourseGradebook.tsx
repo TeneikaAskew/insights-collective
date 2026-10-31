@@ -177,7 +177,7 @@ const CourseGradebook = () => {
       if (error) throw new Error(error.message);
       return data || [];
     },
-    enabled: !!courseId && assignments.length > 0,
+    enabled: !!courseId && canEdit && assignments.length > 0,
   });
 
   // Get quiz submissions (source of truth for quiz scores — recorded at
@@ -201,7 +201,7 @@ const CourseGradebook = () => {
       if (error) throw new Error(error.message);
       return data || [];
     },
-    enabled: !!courseId && quizzes.length > 0,
+    enabled: !!courseId && canEdit && quizzes.length > 0,
   });
 
   // The quizzes table exposes `points_possible`; the Gradebook component reads
@@ -426,6 +426,7 @@ const CourseGradebook = () => {
         quizzes={quizzesForGradebook}
         grades={derivedGrades}
         submissions={submissionsForGradebook as any}
+        quizSubmissions={quizSubmissions as any}
         onGradeUpdate={handleGradeUpdate}
         onBulkGradeUpdate={handleBulkGradeUpdate}
       />

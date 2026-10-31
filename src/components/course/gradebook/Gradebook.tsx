@@ -42,6 +42,7 @@ import {
 } from 'lucide-react';
 import { Grade, AssignmentSubmission, EnhancedAssignment } from '@/types/course';
 import { useToast } from '@/hooks/use-toast';
+import { buildGradebook, buildGradebookCsvRows, toCsv, type NormalizedCell, type RawQuizSubmission } from './gradebookData';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Tooltip,
@@ -62,6 +63,8 @@ interface GradebookProps {
   quizzes: any[];
   grades: Grade[];
   submissions: AssignmentSubmission[];
+  /** Raw quiz_submissions rows; the latest scored attempt per student is used. */
+  quizSubmissions?: RawQuizSubmission[];
   onGradeUpdate: (gradeData: any) => void;
   onBulkGradeUpdate: (updates: any[]) => void;
 }
@@ -84,6 +87,7 @@ export const Gradebook: React.FC<GradebookProps> = ({
   quizzes,
   grades,
   submissions,
+  quizSubmissions = [],
   onGradeUpdate,
   onBulkGradeUpdate,
 }) => {
@@ -94,98 +98,29 @@ export const Gradebook: React.FC<GradebookProps> = ({
   const [tempGrades, setTempGrades] = useState<Record<string, number>>({});
   const [showComments, setShowComments] = useState<Record<string, boolean>>({});
 
-  // Calculate grade data for each cell
-  const gradeData = useMemo(() => {
-    const data: Record<string, GradeCell> = {};
-
-    // Process assignments
-    assignments.forEach(assignment => {
-      students.forEach(student => {
-        const key = `${student.id}-${assignment.id}`;
-        const submission = submissions.find(
-          s => s.student_id === student.id && s.assignment_id === assignment.id
-        );
-        const grade = grades.find(
-          g => g.student_id === student.id && g.assignment_id === assignment.id
-        );
-
-        data[key] = {
-          studentId: student.id,
-          itemId: assignment.id,
-          itemType: 'assignment',
-          pointsEarned: grade?.points_earned || submission?.grade,
-          pointsPossible: assignment.points,
-          percentage: grade?.percentage,
-          status: (submission?.status === 'draft' ? 'submitted' : submission?.status === 'returned' ? 'graded' : submission?.status) || 'missing',
-          submissionId: submission?.id,
-        };
-      });
-    });
-
-    // Process quizzes
-    quizzes.forEach(quiz => {
-      students.forEach(student => {
-        const key = `${student.id}-${quiz.id}`;
-        const grade = grades.find(
-          g => g.student_id === student.id && g.quiz_id === quiz.id
-        );
-
-        data[key] = {
-          studentId: student.id,
-          itemId: quiz.id,
-          itemType: 'quiz',
-          pointsEarned: grade?.points_earned,
-          pointsPossible: quiz.total_points,
-          percentage: grade?.percentage,
-          status: grade ? 'graded' : 'missing',
-        };
-      });
-    });
-
-    return data;
-  }, [students, assignments, quizzes, grades, submissions]);
-
-  // Calculate student totals
-  const studentTotals = useMemo(() => {
-    const totals: Record<string, { earned: number; possible: number; percentage: number }> = {};
-
-    students.forEach(student => {
-      let totalEarned = 0;
-      let totalPossible = 0;
-
-      // Sum assignment grades
-      assignments.forEach(assignment => {
-        const key = `${student.id}-${assignment.id}`;
-        const cell = gradeData[key];
-        if (cell?.pointsEarned !== undefined) {
-          totalEarned += cell.pointsEarned;
-        }
-        if (cell?.pointsPossible) {
-          totalPossible += cell.pointsPossible;
-        }
-      });
-
-      // Sum quiz grades
-      quizzes.forEach(quiz => {
-        const key = `${student.id}-${quiz.id}`;
-        const cell = gradeData[key];
-        if (cell?.pointsEarned !== undefined) {
-          totalEarned += cell.pointsEarned;
-        }
-        if (cell?.pointsPossible) {
-          totalPossible += cell.pointsPossible;
-        }
-      });
-
-      totals[student.id] = {
-        earned: totalEarned,
-        possible: totalPossible,
-        percentage: totalPossible > 0 ? (totalEarned / totalPossible) * 100 : 0,
-      };
-    });
-
-    return totals;
-  }, [students, assignments, quizzes, gradeData]);
+  // One normalized model feeds the table, totals and the CSV export.
+  // `grades` is still accepted for compatibility but cells come from the raw
+  // submission rows so 0 vs missing and latest attempt are handled once.
+  const model = useMemo(
+    () =>
+      buildGradebook({
+        students,
+        assignments: assignments.map((a: any) => ({ id: a.id, title: a.title, points: a.points })),
+        quizzes: quizzes.map((q: any) => ({ id: q.id, title: q.title, points: q.total_points ?? q.points_possible })),
+        assignmentSubmissions: (submissions as any[]).map((sub) => ({
+          ...sub,
+          user_id: sub.user_id ?? sub.student_id,
+        })),
+        quizSubmissions,
+      }),
+    [students, assignments, quizzes, submissions, quizSubmissions],
+  );
+  const gradeData: Record<string, NormalizedCell & { status: string }> = model.cells;
+  const studentTotals = model.totals;
+  const classAverage = useMemo(() => {
+    const pcts = students.map((s) => studentTotals[s.id]?.percentage).filter((p): p is number => typeof p === 'number');
+    return pcts.length ? pcts.reduce((a, b) => a + b, 0) / pcts.length : undefined;
+  }, [students, studentTotals]);
 
   // Filter students
   const filteredStudents = useMemo(() => {
@@ -272,33 +207,31 @@ export const Gradebook: React.FC<GradebookProps> = ({
     return 'text-ss-bad';
   };
 
-  // Builds a CSV (one row per student, one column per graded item) and downloads it.
+  // Builds the CSV from the same normalized model the table renders.
   const exportGrades = () => {
-    const escape = (v: unknown) => {
-      const s = v === undefined || v === null ? '' : String(v);
-      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-    };
-    const items = [
-      ...assignments.map((a: any) => ({ id: a.id, title: a.title || 'Assignment' })),
-      ...quizzes.map((q: any) => ({ id: q.id, title: q.title || 'Quiz' })),
-    ];
-    const header = ['Student', 'Email', ...items.map((i) => i.title)];
-    const rows = students.map((s) => [
-      s.full_name,
-      s.email,
-      ...items.map((i) => {
-        const cell = gradeData[`${s.id}-${i.id}`];
-        return cell?.pointsEarned ?? '';
-      }),
-    ]);
-    const csv = [header, ...rows].map((r) => r.map(escape).join(',')).join('\n');
-    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `gradebook-${courseId}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-    toast({ title: 'Gradebook exported', description: `${rows.length} students downloaded as CSV` });
+    let url: string | null = null;
+    try {
+      const items = [
+        ...assignments.map((a: any) => ({ id: a.id, title: a.title, points: a.points, type: 'assignment' as const })),
+        ...quizzes.map((q: any) => ({ id: q.id, title: q.title, points: q.total_points, type: 'quiz' as const })),
+      ];
+      const rows = buildGradebookCsvRows(students, items, model);
+      const csv = toCsv(rows);
+      url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `gradebook-${courseId}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      const toRevoke = url;
+      // Revoke later: revoking immediately can cancel the download in some browsers.
+      setTimeout(() => URL.revokeObjectURL(toRevoke), 30_000);
+      toast({ title: 'Gradebook CSV prepared', description: `${rows.length - 1} students included` });
+    } catch (err: any) {
+      if (url) URL.revokeObjectURL(url);
+      toast({ title: 'Export failed', description: err?.message || 'Could not build the CSV', variant: 'destructive' });
+    }
   };
 
   return (
@@ -335,16 +268,10 @@ export const Gradebook: React.FC<GradebookProps> = ({
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {(
-                students.reduce((sum, student) => sum + studentTotals[student.id]?.percentage || 0, 0) /
-                students.length
-              ).toFixed(1)}%
+              {classAverage === undefined ? '—' : `${classAverage.toFixed(1)}%`}
             </div>
             <Progress 
-              value={
-                students.reduce((sum, student) => sum + studentTotals[student.id]?.percentage || 0, 0) /
-                students.length
-              } 
+              value={classAverage ?? 0} 
               className="mt-2"
             />
           </CardContent>
@@ -524,7 +451,7 @@ export const Gradebook: React.FC<GradebookProps> = ({
                                 type="number"
                                 min="0"
                                 max={assignment.points || 100}
-                                value={tempGrade || cell?.pointsEarned || ''}
+                                value={tempGrade ?? cell?.pointsEarned ?? ''}
                                 onChange={(e) => handleGradeChange(student.id, assignment.id, e.target.value)}
                                 className="w-16 h-8 text-center"
                                 autoFocus
@@ -559,6 +486,10 @@ export const Gradebook: React.FC<GradebookProps> = ({
                                     /{assignment.points}
                                   </span>
                                 </div>
+                              ) : cell?.status === 'submitted' ? (
+                                <Badge variant="outline" className="text-xs">
+                                  Needs grading
+                                </Badge>
                               ) : (
                                 <span className="text-muted-foreground">-</span>
                               )}
@@ -597,14 +528,18 @@ export const Gradebook: React.FC<GradebookProps> = ({
                     <TableCell className="text-center font-medium">
                       <div>
                         <span className={`text-lg ${getGradeColor(studentTotals[student.id]?.percentage || 0)}`}>
-                          {studentTotals[student.id]?.percentage.toFixed(1)}%
+                          {studentTotals[student.id]?.percentage === undefined
+                            ? '—'
+                            : `${studentTotals[student.id].percentage.toFixed(1)}%`}
                         </span>
                         <div className="text-xs text-muted-foreground">
                           {studentTotals[student.id]?.earned}/{studentTotals[student.id]?.possible}
                         </div>
-                        <Badge variant="outline" className="mt-1">
-                          {getLetterGrade(studentTotals[student.id]?.percentage || 0)}
-                        </Badge>
+                        {studentTotals[student.id]?.percentage !== undefined && (
+                          <Badge variant="outline" className="mt-1">
+                            {getLetterGrade(studentTotals[student.id].percentage)}
+                          </Badge>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
