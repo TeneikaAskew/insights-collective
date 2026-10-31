@@ -14,9 +14,17 @@ mk ls_shim; psql "$PGBASE/ls_shim" -v ON_ERROR_STOP=1 -q -f "$ROOT/scripts/local
 out=$("$ROOT/scripts/local-stack/bootstrap.sh" "$PGBASE/ls_shim" 2>&1); st=$?
 [ $st -ne 0 ] && echo "$out" | grep -qE "managed Supabase roles are absent|not owned by the managed roles"; say "authentic bootstrap refuses a shim database (no managed roles, or schemas not owned by them)" $?
 # 2) snapshot builder refuses a database WITH managed roles
+# Roles are CLUSTER-wide. Remember which ones this test creates so it can remove them afterwards;
+# leaving them behind would make scripts/local-db/build-from-snapshot.sh refuse every database on
+# this cluster (its managed-role guard is deliberate), breaking the sibling harness.
+CREATED_ROLES=()
 for r in supabase_auth_admin supabase_storage_admin authenticator; do
-  [ "$(psql "$PGBASE/postgres" -Atc "select count(*) from pg_roles where rolname='$r'")" = "1" ] || psql "$PGBASE/postgres" -qc "create role $r nologin" >/dev/null
+  if [ "$(psql "$PGBASE/postgres" -Atc "select count(*) from pg_roles where rolname='$r'")" != "1" ]; then
+    psql "$PGBASE/postgres" -qc "create role $r nologin" >/dev/null && CREATED_ROLES+=("$r")
+  fi
 done
+cleanup_roles() { for r in "${CREATED_ROLES[@]:-}"; do [ -n "$r" ] && psql "$PGBASE/postgres" -qc "drop role if exists $r" >/dev/null 2>&1; done; }
+trap cleanup_roles EXIT
 mk ls_managed
 out=$("$ROOT/scripts/local-db/build-from-snapshot.sh" "$PGBASE/ls_managed" /tmp/does-not-matter 2>&1); st=$?
 [ $st -ne 0 ] && echo "$out" | grep -q "looks like a real Supabase database"; say "snapshot builder refuses a database with managed roles" $?
