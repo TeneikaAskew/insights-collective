@@ -161,12 +161,12 @@ export function LessonViewer({
 
         {/* Assignment metadata + submit CTA */}
         {item.type === 'assignment' && item.assignment && (
-          <InlineAssignmentSubmit item={item} assignment={item.assignment} onCompleted={(id) => onMarkDone(id, 'submission')} />
+          <InlineAssignmentSubmit item={item} assignment={item.assignment} onCompleted={async (id) => { await onMarkDone(id, 'submission'); }} />
         )}
 
         {/* Quiz player */}
         {item.type === 'quiz' && item.quiz && (
-          <InlineQuizPlayer item={item} quiz={item.quiz} onCompleted={(id) => onMarkDone(id, 'submission')} />
+          <InlineQuizPlayer item={item} quiz={item.quiz} onCompleted={async (id) => { await onMarkDone(id, 'submission'); }} />
         )}
 
         {/* External URL */}
