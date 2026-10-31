@@ -272,12 +272,33 @@ export const Gradebook: React.FC<GradebookProps> = ({
     return 'text-ss-bad';
   };
 
+  // Builds a CSV (one row per student, one column per graded item) and downloads it.
   const exportGrades = () => {
-    // Implementation for CSV export
-    toast({
-      title: 'Export Started',
-      description: 'Grades are being exported to CSV',
-    });
+    const escape = (v: unknown) => {
+      const s = v === undefined || v === null ? '' : String(v);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const items = [
+      ...assignments.map((a: any) => ({ id: a.id, title: a.title || 'Assignment' })),
+      ...quizzes.map((q: any) => ({ id: q.id, title: q.title || 'Quiz' })),
+    ];
+    const header = ['Student', 'Email', ...items.map((i) => i.title)];
+    const rows = students.map((s) => [
+      s.full_name,
+      s.email,
+      ...items.map((i) => {
+        const cell = gradeData[`${s.id}-${i.id}`];
+        return cell?.pointsEarned ?? '';
+      }),
+    ]);
+    const csv = [header, ...rows].map((r) => r.map(escape).join(',')).join('\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `gradebook-${courseId}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast({ title: 'Gradebook exported', description: `${rows.length} students downloaded as CSV` });
   };
 
   return (
