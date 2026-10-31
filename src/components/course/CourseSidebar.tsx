@@ -42,6 +42,15 @@ import { useCoursePermissions } from '@/hooks/useCoursePermissions';
 import { usePageVisibility } from '@/contexts/PageVisibilityContext';
 import { SIDEBAR_NAV_INACTIVE, sidebarNavIconClass } from '@/lib/sidebarNav';
 
+// The sidebar primitive's desktop panel is `fixed inset-y-0 z-10 h-svh`: it starts at the top of the viewport
+// and runs BEHIND the `sticky top-0 z-50` Navbar that CourseLayout renders above it. The rail's first 3.5rem
+// (the Navbar's h-14) were covered, so a click on "Back to Courses" landed on the global search / menu instead.
+// Confirmed by DOM hit-test on the served release (ffa7d230) and on main. Start the panel below the Navbar;
+// tailwind-merge keeps `top-14` (a later `top-*` does not drop `inset-y-0`, and Tailwind emits `top-*` after
+// `inset-y-*`, so it wins) and replaces `h-svh`.
+export const COURSE_RAIL_CLASS =
+  'border-r border-sidebar-border text-sidebar-foreground top-14 h-[calc(100svh-3.5rem)]';
+
 const courseNavItems = [
   { title: 'Course Home', url: '', icon: Home },
   { title: 'Modules', url: '/modules', icon: BookOpen },
@@ -98,7 +107,7 @@ export function CourseSidebar() {
 
   if (isLoading) {
     return (
-      <Sidebar className="border-r border-sidebar-border text-sidebar-foreground" collapsible="icon">
+      <Sidebar className={COURSE_RAIL_CLASS} collapsible="icon">
         <SidebarContent>
           <div className="animate-pulse p-4">
             <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>
@@ -114,7 +123,7 @@ export function CourseSidebar() {
        expanded and `--sidebar-width-icon` under `collapsible="icon"`. The old
        hand-set w-14/w-64 pair overrode the collapsed width and never reached the
        mobile Sheet at all. */
-    <Sidebar className="border-r border-sidebar-border text-sidebar-foreground" collapsible="icon">
+    <Sidebar className={COURSE_RAIL_CLASS} collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border">
         <div className={open ? 'p-4' : 'p-2'}>
           <Button

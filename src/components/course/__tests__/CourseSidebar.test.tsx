@@ -77,4 +77,16 @@ describe('CourseSidebar', () => {
     expect(className).not.toContain('bg-primary/10');
     expect(className).not.toContain('border-primary');
   });
+
+  it('starts the desktop rail below the sticky navbar so its header ("Back to Courses") is clickable', () => {
+    renderRail();
+    const panel = document.querySelector('[data-sidebar="sidebar"]')!.parentElement!;
+    // The primitive renders the desktop panel as `fixed inset-y-0 z-10 h-svh`; CourseLayout stacks a
+    // `sticky top-0 z-50` Navbar (h-14) above it, so without this offset the rail's first 3.5rem sit behind
+    // the Navbar and a click on "Back to Courses" reaches the global search / menu instead (DOM hit-test on
+    // the served release ffa7d230 and on main). tailwind-merge keeps `top-14` and drops `h-svh`.
+    expect(panel.className).toMatch(/\btop-14\b/);
+    expect(panel.className).toMatch(/h-\[calc\(100svh-3\.5rem\)\]/);
+    expect(panel.className).not.toMatch(/\bh-svh\b/);
+  });
 });
