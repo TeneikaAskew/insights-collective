@@ -1195,7 +1195,7 @@ create table if not exists public.quizzes (
 );
 create table if not exists public.resources (
   id uuid not null default gen_random_uuid(),
-  created_by uuid default '47cf8181-c9a4-4cb9-8aa4-d6967e128c36'::uuid,
+  created_by uuid, -- LOCAL-ONLY DIVERGENCE: live default is a fixed user uuid (a production identity); removed here, see DIVERGENCES.md
   created_at timestamp with time zone default now(),
   updated_at timestamp with time zone default now(),
   deadline timestamp with time zone,

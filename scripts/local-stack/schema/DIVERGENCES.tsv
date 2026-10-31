@@ -1,0 +1,5 @@
+column	resources.created_by
+view	quiz_analytics
+table_grant	quiz_analytics→anon
+table_grant	quiz_analytics→authenticated
+table_grant	quiz_analytics→service_role
