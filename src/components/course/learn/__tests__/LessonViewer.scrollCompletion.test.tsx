@@ -34,7 +34,7 @@ describe('LessonViewer scroll completion', () => {
     const onMarkDone = vi.fn();
     render(
       <LessonViewer item={{ ...base, id: 'a1', type: 'assignment', assignment: {} } as any}
-        isCompleted={false} onMarkDone={onMarkDone} onNavigate={vi.fn()} discussionsEnabled={false} /> as any,
+        isCompleted={false} onMarkDone={onMarkDone} onNavigate={vi.fn()} actionBasePath="/courses/c1" discussionsEnabled={false} /> as any,
     );
     scrollToBottom();
     expect(onMarkDone).not.toHaveBeenCalled();
@@ -46,7 +46,7 @@ describe('LessonViewer scroll completion', () => {
     const onMarkDone = vi.fn();
     render(
       <LessonViewer item={{ ...base, id: 'p1', type: 'page' } as any}
-        isCompleted={false} onMarkDone={onMarkDone} onNavigate={vi.fn()} discussionsEnabled={false} /> as any,
+        isCompleted={false} onMarkDone={onMarkDone} onNavigate={vi.fn()} actionBasePath="/courses/c1" discussionsEnabled={false} /> as any,
     );
     scrollToBottom();
     expect(onMarkDone).toHaveBeenCalledWith('p1');

@@ -34,7 +34,7 @@ export interface LessonViewerProps {
   /** Called when user clicks Prev/Next. Receives the target item's id. */
   onNavigate: (itemId: string) => void;
   /** Called when user clicks "Mark as done". Should upsert content_item_progressions. */
-  onMarkDone: (itemId: string, source?: CompletionSource) => void | Promise<void>;
+  onMarkDone: (itemId: string, source?: CompletionSource) => unknown;
   /** Base path used for Submit/Take-quiz buttons, e.g. `/courses/:courseId/learn/:moduleId`. */
   actionBasePath: string;
   /** When true, hide the internal Prev/Mark done/Next footer (parent renders its own). */
