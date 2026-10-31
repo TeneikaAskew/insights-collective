@@ -44,6 +44,14 @@ const CourseDetail = () => {
   const [enrolling, setEnrolling] = useState(false);
   const [addingToWishlist, setAddingToWishlist] = useState(false);
   const [isEnrolled, setIsEnrolled] = useState(false);
+  // True when the content_items query itself failed (not merely returned no rows). RLS also returns NO rows
+  // for a viewer who is not enrolled, so "0 lessons" for a signed-out visitor is RLS, not an empty module
+  // (live audit: "3 modules, 0 lessons" on a public course page). lessonLabel() keeps both cases honest.
+  const [contentItemsUnavailable, setContentItemsUnavailable] = useState(false);
+  const lessonLabel = (n: number) =>
+    contentItemsUnavailable ? 'Lesson details unavailable'
+    : (!isEnrolled && n === 0) ? 'Enroll to see lessons'
+    : `${n} ${n === 1 ? 'lesson' : 'lessons'}`;
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [course, setCourse] = useState<Course | null>(null);
   const [modules, setModules] = useState([]);
@@ -432,7 +440,9 @@ const CourseDetail = () => {
 
           if (contentItemsError) {
             logger.warn('Failed to load content items (continuing without them):', contentItemsError);
+            setContentItemsUnavailable(true);
           } else {
+            setContentItemsUnavailable(false);
             contentItemsByModule = (contentItemsData || []).reduce((acc: Record<string, any[]>, item: any) => {
               if (!item.module_id) return acc;
               if (!acc[item.module_id]) acc[item.module_id] = [];
@@ -1016,6 +1026,9 @@ const CourseDetail = () => {
                 <h2 className="text-2xl font-bold">People</h2>
               </div>
               
+              {/* The instructor comes from a profiles embed that RLS may withhold from this viewer; a card
+                  with an empty name and an empty avatar (seen live for signed-out visitors) says nothing. */}
+              {course.instructor?.name && (
               <div className="mb-6">
                 <h3 className="font-semibold mb-3">Instructor</h3>
                 <div className="flex items-center space-x-3 p-3 border rounded-lg">
@@ -1029,6 +1042,7 @@ const CourseDetail = () => {
                   </div>
                 </div>
               </div>
+              )}
               
               <div>
                 <div className="flex items-center justify-between mb-3">
@@ -1283,7 +1297,9 @@ const CourseDetail = () => {
                     </ul>
                   </div>
 
-                  <CourseCalendarSync courseId={courseId!} courseTitle={course.title} />
+                  {/* The feed token RPC is granted to `authenticated` only (20260729000100); for a signed-out
+                      or unenrolled viewer the component would call it on mount and fail. Enrolled viewers only. */}
+                  {isEnrolled && <CourseCalendarSync courseId={courseId!} courseTitle={course.title} />}
                 </aside>
               </div>
 
@@ -1336,7 +1352,7 @@ const CourseDetail = () => {
                               )}
                             </div>
                             <span className="text-xs text-muted-foreground whitespace-nowrap ml-4">
-                              {lessonCount} {lessonCount === 1 ? 'lesson' : 'lessons'}
+                              {lessonLabel(lessonCount)}
                             </span>
                           </Link>
                         );
@@ -1365,6 +1381,7 @@ const CourseDetail = () => {
                   {course.description}
                 </p>
 
+                {course.instructor?.name && (
                 <div className="flex items-center gap-3 mb-8">
                   <Avatar className="h-10 w-10">
                     <AvatarImage src={course.instructor.avatar} />
@@ -1375,6 +1392,7 @@ const CourseDetail = () => {
                     <p className="text-xs text-muted-foreground">Instructor</p>
                   </div>
                 </div>
+                )}
 
                 <div className="flex flex-wrap items-center gap-6 text-sm text-muted-foreground mb-10 pb-8 border-b border-border">
                   {course.duration && (
@@ -1416,7 +1434,7 @@ const CourseDetail = () => {
                                 )}
                               </div>
                               <span className="text-xs text-muted-foreground whitespace-nowrap ml-4">
-                                {lessonCount} {lessonCount === 1 ? 'lesson' : 'lessons'}
+                                {lessonLabel(lessonCount)}
                               </span>
                             </div>
                           </div>
@@ -1475,7 +1493,9 @@ const CourseDetail = () => {
                     )}
                   </div>
 
-                  <CourseCalendarSync courseId={courseId!} courseTitle={course.title} />
+                  {/* The feed token RPC is granted to `authenticated` only (20260729000100); for a signed-out
+                      or unenrolled viewer the component would call it on mount and fail. Enrolled viewers only. */}
+                  {isEnrolled && <CourseCalendarSync courseId={courseId!} courseTitle={course.title} />}
                 </div>
               </aside>
             </div>

@@ -5,7 +5,7 @@ import { mockSupabaseClient } from '@/test/mocks/supabase';
 import { makeCourse, makeModule, makeSubmission, makeQuizSubmission } from '@/test/utils/course-fixtures';
 import { createMockAuthProvider } from '@/test/mocks/authMocks';
 import { useAuth } from '@/contexts/AuthContext';
-import { addEnrolledCourse } from '@/utils/idUtils';
+import { addEnrolledCourse, isEnrolledInCourse } from '@/utils/idUtils';
 import CourseDetail from '@/pages/CourseDetail';
 
 const { COURSE_ID, router } = vi.hoisted(() => ({
@@ -45,7 +45,7 @@ vi.mock('@/components/course/CourseLayout', () => ({
   CourseLayout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 vi.mock('@/components/course/EditCourseButton', () => ({ EditCourseButton: () => null }));
-vi.mock('@/components/course/CourseCalendarSync', () => ({ CourseCalendarSync: () => null }));
+vi.mock('@/components/course/CourseCalendarSync', () => ({ CourseCalendarSync: () => <div data-testid="calendar-sync" /> }));
 vi.mock('@/components/course/CourseProgressTimeline', () => ({ CourseProgressTimeline: () => null }));
 vi.mock('@/components/course/CourseModulesList', () => ({ CourseModulesList: () => null }));
 vi.mock('@/components/course/canvas/CanvasAssignmentsList', () => ({ CanvasAssignmentsList: () => null }));
@@ -196,6 +196,52 @@ describe('CourseDetail', () => {
     expect(screen.queryByText(/permission denied/)).not.toBeInTheDocument();
     expect(screen.queryByText(/0 students enrolled/)).not.toBeInTheDocument();
     expect(screen.queryByText(/0 enrolled/)).not.toBeInTheDocument();
+  });
+
+  it('does not mount the calendar feed sync for a viewer who is not enrolled (the token RPC is authenticated-only)', async () => {
+    // get_my_calendar_feed_token has EXECUTE revoked from anon (20260729000100); the component called it on
+    // mount for every visitor and failed. Live audit confirmed the failing call on a public course page.
+    render(<CourseDetail />);
+    expect((await screen.findAllByText('Intro to Data Analytics')).length).toBeGreaterThan(0);
+    expect(screen.queryByTestId('calendar-sync')).not.toBeInTheDocument();
+  });
+
+  it('mounts the calendar feed sync once the viewer is enrolled', async () => {
+    vi.mocked(isEnrolledInCourse).mockReturnValue(true);
+    try {
+      render(<CourseDetail />);
+      expect((await screen.findAllByText('Intro to Data Analytics')).length).toBeGreaterThan(0);
+      expect(await screen.findByTestId('calendar-sync')).toBeInTheDocument();
+    } finally {
+      vi.mocked(isEnrolledInCourse).mockReturnValue(false);
+    }
+  });
+
+  it('hides the instructor card when the instructor profile is withheld from this viewer (no blank card)', async () => {
+    // The profiles embed is subject to RLS; for a signed-out visitor it came back null and the page rendered
+    // an avatar with no image and an empty name under the "Instructor" label (live audit).
+    mockTables({ ...successTables(), courses: { select: () => ({ data: { ...courseRow, instructor: null }, error: null }) } });
+    render(<CourseDetail />);
+    expect((await screen.findAllByText('Intro to Data Analytics')).length).toBeGreaterThan(0);
+    expect(screen.queryByText('Course Instructor')).not.toBeInTheDocument();
+    expect(screen.queryByText('Instructor')).not.toBeInTheDocument();
+  });
+
+  it('never tells a signed-out visitor "0 lessons" when content items are not readable', async () => {
+    mockTables({ ...successTables(), content_items: { select: () => ({ data: null, error: { code: '42501', message: 'permission denied for table content_items' } }) } });
+    render(<CourseDetail />);
+    expect(await screen.findByText('Foundations of Analytics')).toBeInTheDocument();
+    expect(screen.queryByText(/0 lessons/)).not.toBeInTheDocument();
+    expect(screen.getByText('Lesson details unavailable')).toBeInTheDocument();
+  });
+
+  it('tells a signed-out visitor to enroll instead of claiming "0 lessons" when RLS returns no items', async () => {
+    // content_items SELECT requires enrollment, so an empty result for a visitor is RLS, not an empty module
+    // (live audit: "3 modules, 0 lessons" on a public course page).
+    render(<CourseDetail />);
+    expect(await screen.findByText('Foundations of Analytics')).toBeInTheDocument();
+    expect(screen.queryByText(/0 lessons/)).not.toBeInTheDocument();
+    expect(screen.getByText('Enroll to see lessons')).toBeInTheDocument();
   });
 
   it('does not mark the client as enrolled when the enrollment insert fails', async () => {
