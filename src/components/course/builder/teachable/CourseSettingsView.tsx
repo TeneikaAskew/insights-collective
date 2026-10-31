@@ -32,7 +32,7 @@ const logger = createLogger('CourseSettingsView');
 
 interface CourseSettingsViewProps {
   course: BuilderCourse;
-  onSave: (patch: Partial<BuilderCourse>) => Promise<void>;
+  onSave: (patch: Partial<BuilderCourse>) => Promise<boolean | void>;
 }
 
 export function CourseSettingsView({ course, onSave }: CourseSettingsViewProps) {
@@ -57,7 +57,8 @@ export function CourseSettingsView({ course, onSave }: CourseSettingsViewProps) 
         ...(course.settings || {}),
         discussions: { enabled: discussionsEnabled },
       };
-      await onSave({ settings: nextSettings });
+      const ok = await onSave({ settings: nextSettings });
+      if (ok === false) return;
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } finally {

@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, Clock, BookOpen, ArrowRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { PUBLISHED_COLUMN } from '@/utils/coursePublish';
 import { Course } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { createLogger } from '@/utils/logger';
@@ -40,7 +41,7 @@ const CourseList = () => {
       const { data, error } = await supabase
         .from('courses')
         .select(`*, instructor:profiles(id, first_name, last_name, avatar_url)`)
-        .eq('status', 'published')
+        .eq(PUBLISHED_COLUMN, true)
         .order('created_at', { ascending: false });
       if (error) throw error;
       const rows = data || [];

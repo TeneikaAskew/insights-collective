@@ -352,8 +352,8 @@ const CourseBuilder = () => {
           .upload(path, file, { upsert: true, contentType: file.type });
         if (error) throw error;
         const { data: pub } = supabase.storage.from('course-materials').getPublicUrl(path);
-        await persistCourse({ image_url: pub.publicUrl, thumbnail: pub.publicUrl });
-        toast({ title: 'Thumbnail uploaded' });
+        const ok = await persistCourse({ image_url: pub.publicUrl, thumbnail: pub.publicUrl });
+        if (ok) toast({ title: 'Thumbnail uploaded' });
       } catch (err: any) {
         toast({
           title: 'Upload failed',
