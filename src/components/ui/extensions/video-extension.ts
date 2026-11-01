@@ -1,4 +1,6 @@
 import { Node } from '@tiptap/core';
+import { ReactNodeViewRenderer } from '@tiptap/react';
+import { VideoNodeView } from '@/components/course/video/VideoNodeView';
 
 export interface VideoOptions {
   allowFullscreen: boolean;
@@ -8,9 +10,27 @@ export interface VideoOptions {
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
     video: {
-      setVideo: (options: { src: string }) => ReturnType;
+      setVideo: (options: { src: string; title?: string | null }) => ReturnType;
     };
   }
+}
+
+/**
+ * Saved-content contract (do not change without a migration plan):
+ * - Both stored wrappers parse: `div[data-youtube-video]` (src from
+ *   `data-src`, falling back to the child iframe's src, as the builder's
+ *   starter Video template omits `data-src`) and `div.video-embed`.
+ * - The stored src is kept byte-for-byte, including query strings and the
+ *   unlisted Vimeo `?h=` hash. Nothing here validates or rewrites it; display
+ *   safety is decided at render time by EmbeddedVideoPlayer/resolveEmbed,
+ *   which refuses to frame anything that is not a validated YouTube/Vimeo
+ *   embed. An unsupported stored src is therefore preserved, not deleted.
+ * - renderHTML output for a node without a title is identical to the
+ *   previous serializer, so existing saved lessons re-save unchanged. A
+ *   stored iframe title is preserved on the iframe.
+ */
+function iframeChild(element: HTMLElement): HTMLIFrameElement | null {
+  return element.querySelector('iframe');
 }
 
 export const Video = Node.create<VideoOptions>({
@@ -33,6 +53,16 @@ export const Video = Node.create<VideoOptions>({
     return {
       src: {
         default: null,
+        // Parsed per rule in parseHTML.getAttrs; never emitted directly.
+        rendered: false,
+      },
+      title: {
+        default: null,
+        parseHTML: (element) => {
+          const title = iframeChild(element as HTMLElement)?.getAttribute('title');
+          return title && title.trim() ? title : null;
+        },
+        rendered: false,
       },
     };
   },
@@ -42,25 +72,30 @@ export const Video = Node.create<VideoOptions>({
       {
         tag: 'div[data-youtube-video]',
         getAttrs: (element) => {
-          const src = (element as HTMLElement).getAttribute('data-src');
+          const el = element as HTMLElement;
+          const dataSrc = el.getAttribute('data-src');
+          const src = dataSrc || iframeChild(el)?.getAttribute('src') || null;
           return { src };
         },
       },
       {
         tag: 'div.video-embed',
         getAttrs: (element) => {
-          const iframe = (element as HTMLElement).querySelector('iframe');
+          const iframe = iframeChild(element as HTMLElement);
           return { src: iframe?.getAttribute('src') || null };
         },
       },
     ];
   },
 
-  renderHTML({ HTMLAttributes }) {
-    const embedUrl = HTMLAttributes.src;
-    
-    if (!embedUrl) return ['div'];
-    
+  renderHTML({ node }) {
+    const embedUrl = node.attrs.src as string | null;
+    const title = node.attrs.title as string | null;
+
+    // Keep the wrapper marker so an empty legacy node still round-trips as a
+    // video node instead of collapsing to an anonymous <div>.
+    if (!embedUrl) return ['div', { 'data-youtube-video': '' }];
+
     return [
       'div',
       {
@@ -78,9 +113,14 @@ export const Video = Node.create<VideoOptions>({
           allow: 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share',
           allowfullscreen: this.options.allowFullscreen ? '' : undefined,
           ...this.options.HTMLAttributes,
+          ...(title ? { title } : {}),
         },
       ],
     ];
+  },
+
+  addNodeView() {
+    return ReactNodeViewRenderer(VideoNodeView);
   },
 
   addCommands() {
