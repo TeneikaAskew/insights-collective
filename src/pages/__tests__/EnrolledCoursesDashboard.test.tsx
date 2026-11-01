@@ -1,7 +1,16 @@
 // ABOUTME: Tests for EnrolledCoursesDashboard covering loading/success/empty/error states,
 // ABOUTME: the inline sidebar error, and regressions for fabricated values (status badge, module counts, stock thumbnail).
-import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
-import { render, screen, waitFor } from '@/test/utils/test-utils';
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
+import React from 'react';
+import { render as rtlRender } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@/test/utils/test-utils';
+import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { HelmetProvider } from 'react-helmet-async';
+import { AuthProvider } from '@/contexts/AuthContext';
+import { PageVisibilityProvider } from '@/contexts/PageVisibilityContext';
+import { OnboardingProvider } from '@/contexts/OnboardingContext';
+import { DialogsProvider } from '@/components/dialogs/DialogsProvider';
 import userEvent from '@testing-library/user-event';
 import { mockSupabaseClient } from '@/test/mocks/supabase';
 import { createMockAuthProvider } from '@/test/mocks/authMocks';
@@ -24,10 +33,20 @@ type TableResult = { data: unknown; error: { message: string } | null };
 
 // Builds a chainable, thenable query builder that resolves to `result`.
 // 'pending' produces a builder whose promise never settles (loading state).
-function tableBuilder(result: TableResult | 'pending') {
-  const builder: any = {};
+const WRITE_METHODS = ['insert', 'update', 'delete', 'upsert'] as const;
+const writeCalls: string[] = [];
+
+function tableBuilder(result: TableResult | 'pending', table = '?') {
+  const builder: any = { __table: table };
+  // This page is read-only: any write method is recorded and throws, and afterEach asserts none happened.
+  for (const m of WRITE_METHODS) {
+    builder[m] = vi.fn((..._args: unknown[]) => {
+      writeCalls.push(`${builder.__table}.${m}`);
+      throw new Error(`read-only page attempted ${builder.__table}.${m}`);
+    });
+  }
   for (const m of [
-    'select', 'insert', 'update', 'delete', 'upsert',
+    'select',
     'eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in', 'is', 'not', 'or',
     'order', 'limit', 'filter', 'match', 'contains',
   ]) {
@@ -49,7 +68,7 @@ function tableBuilder(result: TableResult | 'pending') {
 
 function mockTables(tables: Record<string, TableResult | 'pending'>) {
   (mockSupabaseClient.from as Mock).mockImplementation((table: string) =>
-    tableBuilder(tables[table] ?? { data: [], error: null }),
+    tableBuilder(tables[table] ?? { data: [], error: null }, table),
   );
 }
 
@@ -95,7 +114,15 @@ const successTables = (): Record<string, TableResult> => ({
 });
 
 describe('EnrolledCoursesDashboard', () => {
+  afterEach(() => {
+    // Strict: no insert/update/delete/upsert on any table, and no RPC, in any test of this read-only page.
+    const writes = writeCalls.splice(0); // reset first, so one failing test cannot leak into the next
+    expect(writes).toEqual([]);
+    expect(mockSupabaseClient.rpc as Mock).not.toHaveBeenCalled();
+  });
+
   beforeEach(() => {
+    (mockSupabaseClient.rpc as Mock).mockClear();
     vi.mocked(useAuth).mockReturnValue(
       createMockAuthProvider({
         user: { id: 'user-1', email: 'student@example.com' },
@@ -244,56 +271,108 @@ describe('EnrolledCoursesDashboard', () => {
     };
     const twoCourses = () => ({ ...successTables(), enrollments: { data: [enrollmentRow, second], error: null } });
 
+    // OLD-compatible lookup: the placeholder exists before and after ce84210, so the behaviour tests below fail (on the
+    // old source) at their behaviour assertions, never at finding the textbox. The new accessible name has its own test.
+    const searchBox = () => screen.getByPlaceholderText('Search your courses...');
+
+    // The rendered course CARDS only (not Recent Activity / Upcoming Deadlines, which repeat course titles): each card
+    // has exactly one "Continue Learning" link to /course/<id> and one level-3 heading with the title.
+    const cards = () =>
+      screen.queryAllByRole('link', { name: /Continue Learning/ }).map((link) => {
+        const card = link.closest('.group') as HTMLElement;
+        return { href: link.getAttribute('href'), heading: within(card).getByRole('heading', { level: 3 }).textContent };
+      });
+    const BOTH = [
+      { href: '/course/course-1', heading: 'Intro to Data Analytics' },
+      { href: '/course/course-2', heading: 'Machine Learning Basics' },
+    ];
+
     beforeEach(() => { pageVisible.fn = () => true; });
 
-    it('a search that matches nothing says so, with the query, instead of "No Enrolled Courses"', async () => {
+    it('NEW: the search textbox has the accessible name "Search your courses"', async () => {
       mockTables(twoCourses());
       render(<EnrolledCoursesDashboard />);
       await screen.findAllByText('Machine Learning Basics');
-      await userEvent.type(screen.getByRole('textbox', { name: 'Search your courses' }), 'zzz');
-      expect(screen.getByText('No courses match "zzz"')).toBeInTheDocument();
-      expect(screen.queryByText('No Enrolled Courses')).not.toBeInTheDocument();
-      expect(screen.queryByText(/Start your learning journey/)).not.toBeInTheDocument();
+      expect(screen.getByRole('textbox', { name: 'Search your courses' })).toBe(searchBox());
     });
 
-    it('Clear search restores every enrolled course', async () => {
+    it('NEW: a search that matches nothing says so, with the query, instead of "No Enrolled Courses"', async () => {
       mockTables(twoCourses());
       render(<EnrolledCoursesDashboard />);
       await screen.findAllByText('Machine Learning Basics');
-      const box = screen.getByRole('textbox', { name: 'Search your courses' });
-      await userEvent.type(box, 'zzz');
+      expect(cards()).toEqual(BOTH);
+      await userEvent.type(searchBox(), 'zzz');
+      expect(cards()).toEqual([]);
+      expect(screen.queryByText('No Enrolled Courses')).not.toBeInTheDocument();
+      expect(screen.queryByText(/Start your learning journey/)).not.toBeInTheDocument();
+      expect(screen.getByRole('status')).toHaveTextContent('No courses match "zzz"');
+    });
+
+    it('NEW: Clear search empties the box and restores exactly the two enrolled course cards', async () => {
+      mockTables(twoCourses());
+      render(<EnrolledCoursesDashboard />);
+      await screen.findAllByText('Machine Learning Basics');
+      await userEvent.type(searchBox(), 'zzz');
+      expect(cards()).toEqual([]);
       await userEvent.click(screen.getByRole('button', { name: 'Clear search' }));
-      expect(box).toHaveValue('');
-      expect(screen.getAllByText('Machine Learning Basics').length).toBeGreaterThan(0);
-      expect(screen.getAllByText('Intro to Data Analytics').length).toBeGreaterThan(0);
+      expect(searchBox()).toHaveValue('');
+      expect(cards()).toEqual(BOTH);
       expect(screen.queryByText(/No courses match/)).not.toBeInTheDocument();
     });
 
-    it('a query matching only the category keeps that course', async () => {
+    it('PRESERVED: a query matching only the category keeps exactly that course card', async () => {
+      // Category matching already existed at 0744f4a; this guards it, it is not new behaviour.
       mockTables(twoCourses());
       render(<EnrolledCoursesDashboard />);
       await screen.findAllByText('Machine Learning Basics');
-      await userEvent.type(screen.getByRole('textbox', { name: 'Search your courses' }), 'ai');
-      expect(screen.getByRole('heading', { name: 'Machine Learning Basics' })).toBeInTheDocument();
-      expect(screen.queryByRole('heading', { name: 'Intro to Data Analytics' })).not.toBeInTheDocument();
+      await userEvent.type(searchBox(), 'ai');
+      expect(cards()).toEqual([{ href: '/course/course-2', heading: 'Machine Learning Basics' }]);
     });
 
-    it('zero enrolments still shows "No Enrolled Courses", not the no-match state', async () => {
+    it('PRESERVED: zero enrolments still shows "No Enrolled Courses", not the no-match state', async () => {
       mockTables({ ...successTables(), enrollments: { data: [], error: null } });
       render(<EnrolledCoursesDashboard />);
       expect(await screen.findByText('No Enrolled Courses')).toBeInTheDocument();
       expect(screen.queryByText(/No courses match/)).not.toBeInTheDocument();
     });
 
-    it('Notifications is a link to the existing /notifications page', async () => {
+    // Same provider tree as test-utils, but with a MemoryRouter and real routes, so a click is a real navigation.
+    function renderAtMyCourses() {
+      const Where = () => <div data-testid="location">{useLocation().pathname}</div>;
+      return rtlRender(
+        <HelmetProvider context={{}}>
+          <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+            <MemoryRouter initialEntries={['/my-courses']}>
+              <AuthProvider>
+                <PageVisibilityProvider>
+                  <OnboardingProvider>
+                    <DialogsProvider>
+                      <Routes>
+                        <Route path="/my-courses" element={<EnrolledCoursesDashboard />} />
+                        <Route path="/notifications" element={<h1>Notifications destination</h1>} />
+                      </Routes>
+                      <Where />
+                    </DialogsProvider>
+                  </OnboardingProvider>
+                </PageVisibilityProvider>
+              </AuthProvider>
+            </MemoryRouter>
+          </QueryClientProvider>
+        </HelmetProvider>,
+      );
+    }
+
+    it('NEW: clicking Notifications navigates to /notifications', async () => {
       mockTables(successTables());
-      render(<EnrolledCoursesDashboard />);
-      const link = await screen.findByRole('link', { name: 'Notifications' });
-      expect(link).toHaveAttribute('href', '/notifications');
-      expect(screen.queryByRole('button', { name: 'Notifications' })).not.toBeInTheDocument();
+      renderAtMyCourses();
+      await screen.findAllByText('Intro to Data Analytics');
+      expect(screen.getByTestId('location')).toHaveTextContent(/^\/my-courses$/);
+      await userEvent.click(screen.getByRole('link', { name: 'Notifications' }));
+      expect(await screen.findByRole('heading', { name: 'Notifications destination' })).toBeInTheDocument();
+      expect(screen.getByTestId('location')).toHaveTextContent(/^\/notifications$/);
     });
 
-    it('Notifications is not offered when /notifications is not visible to this user', async () => {
+    it('NEW: Notifications is not offered when /notifications is not visible to this user', async () => {
       pageVisible.fn = (p) => p !== '/notifications';
       mockTables(successTables());
       render(<EnrolledCoursesDashboard />);
