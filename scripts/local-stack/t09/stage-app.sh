@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ABOUTME: T-09 runtime STAGE APP: runs AFTER the snapshot bootstrap. Frozen vault placeholders, full verify, application
+# ABOUTME: T-09 runtime STAGE APP: runs AFTER the snapshot bootstrap. Verifies (never writes) bootstrap's vault values, application
 # ABOUTME: sentinels (vault callers, fanout inventory, synthetic scratch fanout unit), the reviewed migrations, SQL tier.
 # Usage: stage-app.sh <loopback db url> OLD|NEW [allow_shim]
 # The guard must already be installed by stage-pre.sh. Exit 0 only if every step passes.
@@ -21,9 +21,9 @@ pipe() { # label, command...; streams the command's lines, fails on its status
   "$@" 2>&1 | grep -v assert-local; [ "${PIPESTATUS[0]}" -eq 0 ] || { echo "FAIL app: $label"; exit 1; }
   echo "PASS app: $label"
 }
-# Frozen names only, each the loopback placeholder. Created, never updated or deleted; verify then proves the exact set.
-run "vault placeholders (5 frozen names)" -v ON_ERROR_STOP=1 -qAtc "select count(*) from (select vault.create_secret('http://127.0.0.1:1/local-placeholder', n) from unnest(array['coursera_refresh_secret','coursera_refresh_url','notification_digest_url','notification_email_secret','notification_email_url']) n) x"
-run "verify stage=app after bootstrap"         -v stage=app -q -f "$HERE/egress-verify.sql"
+# Vault is NOT written here. bootstrap.sh (localize.sql) already created each referenced name once with the loopback
+# placeholder (Vault names are unique); this stage only VERIFIES that exact set and those exact values.
+run "verify stage=app after bootstrap (exact vault names and values as bootstrap wrote them)"         -v stage=app -q -f "$HERE/egress-verify.sql"
 run "sentinels stage=app before migrations"    -v stage=app -qAt -f "$HERE/egress-sentinels.sql"
 pipe "reviewed migrations ($MODE), guard re-verified inside" "$HERE/apply-reviewed.sh" "$DB" "$MODE" "$ALLOW_SHIM"
 run "sentinels stage=app after migrations"     -v stage=app -qAt -f "$HERE/egress-sentinels.sql"

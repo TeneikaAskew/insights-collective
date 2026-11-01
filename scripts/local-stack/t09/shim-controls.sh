@@ -125,6 +125,15 @@ q t09c_f "delete from vault.secrets where name='notification_email_url'" >/dev/n
 out=$(sent t09c_f app); expect_fail F3-swallowed-fanout-fails-unit "$out" $? 'sentinel fanout unit (synthetic scratch relation): in-transaction delta 0'
 out=$(verify t09c_g); [ $? -eq 0 ] && pass "G-verify-after-stage-controls" || fail "G-verify-after-stage-controls: $out"
 
+# V1/V2 (review 13:23Z): stage-app never writes vault. It must FAIL when bootstrap/localize did not create the names,
+# and the script must contain no vault write at all.
+psql "$BASE" -qc "drop database if exists t09c_v" -qc "create database t09c_v template $TEMPLATE" >/dev/null
+psql "$URL_PREFIX/t09c_v" -v ON_ERROR_STOP=1 -q -f "$HERE/pgnet-queue-shim.sql" >/dev/null 2>&1 && q t09c_v "delete from vault.secrets" >/dev/null
+"$HERE/stage-pre.sh" "$URL_PREFIX/t09c_v" 1 >/dev/null 2>&1 || fail "V1 setup: stage-pre"
+out=$("$HERE/stage-app.sh" "$URL_PREFIX/t09c_v" NEW 1 2>&1); expect_fail V1-stage-app-without-bootstrap-vault "$out" $? 'present 0 times'
+n=$(grep -cE "create_secret|update_secret|(insert into|update|delete from) +vault\." "$HERE/stage-app.sh")
+[ "$n" = 0 ] && [ "$(q t09c_v "select count(*) from vault.secrets")" = 0 ] && pass "V2-stage-app-writes-no-vault (0 write statements; vault still empty after V1)" || fail "V2 writes=$n"
+
 # C3: exclusivity is enforced BEFORE install (before any bootstrap write), not only by the verifier afterwards.
 fresh t09c_x
 q t09c_x "create function public.t09_noop() returns trigger language plpgsql as \$f\$ begin return new; end \$f\$; create trigger zzz_other before insert on net.http_request_queue for each row execute function public.t09_noop()" >/dev/null
@@ -160,5 +169,5 @@ q t09c_p "do \$\$ begin if not exists (select 1 from pg_roles where rolname='t09
 out=$(psql "${URL_PREFIX/postgres@/t09_noprivs@}/t09c_p" -v allow_shim=1 -q -f "$HERE/egress-guard.sql" 2>&1); st=$?
 expect_fail N12-no-trigger-privilege "$out" $st 'BLOCKER: role t09_noprivs lacks TRIGGER'
 
-for d in t09c_c0 t09c_c1 t09c_g t09c_n t09c_p t09c_x t09c_o t09c_b t09c_f; do psql "$BASE" -qc "drop database if exists $d" >/dev/null; done
+for d in t09c_c0 t09c_c1 t09c_g t09c_n t09c_p t09c_x t09c_o t09c_b t09c_f t09c_v; do psql "$BASE" -qc "drop database if exists $d" >/dev/null; done
 echo "== LOCAL-SHIM controls: $([ $RC -eq 0 ] && echo ALL PASS || echo FAILURES)"; exit $RC

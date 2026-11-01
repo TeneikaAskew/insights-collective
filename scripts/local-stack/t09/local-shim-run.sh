@@ -18,6 +18,9 @@ psql "$DB" -v ON_ERROR_STOP=1 -q -f "$HERE/pgnet-queue-shim.sql" >/dev/null 2>&1
 # A fresh `supabase start` vault holds none of the frozen names; the template is brought to the same state.
 psql "$DB" -v ON_ERROR_STOP=1 -qc "delete from vault.secrets" >/dev/null || die "vault reset"
 echo "-- STAGE PRE (LOCAL-SHIM)"; "$HERE/stage-pre.sh" "$DB" 1 || die "stage pre"
-echo "-- (CI: bootstrap.sh + verify-identities.sh run here)"
+# Bootstrap-equivalent, kept apart from the stages: the template already holds the snapshot, so only bootstrap's final
+# file runs here, the SAME localize.sql (creates each referenced vault name once with the placeholder, unschedules cron).
+echo "-- BOOTSTRAP-EQUIVALENT (LOCAL-SHIM): localize.sql, as bootstrap.sh runs it"
+psql "$DB" -v ON_ERROR_STOP=1 -q -f "$ROOT/scripts/local-stack/localize.sql" 2>&1 | sed 's/^.*NOTICE: */   /'; [ "${PIPESTATUS[0]}" -eq 0 ] || die "localize"
 echo "-- STAGE APP $MODE (LOCAL-SHIM)"; "$HERE/stage-app.sh" "$DB" "$MODE" 1 || die "stage app"
 echo "== LOCAL-SHIM run $MODE: ALL STEPS PASS (not pg_net acceptance)"
