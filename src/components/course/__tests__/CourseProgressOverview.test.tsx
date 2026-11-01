@@ -152,3 +152,105 @@ describe('CourseProgressOverview', () => {
     expect(screen.queryByText('Overall Progress')).not.toBeInTheDocument();
   });
 });
+
+// T-10: the overview reads the same DONE set and eligible universe as useCourseProgress.
+describe('CourseProgressOverview read model (T-10)', () => {
+  const exactText = (t: string) => (_: string, el: Element | null) =>
+    el?.tagName === 'DIV' && el.textContent === t;
+
+  beforeEach(() => {
+    (mockSupabaseClient.rpc as Mock).mockResolvedValue({ data: false, error: null });
+  });
+
+  it('counts graded as done in the per-type subtotals', async () => {
+    setProgressHook();
+    mockTables({
+      ...successTables(),
+      content_items: {
+        data: [
+          { id: 'i1', type: 'page' },
+          { id: 'i2', type: 'page' },
+          { id: 'a1', type: 'assignment' },
+        ],
+        error: null,
+      },
+      content_item_progressions: {
+        data: [
+          { content_item_id: 'i1', workflow_state: 'read' },
+          { content_item_id: 'a1', workflow_state: 'graded' },
+        ],
+        error: null,
+      },
+    });
+    render(<CourseProgressOverview courseId="course-1" studentId="student-1" />);
+    expect(await screen.findByText('1 of 2 completed')).toBeInTheDocument();
+    expect(screen.getByText('1 of 1 submitted')).toBeInTheDocument();
+  });
+
+  it('totalModules counts eligible modules only, and module completion is exact (isComplete), not a percent', async () => {
+    setProgressHook({
+      data: {
+        modules: [
+          { moduleId: 'm1', totalItems: 2, completedItems: 2, percent: 100, isComplete: true },
+          // A display percent near 100 is not completion.
+          { moduleId: 'm2', totalItems: 200, completedItems: 199, percent: 99, isComplete: false },
+        ],
+        totalItems: 202,
+        completedItems: 201,
+        percent: 99,
+        isComplete: false,
+        doneItemIds: [],
+        eligibleItemIds: [],
+      },
+    });
+    mockTables({
+      ...successTables(),
+      // The course row lists a draft module too; it is not in the read model's universe.
+      courses: {
+        data: {
+          ...courseRow,
+          modules: [
+            ...courseRow.modules,
+            { id: 'm2', title: 'Module 2', description: '', order_index: 2, unlock_at: null, prerequisites_met: true },
+            { id: 'mDraft', title: 'Draft', description: '', order_index: 3, unlock_at: null, prerequisites_met: true },
+          ],
+        },
+        error: null,
+      },
+    });
+    render(<CourseProgressOverview courseId="course-1" studentId="student-1" />);
+    expect((await screen.findAllByText(exactText('1/2'))).length).toBeGreaterThan(0);
+    expect(screen.queryAllByText(exactText('1/3'))).toHaveLength(0);
+  });
+
+  it('an empty universe renders 0/0 with no NaN anywhere', async () => {
+    setProgressHook({
+      data: {
+        modules: [],
+        totalItems: 0,
+        completedItems: 0,
+        percent: 0,
+        isComplete: false,
+        doneItemIds: [],
+        eligibleItemIds: [],
+      },
+    });
+    mockTables({
+      ...successTables(),
+      modules: { data: [], error: null },
+      content_items: { data: [], error: null },
+      content_item_progressions: { data: [], error: null },
+    });
+    render(<CourseProgressOverview courseId="course-1" studentId="student-1" />);
+    expect((await screen.findAllByText(exactText('0/0'))).length).toBeGreaterThan(0);
+    expect(document.body.innerHTML).not.toContain('NaN');
+  });
+
+  it('does not promise a certificate from progress', async () => {
+    setProgressHook();
+    mockTables(successTables());
+    render(<CourseProgressOverview courseId="course-1" studentId="student-1" />);
+    expect(await screen.findByText('Overall Progress')).toBeInTheDocument();
+    expect(screen.queryByText(/earn your certificate/i)).not.toBeInTheDocument();
+  });
+});

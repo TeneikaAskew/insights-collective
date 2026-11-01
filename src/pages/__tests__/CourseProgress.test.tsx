@@ -165,9 +165,11 @@ describe('CourseProgress', () => {
     expect(await screen.findByText('Overall Progress')).toBeInTheDocument();
     expect(screen.getByText('0%')).toBeInTheDocument();
     expect(screen.getByText('No activity yet')).toBeInTheDocument();
+    // T-10: progress never promises a certificate; issuance follows the course's own requirements.
     expect(
-      screen.getByText('Complete all modules to earn your certificate'),
+      screen.getByText("A certificate is issued once the course's requirements are met"),
     ).toBeInTheDocument();
+    expect(screen.queryByText('Complete all modules to earn your certificate')).not.toBeInTheDocument();
   });
 
   it('does not fabricate progress data when the hook errors', async () => {

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { isProgressionDone } from '@/utils/progressionStates';
 import CourseErrorState from './CourseErrorState';
 import { ModuleProgressCard } from './ModuleProgressCard';
 import { useCourseProgress } from '@/hooks/useCourseProgress';
@@ -51,6 +52,9 @@ interface CourseStats {
   lastActivity: string;
 }
 
+// A bar for an empty set is empty, never NaN.
+const barValue = (done: number, total: number) => (total > 0 ? (done / total) * 100 : 0);
+
 export const CourseProgressOverview: React.FC<CourseProgressOverviewProps> = ({
   courseId,
   studentId,
@@ -79,7 +83,8 @@ export const CourseProgressOverview: React.FC<CourseProgressOverviewProps> = ({
     (prerequisiteIds: string[] | null | undefined): boolean => {
       if (!prerequisiteIds?.length) return false;
       const completed = new Set(
-        (progress?.modules ?? []).filter((m) => m.percent === 100).map((m) => m.moduleId),
+        // Exact (every eligible item done), never a rounded or capped percent.
+        (progress?.modules ?? []).filter((m) => m.isComplete).map((m) => m.moduleId),
       );
       if (completed.size === 0 && !progress) return false;
       return prerequisiteIds.some((id) => !completed.has(id));
@@ -167,9 +172,11 @@ export const CourseProgressOverview: React.FC<CourseProgressOverviewProps> = ({
 
       if (progressionsError) throw new Error(progressionsError.message);
 
+      // Same DONE states as useCourseProgress (read, completed, graded), so the per-type subtotals can never
+      // disagree with the overall figure. Stored progress only; not certificate eligibility.
       const completedSet = new Set(
         (progressions || [])
-          .filter((p) => p.workflow_state === 'read' || p.workflow_state === 'completed')
+          .filter((p) => isProgressionDone(p.workflow_state))
           .map((p) => p.content_item_id),
       );
 
@@ -184,8 +191,8 @@ export const CourseProgressOverview: React.FC<CourseProgressOverviewProps> = ({
       const totalQuizzes = byType('quiz').length;
       const completedQuizzes = countCompleted('quiz');
 
-      // Module completion count (100%)
-      const completedModules = (progress?.modules || []).filter((m) => m.percent === 100).length;
+      // Exact module completion (every eligible item done), never a rounded percent.
+      const completedModules = (progress?.modules || []).filter((m) => m.isComplete).length;
 
       // Average grade from real graded assignment submissions. There is no
       // `grades` table in the schema — the old query against it failed
@@ -224,7 +231,8 @@ export const CourseProgressOverview: React.FC<CourseProgressOverviewProps> = ({
         : 0;
 
       return {
-        totalModules: course?.modules.length || 0,
+        // Only eligible (published) modules, the same universe the progress read model counts.
+        totalModules: progress?.modules.length ?? 0,
         completedModules,
         totalLessons,
         completedLessons,
@@ -347,7 +355,7 @@ export const CourseProgressOverview: React.FC<CourseProgressOverviewProps> = ({
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
-              Complete all modules to earn your certificate
+              A certificate is issued once the course's requirements are met
             </p>
           )}
         </CardContent>
@@ -367,7 +375,7 @@ export const CourseProgressOverview: React.FC<CourseProgressOverviewProps> = ({
               {stats.completedModules}/{stats.totalModules}
             </div>
             <Progress 
-              value={(stats.completedModules / stats.totalModules) * 100} 
+              value={barValue(stats.completedModules, stats.totalModules)} 
               className="mt-2 h-1"
             />
           </CardContent>
@@ -445,7 +453,7 @@ export const CourseProgressOverview: React.FC<CourseProgressOverviewProps> = ({
                 </div>
               </div>
               <Progress 
-                value={(stats.completedLessons / stats.totalLessons) * 100} 
+                value={barValue(stats.completedLessons, stats.totalLessons)} 
                 className="w-32 h-2"
               />
             </div>
@@ -461,7 +469,7 @@ export const CourseProgressOverview: React.FC<CourseProgressOverviewProps> = ({
                 </div>
               </div>
               <Progress 
-                value={(stats.completedAssignments / stats.totalAssignments) * 100} 
+                value={barValue(stats.completedAssignments, stats.totalAssignments)} 
                 className="w-32 h-2"
               />
             </div>
@@ -477,7 +485,7 @@ export const CourseProgressOverview: React.FC<CourseProgressOverviewProps> = ({
                 </div>
               </div>
               <Progress 
-                value={(stats.completedQuizzes / stats.totalQuizzes) * 100} 
+                value={barValue(stats.completedQuizzes, stats.totalQuizzes)} 
                 className="w-32 h-2"
               />
             </div>

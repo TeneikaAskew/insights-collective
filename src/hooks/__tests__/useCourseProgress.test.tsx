@@ -73,11 +73,15 @@ describe('useCourseProgress', () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
+    // Empty universe: 0 counts, not complete, no NaN.
     expect(result.current.data).toEqual({
       modules: [],
       totalItems: 0,
       completedItems: 0,
       percent: 0,
+      isComplete: false,
+      doneItemIds: [],
+      eligibleItemIds: [],
     });
     expect(result.current.error).toBeNull();
   });
@@ -109,8 +113,8 @@ describe('useCourseProgress', () => {
 
     const m1 = result.current.data?.modules.find((m) => m.moduleId === 'm1');
     const m2 = result.current.data?.modules.find((m) => m.moduleId === 'm2');
-    expect(m1).toEqual({ moduleId: 'm1', totalItems: 2, completedItems: 1, percent: 50 });
-    expect(m2).toEqual({ moduleId: 'm2', totalItems: 2, completedItems: 1, percent: 50 });
+    expect(m1).toEqual({ moduleId: 'm1', totalItems: 2, completedItems: 1, percent: 50, isComplete: false });
+    expect(m2).toEqual({ moduleId: 'm2', totalItems: 2, completedItems: 1, percent: 50, isComplete: false });
   });
 
   it('getModulePercent returns 0 for unknown modules', async () => {

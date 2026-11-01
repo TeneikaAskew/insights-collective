@@ -118,14 +118,23 @@ const CourseLearn = () => {
   // Load ERROR (backend failure) — distinct from "no such course".
   const [loadError, setLoadError] = useState<Error | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
-  const [completed, setCompleted] = useState<Set<string>>(new Set());
-  // The progress fetch failed: completion state is unknown, so completion
-  // views must not render fabricated "0 of N" numbers.
-  const [progressError, setProgressError] = useState(false);
-  const [progressReloadKey, setProgressReloadKey] = useState(0);
   const [mobileRailOpen, setMobileRailOpen] = useState(false);
 
-  const { data: progress, markItemComplete } = useCourseProgress(courseId);
+  // T-10: one stored-progress read model. Every completion surface on this page (header, home, sidebar,
+  // checkmarks, end-of-course) reads the same done set and the same eligible universe from useCourseProgress.
+  // While it loads, after it fails, or without a signed-in user, completion is UNKNOWN: no number, no checkmark.
+  const {
+    data: progress,
+    error: progressLoadError,
+    markItemComplete,
+    refetch: refetchProgress,
+  } = useCourseProgress(courseId);
+  const progressKnown = Boolean(user?.id && progress && !progressLoadError);
+  const progressError = !progressKnown;
+  const completed = useMemo(
+    () => (progressKnown ? new Set(progress!.doneItemIds) : new Set<string>()),
+    [progressKnown, progress],
+  );
 
   const flatItems = useMemo(
     () => modules.flatMap((m) => m.items.map((i) => ({ module: m, item: i }))),
@@ -163,11 +172,13 @@ const CourseLearn = () => {
         }
 
         const rawModules = await CanvasContentService.getModules(courseId);
-        const visible = effectiveEdit ? rawModules : rawModules.filter((m) => m.published);
+        // Learner universe = published === true modules and items (null and false both excluded), the same
+        // universe the progress read model counts. Edit mode shows everything but shows no completion numbers.
+        const visible = effectiveEdit ? rawModules : rawModules.filter((m) => m.published === true);
         const withItems = await Promise.all(
           visible.map(async (m) => {
             const items = await CanvasContentService.getContentItems(m.id);
-            const filtered = effectiveEdit ? items : items.filter((i) => i.published !== false);
+            const filtered = effectiveEdit ? items : items.filter((i) => i.published === true);
             return { id: m.id, title: m.title, items: filtered } as CurriculumModule;
           }),
         );
@@ -194,46 +205,6 @@ const CourseLearn = () => {
     };
   }, [courseId, effectiveEdit, toast, reloadKey]);
 
-  // --- Progress fetch ---
-  useEffect(() => {
-    let cancelled = false;
-    const run = async () => {
-      if (!user?.id || flatItems.length === 0) {
-        if (!cancelled) {
-          setCompleted(new Set());
-          setProgressError(false);
-        }
-        return;
-      }
-      const { data, error } = await supabase
-        .from('content_item_progressions')
-        .select('content_item_id, workflow_state')
-        .eq('user_id', user.id)
-        .in('content_item_id', flatItems.map((fi) => fi.item.id));
-      if (cancelled) return;
-      if (error) {
-        // Don't blank the checkmarks with fabricated zero-progress — keep
-        // whatever we last knew and surface a visible notice instead.
-        logger.error('Failed to load lesson progress', error);
-        setProgressError(true);
-        return;
-      }
-      setProgressError(false);
-      setCompleted(
-        new Set(
-          (data || [])
-            .filter(
-              (p: any) => p.workflow_state === 'read' || p.workflow_state === 'completed',
-            )
-            .map((p: any) => p.content_item_id),
-        ),
-      );
-    };
-    void run();
-    return () => {
-      cancelled = true;
-    };
-  }, [user?.id, flatItems, progress?.completedItems, progressReloadKey]);
 
   const currentIndex = selected
     ? flatItems.findIndex((fi) => fi.item.id === selected.item.id)
@@ -244,7 +215,35 @@ const CourseLearn = () => {
       ? flatItems[currentIndex + 1]
       : null;
   const isSelectedComplete = selected ? completed.has(selected.item.id) : false;
-  const percent = progress?.percent ?? 0;
+  // Display-only percent (capped at 99 until every eligible item is done). Completion tests use exact counts.
+  const percent = progressKnown ? progress!.percent : null;
+  // Edit mode lists drafts too, so its outline is not the learner universe: say so instead of showing numbers.
+  const completionText = effectiveEdit
+    ? 'Course completion is not shown while editing'
+    : percent === null
+      ? 'Course completion unavailable'
+      : `Course completion ${percent}%`;
+
+  // Certificate availability is its own fact (an issued row this user can read), never inferred from progress.
+  const [certificate, setCertificate] = useState<'unknown' | 'issued' | 'none'>('unknown');
+  useEffect(() => {
+    setCertificate('unknown');
+    if (!isCompletionRoute || !courseId || !user?.id) return;
+    let cancelled = false;
+    void (async () => {
+      const { data, error } = await supabase
+        .from('certificates')
+        .select('id')
+        .eq('course_id', courseId)
+        .eq('user_id', user.id)
+        .limit(1);
+      if (cancelled) return;
+      setCertificate(error ? 'unknown' : (data?.length ?? 0) > 0 ? 'issued' : 'none');
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isCompletionRoute, courseId, user?.id, progress?.completedItems]);
 
   // Resume target: first unfinished lesson, else first lesson.
   const resumeItem = useMemo(() => {
@@ -276,7 +275,7 @@ const CourseLearn = () => {
     [courseId, navigate],
   );
 
-  const retryProgress = useCallback(() => setProgressReloadKey((k) => k + 1), []);
+  const retryProgress = useCallback(() => void refetchProgress(), [refetchProgress]);
 
   const toggleExpand = useCallback((mid: string) => {
     setExpanded((prev) => {
@@ -295,8 +294,8 @@ const CourseLearn = () => {
       const type = flatItems.find((fi) => fi.item.id === id)?.item.type;
       if (!canMarkComplete(type, source)) return false;
       try {
+        // Resolves after the read model has re-read stored progress; no optimistic local checkmark.
         await markItemComplete(id);
-        setCompleted((prev) => new Set(prev).add(id));
         return true;
       } catch (err: any) {
         toast({ title: 'Progress not saved', description: err.message, variant: 'destructive' });
@@ -384,11 +383,11 @@ const CourseLearn = () => {
 
   // --- Completion / end-of-course view ---
   if (isCompletionRoute) {
-    const totalItems = flatItems.length;
-    const completedCount = flatItems.filter((fi) => completed.has(fi.item.id)).length;
-    // When the progress fetch failed, the completed set may be stale — never
-    // assert "Course complete" (or offer the certificate) on unverifiable data.
-    const allComplete = !progressError && totalItems > 0 && completedCount === totalItems;
+    // Counts come from the read model's eligible universe, not the outline (edit mode lists drafts).
+    const totalItems = progressKnown ? progress!.totalItems : 0;
+    const completedCount = progressKnown ? progress!.completedItems : 0;
+    // Exact, never from a rounded percent; and only about stored progress, never about a certificate.
+    const allComplete = progressKnown && !effectiveEdit && progress!.isComplete;
     const firstItem = flatItems[0];
     return (
       <div className="fixed inset-0 flex flex-col bg-background text-foreground">
@@ -409,21 +408,34 @@ const CourseLearn = () => {
               {allComplete ? `Congratulations! You finished ${course.title}` : `You've reached the end of ${course.title}`}
             </h1>
             <p className="text-sm sm:text-base text-muted-foreground mb-8">
-              {progressError
-                ? 'We couldn’t load your progress right now, so your completion status is unavailable.'
-                : allComplete
-                  ? 'Every lesson is checked off. Download your certificate, revisit lessons anytime, or head back to your courses.'
-                  : `You've completed ${completedCount} of ${totalItems} lessons. Finish the remaining lessons to unlock your certificate.`}
+              {effectiveEdit
+                ? 'Course completion is not shown while editing.'
+                : progressError
+                  ? 'We couldn’t load your progress right now, so your completion status is unavailable.'
+                  : allComplete
+                    ? 'Every lesson is checked off. A certificate depends on the course’s own requirements and appears once it has been issued.'
+                    : `You've completed ${completedCount} of ${totalItems} lessons.`}
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-10">
-              {allComplete && (
+              {/* Certificate access follows an ISSUED certificate row, never the progress percent: an issued
+                  certificate stays reachable whatever the checkmarks say, and 100% alone promises nothing. */}
+              {certificate === 'issued' && (
                 <Link
                   to={`/courses/${course.id}/certificate`}
                   className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90"
                 >
                   <Award className="w-4 h-4" />
                   View certificate
+                </Link>
+              )}
+              {certificate === 'none' && allComplete && (
+                <Link
+                  to={`/courses/${course.id}/certificate`}
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold border border-primary text-primary hover:bg-primary/10"
+                >
+                  <Award className="w-4 h-4" />
+                  Check certificate status
                 </Link>
               )}
               <Link
@@ -444,7 +456,7 @@ const CourseLearn = () => {
               )}
             </div>
 
-            {progressError ? (
+            {effectiveEdit ? null : progressError ? (
               <div className="text-left">
                 <CourseErrorState
                   title="Couldn't load your progress"
@@ -460,7 +472,7 @@ const CourseLearn = () => {
                 <div className="h-2 w-full rounded-full bg-muted overflow-hidden mb-2">
                   <div
                     className="h-full bg-primary transition-all"
-                    style={{ width: `${totalItems ? Math.round((completedCount / totalItems) * 100) : 0}%` }}
+                    style={{ width: `${progress!.percent}%` }}
                   />
                 </div>
                 <div className="text-xs text-muted-foreground">
@@ -488,7 +500,7 @@ const CourseLearn = () => {
                 </div>
                 <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl mb-3">{course.title}</h1>
                 <p className="text-sm text-muted-foreground mb-6">
-                  {flatItems.length} lessons · {Math.round(percent)}% complete
+                  {flatItems.length} lessons · {completionText}
                 </p>
                 {resumeItem && (
                   <div className="mb-8">
@@ -522,7 +534,7 @@ const CourseLearn = () => {
                 )}
 
                 <div className="mt-10 space-y-4">
-                  {progressError && (
+                  {progressError && !effectiveEdit && (
                     <CourseErrorState
                       title="Couldn't load your progress"
                       error="Lesson completion status is unavailable right now."
@@ -546,16 +558,18 @@ const CourseLearn = () => {
               <aside className="space-y-6">
                 <div className="text-center">
                   <div className="text-[11px] font-bold tracking-widest uppercase mb-3">
-                    {Math.round(percent)}% Complete
+                    {completionText}
                   </div>
-                  <div className="h-1.5 w-full rounded-full bg-ss-track overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-primary"
-                      style={{
-                        width: `${Math.min(100, Math.max(0, percent))}%`,
-                      }}
-                    />
-                  </div>
+                  {!effectiveEdit && percent !== null && (
+                    <div className="h-1.5 w-full rounded-full bg-ss-track overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-primary"
+                        style={{
+                          width: `${percent}%`,
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-4 pt-6 border-t border-border">
                   <div className="w-16 h-16 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 bg-primary text-primary-foreground">
@@ -650,21 +664,19 @@ const CourseLearn = () => {
 
       {/* Slim progress strip: lesson counter + course completion */}
       <div data-onboarding="learn-progress" className="flex items-center gap-3 px-3 sm:px-6 py-2 flex-shrink-0 bg-card border-b border-border text-[11px] text-muted-foreground">
-        <span className="font-semibold tabular-nums text-foreground">
+        {/* Position in the outline, not completion: "Lesson 4 of 6" says nothing about how many are done. */}
+        <span className="font-semibold tabular-nums text-foreground" data-testid="learn-position">
           Lesson {lessonNumber} of {totalLessons}
         </span>
         <span className="hidden sm:inline">·</span>
         <span className="hidden sm:inline truncate">{selected.module.title || 'Section'}</span>
-        <div className="ml-auto flex items-center gap-2 min-w-[140px]">
-          <div className="h-1 flex-1 rounded-full bg-muted overflow-hidden">
-            <div
-              className="h-full bg-primary transition-all"
-              style={{ width: `${Math.min(100, Math.max(0, percent))}%` }}
-            />
-          </div>
-          <span className="tabular-nums font-semibold text-foreground">
-            {Math.round(percent)}%
-          </span>
+        <div className="ml-auto flex items-center gap-2 min-w-[140px]" data-testid="learn-completion">
+          {!effectiveEdit && percent !== null && (
+            <div className="h-1 flex-1 rounded-full bg-muted overflow-hidden">
+              <div className="h-full bg-primary transition-all" style={{ width: `${percent}%` }} />
+            </div>
+          )}
+          <span className="tabular-nums font-semibold text-foreground">{completionText}</span>
         </div>
       </div>
 
