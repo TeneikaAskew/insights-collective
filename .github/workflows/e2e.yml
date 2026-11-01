@@ -297,6 +297,8 @@ jobs:
         run: scripts/local-stack/t09/tests/stack-checks-selftest.sh | tee "$T09_EVIDENCE/stack-checks-selftest.txt"
       - name: Export-status selftest (MOCKED status file; masks before export, private file, loopback only)
         run: scripts/local-stack/t09/tests/export-status-selftest.sh | tee "$T09_EVIDENCE/export-status-selftest.txt"
+      - name: Stack-net selftest (FAKE docker/ss; proves every refuse path of the owned loopback network before it is used)
+        run: scripts/local-stack/t09/tests/stack-net-selftest.sh | tee "$T09_EVIDENCE/stack-net-selftest.txt"
 
       # ---------------- OLD ----------------
       - name: OLD - prepare workdir (job-scoped path, never reused)
@@ -305,11 +307,16 @@ jobs:
           W="$RUNNER_TEMP/ic-t09-old"
           scripts/local-stack/workdir.sh "$W"
           echo "IC_WORKDIR_OLD=$W" >> "$GITHUB_ENV"
+      # The Supabase CLI has no bind-address setting; its documented method is a Docker network whose default host binding
+      # is loopback, passed with --network-id. This job creates its OWN network per mode (refused on Docker < 28 or if the
+      # name exists), and removes only that network. No daemon, default, firewall or privilege change.
+      - name: OLD - create owned loopback-binding network (Docker >= 28; refuses an existing name)
+        run: node scripts/local-stack/t09/stack-net.mjs create "ic-t09-old-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-old" | tee "$T09_EVIDENCE/old-net-create.txt"
       - name: OLD - supabase start (local; no studio, no edge runtime; output kept private, shown only redacted on failure)
         run: |
           umask 077
           LOG="$RUNNER_TEMP/t09-old-start.log"
-          if ! npx --no-install supabase start --workdir "$IC_WORKDIR_OLD" -x studio,imgproxy,logflare,vector,supavisor,edge-runtime > "$LOG" 2>&1; then
+          if ! npx --no-install supabase start --workdir "$IC_WORKDIR_OLD" --network-id "ic-t09-old-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" -x studio,imgproxy,logflare,vector,supavisor,edge-runtime > "$LOG" 2>&1; then
             echo "supabase start failed; redacted tail:"; tail -40 "$LOG" | scripts/local-stack/t09/stack-checks.sh redact; exit 1
           fi
           echo "supabase start ok (OLD); its key summary is not printed"
@@ -331,6 +338,8 @@ jobs:
           node scripts/ci/check-local-target.mjs env
       - name: OLD - published ports loopback-only, mail to the local catcher only
         run: |
+          node scripts/local-stack/t09/stack-net.mjs verify "ic-t09-old-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-old" | tee "$T09_EVIDENCE/old-net-verify.txt"
+          node scripts/local-stack/t09/stack-net.mjs listeners | tee -a "$T09_EVIDENCE/old-net-verify.txt"
           scripts/local-stack/t09/stack-checks.sh ports | tee "$T09_EVIDENCE/old-ports.txt"
           scripts/local-stack/t09/stack-checks.sh mail | tee "$T09_EVIDENCE/old-mail.txt"
       - name: OLD - STAGE PRE (guard before any bootstrap write; queue-only verify; installed net.* sentinels)
@@ -361,6 +370,9 @@ jobs:
             echo "supabase stop failed; redacted tail:"; tail -20 "$LOG" | scripts/local-stack/t09/stack-checks.sh redact; exit 1
           fi
           echo "supabase stop ok (OLD)"
+      - name: OLD - remove owned network (only the one this job created; absence verified)
+        if: always() && steps.old_prep.outcome == 'success'
+        run: node scripts/local-stack/t09/stack-net.mjs remove "ic-t09-old-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-old" | tee "$T09_EVIDENCE/old-net-remove.txt"
       - name: OLD - nothing left behind (runs after any failure once the stack was prepared)
         if: always() && steps.old_prep.outcome == 'success'
         run: scripts/local-stack/t09/stack-checks.sh leftovers | tee "$T09_EVIDENCE/old-leftovers.txt"
@@ -376,11 +388,16 @@ jobs:
           W="$RUNNER_TEMP/ic-t09-new"
           scripts/local-stack/workdir.sh "$W"
           echo "IC_WORKDIR_NEW=$W" >> "$GITHUB_ENV"
+      # The Supabase CLI has no bind-address setting; its documented method is a Docker network whose default host binding
+      # is loopback, passed with --network-id. This job creates its OWN network per mode (refused on Docker < 28 or if the
+      # name exists), and removes only that network. No daemon, default, firewall or privilege change.
+      - name: NEW - create owned loopback-binding network (Docker >= 28; refuses an existing name)
+        run: node scripts/local-stack/t09/stack-net.mjs create "ic-t09-new-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-new" | tee "$T09_EVIDENCE/new-net-create.txt"
       - name: NEW - supabase start (local; no studio, no edge runtime; output kept private, shown only redacted on failure)
         run: |
           umask 077
           LOG="$RUNNER_TEMP/t09-new-start.log"
-          if ! npx --no-install supabase start --workdir "$IC_WORKDIR_NEW" -x studio,imgproxy,logflare,vector,supavisor,edge-runtime > "$LOG" 2>&1; then
+          if ! npx --no-install supabase start --workdir "$IC_WORKDIR_NEW" --network-id "ic-t09-new-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" -x studio,imgproxy,logflare,vector,supavisor,edge-runtime > "$LOG" 2>&1; then
             echo "supabase start failed; redacted tail:"; tail -40 "$LOG" | scripts/local-stack/t09/stack-checks.sh redact; exit 1
           fi
           echo "supabase start ok (NEW); its key summary is not printed"
@@ -402,6 +419,8 @@ jobs:
           node scripts/ci/check-local-target.mjs env
       - name: NEW - published ports loopback-only, mail to the local catcher only
         run: |
+          node scripts/local-stack/t09/stack-net.mjs verify "ic-t09-new-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-new" | tee "$T09_EVIDENCE/new-net-verify.txt"
+          node scripts/local-stack/t09/stack-net.mjs listeners | tee -a "$T09_EVIDENCE/new-net-verify.txt"
           scripts/local-stack/t09/stack-checks.sh ports | tee "$T09_EVIDENCE/new-ports.txt"
           scripts/local-stack/t09/stack-checks.sh mail | tee "$T09_EVIDENCE/new-mail.txt"
       - name: NEW - STAGE PRE (guard before any bootstrap write; queue-only verify; installed net.* sentinels)
@@ -432,6 +451,9 @@ jobs:
             echo "supabase stop failed; redacted tail:"; tail -20 "$LOG" | scripts/local-stack/t09/stack-checks.sh redact; exit 1
           fi
           echo "supabase stop ok (NEW)"
+      - name: NEW - remove owned network (only the one this job created; absence verified)
+        if: always() && steps.new_prep.outcome == 'success'
+        run: node scripts/local-stack/t09/stack-net.mjs remove "ic-t09-new-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-new" | tee "$T09_EVIDENCE/new-net-remove.txt"
       - name: NEW - nothing left behind (runs after any failure once the stack was prepared)
         if: always() && steps.new_prep.outcome == 'success'
         run: scripts/local-stack/t09/stack-checks.sh leftovers | tee "$T09_EVIDENCE/new-leftovers.txt"
@@ -447,7 +469,7 @@ jobs:
         id: stage
         run: |
           REQ=""; [ "${{ job.status }}" = success ] && REQ=--require-all
-          scripts/local-stack/t09/stack-checks.sh stage-evidence $REQ t09-upload "$T09_EVIDENCE/old-ports.txt" "$T09_EVIDENCE/old-mail.txt" "$T09_EVIDENCE/old-stage-pre.txt" "$T09_EVIDENCE/old-bootstrap.txt" "$T09_EVIDENCE/old-identities.txt" "$T09_EVIDENCE/old-stage-app.txt" "$T09_EVIDENCE/old-leftovers.txt" "$T09_EVIDENCE/new-ports.txt" "$T09_EVIDENCE/new-mail.txt" "$T09_EVIDENCE/new-stage-pre.txt" "$T09_EVIDENCE/new-bootstrap.txt" "$T09_EVIDENCE/new-identities.txt" "$T09_EVIDENCE/new-stage-app.txt" "$T09_EVIDENCE/new-leftovers.txt" -- tested-ids.txt "$T09_EVIDENCE"
+          scripts/local-stack/t09/stack-checks.sh stage-evidence $REQ t09-upload "$T09_EVIDENCE/old-net-create.txt" "$T09_EVIDENCE/old-net-verify.txt" "$T09_EVIDENCE/old-ports.txt" "$T09_EVIDENCE/old-mail.txt" "$T09_EVIDENCE/old-stage-pre.txt" "$T09_EVIDENCE/old-bootstrap.txt" "$T09_EVIDENCE/old-identities.txt" "$T09_EVIDENCE/old-stage-app.txt" "$T09_EVIDENCE/old-net-remove.txt" "$T09_EVIDENCE/old-leftovers.txt" "$T09_EVIDENCE/new-net-create.txt" "$T09_EVIDENCE/new-net-verify.txt" "$T09_EVIDENCE/new-ports.txt" "$T09_EVIDENCE/new-mail.txt" "$T09_EVIDENCE/new-stage-pre.txt" "$T09_EVIDENCE/new-bootstrap.txt" "$T09_EVIDENCE/new-identities.txt" "$T09_EVIDENCE/new-stage-app.txt" "$T09_EVIDENCE/new-net-remove.txt" "$T09_EVIDENCE/new-leftovers.txt" -- tested-ids.txt "$T09_EVIDENCE"
       - name: Upload evidence (the staged manifest only)
         if: always() && steps.stage.outcome == 'success'
         uses: actions/upload-artifact@v4
