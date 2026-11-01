@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ABOUTME: Learner-quiz mode only: reduces the DISPOSABLE workdir's served Edge Functions to exactly score-quiz (+ its one local
-# ABOUTME: import and deno.json), byte-identical to the repository, and pins the set of remote imports the runtime will fetch.
+# ABOUTME: import and deno.json), byte-identical to the repository, and fixes the set of remote entry imports.
 # Usage: functions-subset.sh <workdir created by scripts/local-stack/workdir.sh>
 #
 # Label: TEST-SERVED FUNCTION SUBSET. The served functions are a strict subset of the repository's, unmodified. Every other
@@ -9,10 +9,9 @@
 # (InlineQuizPlayer.tsx `functions.invoke('score-quiz')`); nothing else in that path invokes a function.
 # config.toml in the WORKDIR keeps only [functions.score-quiz] (parsed and verified with tomllib); the repository is untouched.
 #
-# Remote imports (DECLARED, NOT HERMETIC): the edge runtime downloads these modules from deno.land and esm.sh when the worker
-# boots (the preflight's OPTIONS probe, before any fixture write). There is no lockfile with integrity hashes in this
-# repository, so their bytes are NOT pinned. This script refuses any change to the declared URL set; it cannot prove what the
-# CDN serves. See README.md, decision E1.
+# Remote imports: this script fixes the remote import SET to the two declared entry URLs and refuses any change. It does not
+# provide their bytes. closure-install.sh (run next) installs the reviewed, integrity-pinned closure and the import map, and fails
+# the job before any stack starts if the closure is missing, tampered, or not closed. See README.md, decision E1 (revised 18:03Z).
 # Exit: 0 ok; 2 usage/workdir; 3 file set or bytes differ; 4 remote-import set differs; 5 config rewrite failed.
 set -u
 W="${1:-}"; ROOT="$(cd "$(dirname "$0")/../../.." && pwd -P)"
@@ -48,7 +47,7 @@ while IFS= read -r r; do
   [ -z "$r" ] && continue
   [ "$r" = "../_shared/utils.ts" ] || { echo "SUBSET REFUSED [4]: undeclared local import $r"; exit 4; }
 done < <(grep -vE '^[a-z][a-z0-9+.-]*:' <<<"$specs")
-echo "declared remote imports (fetched by the edge runtime at worker boot; NOT integrity-pinned):"; sed 's/^/  /' <<<"$remote"
+echo "declared remote entry imports (to be resolved from the pinned closure by closure-install.sh; the runtime must not fetch them; that the pinned runtime honours this is UNVERIFIED):"; sed 's/^/  /' <<<"$remote"
 
 python3 - "$W/supabase/config.toml" <<'PY' || { echo "SUBSET REFUSED [5]: config.toml functions rewrite failed"; exit 5; }
 import re, sys, tomllib

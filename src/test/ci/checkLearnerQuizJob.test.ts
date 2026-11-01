@@ -42,24 +42,54 @@ describe('learner-quiz job', () => {
     const start = STEPS[at(/supabase start/)].run!;
     expect(start).toContain('-x studio,imgproxy,logflare,vector,supavisor >');
     expect(start).not.toContain('edge-runtime');
-    expect(start).toContain('--network-id "ic-lq-net-');
+    expect(start).toContain('--network-id "ic-t09-new-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"');
   });
 
-  it('orders: subset before start; guards and STAGE PRE before writes; migrations before serve; edge check after readiness', () => {
+  it('orders: subset and pinned closure before start; edge checks at start, after serve (before any worker), after readiness', () => {
     const subset = at(/learner-quiz\/functions-subset\.sh/);
-    const create = at(/stack-net\.mjs create "ic-lq-net-/);
+    const closure = at(/learner-quiz\/closure-install\.sh "\$W" "\$LQ_CLOSURE_DIR" "\$LQ_CLOSURE_PINS_SHA256"/);
+    const create = at(/stack-net\.mjs create "ic-t09-new-net-/);
     const start = at(/supabase start/);
     const guards = at(/assert-safe-target\.mjs --mutating/);
     const ports = at(/stack-checks\.sh ports \| tee "\$LQ_EVIDENCE\/checks\/ports-start/);
+    const edgeStart = at(/edge-runtime-check\.sh [^\n]*edge-runtime-start\.txt/);
     const pre = at(/stage-pre\.sh/);
     const boot = at(/bootstrap\.sh/);
     const mig = at(/apply-reviewed\.sh "\$SUPABASE_DB_URL" NEW/);
     const serve = at(/supabase functions serve/);
+    const edgeServe = at(/edge-runtime-check\.sh [^\n]*edge-runtime-serve\.txt/);
     const ready = at(/functions\/v1\/score-quiz/);
-    const edge = at(/edge-runtime-check\.sh/);
-    expect([subset, create, start, guards, ports, pre, boot, mig, serve, ready, edge]).toEqual(
-      [subset, create, start, guards, ports, pre, boot, mig, serve, ready, edge].slice().sort((a, b) => a - b));
+    const edge = at(/edge-runtime-check\.sh [^\n]*checks\/edge-runtime\.txt/);
+    const order = [subset, closure, create, start, guards, ports, edgeStart, pre, boot, mig, serve, edgeServe, ready, edge];
+    expect(order).toEqual(order.slice().sort((a, b) => a - b));
+    expect(closure).toBe(subset);
+    expect(STEPS[closure].id).toBe('lq_prep');
+    // The membership check after serve never invokes a function: no curl, no /functions/v1 in that step.
+    expect(STEPS[edgeServe].run).not.toMatch(/curl|functions\/v1/);
+    expect(STEPS[edgeServe].run).toMatch(/stack-net\.mjs verify[\s\S]*stack-checks\.sh ports/);
     expect(STEPS[edge].run).toMatch(/stack-net\.mjs verify[\s\S]*stack-net\.mjs listeners[\s\S]*stack-checks\.sh ports/);
+  });
+
+  it('uses only the network name the unchanged stack-net guard accepts, with the lq owner label, and no new name pattern', () => {
+    const NET = '"ic-t09-new-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"';
+    const OWNER = '"$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-lq"';
+    const lqText = STEPS.map((s) => String(s.run ?? '')).join('\n');
+    const calls = [...lqText.matchAll(/stack-net\.mjs (create|verify|remove) (\S+) (\S+)/g)];
+    expect(calls.map((c) => c[1]).sort()).toEqual(['create', 'remove', 'verify', 'verify', 'verify']);
+    for (const c of calls) expect([c[2], c[3]]).toEqual([NET, OWNER]);
+    for (const m of lqText.matchAll(/(?:--network-id|edge-runtime-check\.sh) (\S+)/g)) expect(m[1]).toBe(NET);
+    expect(WF).not.toMatch(/ic-lq-net/);
+    // The guard itself is not widened: its name pattern is exactly the T09 one, which rejects any other prefix.
+    const net = readFileSync(path.join(ROOT, 'scripts/local-stack/t09/stack-net.mjs'), 'utf8');
+    const NAMES = /const NAMES = (\/.*\/);/.exec(net)![1];
+    expect(NAMES).toBe('/^ic-t09-(old|new)-net-[0-9]{1,20}-[0-9]{1,4}$/');
+    const re = new RegExp(NAMES.slice(1, -1));
+    expect(re.test('ic-t09-new-net-123-1')).toBe(true);
+    expect(re.test('ic-lq-net-123-1')).toBe(false);
+    // Same name as t09-runtime's NEW stack, so the two jobs must never run together: each is gated on a distinct dispatch value.
+    expect(JOB.if).toBe("inputs.specs == 'learner-quiz'");
+    expect(DOC.jobs['t09-runtime'].if).toBe("inputs.specs == 't09-runtime'");
+    expect(DOC.on.workflow_dispatch.inputs.specs.type).toBe('choice');
   });
 
   it('serves only the verified TEST-SERVED copy, and preflight checks that copy before any fixture write', () => {
@@ -95,5 +125,24 @@ describe('learner-quiz job', () => {
     const bg = STEPS.find((s) => /Stop background servers/.test(s.name ?? ''))!;
     expect(bg.if).toBe('always()');
     expect(bg.run).toContain('private playwright output still present');
+  });
+
+  it('launches background servers only as owned process groups and stops only those, then proves 8080 has no listener', () => {
+    const lqText = STEPS.map((s) => String(s.run ?? '')).join('\n');
+    expect(lqText).not.toMatch(/\bpkill\b|\bpgrep\b|killall|nohup|FUNCTIONS_PID/);
+    expect(STEPS[at(/supabase functions serve/)].run).toMatch(/owned-proc\.sh start "\$RUNNER_TEMP\/lq-owned" functions /);
+    expect(STEPS[at(/vite preview --outDir/)].run).toMatch(/owned-proc\.sh start "\$RUNNER_TEMP\/lq-owned" preview /);
+    const bg = STEPS.find((s) => /Stop background servers/.test(s.name ?? ''))!;
+    expect(bg.run).toContain('owned-proc.sh stop "$RUNNER_TEMP/lq-owned" 8080');
+    expect(bg.run).toMatch(/ss -Hltn 'sport = :8080'\) \|\| \{ echo "ss failed"; exit 1; \}/);
+    expect(STEPS[at(/stage-evidence/)].run).toContain('owned-stop.txt');
+  });
+
+  it('installs the pinned closure before any stack starts and refuses while no reviewed closure exists', () => {
+    expect(JOB.env.LQ_CLOSURE_PINS_SHA256).toBe('');
+    expect(JOB.env.LQ_CLOSURE_DIR).toBe('supabase/functions-closure/score-quiz');
+    const stage = STEPS[at(/stage-evidence/)].run!;
+    for (const r of ['closure-install.txt', 'edge-runtime-start.txt', 'edge-runtime-serve.txt']) expect(stage).toContain(r);
+    expect(WF).not.toMatch(/DECLARED, NOT HERMETIC/);
   });
 });
