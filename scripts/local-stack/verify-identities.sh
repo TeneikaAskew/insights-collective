@@ -32,11 +32,27 @@ compare() { # label live local
     echo "[$label] IDENTITY MISMATCH (server $(psql "$PGURL" -Atc 'show server_version')):"
     [ -n "$unexplained" ] && { echo "  expected but not reproduced / definition differs:"; echo "$unexplained" | sed 's/^/   /' | head -30; }
     [ -s "$T/onlylocal" ] && { echo "  local only:"; sed 's/^/   /' "$T/onlylocal" | head -30; }
+    { [ -n "$unexplained" ] && echo "$unexplained"; [ -s "$T/onlylocal" ] && cat "$T/onlylocal"; } | diag
     rc=1
   else
     echo "[$label] OK: $(wc -l < "$T/r.ids") identities match ($(echo "$explained" | grep -c .) declared divergence(s))"
   fi
   return $rc
+}
+# diag: bounded raw evidence for mismatched views and table grants, so a failed run explains itself without a rerun:
+# server version, reloptions, the RAW runtime definition (first 2000 chars) and both signature forms for up to 5
+# views; the raw ACL (relacl, with grantors) for up to 10 tables. Values are catalog text only; no row data.
+diag() {
+  local kind ident n_v=0 n_g=0 rel
+  while IFS=$'\t' read -r kind ident; do
+    case "$kind" in
+      view) n_v=$((n_v+1)); [ $n_v -gt 5 ] && continue
+        echo "  diagnostics view $ident (server $(psql "$PGURL" -Atc 'show server_version_num')):"
+        psql "$PGURL" -At -v v="$ident" -c "select '    reloptions: ' || coalesce(array_to_string(c.reloptions, ','), '<none>') || E'\n    raw definition (pg_get_viewdef, first 2000 chars):\n' || left(pg_get_viewdef(c.oid, true), 2000) || E'\n    md5(raw form): ' || md5(coalesce(array_to_string(c.reloptions, ','), '') || '|' || pg_get_viewdef(c.oid, true)) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname=:'v'" </dev/null 2>&1 | head -60 ;;
+      table_grant) n_g=$((n_g+1)); [ $n_g -gt 10 ] && continue; rel="${ident%%→*}"
+        psql "$PGURL" -At -v r="$rel" -c "select '  diagnostics acl ' || c.relname || ': owner=' || c.relowner::regrole::text || ' relacl=' || coalesce(c.relacl::text, '<default>') from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname=:'r'" </dev/null 2>&1 | head -3 ;;
+    esac
+  done
 }
 rc=0
 compare "live-verified (functions, policies, triggers, rls, grants)" "$T/live6" "$T/local6" || rc=1

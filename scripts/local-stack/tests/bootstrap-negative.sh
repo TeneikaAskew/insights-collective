@@ -83,4 +83,29 @@ out=$(PATH="$FAKE:$PATH" FAKE_FATAL_ON="show server_version" timeout 600 "$ROOT/
 [ $st -ne 0 ] && ! echo "$out" | grep -q "bootstrap OK" && echo "$out" | grep -q "version probe"; say "bootstrap fails closed when the final version probe dies (no 'bootstrap OK' with a blank version)" $?
 # 12) workdir preparation is non-destructive (separate harness; it never touches a database)
 out=$("$ROOT/scripts/local-stack/tests/workdir-negative.sh" 2>&1); st=$?; echo "$out" | grep -E "^(FAIL|SKIP)" | sed 's/^/   /'; say "workdir-negative.sh: $(echo "$out" | grep -c '^PASS') checks pass, $(echo "$out" | grep -c '^FAIL') fail" $st
+# 13) Supabase default ACLs (first PG15 run 41266473201): the image grants anon/authenticated/service_role ALL on every
+#     new public table. SIMULATED here with the same ALTER DEFAULT PRIVILEGES; the exact reconcile must remove what
+#     the capture lacks (quiz_questions and submission_attachments to anon), and identities must then match.
+simulate ls_defacl
+psql "$PGBASE/ls_defacl" -qc "alter default privileges in schema public grant all on tables to anon, authenticated, service_role" >/dev/null
+out=$(timeout 600 "$ROOT/scripts/local-stack/bootstrap.sh" "$PGBASE/ls_defacl" 2>&1); st=$?; echo "$out" | grep -E "ACL reconcile|revoked|OK:|bootstrap OK" | head -8 | sed 's/^/   /'
+[ $st -eq 0 ] && echo "$out" | grep -qP "revoked \(not in capture\): quiz_questions\tanon\t" && echo "$out" | grep -qP "revoked \(not in capture\): submission_attachments\tanon\t" && echo "$out" | grep -q "bootstrap OK"
+say "bootstrap reconciles simulated Supabase default ACLs exactly (quiz_questions/submission_attachments anon revoked; parity OK)" $?
+# 14) the reconcile touches only the three API roles and only what the capture lacks
+psql "$PGBASE/ls_defacl" -qc "do \$\$ begin if not exists (select 1 from pg_roles where rolname='ic_other_role') then create role ic_other_role nologin; end if; end \$\$; grant select on public.quiz_questions to ic_other_role; grant insert on public.quiz_questions to anon" >/dev/null
+out=$("$ROOT/scripts/local-stack/reconcile-table-acl.sh" "$PGBASE/ls_defacl" "$ROOT/scripts/local-stack/schema/05_triggers_grants.sql" quiz_analytics 2>&1); st=$?
+other=$(psql "$PGBASE/ls_defacl" -Atc "select has_table_privilege('ic_other_role','public.quiz_questions','SELECT')"); anon=$(psql "$PGBASE/ls_defacl" -Atc "select has_table_privilege('anon','public.quiz_questions','INSERT')")
+psql "$PGBASE/ls_defacl" -qc "revoke all on public.quiz_questions from ic_other_role; drop role ic_other_role" >/dev/null 2>&1
+[ $st -eq 0 ] && [ "$other" = "t" ] && [ "$anon" = "f" ] && echo "$out" | grep -qP "quiz_questions\tanon\tINSERT"; say "reconcile revokes a new extra anon INSERT and leaves a non-API role's grant alone" $?
+# 15) fail closed: a captured privilege that is missing on the server is reported, never silently accepted
+psql "$PGBASE/ls_defacl" -qc "revoke select on public.quiz_questions from authenticated" >/dev/null
+out=$("$ROOT/scripts/local-stack/reconcile-table-acl.sh" "$PGBASE/ls_defacl" "$ROOT/scripts/local-stack/schema/05_triggers_grants.sql" quiz_analytics 2>&1); st=$?
+psql "$PGBASE/ls_defacl" -qc "grant select on public.quiz_questions to authenticated" >/dev/null
+[ $st -eq 1 ] && echo "$out" | grep -qP "MISSING\tquiz_questions\tauthenticated\tSELECT"; say "reconcile fails closed on a missing captured privilege" $?
+# 16) fail closed: a grant line outside the strict form is refused instead of being skipped
+BAD=$(mktemp); { cat "$ROOT/scripts/local-stack/schema/05_triggers_grants.sql"; echo 'grant SELECT on public."Odd Table" to anon;'; } > "$BAD"
+out=$("$ROOT/scripts/local-stack/reconcile-table-acl.sh" "$PGBASE/ls_defacl" "$BAD" quiz_analytics 2>&1); st=$?; rm -f "$BAD"
+[ $st -eq 2 ] && echo "$out" | grep -q "do not match the strict form"; say "reconcile refuses an unparseable grant line" $?
+# 17) narrow version-aware view signature (captured PG15 text, PG16 identity, changed-definition controls)
+out=$("$ROOT/scripts/local-stack/tests/view-signature.sh" "$PGBASE/postgres" 2>&1); st=$?; echo "$out" | grep -E "^FAIL" | sed 's/^/   /'; say "view-signature.sh: $(echo "$out" | grep -c '^PASS') cases pass" $st
 rm -rf "$FAKE"; echo "bootstrap-negative: $npass PASS, $nfail FAIL of $((npass+nfail)) named checks; exit $rc"; exit $rc
