@@ -47,6 +47,9 @@ Why a snapshot and not a migration replay: the base tables (`courses`, `profiles
     without autosaved answers) and a learner self-flip to `complete` must not count. 8/17 on the live-equivalent
     schema, 17/17 with `20261101000200` applied. `[decision]` checks assert current behaviour that depends on the
     unmade minimum-submission vs passing-grade policy.
+  - `05_identity_retarget.sql` (T-09 follow-on): completion evidence stays bound to its identity. A done
+    progression row moved onto a never-attempted quiz, or a finalized attempt moved from quiz A to quiz B, must not
+    count; genuinely finalized zero-score attempts still do. Live-equivalent 5/11; with `20261101000300` 11/11.
   - With `20261101000000`, `000100` and `000200` all applied: 01 54/54, 02 16/16, 03 10/10, 04 17/17. 02's started-only
     checks now assert the required refusal (14/16 on the live-equivalent schema).
 - `scripts/local-db/local-preseed.sql` supplies the rows `e2e/fixtures/seed.sql` assumes already
