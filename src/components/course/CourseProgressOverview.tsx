@@ -18,7 +18,6 @@ import {
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { isProgressionDone } from '@/utils/progressionStates';
 import CourseErrorState from './CourseErrorState';
 import { ModuleProgressCard } from './ModuleProgressCard';
 import { useCourseProgress } from '@/hooks/useCourseProgress';
@@ -128,80 +127,44 @@ export const CourseProgressOverview: React.FC<CourseProgressOverviewProps> = ({
     },
   });
 
-  // Type-specific breakdown (lessons / assignments / quizzes) + grades.
-  // Uses content_items + content_item_progressions directly (no legacy tables).
+  // T-10 B: every progress figure below comes from ONE snapshot of useCourseProgress (eligible IDs + done IDs).
+  // The only extra read is the TYPE of each eligible item, keyed by the exact eligible ID set, so a change in the
+  // eligible universe or the done set (even at the same count) re-derives the figures instead of reusing a cache.
+  const eligibleKey = React.useMemo(
+    () => (progress ? [...progress.eligibleItemIds].sort().join(',') : null),
+    [progress],
+  );
   const {
-    data: stats,
-    isLoading: statsLoading,
-    error: statsError,
-    refetch: refetchStats,
+    data: typeById,
+    isLoading: typesLoading,
+    error: typesError,
+    refetch: refetchTypes,
   } = useQuery({
-    queryKey: ['course-stats', courseId, studentId, progress?.completedItems],
+    queryKey: ['course-item-types', courseId, eligibleKey],
     queryFn: async () => {
-      // Fetch published content items for this course's modules
-      const { data: modules, error: modulesError } = await supabase
-        .from('modules')
-        .select('id')
-        .eq('course_id', courseId)
-        .eq('published', true);
+      const ids = progress!.eligibleItemIds;
+      if (ids.length === 0) return new Map<string, string>();
+      const { data, error } = await supabase.from('content_items').select('id, type').in('id', ids);
+      if (error) throw new Error(error.message);
+      return new Map((data || []).map((r: { id: string; type: string }) => [r.id, r.type]));
+    },
+    enabled: eligibleKey !== null,
+  });
 
-      if (modulesError) throw new Error(modulesError.message);
-
-      const moduleIds = (modules || []).map((m) => m.id);
-      const { data: items, error: itemsError } = moduleIds.length > 0
-        ? await supabase
-            .from('content_items')
-            .select('id, type')
-            .in('module_id', moduleIds)
-            .eq('published', true)
-        : { data: [] as { id: string; type: string }[], error: null };
-
-      if (itemsError) throw new Error(itemsError.message);
-
-      const contentItems = items || [];
-      const itemIds = contentItems.map((i) => i.id);
-
-      // Completed progressions (read or completed)
-      const { data: progressions, error: progressionsError } = itemIds.length > 0
-        ? await supabase
-            .from('content_item_progressions')
-            .select('content_item_id, workflow_state')
-            .eq('user_id', studentId)
-            .in('content_item_id', itemIds)
-        : { data: [] as { content_item_id: string; workflow_state: string }[], error: null };
-
-      if (progressionsError) throw new Error(progressionsError.message);
-
-      // Same DONE states as useCourseProgress (read, completed, graded), so the per-type subtotals can never
-      // disagree with the overall figure. Stored progress only; not certificate eligibility.
-      const completedSet = new Set(
-        (progressions || [])
-          .filter((p) => isProgressionDone(p.workflow_state))
-          .map((p) => p.content_item_id),
-      );
-
-      const byType = (type: string) => contentItems.filter((c) => c.type === type);
-      const countCompleted = (type: string) =>
-        byType(type).filter((c) => completedSet.has(c.id)).length;
-
-      const totalLessons = byType('page').length;
-      const completedLessons = countCompleted('page');
-      const totalAssignments = byType('assignment').length;
-      const completedAssignments = countCompleted('assignment');
-      const totalQuizzes = byType('quiz').length;
-      const completedQuizzes = countCompleted('quiz');
-
-      // Exact module completion (every eligible item done), never a rounded percent.
-      const completedModules = (progress?.modules || []).filter((m) => m.isComplete).length;
-
-      // Average grade from real graded assignment submissions. There is no
-      // `grades` table in the schema — the old query against it failed
-      // silently and always produced a 0 average.
+  // Grades are their own fact (graded assignment submissions), never part of the progress snapshot.
+  const {
+    data: averageGrade,
+    isLoading: gradesLoading,
+    error: gradesError,
+    refetch: refetchGrades,
+  } = useQuery({
+    queryKey: ['course-average-grade', courseId, studentId],
+    queryFn: async () => {
+      // There is no `grades` table in the schema; the old query against it failed silently and always produced 0.
       const { data: courseAssignments, error: assignmentsError } = await supabase
         .from('assignments')
         .select('id, points')
         .eq('course_id', courseId);
-
       if (assignmentsError) throw new Error(assignmentsError.message);
 
       const assignmentIds = (courseAssignments || []).map((a) => a.id);
@@ -213,41 +176,55 @@ export const CourseProgressOverview: React.FC<CourseProgressOverviewProps> = ({
             .in('assignment_id', assignmentIds)
             .not('grade', 'is', null)
         : { data: [] as { assignment_id: string; grade: number }[], error: null };
-
       if (submissionsError) throw new Error(submissionsError.message);
 
-      const pointsByAssignment = new Map(
-        (courseAssignments || []).map((a) => [a.id, a.points]),
-      );
+      const pointsByAssignment = new Map((courseAssignments || []).map((a) => [a.id, a.points]));
       const gradePercentages = (gradedSubmissions || [])
         .map((s) => {
           const points = pointsByAssignment.get(s.assignment_id);
           return points && points > 0 ? (s.grade / points) * 100 : null;
         })
         .filter((p): p is number => p !== null);
-
-      const averageGrade = gradePercentages.length > 0
+      return gradePercentages.length > 0
         ? gradePercentages.reduce((sum, p) => sum + p, 0) / gradePercentages.length
         : 0;
-
-      return {
-        // Only eligible (published) modules, the same universe the progress read model counts.
-        totalModules: progress?.modules.length ?? 0,
-        completedModules,
-        totalLessons,
-        completedLessons,
-        totalAssignments,
-        completedAssignments,
-        totalQuizzes,
-        completedQuizzes,
-        overallProgress: progress?.percent ?? 0,
-        averageGrade,
-        timeSpent: 0, // legacy content_progress dropped; reintroduce when tracking is back
-        lastActivity: null,
-      } as CourseStats;
     },
-    enabled: !!course && !!progress,
   });
+
+  const stats = React.useMemo<CourseStats | null>(() => {
+    if (!progress || !typeById || averageGrade === undefined) return null;
+    const done = new Set(progress.doneItemIds);
+    // Only eligible IDs are counted; a type row for anything else is ignored.
+    const ofType = (type: string) => progress.eligibleItemIds.filter((id) => typeById.get(id) === type);
+    const count = (type: string) => {
+      const ids = ofType(type);
+      return { total: ids.length, done: ids.filter((id) => done.has(id)).length };
+    };
+    const pages = count('page');
+    const assignments = count('assignment');
+    const quizzes = count('quiz');
+    return {
+      // Only eligible (published) modules, the same universe the progress read model counts.
+      totalModules: progress.modules.length,
+      completedModules: progress.modules.filter((m) => m.isComplete).length,
+      totalLessons: pages.total,
+      completedLessons: pages.done,
+      totalAssignments: assignments.total,
+      completedAssignments: assignments.done,
+      totalQuizzes: quizzes.total,
+      completedQuizzes: quizzes.done,
+      overallProgress: progress.percent,
+      averageGrade,
+      timeSpent: 0, // legacy content_progress dropped; reintroduce when tracking is back
+      lastActivity: null,
+    };
+  }, [progress, typeById, averageGrade]);
+  const statsLoading = typesLoading || gradesLoading;
+  const statsError = typesError || gradesError;
+  const refetchStats = () => {
+    if (typesError) void refetchTypes();
+    if (gradesError) void refetchGrades();
+  };
 
   // Check if course is completed
   const { data: isCompleted } = useQuery({

@@ -110,7 +110,7 @@ window.HTMLElement.prototype.scrollIntoView = vi.fn();
 // The page reads completion only from the read model (T-10); this fake serves that shape.
 function setProgressHook(overrides: Partial<FakeProgressOptions> = {}) {
   vi.mocked(useCourseProgress).mockImplementation(
-    fakeCourseProgress({ eligible: ['i1', 'i2'], done: [], mark: mockMarkItemComplete, ...overrides }) as any,
+    fakeCourseProgress({ eligible: ['i1', 'i2'], done: [], mark: mockMarkItemComplete, modules: { m1: ['i1', 'i2'] }, ...overrides }) as any,
   );
 }
 

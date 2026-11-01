@@ -25,8 +25,9 @@ export interface ModuleProgress {
 /**
  * STORED-PROGRESS read model (T-10). "Done" is isProgressionDone(workflow_state) over ONE eligible universe:
  * published === true items in published === true modules of this course, as RLS lets this user read them.
- * This is not certificate eligibility: the database issuer and check_course_completion decide that (they also
- * require assessment evidence), so 100% here never promises a certificate.
+ * This is not certificate eligibility: only the database issuer decides that, and only its r5 path requires genuine
+ * assessment evidence. The legacy completion RPC (check_course_completion) does NOT require that evidence the way the
+ * r5 issuer does, so neither 100% here nor that RPC's answer promises a certificate; only an issued row does.
  */
 export interface CourseProgress {
   modules: ModuleProgress[];
@@ -91,17 +92,25 @@ export function useCourseProgress(
   const [error, setError] = useState<string | null>(null);
   // Only the latest request may write state, and a new course/user key starts from unknown, never from the
   // previous course's or user's numbers.
+  // The CURRENT identity is updated during render, so a callback captured for an older course/user (for example a
+  // delayed markItemComplete(A) that resolves after the page moved to course B) can tell it is stale. A result is
+  // written only when it is the newest request AND it was made for the identity that is current now (T-10 A).
   const requestSeq = useRef(0);
   const lastKey = useRef<string | null>(null);
+  const identity = `${courseId ?? ''}|${studentId ?? ''}`;
+  const currentIdentity = useRef(identity);
+  currentIdentity.current = identity;
 
   const fetchProgress = useCallback(async () => {
-    const seq = ++requestSeq.current;
     const key = `${courseId ?? ''}|${studentId ?? ''}`;
+    // A captured callback for a previous identity neither reads nor invalidates the current identity's request.
+    if (key !== currentIdentity.current) return;
+    const seq = ++requestSeq.current;
     if (lastKey.current !== key) {
       lastKey.current = key;
       setData(undefined);
     }
-    const current = () => seq === requestSeq.current;
+    const current = () => seq === requestSeq.current && key === currentIdentity.current;
     // modules.course_id is a uuid column — a non-UUID route param (e.g. a
     // mistyped /courses/<junk> URL) can never match and Postgres rejects it
     // with 22P02. Same guard useCoursePermissions already uses.

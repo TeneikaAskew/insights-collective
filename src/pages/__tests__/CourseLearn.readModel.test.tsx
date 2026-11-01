@@ -107,7 +107,7 @@ function setCurriculum() {
 // i1 is read and i2 is graded in stored progress: two genuine DONE items.
 function setProgress(overrides: Partial<FakeProgressOptions> = {}) {
   vi.mocked(useCourseProgress).mockImplementation(
-    fakeCourseProgress({ eligible: ELIGIBLE, done: ['i1', 'i2'], mark: mockMark, ...overrides }) as any,
+    fakeCourseProgress({ eligible: ELIGIBLE, done: ['i1', 'i2'], mark: mockMark, modules: { m1: ['i1', 'i2', 'i3'], m2: ['q4', 'i5', 'i6'] }, ...overrides }) as any,
   );
 }
 
@@ -266,6 +266,96 @@ describe('CourseLearn read model (T-10)', () => {
     // Drafts are listed for the editor, and the position counts the editor's outline.
     expect(screen.getAllByText('Draft Lesson').length).toBeGreaterThan(0);
     expect(completion().textContent).not.toMatch(/\d+%/);
+  });
+
+  describe('T-10 A: a same-key refresh is unknown on every surface', () => {
+    it('lesson view: held 33% is not shown; no checkmark, no rail count, no error notice', async () => {
+      setProgress({ refreshing: true });
+      openItem('m2', 'q4');
+      render(<CourseLearn />);
+      expect(await screen.findByTestId('learn-completion')).toHaveTextContent('Course completion unavailable');
+      expect(completion().textContent).not.toMatch(/33%/);
+      expect(railCount('Section 1 · Module One')).toBe('—');
+      expect(railCount('Section 2 · Module Two')).toBe('—');
+      expect(screen.queryByText("Couldn't load your progress")).not.toBeInTheDocument();
+    });
+
+    it('home: no counts, no done markers, no resume decision while refreshing', async () => {
+      setProgress({ refreshing: true });
+      render(<CourseLearn />);
+      expect(await screen.findByText(/6 lessons · Course completion unavailable/)).toBeInTheDocument();
+      expect(screen.queryByText(/\d+ \/ \d+ complete/)).not.toBeInTheDocument();
+      expect(screen.queryAllByRole('img', { name: 'Completed' })).toHaveLength(0);
+      expect(screen.queryByText(/^Resume:|Pick up where you left off/)).not.toBeInTheDocument();
+      expect(screen.getByText(/^Open course:/)).toBeInTheDocument();
+    });
+  });
+
+  describe('T-10 B: module figures come from the same snapshot, not the outline', () => {
+    it('a module whose outline holds an item the snapshot does not count shows the snapshot figure', async () => {
+      // The snapshot counts only i1 and i2 in m1 (i3 left the eligible set after the outline loaded); m2 unchanged.
+      setProgress({ eligible: ['i1', 'i2', 'q4', 'i5', 'i6'], modules: { m1: ['i1', 'i2'], m2: ['q4', 'i5', 'i6'] } });
+      openItem('m1', 'i1');
+      render(<CourseLearn />);
+      await screen.findByTestId('learn-completion');
+      expect(railCount('Section 1 · Module One')).toBe('2/2'); // outline still lists 3 items; position is separate
+      expect(railCount('Section 2 · Module Two')).toBe('0/3');
+      expect(position()).toHaveTextContent('Lesson 1 of 6');
+    });
+
+    it('home accordion uses the snapshot denominators too', async () => {
+      setProgress({ eligible: ['i1', 'i2', 'q4', 'i5', 'i6'], modules: { m1: ['i1', 'i2'], m2: ['q4', 'i5', 'i6'] } });
+      render(<CourseLearn />);
+      expect(await screen.findByText('2 / 2 complete')).toBeInTheDocument();
+      expect(screen.getByText('0 / 3 complete')).toBeInTheDocument();
+      expect(screen.queryByText('2 / 3 complete')).not.toBeInTheDocument();
+    });
+
+    it('a module missing from the snapshot shows no figure rather than an outline count', async () => {
+      setProgress({ modules: { m1: ['i1', 'i2', 'i3'] } });
+      openItem('m1', 'i1');
+      render(<CourseLearn />);
+      await screen.findByTestId('learn-completion');
+      expect(railCount('Section 1 · Module One')).toBe('2/3');
+      expect(railCount('Section 2 · Module Two')).toBe('—');
+    });
+  });
+
+  describe('T-10 C: edit mode hides completion on EVERY surface; preview as student is the current viewer', () => {
+    it('edit lesson view: no rail counts and no checkmarks even with stored progress', async () => {
+      perms.canEdit = true;
+      openItem('m1', 'i1');
+      const { container } = render(<CourseLearn />);
+      await screen.findByTestId('learn-completion');
+      expect(railCount('Section 1 · Module One')).toBe('');
+      expect(container.querySelectorAll('nav .lucide-circle-check-big, nav .lucide-check-circle-2, nav .lucide-circle-check').length).toBe(0);
+      expect(screen.queryByText("Couldn't load your progress")).not.toBeInTheDocument();
+    });
+
+    it('edit home: no counts, no done markers, no resume decision', async () => {
+      perms.canEdit = true;
+      render(<CourseLearn />);
+      expect((await screen.findAllByText(/Course completion is not shown while editing/)).length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Completion not shown while editing').length).toBeGreaterThan(0);
+      expect(screen.queryByText(/\d+ \/ \d+ complete/)).not.toBeInTheDocument();
+      expect(screen.queryAllByRole('img', { name: 'Completed' })).toHaveLength(0);
+      expect(screen.queryByText(/^Resume:/)).not.toBeInTheDocument();
+    });
+
+    it('edit to preview as student: the same surfaces show the current viewer\'s own snapshot (no impersonation)', async () => {
+      perms.canEdit = true;
+      render(<CourseLearn />);
+      await screen.findAllByText(/Course completion is not shown while editing/);
+      fireEvent.click(screen.getByRole('button', { name: /Preview as admin/ }));
+      fireEvent.mouseDown(screen.getByRole('button', { name: /Preview as student/ }));
+      expect(await screen.findByText(/6 lessons · Course completion 33%/)).toBeInTheDocument();
+      expect(screen.getByText('2 / 3 complete')).toBeInTheDocument();
+      expect(screen.getByText('0 / 3 complete')).toBeInTheDocument();
+      expect(screen.queryByText('Draft Lesson')).not.toBeInTheDocument();
+      // The hook is asked for the CURRENT viewer only: no student id override.
+      for (const call of vi.mocked(useCourseProgress).mock.calls) expect(call.length === 1 || call[1] === undefined).toBe(true);
+      expect(writeCalls()).toEqual([]);
+    });
   });
 
   describe('end of course: certificate access follows an issued row, never the percent', () => {

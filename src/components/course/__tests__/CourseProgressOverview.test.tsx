@@ -63,10 +63,13 @@ const courseRow = {
 function setProgressHook(overrides: Record<string, unknown> = {}) {
   vi.mocked(useCourseProgress).mockReturnValue({
     data: {
-      modules: [{ moduleId: 'm1', totalItems: 2, completedItems: 1, percent: 50 }],
+      modules: [{ moduleId: 'm1', totalItems: 2, completedItems: 1, percent: 50, isComplete: false }],
       totalItems: 2,
       completedItems: 1,
       percent: 50,
+      isComplete: false,
+      doneItemIds: ['i1'],
+      eligibleItemIds: ['i1', 'i2'],
     },
     isLoading: false,
     error: null,
@@ -119,7 +122,8 @@ describe('CourseProgressOverview', () => {
     // REGRESSION: a failed fetch used to leave the loading skeleton up forever.
     mockTables({
       ...successTables(),
-      modules: { data: null, error: { message: 'connection refused', code: 'PGRST000' } },
+      // The one stats read left is the type of each eligible item (T-10 B); its failure must surface.
+      content_items: { data: null, error: { message: 'connection refused', code: 'PGRST000' } },
     });
 
     const { container } = render(
@@ -162,29 +166,74 @@ describe('CourseProgressOverview read model (T-10)', () => {
     (mockSupabaseClient.rpc as Mock).mockResolvedValue({ data: false, error: null });
   });
 
-  it('counts graded as done in the per-type subtotals', async () => {
-    setProgressHook();
-    mockTables({
-      ...successTables(),
-      content_items: {
-        data: [
-          { id: 'i1', type: 'page' },
-          { id: 'i2', type: 'page' },
-          { id: 'a1', type: 'assignment' },
-        ],
-        error: null,
-      },
-      content_item_progressions: {
-        data: [
-          { content_item_id: 'i1', workflow_state: 'read' },
-          { content_item_id: 'a1', workflow_state: 'graded' },
-        ],
-        error: null,
+  it('per-type subtotals and the overall figure come from ONE snapshot (graded counts as done; non-eligible type rows ignored)', async () => {
+    // Snapshot: 3 eligible items, 2 done (i1 read, a1 graded). The type table also returns x9, which is NOT eligible.
+    setProgressHook({
+      data: {
+        modules: [{ moduleId: 'm1', totalItems: 3, completedItems: 2, percent: 67, isComplete: false }],
+        totalItems: 3, completedItems: 2, percent: 67, isComplete: false,
+        doneItemIds: ['i1', 'a1'], eligibleItemIds: ['i1', 'i2', 'a1'],
       },
     });
+    mockTables({
+      ...successTables(),
+      content_items: { data: [{ id: 'i1', type: 'page' }, { id: 'i2', type: 'page' }, { id: 'a1', type: 'assignment' }, { id: 'x9', type: 'page' }], error: null },
+    });
     render(<CourseProgressOverview courseId="course-1" studentId="student-1" />);
-    expect(await screen.findByText('1 of 2 completed')).toBeInTheDocument();
+    expect(await screen.findByText('1 of 2 completed')).toBeInTheDocument(); // pages: i1 of i1,i2 (x9 ignored)
+    expect(screen.getByText('1 of 1 submitted')).toBeInTheDocument(); // assignments: a1 graded
+    expect(screen.getByText('0 of 0 completed')).toBeInTheDocument(); // quizzes
+    expect(screen.getByText('67%')).toBeInTheDocument(); // overall = the same snapshot: 2 of 3
+    // No second progress universe: the overview never reads progressions or modules itself.
+    expect(tablesQueried()).not.toContain('content_item_progressions');
+    expect(tablesQueried()).not.toContain('modules');
+  });
+
+  it('a same-count change of the done IDs re-derives every subtotal (no count-keyed cache)', async () => {
+    const snap = (done: string[]) => ({
+      data: {
+        modules: [{ moduleId: 'm1', totalItems: 2, completedItems: 1, percent: 50, isComplete: false }],
+        totalItems: 2, completedItems: 1, percent: 50, isComplete: false,
+        doneItemIds: done, eligibleItemIds: ['i1', 'a1'],
+      },
+    });
+    setProgressHook(snap(['i1']));
+    mockTables({ ...successTables(), content_items: { data: [{ id: 'i1', type: 'page' }, { id: 'a1', type: 'assignment' }], error: null } });
+    const { rerender } = render(<CourseProgressOverview courseId="course-1" studentId="student-1" />);
+    expect(await screen.findByText('1 of 1 completed')).toBeInTheDocument();
+    expect(screen.getByText('0 of 1 submitted')).toBeInTheDocument();
+    setProgressHook(snap(['a1']));
+    rerender(<CourseProgressOverview courseId="course-1" studentId="student-1" />);
+    expect(await screen.findByText('0 of 1 completed')).toBeInTheDocument();
     expect(screen.getByText('1 of 1 submitted')).toBeInTheDocument();
+  });
+
+  it('a same-count change of the eligible IDs re-reads the item types for the new universe', async () => {
+    const snap = (eligible: string[]) => ({
+      data: {
+        modules: [{ moduleId: 'm1', totalItems: 2, completedItems: 0, percent: 0, isComplete: false }],
+        totalItems: 2, completedItems: 0, percent: 0, isComplete: false,
+        doneItemIds: [], eligibleItemIds: eligible,
+      },
+    });
+    setProgressHook(snap(['i1', 'i2']));
+    mockTables({ ...successTables(), content_items: { data: [{ id: 'i1', type: 'page' }, { id: 'i2', type: 'page' }, { id: 'q1', type: 'quiz' }], error: null } });
+    const { rerender } = render(<CourseProgressOverview courseId="course-1" studentId="student-1" />);
+    expect(await screen.findByText('0 of 2 completed')).toBeInTheDocument();
+    setProgressHook(snap(['i1', 'q1']));
+    rerender(<CourseProgressOverview courseId="course-1" studentId="student-1" />);
+    // pages 0/1 (i1 only; i2 left the universe) and quizzes 0/1 (q1 joined it)
+    expect(await screen.findAllByText('0 of 1 completed')).toHaveLength(2);
+    expect(screen.queryByText('0 of 2 completed')).not.toBeInTheDocument();
+  });
+
+  it('a same-key refresh (isLoading) shows no stale figures', async () => {
+    setProgressHook({ isLoading: true });
+    mockTables(successTables());
+    render(<CourseProgressOverview courseId="course-1" studentId="student-1" />);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByText('Overall Progress')).not.toBeInTheDocument();
+    expect(screen.queryByText('50%')).not.toBeInTheDocument();
   });
 
   it('totalModules counts eligible modules only, and module completion is exact (isComplete), not a percent', async () => {

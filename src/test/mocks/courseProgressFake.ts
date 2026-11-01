@@ -9,6 +9,10 @@ export interface FakeProgressOptions {
   mark: Mock;
   error?: string | null;
   loading?: boolean;
+  /** A same-key refresh: the previous snapshot is still held while isLoading is true (like the real hook). */
+  refreshing?: boolean;
+  /** Eligible item IDs per module, for the per-module figures of the same snapshot (T-10 B). */
+  modules?: Record<string, string[]>;
 }
 
 // Mirrors displayPercent in src/hooks/useCourseProgress.ts (that module is mocked in page tests).
@@ -23,7 +27,11 @@ export function fakeCourseProgress(opts: FakeProgressOptions) {
       data: unknown
         ? undefined
         : {
-            modules: [],
+            modules: Object.entries(opts.modules ?? {}).map(([moduleId, ids]) => {
+              const t = ids.filter((id) => opts.eligible.includes(id));
+              const c = t.filter((id) => doneIds.includes(id)).length;
+              return { moduleId, totalItems: t.length, completedItems: c, percent: pct(c, t.length), isComplete: t.length > 0 && c === t.length };
+            }),
             totalItems: opts.eligible.length,
             completedItems: doneIds.length,
             percent: pct(doneIds.length, opts.eligible.length),
@@ -31,7 +39,7 @@ export function fakeCourseProgress(opts: FakeProgressOptions) {
             doneItemIds: doneIds,
             eligibleItemIds: opts.eligible,
           },
-      isLoading: Boolean(opts.loading),
+      isLoading: Boolean(opts.loading) || Boolean(opts.refreshing),
       error: opts.error ?? null,
       refetch: vi.fn(),
       markItemComplete: async (id: string) => {

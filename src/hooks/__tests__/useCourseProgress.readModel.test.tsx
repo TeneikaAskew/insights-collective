@@ -347,4 +347,86 @@ describe('useCourseProgress read model (T-10)', () => {
     });
     await waitFor(() => expect(result.current.data?.doneItemIds.slice().sort()).toEqual(['i5', 'i6']));
   });
+
+  it('T-10 A: an old-course write that resolves after a switch never overwrites the new course (identity + sequence)', async () => {
+    seedSixItemCourse([{ content_item_id: 'i1', workflow_state: 'read' }]);
+    tables.modules.push({ id: 'mB', course_id: COURSE_B, published: true });
+    tables.content_items.push({ id: 'b1', module_id: 'mB', published: true });
+
+    const { result, rerender } = renderHook(({ id }) => useCourseProgress(id), { initialProps: { id: COURSE_A } });
+    await waitFor(() => expect(result.current.data?.totalItems).toBe(6));
+
+    // markItemComplete(A) with a delayed write; its fetchProgress closure belongs to course A.
+    let releaseWrite!: () => void;
+    markContentItemAsRead.mockImplementation(() => new Promise<void>((r) => (releaseWrite = r)));
+    const markA = result.current.markItemComplete;
+    let pending!: Promise<void>;
+    act(() => { pending = markA('i2'); });
+
+    rerender({ id: COURSE_B });
+    await waitFor(() => expect(result.current.data?.totalItems).toBe(1));
+    expect(result.current.data?.eligibleItemIds).toEqual(['b1']);
+    const modulesCallsBefore = calls.filter((c) => c.table === 'modules').length;
+
+    // The A write lands now (it really saved), then A's captured refetch runs: it must not read or write state.
+    tables.content_item_progressions.push({ user_id: 'user-1', content_item_id: 'i2', workflow_state: 'read' });
+    await act(async () => { releaseWrite(); await pending; });
+
+    expect(calls.filter((c) => c.table === 'modules').length).toBe(modulesCallsBefore); // no stale A read issued
+    expect(result.current.data?.eligibleItemIds).toEqual(['b1']);
+    expect(result.current.data?.totalItems).toBe(1);
+    expect(result.current.isLoading).toBe(false);
+  });
+
+  it('T-10 A causal control: sequence alone is not enough; the stale closure is refused by identity before it bumps the sequence', async () => {
+    // Same scenario, but B's own read is still in flight when the old A refetch runs. Under a sequence-only guard
+    // the A refetch would become the newest request and B's answer would be discarded.
+    seedSixItemCourse([{ content_item_id: 'i1', workflow_state: 'read' }]);
+    tables.modules.push({ id: 'mB', course_id: COURSE_B, published: true });
+    tables.content_items.push({ id: 'b1', module_id: 'mB', published: true });
+    const { result, rerender } = renderHook(({ id }) => useCourseProgress(id), { initialProps: { id: COURSE_A } });
+    await waitFor(() => expect(result.current.data?.totalItems).toBe(6));
+
+    let releaseWrite!: () => void;
+    markContentItemAsRead.mockImplementation(() => new Promise<void>((r) => (releaseWrite = r)));
+    const markA = result.current.markItemComplete;
+    let pending!: Promise<void>;
+    act(() => { pending = markA('i2'); });
+
+    const releaseB = gate('modules', COURSE_B);
+    rerender({ id: COURSE_B });
+    await waitFor(() => expect(result.current.isLoading).toBe(true));
+    await act(async () => { releaseWrite(); await pending; }); // A's refetch runs while B is pending
+    await act(async () => { releaseB(); });
+    await waitFor(() => expect(result.current.data?.eligibleItemIds).toEqual(['b1']));
+    expect(result.current.isLoading).toBe(false);
+  });
+
+  it('T-10 A: a same-key refresh reports isLoading while the previous 33% is still held (consumers must treat it as unknown)', async () => {
+    seedSixItemCourse([
+      { content_item_id: 'i1', workflow_state: 'read' },
+      { content_item_id: 'i2', workflow_state: 'graded' },
+    ]);
+    const { result } = renderHook(() => useCourseProgress(COURSE_A));
+    await waitFor(() => expect(result.current.data?.percent).toBe(33));
+
+    const release = gate('content_item_progressions');
+    act(() => { void result.current.refetch(); });
+    await waitFor(() => expect(result.current.isLoading).toBe(true));
+    expect(result.current.data?.percent).toBe(33); // held, but NOT current: isLoading is the signal
+    await act(async () => { release(); });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+  });
+
+  it('a failed progress read after a resolved write stays unknown (no save-confirmation number)', async () => {
+    seedSixItemCourse([{ content_item_id: 'i1', workflow_state: 'read' }]);
+    const { result } = renderHook(() => useCourseProgress(COURSE_A));
+    await waitFor(() => expect(result.current.data?.totalItems).toBe(6));
+    markContentItemAsRead.mockResolvedValue(undefined);
+    tableErrors.content_item_progressions = 'read failed';
+    await act(async () => { await result.current.markItemComplete('i2'); });
+    expect(markContentItemAsRead).toHaveBeenCalledWith('i2');
+    expect(result.current.data).toBeUndefined();
+    expect(result.current.error).toBe('read failed');
+  });
 });
