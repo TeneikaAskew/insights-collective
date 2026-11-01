@@ -18,6 +18,8 @@ export const J = {
     page: 'Journey reading',
     assignment: 'Journey essay upload',
   },
+  /** Published control course (seeded): J0's positive control that the catalog and detail routes rendered real data. */
+  control: { course: '9b6c0000-0000-4000-8000-000000000011', module: '9b6c0000-0000-4000-8000-000000000012', page: '9b6c0000-0000-4000-8000-000000000111', title: 'Journey Control Course' },
   instructorId: 'e2e00000-0000-4000-8000-000000000002',
   memberId: 'e2e00000-0000-4000-8000-000000000003',
 } as const;
@@ -25,8 +27,15 @@ export const J = {
 /** Points possible on the one assignment, and the grade the instructor gives through SpeedGrader. */
 export const POINTS = 10 as const;
 export const GRADE = 7 as const;
-/** Two published items (one page, one assignment): the denominator check_course_completion and the issuer both use. */
+/** Two published items (one page, one assignment): the denominator check_course_completion and the issuer both use.
+ *  The progress page splits it by type: Lessons (pages) 1 and Assignments 1. */
 export const PUBLISHED_ITEMS = 2 as const;
+export const PROGRESS = {
+  afterPage: { pct: '50%', lessons: '1 of 1 completed', assignments: '0 of 1 submitted' },
+  afterSubmit: { pct: '100%', lessons: '1 of 1 completed', assignments: '1 of 1 submitted' },
+  /** Average grade card: 7 / 10 = 70.0%. A separate grade metric, not part of completion. */
+  averageGrade: '70.0%',
+} as const;
 
 /** Typed feedback, and the exact stored value the SpeedGrader editor produces for one plain paragraph (same oracle
  *  shape as the grading fixture: fixture.ts STORED). The learner must SEE the typed text, never the markup. */

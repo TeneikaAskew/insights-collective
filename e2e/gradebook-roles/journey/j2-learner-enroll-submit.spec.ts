@@ -1,23 +1,28 @@
-// ABOUTME: Journey J2 (UNRUN): the learner finds the now-published course in the catalog, enrolls with the UI control,
-// ABOUTME: reads the page lesson, sees the certificate still locked, then uploads a real file and submits the assignment.
+// ABOUTME: Journey J2 (UNRUN): the learner finds the now-published course, enrolls with the UI control, reads the page lesson,
+// ABOUTME: then uploads a real file and submits. Every write is the app's own request, matched at request level (start + terminal).
 //
-// Every write is the app's own request under the learner's session: enrollment INSERT, progression upsert, Storage
-// object upload into submissions/<course>/<learner>/ (course_submission_insert policy), submission INSERT, attachment
-// INSERT (submission_attachments policy) and the assignment progression upsert (enforce_assessed_progression trigger).
+// Writes, all under the learner's session through the real API, Storage and RLS: enrollment INSERT; page progression upsert
+// (markContentItemAsRead, workflow_state 'read'); Storage object POST into submissions/<course>/<learner>/
+// (course_submission_insert policy); submission INSERT; attachment INSERT; assignment progression upsert (also 'read',
+// accepted by enforce_assessed_progression only with final evidence).
 //
-// Existing eligibility, observed in source and NOT changed: the certificate is auto-issued by
-// auto_issue_certificate_on_progression when the last published item is done with final evidence; a 'submitted'
-// submission with submitted_at counts (is_final_assignment_submission). No grade or pass threshold exists, so the
-// certificate is EXPECTED to appear right after submission, before any grade. J2c asserts exactly that; the
-// witness proves issued_at < graded_at. Whether a grade should gate the certificate is an owner policy decision.
+// Certificate claim, scoped: ONLY on the composed-r5 stack (session setup refuses anything else), where the exact pinned
+// 000500/000600 issuer accepts a final 'submitted' row with submitted_at plus two 'read' progressions and applies no score
+// threshold, the certificate exists right after submission. That is NOT the baseline #139 behaviour. J2c proves issuance
+// with the app's own certificate SELECT (the issued card), never with a page heading, and records id, code and issued_at
+// so J4d can require the same three values after grading.
 import { test, expect } from '../guarded-test';
 import { waitForPageLoad } from '../../fixtures/page-helpers';
-import { J, UPLOAD, SUBMISSION_PREFIX, route } from './ids';
-import { uiWrite, oneRow, appCall, countCalls, shot } from './observe';
+import { J, UPLOAD, SUBMISSION_PREFIX, PROGRESS, route } from './ids';
+import { expectCalls, expectCallSet, recordCalls, rowsOf, saveRunState, shot } from './observe';
+import { expectProgress } from './progress-oracle';
 
 test.describe.configure({ mode: 'serial' });
 
-test('J2a catalog -> detail -> Enroll: one enrollment row for this learner and course; reload shows Continue learning', async ({ page }, info) => {
+const certRead = { method: 'GET', path: '/rest/v1/certificates', query: { user_id: `eq.${J.memberId}`, course_id: `eq.${J.course}` } } as const;
+const progUpsert = { method: 'POST', path: '/rest/v1/content_item_progressions', query: { on_conflict: 'user_id,content_item_id' } } as const;
+
+test('J2a catalog -> detail -> Enroll: one enrollment POST for this learner and course; reload shows Continue learning', async ({ page }, info) => {
   await page.goto(route.catalog);
   await waitForPageLoad(page);
   const card = page.getByText(J.title.course, { exact: true }).filter({ visible: true });
@@ -26,11 +31,10 @@ test('J2a catalog -> detail -> Enroll: one enrollment row for this learner and c
   await expect(page).toHaveURL(new RegExp(`/courses/${J.course}$`));
   await waitForPageLoad(page);
 
-  const res = await uiWrite(page, () => page.getByRole('button', { name: /Enroll for free/ }).click(), 'POST', '/rest/v1/enrollments');
-  const sent = res.request().postDataJSON();
+  const [call] = await expectCalls(page, { method: 'POST', path: '/rest/v1/enrollments' }, () => page.getByRole('button', { name: /Enroll for free/ }).click(), { count: 1, status: [201] });
+  const sent = call.req.postDataJSON();
   expect(sent.user_id).toBe(J.memberId);
   expect(sent.course_id).toBe(J.course);
-  expect(res.status(), 'enrollment insert').toBe(201);
   await expect(page.getByText('Successfully enrolled!').first()).toBeVisible();
 
   await page.goto(route.detail);
@@ -40,71 +44,77 @@ test('J2a catalog -> detail -> Enroll: one enrollment row for this learner and c
   await shot(page, info, 'J2a-enrolled-after-reload');
 });
 
-test('J2b page lesson: reading to the end writes one read progression; certificate stays locked at 1 of 2', async ({ page }, info) => {
-  // The listener is armed BEFORE navigation: on a short page the scroll sentinel is visible at once and fires ~1.5 s later.
-  const res = await uiWrite(page, async () => {
+test('J2b page lesson: exactly one read progression for the page; progress 50% (1 of 1 lessons, 0 of 1 assignments); no certificate row', async ({ page }, info) => {
+  // Armed BEFORE navigation: on a short page the scroll sentinel is visible at once and fires about 1.5 s later.
+  const [call] = await expectCalls(page, progUpsert, async () => {
     await page.goto(route.lesson(J.item.page));
     await waitForPageLoad(page);
     await expect(page.getByText(J.title.page).filter({ visible: true }).first()).toBeVisible();
     await page.mouse.wheel(0, 20_000);
-  }, 'POST', '/rest/v1/content_item_progressions');
-  const sent = res.request().postDataJSON();
+  }, { count: 1, status: [200, 201] });
+  const sent = call.req.postDataJSON();
   expect(sent.content_item_id).toBe(J.item.page);
   expect(sent.user_id).toBe(J.memberId);
   expect(sent.workflow_state).toBe('read');
-  expect(res.status(), 'progression upsert').toBeLessThan(300);
 
-  await page.goto(route.certificate);
-  await waitForPageLoad(page);
-  await expect(page.getByRole('heading', { name: 'Course certificate' })).toBeVisible();
-  await expect(page.getByText('You must complete all course requirements before you can receive a certificate.')).toBeVisible();
-  await shot(page, info, 'J2b-certificate-locked-after-page');
+  await expectProgress(page, PROGRESS.afterPage);
+  await shot(page, info, 'J2b-progress-after-page');
+
+  const [read] = await expectCalls(page, certRead, async () => { await page.goto(route.certificate); await waitForPageLoad(page); }, { count: 1, status: [200] });
+  expect(await rowsOf(read), 'no certificate before the assignment is submitted').toHaveLength(0);
+  await shot(page, info, 'J2b-certificate-none-after-page');
 });
 
-test('J2c assignment: real file upload to the learner submissions prefix, one submitted row, one attachment row; certificate then issued by the existing rule', async ({ page }, info) => {
-  // Opening and scrolling the assessed item must not complete it: no progression write without a submission.
-  const early = await countCalls(page, appCall('POST', '/rest/v1/content_item_progressions'), async () => {
+test('J2c assignment: Storage upload under the learner prefix, one submission, one attachment, one progression; 100%; certificate issued (composed-r5)', async ({ page }, info) => {
+  // Opening and scrolling the assessed item must not complete it: no progression request STARTS without a submission.
+  const rec = recordCalls(page);
+  try {
     await page.goto(route.lesson(J.item.assignment));
     await waitForPageLoad(page);
     await expect(page.getByText(J.title.assignment).filter({ visible: true }).first()).toBeVisible();
     await page.mouse.wheel(0, 20_000);
     await page.waitForTimeout(2_500);
-  });
-  expect(early, 'no progression write from viewing an assignment').toBe(0);
+    expect(rec.candidates({ method: 'POST', path: '/rest/v1/content_item_progressions' }), 'no progression request from viewing an assignment').toHaveLength(0);
+  } finally { rec.stop(); }
 
   await page.locator('input[type="file"]').first().setInputFiles({ name: UPLOAD.name, mimeType: UPLOAD.mimeType, buffer: UPLOAD.body() });
 
-  const uploadP = page.waitForResponse((r) => r.request().method() === 'POST'
-    && r.url().includes(`/storage/v1/object/course-documents/${SUBMISSION_PREFIX}`), { timeout: 30_000 });
-  const subP = page.waitForResponse((r) => r.request().method() === 'POST' && r.url().includes('/rest/v1/assignment_submissions'), { timeout: 30_000 });
-  const attP = page.waitForResponse((r) => r.request().method() === 'POST' && r.url().includes('/rest/v1/submission_attachments'), { timeout: 30_000 });
-  const progP = page.waitForResponse((r) => r.request().method() === 'POST' && r.url().includes('/rest/v1/content_item_progressions'), { timeout: 30_000 });
-  await page.getByRole('button', { name: /Submit/ }).click();
+  const [[up], [sub], [att], [prog]] = await expectCallSet(page, [
+    { spec: { method: 'POST', path: `/storage/v1/object/course-documents/${SUBMISSION_PREFIX}` }, count: 1, status: [200] },
+    { spec: { method: 'POST', path: '/rest/v1/assignment_submissions' }, count: 1, status: [201] },
+    { spec: { method: 'POST', path: '/rest/v1/submission_attachments' }, count: 1, status: [201] },
+    { spec: progUpsert, count: 1, status: [200, 201] },
+  ], () => page.getByRole('button', { name: /Submit/ }).click());
 
-  const up = await uploadP;
-  expect(up.status(), 'storage upload under the learner prefix').toBe(200);
+  const key = decodeURIComponent(up.url.pathname.slice('/storage/v1/object/course-documents/'.length));
+  expect(key.startsWith(SUBMISSION_PREFIX)).toBe(true);
+  expect(key.slice(SUBMISSION_PREFIX.length)).toMatch(/^\d+-[a-z0-9]+\.pdf$/);
 
-  const sub = await subP;
-  const sentSub = sub.request().postDataJSON();
+  const sentSub = sub.req.postDataJSON();
   expect(sentSub.assignment_id).toBe(J.assignment);
   expect(sentSub.user_id).toBe(J.memberId);
   expect(sentSub.workflow_state).toBe('submitted');
   expect(sentSub.attempt).toBe(1);
   expect(sentSub.submission_type).toBe('online_upload');
-  const subRow = await oneRow(sub, 'submission insert');
-  expect(subRow.workflow_state).toBe('submitted');
-  expect(subRow.grade ?? null).toBeNull();
+  const subRows = await rowsOf(sub);
+  expect(subRows).toHaveLength(1);
+  const submissionId = String(subRows[0].id);
+  expect(subRows[0].user_id).toBe(J.memberId);
+  expect(subRows[0].assignment_id).toBe(J.assignment);
+  expect(subRows[0].workflow_state).toBe('submitted');
+  expect(subRows[0].grade ?? null).toBeNull();
 
-  const att = await attP;
-  const attRows = await att.json();
+  const attRows = await rowsOf(att);
   expect(attRows).toHaveLength(1);
+  expect(att.req.postDataJSON()[0].submission_id).toBe(submissionId);
   expect(attRows[0].filename).toBe(UPLOAD.name);
-  expect(String(attRows[0].url).startsWith(SUBMISSION_PREFIX), 'attachment row stores the object key, not a URL').toBe(true);
+  expect(attRows[0].url, 'attachment row stores the uploaded object key, not a URL').toBe(key);
   expect(attRows[0].size).toBe(UPLOAD.body().length);
 
-  const prog = await progP;
-  expect(prog.request().postDataJSON().content_item_id).toBe(J.item.assignment);
-  expect(prog.status(), 'assignment progression accepted by enforce_assessed_progression').toBeLessThan(300);
+  const sentProg = prog.req.postDataJSON();
+  expect(sentProg.content_item_id).toBe(J.item.assignment);
+  expect(sentProg.user_id).toBe(J.memberId);
+  expect(sentProg.workflow_state).toBe('read');
   await expect(page.getByText('Assignment submitted').first()).toBeVisible();
 
   // Fresh load: state comes from the database, not component state.
@@ -114,9 +124,23 @@ test('J2c assignment: real file upload to the learner submissions prefix, one su
   await expect(page.getByText(UPLOAD.name).filter({ visible: true }).first()).toBeVisible();
   await shot(page, info, 'J2c-submitted-after-reload');
 
-  // Existing eligibility: both published items are done with final evidence, so the trigger has issued the certificate.
-  await page.goto(route.certificate);
-  await waitForPageLoad(page);
-  await expect(page.getByRole('heading', { name: 'Your certificate is ready' })).toBeVisible();
+  await expectProgress(page, PROGRESS.afterSubmit);
+  await shot(page, info, 'J2c-progress-after-submit');
+
+  // Issuance proof BEFORE grading: the app's own scoped certificate SELECT returns exactly one row for this learner and
+  // course, and the issued card shows its code. A heading alone is not proof.
+  const [read] = await expectCalls(page, certRead, async () => { await page.goto(route.certificate); await waitForPageLoad(page); }, { count: 1, status: [200] });
+  const certs = await rowsOf(read);
+  expect(certs).toHaveLength(1);
+  expect(certs[0].user_id).toBe(J.memberId);
+  expect(certs[0].course_id).toBe(J.course);
+  const code = String(certs[0].verification_code);
+  expect(code).toMatch(/^[0-9A-F]{12}$/);
+  await expect(page.getByText(code, { exact: true }).filter({ visible: true })).toHaveCount(1);
   await shot(page, info, 'J2c-certificate-issued-before-grade');
+
+  saveRunState({
+    submissionId, attachmentId: String(attRows[0].id), attachmentKey: key,
+    certificate: { id: String(certs[0].id), code, issuedAt: String(certs[0].issued_at) },
+  });
 });

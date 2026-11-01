@@ -47,14 +47,22 @@ select 'CERT ' || c.id::text || ' user=' || c.user_id::text || ' type=' || c.cer
                                               where s.assignment_id = '9b6c0000-0000-4000-8000-000000000202' and s.user_id = c.user_id and s.graded_at is not null), 'NO_GRADE')
   from public.certificates c where c.course_id = '9b6c0000-0000-4000-8000-000000000001' order by c.id;
 
--- Audit trail for journey submissions (grade_posted, file_downloaded, ...), in order.
+-- Audit trail for journey submissions, in order, every column the comparator pins (details as jsonb text, key order fixed by
+-- jsonb). Expected from source: file_downloaded (log_submission_file_access, J3a) then grade_posted (audit_submission_grade, J3b).
 select 'AUDIT #' || row_number() over (order by e.created_at, e.id) || ' action=' || e.action || ' actor=' || coalesce(e.actor_id::text, 'NULL')
-    || ' student=' || coalesce(e.student_id::text, 'NULL')
-  from public.submission_audit_events e where e.course_id = '9b6c0000-0000-4000-8000-000000000001' order by e.created_at, e.id;
+    || ' submission=' || coalesce(e.submission_id::text, 'NULL') || ' student=' || coalesce(e.student_id::text, 'NULL')
+    || ' assignment=' || coalesce(e.assignment_id::text, 'NULL') || ' course=' || coalesce(e.course_id::text, 'NULL')
+    || ' module=' || coalesce(e.module_id::text, 'NULL') || ' attachment=' || coalesce(e.attachment_id::text, 'NULL')
+    || ' filename=' || coalesce(e.filename, 'NULL') || ' details=' || coalesce(e.details::text, 'NULL')
+  from public.submission_audit_events e
+ where e.course_id = '9b6c0000-0000-4000-8000-000000000001'
+    or e.submission_id in (select s.id from public.assignment_submissions s where s.assignment_id = '9b6c0000-0000-4000-8000-000000000202')
+ order by e.created_at, e.id;
 
--- Notifications on the journey course, as a sorted multiset without row identity or reader state.
+-- Notifications on the journey course, as a sorted multiset without row identity or reader state (title, message, link pinned).
 select line from (
-  select 'NOTIF user=' || coalesce(n.user_id::text, 'NULL') || ' type=' || coalesce(n.type, 'NULL') || ' title=' || coalesce(n.title, 'NULL') as line
+  select 'NOTIF user=' || coalesce(n.user_id::text, 'NULL') || ' type=' || coalesce(n.type, 'NULL') || ' title=' || coalesce(n.title, 'NULL')
+      || ' message=' || coalesce(n.message, 'NULL') || ' link=' || coalesce(n.link, 'NULL') as line
     from public.notifications n where n.course_id = '9b6c0000-0000-4000-8000-000000000001') x order by line collate "C";
 
 -- MANIFEST: every journey-scope row id, by table. The runner diffs pre vs post: the ADDED ids are the run-created rows.
@@ -81,8 +89,25 @@ select 'HASH buckets ' || count(*) || ' ' || coalesce(md5(string_agg(t::text, '|
 select 'HASH other_certificates ' || count(*) || ' ' || coalesce(md5(string_agg(t::text, '|' order by t.id)), 'empty') from public.certificates t where t.course_id <> '9b6c0000-0000-4000-8000-000000000001';
 select 'HASH other_audit_events ' || count(*) || ' ' || coalesce(md5(string_agg(t::text, '|' order by t.id)), 'empty') from public.submission_audit_events t where t.course_id is distinct from '9b6c0000-0000-4000-8000-000000000001';
 select 'HASH other_notifications ' || count(*) || ' ' || coalesce(md5(string_agg(t::text, '|' order by t.id)), 'empty') from public.notifications t where t.course_id is distinct from '9b6c0000-0000-4000-8000-000000000001';
+select 'HASH other_modules ' || count(*) || ' ' || coalesce(md5(string_agg(t::text, '|' order by t.id)), 'empty') from public.modules t where t.course_id <> '9b6c0000-0000-4000-8000-000000000001';
+select 'HASH other_items ' || count(*) || ' ' || coalesce(md5(string_agg(t::text, '|' order by t.id)), 'empty') from public.content_items t where t.course_id <> '9b6c0000-0000-4000-8000-000000000001';
+select 'HASH other_assignments ' || count(*) || ' ' || coalesce(md5(string_agg(t::text, '|' order by t.id)), 'empty') from public.assignments t where t.id <> '9b6c0000-0000-4000-8000-000000000202';
+select 'HASH quiz_submissions ' || count(*) || ' ' || coalesce(md5(string_agg(t::text, '|' order by t.id)), 'empty') from public.quiz_submissions t;
+select 'HASH quiz_submission_answers ' || count(*) || ' ' || coalesce(md5(string_agg(t::text, '|' order by t.id)), 'empty') from public.quiz_submission_answers t;
+select 'HASH grade_change_notifications ' || count(*) || ' ' || coalesce(md5(string_agg(t::text, '|' order by t.id)), 'empty') from public.grade_change_notifications t;
+-- certificate_verification_attempts exists only where its migration is applied; absence is printed, never skipped silently.
+select to_regclass('public.certificate_verification_attempts') is not null as has_cva \gset
+\if :has_cva
+select 'HASH certificate_verification_attempts ' || count(*) || ' ' || coalesce(md5(string_agg(t::text, '|' order by t.id)), 'empty') from public.certificate_verification_attempts t;
+\else
+select 'HASH certificate_verification_attempts ABSENT';
+\endif
+-- Full Storage (every object, journey prefix included, as id/bucket/name/owner/metadata) is listed in OBJ/MANIFEST and
+-- other_objects; the bucket rows are hashed whole.
 select 'HASH grades ' || count(*) || ' ' || coalesce(md5(string_agg(t::text, '|' order by t.id)), 'empty') from public.grades t;
 select 'HASH grade_history ' || count(*) || ' ' || coalesce(md5(string_agg(t::text, '|' order by t.id)), 'empty') from public.grade_history t;
+-- Journey course row minus the two columns J1 writes and its updated_at: nothing else on the course may change.
+select 'HASH journey_course_rest ' || md5((to_jsonb(c) - 'published' - 'status' - 'updated_at')::text) from public.courses c where c.id = '9b6c0000-0000-4000-8000-000000000001';
 -- Journey shell rows the run must not change (the course row changes only in published/status, checked by COURSE above).
 select 'HASH journey_modules_items_assignment ' || md5(
        (select string_agg(t::text, '|' order by t.id) from public.modules t where t.id = '9b6c0000-0000-4000-8000-000000000002')

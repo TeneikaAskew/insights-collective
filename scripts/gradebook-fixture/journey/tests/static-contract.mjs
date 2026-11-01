@@ -37,7 +37,7 @@ export function checkJourney(root) {
   if (/\b(insert|update|delete|truncate|drop|alter|create|grant|revoke|copy|set_config)\b/.test(wit)) v.push('R2_WITNESS_WRITES witness-journey.sql');
 
   // R3 specs: UI-driven only. No own writes, no API mocking, no client shortcuts, no service key, no URL logging.
-  for (const f of [...JOURNEY_SPECS, 'observe.ts']) {
+  for (const f of [...JOURNEY_SPECS, 'observe.ts', 'progress-oracle.ts']) {
     const src = stripJsComments(rd(`${jdir}/${f}`));
     if (/\.request\.(post|patch|put|delete|fetch)\s*\(|request\.newContext|\bfetch\s*\(/.test(src)) v.push(`R3_OWN_REQUEST ${f}`);
     if (/\.route\s*\(|\.fulfill\s*\(|routeFromHAR/.test(src)) v.push(`R3_MOCKED_API ${f}`);
@@ -48,7 +48,7 @@ export function checkJourney(root) {
   }
 
   // R4 no invented grade/pass threshold anywhere in the journey lane.
-  for (const f of [...JOURNEY_SPECS, 'ids.ts', 'observe.ts']) {
+  for (const f of [...JOURNEY_SPECS, 'ids.ts', 'observe.ts', 'progress-oracle.ts']) {
     if (/pass(ing)?[_ -]?(score|grade|threshold|mark)|min(imum)?[_ -]?grade/i.test(stripJsComments(rd(`${jdir}/${f}`)))) v.push(`R4_GRADE_THRESHOLD ${f}`);
   }
 
@@ -56,7 +56,7 @@ export function checkJourney(root) {
   const ids = rd(`${jdir}/ids.ts`);
   const tsIds = [...ids.matchAll(/'(9b6c0000-0000-4000-8000-[0-9a-f]{12})'/g)].map((m) => m[1]).sort();
   const seedIds = new Set([...seedRaw.matchAll(/'(9b6c0000-0000-4000-8000-[0-9a-f]{12})'/g)].map((m) => m[1]));
-  if (tsIds.length !== 5) v.push('R5_TS_ID_COUNT ids.ts');
+  if (tsIds.length !== 8) v.push('R5_TS_ID_COUNT ids.ts');
   for (const id of tsIds) if (!seedIds.has(id)) v.push(`R5_TS_ID_NOT_SEEDED_${id.slice(-3)} ids.ts`);
   for (const f of [...JOURNEY_SPECS, 'ids.ts', 'observe.ts', 'session-setup.ts']) {
     const s = rd(`${jdir}/${f}`);
@@ -72,11 +72,24 @@ export function checkJourney(root) {
   // R6 setup order: gate 1 and gate 3 are checked before the first sign-in request.
   const setup = rd(`${jdir}/session-setup.ts`);
   const iG1 = setup.indexOf('assertPrivateSessionDir(process.env.GB_SESSION_DIR)');
-  const iG3 = setup.indexOf('assertPairingProof(process.env.GB_JOURNEY_PAIRING_PROOF)');
+  const iG3 = setup.indexOf('assertPairingProof(process.env.GB_JOURNEY_PAIRING_PROOF,');
   const iPost = setup.indexOf("method: 'POST'");
   if (iG1 < 0 || iG3 < 0 || iPost < 0 || !(iG1 < iPost && iG3 < iPost)) v.push('R6_GATES_AFTER_SIGNIN session-setup.ts');
+  const iComp = setup.indexOf("process.env.GB_COMPOSITION !== 'composed-r5'");
+  if (iComp < 0 || iPost < 0 || !(iComp < iPost)) v.push('R6_COMPOSITION_AFTER_SIGNIN session-setup.ts');
+  if (!/assertPairingProof\(process\.env\.GB_JOURNEY_PAIRING_PROOF,\s*\{\s*sessionDir:/.test(setup)) v.push('R6_PROOF_NOT_SEPARATED session-setup.ts');
   if (/storageState\s*\(\s*\{\s*path/.test(setup)) v.push('R6_NON_EXCLUSIVE_SESSION_WRITE session-setup.ts');
   if (/\$\{[^}]*(message|body|text\(\)|password|token)[^}]*\}/i.test(setup.replace(/body: JSON\.stringify\([^)]*\)/g, ''))) v.push('R6_UNSANITIZED_ERROR session-setup.ts');
+
+
+  // R7 J4 checks are independent (no serial mode), so the expected-red F1 check cannot skip the read-only checks.
+  if (/mode:\s*'serial'/.test(stripJsComments(rd(`${jdir}/j4-learner-readback-certificate.spec.ts`)))) v.push('R7_J4_SERIAL j4-learner-readback-certificate.spec.ts');
+  // R8 public verification is DEFERRED in the no-Edge journey: no spec navigates to it or stubs the Edge function.
+  for (const f of JOURNEY_SPECS) if (/verify-certificate|functions\/v1/.test(stripJsComments(rd(`${jdir}/${f}`)))) v.push(`R8_VERIFY_NOT_DEFERRED ${f}`);
+  // R9 the expected post is fully pinned: no OBSERVED or unpinned markers, and the audit/notification lines are present.
+  const exp = rd(`${sdir}/expected-journey-post.txt`).split('\n').filter((l) => l && !l.startsWith('#'));
+  if (exp.some((l) => /<OBSERVED>|<UPLOAD_BYTES>|<MD5_FEEDBACK>|to pin|>=/.test(l))) v.push('R9_EXPECTED_UNPINNED expected-journey-post.txt');
+  if (exp.filter((l) => l.startsWith('AUDIT ')).length !== 2 || exp.filter((l) => l.startsWith('NOTIF ')).length !== 3) v.push('R9_EXPECTED_EVENTS expected-journey-post.txt');
 
   return v;
 }

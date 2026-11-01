@@ -1,86 +1,147 @@
-# No-quiz authentic UI journey: publish, enroll, upload, grade, readback, certificate (PROPOSAL, UNRUN)
+# No-quiz authentic UI journey: publish, enroll, upload, grade, readback, certificate (PROPOSAL r2, UNRUN)
 
-**Status:** proposal plus local checks only. Nothing here has run against any GoTrue, PostgREST, Storage, database or browser stack. Nothing was dispatched, pushed or published, and there are no production writes. The journey **cannot run yet**: gate 3's producer does not exist, so the setup fails closed by design.
+**Status:** a proposal plus local checks only. It is not run-ready.
+- Nothing here has run against any GoTrue, PostgREST, Storage, database or browser stack.
+- Nothing was dispatched, pushed or published. There are no production writes.
+- Receipt label: **75 fake/unit (selftest) / 1 mock (vitest characterization) / 12 journey list + 18 grading list preserved / tsc / lint inspected; no authentic journey.**
 
-**Base:** the qualified grading fixture db3ba0a (tree aa07052f), which sits on #139 644504d. It is NOT current main. The grading lane is unchanged: `playwright --list` with `GB_LANE` unset still lists the same 18 tests, line for line, as the db3ba0a receipt.
+**Successor of** 5d9714b, which is kept frozen and exported unchanged. This r2 is the one bounded correction batch for the 22:14Z consolidated review.
 
-**Owned paths only:** `e2e/gradebook-roles/journey/**`, `scripts/gradebook-fixture/journey/**`, and one lane switch in `playwright.gradebook-roles.config.ts`. No workflow, shared runner (`scripts/e2e`, `e2e/support`), migration or product source was edited.
+**Base:** the qualified grading fixture db3ba0a (tree aa07052f), on #139 644504d. This is NOT current main.
 
-## 1. The journey (one persona per Playwright project, chained)
-| Step | Persona | Route and UI control | Real backend path exercised | Oracle |
+**Grading lane is unchanged.** With `GB_LANE` unset, `playwright --list` gives the same 18 tests, line for line, as the 5d receipt, which equals the db3ba0a receipt. The #139 product patch is untouched.
+
+**Owned paths only:**
+- `e2e/gradebook-roles/journey/**`
+- `scripts/gradebook-fixture/journey/**`
+- the lane switch in `playwright.gradebook-roles.config.ts`, unchanged since 5d
+
+No workflow, shared runner (`scripts/e2e`, `e2e/support`), migration or product source was edited.
+
+## 1. Still BLOCKED (no shared-file edits in this lane)
+1. **Gate 3 producer and ordered pre-seed runner.**
+   - `pairing-proof.mjs` is a consumer of shape and placement only.
+   - The five values in a proof file are written by the caller, so they are NOT trusted current-run, API, DB or owner proof.
+   - Accepting a file only means "the shape is right".
+   - The producer and the order in which the runner calls it belong to the PR 134 thread.
+2. **Shared owned-stack pairing** before seed and before the first persona request. Same owner.
+3. **Always-cleanup** of the session, proof and diagnostics dirs on every exit, plus an exact inventory of uploaded outputs. These belong to the runner.
+4. **Hermetic served-app contract** (f169429, editor CDN). Owned by the PR 134 thread.
+
+## 2. Security corrections (review: SECURITY)
+- **Proof vs session dir.** The session dir must be EMPTY when setup starts (gate 1), so the proof can never live inside it.
+  - `assertPairingProof(file, { sessionDir })` refuses with `JOURNEY_GATE3_E_IN_SESSION_DIR` when the proof is in or under the session dir, or the session dir is under the proof's dir.
+  - It refuses with `JOURNEY_GATE3_E_PARENT` unless the proof's own dir is 0700, owned by the caller, and not a symlink.
+  - The selftest covers both, with fake controls.
+- **Outer fixed-code setup boundary.** Every step of `session-setup.ts` runs inside `stage(code, fn)`. That covers binding, launch, context, addInitScript, newPage, goto, settle, storageState, serialize, the exclusive write, stdout, and the final directory listing.
+  - A `JourneyGateError` passes through unchanged. Any other error becomes that step's fixed code.
+  - A last outer wrapper maps anything left to `JOURNEY_SETUP_E_UNCLASSIFIED`.
+  - Raw error name and message go only to `GB_DIAG_DIR`. That is its own fresh 0700 dir (gate 2 check), refused if it is the session dir, with 0600 files. If it is unset, raw diagnostics are dropped.
+  - `browser.close()` always runs. A close failure never masks the first error, and it is reported only when nothing failed before it.
+- **Kept as before:** 0700 dirs, `O_EXCL|O_NOFOLLOW` 0600 files, the origin guard, and the gate order. The order is enforced by the static contract (R6): binding, then gate 1, then optional gate 2, then composition `composed-r5`, then gate 3, all before the sign-in POST.
+- **After setup** the session dir must hold exactly `instructor.json,member.json`. J2c later adds the private `run-state-j2.json` (0600, exclusive create) for J3 and J4.
+
+## 3. The journey (one persona per Playwright project, chained)
+Observation is at request level (`observe.ts`). It records every request the app STARTS, together with its terminal state. Each expectation requires:
+- the exact origin, method and path, and the exact query (any non-passthrough key that is not named makes it a near-miss, and near-misses fail);
+- the exact count after a settle window, so a late duplicate fails;
+- a finished, not failed, request with an allowed status.
+
+The journey never sends a write itself. Its only own reads are the response bodies of the app's own requests.
+
+| Step | Persona | UI action | Request-level oracle | Other oracle |
 |---|---|---|---|---|
-| J0 | learner | `/courses`, `/courses/:id` while the course is a draft | courses RLS (published-only read) | The course is not listed, there is no Enroll control, and 0 enrollment POSTs are sent |
-| J1 | instructor | builder `[data-onboarding=builder-publish]` | `updateCourse` PATCH under the instructor's RLS | Sent `published=true, status=published`; exactly 1 row back; reload shows Unpublish |
-| J2a | learner | catalog card, then detail, then **Enroll for free** | enrollments INSERT | Sent user/course; 201; reload shows Continue learning |
-| J2b | learner | page lesson, scrolled to the end (scroll sentinel) | progression upsert, `can_access_content_item` restrictive policy | Sent `read` for the page; certificate page still locked |
-| J2c | learner | assignment lesson, file input, **Submit** | Storage upload to `course-documents/submissions/<course>/<learner>/` (`course_submission_insert`); submission INSERT; `submission_attachments` INSERT; `enforce_assessed_progression` | Viewing or scrolling writes 0 progressions. One `submitted` row (attempt 1, `online_upload`, grade NULL). One attachment row storing the object key, with the exact byte size. Reload shows "Submitted · Attempt 1" and the file |
-| J2c (end) | learner | `/courses/:id/certificate` | `auto_issue_certificate_on_progression` (r5 evidence rule) | "Your certificate is ready", issued **before** any grade (see section 2) |
-| J3a | instructor | SpeedGrader, **Download** | `supabase.storage.download` under `course_submission_select` (staff branch) | Downloaded bytes sha256 = uploaded bytes sha256; filename exact |
-| J3b | instructor | SpeedGrader grade 7, feedback, **Save** | #139 writer PATCH plus readback | Sent grade 7, `<p>feedback</p>`, `graded`; exactly 1 row back; reload shows 7 and the feedback |
-| J4a | learner | assignment lesson, two fresh loads | learner SELECT on own row | "Graded · Attempt 1 · Score 7 / 10"; the typed feedback is shown as **text, with no markup**. **Expected to FAIL on #139 source** (finding F1) |
-| J4b | learner | own file button (signed URL popup) | learner `course_submission_select` (own branch) | Response 200; body sha256 = upload; the URL is never logged or attached |
-| J4c | learner | `/courses/:id/grades`, `/courses/:id/progress` | read paths | 7 / 10; 100% |
-| J4d | learner | certificate page, **Download**, `/verify-certificate/:code` | certificates SELECT (owner), client PDF | Ready and "already issued"; the PDF is named `certificate-<shown code>.pdf`; verify accepts the code as the owner |
+| J0a | learner | `/courses` | none | Settled catalog: the published **control course** card is visible exactly once, and the draft course title has count 0 |
+| J0b | learner | control detail, then draft detail | 1 GET `courses?id=eq.<draft>` with terminal **406** (`.single()` on zero rows); 0 enrollment POSTs started | The control title renders (positive control), "Failed to load course" is shown (denial control), no Enroll button |
+| J1 | instructor | builder Publish | 1 PATCH `courses?id=eq.<course>`, 200 | Sent `published=true, status=published`; 1 row back with the same id; reload shows Unpublish |
+| J2a | learner | catalog, detail, **Enroll for free** | 1 POST enrollments, 201 | Sent user and course; reload shows Continue learning |
+| J2b | learner | page lesson, scroll | 1 POST `content_item_progressions?on_conflict=user_id,content_item_id`, armed before navigation | Sent `read` for the page. Progress page: **Course Completion 50%, Lessons 1 of 1, Assignments 0 of 1**. Certificate page: the app's certificate GET returns **0 rows** |
+| J2c | learner | assignment lesson, file, **Submit** | Viewing starts 0 progression POSTs. Then exactly 1 each: Storage POST under `submissions/<course>/<learner>/`, submission POST 201, attachment POST 201, progression POST | Object key shape; submission id from the returned row; attachment `submission_id` = that id and `url` = the uploaded key; exact size. Reload shows "Submitted · Attempt 1". Progress **100%, 1 of 1, 1 of 1** |
+| J2c (end) | learner | certificate page | 1 GET `certificates?user_id=eq.<learner>&course_id=eq.<course>` (passthrough select/order) returns **exactly 1 row** | Issued card shows that code. Id, code and issued_at are saved to the private run state **before grading** |
+| J3a | instructor | SpeedGrader **Download** | 1 POST `rpc/log_submission_file_access` with exactly `{p_submission_id: known, p_action: file_downloaded, p_attachment_id: known, p_filename}` and 1 GET `/storage/v1/object/course-documents/<known key>` with no query | Downloaded bytes sha256 = upload sha256; filename exact |
+| J3b | instructor | grade 7, feedback, **Save** | 1 PATCH `assignment_submissions?id=eq.<known submission id>`, 200 | Body keys exactly grade, graded_at, grader_comments, workflow_state. Returned id = known id; returned graded_at = sent instant. Reload shows 7 and the feedback |
+| J4a | learner | assignment lesson, 2 fresh loads | none | "Graded · Attempt 1 · Score 7 / 10"; feedback by **exact text**. **Expected RED (F1)** |
+| J4b | learner | own file button | 1 POST `object/sign/course-documents/<key>`, with a context-level response wait for the exact GET of that object path **armed before the click** | 200; body sha256 = upload. The URL is never logged or attached |
+| J4c | learner | grades, progress | none | Grades row 7 / 10. Progress 100%, Lessons 1 of 1, Assignments 1 of 1. **Average Grade 70.0%**, checked separately from completion |
+| J4d | learner | certificate page, **Download** | 1 certificate GET returning 1 row with the **same id, code and issued_at** as recorded in J2c | PDF named `certificate-<code>.pdf` |
 
-**Seed** (`seed-journey.sql`): ONE draft course shell with 1 published module, 1 page and one 10-point, single-attempt, upload-only assignment. It does not create an enrollment, progression, submission, object, attachment, grade, audit event, notification or certificate, and it creates no policy, trigger, function, grant or bucket. Pristine refusals cover a used stack, a staff learner, a public bucket and pre-existing objects.
+**J4 is not serial.** J4a's expected F1 failure does not skip J4b to J4d (static contract R7).
 
-**Witness** (`witness-journey.sql`, read-only) records:
-- exact journey-scope lines (COURSE/ENROLL/PROG/SUB/ATT/OBJ/CERT/AUDIT/NOTIF);
-- a **MANIFEST** of every journey-scope row id, where the post minus pre difference is the run-created set;
-- NULL- and position-preserving hashes of everything else, including other storage objects and buckets.
+**Not covered, DEFERRED (review A): public certificate verification.**
+- The real chain: `/verify-certificate/:code`, then `VerifyCertificate.tsx` lines 40 to 53 (a `fetch` to `/functions/v1/verify-certificate`), then the public **verify-certificate Edge function**. That function uses the service role to call `verify_certificate` and `rate_limit_certificate_verify`.
+- The rate-limit RPC inserts `certificate_verification_attempts` rows and prunes rows older than 24 hours.
+- This journey runs with **no Edge runtime**. The segment is therefore out of scope: no stub, no backend fix, and no navigation to the route (static contract R8).
+- It is not an owner-only SELECT denial, and 5d was wrong to call it one.
+- A future, separate Edge scope would use this oracle: "Verified certificate" plus the exact code and course title. The absence of "invalid format" would not be enough.
 
-Expected post-state is in `expected-journey-post.txt`. AUDIT and NOTIF multisets are deliberately **not yet pinned**: they need a read of the #139 and r5 triggers in review.
+## 4. Certificate claim, scoped exactly (review B)
+- The claim "certificate exists right after submission, before any grade" holds **only on composed-r5**: the ic_base snapshot plus the pinned T-09 000500 (blob de4f8c27) and 000600 (blob 8d520861).
+- There, the issuer accepts a final `submitted` row with `submitted_at` plus 2 `read` progressions, and applies no score threshold.
+- Setup refuses unless `GB_COMPOSITION=composed-r5` (`JOURNEY_SETUP_E_COMPOSITION_NOT_R5`).
+- This is **not** the baseline #139 behaviour. Nothing is inferred from "there is no threshold" beyond those pinned prerequisites.
+- Proof comes from the app's own scoped certificate SELECT and the issued card, never from a page heading. J2c's legacy "ready" heading is not proof (F3).
 
-**No cleanup SQL exists.** The stack is disposable and destroyed with the job. The manifest is the ownership record. This follows the user's rule that only fixture rows the run created may ever be targeted.
+## 5. Seed, witness, expected state, comparator (review C)
+- **Seed** (`seed-journey.sql`, inserts only, pristine refusals):
+  - the draft course shell (1 module, 1 page, 1 ten-point upload assignment);
+  - one **published control course** (1 module, 1 page, no enrollment) for J0 and for non-empty protected scopes.
+- **Witness** (`witness-journey.sql`, read-only):
+  - **AUDIT:** every column, including submission, attachment, filename, module and `details::text`.
+  - **NOTIF:** title, message and link.
+  - **Hashes added:** other modules, other items, other assignments, quiz_submissions, quiz_submission_answers, grade_change_notifications, certificate_verification_attempts (guarded with `to_regclass`; an absent table prints ABSENT, which FAILS), and the journey course row minus `published`, `status` and `updated_at`.
+- **Expected pre** (`expected-journey-pre.txt`): only `COURSE … published=false status=draft`, and an empty journey manifest.
+- **Expected post** (`expected-journey-post.txt`): fully pinned from source, with no OBSERVED values. It includes:
+  - `completion_status=0` (the column defaults to 0 and the app does not write it);
+  - size 329 and the feedback md5, both cross-checked against `ids.ts` by the selftest;
+  - 2 AUDIT lines:
+    - `file_downloaded`: instructor actor, known submission and attachment, `details={}`;
+    - `grade_posted`: `details={"new_grade": 7.00, "new_workflow_state": "graded", "old_workflow_state": "submitted", "rubric_scores_changed": false, "grader_comments_changed": true}` (grade is numeric(10,2); `old_grade` NULL is stripped);
+  - 3 NOTIF lines: 1 staff submission notice, 1 learner receipt and 1 learner grade notice, with exact title, message and link;
+  - 12 `ADDED` manifest rows.
+- **Comparator** (`tests/compare-witness.mjs`, run on fakes only):
+  - Binds `<ID:name>` consistently and distinctly across lines.
+  - Requires the journey lines to equal the expected multiset exactly, with no extra and no missing lines.
+  - Requires every bound id to be an added row of its table, with no extra, missing or removed manifest rows.
+  - Requires every HASH to be equal before and after.
+  - A HASH that is empty in both is reported as **UNPROVEN-EMPTY** (a narrowed claim, not protection). It FAILS for the required non-empty scopes (other_courses, other_modules, other_items, buckets), which the control course and the bucket make non-empty.
+  - Fake controls: a faithful fake passes. Each of these fails with its own code: wrong row, inconsistent binding, missing event, extra event, extra manifest row, bound id not added, non-empty pre manifest, changed hash, empty required scope, non-pristine pre, unknown line.
+- **Narrowed claim.** Protection covers only the hashed scopes listed in the witness. It says nothing about:
+  - auth/profiles beyond what the witness hashes;
+  - other schemas;
+  - Storage object **bytes** (the witness lists object metadata, not content);
+  - any table not listed.
+- **No grade-history proof.** `grade_history` and `grade_change_notifications` are hashed as unchanged, which is the expectation from source because nothing on this path writes them. The journey makes no claim about grade history.
 
-## 2. Eligibility, exactly as the source has it (nothing invented)
-- The certificate counts every published item. A page counts when it is `read`. An assignment counts when it is `read`/`completed` AND has a final submission (`is_final_assignment_submission`: `graded`, or `submitted` with `submitted_at`).
-- **There is no grade or pass threshold.** The certificate is therefore issued at J2c, before the instructor grades. The journey asserts that, and the witness proves `issued_before_graded=true`; grading must not reissue the certificate.
-- Whether a grade should gate the certificate is an **owner policy decision** (handoff section 9, "Completion policy... passing score must be explicitly decided"). It is not built or assumed here.
+## 6. Findings (review D wording)
+- **F1, valid MOCK characterization.**
+  - SpeedGrader stores `<p>…</p>`, and the learner view renders `grader_comments` as text.
+  - `journey/feedback-render.test.tsx` shows the literal tags at the mocked tier.
+  - The 5d causal control (a tag-stripped component) made it fail. That control was not re-run in r2, because neither file changed.
+  - J4a stays strict and red. The product fix is a separate scope, and no fix approach (such as stripping tags) is assumed.
+- **F2, snapshot policy gap, not runtime.** The snapshot's enrollments INSERT policy checks only `auth.uid() = user_id`. It was not observed at runtime and is not probed (no API shortcuts).
+- **F3, known; the SQL is not reopened.** The legacy `check_course_completion` "ready" heading and the r5 issuer can differ. The journey therefore never uses the heading as issuance proof.
+- **F4, corrected.** See section 3, DEFERRED: the Edge chain. It is not an owner-only SELECT denial.
+- **F5, unchanged from 5d.** On the local stack, `course-documents` has no MIME or size limit, and `course-images` is public.
 
-## 3. The four gates, and where each one stands for this lane
-| Gate | This lane | Still needed (owner) |
-|---|---|---|
-| 1 Private 0700 session dir, 0600 files, always cleanup | `private-dir.mjs` checks the dir before any write: absolute, not a symlink, outside the repo, 0700, caller-owned, empty. Files use exclusive create (`O_EXCL`/`O_NOFOLLOW`) with mode 0600. Sessions are never written into the repo (the config refuses without an absolute `GB_SESSION_DIR`) | Creating the dir with mktemp, and **always** removing it on every exit (trap), belong to the runner. The lane's `run.sh` is not changed in this batch, and the unreviewed WIP diff is not used |
-| 2 Sanitized fixed-code errors, private scanned outputs | Setup errors are fixed codes plus at most an HTTP status. The static contract fails if an error interpolates a body, message, token or password. Specs never log or attach URLs | Private raw logs with an exact scanned upload inventory: runner/workflow (PR 134 thread) |
-| 3 Owned disposable stack and API to DB pairing BEFORE seed and first persona POST | `pairing-proof.mjs` is the consumer. Setup checks it **before the first sign-in POST**, and the static contract enforces that order. Shape: `{version:1, stack_id(128-bit hex), db_read, api_read, produced_before_seed:true}`, mode 0600 | **Producer missing.** It needs a stack-unique value written at bootstrap and readable with the anon key without a persona session. That likely needs a bootstrap change in `scripts/local-stack` (PR 134 thread). Until then the journey fails closed (`JOURNEY_GATE3_E_NO_PROOF`) |
-| 4 Hermetic served-app contract without the editor CDN | The origin guard is reused unchanged: any non-approved origin is blocked before send and fails the test | The served-app contract (proposal `pr134/hermetic/hermetic-served-app-f169429`, blocker `cdn.gpteng.co` in index.html) belongs to the PR 134 thread |
-
-**Shared integration requested, as a proposal only (not edited):**
-1. A gate 3 producer in the stack bootstrap.
-2. A runner path that runs `GB_LANE=journey` on its **own** fresh stack, never the grading fixture's stack. Each witness protects the other's rows, so a shared stack would break both.
-3. A `gradebook-journey` dispatch scope. Each writable scope needs review plus a specific run approval.
-
-## 4. Source observations found while mapping (recorded, NOT fixed, no policy change)
-- **F1 (predicted UI defect):** `InlineAssignmentSubmit` renders `grader_comments` as React text, but SpeedGrader stores HTML, so the learner sees `<p>…</p>` literally.
-  - Proven at the mocked tier by `journey/feedback-render.test.tsx`.
-  - Causal control: a stripped-tags variant of the component makes the characterization FAIL.
-  - The grading fixture's learner spec uses substring `getByText`, which hides this. J4a uses exact text.
-- **F2 (policy gap, from the snapshot):** the enrollments INSERT policy only checks `auth.uid() = user_id`. A direct API enroll into an unpublished course is not known to be refused, and J0 only proves the UI path. Not probed: no API shortcuts in this lane.
-- **F3 (UI and issuer divergence):** `check_course_completion`, which drives "Your certificate is ready", does not apply the r5 evidence rule, while the issuer does. With legacy done rows, the page can say "ready" when no certificate is issued. The RPC is also SECURITY DEFINER, takes any `p_student_id`, and is granted to anon. The journey's fresh evidence keeps the two in agreement.
-- **F4 (verification scope):** the certificates SELECT policies cover the owner and course staff only. Third-party `/verify-certificate/:code` may answer "Invalid". J4d verifies as the owner only.
-- **F5 (local stack divergence):** `scripts/local-stack/localize.sql` creates `course-documents` with no MIME allowlist or size limit, and `course-images` as public. Hosted bucket config is unknown, so upload acceptance on the local stack may not match hosted.
-
-## 5. Local checks (exact commands; see receipts for outputs)
+## 7. Local checks (exact commands and exits in `receipts/`)
 | Command | Exit |
 |---|---|
 | `node scripts/gradebook-fixture/journey/tests/static-contract.mjs` | 0 PASS |
-| `node scripts/gradebook-fixture/journey/tests/journey-selftest.mjs` (gate 1 x13, gate 3 x10, static contract real tree + 20 causal mutations) | 0, 44 ok |
-| `npx vitest run --config e2e/gradebook-roles/journey/vitest.journey.config.ts` | 0, 1/1 |
-| Same, with the component's feedback line temporarily tag-stripped (reverted; blob 7b1d914e restored) | 1 (control fails as required) |
-| `npx tsc --noEmit -p tsconfig.json` | 0 |
+| `node scripts/gradebook-fixture/journey/tests/journey-selftest.mjs` | 0, 75 ok |
+| `npx vitest run --config e2e/gradebook-roles/journey/vitest.journey.config.ts` | 0, 1/1 (mock) |
+| `npx tsc --noEmit -p tsconfig.json` and `npx tsc -b` | 0 / 0 |
 | Direct tsc over journey files, config and grading specs (scratch tsconfig in receipts) | 0 |
 | `npx eslint e2e/gradebook-roles/journey playwright.gradebook-roles.config.ts scripts/gradebook-fixture/journey` | 0 |
-| `playwright --list`, grading lane (GB_LANE unset) | 0, 18 tests, identical to the db3ba0a receipt |
+| `playwright --list`, grading lane | 0, 18, identical to the 5d receipt |
 | `playwright --list`, `GB_LANE=journey` | 0, 12 tests in 5 projects |
-| `--list` with journey lane and no session dir / bad lane value | 1 / 1 (refused) |
+| `--list`, journey with no session dir, and bad lane value | 1 / 1 (refused) |
 | Repo CI target/DSN checker tests (3 files) | 0, 33 |
 
 The list runs used placeholder loopback env values. No server was listening, and nothing was contacted.
 
-## 6. Not done and not claimed
-- No authentic evidence of any kind: every journey case is **UNRUN**, and J4a is expected to fail.
-- Selectors were written from source reading and have never matched a rendered page.
-- The AUDIT and NOTIF oracles are unpinned. The runner that binds `<ID:…>` placeholders and diffs pre/post is described, not written.
-- No mobile/tablet viewport, accessibility or Firefox coverage. Desktop Chromium only.
-- No product, policy, migration, workflow or shared-runner change. F1 to F5 go to their owners.
+## 8. Not done and not claimed
+- No authentic evidence. Every journey case is **UNRUN**, and J4a is expected red.
+- Selectors and request shapes come from reading the source. None has met a rendered page or a live API.
+- The comparator ran on fakes only. No real witness exists.
+- Desktop Chromium only.
+- No product, policy, migration, workflow or shared-runner change.
