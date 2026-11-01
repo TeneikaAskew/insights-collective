@@ -1,7 +1,7 @@
 // ABOUTME: Instructor half of the gradebook real-role run. Both writers grade four 10-point assignments by identity, every
 // ABOUTME: save is checked against the exact intended request (grade, feedback oracle, graded_at) and read back after a reload,
 // ABOUTME: UI and CSV totals are 14/40 = 35%, and two UI saves that the server answers zero-row / pinned must show an error.
-import { test, expect } from '../fixtures/page-helpers';
+import { test, expect } from './guarded-test';
 import { waitForPageLoad } from '../fixtures/page-helpers';
 import type { Page } from '@playwright/test';
 import { GB, FINAL, TOTAL, FEEDBACK, STORED, BINDING, num, sameInstant, patchAsPage, readAsPage, savedToken, isPatchTo, shot } from './fixture';
@@ -144,8 +144,8 @@ test('U1 SpeedGrader save the server answers with ZERO rows: error shown, nothin
   // zero-row answer is authentic. The UI must report failure, not success.
   await page.route(`${BINDING.api.origin}/rest/v1/assignment_submissions*`, (route) => {
     const r = route.request();
-    if (r.method() !== 'PATCH') return route.continue();
-    return route.continue({ url: r.url().replace(`id=eq.${GB.sub.SG7}`, `id=eq.${GB.sub.GX_MEMBER}`) });
+    if (r.method() !== 'PATCH') return route.fallback();
+    return route.fallback({ url: r.url().replace(`id=eq.${GB.sub.SG7}`, `id=eq.${GB.sub.GX_MEMBER}`) });
   });
   await page.locator('#grade').fill('9');
   const resP = page.waitForResponse((r) => r.request().method() === 'PATCH' && r.url().includes(GB.sub.GX_MEMBER));
@@ -162,7 +162,7 @@ test('U1 SpeedGrader save the server answers with ZERO rows: error shown, nothin
   expect(after).toEqual(before);
 });
 
-test('U2 SpeedGrader save the server PINS (non-staff token on own row): error shown, SG7 unchanged', async ({ page }, info) => {
+test('U2 SpeedGrader SAME grade 7 + changed feedback, server PINS it (non-staff token on own row): feedback named in the error, SG7 unchanged', async ({ page }, info) => {
   await openGrader(page, GB.item.SG7);
   const before = await readAsPage(page, GB.sub.SG7);
   const memberToken = savedToken('member');
@@ -170,10 +170,11 @@ test('U2 SpeedGrader save the server PINS (non-staff token on own row): error sh
   // trigger's answer (one row, grade/feedback/graded_at unchanged) is authentic. The UI must report failure.
   await page.route(`${BINDING.api.origin}/rest/v1/assignment_submissions*`, (route) => {
     const r = route.request();
-    if (r.method() !== 'PATCH') return route.continue();
-    return route.continue({ headers: { ...r.headers(), authorization: `Bearer ${memberToken}` } });
+    if (r.method() !== 'PATCH') return route.fallback();
+    return route.fallback({ headers: { ...r.headers(), authorization: `Bearer ${memberToken}` } });
   });
-  await page.locator('#grade').fill('9');
+  // The grade is left at its stored 7 so ONLY the feedback differs: a grade-only readback would accept this save.
+  await page.locator('#grade').fill(String(FINAL.SG7));
   await fillFeedback(page, 'GB fixture: pinned attempt.');
   const resP = page.waitForResponse(isPatchTo(GB.sub.SG7));
   await page.getByRole('button', { name: /^Save$/ }).click();
@@ -184,7 +185,11 @@ test('U2 SpeedGrader save the server PINS (non-staff token on own row): error sh
   expect(num(rows[0].grade, 'pinned grade')).toBe(FINAL.SG7);
   expect(rows[0].grader_comments).toBe(STORED(FEEDBACK.SG7));
   await expect(page.getByText('Error saving grade').first()).toBeVisible();
-  await expect(page.getByText(/did not take the new value/).first()).toBeVisible();
+  const sent = res.request().postDataJSON();
+  expect(num(sent.grade, 'sent grade')).toBe(FINAL.SG7);                  // same grade really sent
+  expect(sent.grader_comments).toBe(STORED('GB fixture: pinned attempt.')); // changed feedback really sent
+  await expect(page.getByText(/stored grader_comments(, graded_at)? did not take the new value/).first()).toBeVisible();
+  await expect(page.getByText(/stored grade[ ,]/)).toHaveCount(0);           // the grade itself matched
   await expect(page.getByText('Grade published')).toHaveCount(0);
   await shot(page, info, 'U2-speedgrader-pinned-error');
   await page.unroute(`${BINDING.api.origin}/rest/v1/assignment_submissions*`);

@@ -1,9 +1,10 @@
 -- ABOUTME: Read-only witness for the gradebook fixture: exact state of every fixture submission, its audit trail,
 -- ABOUTME: and full-row hashes of everything the run must NOT touch. run.sh captures it before and after the browser run.
+-- Ids are printed IN FULL (never a suffix: a different user/row with the same last digits must not match).
 -- Output lines are plain text, ids and hashes only: no bodies, no feedback text (feedback is reported as md5).
 \pset tuples_only on
 \pset format unaligned
-select 'STATE ' || right(s.id::text, 3)
+select 'STATE ' || s.id::text
     || ' grade=' || coalesce(trim_scale(s.grade::numeric)::text, 'NULL')
     || ' score=' || coalesce(trim_scale(s.score::numeric)::text, 'NULL')
     || ' state=' || coalesce(s.workflow_state, 'NULL')
@@ -13,9 +14,9 @@ select 'STATE ' || right(s.id::text, 3)
   from public.assignment_submissions s
  where s.id::text like '9b6b0000-0000-4000-8000-0000000003%'
  order by s.id;
-select 'AUDIT ' || right(e.submission_id::text, 3) || ' #' || row_number() over (partition by e.submission_id order by e.created_at, e.id)
+select 'AUDIT ' || e.submission_id::text || ' #' || row_number() over (partition by e.submission_id order by e.created_at, e.id)
     || ' action=' || e.action
-    || ' actor=' || coalesce(right(e.actor_id::text, 3), 'NULL')
+    || ' actor=' || coalesce(e.actor_id::text, 'NULL')
     || ' old_grade=' || coalesce(trim_scale((e.details ->> 'old_grade')::numeric)::text, 'NULL')
     || ' new_grade=' || coalesce(trim_scale((e.details ->> 'new_grade')::numeric)::text, 'NULL')
     || ' old_state=' || coalesce(e.details ->> 'old_workflow_state', 'NULL')
@@ -36,13 +37,15 @@ select 'HASH fixture_assignments ' || count(*) || ' ' || coalesce(md5(string_agg
   from public.assignments t where t.id::text like '9b6b0000-0000-4000-8000-0000000002%';
 -- Immutable parts of the fixture itself: submission identity/content (everything a grader must never change), and the
 -- course/module/item/assignment/enrollment rows the fixture stands on.
-select 'HASH fixture_submission_immutable ' || count(*) || ' ' || md5(string_agg(concat_ws('|', t.id, t.assignment_id, t.user_id, t.body, t.url,
-         t.submission_type, t.submitted_at, t.attempt, t.rubric_scores, t.excused, t.late, t.missing, t.created_at), '#' order by t.id))
+-- Encoded as a JSON array: every field keeps its POSITION and NULL stays a distinct JSON null (concat_ws would skip NULLs,
+-- so body='x',url=NULL and body=NULL,url='x' used to hash the same; see the relocation negative in the rehearsal).
+select 'HASH fixture_submission_immutable ' || count(*) || ' ' || md5(string_agg(jsonb_build_array(t.id, t.assignment_id, t.user_id, t.body, t.url,
+         t.submission_type, t.submitted_at, t.attempt, t.rubric_scores, t.excused, t.late, t.missing, t.created_at)::text, '#' order by t.id))
   from public.assignment_submissions t where t.id::text like '9b6b0000-0000-4000-8000-0000000003%';
 select 'HASH fixture_courses ' || count(*) || ' ' || md5(string_agg(t::text, '|' order by t.id)) from public.courses t where t.id::text like '9b6b0000-0000-4000-8000-00000000000%' or t.id::text like '9b6b0000-0000-4000-8000-00000000001%' or t.id::text like '9b6b0000-0000-4000-8000-00000000002%';
 select 'HASH fixture_modules ' || count(*) || ' ' || md5(string_agg(t::text, '|' order by t.id)) from public.modules t where t.id = '9b6b0000-0000-4000-8000-000000000002';
 select 'HASH fixture_items ' || count(*) || ' ' || md5(string_agg(t::text, '|' order by t.id)) from public.content_items t where t.id::text like '9b6b0000-0000-4000-8000-0000000001%';
-select 'HASH fixture_enrollments ' || count(*) || ' ' || md5(string_agg(concat_ws('|', t.id, t.user_id, t.course_id, t.enrolled_at, t.completion_status), '#' order by t.id))
+select 'HASH fixture_enrollments ' || count(*) || ' ' || md5(string_agg(jsonb_build_array(t.id, t.user_id, t.course_id, t.enrolled_at, t.completion_status)::text, '#' order by t.id))
   from public.enrollments t where t.course_id::text like '9b6b0000-0000-4000-8000-0000000000%';
 -- Observed only, NOT asserted: progress on fixture items (a learner opening a lesson may legitimately record it).
 select 'OBSERVED fixture_item_progressions ' || count(*) from public.content_item_progressions where content_item_id::text like '9b6b0000-0000-4000-8000-0000000001%';
@@ -51,9 +54,9 @@ select 'OBSERVED fixture_item_progressions ' || count(*) from public.content_ite
 -- (notify_student_on_grade) must add exactly one row per real grade/feedback change and none for pinned, zero-row or
 -- feedback-less changes. Every other notification row is protected byte-identical.
 select line from (
-  select 'NOTIF user=' || coalesce(right(n.user_id::text, 3), 'NULL') || ' course=' || right(n.course_id::text, 3)
+  select 'NOTIF user=' || coalesce(n.user_id::text, 'NULL') || ' course=' || n.course_id::text
       || ' type=' || coalesce(n.type, 'NULL') || ' title=' || coalesce(n.title, 'NULL') || ' message=' || coalesce(n.message, 'NULL')
-      || ' link=' || coalesce(replace(n.link, '9b6b0000-0000-4000-8000-000000000', '~'), 'NULL') as line
+      || ' link=' || coalesce(n.link, 'NULL') as line
     from public.notifications n
    where n.course_id in ('9b6b0000-0000-4000-8000-000000000001', '9b6b0000-0000-4000-8000-000000000011')) x
  order by line collate "C";

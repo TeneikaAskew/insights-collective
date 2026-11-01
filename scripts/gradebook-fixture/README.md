@@ -56,6 +56,15 @@ The fixture's `score` is NULL throughout, so what the learner sees comes from `g
 
 **None of this is API, browser or runtime evidence.**
 
+## Final hardening batch (local only; supersedes older counts above where they differ)
+- **Origin guard** (`e2e/gradebook-roles/origin-guard.mjs`, `guarded-test.ts`): every setup and test context aborts any request whose origin is not exactly the bound app or API origin BEFORE it is sent. Redirects are followed inside the route handler hop by hop, each hop judged before it is fetched; popups, frames, workers and WebSockets go through the same context route; service workers are blocked at context creation. Allowed requests return the real local response unchanged. Each test fails if anything was blocked.
+- **App/API/DB association:** `run.sh` writes a fresh 128-bit nonce into the GB course row through the DB DSN; `session-setup.ts` must read exactly that value back through the approved API, and the app must have called that API. Loopback URLs alone are not taken as proof of one stack.
+- **Composition** (`composition.sql`): detected from the database (pin_assignment_grade_columns md5 plus the `local_evidence.applied_migrations` ledger). `baseline-139` / `t09-old` use `expected-post.txt`; `composed-r5` uses `expected-post.composed-r5.txt`. Unknown or mismatched fails closed. `GB_COMPOSITION` is exported to the specs.
+- **Witness:** immutable and enrollment hashes use `jsonb_build_array(...)` (NULL- and position-preserving; `concat_ws` skipped NULLs); all ids, actors and notification recipients are full UUIDs. `OBSERVED fixture_item_progressions` and `OBSERVED fixture_notifications_read` stay declared observe-only exclusions.
+- **Rehearsal** (`tests/local-sql-rehearsal.sh`): a negative counts as detected only if the corruption and witness ran with psql exit 0, the witness is complete (6 STATE, all 12 HASH keys, NOTIF, both OBSERVED), and the comparison differs. Two contract controls (SQL error, unacquirable witness) must come out INVALID. Seed reuse must fail with the specific used-stack refusal.
+- **U2** now sends the SAME grade 7 with changed feedback, so only a full-field readback rejects it.
+- **P4** records OLD #139/c5 fixture-baseline behaviour only (workflow_state promotion passes). Under `composed-r5` (#136 r5, 20261101000600) the promotion is pinned and the spec expects `submitted`. No backend change here; it is not a policy proposal.
+
 ## Not done or not claimed
 - **No execution** against any GoTrue, PostgREST or browser stack. Nothing was dispatched, and there are no production writes.
 - **Not in any workflow.** Running it in CI needs a writable scope that does not exist yet. The `readonly-courses` scope is NOT broadened. The workflow addition is a separate proposal for review:
@@ -64,4 +73,5 @@ The fixture's `score` is NULL throughout, so what the learner sees comes from `g
 - **No new policy, trigger or function.** P1 documents the existing pin and claims nothing more.
 - **No stale-attempt or concurrency safety claim.** Writers update by id only; that item stays open.
 - **Not addressed:** the null-points fallback of 100, divergence between `score` and `grade`, and the unused third writer (`assignmentService.gradeSubmission`).
+- **Rejection UI is tested in SpeedGrader only** (U1 zero-row, U2 pinned). The course-gradebook writer's error path for a denied or pinned save is NOT exercised; its readback shares `assertGradeSaved`, which unit tests cover, but no browser case proves the gradebook cell shows the error.
 - **Port binding:** the isolated stack's published ports bind all interfaces by default (see run 41317521050). Any execution inherits whatever is decided for that.

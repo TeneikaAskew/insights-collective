@@ -1,7 +1,7 @@
 // ABOUTME: Learner half of the gradebook real-role run: every learner route shows each assignment's own score out of 10 by
 // ABOUTME: identity across fresh loads; the learner's own writes to grade, feedback (same grade), graded_at are pinned;
-// ABOUTME: workflow_state is recorded as current behaviour; another user's row answers zero rows.
-import { test, expect } from '../fixtures/page-helpers';
+// ABOUTME: workflow_state promotion is checked against the detected composition; another user's row answers zero rows.
+import { test, expect } from './guarded-test';
 import { waitForPageLoad } from '../fixtures/page-helpers';
 import { GB, FINAL, FEEDBACK, STORED, num, sameInstant, patchAsPage, readAsPage, shot } from './fixture';
 
@@ -76,14 +76,20 @@ test('P3 own SG7: graded_at rewrite is pinned', async ({ page }) => {
   expect(sameInstant(r.rows![0].graded_at, before.graded_at)).toBe(true);
   expect(await readAsPage(page, GB.sub.SG7)).toEqual(before);
 });
-test('P4 own GX row: workflow_state is NOT pinned by pin_assignment_grade_columns (CURRENT BEHAVIOUR, not policy); grade stays NULL', async ({ page }) => {
+// P4 depends on the composed backend, detected by run.sh (composition.sql) and passed as GB_COMPOSITION. It records
+// OLD #139/c5 fixture-baseline behaviour only; it is NOT a policy and asks for no backend fix: #136 r5 already pins a
+// non-staff promotion INTO 'graded' (20261101000600), so the combined-release fixture must see the rejection.
+const COMPOSITION = process.env.GB_COMPOSITION ?? '';
+test(`P4 own GX row: non-staff workflow_state 'graded' + grade (${COMPOSITION || 'composition unset'})`, async ({ page }) => {
+  expect(['baseline-139', 't09-old', 'composed-r5'], 'GB_COMPOSITION must come from composition.sql').toContain(COMPOSITION);
   await page.goto(`/courses/${GB.course}/assignments`); await waitForPageLoad(page);
   const before = await readAsPage(page, GB.sub.GX_MEMBER);
   expect(before.workflow_state).toBe('submitted');
   const r = await patchAsPage(page, GB.sub.GX_MEMBER, { workflow_state: 'graded', grade: 10 });
   expect(r.status).toBe(200); expect(r.rows).toHaveLength(1);
-  expect(r.rows![0].workflow_state).toBe('graded');     // the pin function's source lists no workflow_state
-  expect(r.rows![0].grade).toBeNull();                  // grade IS pinned
+  // baseline-139 / t09-old: OLD behaviour, the c5 pin lists no workflow_state. composed-r5: the r5 pin reverts the promotion.
+  expect(r.rows![0].workflow_state).toBe(COMPOSITION === 'composed-r5' ? 'submitted' : 'graded');
+  expect(r.rows![0].grade).toBeNull();                  // grade is pinned in every composition
   expect(r.rows![0].graded_at).toBeNull();
 });
 test('Z2 another user\'s submission answers zero rows', async ({ page }) => {

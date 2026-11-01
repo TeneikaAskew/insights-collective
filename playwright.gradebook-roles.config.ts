@@ -8,7 +8,7 @@ import { assertStrictLocalBinding } from './e2e/gradebook-roles/local-binding.mj
 
 const { app } = assertStrictLocalBinding();          // throws before Playwright runs any setup
 const SESSIONS = path.join(process.cwd(), '.playwright-sessions', 'gradebook-roles');
-const chromium = { ...devices['Desktop Chrome'], baseURL: app.origin, launchOptions: chromiumExecutableOption(), screenshot: 'off' as const, trace: 'off' as const };
+const chromium = { ...devices['Desktop Chrome'], baseURL: app.origin, launchOptions: chromiumExecutableOption(), screenshot: 'off' as const, trace: 'off' as const, serviceWorkers: 'block' as const };
 
 export default defineConfig({
   testDir: './e2e/gradebook-roles',

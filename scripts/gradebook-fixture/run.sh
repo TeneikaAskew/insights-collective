@@ -12,7 +12,19 @@ node "$ROOT/scripts/e2e/assert-safe-target.mjs" --mutating || { echo "run refuse
 node "$ROOT/scripts/local-db/assert-local-dsn.mjs" "$SUPABASE_DB_URL" >/dev/null || { echo "run refused: not a loopback DSN" >&2; exit 3; }
 mkdir -m 700 "$OUT"
 PSQL=(env -u PGHOST -u PGHOSTADDR -u PGSERVICE -u PGSERVICEFILE -u PGPORT -u PGPASSFILE psql "$SUPABASE_DB_URL" -X -q -v ON_ERROR_STOP=1)
+# Composition is detected from the database itself (pin fingerprint + T-09 ledger); unknown or mismatched fails closed.
+GB_COMPOSITION=$("${PSQL[@]}" -f "$HERE/composition.sql" | sed -n 's/^COMPOSITION //p'); export GB_COMPOSITION
+case "$GB_COMPOSITION" in baseline-139|t09-old) EXPECTED="$HERE/expected-post.txt" ;; composed-r5) EXPECTED="$HERE/expected-post.composed-r5.txt" ;;
+  *) echo "run refused: gradebook composition not identified" >&2; exit 3 ;; esac
+echo "COMPOSITION $GB_COMPOSITION ($(basename "$EXPECTED"))" | tee "$OUT/composition.txt"
 "${PSQL[@]}" -f "$HERE/seed.sql" | tee "$OUT/seed.txt"
+# Association nonce: written HERE through the DB DSN, read back by session-setup.ts through the approved API (API -> DB).
+GB_ASSOCIATION_NONCE=$(od -An -tx1 -N16 /dev/urandom | tr -d ' \n'); export GB_ASSOCIATION_NONCE
+[[ "$GB_ASSOCIATION_NONCE" =~ ^[0-9a-f]{32}$ ]] || { echo "run refused: could not draw an association nonce" >&2; exit 3; }
+# (psql interpolates :'nonce' only in script input, never in -c, so the statement is fed on stdin.)
+n=$(printf "update public.courses set description = :'nonce' where id = '9b6b0000-0000-4000-8000-000000000001' returning 1;\n" \
+    | "${PSQL[@]}" -At -v nonce="gb-association:$GB_ASSOCIATION_NONCE" -f - | grep -c '^1$' || true)
+[ "$n" = 1 ] || { echo "run refused: association nonce not written to exactly one fixture course row" >&2; exit 3; }
 "${PSQL[@]}" -f "$HERE/witness.sql" > "$OUT/witness-pre.txt"
 # Non-vacuity: the protected set must contain rows to protect (the e2e seed's own submissions).
 for k in other_submissions other_audit_events grades grade_history certificates fixture_assignments fixture_submission_immutable fixture_courses fixture_modules fixture_items fixture_enrollments other_notifications; do
@@ -26,7 +38,7 @@ set -e
 # serialises it; fixture.ts STORED()), hashed here from these literals. Nothing is derived from what the run stored.
 oracle() { printf '%s' "$1" | md5sum | cut -c1-32; }
 SG0B=$(oracle '<p>GB fixture: thesis missing; see rubric row 1.</p>'); SG7=$(oracle '<p>GB fixture: solid argument.</p>')
-sed -e "s/<SG0b>/$SG0B/" -e "s/<SG7>/$SG7/" "$HERE/expected-post.txt" > "$OUT/expected-post.resolved.txt"
+sed -e "s/<SG0b>/$SG0B/" -e "s/<SG7>/$SG7/" "$EXPECTED" | grep -E '^(STATE|AUDIT) ' > "$OUT/expected-post.resolved.txt"
 rc=0
 diff <(grep -E '^(STATE|AUDIT) ' "$OUT/witness-post.txt") "$OUT/expected-post.resolved.txt" > "$OUT/state-diff.txt" && echo "PASS fixture state and audit trail exactly as expected" || { echo "FAIL fixture state/audit differs (state-diff.txt)"; rc=1; }
 { grep -v '^#' "$HERE/expected-notif-added.txt"; grep '^NOTIF ' "$OUT/witness-pre.txt"; } | LC_ALL=C sort > "$OUT/expected-notif.resolved.txt"
