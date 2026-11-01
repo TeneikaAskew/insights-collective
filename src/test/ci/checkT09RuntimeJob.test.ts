@@ -55,6 +55,21 @@ describe('t09-runtime job under the unchanged isolated-workflow checker', () => 
     expect(doc.jobs[JOB].container).toBeUndefined();
   });
 
+  it('control: keys and persona tokens are deleted by their own always() step, before and independent of each stack stop', () => {
+    const steps = YAML.parse(WF).jobs[JOB].steps as Array<{ name?: string; if?: string; run?: string }>;
+    for (const m of ['OLD', 'NEW']) {
+      const lower = m.toLowerCase();
+      const del = steps.findIndex((s) => s.name?.startsWith(`${m} - delete local keys and persona tokens`));
+      const stop = steps.findIndex((s) => s.name?.startsWith(`${m} - stop`));
+      expect(del, `${m} deletion step`).toBeGreaterThan(-1);
+      expect(steps[del].if).toBe('always()');
+      expect(del).toBeLessThan(stop);
+      expect(steps[del].run).toContain(`rm -rf "$RUNNER_TEMP/t09-keys-${lower}" "$RUNNER_TEMP/t09-${lower}-personas.json"`);
+      expect(steps[del].run).toMatch(/\[ -e "\$RUNNER_TEMP\/t09-keys-[a-z]+" \] \|\| \[ -e .*exit 1/);
+      expect(steps[stop].run).not.toContain('t09-keys-');   // the stop step no longer owns deletion
+    }
+  });
+
   describe('secrets', () => {
     it('refuses a secrets expression in the job env', async () => {
       const p = await refused(variant((d) => d.setIn(['jobs', JOB, 'env', 'T09_LEAK'], '${{ secrets.SUPABASE_ACCESS_TOKEN }}')), /^secrets:/);

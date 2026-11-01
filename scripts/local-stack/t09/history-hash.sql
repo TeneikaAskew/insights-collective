@@ -3,10 +3,12 @@
 --
 --  seed      (setup, direct database session, before the window): one legacy course H owned by legacy instructor LI,
 --            with a page, an assignment and a quiz, and three legacy learners:
---              LG genuine history: submitted+timestamped submission, completed progression, finalized quiz attempt;
+--              LG genuine history: submitted+timestamped submission, completed progression, an attempt finalized by the
+--                 database finalizer under service_role claims (fixture-finalized; checked 'complete' with finished_at);
 --              LX legacy-invalid under the NEW rules: TIMESTAMPED UNSUBMITTED submission + completed progression and a
 --                 started-only quiz attempt (exactly what OLD accepted; nothing is "fixed" or rewritten);
 --              LC a legacy certificate with a fixed verification code issued 100 days ago.
+--            With -v hc/-v hg, LC and LG are the API personas HC and HG (same rows, persona ids).
 --            Written as the trusted local postgres with no API claims (the path the SQL tier's P10 shows is unaffected).
 --            No session_replication_role, no grant, no ownership change. If a trigger refuses a row, the seed FAILS.
 --            Every one of the four protected tables must then hold at least one seeded row.
@@ -28,6 +30,15 @@ select 1/0 as action_required;
 select set_config('t09.history_label', :'label', false) \gset t09_
 \else
 select set_config('t09.history_label', '', false) \gset t09_
+\endif
+-- Optional (API runs): -v hc=<id> -v hg=<id> seed LC and LG AS the GoTrue personas HC and HG, which must already exist in
+-- auth.users (personas.sh creates them first), so API controls can act as the same subjects as the protected history.
+\if :{?hc}
+select set_config('t09.history_hc', :'hc', false) \gset t09_
+select set_config('t09.history_hg', :'hg', false) \gset t09_
+\else
+select set_config('t09.history_hc', '', false) \gset t09_
+select set_config('t09.history_hg', '', false) \gset t09_
 \endif
 \if :{?a}
 select set_config('t09.history_a', :'a', false) \gset t09_
@@ -52,9 +63,9 @@ declare
   tbls constant text[] := array['content_item_progressions', 'assignment_submissions', 'quiz_submissions', 'certificates'];
   t text; c text[]; n bigint; hval text; r record; bad int;
   LI constant uuid := '7a000000-0000-4000-8000-0000000000a1';
-  LG constant uuid := '7a000000-0000-4000-8000-0000000000b1';
+  LG constant uuid := coalesce(nullif(current_setting('t09.history_hg'), ''), '7a000000-0000-4000-8000-0000000000b1')::uuid;
   LX constant uuid := '7a000000-0000-4000-8000-0000000000b2';
-  LC constant uuid := '7a000000-0000-4000-8000-0000000000b3';
+  LC constant uuid := coalesce(nullif(current_setting('t09.history_hc'), ''), '7a000000-0000-4000-8000-0000000000b3')::uuid;
   H  constant uuid := '7a000000-0000-4000-8000-000000000c00';
   HM constant uuid := '7a000000-0000-4000-8000-000000000c01';
   HP constant uuid := '7a000000-0000-4000-8000-000000000c02';
@@ -65,8 +76,14 @@ declare
 begin
   if act = 'seed' then
     if exists (select 1 from public.courses where id = H) then raise exception 'history-hash seed: already seeded (fresh stack expected)'; end if;
-    insert into auth.users (id, email) values (LI, 't09-legacy-i@local.test'), (LG, 't09-legacy-g@local.test'),
-      (LX, 't09-legacy-x@local.test'), (LC, 't09-legacy-c@local.test');
+    if current_setting('t09.history_hc') <> '' then
+      -- Persona subjects: they must already exist (created through the local GoTrue admin API); never created here.
+      if (select count(*) from auth.users where id in (LC, LG)) <> 2 then raise exception 'history-hash seed: persona HC or HG missing from auth.users'; end if;
+      insert into auth.users (id, email) values (LI, 't09-legacy-i@local.test'), (LX, 't09-legacy-x@local.test');
+    else
+      insert into auth.users (id, email) values (LI, 't09-legacy-i@local.test'), (LG, 't09-legacy-g@local.test'),
+        (LX, 't09-legacy-x@local.test'), (LC, 't09-legacy-c@local.test');
+    end if;
     insert into public.profiles (id) values (LI), (LG), (LX), (LC) on conflict (id) do nothing;
     insert into public.user_roles (user_id, role) values (LI, 'instructor'), (LG, 'student'), (LX, 'student'), (LC, 'student') on conflict do nothing;
     insert into public.courses (id, title, description, category, level, instructor_id, published)
@@ -81,14 +98,29 @@ begin
     insert into public.assignment_submissions (id, assignment_id, user_id, submitted_at, submission_type, body, workflow_state) values
       ('7a000000-0000-4000-8000-0000000001b1', aHA, LG, now() - interval '200 days', 'online_text_entry', 'legacy genuine', 'submitted'),
       ('7a000000-0000-4000-8000-0000000001b2', aHA, LX, now() - interval '200 days', 'online_text_entry', 'legacy staged', 'unsubmitted');
+    -- LG's attempt is started, then finalized by the database finalizer under service_role claims (fixture-finalized; the
+    -- score-quiz Edge Function is not exercised). A direct 'complete' INSERT is silently rewritten to 'pending_review' by
+    -- pin_quiz_submission_score (snapshot trigger), which made the earlier seed's "genuine" attempt NOT final.
     insert into public.quiz_submissions (id, quiz_id, user_id, attempt, workflow_state, started_at, finished_at) values
-      ('7a000000-0000-4000-8000-0000000002b1', qHQ, LG, 1, 'complete', now() - interval '199 days', now() - interval '199 days'),
+      ('7a000000-0000-4000-8000-0000000002b1', qHQ, LG, 1, 'pending_review', now() - interval '199 days', null),
       ('7a000000-0000-4000-8000-0000000002b2', qHQ, LX, 1, 'pending_review', now() - interval '199 days', null);
+    perform set_config('request.jwt.claims', '{"role":"service_role"}', true);
+    perform public.finalize_quiz_submission('7a000000-0000-4000-8000-0000000002b1', 1, 30);
+    perform set_config('request.jwt.claims', '', true);
     insert into public.content_item_progressions (user_id, content_item_id, workflow_state) values
       (LG, HP, 'read'), (LG, HA, 'completed'), (LX, HP, 'read'), (LX, HA, 'completed');
     -- LC: a historical certificate (no progress rows); issued 100 days ago with a fixed verification code.
     insert into public.certificates (user_id, course_id, certificate_type, certificate_data, verification_code, issued_at)
       values (LC, H, 'completion', '{}'::jsonb, 'T09LEGACYCERT1', now() - interval '100 days');
+    -- Every seeded row must hold exactly the state it was written to hold: a trigger that REWRITES a row fails the seed.
+    if (select workflow_state || ':' || (finished_at is not null)::text from public.quiz_submissions where id = '7a000000-0000-4000-8000-0000000002b1') <> 'complete:true'
+       or (select workflow_state || ':' || (finished_at is not null)::text from public.quiz_submissions where id = '7a000000-0000-4000-8000-0000000002b2') <> 'pending_review:false'
+       or (select workflow_state from public.assignment_submissions where id = '7a000000-0000-4000-8000-0000000001b1') <> 'submitted'
+       or (select workflow_state from public.assignment_submissions where id = '7a000000-0000-4000-8000-0000000001b2') <> 'unsubmitted'
+       or (select count(*) from public.content_item_progressions where user_id in (LG, LX) and content_item_id in (HP, HA)) <> 4
+       or (select count(*) from public.certificates where course_id = H) <> 1 then
+      raise exception 'history-hash seed: a seeded row was rewritten or is missing (state check failed)';
+    end if;
     -- Non-empty protected history, per table.
     foreach t in array tbls loop
       execute format('select count(*) from public.%I where %s', t,

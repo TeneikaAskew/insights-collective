@@ -337,6 +337,14 @@ jobs:
         run: |
           export T09_PERSONA_FILE="$RUNNER_TEMP/t09-old-personas.json"
           scripts/local-stack/t09/stage-app.sh "$SUPABASE_DB_URL" OLD 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$T09_EVIDENCE/old-stage-app.txt"
+      # Private files are deleted by their OWN always() step, before and independent of the stack stop: a failed stop can no
+      # longer leave keys or persona tokens behind, and each step's failure is reported separately (neither masks the other).
+      - name: OLD - delete local keys and persona tokens (independent of stop; absence verified)
+        if: always()
+        run: |
+          rm -rf "$RUNNER_TEMP/t09-keys-old" "$RUNNER_TEMP/t09-old-personas.json"
+          if [ -e "$RUNNER_TEMP/t09-keys-old" ] || [ -e "$RUNNER_TEMP/t09-old-personas.json" ]; then echo "OLD: a private key or persona file is still present"; exit 1; fi
+          echo "OLD: local keys and persona tokens absent"
       # Cleanup runs for a PREPARED stack whatever failed before it; the earlier failure still fails the job.
       - name: OLD - stop (no backup)
         if: always() && steps.old_prep.outcome == 'success'
@@ -347,8 +355,6 @@ jobs:
             echo "supabase stop failed; redacted tail:"; tail -20 "$LOG" | scripts/local-stack/t09/stack-checks.sh redact; exit 1
           fi
           echo "supabase stop ok (OLD)"
-          rm -rf "$RUNNER_TEMP/t09-keys-old" "$RUNNER_TEMP/t09-old-personas.json"
-          echo "local keys and persona tokens for OLD deleted"
       - name: OLD - nothing left behind (runs after any failure once the stack was prepared)
         if: always() && steps.old_prep.outcome == 'success'
         run: scripts/local-stack/t09/stack-checks.sh leftovers | tee "$T09_EVIDENCE/old-leftovers.txt"
@@ -399,6 +405,14 @@ jobs:
         run: |
           export T09_PERSONA_FILE="$RUNNER_TEMP/t09-new-personas.json"
           scripts/local-stack/t09/stage-app.sh "$SUPABASE_DB_URL" NEW 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$T09_EVIDENCE/new-stage-app.txt"
+      # Private files are deleted by their OWN always() step, before and independent of the stack stop: a failed stop can no
+      # longer leave keys or persona tokens behind, and each step's failure is reported separately (neither masks the other).
+      - name: NEW - delete local keys and persona tokens (independent of stop; absence verified)
+        if: always()
+        run: |
+          rm -rf "$RUNNER_TEMP/t09-keys-new" "$RUNNER_TEMP/t09-new-personas.json"
+          if [ -e "$RUNNER_TEMP/t09-keys-new" ] || [ -e "$RUNNER_TEMP/t09-new-personas.json" ]; then echo "NEW: a private key or persona file is still present"; exit 1; fi
+          echo "NEW: local keys and persona tokens absent"
       # Cleanup runs for a PREPARED stack whatever failed before it; the earlier failure still fails the job.
       - name: NEW - stop (no backup)
         if: always() && steps.new_prep.outcome == 'success'
@@ -409,8 +423,6 @@ jobs:
             echo "supabase stop failed; redacted tail:"; tail -20 "$LOG" | scripts/local-stack/t09/stack-checks.sh redact; exit 1
           fi
           echo "supabase stop ok (NEW)"
-          rm -rf "$RUNNER_TEMP/t09-keys-new" "$RUNNER_TEMP/t09-new-personas.json"
-          echo "local keys and persona tokens for NEW deleted"
       - name: NEW - nothing left behind (runs after any failure once the stack was prepared)
         if: always() && steps.new_prep.outcome == 'success'
         run: scripts/local-stack/t09/stack-checks.sh leftovers | tee "$T09_EVIDENCE/new-leftovers.txt"

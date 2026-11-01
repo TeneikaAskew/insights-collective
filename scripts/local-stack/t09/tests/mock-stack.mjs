@@ -66,6 +66,8 @@ function asRole(claims, body) {
     `${body}\ncommit;\n`;
 }
 const pwd = new Map();
+const INJECT = process.env.MOCK_INJECT ? JSON.parse(process.env.MOCK_INJECT) : [];
+if (INJECT.length) console.log(`mock-stack: FAULT INJECTION active (${INJECT.length} rule(s)); not an evidence run`);
 const send = (res, status, obj, headers = {}) => { res.writeHead(status, { 'content-type': 'application/json', ...headers }); res.end(JSON.stringify(obj)); };
 const statusFor = (code) => (code === '42501' ? 403 : code === '23505' ? 409 : code === 'PGRST100' ? 400 : 400);
 
@@ -75,6 +77,13 @@ http.createServer((req, res) => {
   req.on('end', () => {
     try {
       const url = new URL(req.url, 'http://x'); const body = raw ? JSON.parse(raw) : undefined;
+      // Fault injection for the CAUSAL selftests only (MOCK_INJECT unset in every evidence run): a request whose method, path
+      // and raw body contain the given substrings is answered with the canned status/body/headers and never reaches the database.
+      for (const x of INJECT) {
+        if (req.method === x.method && (url.pathname + url.search).includes(x.path) && raw.includes(x.body ?? '')) {
+          res.writeHead(x.status, { 'content-type': 'application/json', ...(x.headers || {}) }); return res.end(JSON.stringify(x.reply ?? {}));
+        }
+      }
       const bearer = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
       if (url.pathname === '/auth/v1/admin/users' && req.method === 'POST') {
         if (bearer !== SERVICE) return send(res, 401, { msg: 'service key required' });
