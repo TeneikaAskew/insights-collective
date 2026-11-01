@@ -25,6 +25,8 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { execFileSync } from 'child_process';
+const __dirname = path.dirname(new URL(import.meta.url).pathname);
 
 const TEARDOWN_ENABLED = process.env.E2E_ENABLE_DB_TEARDOWN === 'true';
 const PROJECT_REF = process.env.VITE_SUPABASE_PROJECT_ID;
@@ -40,6 +42,14 @@ const ALLOW_TARGET = process.env.E2E_ALLOW_TEARDOWN_TARGET;
 // gitignored and the runner is ephemeral, so retaining it for the rest of the
 // job does not persist or publish anything.
 const KEEP_SESSIONS = process.env.E2E_KEEP_SESSIONS === 'true';
+
+// Fail-closed target guard, in addition to the four gates above: the DB teardown deletes rows, so
+// the project it would delete from must be loopback or the declared isolated project. Production is
+// never accepted, whatever the other gates say. Runs only when the DB teardown is enabled, before
+// any client is created.
+function assertTeardownTargetIsSafe(): void {
+  execFileSync(process.execPath, [path.resolve(__dirname, '../scripts/e2e/assert-safe-target.mjs'), '--mutating'], { stdio: 'inherit' });
+}
 
 async function cleanupSessions(): Promise<void> {
   const sessionsDir = path.join(process.cwd(), '.playwright-sessions');
@@ -85,6 +95,7 @@ async function scopedDbTeardown(): Promise<void> {
     console.log('[global-teardown] DB teardown disabled (set E2E_ENABLE_DB_TEARDOWN=true to enable)');
     return;
   }
+  assertTeardownTargetIsSafe();
   if (!PROJECT_REF || !ALLOW_TARGET || PROJECT_REF !== ALLOW_TARGET) {
     console.warn(
       `[global-teardown] REFUSING DB teardown: E2E_ALLOW_TEARDOWN_TARGET (${ALLOW_TARGET ?? 'unset'}) ` +

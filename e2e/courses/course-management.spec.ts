@@ -37,19 +37,23 @@ test.describe('Course Management (Instructor)', () => {
     ).toBeVisible();
   });
 
-  // Students and Assignments are not sections of this screen. The rail offers
-  // "Students" only as a COMING SOON placeholder, and assignments are reached
-  // through Curriculum — so the two tests named for those tabs were asserting
-  // navigation this page does not have.
-  test('students management is still a placeholder', async ({ page }) => {
+  // Assignments are reached through Curriculum, not a rail section. Students WAS a
+  // "Coming soon" placeholder, and this test used to pin that; commit 7390521 wired
+  // the real roster (StudentsView), so the honest assertion is now the inverse.
+  test('the Students section opens the real course roster', async ({ page }) => {
     await goto(page, mgmtUrl);
-    // Asserted rather than skipped, because the placeholder is the real current
-    // behavior and this fails the day it becomes a working section — which is
-    // when the test above it should grow a Students case.
     const students = page.getByRole('button', { name: /Students/ });
     await expect(students).toBeVisible();
-    // Case-insensitive: the DOM says "Coming soon" and CSS uppercases it, so
-    // innerText and textContent disagree. toContainText reads textContent.
-    await expect(students).toContainText(/coming soon/i);
+    await expect(students).not.toContainText(/coming soon/i);
+    await students.click();
+    await expect(page).toHaveURL(/view=students/);
+    await expect(page.getByRole('heading', { name: 'Students', exact: true })).toBeVisible();
+    // The view has four honest states. Loading must resolve; whichever of the
+    // other three renders is data-dependent, so accept any — but never none.
+    await expect(page.getByRole('status', { name: 'Loading students' })).toHaveCount(0, { timeout: 15_000 });
+    const roster = page.getByRole('list', { name: 'Enrolled students' });
+    const empty = page.getByText('No students yet');
+    const failed = page.getByText("Couldn't load students");
+    await expect(roster.or(empty).or(failed)).toBeVisible();
   });
 });

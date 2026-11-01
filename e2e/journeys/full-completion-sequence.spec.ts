@@ -3,6 +3,7 @@
 // ABOUTME: is completed and the certificate trigger auto-issues a verifiable certificate.
 import { test, expect } from '../fixtures/page-helpers';
 import { signInMember, getSupabaseAccessToken, getGradingStaffToken } from './_helpers/signIn';
+import { ensureAssessedPrerequisites } from './_helpers/assessedCompletion';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://siuqvhscuiycvdrtiqsh.supabase.co';
 const SUPABASE_KEY =
@@ -138,6 +139,17 @@ test.describe('Full course completion sequence', () => {
     }
 
     // ---- Phase 3: complete every content item → certificate auto-issues ----
+    // The seeded course carries more assessed items than the one assignment graded
+    // above. enforce_assessed_progression (20261031120009) rejects a done state for
+    // any of them without a submission, so submit/start the rest first. The graded
+    // assignment already qualifies and is left alone.
+    await ensureAssessedPrerequisites(page, {
+      supabaseUrl: SUPABASE_URL,
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` },
+      userId,
+      itemIds,
+      submissionBody: 'E2E full-completion prerequisite submission',
+    });
     const rows = itemIds.map((id) => ({
       user_id: userId,
       content_item_id: id,
