@@ -32,7 +32,7 @@ declare
                                    'notification_digest_dispatch','notification_email_probe','notification_email_secret'];
   placeholder constant text := 'http://127.0.0.1:1/local-placeholder';
   r record; n int; readers text[];
-  cron_state text; preload text; preloaded boolean; cron_db text; launchers bigint;
+  cron_state text; preload text; preloaded boolean; cron_db text; launchers bigint; lib text;
 begin
   -- Design identity. Shim mode is accepted only when explicitly allowed; otherwise authentic pg_net is required and the
   -- shim marker must be absent. Both present is a mixed design and always fails.
@@ -151,7 +151,21 @@ begin
       raise exception 'egress-verify: pg_cron ABSENT but a cron job relation resolves in this database';
     end if;
     preload := current_setting('shared_preload_libraries');   -- no missing_ok: a failed probe raises
-    preloaded := 'pg_cron' = any (string_to_array(replace(preload, ' ', ''), ','));
+    -- Canonical grammar only: comma-separated entries, each trimmed of space/tab/CR/LF, each a bare name (folded to
+    -- lower case, as PostgreSQL folds unquoted list items) or a double-quoted bare name (kept exactly). Anything else
+    -- (a path such as $libdir/pg_cron, a suffix such as pg_cron.so, an empty entry, unbalanced or embedded quotes)
+    -- makes the preload state UNKNOWN and fails closed; it is never reported as "not preloaded".
+    preloaded := false;
+    if btrim(preload, E' \t\r\n') <> '' then
+      foreach lib in array string_to_array(preload, ',') loop
+        lib := btrim(lib, E' \t\r\n');
+        if lib ~ '^[A-Za-z0-9_]+$' then lib := lower(lib);
+        elsif lib ~ '^"[A-Za-z0-9_]+"$' then lib := substr(lib, 2, length(lib) - 2);
+        else raise exception 'egress-verify: shared_preload_libraries entry % is not a canonical library name; pg_cron preload state UNKNOWN', quote_literal(lib);
+        end if;
+        if lib = 'pg_cron' then preloaded := true; end if;
+      end loop;
+    end if;
     cron_db := current_setting('cron.database_name', true);    -- NULL only when the parameter is not defined at all
     if preloaded and cron_db is null then
       raise exception 'egress-verify: pg_cron preloaded but cron.database_name is unreadable (unknown scheduler target)';
