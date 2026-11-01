@@ -59,13 +59,11 @@ test.describe('Audit — authenticated surfaces reachable from the main nav', ()
   test('dashboard renders the sidebar and greeting for a signed-in member', async ({ page }) => {
     await page.goto(`${E2E_BASE_URL}/dashboard`, { waitUntil: 'domcontentloaded' });
     await expect(page.locator('[data-sidebar="sidebar"]')).toBeVisible({ timeout: 15_000 });
-    // Real content check — either "Welcome" or an activity/progress card must exist.
-    await expect
-      .poll(async () => {
-        const welcome = await page.getByText(/welcome|dashboard|good (morning|afternoon|evening)/i).first().isVisible().catch(() => false);
-        return welcome;
-      }, { timeout: 8_000 })
-      .toBe(true);
+    // The page's own greeting (Dashboard.tsx subtitle). The old regex also matched
+    // the word "Dashboard" in the sidebar, so it passed even if the page body failed.
+    await expect(
+      page.getByText(/^Welcome back, .+! Here's an overview of your learning progress\.$/),
+    ).toBeVisible({ timeout: 15_000 });
   });
 
   test('non-admin cannot open /admin — either redirect or clear denial', async ({ page }) => {
