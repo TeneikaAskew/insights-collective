@@ -79,10 +79,14 @@ const courseRow = {
 function setProgressHook(overrides: Record<string, unknown> = {}) {
   vi.mocked(useCourseProgress).mockReturnValue({
     data: {
-      modules: [{ moduleId: 'm1', totalItems: 2, completedItems: 1, percent: 50 }],
+      modules: [{ moduleId: 'm1', totalItems: 2, completedItems: 1, percent: 50, isComplete: false }],
       totalItems: 2,
       completedItems: 1,
       percent: 50,
+      // The full read-model shape (the overview derives every figure from these two sets).
+      isComplete: false,
+      doneItemIds: ['i1'],
+      eligibleItemIds: ['i1', 'i2'],
     },
     isLoading: false,
     error: null,
@@ -150,7 +154,7 @@ describe('CourseProgress', () => {
 
   it('renders a distinct empty state when there is no progress yet', async () => {
     setProgressHook({
-      data: { modules: [], totalItems: 0, completedItems: 0, percent: 0 },
+      data: { modules: [], totalItems: 0, completedItems: 0, percent: 0, isComplete: false, doneItemIds: [], eligibleItemIds: [] },
     });
     mockTables({
       courses: { data: { ...courseRow, modules: [] }, error: null },
