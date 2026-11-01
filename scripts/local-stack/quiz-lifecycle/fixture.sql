@@ -78,7 +78,12 @@ BEGIN
       ('17', 'F6 progress',         1,         NULL),
       ('18', 'U1 uncertain retake', 2,         NULL),
       ('19', 'U2 uncertain submit', 1,         NULL),
-      ('1a', 'U3 remount write',    1,         NULL)
+      ('1a', 'U3 remount write',    1,         NULL),
+      ('1b', 'R1 restore failure',  1,         NULL),
+      ('1c', 'R2 review failure',   1,         NULL),
+      ('1d', 'R3 slow start A',     1,         NULL),
+      ('1e', 'R3 slow start B',     1,         NULL),
+      ('1f', 'M1 mobile flow',      1,         NULL)
     ) AS t(nn, title, allowed, time_limit)
   LOOP
     v_item := ('9c00' || r.nn || '01-0000-4000-8000-000000000000')::uuid;
@@ -106,7 +111,7 @@ BEGIN
     v_n := v_n + 1;
   END LOOP;
 
-  IF v_n <> 11 THEN RAISE EXCEPTION 'quiz-lifecycle fixture: expected 11 scenario quizzes, prepared %', v_n; END IF;
+  IF v_n <> 16 THEN RAISE EXCEPTION 'quiz-lifecycle fixture: expected 16 scenario quizzes, prepared %', v_n; END IF;
   IF (SELECT count(*) FROM public.quizzes WHERE id::text LIKE '9c00%' AND allowed_attempts IS NULL) <> 1
      OR (SELECT count(*) FROM public.quizzes WHERE id::text LIKE '9c00%' AND allowed_attempts = 0) <> 1 THEN
     RAISE EXCEPTION 'quiz-lifecycle fixture: unlimited quizzes (NULL and 0) not prepared exactly once each';
