@@ -1,8 +1,8 @@
 -- ABOUTME: Behavioural test of enforce_assessed_progression and auto_issue_certificate_on_progression on
 -- ABOUTME: the LOCAL snapshot: which assessment states let a progression reach a done state, and when
 -- ABOUTME: a certificate is issued. Started-only quizzes are tested SEPARATELY from submitted work.
--- Synthetic rows, one transaction, rolled back. Checks marked "[policy gap T-09]" assert the CURRENT
--- behaviour so a future policy change is a deliberate edit here, not a silent drift.
+-- Synthetic rows, one transaction, rolled back. The started-only quiz checks assert the REQUIRED behaviour since
+-- 20261101000200 (T-09): on the live-equivalent schema without that migration they fail by design (see 04).
 \set ON_ERROR_STOP on
 begin;
 \set instr  '11111111-1111-4111-8111-111111111111'
@@ -61,12 +61,15 @@ select pg_temp.try_progress('quiz no submission: completed refused', 'aaaaaaaa-0
 -- 6. quiz STARTED ONLY (pending_review, no answers, no score) — tested separately from submitted work
 insert into public.quiz_submissions (id, quiz_id, user_id, attempt, workflow_state, started_at)
   values ('aaaaaaaa-0000-4000-8000-000000000031', 'aaaaaaaa-0000-4000-8000-000000000021', :'stud', 1, 'pending_review', now());
-select pg_temp.try_progress('[policy gap T-09] quiz started-only (pending_review, no answers): completed ACCEPTED by current guard', 'aaaaaaaa-0000-4000-8000-000000000012', 'completed', true);
-select pg_temp.check_eq('[policy gap T-09] certificate issued after started-only quiz', pg_temp.cert_count(), 1);
+select pg_temp.try_progress('[T-09] quiz started-only (pending_review, no answers): completed refused', 'aaaaaaaa-0000-4000-8000-000000000012', 'completed', false);
+select pg_temp.check_eq('[T-09] no certificate after started-only quiz', pg_temp.cert_count(), 0);
 -- reset to test the genuine path in isolation
 delete from public.certificates where user_id = :'stud';
 delete from public.content_item_progressions where user_id = :'stud' and content_item_id = 'aaaaaaaa-0000-4000-8000-000000000012';
-update public.quiz_submissions set workflow_state = 'complete', finished_at = now() where id = 'aaaaaaaa-0000-4000-8000-000000000031';
+-- submit the way score-quiz does: finalize_quiz_submission under service_role claims
+select set_config('request.jwt.claims', '{"role":"service_role"}', true);
+select public.finalize_quiz_submission('aaaaaaaa-0000-4000-8000-000000000031', 1, 10);
+select set_config('request.jwt.claims', '', true);
 select pg_temp.try_progress('quiz complete: completed accepted', 'aaaaaaaa-0000-4000-8000-000000000012', 'completed', true);
 select pg_temp.check_eq('certificate issued once all items done (genuine path)', pg_temp.cert_count(), 1);
 -- 7. idempotency: re-completing does not issue a second certificate

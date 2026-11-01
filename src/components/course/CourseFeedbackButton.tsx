@@ -2,6 +2,8 @@
 // ABOUTME: Renders a fixed pill button on any /courses* route and opens a dialog to submit feedback.
 
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useFeedbackSlot, showsCourseFeedback } from '@/components/course/feedbackSlot';
 import { useLocation, useParams } from 'react-router-dom';
 import { MessageSquareWarning, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -31,9 +33,10 @@ const CourseFeedbackButton: React.FC = () => {
   const [category, setCategory] = useState<Category>('feedback');
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  // In the top bar when the layout has one, so the trigger never floats over page content; otherwise the floating pill.
+  const slot = useFeedbackSlot();
 
-  const onCoursePage = location.pathname.startsWith('/courses');
-  if (!onCoursePage || !isAuthenticated) return null;
+  if (!showsCourseFeedback(location.pathname, isAuthenticated)) return null;
 
   const courseId = (params.courseId as string | undefined) ?? extractCourseId(location.pathname);
 
@@ -70,15 +73,34 @@ const CourseFeedbackButton: React.FC = () => {
 
   return (
     <>
-      <Button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="fixed bottom-5 right-5 z-40 shadow-lg rounded-full h-11 pl-4 pr-5 gap-2"
-        data-testid="course-feedback-trigger"
-      >
-        <MessageSquareWarning className="h-4 w-4" />
-        <span className="hidden sm:inline">Feedback</span>
-      </Button>
+      {slot ? createPortal(
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setOpen(true)}
+          // Below sm the text label is hidden; the aria-label keeps the button's accessible name there.
+          aria-label="Feedback"
+          className="rounded-full h-9 gap-2 px-2.5 sm:pl-3 sm:pr-4"
+          data-testid="course-feedback-trigger"
+        >
+          <MessageSquareWarning className="h-4 w-4" aria-hidden="true" />
+          <span className="hidden sm:inline">Feedback</span>
+        </Button>,
+        slot,
+      ) : (
+        <Button
+          type="button"
+          onClick={() => setOpen(true)}
+          // Below sm the text label is hidden; the aria-label keeps the button's accessible name there.
+          aria-label="Feedback"
+          className="fixed bottom-5 right-5 z-40 shadow-lg rounded-full h-11 pl-4 pr-5 gap-2"
+          data-testid="course-feedback-trigger"
+        >
+          <MessageSquareWarning className="h-4 w-4" aria-hidden="true" />
+          <span className="hidden sm:inline">Feedback</span>
+        </Button>
+      )}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md">
