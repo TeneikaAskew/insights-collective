@@ -67,7 +67,12 @@ export function classifyCode(json) {
 export function rowCount(contentRange, json) {
   if (typeof contentRange === 'string') {
     const total = contentRange.split('/')[1];
-    if (total && /^\d+$/.test(total)) return Number(total);
+    // Only a finite, safe, non-negative integer is a count; "400 digits" (Infinity) or 2^53+ is the fixed unknown.
+    if (total && /^\d{1,16}$/.test(total)) {
+      const n = Number(total);
+      if (Number.isSafeInteger(n) && n >= 0) return n;
+    }
+    if (total && /^\d+$/.test(total)) return 'n/a';
   }
   if (Array.isArray(json)) return json.length;
   if (json && typeof json === 'object' && !('code' in json)) return 1; // .single() object
@@ -84,37 +89,93 @@ export function reduceResponse(method, status, contentRange, json) {
   };
 }
 
-/** Records allowlisted API responses of one page (reductions only), with a bounded settle like the grant recorder. */
+/**
+ * Records allowlisted API responses of one page (reductions only).
+ *
+ * Capture boundary (safety review 23:34Z): freeze() awaits pending reductions (bounded), then CLOSES intake and detaches
+ * the listeners. Anything that completes after that point is dropped, never added to evidence already returned. The
+ * snapshot is a deep copy, ordered by REQUEST order (a sequence number taken when the request was issued, not when its
+ * body finished parsing), and frozen. freeze() is idempotent: later calls return the same snapshot.
+ */
 export function createCaseRecorder(page) {
   const pending = new Set();
-  const byPath = new Map();
+  /** seq -> { path, reduced } */
+  const slots = new Map();
+  const seqOf = new WeakMap();
+  let nextSeq = 0;
+  let closed = false;
+  let attached = true;
+  let snapshot = null;
+  let late = 0;
+  /** Allowlisted requests issued but not yet answered: an outstanding read at the boundary is NOT settled. */
+  const inflight = new Set();
+  const onRequest = (req) => {
+    if (closed) return;
+    if (!apiPathOf(req.url()) || req.method() === 'OPTIONS') return;
+    seqOf.set(req, nextSeq++);
+    inflight.add(req);
+  };
+  const onRequestFailed = (req) => {
+    if (closed || !inflight.has(req)) return;
+    inflight.delete(req);
+    slots.set(seqOf.get(req), { path: apiPathOf(req.url()), reduced: { ...reduceResponse(req.method(), NaN, null, null), status: 'none' } }); // failed transport: no status
+  };
   const onResponse = (r) => {
+    if (closed) { late += 1; return; }
     const p = apiPathOf(r.url());
     if (!p) return;
-    const method = r.request().method();
+    const req = r.request();
+    const method = req.method();
     if (method === 'OPTIONS') return;
+    inflight.delete(req);
+    // A response whose request predates the recorder still gets an order, after every request seen so far.
+    const seq = seqOf.has(req) ? seqOf.get(req) : nextSeq++;
     const job = (async () => {
       let json = null;
       try { json = await r.json(); } catch { json = null; }
       let cr = null;
       try { cr = (await r.allHeaders())['content-range'] ?? null; } catch { cr = null; }
-      const list = byPath.get(p) ?? [];
-      list.push(reduceResponse(method, r.status(), cr, json));
-      byPath.set(p, list.slice(-MAX_PER_PATH));
+      if (closed) { late += 1; return; } // completed after the capture boundary: dropped
+      slots.set(seq, { path: p, reduced: reduceResponse(method, r.status(), cr, json) });
     })();
     pending.add(job);
     job.finally(() => pending.delete(job));
   };
+  const detach = () => {
+    if (!attached) return;
+    attached = false;
+    page.off('request', onRequest);
+    page.off('response', onResponse);
+    page.off('requestfailed', onRequestFailed);
+  };
+  page.on('request', onRequest);
   page.on('response', onResponse);
+  page.on('requestfailed', onRequestFailed);
   return {
-    async settle(timeoutMs = 3000) {
+    async freeze(timeoutMs = 3000) {
+      if (snapshot) return snapshot;
       let timer;
       const all = Promise.allSettled([...pending]).then(() => true);
       const ok = await Promise.race([all, new Promise((res) => { timer = setTimeout(() => res(false), timeoutMs); })]);
       clearTimeout(timer);
-      return { byPath: new Map(byPath), settled: ok === true && pending.size === 0 };
+      const incomplete = pending.size + inflight.size;
+      closed = true; // capture boundary: no reduction is accepted after this line
+      detach();
+      const byPath = new Map();
+      for (const seq of [...slots.keys()].sort((a, b) => a - b)) {
+        const { path: p, reduced } = slots.get(seq);
+        const list = byPath.get(p) ?? [];
+        list.push(Object.freeze({ ...reduced }));
+        byPath.set(p, list);
+      }
+      for (const [p, list] of byPath) byPath.set(p, Object.freeze(list.slice(-MAX_PER_PATH)));
+      snapshot = Object.freeze({ byPath, settled: ok === true && incomplete === 0, incomplete });
+      inflight.clear();
+      return snapshot;
     },
-    detach() { page.off('response', onResponse); },
+    /** Reductions dropped because they finished after the boundary (for controls; never written). */
+    lateDropped() { return late; },
+    detach,
   };
 }
 
@@ -147,15 +208,39 @@ export function caseLine({ test, route, present, shown, byPath, settled }) {
     `headings=${heads}`, api, `api_settled=${settled ? 'true' : 'false'}`].join(' ');
 }
 
-/** Bounded capture for a failed case. Writes <out>/case-diagnostics/<slug>.txt (0600). No screenshot, no DOM text. */
+/** Fixed stage names for the diagnostic-failed marker. */
+export const CAPTURE_STAGES = Object.freeze(['freeze', 'line', 'write']);
+/** The fixed marker written (or, if the file cannot be written, printed) when capture itself fails. */
+export function diagnosticFailedLine(title, stage) {
+  const st = CAPTURE_STAGES.includes(stage) ? stage : 'other';
+  return `case-failure test=${slug(String(title))} diagnostic=failed stage=${st}`;
+}
+
+/**
+ * Bounded capture for a failed case. Writes <out>/case-diagnostics/<slug>.txt (0600). No screenshot, no DOM text.
+ * Never throws and never fails silently: any failure inside capture yields the fixed diagnostic-failed marker, written to
+ * the same file, or printed to stderr when the file itself cannot be written. Returns the line that was produced.
+ */
 export async function captureCaseFailure(page, { out, title, recorder }) {
-  const r = await recorder.settle();
-  let probe = { present: [], shown: [] };
-  let probeOk = true;
-  try { probe = await probePage(page); } catch { probeOk = false; }
-  const line = `${caseLine({ test: title, route: routeShape(page.url()), present: probe.present, shown: probe.shown, byPath: r.byPath, settled: r.settled })} page_probe=${probeOk ? 'ok' : 'failed'}`;
-  const dir = path.join(out, 'case-diagnostics');
-  fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
-  fs.writeFileSync(path.join(dir, `${slug(title)}.txt`), `${line}\n`, { mode: 0o600 });
+  let stage = 'freeze';
+  let line;
+  try {
+    const r = await recorder.freeze();
+    stage = 'line';
+    let probe = { present: [], shown: [] };
+    let probeOk = true;
+    try { probe = await probePage(page); } catch { probeOk = false; }
+    line = `${caseLine({ test: title, route: routeShape(page.url()), present: probe.present, shown: probe.shown, byPath: r.byPath, settled: r.settled })} page_probe=${probeOk ? 'ok' : 'failed'}`;
+  } catch {
+    line = diagnosticFailedLine(title, stage);
+  }
+  try {
+    const dir = path.join(out, 'case-diagnostics');
+    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+    fs.writeFileSync(path.join(dir, `${slug(String(title))}.txt`), `${line}\n`, { mode: 0o600 });
+  } catch {
+    line = diagnosticFailedLine(title, 'write');
+    try { process.stderr.write(`${line}\n`); } catch { /* nothing else is safe to do */ }
+  }
   return line;
 }

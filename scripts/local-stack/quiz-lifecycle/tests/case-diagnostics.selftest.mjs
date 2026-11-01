@@ -20,7 +20,7 @@ const check = (name, ok) => { console.log(`${ok ? 'PASS' : 'FAIL'} ${name}`); if
 
 function pageHtml(kind) {
   const fetches = `fetch('${API}/rest/v1/courses?id=eq.${C}&select=*',{headers:{Authorization:'Bearer sk_live_TOKEN_abc'}});` +
-    `fetch('${API}/rest/v1/modules?course_id=eq.${C}');` + (kind === 'player' ? `fetch('${API}/rest/v1/rpc/get_quiz_questions_for_taking',{method:'POST'});` : '');
+    `fetch('${API}/rest/v1/modules?course_id=eq.${C}');` + (kind === 'late' ? `fetch('${API}/rest/v1/quizzes?id=eq.${I}');` : '') + (kind === 'player' ? `fetch('${API}/rest/v1/rpc/get_quiz_questions_for_taking',{method:'POST'});` : '');
   const body = kind === 'h1'
     ? `<h1>Course not found</h1><a href="/courses">Back to courses</a><p>learner@example.com sk_live_TOKEN_abc</p>`
     : `<div data-testid="quiz-player-active"><h2>QLC secret title</h2><p>two plus two</p><input type="radio" aria-label="Four"></div>`;
@@ -42,18 +42,30 @@ async function run(kind) {
         return r.fulfill({ status: 406, headers: cors, contentType: 'application/json', body: JSON.stringify({ code: 'PGRST116', details: `0 rows for ${C}`, message: 'learner@example.com' }) });
       }
       if (u.pathname === '/rest/v1/courses') return r.fulfill({ status: 200, headers: { ...cors, 'content-range': '0-0/1' }, contentType: 'application/json', body: JSON.stringify([{ id: C, title: 'QLC secret title' }]) });
+      if (u.pathname === '/rest/v1/quizzes' && kind === 'late') {
+        // Released only after the capture boundary: must never reach the evidence.
+        return new Promise((res) => setTimeout(res, 1200)).then(() => r.fulfill({ status: 200, headers: cors, contentType: 'application/json', body: '[{"id":"x"}]' })).catch(() => {});
+      }
       if (u.pathname === '/rest/v1/modules') return r.fulfill({ status: 200, headers: cors, contentType: 'application/json', body: JSON.stringify([{ id: M }]) });
       return r.fulfill({ status: 200, headers: cors, contentType: 'application/json', body: JSON.stringify([{ id: I, question_text: 'two plus two' }, { id: 'x' }]) });
     });
     const rec = createCaseRecorder(page);
     await page.goto(`${APP}/courses/${C}/learn/${M}/${I}?token=sk_live_TOKEN_abc`);
-    await page.waitForLoadState('networkidle');
+    if (kind === 'late') {
+      await page.waitForTimeout(300);
+      await rec.freeze(100); // capture boundary while the quizzes read is still outstanding
+    } else {
+      await page.waitForLoadState('networkidle');
+    }
     const line = await captureCaseFailure(page, { out, title: `${kind} case`, recorder: rec });
+    let lateDropped = 0;
+    if (kind === 'late') { await page.waitForTimeout(1500); lateDropped = rec.lateDropped(); }
     rec.detach();
     const files = fs.readdirSync(path.join(out, 'case-diagnostics'));
     const text = fs.readFileSync(path.join(out, 'case-diagnostics', files[0]), 'utf8');
     const all = fs.readdirSync(out, { recursive: true });
-    return { line, text, files, all };
+    const again = kind === 'late' ? (await rec.freeze()) : null;
+    return { line, text, files, all, lateDropped, again };
   } finally {
     await browser.close();
     fs.rmSync(out, { recursive: true, force: true });
@@ -73,7 +85,13 @@ check('control: mounted player reads as quiz-player-active, no heading', /states
 check('control: courses 200 with 1 row from Content-Range', player.line.includes('courses=GET:200:none:1'));
 check('control: questions RPC seen with 2 rows', player.line.includes('rpc.get_quiz_questions_for_taking=POST:200:none:2'));
 
-for (const [name, r] of [['h1', h1], ['player', player]]) {
+const late = await run('late');
+console.log(`late:   ${late.line}`);
+check('late: an outstanding read at the boundary is unseen and api_settled=false', late.line.includes('quizzes=unseen') && late.line.includes('api_settled=false'));
+check('late: the response that arrived after the boundary was not recorded (intake closed and detached)', !late.again.byPath.has('/rest/v1/quizzes') && late.again.incomplete === 1);
+check('late: the written line equals the returned line (no later mutation)', late.text === `${late.line}\n`);
+
+for (const [name, r] of [['h1', h1], ['player', player], ['late', late]]) {
   check(`${name}: exactly one file, one line, nothing else written (no PNG)`, r.files.length === 1 && r.text.trim().split('\n').length === 1 && r.all.every((f) => !/\.png$/i.test(String(f))));
   check(`${name}: no id, email, token, title or body text in the line`, SECRETS.every((s) => !r.text.includes(s)));
 }

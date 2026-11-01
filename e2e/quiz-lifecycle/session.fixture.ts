@@ -354,26 +354,33 @@ export const test = base.extend<Fixtures & { egressGate: void }, { refusalProxy:
     // Case diagnostics (run 41359219343): after sign-in, a failed case records ONE allowlisted line (player state,
     // fixed heading, route shape, API status/code/row counts). No screenshot, DOM text, body or id.
     const caseRecorder = createCaseRecorder(page);
-    await page.addInitScript(() => { try { window.localStorage.setItem('e2e:disable-tours', '1'); } catch { /* ignore */ } });
-    await page.goto('/login', { waitUntil: 'domcontentloaded' });
-    await page.locator('#email').fill(LEARNER_EMAIL);
-    await page.locator('#password').fill(password);
-    await page.locator('button[type="submit"]:has-text("Sign In")').click();
+    // The case recorder's listeners are released on EVERY path out of this fixture, including a failed sign-in or
+    // setup step (safety review 23:34Z): the whole setup and use path sits inside this try/finally.
+    let signedIn = false;
     try {
-      await expect(page).not.toHaveURL(/\/login/, { timeout: 30000 });
-    } catch (err) {
-      await captureLoginFailure(page, { out: OUT, sha: SHA, title: testInfo.title, recorder, appOrigin: new URL(String(process.env.E2E_BASE_URL)).origin });
-      throw err;
-    } finally {
-      recorder.detach();
-    }
-    try {
+      await page.addInitScript(() => { try { window.localStorage.setItem('e2e:disable-tours', '1'); } catch { /* ignore */ } });
+      await page.goto('/login', { waitUntil: 'domcontentloaded' });
+      await page.locator('#email').fill(LEARNER_EMAIL);
+      await page.locator('#password').fill(password);
+      await page.locator('button[type="submit"]:has-text("Sign In")').click();
+      try {
+        await expect(page).not.toHaveURL(/\/login/, { timeout: 30000 });
+      } catch (err) {
+        await captureLoginFailure(page, { out: OUT, sha: SHA, title: testInfo.title, recorder, appOrigin: new URL(String(process.env.E2E_BASE_URL)).origin });
+        throw err;
+      } finally {
+        recorder.detach();
+      }
+      signedIn = true;
       await use(page);
     } finally {
-      if (testInfo.status !== testInfo.expectedStatus) {
-        await captureCaseFailure(page, { out: OUT, title: testInfo.title, recorder: caseRecorder }).catch(() => undefined);
+      // Post-sign-in case failures only (the login capture owns /login). captureCaseFailure never throws; a failure
+      // inside it is written as the fixed diagnostic-failed marker, never swallowed.
+      if (signedIn && testInfo.status !== testInfo.expectedStatus) {
+        await captureCaseFailure(page, { out: OUT, title: testInfo.title, recorder: caseRecorder });
       }
       caseRecorder.detach();
+      recorder.detach(); // idempotent; also covers a throw before the sign-in wait (addInitScript, goto, fill)
     }
   },
 
