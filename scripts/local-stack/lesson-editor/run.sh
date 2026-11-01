@@ -17,6 +17,15 @@ refuse() { echo "FAIL le-run: $*" >&2; exit 1; }
 psql() { command env -u PGHOST -u PGHOSTADDR -u PGSERVICE -u PGSERVICEFILE -u PGPORT -u PGPASSFILE psql "$@"; }
 local_db() { node "$ROOT/scripts/local-db/assert-local-dsn.mjs" "$1" >/dev/null 2>&1 || refuse "database is not loopback"; }
 local_api() { node "$ROOT/scripts/local-stack/t09/api-http.mjs" check "$1" >/dev/null 2>&1 || refuse "origin refused (strict loopback origin required): $2"; }
+# Pinned harness file: tested against T-09 harness 5d81976 (api-http.mjs blob fb2b49d8). Any other content is refused until
+# this lane re-checks it (the T-09 owner's integration may move the harness; the pin makes that visible, never silent).
+API_HTTP_BLOB=fb2b49d8d20f5a00da8e3bcbc55ad265cf6a1766
+pin_harness() {
+  local f="$ROOT/scripts/local-stack/t09/api-http.mjs" got
+  [ -f "$f" ] || refuse "T-09 harness (scripts/local-stack/t09) not present in this tree"
+  got=$(git hash-object "$f" 2>/dev/null) || refuse "cannot hash api-http.mjs"
+  [ "$got" = "$API_HTTP_BLOB" ] || refuse "api-http.mjs is $got, not the pinned $API_HTTP_BLOB (re-check required by the lesson-editor lane)"
+}
 COURSE=ed170000-0000-4000-8000-0000000000c1
 ACK='-c le.fixture_ack=isolated-local-stack'
 
@@ -26,7 +35,7 @@ case "$cmd" in
     API="${1:?api origin}"; APP="${2:?app origin}"; DB="${3:?db url}"; ANON="${4:?anon key file}"; SERVICE="${5:?service key file}"; WORK="${6:?work dir}"
     local_db "$DB"; local_api "$API" api; local_api "$APP" app
     [ -e "$WORK" ] && refuse "work dir exists (never reused)"
-    [ -f "$ROOT/scripts/local-stack/t09/api-http.mjs" ] || refuse "T-09 harness (scripts/local-stack/t09) not present in this tree"
+    pin_harness
     node "$HERE/personas.mjs" "$API" "$ANON" "$SERVICE" "$APP" "$WORK" || refuse "personas"
     ids=$(node -e 'const o=require(process.argv[1]); console.log(["OWNER","OTHER","STUDENT"].map(k=>o[k].id).join(" "))' "$WORK/personas.json") || refuse "personas file unreadable"
     read -r OWNER OTHER STUDENT <<<"$ids"

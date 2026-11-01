@@ -121,6 +121,30 @@ Then:
 harness (#140) first, by the T-09 owner. It also depends on that harness's current blocker, the pg_cron APP verifier,
 only if the job reuses `stage-app.sh`. The plan above does not need `stage-app.sh`.
 
+## Harness pin and egress paths (for the T-09 owner's integration)
+
+**Harness pin.** This fixture was tested against T-09 harness `5d81976`, where `scripts/local-stack/t09/api-http.mjs` has
+blob `fb2b49d8d20f5a00da8e3bcbc55ad265cf6a1766`. `run.sh setup` refuses any other blob. If the harness changes that file,
+the run stops until this lane re-checks it and updates the pin.
+
+**PRE egress guard.** The integrated mode is expected to run T-09's unchanged `stage-pre.sh` guard and its sentinels
+before bootstrap, and this fixture does not opt out of them. The write paths below were traced in the snapshot schema at
+`5d81976`. None of them reaches `net.*`, pg_net, vault or `pg_notify`.
+
+| Path | Who | Triggers or functions reached | Rows written | Egress |
+|---|---|---|---|---|
+| persona creation, `auth.users` insert | GoTrue admin API (setup) | `on_auth_user_created` → `handle_new_user` | `profiles`, `user_roles`, `notifications` | none. No trigger exists on `notifications`, `profiles` (except the roles-immutability check) or `user_roles` |
+| `fixture.sql` | postgres (setup) | `enforce_profiles_roles_immutable` (BEFORE, no writes). The `content_items` trigger is BEFORE UPDATE only, so it does not fire on INSERT | courses, modules, content_items, quizzes, quiz_questions, profiles, user_roles | none |
+| lesson save and publish, `content_items` PATCH | app and contract (OWNER, OTHER, STUDENT JWTs) | `update_content_items_updated_at` → `update_updated_at_column` (sets NOW() only) | that row | none |
+| builder open, `useCoursePermissions` | app | RPCs `has_admin_access`, `is_course_instructor` (read-only) and `log_security_event` | `security_events` and possibly `submission_audit_events` | none. No trigger exists on either table |
+| `run.sh owner` | postgres (setup) | none (no trigger on `courses`) | one `courses` row | none |
+| quiz editor mount | app | RPC `get_quiz_questions_for_authoring` (read) | none | none |
+
+**Not exercised.** The spec never clicks the AI actions (`assistant`/`generate-*` Edge Functions), so it makes no
+`functions/v1` call. Any `functions/v1` request would be recorded, and a non-loopback one fails the screen captures'
+foreign-origin assertion. If the guard reports a send during this mode, treat that as a finding against this table. Do
+not loosen the guard.
+
 ## Known limits and residuals
 
 - **sessionStorage is not a confidentiality boundary**, and no tenant-confidentiality claim is made. RLS is the
