@@ -1,6 +1,7 @@
 // ABOUTME: Unit tests for the strict local-DSN parser used by every scripts/local-db entrypoint.
 import { describe, it, expect } from 'vitest';
-// @ts-expect-error — plain ESM script without type declarations
+// Plain ESM script without type declarations: under this repo's tsconfig (noImplicitAny: false) the import is
+// implicitly `any` and is not an error, so no @ts-expect-error (it was unused: TS2578, failing `tsc -b`).
 import { assertLocalDsn, evaluateLibpqDsn } from '../../../scripts/local-db/assert-local-dsn.mjs';
 
 const ok = (dsn: string, env = {}) => assertLocalDsn(dsn, env as NodeJS.ProcessEnv);

@@ -1,7 +1,8 @@
 // ABOUTME: Unit tests for the fail-closed E2E target guard: loopback and the named isolated
 // ABOUTME: project pass; production, look-alikes, pooler tricks and unset values are refused.
 import { describe, it, expect } from 'vitest';
-// @ts-expect-error — plain ESM script without type declarations
+// Plain ESM script without type declarations: under this repo's tsconfig (noImplicitAny: false) the import is
+// implicitly `any` and is not an error, so no @ts-expect-error (it was unused: TS2578, failing `tsc -b`).
 import { assessTarget, classifyTarget } from '../../../scripts/e2e/assert-safe-target.mjs';
 
 const PROD = 'siuqvhscuiycvdrtiqsh';
