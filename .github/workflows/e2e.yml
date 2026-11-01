@@ -785,6 +785,8 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Workflow policy check (executed file; no secrets, no writes, no remote Supabase)
         run: node scripts/ci/check-isolated-workflow.mjs --executed
+      - name: Directly invoked scripts are executable (tracked mode 100755 and a shebang; static, read-only)
+        run: node scripts/ci/check-invoked-modes.mjs .github/workflows/e2e.yml
       - name: Mask the synthetic run password
         run: echo "::add-mask::$E2E_TEST_PASSWORD"
       - name: npm rebuild (dependency install scripts)
