@@ -42,6 +42,13 @@ Why a snapshot and not a migration replay: the base tables (`courses`, `profiles
     checks tagged `[policy gap T-09]` and `[inconsistency T-10]` assert current behaviour on purpose.
   - `03_start_quiz_attempt_authz.sql`: who may start a quiz attempt. 6/10 on the live-equivalent
     schema, 10/10 with `20261101000100` applied.
+  - `04_quiz_completion_integrity.sql` (T-09): drives `start_quiz_attempt` as the learner, learner-side writes,
+    and `finalize_quiz_submission` as service_role, then progression and certificate. A started attempt (with or
+    without autosaved answers) and a learner self-flip to `complete` must not count. 8/17 on the live-equivalent
+    schema, 17/17 with `20261101000200` applied. `[decision]` checks assert current behaviour that depends on the
+    unmade minimum-submission vs passing-grade policy.
+  - With `20261101000000`, `000100` and `000200` all applied: 01 54/54, 02 16/16, 03 10/10, 04 17/17. 02's started-only
+    checks now assert the required refusal (14/16 on the live-equivalent schema).
 - `scripts/local-db/local-preseed.sql` supplies the rows `e2e/fixtures/seed.sql` assumes already
   exist in production (reference course, modules, the three `e2e-*` accounts) so the seed can be
   rehearsed offline: `psql <url> -f scripts/local-db/local-preseed.sql` then
