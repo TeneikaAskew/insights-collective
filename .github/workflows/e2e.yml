@@ -684,7 +684,7 @@ jobs:
         run: |
           set -o pipefail
           node scripts/local-stack/quiz-lifecycle/preflight.mjs --dist "$LQ_SERVED" --expect-ports 54321,54322,8080 --deadline 120 | tee "$LQ_EVIDENCE/qlc/checks-preflight.txt"
-      - name: Quiz fixture (synthetic learner, 4 unpublished courses: main + T62 20/22/24, 23 quizzes, 0 attempts)
+      - name: Quiz fixture (synthetic learner, 4 unpublished courses (main + T62 20/22/24), 23 quizzes, 0 attempts)
         run: |
           set -o pipefail
           scripts/local-stack/quiz-lifecycle/fixture.sh | tee "$LQ_EVIDENCE/qlc/checks-fixture.txt"
@@ -881,7 +881,7 @@ jobs:
         run: |
           set -o pipefail
           node scripts/local-stack/quiz-lifecycle/preflight.mjs --dist "$LQ_SERVED" --expect-ports 54321,54322,8080 --deadline 120 --no-edge | tee "$LQ_EVIDENCE/qlc/checks-preflight.txt"
-      - name: Quiz fixture (synthetic learner, 4 unpublished courses: main + T62 20/22/24, 23 quizzes, 0 attempts)
+      - name: Quiz fixture (synthetic learner, 4 unpublished courses (main + T62 20/22/24), 23 quizzes, 0 attempts)
         run: |
           set -o pipefail
           scripts/local-stack/quiz-lifecycle/fixture.sh | tee "$LQ_EVIDENCE/qlc/checks-fixture.txt"
