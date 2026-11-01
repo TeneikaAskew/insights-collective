@@ -141,6 +141,13 @@ function makeGradingSubmission(overrides: Record<string, unknown> = {}) {
   });
 }
 
+// The Score field is filled from the selected submission by a passive effect that runs AFTER the render that first
+// shows the title, so a test must wait for the seeded value before typing or asserting. Observed state sequence
+// (title shown, score "") -> (title shown, score "<grade>"); CI run 41308410876 asserted inside that window.
+async function seededScore(expected: number) {
+  await waitFor(() => expect(screen.getByLabelText('Score')).toHaveValue(expected));
+}
+
 describe('CanvasGradingInterface', () => {
   beforeEach(() => {
     toastMock.mockReset();
@@ -299,7 +306,7 @@ describe('CanvasGradingInterface', () => {
       resolveUpdate = res;
     });
     const subsBuilder = makeTableBuilder(
-      { data: [makeGradingSubmission({ body: 'Great essay text' })], error: null },
+      { data: [makeGradingSubmission({ body: 'Great essay text', grade: 3 })], error: null },
       pendingUpdate,
     );
     useTables({ assignment_submissions: subsBuilder });
@@ -307,6 +314,7 @@ describe('CanvasGradingInterface', () => {
     render(<CanvasGradingInterface />);
     await screen.findByText('Essay 1');
 
+    await seededScore(3);
     fireEvent.change(screen.getByLabelText('Score'), { target: { value: '7' } });
     fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
 
@@ -346,7 +354,7 @@ describe('CanvasGradingInterface', () => {
   it('shows a destructive toast when saving the grade fails', async () => {
     vi.mocked(CanvasContentService.getContentItem).mockResolvedValue(contentItem as any);
     const subsBuilder = makeTableBuilder(
-      { data: [makeGradingSubmission({ body: 'Great essay text' })], error: null },
+      { data: [makeGradingSubmission({ body: 'Great essay text', grade: 3 })], error: null },
       new Error('DB write failed'),
     );
     useTables({ assignment_submissions: subsBuilder });
@@ -354,6 +362,7 @@ describe('CanvasGradingInterface', () => {
     render(<CanvasGradingInterface />);
     await screen.findByText('Essay 1');
 
+    await seededScore(3);
     fireEvent.change(screen.getByLabelText('Score'), { target: { value: '7' } });
     fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
 
@@ -399,10 +408,11 @@ describe('CanvasGradingInterface', () => {
 
     it('rejects 42 on a 10-point assignment instead of saving it', async () => {
       vi.mocked(CanvasContentService.getContentItem).mockResolvedValue(contentItem as any);
-      const subsBuilder = makeTableBuilder({ data: [makeGradingSubmission({ body: 'x' })], error: null });
+      const subsBuilder = makeTableBuilder({ data: [makeGradingSubmission({ body: 'x', grade: 3 })], error: null });
       useTables({ assignment_submissions: subsBuilder });
       render(<CanvasGradingInterface />);
       await screen.findByText('Essay 1');
+      await seededScore(3);
       fireEvent.change(screen.getByLabelText('Score'), { target: { value: '42' } });
       fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
       await waitFor(() =>
@@ -440,13 +450,18 @@ describe('CanvasGradingInterface', () => {
       let subsBuilder: any;
       const lazy = { then: (ok: any, bad: any) => Promise.resolve(result === 'wrong-state' ? echo(subsBuilder, { workflow_state: 'submitted' })() : (result as any)()).then(ok, bad) };
       subsBuilder = makeTableBuilder(
-        { data: [makeGradingSubmission({ body: 'Great essay text', workflow_state: 'submitted', ...(typedFeedback ? prior : {}) })], error: null },
+        { data: [makeGradingSubmission({ body: 'Great essay text', workflow_state: 'submitted', grade: 5, ...(typedFeedback ? prior : {}) })], error: null },
         lazy as any,
       );
       useTables({ assignment_submissions: subsBuilder });
       render(<CanvasGradingInterface />);
       await screen.findByText('Essay 1');
-      if (typedFeedback) fireEvent.change(screen.getByTestId('editor'), { target: { value: typedFeedback } });
+      // Let the selection effect seed the form first, so it cannot overwrite what the test types.
+      await seededScore(typedFeedback ? 7 : 5);
+      if (typedFeedback) {
+        await waitFor(() => expect(screen.getByTestId('editor')).toHaveValue(prior.grader_comments));
+        fireEvent.change(screen.getByTestId('editor'), { target: { value: typedFeedback } });
+      }
       fireEvent.change(screen.getByLabelText('Score'), { target: { value: '7' } });
       fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
       await waitFor(() =>
@@ -467,7 +482,7 @@ describe('CanvasGradingInterface', () => {
     useTables({ assignment_submissions: subsBuilder });
     render(<CanvasGradingInterface />);
     await screen.findByText('Essay 1');
-    expect(screen.getByLabelText('Score')).toHaveValue(7);
+    await seededScore(7);
     fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
     await waitFor(() =>
       expect(toastMock).toHaveBeenCalledWith(expect.objectContaining({ title: 'Grade published', description: 'Alice Adams: 7/10' })),
