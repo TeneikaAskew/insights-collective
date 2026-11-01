@@ -99,6 +99,7 @@ for (const vp of VIEWPORTS) {
       expect(API_OK, 'VITE_SUPABASE_URL must be a loopback URL').toBe(true);
       const observer = createApiObserver();
       const manifest: Entry[] = [];
+      let securityLogCalls: number | null = null;
       recordApi(page, observer);
       // The per-viewport manifest is attached even when an assertion fails part-way, so a failed run still shows
       // every screenshot taken and its paired outcome.
@@ -134,20 +135,33 @@ for (const vp of VIEWPORTS) {
         const before = await sessionState(page);
         expect(before.valid, 'precondition: a valid member session before requesting /admin').toBe(true);
         await page.goto(Routes.admin); await waitForPageLoad(page);
+        // Capture only a SETTLED denial: the destination's own heading rendered (not just the URL, which changes
+        // before the router commits the new screen) and the toast shown. Both are conditions, not delays; if either
+        // never happens the outcome says so and the screenshot shows what was actually on screen.
+        const dashboardHeading = page.getByRole('heading', { name: 'Dashboard', exact: true }).filter({ visible: true });
+        const dashboardShown = await dashboardHeading.first().waitFor({ state: 'visible', timeout: 10000 }).then(() => true, () => false);
         const finalPath = appPath(new URL(page.url()).pathname);
         const toast = page.getByText('Access Denied', { exact: true }).filter({ visible: true });
         const toastShown = finalPath === '/dashboard' && await toast.first().waitFor({ state: 'visible', timeout: 5000 }).then(() => true, () => false);
+        const toastCount = await toast.count();
         const after = await sessionState(page);
         // Three outcomes, never conflated: an authenticated member refused (/dashboard, session still valid, toast),
         // a signed-out bounce (/login: the session was lost, which is NOT a permission result), or access granted.
-        const outcome = finalPath === '/dashboard' && after.valid && toastShown ? 'AUTHENTICATED MEMBER DENIED'
+        const outcome = finalPath === '/dashboard' && dashboardShown && after.valid && toastShown && toastCount === 1 ? 'AUTHENTICATED MEMBER DENIED'
+          : finalPath === '/dashboard' && after.valid && (!dashboardShown || toastCount !== 1) ? 'DENIAL NOT SETTLED (see dashboardShown and accessDeniedToasts)'
           : finalPath === '/login' ? 'SIGNED OUT (redirected to /login; not a member denial)'
           : finalPath.startsWith('/admin') ? 'ADMIN ROUTE RENDERED FOR MEMBER'
           : 'UNEXPECTED (see finalPath, sessionAfter and accessDeniedToast)';
-        await capture(page, info, vp.name, '03-admin-as-member', observer, () => ({
-          permission: { requested: Routes.admin, finalPath, outcome, sessionBefore: before, sessionAfter: after, accessDeniedToast: toastShown },
+        const denial = await capture(page, info, vp.name, '03-admin-as-member', observer, (api) => ({
+          permission: { requested: Routes.admin, finalPath, outcome, sessionBefore: before, sessionAfter: after, accessDeniedToast: toastShown,
+            dashboardShown, accessDeniedToasts: toastCount },
+          // Counted from the same snapshot as the screenshot. Request bodies are not recorded, so these are call counts,
+          // not event types.
+          securityEvents: { logSecurityEventCalls: api.filter((c) => c.path === '/rest/v1/rpc/log_security_event').length,
+            adminChecks: api.filter((c) => c.path === '/rest/v1/rpc/has_admin_access').length },
           save: 'NOT EXERCISED (read-only dispatch scope)',
-        }), manifest);
+        }), manifest) as { securityEvents: { logSecurityEventCalls: number; adminChecks: number } };
+        securityLogCalls = denial.securityEvents.logSecurityEventCalls;
         expect(outcome, 'a signed-in member must be refused at /admin and stay signed in').toBe('AUTHENTICATED MEMBER DENIED');
       } finally {
         // Anything that arrived after the last window is reported, not dropped: a late FOREIGN response fails here.
@@ -160,6 +174,12 @@ for (const vp of VIEWPORTS) {
             { body: Buffer.from(JSON.stringify({ windows: manifest, afterLastWindow: { api: tail, foreignResponses: tailForeign } }, null, 2)), contentType: 'application/json' });
         }
         expect(tailForeign, 'no FOREIGN API response after the last screenshot').toBe(0);
+        // One route-access entry and one denial entry per refused request; a repeat loop shows up here even if its
+        // later calls arrive after the screenshot.
+        if (securityLogCalls !== null) {
+          const late = tail.filter((c) => c.path === '/rest/v1/rpc/log_security_event').length;
+          expect(securityLogCalls + late, 'log_security_event calls for one refused /admin request (window + after)').toBeLessThanOrEqual(2);
+        }
       }
     });
   });

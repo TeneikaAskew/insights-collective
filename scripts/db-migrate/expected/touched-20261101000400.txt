@@ -1,0 +1,2 @@
+fn|pin_assignment_submission_identity() absent 938202369fc9576c7ee667990ed0a792
+trigger|assignment_submissions|pin_assignment_submission_identity absent 3e49ff355a8931c86b96599eb30fd9b3
