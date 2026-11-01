@@ -34,6 +34,12 @@ before=$(psql "$PGBASE/ls_sim" -Atc "select count(*) from vault.secrets"); out=$
 echo "$out" | grep -q "0 created, 5 updated" && [ "$before" = "$after" ] && [ "$after" = "5" ]; say "localize.sql is idempotent (second run: 0 created, 5 updated, count stays 5)" $?
 dups=$(psql "$PGBASE/ls_sim" -Atc "select count(*) - count(distinct name) from vault.secrets"); [ "$dups" = "0" ]; say "vault names are unique after localization" $?
 cron=$(psql "$PGBASE/ls_sim" -Atc "select count(*) from cron.job"); [ "$cron" = "0" ]; say "no cron jobs remain scheduled" $?
+# run 41290758220 failed at the E2E seed: the auth-schema trigger is not in the public snapshot, so a seeded account
+# got no profile row. The bootstrap must install it, and a new auth user must get exactly one profile.
+psql "$PGBASE/ls_sim" -v ON_ERROR_STOP=1 -qc "insert into auth.users (id, email, raw_user_meta_data) values ('e2e00000-0000-4000-8000-0000000000aa','neg-profile@local.test','{}')" >/dev/null 2>&1
+prof=$(psql "$PGBASE/ls_sim" -Atc "select count(*) from public.profiles where id='e2e00000-0000-4000-8000-0000000000aa'")
+psql "$PGBASE/ls_sim" -qc "delete from public.profiles where id='e2e00000-0000-4000-8000-0000000000aa'; delete from auth.users where id='e2e00000-0000-4000-8000-0000000000aa'" >/dev/null 2>&1
+[ "$prof" = "1" ]; say "bootstrap installs on_auth_user_created: a new auth user gets one profile row (got $prof)" $?
 # 5) fail-closed: a psql that dies with FATAL mid-way through 02 must fail the bootstrap (fake psql, no network)
 # type -P resolves the BINARY only; command -v would return the psql() shell function above, and the fake would
 # then exec itself forever (seen once: 28 minutes of a spinning fake psql with the cluster idle).

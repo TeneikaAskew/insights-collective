@@ -79,6 +79,7 @@ run_strict "$SNAP/01_types_tables.sql"
 # (the Supabase image grants anon ALL on new public tables; first PG15 run 41266473201). Revoke exactly what the
 # capture lacks, per (relation, role, privilege), and fail on any residual or missing privilege.
 [ $FAIL -eq 0 ] && { "$ROOT/scripts/local-stack/reconcile-table-acl.sh" "$PGURL" "$SNAP/05_triggers_grants.sql" "$VIEWS_BROKEN_LIVE" || FAIL=1; }
+[ $FAIL -eq 0 ] && run_strict "$ROOT/scripts/local-stack/auth-trigger.sql"
 [ $FAIL -eq 0 ] && run_strict "$ROOT/scripts/local-stack/localize.sql"
 [ $FAIL -ne 0 ] && { echo "BOOTSTRAP FAILED: incomplete schema replay"; exit 1; }
 "$ROOT/scripts/local-stack/verify-identities.sh" "$PGURL" || { echo "BOOTSTRAP FAILED: identity verification"; exit 1; }

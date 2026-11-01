@@ -4,6 +4,7 @@
 -- ABOUTME: not evidence about a real `supabase start` database (that run is a separate, unexecuted gate).
 -- Prerequisite: scripts/local-db/supabase-shim.sql applied; roles created by the test runner.
 alter schema auth owner to supabase_admin;      -- official init: CREATE SCHEMA auth AUTHORIZATION supabase_admin
+grant all on schema auth to supabase_auth_admin;  -- official init (auth-schema migration): GoTrue's role uses the schema
 alter schema storage owner to supabase_admin;
 alter table auth.users owner to supabase_auth_admin;
 alter table auth.identities owner to supabase_auth_admin;
