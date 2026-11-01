@@ -6,7 +6,7 @@ import { chromium } from '@playwright/test';
 import { chromiumExecutableOption } from './support/chromium-executable';
 
 import type { FullConfig } from '@playwright/test';
-import { execSync } from 'child_process';
+import { execFileSync, execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -450,6 +450,13 @@ async function sweepAbandonedQuizAttempts(): Promise<void> {
 }
 
 async function globalSetup(config: FullConfig): Promise<void> {
+  // Fail closed before a single sign-in or password bootstrap: this setup, the seed and
+  // the suite all mutate whichever project they point at, and every default here is the
+  // production project. The guard refuses production unless E2E_ALLOW_PRODUCTION_TARGET
+  // names it exactly; a wrong or missing variable is treated as production, not as "test".
+  execFileSync(process.execPath, [path.resolve(__dirname, '../scripts/e2e/assert-safe-target.mjs'), '--mutating'], {
+    stdio: 'inherit',
+  });
   fs.mkdirSync(SESSIONS_DIR, { recursive: true });
 
   // Verify baseline seed data BEFORE bootstrapping sessions. If the fixtures

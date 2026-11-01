@@ -1,0 +1,12 @@
+files checked by root 'tsc --noEmit': 0
+files checked by 'tsc -p tsconfig.app.json': 734
+--- AFTER: npm run typecheck (tsc -b)
+> vite_react_shadcn_ts@0.0.0 typecheck
+> tsc -b
+
+exit 0
+--- sanity: inject a type error, tsc -b must fail; root tsc --noEmit must (vacuously) pass
+src/__tc_probe.ts(1,14): error TS2322: Type 'string' is not assignable to type 'number'.
+tsc -b exit 2
+root tsc --noEmit exit 0
+tsc -b after removing probe exit 0

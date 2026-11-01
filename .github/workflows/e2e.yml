@@ -1,516 +1,231 @@
-name: E2E Playwright Suite
+# Isolated full-stack E2E on an ephemeral runner (PR-B of docs/lms/isolated-stack-plan.md).
+#
+# This file REPLACES the previous .github/workflows/e2e.yml entirely (that file ran the suite against the hosted
+# project with repository secrets). The path is reused only because a workflow_dispatch workflow must already be
+# registered on the default branch before a branch ref can be dispatched; nothing of the old jobs remains.
+#
+# Everything runs on the runner's loopback: PostgreSQL 15 and the Supabase services from
+# `supabase start`, the sanitized schema-only snapshot from scripts/local-stack/, synthetic fixtures,
+# the built app, and Chromium. No hosted project, no repository secret, no production connection.
+#
+# Deliberately absent: `secrets.*`, `vars.*`, push/schedule/pull_request_target triggers, write
+# permissions, `supabase link`, `--linked`, `db push`, `functions deploy`, any commit or `git push`.
+# scripts/ci/check-isolated-workflow.mjs enforces that list on the workflow file GitHub is actually executing
+# (GITHUB_WORKFLOW_REF, at GITHUB_WORKFLOW_SHA == the checked-out HEAD). It runs before any dependency install
+# script, any backend command and any database write: only checkout, setup-node, recording ids and a
+# script-free `npm ci --ignore-scripts` (which provides its YAML parser) may precede it, and it enforces that too.
+#
+# Trigger: manual dispatch only. A new workflow_dispatch workflow can be dispatched only after the file exists on
+# the default branch, so pushing this on a draft branch alone does not make it runnable. Adding `pull_request` is a
+# separate, reviewed change once a maintainer has read this file (pull_request runs the PR's own copy).
+#
+# Tier: the browser runs against `vite preview` of the production build made in this job (release-build
+# acceptance on a local stack), not the Vite dev server.
+name: E2E (isolated local stack)
 
 on:
-  push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main, develop]
   workflow_dispatch:
     inputs:
-      update_snapshots:
-        description: >-
-          Regenerate the visual regression baselines on this runner and commit
-          them back to the dispatched branch (instead of running the suite).
-        type: boolean
-        default: false
+      specs:
+        description: Playwright spec scope. Starts with the read-only course specs (evidence gate 1).
+        type: choice
+        default: readonly-courses
+        options: [readonly-courses]
 
-# Every run of this suite drives the same live Supabase project through the same
-# three e2e-* accounts, so two runs cannot share the wall clock: they seed over
-# each other's fixtures and revoke each other's sessions. The group is
-# deliberately a constant rather than per-ref — the point is one E2E run at a
-# time across the whole repository, not one per branch.
+permissions: {}
+
 concurrency:
-  group: e2e-shared-supabase
+  group: e2e-local-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  # Replays every query the code issues against the live database and fails if
-  # any of them is invalid on a page a user can actually load.
-  #
-  # Five column mismatches and six broken embeds reached production and survived
-  # 893 unit tests and 99 e2e specs, because a rejected query renders as an empty
-  # list rather than an error: unit tests mock Supabase away, and the e2e console
-  # fixture suppressed all of /rest/v1/. Only the database can answer whether a
-  # query shape is valid.
-  #
-  # Separate job from the Playwright suite: it needs no browser and no preview
-  # server, finishes in a couple of minutes, and a PR that breaks a query should
-  # say so quickly rather than after a 30-minute e2e run.
-  query-validity:
-    name: Query validity
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    env:
-      E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL || 'e2e-admin@insightscollective.org' }}
-      E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-      E2E_INSTRUCTOR_EMAIL: ${{ secrets.E2E_INSTRUCTOR_EMAIL || 'e2e-instructor@insightscollective.org' }}
-      E2E_INSTRUCTOR_PASSWORD: ${{ secrets.E2E_INSTRUCTOR_PASSWORD }}
-      E2E_MEMBER_EMAIL: ${{ secrets.E2E_MEMBER_EMAIL || 'e2e-member@insightscollective.org' }}
-      E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
-      E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
-      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://siuqvhscuiycvdrtiqsh.supabase.co' }}
-      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-      VITE_SUPABASE_PROJECT_ID: ${{ secrets.VITE_SUPABASE_PROJECT_ID || 'siuqvhscuiycvdrtiqsh' }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Use Node.js 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20.x
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm install --legacy-peer-deps
-
-      # No Supabase management token anywhere in this job. The catalogue reads go
-      # through public.audit_db_functions / audit_db_columns and the invariants
-      # through public.audit_invariants(), all admin-gated over PostgREST — see
-      # supabase/migrations/20260801000000_audit_surfaces.sql for why that is
-      # sufficient. A management token can run arbitrary SQL project-wide, which
-      # is far more authority than reading a list of column names deserves.
-      - name: Inventory every query the code issues
-        run: node scripts/audit/query-inventory.mjs
-
-      - name: Map queries to the routes that can reach them
-        run: node scripts/audit/route-reachability.mjs
-
-      - name: Replay every query shape against the database
-        run: node scripts/audit/replay-queries.mjs
-
-      - name: Fail on any invalid query reachable from a route
-        run: node scripts/audit/gate.mjs
-
-      - name: Check the committed Supabase types still match the database
-        run: node scripts/audit/types-drift.mjs
-
-      # The unit-test Supabase mock validates .rpc() names against this list.
-      # Unit tests must run offline, so the list is checked in — which only helps
-      # if something notices when it goes stale. A name left in the file after
-      # the function is dropped lets a unit test keep passing against a call the
-      # app will fail to make.
-      - name: Check the committed database-function list is current
-        run: node scripts/audit/refresh-db-functions.mjs --check
-
-      - name: Check database invariants
-        run: node scripts/audit/schema-invariants.mjs
-
-      # include-hidden-files was missing here too, and this step is older than
-      # the console one — so it has been reporting success while uploading
-      # nothing for as long as it has existed. `.e2e-audit` is dot-prefixed,
-      # which upload-artifact@v4 excludes by default. The directory is
-      # definitely non-empty: gate.mjs reads those files two steps earlier in
-      # this same job. Found while investigating the console-audit upload.
-      - name: Upload audit output
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: query-audit
-          path: .e2e-audit/
-          include-hidden-files: true
-          if-no-files-found: ignore
-          retention-days: 14
-
-  e2e:
-    name: Playwright E2E
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    # contents: write is only exercised by the opt-in baseline regeneration
-    # below, which commits the new PNGs back to the dispatched branch.
+  isolated:
+    name: Isolated stack (PG15, loopback)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
     permissions:
-      contents: write
+      contents: read
+    defaults:
+      run:
+        # Explicit bash gives `-eo pipefail`: a failing command before `| tee` fails the step.
+        shell: bash
     env:
-      E2E_BASE_URL: http://localhost:8080
-      # Record console errors and failed responses, INCLUDING the ones the
-      # fixture suppresses, to .e2e-audit/console-audit.jsonl. It never changes
-      # pass/fail — it is the only way to notice a suppression rule that has
-      # quietly started hiding a real defect. The flag existed and was
-      # documented; it had simply never been switched on anywhere that runs.
-      #
-      # PARTIAL BY CONSTRUCTION, and the artifact must be read that way: the
-      # fixture instruments the injected `page` only, so the 43
-      # `browser.newContext()` call sites across 16 spec files (the visual
-      # suite, blog-post, the legal and survey specs among them) never reach
-      # the catalogue. A route missing from it was not watched; that is not the
-      # same as clean. Covering every context means wrapping context creation in
-      # the fixture — PR 7c's scope, not a workflow setting.
-      #
-      # Recorded URLs and text are redacted first
-      # (src/integrations/supabase/redact-secrets.ts). Without that, the
-      # Supabase signed-storage and calendar-feed tokens would be written into a
-      # downloadable artifact precisely when one of those requests failed.
-      E2E_AUDIT_CONSOLE: '1'
-      # Single-credential mode: providing E2E_ADMIN_* + E2E_TEST_PASSWORD is enough.
-      # global-setup will bootstrap the instructor/member accounts to E2E_TEST_PASSWORD
-      # via the admin-users edge function (setE2EPassword action, scoped to e2e-* accounts).
-      E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL || 'e2e-admin@insightscollective.org' }}
-      E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-      E2E_INSTRUCTOR_EMAIL: ${{ secrets.E2E_INSTRUCTOR_EMAIL || 'e2e-instructor@insightscollective.org' }}
-      E2E_INSTRUCTOR_PASSWORD: ${{ secrets.E2E_INSTRUCTOR_PASSWORD }}
-      E2E_MEMBER_EMAIL: ${{ secrets.E2E_MEMBER_EMAIL || 'e2e-member@insightscollective.org' }}
-      E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
-      E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
-      E2E_TEST_COURSE_ID: ${{ secrets.E2E_TEST_COURSE_ID || '660e8400-e29b-41d4-a716-446655440001' }}
-      E2E_INSTRUCTOR_COURSE_ID: ${{ secrets.E2E_INSTRUCTOR_COURSE_ID || '660e8400-e29b-41d4-a716-446655440001' }}
-      E2E_TEST_ADMIN_COURSE_ID: ${{ secrets.E2E_TEST_ADMIN_COURSE_ID || '660e8400-e29b-41d4-a716-446655440001' }}
-      E2E_TEST_COURSE_TITLE: ${{ secrets.E2E_TEST_COURSE_TITLE || 'Introduction to Data Science' }}
-      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-      # Lets global-setup's announcement-probe sweep actually run. Without it
-      # the sweep prints its warning and returns, and
-      # messaging-notifications-hardening.spec.ts leaves one notification per
-      # enrolled user of the reference course behind on EVERY run — 4,089 rows
-      # across 14 inboxes had accumulated before anyone looked. RLS scopes
-      # notification DELETE to auth.uid()=user_id, so the spec can only clean
-      # its own row; the fan-out needs a key that bypasses RLS.
-      #
-      # Defining the secret in repository settings is not enough on its own:
-      # GitHub does not inject secrets into a job's environment, so a job that
-      # never maps one simply does not have it. That is why the sweep kept
-      # skipping after the secret was added.
-      #
-      # Withheld from pull_request runs, and that condition is the whole point.
-      # This workflow triggers on pull_request and checks out the PROPOSED
-      # revision, then runs `npm ci` and `npx playwright test` — so a PR author
-      # controls package lifecycle scripts, global-setup.ts and every spec. Repo
-      # secrets ARE passed to same-repo PR branches (only forks are excluded), so
-      # mapping this key unconditionally would let anyone who can push a branch
-      # read a key that bypasses RLS on the shared PRODUCTION project. That turns
-      # ordinary write access into unrestricted production-data access.
-      #
-      # On a push to main the checked-out code is code that has already been
-      # reviewed and merged, which is the trust boundary this repo already
-      # relies on. The sweep is pre-run cleanup, so running it there still
-      # prevents the accumulation it exists to prevent: every merge triggers a
-      # push run, which clears whatever the PR runs left behind. Gating on the
-      # branch too, since `push` also covers develop.
-      SUPABASE_SERVICE_ROLE_KEY: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') && secrets.SUPABASE_SERVICE_ROLE_KEY || '' }}
-      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://siuqvhscuiycvdrtiqsh.supabase.co' }}
-      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-      VITE_SUPABASE_PROJECT_ID: ${{ secrets.VITE_SUPABASE_PROJECT_ID || 'siuqvhscuiycvdrtiqsh' }}
+      # Synthetic, non-secret literals. They exist only inside this job's local database.
+      E2E_TEST_PASSWORD: local-only-e2e-password
+      E2E_BASE_URL: http://127.0.0.1:8080
+      E2E_ISOLATED_TARGET_REF: ''
+      CI: 'true'
     steps:
+      # 1. Complete reviewed tree (full history, so the run can record the exact base it tested).
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
-      - name: Use Node.js 20
-        uses: actions/setup-node@v4
+      - name: Record tested commit and tree
+        run: |
+          git rev-parse HEAD HEAD^{tree} | tee tested-ids.txt
+          git log -1 --format='%H %P' >> tested-ids.txt
+
+      # 2. Dependencies from the committed npm lock, exactly, with NO lifecycle scripts: no dependency code runs
+      #    before the policy check. The checker needs the `yaml` package from this install (a cold checkout
+      #    has no node_modules, which is why the check used to exit 2 when it ran first).
+      - uses: actions/setup-node@v4
         with:
           node-version: 20.x
-          cache: 'npm'
+      - name: npm ci (no lifecycle scripts)
+        run: npm ci --ignore-scripts --no-audit --no-fund
 
-      - name: Install dependencies
-        run: npm install --legacy-peer-deps
+      # 3. Static policy check of the workflow file being executed, before any install script, backend command
+      #    or database write.
+      - name: Workflow policy check (executed file; no secrets, no writes, no remote Supabase)
+        run: node scripts/ci/check-isolated-workflow.mjs --executed
 
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium firefox
+      # 4. Only now run the dependencies' install scripts (e.g. the Supabase CLI fetches its binary here).
+      - name: npm rebuild (dependency install scripts)
+        run: npm rebuild
 
-      - name: Build app
+      # 5. Disposable CLI workdir: config.toml unchanged (project_id keeps the guard's deny identity),
+      #    EMPTY migrations directory (the incomplete historical chain must never run before the
+      #    snapshot bootstrap), seed disabled, functions copied.
+      - name: Prepare local-stack workdir
+        run: |
+          W="$RUNNER_TEMP/ic-local-stack"
+          scripts/local-stack/workdir.sh "$W"
+          echo "IC_WORKDIR=$W" >> "$GITHUB_ENV"
+
+      # 5. Local services only. No --linked, no project ref argument, no remote command.
+      - name: supabase start (local)
+        run: npx --no-install supabase start --workdir "$IC_WORKDIR" -x studio,imgproxy,logflare,vector,supavisor
+
+      # 6. Loopback endpoints and the CLI's fixed local demo keys into the job env.
+      - name: Export local endpoints
+        run: |
+          npx --no-install supabase status --workdir "$IC_WORKDIR" -o env > "$RUNNER_TEMP/status.env"
+          node - "$RUNNER_TEMP/status.env" >> "$GITHUB_ENV" <<'JS'
+          const fs = require('fs');
+          const kv = Object.fromEntries(fs.readFileSync(process.argv[2], 'utf8').split('\n')
+            .map(l => l.match(/^([A-Z_]+)="?(.*?)"?$/)).filter(Boolean).map(m => [m[1], m[2]]));
+          for (const k of ['API_URL', 'DB_URL', 'ANON_KEY']) if (!kv[k]) { console.error(`status: ${k} missing`); process.exit(2); }
+          const api = new URL(kv.API_URL), db = new URL(kv.DB_URL);
+          for (const u of [api, db]) if (!['127.0.0.1', 'localhost'].includes(u.hostname)) { console.error('status: non-loopback endpoint'); process.exit(2); }
+          console.log(`VITE_SUPABASE_URL=${kv.API_URL}`);
+          console.log(`E2E_RELAY_TARGET=${kv.API_URL}`);
+          console.log(`SUPABASE_DB_URL=${kv.DB_URL}`);
+          // Both names: the app client reads VITE_SUPABASE_ANON_KEY, global-setup reads
+          // VITE_SUPABASE_PUBLISHABLE_KEY, and each falls back to the production project when unset.
+          console.log(`VITE_SUPABASE_ANON_KEY=${kv.ANON_KEY}`);
+          console.log(`VITE_SUPABASE_PUBLISHABLE_KEY=${kv.ANON_KEY}`);
+          JS
+
+      # 7. Fail-closed guards: every target loopback, and no env value names the production project.
+      - name: Target guard (mutating mode must accept loopback)
+        run: node scripts/e2e/assert-safe-target.mjs --mutating
+      - name: Local target guard (loopback URLs, same local anon key under both names, no production ref)
+        run: node scripts/ci/check-local-target.mjs env
+
+      # 8. Schema snapshot bootstrap on the authentic managed layout, then identity parity (PG15 gate).
+      - name: Bootstrap schema snapshot
+        run: scripts/local-stack/bootstrap.sh "$SUPABASE_DB_URL"
+      - name: Verify identities (live-verified + snapshot-derived)
+        run: scripts/local-stack/verify-identities.sh "$SUPABASE_DB_URL" | tee identities-report.txt
+
+      # 9. Synthetic fixtures, each behind the target guard.
+      - name: Local pre-seed (synthetic accounts and reference course)
+        run: |
+          node scripts/e2e/assert-safe-target.mjs --mutating
+          env -u PGHOST -u PGHOSTADDR -u PGSERVICE -u PGSERVICEFILE -u PGPORT -u PGPASSFILE \
+            psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/local-db/local-preseed.sql
+      # admin, instructor and member made GoTrue-compatible with the run's synthetic password (required).
+      - name: Local auth fixtures (admin, instructor, member)
+        run: scripts/local-stack/seed-auth.sh
+      # journeys account and every fixture row; the seed now receives the same password.
+      - name: E2E seed
+        run: scripts/e2e/seed.sh
+
+      # 10. Edge Functions served locally (background); external-host functions get loopback placeholders.
+      - name: Serve Edge Functions (local)
+        run: |
+          nohup npx --no-install supabase functions serve --workdir "$IC_WORKDIR" > "$RUNNER_TEMP/functions.log" 2>&1 &
+          echo "FUNCTIONS_PID=$!" >> "$GITHUB_ENV"
+      # A positive answer from a known function (verify-certificate: verify_jwt = false, OPTIONS returns 200 "ok"),
+      # within a deadline, with the serve process alive. Anything else fails the job.
+      - name: Edge Functions readiness
+        run: |
+          # Each probe is bounded (connect 5s, total <= 10s and <= the time left), so a hung request cannot
+          # outlive the 120s deadline.
+          deadline=$((SECONDS + 120))
+          probe() {
+            local left=$((deadline - SECONDS)); [ "$left" -ge 1 ] || left=1; [ "$left" -le 10 ] || left=10
+            rm -f "$RUNNER_TEMP/fn-probe.txt"
+            [ "$(curl -sS --connect-timeout 5 --max-time "$left" -X OPTIONS -o "$RUNNER_TEMP/fn-probe.txt" -w '%{http_code}' "$VITE_SUPABASE_URL/functions/v1/verify-certificate" 2>/dev/null)" = 200 ] \
+              && [ "$(cat "$RUNNER_TEMP/fn-probe.txt" 2>/dev/null)" = ok ]
+          }
+          until probe; do
+            kill -0 "$FUNCTIONS_PID" 2>/dev/null || { echo "functions serve exited"; tail -50 "$RUNNER_TEMP/functions.log"; exit 1; }
+            [ "$SECONDS" -lt "$deadline" ] || { echo "functions not ready after 120s"; tail -50 "$RUNNER_TEMP/functions.log"; exit 1; }
+            sleep 3
+          done
+          echo "edge functions ready"
+
+      # 11. Production build of the app against the local stack, checked, then served by `vite preview`.
+      #     Playwright's webServer has reuseExistingServer, so it uses this preview instead of starting Vite dev.
+      - name: Build app (production build, local target)
         run: npm run build
-
-      - name: Start preview server
+      - name: Built-app artifact check (local URL present, no production ref or hosted key)
+        run: node scripts/ci/check-local-target.mjs dist dist
+      - name: Serve built app (vite preview) and wait for it
         run: |
-          npx vite preview --port 8080 --host 0.0.0.0 &
-          echo $! > .preview.pid
-          for i in {1..30}; do
-            if curl -sSf http://localhost:8080 > /dev/null; then
-              echo "Preview ready"; break;
-            fi
-            echo "Waiting for preview ($i)..."; sleep 2;
+          nohup npx --no-install vite preview --host 127.0.0.1 --port 8080 --strictPort > "$RUNNER_TEMP/preview.log" 2>&1 &
+          PREVIEW_PID=$!
+          deadline=$((SECONDS + 60))
+          until curl -fsS --connect-timeout 5 --max-time 10 "$E2E_BASE_URL/" -o "$RUNNER_TEMP/preview-index.html" 2>/dev/null && grep -q 'id="root"' "$RUNNER_TEMP/preview-index.html"; do
+            kill -0 "$PREVIEW_PID" 2>/dev/null || { echo "vite preview exited"; cat "$RUNNER_TEMP/preview.log"; exit 1; }
+            [ "$SECONDS" -lt "$deadline" ] || { echo "preview not ready after 60s"; cat "$RUNNER_TEMP/preview.log"; exit 1; }
+            sleep 2
           done
+          cmp -s "$RUNNER_TEMP/preview-index.html" dist/index.html || { echo "preview is not serving this build"; exit 1; }
+          echo "preview serving dist/"
 
-      # Seeding is opt-in — it only runs when the secret is present. But a
-      # MALFORMED secret must not be worse than an absent one, and it was: psql
-      # treats a value that is neither a URI nor a keyword string as a bare
-      # database NAME and dials the local unix socket, so a mistyped secret
-      # failed with "connection to server on socket /var/run/postgresql ...",
-      # which names neither the secret nor the real cause, and killed the job
-      # before a single test ran.
-      #
-      # So: check the shape first, and never let a seeding problem take the
-      # whole suite down with it. Both paths raise a workflow annotation, and
-      # the specs that actually need fixtures already fail with their own
-      # explicit "Seed gap: ..." messages naming what to reseed.
-      - name: Seed E2E fixtures
+      # 12. Browser. course-list and course-detail are member-session specs: they belong to the chromium-member
+      #     project (chromium-public does not match them), whose storage state global-setup creates. global-setup
+      #     signs in all four roles and stops the run if any sign-in fails; that is kept.
+      # playwright.config.ts resolves a launchable Firefox while LOADING (its firefox project), so a
+      # Chromium-only install makes even `--list` fail. Both browsers are installed; only Chromium runs.
+      - name: Install browsers required to load playwright.config.ts
+        run: npx --no-install playwright install --with-deps chromium firefox
+      - name: Playwright selection must not be empty
+        if: inputs.specs == 'readonly-courses'
         run: |
-          # Every way of not seeding is fatal, not just a seed that errors.
-          #
-          # This step used to carry `if: env.SUPABASE_DB_URL != ''` and to exit 0
-          # on a malformed URL, so a missing or broken secret skipped seeding
-          # silently and the suite ran against whatever the database already
-          # held — the same blind spot that hid two seed bugs behind a green job.
-          #
-          # Forks receive no secrets, but they receive no E2E_*_PASSWORD either,
-          # so global-setup cannot sign in and there was never a green fork run
-          # to protect. Failing here only moves that failure ten minutes earlier
-          # and names the real cause.
-          if [ -z "$SUPABASE_DB_URL" ]; then
-            echo "::error title=SUPABASE_DB_URL is not set::The suite cannot seed its fixtures, so it would test whatever state the database already holds. Map the secret into this job's env, or run from a branch in this repository rather than a fork."
-            exit 1
-          fi
-          case "$SUPABASE_DB_URL" in
-            postgres://*|postgresql://*) ;;
-            *)
-              echo "::error title=SUPABASE_DB_URL is not a connection URI::The secret is set but its scheme is missing, so psql read it as a database name and tried the local socket. It must be a full libpq connection URI - scheme, then credentials, host, port and database name."
-              exit 1
-              ;;
-          esac
-          # A scheme alone is not enough: a database password containing URI
-          # reserved characters silently corrupts the authority section. A raw
-          # "?" or "#" ends the authority early, so the host is read as the few
-          # characters before it and the port cast then fails -- which is what
-          # makes those two detectable here rather than fifteen minutes later.
-          # A malformed percent-escape is NOT caught that way (urlsplit does not
-          # decode escapes, and unquote leaves an invalid one literal), so it
-          # gets its own check. Fatal, like the checks above it: a secret that
-          # is set but unusable is a misconfiguration, and a run that cannot
-          # seed has not tested anything. Deliberately no worked example: an inline
-          # connection-string literal, even a fabricated one, trips TruffleHog's
-          # Postgres detector and fails the Secret Detection job.
-          if ! python3 - <<'PY'
-          import os, re, sys
-          from urllib.parse import urlsplit
-          raw = os.environ["SUPABASE_DB_URL"]
-          advice = "Percent-encode the password if it contains reserved characters: % becomes %25, ? becomes %3F, # becomes %23, / becomes %2F, @ becomes %40, : becomes %3A."
-          if re.search(r"%(?![0-9A-Fa-f]{2})", raw):
-              print("::error title=SUPABASE_DB_URL contains a malformed percent-escape::A '%' must be followed by two hex digits. " + advice)
-              sys.exit(1)
-          try:
-              parts = urlsplit(raw)
-              port = parts.port
-          except ValueError:
-              print("::error title=SUPABASE_DB_URL does not parse as a URI::A raw '?' or '#' in the password ends the authority early, so the host and port are read from the wrong place. " + advice)
-              sys.exit(1)
-          if not parts.hostname or not port:
-              print("::error title=SUPABASE_DB_URL is missing a host or port::Expected the postgresql:// URI form ending in :5432/postgres. " + advice)
-              sys.exit(1)
-          PY
-          then
-            exit 1
-          fi
-          # ON_ERROR_STOP so a failed statement (including the seed's own
-          # invariant RAISE EXCEPTIONs) aborts psql. Without it psql prints the
-          # error and still exits 0, and a half-applied seed looks fine while
-          # the specs fail later for reasons that make no sense.
-          # -v e2e_password: the seed provisions the dedicated journeys account
-          # and needs the shared password to set. It is read from the secret
-          # here and never stored in the SQL file.
-          # Fatal, deliberately. This used to warn and carry on, on the theory
-          # that a partial seed still lets most specs run. It does not: the file
-          # is a single BEGIN/COMMIT, so a failure anywhere rolls back all of it
-          # and the suite then tests whatever state the database happened to
-          # hold. Two seed bugs survived that way — a cast of '' to jsonb, and a
-          # notification invariant asserted above the section that writes it —
-          # because a red seed and a green seed produced the same green job.
-          # A run that could not build its fixtures has not tested anything.
-          if ! psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -v e2e_password="$E2E_TEST_PASSWORD" -f e2e/fixtures/seed.sql; then
-            echo "::error title=E2E seeding failed::psql could not apply e2e/fixtures/seed.sql. The file is one transaction, so nothing was applied and the suite would be testing pre-existing state. Fix the seed rather than re-running."
-            exit 1
-          fi
-
-      # Every TestIds default must resolve to a row the role that loads the page
-      # can actually read. The seed asserts the rows exist; this asserts RLS lets
-      # the right role see them, which is a different question — a row hidden by
-      # a policy produces exactly the same empty page as no row at all. Runs
-      # before the suite so a seeding problem is not diagnosed as 60 test
-      # failures.
-      - name: Verify e2e fixtures resolve
-        run: node scripts/audit/verify-fixtures.mjs
-
-      # No --reporter override: a CLI --reporter replaces the config's reporter
-      # array wholesale, and the json reporter with no configured outputFile
-      # writes to STDOUT. That is why the job log was ~500KB of raw JSON, why
-      # test-results.json and junit.xml were never produced, and why the
-      # coverage-gap step below has silently been a no-op — its `[ -f
-      # test-results.json ]` guard was never true. playwright.config.ts already
-      # selects html+json+junit+github+list under CI, each with a real output
-      # path, so just let it.
-      - name: Run Playwright suite
-        if: inputs.update_snapshots != true
-        run: npx playwright test
-
-      # Baseline regeneration is opt-in via workflow_dispatch. It has to happen
-      # on the runner: the files are *-visual-linux.png, and the member/admin
-      # routes only render their real content with a real session — a baseline
-      # captured anywhere else just relocates the failure.
-      # --update-snapshots takes an OPTIONAL argument (choices: all|changed|
-      # missing|none), so writing it as `--update-snapshots e2e/visual` makes
-      # commander swallow the path as the mode, fail the choices check, and exit
-      # in about a second having run nothing. Bind the value with `=` and keep
-      # the path as a positional. "changed" rewrites only baselines that differ,
-      # so the commit stays a minimal, reviewable diff.
-      - name: Regenerate visual baselines
-        if: inputs.update_snapshots == true
-        # globalTeardown deletes .playwright-sessions/ at the end of the run, so
-        # the session check below (a separate step) would otherwise find nothing
-        # and report "no admin session" for sessions that authenticated fine.
+          npx --no-install playwright test --list --project=chromium-member e2e/courses/course-list.spec.ts e2e/courses/course-detail.spec.ts | tee "$RUNNER_TEMP/pw-list.txt"
+          n=$(sed -n 's/^Total: \([0-9][0-9]*\) tests\{0,1\} in .*/\1/p' "$RUNNER_TEMP/pw-list.txt")
+          [ -n "$n" ] && [ "$n" -gt 0 ] || { echo "no tests selected"; exit 1; }
+          echo "selected $n tests"
+      - name: Playwright (read-only course specs, member session, built app)
+        if: inputs.specs == 'readonly-courses'
         env:
-          E2E_KEEP_SESSIONS: 'true'
-        run: npx playwright test --project=visual e2e/visual --update-snapshots=changed --reporter=list
+          # Labels for every evidence screenshot (e2e/evidence/frontend-evidence.spec.ts). The backend mode is not a
+          # label: the spec measures it from the API responses and fails unless it is the loopback stack, unstubbed.
+          E2E_EVIDENCE_COMMIT: ${{ github.sha }}
+          E2E_EVIDENCE_ENVIRONMENT: isolated local Supabase stack (supabase start, loopback) + production build served by vite preview, GitHub-hosted ubuntu runner, chromium
+        run: npx --no-install playwright test --project=chromium-member e2e/courses/course-list.spec.ts e2e/courses/course-detail.spec.ts e2e/evidence/frontend-evidence.spec.ts
 
-      # global-setup writes {"cookies":[],"origins":[]} when a role fails to
-      # authenticate, and the suite then renders those routes logged-out. Baking
-      # a signed-out page into a baseline is worse than leaving the check red, so
-      # refuse to commit unless every role actually has a session.
-      - name: Verify baselines came from authenticated sessions
-        if: inputs.update_snapshots == true
-        run: |
-          for role in admin instructor member; do
-            f=".playwright-sessions/$role.json"
-            if [ ! -s "$f" ] || ! grep -q 'supabase.auth.token' "$f"; then
-              echo "::error::No $role session — regenerated baselines would capture logged-out pages. Refusing to commit."
-              exit 1
-            fi
-            echo "$role session OK"
-          done
-
-      - name: Commit regenerated baselines
-        if: inputs.update_snapshots == true
-        run: |
-          if git diff --quiet -- e2e/visual; then
-            echo "Baselines already match this runner — nothing to commit."
-            exit 0
-          fi
-          git diff --stat -- e2e/visual
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add e2e/visual
-          git commit -m "Regenerate visual regression baselines on the CI runner"
-          git push origin HEAD:${{ github.ref_name }}
-
-      - name: Coverage gap report
-        if: always()
-        run: |
-          echo "## E2E Coverage Gap Report" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          if [ -f e2e/TEST-PLAN.md ]; then
-            echo "### Journeys documented in TEST-PLAN.md" >> $GITHUB_STEP_SUMMARY
-            grep -E '^### ' e2e/TEST-PLAN.md >> $GITHUB_STEP_SUMMARY || true
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "### Explicit coverage gaps (from TEST-PLAN.md)" >> $GITHUB_STEP_SUMMARY
-            awk '/^## Coverage gaps/{flag=1;next}/^## /{flag=0}flag' e2e/TEST-PLAN.md >> $GITHUB_STEP_SUMMARY || true
-          fi
-          if [ -f test-results.json ] || [ -f playwright-report/results.json ]; then
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "### Test outcome summary" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            # Piped through tee, not redirected: this step runs last, so writing
-            # the failure list to stdout too is what puts it inside the window
-            # the GitHub log API returns. Without it the only record of WHICH
-            # tests failed is the JSON reporter dump, which the API truncates
-            # away — leaving a red check with no diagnosable cause.
-            node -e "
-              const fs = require('fs');
-              const p = fs.existsSync('test-results.json') ? 'test-results.json' : 'playwright-report/results.json';
-              const r = JSON.parse(fs.readFileSync(p,'utf8'));
-              const s = r.stats || {};
-              console.log('Passed:', s.expected||0, 'Failed:', s.unexpected||0, 'Skipped:', s.skipped||0, 'Flaky:', s.flaky||0);
-              const failed = [], flaky = [], skipped = [];
-              const firstError = t => {
-                for (const res of t.results||[]) {
-                  const m = (res.error && res.error.message) || ((res.errors||[])[0]||{}).message;
-                  if (m) return m.replace(/\x1b\[[0-9;]*m/g,'').split('\n').map(x=>x.trim()).filter(Boolean).slice(0,2).join(' | ');
-                }
-                return 'no error message';
-              };
-              // A skip reason lives in the test's ANNOTATIONS, never in an
-              // error. Playwright records test.skip(cond,'reason') as
-              // {type:'skip', description:'reason'} and leaves result.error
-              // undefined — verified against playwright 1.59 by running a spec
-              // with each skip form and dumping the JSON report. So the old
-              // 'res.error?.message || no reason' could not print a reason for
-              // ANY skip, however carefully written: every line of the skip
-              // list said 'no reason', which read as a suite full of
-              // unexplained gaps and buried the ones that really are
-              // unexplained. Declaration-time skips carry theirs as an explicit
-              // annotation argument; both forms land in the same array, so take
-              // the first annotation that actually has a description.
-              const skipReason = t => {
-                const a = (t.annotations||[]).find(x => x && x.description);
-                return a ? a.description.replace(/\s+/g,' ').trim() : 'NO REASON RECORDED';
-              };
-              function walk(node){
-                (node.suites||[]).forEach(walk);
-                (node.specs||[]).forEach(sp=>sp.tests.forEach(t=>{
-                  const where = (sp.file||'?')+' ['+(t.projectName||'?')+'] '+sp.title;
-                  if (t.status === 'unexpected') failed.push(where+' — '+firstError(t));
-                  else if (t.status === 'flaky') flaky.push(where);
-                  // Keyed off the TEST, not each result: a retried test has
-                  // several results and the old loop listed it once per result.
-                  else if (t.status === 'skipped') skipped.push(where+' — '+skipReason(t));
-                }));
-              }
-              (r.suites||[]).forEach(walk);
-              if (failed.length) { console.log('\nFailed tests ('+failed.length+'):'); failed.forEach(f=>console.log(' -', f)); }
-              if (flaky.length) { console.log('\nFlaky tests ('+flaky.length+'):'); flaky.forEach(f=>console.log(' -', f)); }
-              if (skipped.length) { console.log('\nSkipped (potential coverage gaps):'); skipped.forEach(s=>console.log(' -', s)); }
-            " 2>&1 | tee -a $GITHUB_STEP_SUMMARY || true
-            echo '```' >> $GITHUB_STEP_SUMMARY
-          fi
-
-      # Say out loud how many records there are. A count in the summary is what
-      # separates "the suite produced no suppressed errors" from "the upload
-      # silently shipped nothing", which is a distinction the first version of
-      # this step could not make and got wrong (see include-hidden-files below).
-      # Piped through tee for the same reason the coverage-gap step above is:
-      # $GITHUB_STEP_SUMMARY is readable in the web UI and NOWHERE ELSE. A count
-      # that only lands there cannot be read through the API, which is how this
-      # step would be consulted when something looks wrong — so a silent zero
-      # would still be invisible to anyone not clicking through a browser. That
-      # is the exact failure this step exists to prevent, one level up.
-      - name: Report suppressed-console audit size
-        if: always()
-        run: |
-          f=.e2e-audit/console-audit.jsonl
-          {
-            if [ -s "$f" ]; then
-              echo "### Suppressed-console audit: $(wc -l < "$f") records"
-            else
-              echo "### Suppressed-console audit: NO RECORDS WRITTEN"
-              echo "The recorder is enabled but produced nothing. Either the suite emitted no console errors and no failed responses at all (unlikely), or the recorder is not running."
-            fi
-          } 2>&1 | tee -a $GITHUB_STEP_SUMMARY
-
-      # Non-gating on purpose. The recorder cannot fail a run, so uploading it is
-      # the whole mechanism: it makes the suppressed-error catalogue something a
-      # reviewer can open on any run instead of something that has to be
-      # reproduced locally to exist at all.
-      #
-      # include-hidden-files is REQUIRED and was the reason the first version of
-      # this step uploaded nothing while reporting success. `.e2e-audit` starts
-      # with a dot, upload-artifact@v4 treats dot-prefixed paths as hidden and
-      # excludes them by default, and `if-no-files-found: ignore` turned the
-      # resulting "No files were found with the provided path" into a green
-      # step. Run 30720363551 produced exactly one artifact as a result.
-      - name: Upload suppressed-console audit
+      - name: Upload evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: console-audit
-          path: .e2e-audit/
-          include-hidden-files: true
-          if-no-files-found: ignore
+          name: e2e-local-${{ github.run_id }}
           retention-days: 14
-
-      - name: Upload Playwright HTML report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report
-          path: playwright-report/
-          retention-days: 14
-
-      - name: Upload failure artifacts (traces, videos, screenshots)
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-failure-artifacts
           path: |
-            test-results/**/trace.zip
-            test-results/**/video.webm
-            test-results/**/*.png
-            test-results/junit.xml
-            test-results.json
-          if-no-files-found: ignore
-          retention-days: 30
+            tested-ids.txt
+            identities-report.txt
+            playwright-report/
+            test-results/
+            ${{ runner.temp }}/functions.log
+            ${{ runner.temp }}/preview.log
+            ${{ runner.temp }}/pw-list.txt
 
-      - name: Stop preview server
+      - name: Stop local stack
         if: always()
-        run: kill $(cat .preview.pid) || true
+        continue-on-error: true
+        run: npx --no-install supabase stop --workdir "$IC_WORKDIR" --no-backup
