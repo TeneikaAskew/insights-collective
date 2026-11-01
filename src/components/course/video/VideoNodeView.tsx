@@ -8,6 +8,8 @@ export function VideoNodeView({ node, editor, extension }: NodeViewProps) {
   const src = (node.attrs.src as string | null) ?? null;
   const title = (node.attrs.title as string | null) ?? null;
   const frameClassName = (extension.options?.HTMLAttributes?.class as string | undefined) ?? undefined;
+  // Same option the serializer honours in renderHTML; default true like the extension.
+  const allowFullscreen = extension.options?.allowFullscreen !== false;
   const editable = editor.isEditable;
 
   return (
@@ -23,6 +25,7 @@ export function VideoNodeView({ node, editor, extension }: NodeViewProps) {
         title={title}
         showSourceDetails={editable}
         frameClassName={frameClassName}
+        allowFullscreen={allowFullscreen}
       />
     </NodeViewWrapper>
   );

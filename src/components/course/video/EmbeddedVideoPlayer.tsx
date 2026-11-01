@@ -23,6 +23,8 @@ export interface EmbeddedVideoPlayerProps {
   className?: string;
   /** Extra classes for the iframe (the extension's HTMLAttributes.class). */
   frameClassName?: string;
+  /** Mirrors the Video extension's allowFullscreen option (default true, as the serializer). */
+  allowFullscreen?: boolean;
 }
 
 type FrameState = 'loading' | 'loaded' | 'slow';
@@ -47,6 +49,7 @@ export function EmbeddedVideoPlayer({
   showSourceDetails = false,
   className,
   frameClassName,
+  allowFullscreen = true,
 }: EmbeddedVideoPlayerProps) {
   const resolved = resolveEmbed(src);
   const frameSrc = resolved.status === 'supported' ? resolved.frameSrc : null;
@@ -101,7 +104,7 @@ export function EmbeddedVideoPlayer({
           title={name}
           className={cn('absolute inset-0 h-full w-full border-0', frameClassName)}
           allow={FRAME_ALLOW}
-          allowFullScreen
+          allowFullScreen={allowFullscreen}
           loading="lazy"
           referrerPolicy="strict-origin-when-cross-origin"
           aria-describedby={state === 'loaded' ? undefined : statusId}

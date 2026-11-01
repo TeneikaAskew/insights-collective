@@ -23,6 +23,11 @@ describe('EmbeddedVideoPlayer', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Loading YouTube player');
   });
 
+  it('omits allowfullscreen when the extension option is false', () => {
+    render(<EmbeddedVideoPlayer src="https://www.youtube.com/embed/dQw4w9WgXcQ" allowFullscreen={false} />);
+    expect(screen.getByTitle('YouTube video')).not.toHaveAttribute('allowfullscreen');
+  });
+
   it('uses the author title as the accessible name', () => {
     render(<EmbeddedVideoPlayer src="https://player.vimeo.com/video/76979871?h=8272103f6e" title="Lesson video" />);
     expect(screen.getByTitle('Lesson video')).toHaveAttribute('src', 'https://player.vimeo.com/video/76979871?h=8272103f6e');
