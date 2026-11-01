@@ -2,6 +2,7 @@
 // ABOUTME: then verifies the DB trigger auto-issues a certificate and the /certificate page renders it.
 import { test, expect } from '../fixtures/page-helpers';
 import { signInMember, getSupabaseAccessToken } from './_helpers/signIn';
+import { ensureAssessedPrerequisites } from './_helpers/assessedCompletion';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://siuqvhscuiycvdrtiqsh.supabase.co';
 const SUPABASE_KEY =
@@ -115,6 +116,18 @@ test.describe('Certificate generation — end to end', () => {
       `${SUPABASE_URL}/rest/v1/content_item_progressions?user_id=eq.${userId}&content_item_id=in.(${items.map((i) => i.id).join(',')})`,
       { headers: authHeaders },
     );
+
+    // 4b) Assessed items first. Since 20261031120009 the database refuses to mark an
+    //     assignment or quiz done without a real submission (23514). Create the
+    //     submissions the way the app would, then the completion below is legitimate.
+    const prereq = await ensureAssessedPrerequisites(page, {
+      supabaseUrl: SUPABASE_URL,
+      headers: authHeaders,
+      userId,
+      itemIds: items.map((i) => i.id),
+      submissionBody: 'E2E certificate-generation prerequisite submission',
+    });
+    expect(prereq.assignmentsFound + prereq.quizzesFound, 'seeded course has assessed items').toBeGreaterThan(0);
 
     // 5) Insert a 'completed' progression for every item. The trigger fires per-row.
     const rows = items.map((i) => ({
