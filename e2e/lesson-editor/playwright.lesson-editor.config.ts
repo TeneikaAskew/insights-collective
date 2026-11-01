@@ -1,5 +1,5 @@
 // ABOUTME: Scratch Playwright config for the lesson-editor acceptance spec ONLY: no globalSetup/teardown, no webServer,
-// ABOUTME: chromium only, one worker, signed in per test from the fixture's own 0600 storage states (run.sh setup).
+// ABOUTME: chromium only, one worker, traces off, signed in per test from the fixture's own 0600 storage states (run.sh setup).
 //
 // The app must already be served (the T-09 job's `vite preview` on a loopback origin) and pointed at the isolated local
 // stack. Required env (checked by the spec before any navigation): LE_APP_ORIGIN, LE_API_ORIGIN, LE_DB_URL, LE_WORK_DIR,
@@ -19,14 +19,22 @@ export default defineConfig({
   outputDir: process.env.LE_OUTPUT_DIR || 'test-results/lesson-editor',
   use: {
     baseURL: process.env.LE_APP_ORIGIN,
-    trace: 'retain-on-failure',
-    screenshot: 'off', // screens are captured explicitly with labels
+    // Failure traces, videos and automatic screenshots are OFF: a trace would capture request headers (persona JWTs) and
+    // storage. Screens are captured explicitly with labels; failures are diagnosed from the labelled JSON only.
+    trace: 'off',
+    video: 'off',
+    screenshot: 'off',
     serviceWorkers: 'block',
   },
   projects: [
     {
       name: 'lesson-editor-chromium',
-      use: { ...devices['Desktop Chrome'], launchOptions: { ...chromiumExecutableOption() } },
+      // Egress layer 1, the repository's shared hermetic resolver rule plus EXCLUDE 127.0.0.1 (see egress-boundary.ts).
+      // Layers 2-4 (allowlist proxy, route/WebSocket filter, observation) are wired in by egress-test.ts.
+      use: {
+        ...devices['Desktop Chrome'],
+        launchOptions: { ...chromiumExecutableOption(), args: ['--host-resolver-rules=MAP * 127.0.0.1:1,EXCLUDE localhost,EXCLUDE 127.0.0.1'] },
+      },
     },
   ],
 });

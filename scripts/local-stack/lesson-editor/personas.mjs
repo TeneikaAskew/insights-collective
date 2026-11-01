@@ -7,15 +7,26 @@
 //   Personas: OWNER (instructor, owns the fixture course), OTHER (instructor, does not), STUDENT. Emails are
 //   le-<persona>-<run>@local.test. Passwords: 24 random bytes, only in this process's memory and request bodies.
 //   Output dir is created 0700 and must not exist: personas.json {KEY:{id,email,token}} and state-<KEY>.json, all 0600.
+//   Any failure after the dir is created removes it, so a partial run never leaves session files behind. Note: accounts
+//   already created in GoTrue stay (the stack is disposable and is never reused: preflight P1 refuses existing le-* users).
 //   The app's auth storage key is 'supabase.auth.token' (src/integrations/supabase/client.ts).
-import { existsSync, mkdirSync, writeFileSync, chmodSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync, chmodSync, statSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { apiOrigin, readSecretFile, request } from '../t09/api-http.mjs';
 
 export const LE_PERSONAS = ['OWNER', 'OTHER', 'STUDENT'];
 const APP_STORAGE_KEY = 'supabase.auth.token';
+let created = null; // the private output dir, once this process made it: removed on ANY failure (no partial session files)
 const refuse = (m) => {
+  if (created) {
+    try {
+      rmSync(created, { recursive: true, force: true });
+      console.log('le-personas: partial private output removed');
+    } catch {
+      console.log('le-personas: WARNING could not remove partial private output');
+    }
+  }
   console.log(`FAIL le-personas: ${m}`);
   process.exit(1);
 };
@@ -41,6 +52,9 @@ try {
 }
 if (existsSync(outDir)) refuse('output dir exists (never reused)');
 mkdirSync(outDir, { mode: 0o700 });
+created = outDir;
+process.on('uncaughtException', () => refuse('unexpected error (detail withheld)'));
+process.on('unhandledRejection', () => refuse('unexpected error (detail withheld)'));
 
 const write600 = (f, s) => {
   writeFileSync(f, s, { mode: 0o600, flag: 'wx' });

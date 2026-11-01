@@ -1,163 +1,216 @@
 # Lesson-editor acceptance fixture: source and plan for isolation review
 
-**Status:** source only, on local branch `local/lesson-editor-fixture` (based on the published composition 0e98de7, #142).
-Nothing here has run against a real `supabase start` stack. Nothing has been dispatched, and the shared workflow has not
-been edited. Integrating this into the shared runner (`e2e.yml` and the checker) belongs to the T-09 owner. The snippet
-below is a proposal only.
+**Status:** source only, on local branch `local/lesson-editor-fixture` (on the published composition 0e98de7, #142).
+Nothing here has run against a real `supabase start` stack, nothing has been dispatched, and the shared workflow has not
+been edited. Integration into the shared runner (`e2e.yml`, the checker) belongs to the T-09 owner; the snippet below is a
+proposal only. **Held:** not qualified for execution until the isolation and acceptance reviews close.
 
-**Purpose:** acceptance (WP-04/WP-08) of the lesson save and reload behaviour in #142. It covers what the mocked tests
-cannot cover:
-
-- real TipTap
-- the real version trigger and the conditional fence
-- roles enforced by real RLS
-- the recovery screens at 1440x900, 768x1024 and 390x844
+**Purpose:** acceptance (WP-04/WP-08) of #142's lesson save and reload behaviour where mocks cannot reach: real TipTap, the
+real version trigger and conditional fence, roles under real RLS, and the recovery screens at 1440x900, 768x1024, 390x844.
 
 ## Evidence tiers
 
 | Tier | What | Status |
 |---|---|---|
 | Source and mocked | #142's Vitest suites | passed (1872 tests, PR Checks run 41324232146) |
-| LOCAL-SIM | `tests/guards-selftest.sh`: PG16 with the managed layout simulated, the T-09 bootstrap, and RLS as role `authenticated` with JWT claims | 21/21 here, with causal controls (below) |
-| LOCAL isolated stack | `backend-contract.mjs` (PostgREST + GoTrue with real persona JWTs) and `lesson-editor.spec.ts` (built app, Chromium) | **not run** (needs the shared runner) |
-| Deployed backend | none | **out of scope**. The deployed trigger stays unverified, and nothing here claims otherwise |
+| LOCAL-SIM | `tests/guards-selftest.sh`: a throwaway PG16 cluster it creates and removes, T-09's simulated managed layout, LOCAL-SHIM pg_net queue with the T-09 PRE guard, `bootstrap.sh`, RLS as role `authenticated` with JWT claims. HTTP probes hit a FAKE server and psql negatives a FAKE psql (both labelled) | 48/48, causal controls below |
+| LOCAL-BROWSER | `egress-selftest.spec.ts`: real Chromium against loopback test servers (no stack) | passes; three weakened controls fail as expected |
+| LOCAL isolated stack | `backend-contract.mjs` (PostgREST + GoTrue, real persona JWTs) and `lesson-editor.spec.ts` (built app, Chromium) | **not run** |
+| Deployed backend | none | **out of scope**; the deployed trigger stays unverified |
+
+## Order of operations in `run.sh setup` (isolation 1 and 4)
+
+1. **Harness pin first**: `api-http.mjs` (blob fb2b49d8) and `stack-checks.sh` (blob 9657af04) from T-09 `5d81976` are hashed
+   before any of their code runs. Any other content stops the run (self-test R14 proves the pin wins over a bad target).
+2. Target checks: loopback DSN, strict loopback API and app origins; private and evidence dirs absent and disjoint.
+3. **`preflight.mjs`, read-only, before the first GoTrue admin POST** (P1-P4; GET requests only, read-only transaction):
+   - P1 fresh synthetic stack: no non-synthetic account, no `le-*` persona yet, no `ed170000-*` row.
+   - P2 queue guard: `net.http_request_queue` exists, T-09's `t09_drop_http_request` is on it and enabled, the queue is empty,
+     `local_evidence.egress_attempts` exists. A LOCAL-SHIM queue is refused unless `LE_ALLOW_SHIM=1` (self-test only).
+   - P3 API matches DB: GoTrue's user total and PostgREST's exact course count equal the database's, and PostgREST exposes
+     the fixture tables and at least 90% of the database's public tables. This is consistency, not identity: two empty
+     stacks agree; the loopback origins and ports carry the identity.
+   - P4 app matches API: the served entry bundle names exactly this API origin and no hosted `*.supabase.co` project.
+4. Personas, fixture, LOCAL backend contract. Any failure after the private dir exists removes it (and `personas.mjs`
+   removes its own partial output). GoTrue accounts already made stay, but the stack is disposable and P1 refuses reuse.
+
+## Isolation: data, errors and evidence (isolation 3 and 6)
+
+- **Private vs public.** Session files (`personas.json`, `state-*.json`) live only in the private dir (0700, files 0600).
+  `backend-contract.json`, the Playwright report and output go to the evidence dir. The spec refuses to start unless its
+  output and report are inside `LE_EVIDENCE_DIR` and that dir is disjoint from `LE_WORK_DIR`.
+- **`run.sh evidence <dest> <evidence dir>`** refuses any session file under the evidence dir, then delegates to T-09's
+  `stack-checks.sh stage-evidence --require-all` (credential-shape scan, exact copy, manifest, re-scan of the staged copy).
+- **`run.sh cleanup <private dir>`** removes the private dir, only when it holds nothing but the expected file names.
+  The integrated job should call it in an always-run step.
+- **Traces, videos and automatic screenshots are off** (a trace would hold request headers and storage).
+- **Errors.** Child stderr is never printed (the T-09 "probe" rule): only the lane's own fixed refusal messages, exit
+  statuses and byte counts. Spec `run.sh` errors carry the subcommand and exit status only. JSON parse errors are reported
+  without content, and uncaught errors in the node scripts are replaced with a fixed message. Self-test F1-F7 plant a marker
+  and a password-bearing DSN in fake stderr and output and prove neither is printed.
+- **Bounded metadata.** Lesson ids in evidence are labels (`A`, `B`, `N`, `Q`, `K`, `KN`, `<other>`, `<none>`), never raw
+  query text. The write condition is one of `eq`, `is.null`, `none` or `other`.
+
+## Browser egress boundary (isolation 2)
+
+`e2e/lesson-editor/egress-test.ts` wires four independent layers into every test (worker browser plus every context):
+
+1. **Resolver**: the repository's shared hermetic rule plus one exclusion,
+   `--host-resolver-rules=MAP * 127.0.0.1:1,EXCLUDE localhost,EXCLUDE 127.0.0.1`. **Finding:** on this Chromium (1243)
+   `MAP *` also rewrites the 127.0.0.1 IP literal, contrary to the comment in `playwright.config.ts`. Without the
+   exclusion the loopback app itself is unreachable. This is reported for the shared config's owner, not edited here.
+2. **Allowlist proxy** (`egress-proxy.ts`): Chromium is launched through a loopback proxy with `<-loopback>`, so loopback
+   goes through it too. Only the exact allowed origins are forwarded, transparently (nothing followed, cached, fulfilled or
+   modified). Everything else gets a 403 before any upstream connection, including redirect hops, popups, second tabs and
+   WebSocket CONNECT tunnels.
+3. **Route and WebSocket filter** (`egress-boundary.ts`): `context.route` only aborts non-allowed origins or continues;
+   `routeWebSocket` closes non-allowed sockets.
+4. **Observation**: any non-allowed request, any redirect hop and any service worker is a violation that fails the test.
+   `serviceWorkers: 'block'`.
+
+**Self-test (real Chromium, loopback servers only).** It probes `fetch`, `img`, `sendBeacon`, a non-loopback hostname, a
+redirect from the allowed origin to a forbidden loopback port, a WebSocket, a service worker, a popup, a second tab and a
+top-level navigation.
+
+| Run | Forbidden server hits | Result |
+|---|---|---|
+| all layers | 0 | pass. The proxy also refused Chromium's own background traffic (update and accounts services), which `page.route` never sees |
+| `LE_EGRESS_CONTROL=off` | 11, every probe | fail (causal) |
+| `route-only` (no proxy) | 1, the redirect hop | fail. **`context.route` alone misses redirects**, so the proxy is necessary |
+| `proxy-only` (no route layer) | 0 | fails only the route-layer record check. The proxy alone already prevents egress |
+
+Violation and refusal records carry only a reason and an origin. The lesson-editor spec refuses to run when
+`LE_EGRESS_CONTROL` is set.
 
 ## Files
 
-- **`personas.mjs`**: creates OWNER (instructor, owns the course), OTHER (instructor) and STUDENT.
-  - Accounts are made through the local GoTrue admin API, using T-09's `api-http.mjs`: strict loopback origin, no
-    redirects, keys only from 0600 files.
-  - It writes `personas.json` and one Playwright `state-<P>.json` per persona, bound to the app origin with the app's key
-    `supabase.auth.token`. All files are 0600, inside a fresh 0700 directory.
-- **`fixture.sql`**: setup only, applied once per fresh stack, with no reset and no teardown.
-  - **Refuses** to run:
-    - without the run.sh acknowledgement
-    - when any account other than `le-*`/`t09-*@local.test` or the three snapshot fixture accounts exists
-    - when a persona id is not an `le-*` account
-    - when course C1 already exists
-  - **Seeds** course C1 (owner OWNER) and one module containing:
-    - pages A and B
-    - page N with a NULL `updated_at`, set by INSERT (the trigger is BEFORE UPDATE only, so nothing is bypassed)
-    - quiz Q with a `quizzes` row and 2 questions
-    - pages K and KN, used only by the contract checks
-  - Writes no DDL, no settings, no deletes, and no enrollment, submission or grade rows.
-- **`backend-contract.mjs`**: LOCAL PostgREST checks using exactly the request shape the app sends. Each finding is
-  written to `backend-contract.json` and labelled LOCAL.
-  - C1: a write on the returned version changes 1 row. The trigger replaces the client `updated_at` and advances the
-    version, and the returned row equals the stored row.
-  - C2: a stale version changes 0 rows.
-  - C3: the returned version string works as the next condition.
-  - C4: an IS NULL write changes 1 row, and a second one changes 0 (the fence).
-  - C5: OTHER and STUDENT change 0 rows even with the exact current version.
-  - C6: the quiz type stays `quiz`.
-- **`run.sh`**:
-  - `setup` runs personas, then the fixture, then the contract.
-  - `owner OWNER|OTHER` moves only C1 (the RLS-ZERO-ROW case).
-  - `read` and `quizhash` are read-only and accept fixture ids only.
-  - Every call re-checks the DSN with `assert-local-dsn.mjs`.
-  - It never starts, stops or resets a stack, and it is not a globalSetup.
-- **`tests/guards-selftest.sh`**: the LOCAL-SIM self-test. `LE_ST_CONTROL=no-trigger|no-rls` are the causal controls.
-- **`e2e/lesson-editor/playwright.lesson-editor.config.ts`**: scratch config with no globalSetup, no teardown, no
-  webServer, Chromium only, 1 worker and 0 retries.
-- **`e2e/lesson-editor/lesson-editor.spec.ts`**: 17 tests with no `route()` stubs. Each case is labelled AUTHENTIC,
-  BROWSER-OFFLINE, RLS-ZERO-ROW, SECOND-TAB or RELOAD.
-  - E1: save. The returned row equals the DB row, the trigger advanced the version, and the save survives a reload.
-  - E2: switching lessons and Preview inside 800 ms, then Back and reload. Writes for a lesson never overlap.
-  - E3: offline gives "Save not confirmed" and the leave warning. Retry fences, then persists.
-  - E4: reload after an unconfirmed send. The durable record is present while the send is unconfirmed. The fresh page restores, reconciles,
-    saves and clears the record.
-  - E5: the NULL-version lesson saves through IS NULL.
-  - E6: a second tab causes a conflict. Keep my version wins.
-  - E7: real RLS zero rows. No false success; retry works after access returns.
-  - E8: quiz type fixed. A rename keeps the quiz and question hash.
-  - E9: deep link and missing lesson.
-  - R-OTHER and R-STUDENT: Not authorized, and zero writes.
-  - Screens at each of 3 viewports: deep link, saved, not confirmed, leave warning, restored after reload, conflict,
-    fixed type, and Not authorized for OTHER. Each capture is a PNG plus JSON with method, path and status only, a
-    sha256 of title and content, and a foreign-origin assertion.
-  - It refuses before any browser or DB work when a label, an `LE_*` variable or a loopback origin is wrong. Both
-    refusals were observed here.
+- **`preflight.mjs`**: read-only preflight (above).
+- **`personas.mjs`**: OWNER (instructor, owns C1), OTHER (instructor) and STUDENT, created through the local GoTrue admin
+  API via T-09's `api-http.mjs`. Passwords stay in memory. Writes `personas.json` and `state-<P>.json`, 0600, in a fresh
+  0700 dir, and removes them on failure.
+- **`fixture.sql`**: setup, once per fresh stack, no reset. Refuses without the acknowledgement, with any non-synthetic
+  account, with a non-`le-*` persona id, or when C1 exists. Seeds C1 with pages A and B, page N with a NULL version (set by
+  INSERT; the trigger is BEFORE UPDATE only), quiz Q with its `quizzes` row and 2 questions, and contract-only pages K and
+  KN. No DDL, settings, deletes, or enrollment, submission, grade or history rows.
+- **`backend-contract.mjs`**: LOCAL PostgREST checks in exactly the app's request shape:
+  - C1 returned-version write changes 1 row, the trigger replaces the client stamp, and the returned row equals the stored row
+  - C2 a stale version changes 0 rows
+  - C3 the returned version works as the next condition
+  - C4 the IS NULL fence: 1 row, then 0
+  - C5 OTHER and STUDENT change 0 rows even with the exact current version (each read independently)
+  - C6 the quiz type stays `quiz`
+- **`run.sh`**: `setup`, `owner`, `read`, `quizhash`, `evidence`, `cleanup` (header). `quizhash` covers the quiz
+  DEFINITION and its questions only.
+- **`tests/guards-selftest.sh`**, **`tests/fake-stack-http.mjs`**: LOCAL-SIM self-test (below).
+- **`e2e/lesson-editor/`**: `playwright.lesson-editor.config.ts` (scratch: no globalSetup/teardown/webServer, Chromium,
+  1 worker, 0 retries, traces off), `lesson-editor.spec.ts`, `egress-test.ts`, `egress-boundary.ts`, `egress-proxy.ts`,
+  `egress-selftest.spec.ts` and `playwright.egress-selftest.config.ts`.
 
-## Results here (LOCAL-SIM only)
+## The spec: 17 tests, ALL UNRUN
 
-`guards-selftest.sh` ran on a scratch PG16 cluster with T-09's simulated managed layout and `bootstrap.sh`.
+The 17 tests are 9 functional, 2 role, 3 multi-state screen flows and 3 denied screens. Requests are tracked over the whole
+context (every tab) from start to finished or failed; comparisons wait until the relevant writes have settled.
 
-- **Normal run:** 21 passed. These cover G1 to G5 (guards), S1 to S8 (trigger, condition, fence and RLS under the
-  snapshot policies) and R1 to R8 (runner guards, RLS-ZERO-ROW move and restore).
-- **`no-trigger` control:** S2 fails, so the trigger check is causal.
-- **`no-rls` control:** S6, S7, S8 and R6 fail, so the RLS checks are causal.
+- **E1 save:** the settled write's returned row equals the DB row (`eq` condition, 1 row); the trigger advanced the
+  version; a reload keeps title and TipTap body.
+- **E2 (oracle A):** navigation targets are resolved before the edit. The test asserts input to click under 800 ms for
+  both the lesson switch and Preview, that the switch itself started the write within 800 ms of the input, and that the DB
+  holds the edit. Preview flushes and only then navigates, so the DB is checked as soon as the URL changes.
+  **Same-lesson serialization under concurrent in-flight writes is NOT claimed** (one write per lesson here).
+- **E3 (B):** offline gives uncertain "Save not confirmed". Retry while still offline stays unconfirmed, and every send
+  is recorded as failed in the browser. The leave warning appears and Stay keeps the draft. Reconnecting triggers the
+  builder's own online retry, which reconciles first, and the edit persists.
+- **E4 (B), document loss:** while the send is unconfirmed, the durable record must be `v:2`, with the OWNER, the draft
+  title, `uncertain: true` and a non-empty outstanding list. The tab then leaves the app **while still offline**, so the
+  old document never settles. A fresh document restores, reconciles, saves, and clears the record. **The durable
+  ambiguous case** (a send that may still commit while the author goes back to the base) **is NOT reproduced**, because
+  offline sends never reach the server. It stays pending.
+- **E5 (C):** requires a true NULL baseline. A second tab saves first with an observed `is.null` condition (1 row) and
+  the trigger versions the row. The stale tab's save is observed still conditioned on `is.null`, matches 0 rows and
+  becomes a conflict, with the DB unchanged; an unconditional writer would have overwritten it. Keep my version then
+  resolves with an `eq` condition.
+- **E6:** a second tab causes a conflict; the stale write matches 0 rows; Keep my version wins.
+- **E7:** real RLS zero rows (observed 0 rows); no false success; retry works after access returns.
+- **E8 (D):** the quiz type is fixed, and a title edit leaves the **quiz definition and its two questions** unchanged.
+  **Existing student quiz history preservation and curriculum rename/publish side actions are NOT covered.**
+- **E9:** deep link, reload, and a missing lesson.
+- **R-OTHER, R-STUDENT (E):** Not authorized, and zero content_items writes **started** (pending and failed included),
+  with the DB unchanged.
+- **Screens (F)**, per viewport:
+  - deep link
+  - saved
+  - not confirmed (DB still has the saved title, not the draft)
+  - leave warning
+  - restored after document loss
+  - conflict (DB has the other tab's title)
+  - fixed type
+  - Not authorized for OTHER (no write started)
 
-**Finding from the no-trigger control.** The IS NULL fence (S5) still holds without the trigger, because the client
-also writes `updated_at`. Detecting versioned conflicts without the trigger would depend on the client clock producing
-distinct values. That is why C1/S2 must pass on any backend before we claim conflict safety there.
+  Before each capture, the expected UI title, status, body or heading is asserted, writes are settled, and the database
+  is checked to agree. A PNG alone is never acceptance.
 
-These results say nothing about PostgREST, GoTrue, PG15 parity or the deployed database.
+## Results here
+
+- **`guards-selftest.sh`**, normal run: **48 passed**.
+  - P0-P6 and P1a/P1b: preflight positives and negatives, setup stopping at preflight with zero POSTs, GET-only probes.
+  - G1-G6: guards; personas and fixture enqueue nothing for pg_net.
+  - S0-S8: trigger, condition, fence and RLS.
+  - R1-R14: runner, cleanup, evidence staging, pin first.
+  - F1-F8: fake-psql and parse negatives with no side effects, plus cleanup of partial personas.
+- **`no-trigger` control:** S2 fails. **`no-rls` control:** S6, S7, S8 and R6 fail. Both exit 1 as expected.
+- The cluster, database and temp files were removed after every run (checked).
+- **No-trigger finding (unchanged):** the IS NULL fence still holds without the trigger, because the client writes
+  `updated_at`. Versioned conflict detection would then depend on the client clock, so C1 and S2 must pass on a backend
+  before claiming conflict safety there.
 
 ## Proposed shared-runner integration (for the T-09 owner; NOT applied)
 
-This would be one new `e2e.yml` dispatch option, `lesson-editor`. It reuses the qualified steps unchanged:
+This is one new `e2e.yml` dispatch option, `lesson-editor`. It reuses the qualified steps unchanged: Docker >= 28, the
+owned per-mode loopback network, the ports guard, `workdir.sh` and `supabase start --network-id`, **`stage-pre.sh` (PRE
+queue guard and sentinels) before** `bootstrap.sh`, and cleanup. Then:
 
-- Docker >= 28
-- owned per-mode network with loopback host binding
-- ports guard
-- `workdir.sh`, `supabase start --network-id`
-- `bootstrap.sh`
-- cleanup
-
-Then:
-
-1. Write the anon and service keys from `supabase status` to 0600 files.
-2. Build the app with `VITE_SUPABASE_URL=http://127.0.0.1:54321` and the local anon key. Serve it with
-   `vite preview --host 127.0.0.1 --port 8080`, as the readonly-courses job does.
-3. Run `scripts/local-stack/lesson-editor/run.sh setup http://127.0.0.1:54321 http://127.0.0.1:8080 <loopback db url>
-   <anon file> <service file> $RUNNER_TEMP/le-work`.
+1. Write the anon and service keys to 0600 files.
+2. Build the app against `http://127.0.0.1:54321` and serve it with `vite preview --host 127.0.0.1 --port 8080`.
+3. Run `run.sh setup http://127.0.0.1:54321 http://127.0.0.1:8080 <loopback db url> <anon> <service> $RUNNER_TEMP/le-private $RUNNER_TEMP/le-evidence`.
 4. Run `npx playwright test -c e2e/lesson-editor/playwright.lesson-editor.config.ts` with:
-   - `LE_APP_ORIGIN`, `LE_API_ORIGIN`, `LE_DB_URL`, `LE_WORK_DIR`
-   - `E2E_EVIDENCE_COMMIT=${{ github.sha }}`, `E2E_EVIDENCE_ENVIRONMENT`
-5. Upload the report, the screenshots and JSON, and `backend-contract.json`. Never upload `personas.json` or the
-   `state-*` files.
+   - `LE_APP_ORIGIN`, `LE_API_ORIGIN`, `LE_DB_URL`
+   - `LE_WORK_DIR=$RUNNER_TEMP/le-private`
+   - `LE_EVIDENCE_DIR=$RUNNER_TEMP/le-evidence`
+   - `LE_OUTPUT_DIR` and `LE_REPORT_JSON` inside it
+   - `E2E_EVIDENCE_COMMIT`, `E2E_EVIDENCE_ENVIRONMENT`
+5. Run `run.sh evidence $RUNNER_TEMP/le-upload $RUNNER_TEMP/le-evidence`, and upload only `le-upload`.
+6. Always: `run.sh cleanup $RUNNER_TEMP/le-private`.
 
-**Runtime ordering:** this branch's tree does not contain `scripts/local-stack/t09`. It must be composed with the T-09
-harness (#140) first, by the T-09 owner. It also depends on that harness's current blocker, the pg_cron APP verifier,
-only if the job reuses `stage-app.sh`. The plan above does not need `stage-app.sh`.
+The fixture must be composed with the T-09 harness tree by the T-09 owner. It does not need `stage-app.sh`.
 
-## Harness pin and egress paths (for the T-09 owner's integration)
+## Egress paths in the database (unchanged; traced at 5d81976)
 
-**Harness pin.** This fixture was tested against T-09 harness `5d81976`, where `scripts/local-stack/t09/api-http.mjs` has
-blob `fb2b49d8d20f5a00da8e3bcbc55ad265cf6a1766`. `run.sh setup` refuses any other blob. If the harness changes that file,
-the run stops until this lane re-checks it and updates the pin.
-
-**PRE egress guard.** The integrated mode is expected to run T-09's unchanged `stage-pre.sh` guard and its sentinels
-before bootstrap, and this fixture does not opt out of them. The write paths below were traced in the snapshot schema at
-`5d81976`. None of them reaches `net.*`, pg_net, vault or `pg_notify`.
+None of these reaches `net.*`, pg_net, vault or `pg_notify`. Self-test G6 confirms that personas plus the fixture enqueue
+nothing.
 
 | Path | Who | Triggers or functions reached | Rows written | Egress |
 |---|---|---|---|---|
-| persona creation, `auth.users` insert | GoTrue admin API (setup) | `on_auth_user_created` → `handle_new_user` | `profiles`, `user_roles`, `notifications` | none. No trigger exists on `notifications`, `profiles` (except the roles-immutability check) or `user_roles` |
-| `fixture.sql` | postgres (setup) | `enforce_profiles_roles_immutable` (BEFORE, no writes). The `content_items` trigger is BEFORE UPDATE only, so it does not fire on INSERT | courses, modules, content_items, quizzes, quiz_questions, profiles, user_roles | none |
-| lesson save and publish, `content_items` PATCH | app and contract (OWNER, OTHER, STUDENT JWTs) | `update_content_items_updated_at` → `update_updated_at_column` (sets NOW() only) | that row | none |
-| builder open, `useCoursePermissions` | app | RPCs `has_admin_access`, `is_course_instructor` (read-only) and `log_security_event` | `security_events` and possibly `submission_audit_events` | none. No trigger exists on either table |
-| `run.sh owner` | postgres (setup) | none (no trigger on `courses`) | one `courses` row | none |
-| quiz editor mount | app | RPC `get_quiz_questions_for_authoring` (read) | none | none |
+| persona creation, `auth.users` insert | GoTrue admin API (setup) | `on_auth_user_created` → `handle_new_user` | `profiles`, `user_roles`, `notifications` | none. No trigger on `notifications`, `profiles` (except the roles-immutability check) or `user_roles` |
+| `fixture.sql` | postgres (setup) | `enforce_profiles_roles_immutable` (BEFORE, no writes) | courses, modules, content_items, quizzes, quiz_questions, profiles, user_roles | none |
+| lesson save and publish, `content_items` PATCH | app and contract | `update_content_items_updated_at` → `update_updated_at_column` | that row | none |
+| builder open, `useCoursePermissions` | app | `has_admin_access`, `is_course_instructor` (read), `log_security_event` | `security_events`, possibly `submission_audit_events` | none. No trigger on either table |
+| `run.sh owner` | postgres (setup) | none | one `courses` row | none |
+| quiz editor mount | app | `get_quiz_questions_for_authoring` (read) | none | none |
 
-**Not exercised.** The spec never clicks the AI actions (`assistant`/`generate-*` Edge Functions), so it makes no
-`functions/v1` call. Any `functions/v1` request would be recorded, and a non-loopback one fails the screen captures'
-foreign-origin assertion. If the guard reports a send during this mode, treat that as a finding against this table. Do
-not loosen the guard.
+## Open limits (explicit, not claimed)
 
-## Known limits and residuals
-
-- **sessionStorage is not a confidentiality boundary**, and no tenant-confidentiality claim is made. RLS is the
-  authority for writes.
-- **No storage, no durability.** Without storage, recovery after a reload is impossible, and the UI says so
-  (`recoverable: false`). The spec does not exercise a storage-disabled browser.
-- **Firefox:** not covered here (Chromium only).
-- **Back button:** only checked after Preview. The leave guard covers in-app links, not every BrowserRouter history
-  action.
-- **Identity check:** a microtask window remains between the identity check and the request leaving the browser.
-- **Telemetry side write:** opening the builder calls `log_security_event` (an existing app behaviour). Those rows are
-  local telemetry, not fixture data.
-- **Session expiry:** persona sessions expire on the GoTrue default. The storage states carry refresh tokens, and
-  supabase-js refreshes them.
-- **Not attempted:** deployed-backend verification, migrations, and changes to shared fixtures or the shared
-  globalSetup/teardown.
+- Same-lesson serialization under real concurrent in-flight writes, including a cancel-on-switch or concurrent-writer
+  negative.
+- The durable ambiguous Undo-to-base case (a send that may commit after document loss). It needs a deterministic
+  interrupted schedule, which is not built here.
+- Storage-disabled browsers. Without storage the UI says recovery is impossible (`recoverable: false`); this is not
+  exercised.
+- Sign-out A → B → A in the browser.
+- Delayed-response schedules.
+- Existing student quiz history preservation. The fixture has no history canary, and the T-09 and gradebook lanes own that
+  scope.
+- Curriculum rename and publish side actions.
+- Firefox. The Back button is checked only after Preview. A microtask window remains between the identity check and the
+  request.
+- sessionStorage is not a confidentiality boundary, and no tenant-confidentiality claim is made. RLS is the authority.
+- No deployed-backend verification, no migrations, no shared fixture or globalSetup changes.

@@ -9,6 +9,15 @@
 import { existsSync, writeFileSync, statSync } from 'node:fs';
 import { apiOrigin, readSecretFile, request } from '../t09/api-http.mjs';
 
+process.on('uncaughtException', () => {
+  console.log('FAIL le-contract: unexpected error (detail withheld)');
+  process.exit(1);
+});
+process.on('unhandledRejection', () => {
+  console.log('FAIL le-contract: unexpected error (detail withheld)');
+  process.exit(1);
+});
+
 const K = 'ed170000-0000-4000-8000-0000000000b1';
 const KN = 'ed170000-0000-4000-8000-0000000000b2';
 const A = 'ed170000-0000-4000-8000-0000000000a1';
@@ -31,8 +40,8 @@ try {
   anon = readSecretFile(anonFile, 'anon key');
   if ((statSync(personasFile).mode & 0o077) !== 0) throw new Error('personas file is not mode 600');
   personas = JSON.parse(readSecretFile(personasFile, 'personas'));
-} catch (e) {
-  fail(e.message);
+} catch {
+  fail('anon key or personas file unreadable (detail withheld: a parse error can quote file content)');
 }
 if (existsSync(out)) fail('output exists (never reused)');
 for (const p of ['OWNER', 'OTHER', 'STUDENT']) if (!personas?.[p]?.token) fail(`persona ${p} missing`);
