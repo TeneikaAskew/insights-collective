@@ -39,8 +39,12 @@ describe('learner-quiz-noedge job', () => {
     expect(start).toContain('-x studio,imgproxy,logflare,vector,supavisor,edge-runtime >');
     expect(TEXT).not.toMatch(/functions serve|closure-install|edge-runtime-check|functions-subset|\/functions\/v1/);
     expect(STEPS[at(/preflight\.mjs/)].run).toContain('--no-edge');
-    const checks = STEPS.filter((s) => /supabase_edge_runtime_/.test(String(s.run ?? '')));
+    // The absence probe lives in noedge-probes.sh (stderr withheld; only a successful listing showing this stack establishes absence).
+    const checks = STEPS.filter((s) => /noedge-probes\.sh absent (before|after) /.test(String(s.run ?? '')));
     expect(checks).toHaveLength(2);
+    expect(readFileSync('scripts/local-stack/learner-quiz/noedge-probes.sh', 'utf8')).toContain("grep -qE '^supabase_edge_runtime_'");
+    expect(TEXT).not.toMatch(/\$\(docker ps|\$\(ss -H/); // no raw probe whose stderr reaches the log
+    expect(at(/noedge-selftest\.sh/)).toBeLessThan(at(/playwright test -c/));
     expect(at(/no-edge-start\.txt/)).toBeLessThan(at(/stage-pre\.sh/));
     expect(at(/no-edge-end\.txt/)).toBeGreaterThan(at(/playwright test -c/));
   });

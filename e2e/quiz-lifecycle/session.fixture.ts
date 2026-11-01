@@ -46,6 +46,26 @@ export const APPROVED_ORIGINS = new Set([
   originOf(process.env.VITE_SUPABASE_URL, 'VITE_SUPABASE_URL'),
 ]);
 const NON_NETWORK = /^(data|blob):/;
+/** No-Edge subset (QLC_NO_EDGE=1): fixed for the process, read once. */
+const NO_EDGE = process.env.QLC_NO_EDGE === '1';
+const READ_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+/**
+ * The ONE no-Edge predicate, shared by the context route (before any forwarding) and forwardApproved (before its fetch).
+ * Returns a refusal reason or null. The path is percent-decoded, lower-cased, with repeated and trailing slashes collapsed,
+ * so /functions/v1, /functions/v1/, /FUNCTIONS//v1/x and /rest/v1/quiz%5Fsubmissions/ are all caught. Refused:
+ *   - every method on /functions/v1 and below (the no-Edge job serves no Edge runtime);
+ *   - every method other than GET, HEAD, OPTIONS on /rest/v1/quiz_submissions (starts go through rpc/start_quiz_attempt;
+ *     OPTIONS is a CORS preflight, not a write).
+ * An unparsable URL is refused.
+ */
+export function noEdgeRefusal(method: string, url: string): string | null {
+  let p: string;
+  try { p = decodeURIComponent(new URL(url).pathname); } catch { return 'unparsable URL refused in no-Edge mode'; }
+  p = p.toLowerCase().replace(/\/{2,}/g, '/').replace(/\/+$/, '');
+  if (p === '/functions/v1' || p.startsWith('/functions/v1/')) return 'Edge Function request refused in no-Edge mode';
+  if (p === '/rest/v1/quiz_submissions' && !READ_METHODS.has(method.toUpperCase())) return `direct quiz_submissions ${method.toUpperCase()} refused in no-Edge mode`;
+  return null;
+}
 function approved(url: string): boolean {
   if (NON_NETWORK.test(url)) return true;
   try { return APPROVED_ORIGINS.has(new URL(url).origin); } catch { return false; }
@@ -249,19 +269,17 @@ export const test = base.extend<Fixtures & { egressGate: void }, { refusalProxy:
       refusalProxy.onHit = (dest) => egress.violations.push(`refusal proxy received a request for ${dest}`);
       await context.route('**/*', (route) => {
         const url = route.request().url();
+        // PREVENTIVE: refused here, before the request can be forwarded to any origin (approved or not).
+        const why = NO_EDGE ? noEdgeRefusal(route.request().method(), url) : null;
+        if (why) { egress.violations.push(why); return route.abort('blockedbyclient'); }
         if (approved(url)) return route.fallback();
         egress.violations.push(`blocked ${route.request().method()} to a non-approved origin`);
         return route.abort('failed');
       });
-      // No-Edge subset (shared-runner delta, QLC_NO_EDGE=1): any Edge Function request, and any direct quiz_submissions write (any method but GET/HEAD)
-      // (the T-08 defect; starts must go through rpc/start_quiz_attempt), is a violation. Checked on every browser request.
-      const noEdge = process.env.QLC_NO_EDGE === '1';
+      // No-Edge subset: the context route above and forwardApproved REFUSE before forwarding; this observer is defence in depth
+      // only (it also sees requests a page handler fulfilled locally).
       context.on('request', (r) => {
-        if (noEdge) {
-          const p = new URL(r.url()).pathname;
-          if (p === '/functions/v1' || p.startsWith('/functions/v1/')) egress.violations.push('Edge Function request in no-Edge mode');
-          if (p === '/rest/v1/quiz_submissions' && r.method() !== 'GET' && r.method() !== 'HEAD') egress.violations.push(`direct quiz_submissions ${r.method()}`);
-        }
+        if (NO_EDGE) { const why = noEdgeRefusal(r.method(), r.url()); if (why) egress.violations.push(`observed: ${why}`); }
         if (r.redirectedFrom()) egress.violations.push('redirect hop observed');
         if (!approved(r.url())) egress.violations.push('request to a non-approved origin observed');
       });
@@ -288,6 +306,9 @@ export const test = base.extend<Fixtures & { egressGate: void }, { refusalProxy:
         await route.abort('failed');
         return null;
       }
+      // PREVENTIVE, same predicate as the context route: refused before the fetch below is made.
+      const why = NO_EDGE ? noEdgeRefusal(req.method(), url) : null;
+      if (why) { egress.violations.push(`forwardApproved: ${why}`); await route.abort('blockedbyclient'); return null; }
       const headers = await req.allHeaders();
       for (const h of ['host', 'connection', 'content-length', 'keep-alive', 'transfer-encoding', 'proxy-connection']) delete headers[h];
       for (const h of Object.keys(headers)) if (h.startsWith(':')) delete headers[h];

@@ -791,12 +791,13 @@ jobs:
         run: npm rebuild
 
       # Static, no stack. Evidence directories exist from here on, so the staging step always has its roots.
-      - name: Evidence directories and static selftests (timer oracle, stack-net FAKE, owned-proc LOCAL)
+      - name: Evidence directories and static selftests (timer oracle, stack-net FAKE, owned-proc LOCAL, no-Edge probes MOCKED)
         run: |
           mkdir -p "$LQ_EVIDENCE/checks" "$LQ_EVIDENCE/qlc/ledger" "$LQ_EVIDENCE/qlc/screens" "$LQ_EVIDENCE/qlc/playwright"
           node scripts/local-stack/quiz-lifecycle/tests/timer-oracle-selftest.mjs | tee "$LQ_EVIDENCE/checks/timer-oracle-selftest.txt"
           scripts/local-stack/t09/tests/stack-net-selftest.sh | tee "$LQ_EVIDENCE/checks/stack-net-selftest.txt"
           scripts/local-stack/learner-quiz/tests/owned-proc-selftest.sh | tee "$LQ_EVIDENCE/checks/owned-proc-selftest.txt"
+          scripts/local-stack/learner-quiz/tests/noedge-probes-selftest.sh | tee "$LQ_EVIDENCE/checks/noedge-probes-selftest.txt"
 
       - name: Prepare workdir (no functions are served in this job)
         id: lq_prep
@@ -837,9 +838,8 @@ jobs:
           scripts/local-stack/t09/stack-checks.sh mail | tee "$LQ_EVIDENCE/checks/mail.txt"
       - name: No Edge runtime container exists (read-only; before any write)
         run: |
-          names=$(docker ps -a --format '{{.Names}}') || { echo "docker ps failed"; exit 1; }
-          if grep -q '^supabase_edge_runtime_' <<<"$names"; then echo "FAIL: an edge-runtime container exists in the no-Edge job"; exit 1; fi
-          echo "PASS: no edge-runtime container (before writes)" | tee "$LQ_EVIDENCE/checks/no-edge-start.txt"
+          # stderr captured privately, never printed or staged; only a successful listing that shows this stack establishes absence
+          scripts/local-stack/learner-quiz/noedge-probes.sh absent before "$LQ_EVIDENCE/checks/no-edge-start.txt"
       - name: STAGE PRE (guard before any bootstrap write)
         run: scripts/local-stack/t09/stage-pre.sh "$SUPABASE_DB_URL" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$LQ_EVIDENCE/checks/stage-pre.txt"
       - name: Bootstrap schema snapshot
@@ -887,6 +887,10 @@ jobs:
           scripts/local-stack/quiz-lifecycle/fixture.sh | tee "$LQ_EVIDENCE/qlc/checks-fixture.txt"
       - name: Install Chromium headless shell
         run: npx --no-install playwright install --with-deps --only-shell chromium
+      - name: No-Edge guard self-test (MOCKED; owned loopback API sink; refusal before forwarding; before the subset)
+        run: |
+          set -o pipefail
+          scripts/local-stack/quiz-lifecycle/tests/noedge-selftest.sh | tee "$LQ_EVIDENCE/checks/noedge-guard-selftest.txt"
       # Exactly these 7 cases (full titles checked by checkLearnerQuizNoEdgeJob.test.ts against the spec): F2, F5, R3, T62 x3, T62 allowed.
       - name: Playwright (no-Edge subset; own config, no globalSetup; exact case selection)
         env:
@@ -908,9 +912,8 @@ jobs:
       - name: No Edge runtime container exists (read-only; after the spec)
         if: always() && steps.lq_prep.outcome == 'success'
         run: |
-          names=$(docker ps -a --format '{{.Names}}') || { echo "docker ps failed"; exit 1; }
-          if grep -q '^supabase_edge_runtime_' <<<"$names"; then echo "FAIL: an edge-runtime container exists in the no-Edge job"; exit 1; fi
-          echo "PASS: no edge-runtime container (after the spec)" | tee "$LQ_EVIDENCE/checks/no-edge-end.txt"
+          # stderr captured privately, never printed or staged; only a successful listing that shows this stack establishes absence
+          scripts/local-stack/learner-quiz/noedge-probes.sh absent after "$LQ_EVIDENCE/checks/no-edge-end.txt"
       - name: Stop background servers (preview)
         if: always()
         run: |
@@ -919,8 +922,7 @@ jobs:
             node scripts/local-stack/learner-quiz/owned-proc.mjs stop "$RUNNER_TEMP/lq-owned" 8080 | tee "$LQ_EVIDENCE/checks/owned-stop.txt"
           else
             echo "no owned background server was launched" | tee "$LQ_EVIDENCE/checks/owned-stop.txt"
-            out=$(ss -Hltn 'sport = :8080') || { echo "ss failed"; exit 1; }
-            [ -z "$out" ] || { echo "a listener is on 8080 that this job did not launch"; exit 1; }
+            scripts/local-stack/learner-quiz/noedge-probes.sh port-free 8080
           fi
           rm -rf "$RUNNER_TEMP/qlc/playwright-output"
           if [ -e "$RUNNER_TEMP/qlc/playwright-output" ]; then echo "private playwright output still present"; exit 1; fi

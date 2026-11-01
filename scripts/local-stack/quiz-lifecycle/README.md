@@ -19,6 +19,7 @@ These files are lane-owned and fixture-only. They do not edit the shared runner 
 | `tests/sql-selftest.sh` | LOCAL-SHIM self-test (plain PostgreSQL + shim, not a Supabase stack). |
 | `tests/isolation-selftest.sh` | MOCKED self-test with a fake psql. |
 | `tests/egress-selftest.sh`, `tests/egress.selftest.ts`, `tests/playwright.egress-selftest.config.ts`, `tests/egress-causal-control.mjs` | MOCKED self-test in a real Chromium (headless shell) against local stand-in servers: a non-loopback "external" sink and an unapproved THIRD loopback port sink, both counting hits. Includes the causal control. |
+| `tests/noedge-selftest.sh`, `tests/noedge.selftest.ts`, `tests/playwright.noedge-selftest.config.ts` | MOCKED no-Edge guard self-test in a real Chromium: with `QLC_NO_EDGE=1` the context route and `forwardApproved()` refuse every `/functions/v1` path (bare, trailing slash, case and percent-encoded variants) and every `quiz_submissions` method other than GET/HEAD/OPTIONS BEFORE forwarding; an owned loopback API sink must log zero such calls. Positives (GET submissions, start RPC, answer saves) reach the sink; the inactive control (mode off) shows the same requests reach it. |
 | `tests/timer-oracle-selftest.mjs` | Arithmetic control: a server-clock timer passes, a timer reset at reload fails once elapsed >= 10 s. |
 | `tests/preflight-selftest.sh` | MOCKED: a fake `ss` and a fake loopback HTTP server prove every refuse path. |
 

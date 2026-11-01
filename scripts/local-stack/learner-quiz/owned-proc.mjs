@@ -10,15 +10,18 @@
 //     (SIGKILL, re-verified first) and the command exits 3.
 //   owned-proc.mjs stop <state dir> <port>...
 //     For each record:
-//     - leader alive with the recorded starttime: SIGTERM the group, wait, then SIGKILL; wait for no live member.
+//     - leader alive with the recorded starttime: SIGTERM the group, wait; SIGKILL ONLY if the leader is re-verified alive with the
+//       recorded starttime. If the leader has gone and members remain, nothing more is sent: REFUSED (exit 1).
 //     - leader alive with a different starttime (pid reused): not signalled.
-//     - leader gone (stat ENOENT): members with pgid == recorded pgid are signalled one by one, and ONLY if every such member has
-//       sid == recorded sid and starttime >= recorded starttime. Any other member of that pgid means REFUSED (exit 1), nothing sent.
+//     - leader gone with live members of the recorded pgid: REFUSED (exit 1), nothing signalled. Numeric sid/pgid equality and a
+//       later starttime do NOT prove ownership (both ids can be reused after the original session ends), so they never authorize
+//       a signal. Ownership is proven only by the live leader the launch handshake recorded.
 //     Then each port must have no TCP listener (ss).
 // /proc enumeration failure, a stat read failing with anything but ENOENT/ESRCH, an unparsable stat, or an ss failure is an
 // INSPECTION ERROR (exit 3). Zombies count as gone. Exit: 0 ok; 1 group alive, refused, or listener present; 2 usage; 3 inspection.
-// Test-only: OWNED_PROC_PROC_ROOT replaces /proc for reads (fault injection); signals still go to real pids, so tests use fake pids
-// that do not exist or are refused before any signal.
+// Test-only: OWNED_PROC_PROC_ROOT replaces /proc for reads (fault injection). OWNED_PROC_SIGNAL_SPY=<file> records signals
+// instead of sending them, and is refused unless OWNED_PROC_PROC_ROOT is also set (it can never silence a real stop).
+// OWNED_PROC_FAIL_SIGNAL=1 makes every signal fail with EPERM (fail-closed fault injection).
 import { spawn, execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -27,6 +30,14 @@ const PROC = process.env.OWNED_PROC_PROC_ROOT || '/proc';
 class E extends Error { constructor(code, msg) { super(msg); this.code = code; } }
 const out = (m) => console.log(`OWNED-PROC ${m}`);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const SPY = process.env.OWNED_PROC_SIGNAL_SPY || '';
+if (SPY && !process.env.OWNED_PROC_PROC_ROOT) { console.log('OWNED-PROC signal spy refused without a fake /proc root'); process.exit(2); }
+/** The only place a signal is sent. Throws on failure (the caller decides; ESRCH is reported as such). */
+function sig(target, signal) {
+  if (process.env.OWNED_PROC_FAIL_SIGNAL === '1') { const e = new Error('injected'); e.code = 'EPERM'; throw e; }
+  if (SPY) { fs.appendFileSync(SPY, `${target} ${signal}\n`); return; }
+  process.kill(target, signal);
+}
 
 /** Parsed stat for a pid, null if the process verifiably does not exist (ENOENT/ESRCH), throws E(3) on any other failure. */
 export function stat(pid) {
@@ -92,8 +103,14 @@ async function start(dir, name, log, cmd) {
   } catch {
     try { fs.rmSync(`${rec}.tmp`, { force: true }); } catch { /* reported below */ }
     const again = stat(pid);
-    if (live(again) && again.start === st.start && again.pgid === pid) { try { process.kill(-pid, 'SIGKILL'); } catch { /* gone */ } out(`${name}: record write failed; verified child group rolled back`); }
-    else out(`${name}: record write failed; child no longer verifiable, not signalled`);
+    if (live(again) && again.start === st.start && again.pgid === pid) {
+      let sent = true;
+      try { sig(-pid, 'SIGKILL'); } catch (e) { sent = false; out(`${name}: record write failed; rollback signal failed (${e.code ?? 'error'}); child NOT rolled back`); }
+      if (sent) {
+        if (await waitGone(pid, 3000)) out(`${name}: record write failed; verified child group rolled back`);
+        else out(`${name}: record write failed; rollback signal sent but the group is still alive; child NOT rolled back`);
+      }
+    } else out(`${name}: record write failed; child no longer verifiable, not signalled`);
     throw new E(3, 'record write failed');
   }
   out(`started ${name} (handshake verified: own session and group; record written)`);
@@ -107,26 +124,23 @@ async function stopOne(file) {
   const lead = stat(r.pid);
   if (lead !== null && lead.start !== r.start) { out(`${name}: pid reused by another process; not signalled`); return 0; }
   if (live(lead)) {
-    try { process.kill(-r.pgid, 'SIGTERM'); } catch (e) { if (e.code !== 'ESRCH') throw new E(3, `signal failed (${e.code})`); }
+    try { sig(-r.pgid, 'SIGTERM'); } catch (e) { if (e.code !== 'ESRCH') throw new E(3, `signal failed (${e.code})`); }
     if (!(await waitGone(r.pgid, 20000))) {
-      // Re-prove ownership before escalation: the leader must still be ours, or every remaining member must be.
+      // Escalate ONLY while the recorded leader is still alive with its recorded starttime. Same numeric sid/pgid plus a later
+      // starttime is not ownership, so a leaderless remainder is refused, never signalled.
       const l2 = stat(r.pid);
-      const ms = members(r.pgid);
-      const ours = (live(l2) && l2.start === r.start) || ms.every((m) => m.sid === r.sid && BigInt(m.start) >= BigInt(r.start));
-      if (!ours) { out(`${name}: group membership changed and ownership is not provable; not escalated`); return 1; }
-      try { process.kill(-r.pgid, 'SIGKILL'); } catch (e) { if (e.code !== 'ESRCH') throw new E(3, `signal failed (${e.code})`); }
+      if (!(live(l2) && l2.start === r.start)) {
+        out(`${name}: leader exited during stop and ${members(r.pgid).length} member(s) remain; ownership not provable; REFUSED, not escalated`);
+        return 1;
+      }
+      try { sig(-r.pgid, 'SIGKILL'); } catch (e) { if (e.code !== 'ESRCH') throw new E(3, `signal failed (${e.code})`); }
       await waitGone(r.pgid, 5000);
     }
   } else {
     const ms = members(r.pgid);
     if (ms.length === 0) { out(`${name}: already exited`); return 0; }
-    const foreign = ms.filter((m) => m.sid !== r.sid || BigInt(m.start) < BigInt(r.start));
-    if (foreign.length) { out(`${name}: leader gone and ${foreign.length} member(s) of that group are not provably ours; REFUSED, nothing signalled`); return 1; }
-    for (const m of ms) {
-      const again = stat(m.pid);
-      if (live(again) && again.start === m.start && again.sid === r.sid) { try { process.kill(m.pid, 'SIGKILL'); } catch (e) { if (e.code !== 'ESRCH') throw new E(3, `signal failed (${e.code})`); } }
-    }
-    await waitGone(r.pgid, 5000);
+    out(`${name}: leader gone and ${ms.length} live process(es) carry the recorded group id; numeric ids do not prove ownership; REFUSED, nothing signalled`);
+    return 1;
   }
   if (members(r.pgid).length) { out(`${name}: process group still alive`); return 1; }
   out(`${name}: owned group stopped`);

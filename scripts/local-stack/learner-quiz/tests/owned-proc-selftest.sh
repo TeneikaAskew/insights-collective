@@ -57,14 +57,34 @@ FP="$T/fp12"; mkdir -p "$FP/4190001/stat"; OWNED_PROC_PROC_ROOT="$FP" "${OP[@]}"
 [ $st = 3 ] && ok "O12 stat read error other than ENOENT (EISDIR): inspection error (exit 3)" || no O12 "exit $st $(cat "$T/out")"
 FP="$T/fp13"; mkdir -p "$FP"; fakestat "$FP" 4190002 4190001 999 200
 OWNED_PROC_PROC_ROOT="$FP" "${OP[@]}" stop "$S" 8080 > "$T/out"; st=$?
-[ $st = 1 ] && grep -q "not provably ours; REFUSED, nothing signalled" "$T/out" && ok "O13 leader gone, reused PGID member from another session: REFUSED, nothing signalled (exit 1)" || no O13 "exit $st $(cat "$T/out")"
+[ $st = 1 ] && grep -q "REFUSED, nothing signalled" "$T/out" && ok "O13 leader gone, reused PGID member from another session: REFUSED, nothing signalled (exit 1)" || no O13 "exit $st $(cat "$T/out")"
 FP="$T/fp14"; mkdir -p "$FP"; fakestat "$FP" 4190002 4190001 4190001 50
 OWNED_PROC_PROC_ROOT="$FP" "${OP[@]}" stop "$S" 8080 > "$T/out"; st=$?
 [ $st = 1 ] && grep -q "REFUSED" "$T/out" && ok "O14 leader gone, member started BEFORE the leader (not ours): REFUSED (exit 1)" || no O14 "exit $st $(cat "$T/out")"
 FP="$T/fp15"; mkdir -p "$FP/4190002"; echo "garbage" > "$FP/4190002/stat"
 OWNED_PROC_PROC_ROOT="$FP" "${OP[@]}" stop "$S" 8080 > "$T/out"; st=$?
 [ $st = 3 ] && grep -q "unparsable stat" "$T/out" && ok "O15 unparsable stat during group enumeration: inspection error (exit 3)" || no O15 "exit $st $(cat "$T/out")"
-S="$T/o16"; "${OP[@]}" start "$S" functions "$T/o16.log" -- bash -c 'sleep 300 & sleep 1; exit 0' >/dev/null; read -r P16 _ < "$S/functions.own"; sleep 1.5
+# CHANGED 18:57Z (user batch item 1): a leaderless remainder is REFUSED, no longer signalled on same sid/pgid + later start.
+S="$T/o16"; "${OP[@]}" start "$S" functions "$T/o16.log" -- bash -c 'exec -a o16-orphan sleep 300 & sleep 1; exit 0' >/dev/null; read -r P16 _ < "$S/functions.own"; sleep 1.5
 "${OP[@]}" stop "$S" 8080 > "$T/out"; st=$?
-[ $st = 0 ] && ! live_group "$P16" && ok "O16 leader exited, remaining members proven ours (same session, later start): stopped" || no O16 "exit $st $(cat "$T/out")"
+o16=$(ps -eo pid=,stat=,args= | awk '$2 !~ /^Z/ && /o16-orphan/ && !/awk/ {print $1}'); for p in $o16; do KEEP+=("$p"); done
+[ $st = 1 ] && [ -n "$o16" ] && grep -q "leader gone .* REFUSED, nothing signalled" "$T/out" && ok "O16 leader exited, a later-start member of the same session remains: REFUSED visibly, not signalled (exit 1)" || no O16 "exit $st $(cat "$T/out")"
+
+# New controls (18:57Z batch).
+FP="$T/fp17"; mkdir -p "$FP"; fakestat "$FP" 4190003 4190001 4190001 500; SPYF="$T/spy17"; : > "$SPYF"
+S17="$T/o17"; mkdir -p "$S17"; echo "4190001 100 4190001 4190001" > "$S17/x.own"
+OWNED_PROC_PROC_ROOT="$FP" OWNED_PROC_SIGNAL_SPY="$SPYF" "${OP[@]}" stop "$S17" 8080 > "$T/out"; st=$?
+[ $st = 1 ] && [ ! -s "$SPYF" ] && grep -q "REFUSED, nothing signalled" "$T/out" && ok "O17 SPY: old session gone, later child with the SAME sid/pgid, replacement leader absent: ZERO signals, refused (exit 1)" || no O17 "exit $st spy=$(wc -l < "$SPYF") $(cat "$T/out")"
+FP="$T/fp17b"; mkdir -p "$FP"; fakestat "$FP" 4190001 4190001 4190001 100; fakestat "$FP" 4190003 4190001 4190001 500; : > "$SPYF"
+OWNED_PROC_PROC_ROOT="$FP" OWNED_PROC_SIGNAL_SPY="$SPYF" timeout 30 "${OP[@]}" stop "$S17" 8080 > "$T/out"; st=$?
+grep -qx -- "-4190001 SIGTERM" "$SPYF" && grep -qx -- "-4190001 SIGKILL" "$SPYF" && [ $st = 1 ] && ok "O17b SPY positive: verified live leader (recorded starttime) -> TERM then KILL to its group; fake group stays, so exit 1" || no O17b "exit $st spy=$(tr '\n' ' ' < "$SPYF")"
+OWNED_PROC_SIGNAL_SPY="$SPYF" "${OP[@]}" stop "$S17" 8080 > "$T/out"; st=$?
+[ $st = 2 ] && grep -q "signal spy refused" "$T/out" && ok "O17c signal spy without a fake /proc root is refused (exit 2)" || no O17c "exit $st"
+S="$T/o18"; "${OP[@]}" start "$S" functions "$T/o18.log" -- bash -c '(trap "" TERM; exec -a o18-term-ignorer sleep 300) & sleep 300' >/dev/null; sleep 0.5
+"${OP[@]}" stop "$S" 8080 > "$T/out"; st=$?
+o18=$(ps -eo pid=,stat=,args= | awk '$2 !~ /^Z/ && /o18-term-ignorer/ && !/awk/ {print $1}'); for p in $o18; do KEEP+=("$p"); done
+[ $st = 1 ] && [ -n "$o18" ] && grep -q "leader exited during stop .* REFUSED, not escalated" "$T/out" && ok "O18 leader died on TERM, TERM-ignoring member remains: NOT escalated to KILL, refused (exit 1)" || no O18 "exit $st $(cat "$T/out")"
+S="$T/o19"; OWNED_PROC_FAIL_RECORD_WRITE=1 OWNED_PROC_FAIL_SIGNAL=1 "${OP[@]}" start "$S" functions "$T/o19.log" -- bash -c 'exec -a o19-marker-child sleep 300' > "$T/out"; st=$?
+o19=$(ps -eo pid=,stat=,args= | awk '$2 !~ /^Z/ && /o19-marker-child/ && !/awk/ {print $1}'); for p in $o19; do KEEP+=("$p"); done
+[ $st = 3 ] && grep -q "rollback signal failed (EPERM); child NOT rolled back" "$T/out" && ! grep -q "group rolled back" "$T/out" && ok "O19 rollback signal fails: no success claim, exit 3" || no O19 "exit $st $(cat "$T/out")"
 echo "== owned-proc selftest (LOCAL processes, MOCKED ss, FAKE /proc for faults): $pass PASS, $fail FAIL"; [ $fail = 0 ]
