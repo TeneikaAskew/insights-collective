@@ -130,7 +130,7 @@ out=$(verify t09c_g); [ $? -eq 0 ] && pass "G-verify-after-stage-controls" || fa
 psql "$BASE" -qc "drop database if exists t09c_v" -qc "create database t09c_v template $TEMPLATE" >/dev/null
 psql "$URL_PREFIX/t09c_v" -v ON_ERROR_STOP=1 -q -f "$HERE/pgnet-queue-shim.sql" >/dev/null 2>&1 && q t09c_v "delete from vault.secrets" >/dev/null
 "$HERE/stage-pre.sh" "$URL_PREFIX/t09c_v" 1 >/dev/null 2>&1 || fail "V1 setup: stage-pre"
-out=$("$HERE/stage-app.sh" "$URL_PREFIX/t09c_v" NEW 1 2>&1); expect_fail V1-stage-app-without-bootstrap-vault "$out" $? 'present 0 times'
+out=$(T09_TIER=sql-only "$HERE/stage-app.sh" "$URL_PREFIX/t09c_v" NEW 1 2>&1); expect_fail V1-stage-app-without-bootstrap-vault "$out" $? 'present 0 times'
 n=$(grep -cE "create_secret|update_secret|(insert into|update|delete from) +vault\." "$HERE/stage-app.sh")
 [ "$n" = 0 ] && [ "$(q t09c_v "select count(*) from vault.secrets")" = 0 ] && pass "V2-stage-app-writes-no-vault (0 write statements; vault still empty after V1)" || fail "V2 writes=$n"
 

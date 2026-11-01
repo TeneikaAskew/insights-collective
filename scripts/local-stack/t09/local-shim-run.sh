@@ -37,5 +37,6 @@ if [ "${4:-}" = api ]; then
   export T09_API_URL="http://127.0.0.1:$PORT" T09_ANON_KEY_FILE="$K/anon" T09_SERVICE_KEY_FILE="$K/service" T09_PERSONA_FILE="$K/personas.json"
   echo "-- API tier enabled: MOCKED GoTrue + PostgREST-shaped layer on 127.0.0.1:$PORT over the LOCAL-SHIM database"
 fi
-echo "-- STAGE APP $MODE (LOCAL-SHIM)"; "$HERE/stage-app.sh" "$DB" "$MODE" 1 || die "stage app"
-echo "== LOCAL-SHIM run $MODE: ALL STEPS PASS (not pg_net acceptance)"
+TIER=sql-only; [ "${4:-}" = api ] && TIER=full
+echo "-- STAGE APP $MODE (LOCAL-SHIM, tier $TIER)"; T09_TIER=$TIER "$HERE/stage-app.sh" "$DB" "$MODE" 1 || die "stage app"
+echo "== LOCAL-SHIM run $MODE (tier $TIER): ALL STEPS PASS (not pg_net acceptance$([ $TIER = sql-only ] && echo "; SQL-ONLY, NOT full-CI acceptance"))"

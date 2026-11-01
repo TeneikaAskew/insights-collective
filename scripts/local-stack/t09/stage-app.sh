@@ -1,13 +1,33 @@
 #!/usr/bin/env bash
 # ABOUTME: T-09 runtime STAGE APP: runs AFTER the snapshot bootstrap. Verifies (never writes) bootstrap's vault values, application
 # ABOUTME: sentinels (vault callers, fanout inventory, synthetic scratch fanout unit), the reviewed migrations, SQL tier.
-# Usage: stage-app.sh <loopback db url> OLD|NEW [allow_shim]
+# Usage: T09_TIER=full|sql-only stage-app.sh <loopback db url> OLD|NEW [allow_shim]
 # The guard must already be installed by stage-pre.sh. Exit 0 only if every step passes.
+# T09_TIER is REQUIRED and checked before anything else runs:
+#   full      the CI tier: T09_API_URL (strict loopback origin), T09_ANON_KEY_FILE, T09_SERVICE_KEY_FILE and T09_PERSONA_FILE
+#             must all be set and usable, or the stage fails. The API tier can never be skipped silently.
+#   sql-only  an explicitly labelled LOCAL mode with no API tier; T09_API_URL must be unset. Its final line says
+#             "SQL-ONLY ... NOT full-CI acceptance", and the workflow can never select it (it pins T09_TIER=full).
 set -u
 DB="${1:?loopback db url}"; MODE="${2:?OLD or NEW}"; ALLOW_SHIM="${3:-0}"
 HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$(cd "$HERE/../../.." && pwd)"
 node "$ROOT/scripts/local-db/assert-local-dsn.mjs" "$DB" >/dev/null || { echo "FAIL app: not a loopback DSN"; exit 2; }
 case "$MODE" in OLD|NEW) ;; *) echo "FAIL app: mode must be OLD or NEW"; exit 2 ;; esac
+TIER="${T09_TIER:-}"
+case "$TIER" in
+  full)
+    for v in T09_API_URL T09_ANON_KEY_FILE T09_SERVICE_KEY_FILE T09_PERSONA_FILE; do
+      [ -n "${!v:-}" ] || { echo "FAIL app: T09_TIER=full requires $v (the API tier is required; nothing was run)"; exit 2; }
+    done
+    for v in T09_ANON_KEY_FILE T09_SERVICE_KEY_FILE; do
+      [ -f "${!v}" ] && [ -s "${!v}" ] && [ "$(stat -c %a "${!v}")" = 600 ] || { echo "FAIL app: T09_TIER=full requires $v to be a non-empty mode-600 file (nothing was run)"; exit 2; }
+    done
+    [ ! -e "$T09_PERSONA_FILE" ] || { echo "FAIL app: T09_PERSONA_FILE already exists (never reused; nothing was run)"; exit 2; } ;;
+  sql-only)
+    [ -z "${T09_API_URL:-}" ] || { echo "FAIL app: T09_TIER=sql-only with T09_API_URL set is ambiguous (nothing was run)"; exit 2; }
+    echo "NOTE app: LOCAL SQL-ONLY MODE: no API tier; this run is NOT full-CI acceptance" ;;
+  *) echo "FAIL app: T09_TIER must be 'full' or 'sql-only' (got '${TIER:-unset}'; nothing was run)"; exit 2 ;;
+esac
 psql() { command env -u PGHOST -u PGHOSTADDR -u PGSERVICE -u PGSERVICEFILE -u PGPORT -u PGPASSFILE psql "$@"; }
 run() {
   local label="$1"; shift; local out st
@@ -27,9 +47,8 @@ run "verify stage=app after bootstrap (exact vault names and values as bootstrap
 run "sentinels stage=app before migrations"    -v stage=app -qAt -f "$HERE/egress-sentinels.sql"
 # API tier (optional here, required by the workflow): enabled when T09_API_URL is set. Personas and the legacy API
 # fixtures are created BEFORE the history window, so they are part of the protected, hashed history.
-API_ON=0; [ -n "${T09_API_URL:-}" ] && API_ON=1
+API_ON=0; [ "$TIER" = full ] && API_ON=1
 if [ $API_ON -eq 1 ]; then
-  for v in T09_ANON_KEY_FILE T09_SERVICE_KEY_FILE T09_PERSONA_FILE; do [ -n "${!v:-}" ] || { echo "FAIL app: $v required when T09_API_URL is set"; exit 2; }; done
   # Strict parsed loopback origin (shared helper) before ANY credential-bearing request in this stage.
   node "$HERE/api-http.mjs" check "$T09_API_URL" >/dev/null 2>&1 || { echo "FAIL app: T09_API_URL refused (strict loopback origin required)"; exit 2; }
   export SUPABASE_DB_URL="$DB" T09_HISTORY_SQL="$HERE/history-hash.sql"
@@ -67,4 +86,5 @@ if [ $API_ON -eq 1 ]; then
   hist "certificates intact after API controls" -v action=certcheck
 fi
 run "verify stage=app at teardown"             -v stage=app -q -f "$HERE/egress-verify.sql"
-echo "== STAGE APP ($MODE): ALL PASS"
+if [ $API_ON -eq 1 ]; then echo "== STAGE APP ($MODE): ALL PASS (tier full: API tier ran)"
+else echo "== STAGE APP ($MODE): SQL-ONLY PASS (local mode, no API tier; NOT full-CI acceptance)"; fi

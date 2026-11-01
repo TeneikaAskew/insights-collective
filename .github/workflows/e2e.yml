@@ -262,6 +262,9 @@ jobs:
       E2E_ISOLATED_TARGET_REF: ''
       CI: 'true'
       T09_EVIDENCE: t09-evidence
+      # The API tier is REQUIRED here: stage-app.sh fails before any work if T09_API_URL or a key/persona path is missing.
+      # The labelled local `sql-only` tier exists for local runs only and is never selected by this job.
+      T09_TIER: full
     steps:
       - uses: actions/checkout@v4
         with:
@@ -313,12 +316,15 @@ jobs:
       - name: OLD - export loopback endpoints (masks registered before any value reaches the env or the log)
         run: |
           umask 077
+          # The private status file and its stderr are removed on EVERY exit path (trap set before any command that can
+          # fail); the step's own exit status is preserved, and absence is checked by the trap itself.
+          S=
+          trap 'rc=$?; if [ -n "$S" ]; then rm -f -- "$S" "$S.err"; if [ -e "$S" ] || [ -e "$S.err" ]; then echo "private status file still present"; exit 1; fi; fi; exit $rc' EXIT
           S=$(mktemp "$RUNNER_TEMP/status.XXXXXXXX")
           if ! npx --no-install supabase status --workdir "$IC_WORKDIR_OLD" -o env > "$S" 2> "$S.err"; then
-            echo "supabase status failed; redacted:"; scripts/local-stack/t09/stack-checks.sh redact < "$S.err"; rm -f "$S" "$S.err"; exit 1
+            echo "supabase status failed; redacted:"; scripts/local-stack/t09/stack-checks.sh redact < "$S.err"; exit 1
           fi
           node scripts/local-stack/t09/export-status.mjs "$S" "$GITHUB_ENV" "$RUNNER_TEMP/t09-keys-old"
-          rm -f "$S" "$S.err"
       - name: OLD - target guards
         run: |
           node scripts/e2e/assert-safe-target.mjs --mutating
@@ -381,12 +387,15 @@ jobs:
       - name: NEW - export loopback endpoints (masks registered before any value reaches the env or the log)
         run: |
           umask 077
+          # The private status file and its stderr are removed on EVERY exit path (trap set before any command that can
+          # fail); the step's own exit status is preserved, and absence is checked by the trap itself.
+          S=
+          trap 'rc=$?; if [ -n "$S" ]; then rm -f -- "$S" "$S.err"; if [ -e "$S" ] || [ -e "$S.err" ]; then echo "private status file still present"; exit 1; fi; fi; exit $rc' EXIT
           S=$(mktemp "$RUNNER_TEMP/status.XXXXXXXX")
           if ! npx --no-install supabase status --workdir "$IC_WORKDIR_NEW" -o env > "$S" 2> "$S.err"; then
-            echo "supabase status failed; redacted:"; scripts/local-stack/t09/stack-checks.sh redact < "$S.err"; rm -f "$S" "$S.err"; exit 1
+            echo "supabase status failed; redacted:"; scripts/local-stack/t09/stack-checks.sh redact < "$S.err"; exit 1
           fi
           node scripts/local-stack/t09/export-status.mjs "$S" "$GITHUB_ENV" "$RUNNER_TEMP/t09-keys-new"
-          rm -f "$S" "$S.err"
       - name: NEW - target guards
         run: |
           node scripts/e2e/assert-safe-target.mjs --mutating
