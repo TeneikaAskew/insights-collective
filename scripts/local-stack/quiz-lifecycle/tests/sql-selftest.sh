@@ -108,6 +108,26 @@ n=$(psql "$S_CONN" -Atq -c "select count(*) from public.quiz_submissions where q
 out=$(SUPABASE_DB_URL="$S_URI_WITH_PW" "$HERE/revoke-access.sh" 20 --no-target-guard 2>&1); [ $? -eq 1 ] && grep -q "FAIL revoke \[V01\]" <<<"$out" && ok "T62: a second revoke refuses (not exactly one row)" || bad "T62 second revoke: $out"
 a=$(as_learner "select attempt from public.start_quiz_attempt('$(q 26)')"); [ "$a" = 1 ] && ok "T62 allowed control: quiz 26 start -> attempt 1" || bad "T62 allowed control: $a"
 
+# Learn-page readability (H1, run 41359219343). CourseLearn's first read is the courses row (.single()); with 0 rows it
+# renders "Course not found" and the player never mounts. The learner must read every browser-case course, while the
+# stored courses policies stay exactly as in the snapshot (no enrollment read) and still hide the private control.
+MAIN_C=9c000000-0000-4000-8000-000000000001; PRIV_C=9c009900-0000-4000-8000-0000000000c0
+for c in "$MAIN_C" 9c002000-0000-4000-8000-0000000000c0 9c002200-0000-4000-8000-0000000000c0 9c002400-0000-4000-8000-0000000000c0; do
+  n=$(as_learner "select count(*) from public.courses where id = '$c'"); [ "$n" = 1 ] && ok "learner reads published synthetic course ${c:4:2} (CourseLearn course row)" || bad "learner course row ${c:4:2}: $n"
+done
+n=$(as_learner "select count(*) from public.courses where id = '9c002000-0000-4000-8000-0000000000c0'")
+[ "$n" = 1 ] && ok "T62: course 20 stays readable after revoke, so the denial above comes from the enrollment, not course visibility" || bad "T62 course 20 after revoke: $n"
+n=$(as_learner "select count(*) from public.enrollments where course_id = '$PRIV_C'"); [ "$n" = 1 ] && ok "private control: learner is enrolled" || bad "private control enrollment: $n"
+n=$(as_learner "select count(*) from public.courses where id = '$PRIV_C'"); [ "$n" = 0 ] && ok "private control: enrolled learner still cannot read the UNPUBLISHED course (policies unchanged)" || bad "private control course row: $n"
+p=$(psql "$S_CONN" -Atq -c "select count(*) || ':' || count(*) filter (where coalesce(qual,'') || coalesce(with_check,'') ilike '%enrollments%') from pg_policies where schemaname = 'public' and tablename = 'courses'")
+[ "$p" = "7:0" ] && ok "courses policies: the snapshot's 7, none reads enrollments (fixture changed no policy)" || bad "courses policies: $p"
+# Causal published-only negative: flip ONLY courses.published on the main course in THIS scratch database.
+psql "$S_CONN" -Atq -c "update public.courses set published = false where id = '$MAIN_C'" >/dev/null
+n=$(as_learner "select count(*) from public.courses where id = '$MAIN_C'"); [ "$n" = 0 ] && ok "causal negative: the same course unpublished -> learner course row 0 (the run 41359219343 state)" || bad "causal negative: $n"
+n=$(as_learner "select count(*) from public.get_quiz_questions_for_taking('$(q 26)')"); [ "$n" = 2 ] && ok "causal negative: questions stay readable (2), so the course row alone blocks the page" || bad "causal negative questions: $n"
+psql "$S_CONN" -Atq -c "update public.courses set published = true where id = '$MAIN_C'" >/dev/null
+n=$(as_learner "select count(*) from public.courses where id = '$MAIN_C'"); [ "$n" = 1 ] && ok "causal negative restored: published again -> 1" || bad "causal negative restore: $n"
+
 e=$(SUPABASE_DB_URL="$S_URI_WITH_PW" "$HERE/fixture.sh" --no-target-guard 2>&1); [ $? -ne 0 ] && grep -q "already holds attempts" <<<"$e" && ok "fixture refuses a used stack" || bad "fixture on a used stack: $e"
 E2E_TEST_PASSWORD= SUPABASE_DB_URL="$S_URI_WITH_PW" "$HERE/fixture.sh" --no-target-guard >/dev/null 2>&1; [ $? -eq 2 ] && ok "fixture refuses an empty password" || bad "fixture accepted an empty password"
 

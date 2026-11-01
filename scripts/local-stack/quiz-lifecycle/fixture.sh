@@ -52,7 +52,8 @@ if [ "${st[1]}" -ne 0 ]; then
   elif has 'expected 23 scenario quizzes'; then code=F04; text="scenario quiz count is not 23"
   elif has 'unlimited quizzes'; then code=F05; text="unlimited quizzes not prepared exactly once each"
   elif has 'an attempt exists after seeding'; then code=F06; text="an attempt exists after seeding"
-  elif has 'expected 4 synthetic enrollments'; then code=F08; text="synthetic enrollments are not exactly 4"
+  elif has 'expected 5 synthetic enrollments'; then code=F08; text="synthetic enrollments are not exactly 5"
+  elif has 'expected 4 published synthetic courses'; then code=F09; text="synthetic courses are not exactly 4 published and 1 private"
   fi
   echo "FAIL fixture [$code]: $text (psql exit ${st[1]}; $bytes bytes of psql output withheld)"
   exit 1
