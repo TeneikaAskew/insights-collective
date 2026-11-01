@@ -113,8 +113,8 @@ describe('useCourseProgress', () => {
 
     const m1 = result.current.data?.modules.find((m) => m.moduleId === 'm1');
     const m2 = result.current.data?.modules.find((m) => m.moduleId === 'm2');
-    expect(m1).toEqual({ moduleId: 'm1', totalItems: 2, completedItems: 1, percent: 50, isComplete: false });
-    expect(m2).toEqual({ moduleId: 'm2', totalItems: 2, completedItems: 1, percent: 50, isComplete: false });
+    expect(m1).toEqual({ moduleId: 'm1', totalItems: 2, completedItems: 1, percent: 50, isComplete: false, itemIds: ['i1', 'i2'] });
+    expect(m2).toEqual({ moduleId: 'm2', totalItems: 2, completedItems: 1, percent: 50, isComplete: false, itemIds: ['i3', 'i4'] });
   });
 
   it('getModulePercent returns 0 for unknown modules', async () => {

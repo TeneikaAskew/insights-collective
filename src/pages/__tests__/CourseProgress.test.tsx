@@ -147,7 +147,7 @@ describe('CourseProgress', () => {
     // percent comes straight from the hook
     expect(screen.getByText('50%')).toBeInTheDocument();
     // lessons breakdown: 1 of 2 published pages completed
-    expect(screen.getByText('1 of 2 completed')).toBeInTheDocument();
+    expect(screen.getByText('1 of 2 marked done')).toBeInTheDocument();
     // real average grade
     expect(screen.getByText('90.0%')).toBeInTheDocument();
   });
@@ -171,7 +171,7 @@ describe('CourseProgress', () => {
     expect(screen.getByText('No activity yet')).toBeInTheDocument();
     // T-10: progress never promises a certificate; issuance follows the course's own requirements.
     expect(
-      screen.getByText("A certificate is issued once the course's requirements are met"),
+      screen.getByText(/A certificate is issued once the course.s requirements are met\./),
     ).toBeInTheDocument();
     expect(screen.queryByText('Complete all modules to earn your certificate')).not.toBeInTheDocument();
   });
