@@ -34,5 +34,18 @@ select 'HASH grade_history ' || count(*) || ' ' || coalesce(md5(string_agg(t::te
 select 'HASH certificates ' || count(*) || ' ' || coalesce(md5(string_agg(t::text, '|' order by t.id)), 'empty') from public.certificates t;
 select 'HASH fixture_assignments ' || count(*) || ' ' || coalesce(md5(string_agg(t::text, '|' order by t.id)), 'empty')
   from public.assignments t where t.id::text like '9b6b0000-0000-4000-8000-0000000002%';
+-- Immutable parts of the fixture itself: submission identity/content (everything a grader must never change), and the
+-- course/module/item/assignment/enrollment rows the fixture stands on.
+select 'HASH fixture_submission_immutable ' || count(*) || ' ' || md5(string_agg(concat_ws('|', t.id, t.assignment_id, t.user_id, t.body, t.url,
+         t.submission_type, t.submitted_at, t.attempt, t.rubric_scores, t.excused, t.late, t.missing, t.created_at), '#' order by t.id))
+  from public.assignment_submissions t where t.id::text like '9b6b0000-0000-4000-8000-0000000003%';
+select 'HASH fixture_courses ' || count(*) || ' ' || md5(string_agg(t::text, '|' order by t.id)) from public.courses t where t.id::text like '9b6b0000-0000-4000-8000-00000000000%' or t.id::text like '9b6b0000-0000-4000-8000-00000000001%' or t.id::text like '9b6b0000-0000-4000-8000-00000000002%';
+select 'HASH fixture_modules ' || count(*) || ' ' || md5(string_agg(t::text, '|' order by t.id)) from public.modules t where t.id = '9b6b0000-0000-4000-8000-000000000002';
+select 'HASH fixture_items ' || count(*) || ' ' || md5(string_agg(t::text, '|' order by t.id)) from public.content_items t where t.id::text like '9b6b0000-0000-4000-8000-0000000001%';
+select 'HASH fixture_enrollments ' || count(*) || ' ' || md5(string_agg(concat_ws('|', t.id, t.user_id, t.course_id, t.enrolled_at, t.completion_status), '#' order by t.id))
+  from public.enrollments t where t.course_id::text like '9b6b0000-0000-4000-8000-0000000000%';
+-- Observed only, NOT asserted: progress on fixture items (a learner opening a lesson may legitimately record it), and the
+-- member's notifications (the grade notification trigger adds rows).
+select 'OBSERVED fixture_item_progressions ' || count(*) from public.content_item_progressions where content_item_id::text like '9b6b0000-0000-4000-8000-0000000001%';
 -- Observed only (the grade notification trigger is expected to add rows for the member; not asserted as policy).
 select 'OBSERVED member_notifications ' || count(*) from public.notifications where user_id = 'e2e00000-0000-4000-8000-000000000003';

@@ -2,10 +2,11 @@ STATE 301 grade=0 score=NULL state=graded comments_md5=<SG0b> graded_at=set atte
 STATE 302 grade=7 score=NULL state=graded comments_md5=<SG7> graded_at=set attempt=1
 STATE 303 grade=0 score=NULL state=graded comments_md5=NULL graded_at=set attempt=1
 STATE 304 grade=7 score=NULL state=graded comments_md5=NULL graded_at=set attempt=1
-STATE 311 grade=NULL score=NULL state=submitted comments_md5=NULL graded_at=NULL attempt=1
+STATE 311 grade=NULL score=NULL state=graded comments_md5=NULL graded_at=NULL attempt=1
 STATE 312 grade=NULL score=NULL state=submitted comments_md5=NULL graded_at=NULL attempt=1
 AUDIT 301 #1 action=grade_posted actor=002 old_grade=NULL new_grade=0 old_state=submitted new_state=graded comments_changed=true
 AUDIT 301 #2 action=grade_changed actor=002 old_grade=0 new_grade=0 old_state=graded new_state=graded comments_changed=true
 AUDIT 302 #1 action=grade_posted actor=002 old_grade=NULL new_grade=7 old_state=submitted new_state=graded comments_changed=true
 AUDIT 303 #1 action=grade_posted actor=002 old_grade=NULL new_grade=0 old_state=submitted new_state=graded comments_changed=false
 AUDIT 304 #1 action=grade_posted actor=002 old_grade=NULL new_grade=7 old_state=submitted new_state=graded comments_changed=false
+AUDIT 311 #1 action=grade_posted actor=003 old_grade=NULL new_grade=NULL old_state=submitted new_state=graded comments_changed=false
