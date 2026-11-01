@@ -4,7 +4,7 @@
 // ABOUTME: of the branch. Test DSNs are assembled from parts instead (see assertLocalDsn.test.ts `uri`).
 import { describe, it, expect } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { closeSync, fstatSync, openSync, readFileSync } from 'node:fs';
+import { readRegularFile } from '@/test/utils/readRegularFile';
 import { resolve } from 'node:path';
 
 const ROOT = resolve(__dirname, '../../..');
@@ -21,14 +21,9 @@ describe('no credential-shaped database URI literals in tracked files', () => {
     const hits: string[] = [];
     for (const rel of trackedFiles()) {
       const abs = resolve(ROOT, rel);
-      // Check and read through the same descriptor, so the file checked is the file read.
-      let fd: number; try { fd = openSync(abs, 'r'); } catch { continue; }
-      let buf: Buffer;
-      try {
-        const st = fstatSync(fd);
-        if (!st.isFile() || st.size > TEXT_LIMIT) continue;
-        buf = readFileSync(fd);
-      } finally { closeSync(fd); }
+      // Regular files only, checked and read through one descriptor; never blocks on a FIFO (readRegularFile).
+      const buf = readRegularFile(abs, TEXT_LIMIT);
+      if (!buf) continue;
       if (buf.subarray(0, 8000).includes(0)) continue; // binary
       const text = buf.toString('utf8');
       let m: RegExpExecArray | null;
