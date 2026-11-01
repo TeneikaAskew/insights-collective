@@ -30,7 +30,7 @@ export function fakeCourseProgress(opts: FakeProgressOptions) {
             modules: Object.entries(opts.modules ?? {}).map(([moduleId, ids]) => {
               const t = ids.filter((id) => opts.eligible.includes(id));
               const c = t.filter((id) => doneIds.includes(id)).length;
-              return { moduleId, totalItems: t.length, completedItems: c, percent: pct(c, t.length), isComplete: t.length > 0 && c === t.length };
+              return { moduleId, totalItems: t.length, completedItems: c, percent: pct(c, t.length), isComplete: t.length > 0 && c === t.length, itemIds: t };
             }),
             totalItems: opts.eligible.length,
             completedItems: doneIds.length,

@@ -1,11 +1,12 @@
-// ABOUTME: Tests for ModuleProgressCard — locks its queries to the live schema:
-// ABOUTME: content_items + content_item_progressions, no lesson_completions, no RPC.
+// ABOUTME: Tests for ModuleProgressCard (T-10 r2): completion figures come only from the canonical snapshot slice;
+// ABOUTME: the detail query reads eligible items and assessment status, never a second completion count.
 
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@/test/utils/test-utils';
+import { render, screen, within } from '@/test/utils/test-utils';
+import userEvent from '@testing-library/user-event';
 import { mockSupabaseClient } from '@/test/mocks/supabase';
-import { ModuleProgressCard } from '../ModuleProgressCard';
+import { ModuleProgressCard, moduleBreakdown } from '../ModuleProgressCard';
 
 type QueryResult = { data?: unknown; error?: unknown };
 
@@ -27,138 +28,115 @@ function makeTableBuilder(result: QueryResult) {
 function mockTables(tables: Record<string, QueryResult>) {
   const builders: Record<string, any> = {};
   const queried: string[] = [];
-  (mockSupabaseClient.from as ReturnType<typeof vi.fn>).mockImplementation(
-    (table: string) => {
-      queried.push(table);
-      if (!builders[table]) builders[table] = makeTableBuilder(tables[table] ?? {});
-      return builders[table];
-    }
-  );
+  (mockSupabaseClient.from as ReturnType<typeof vi.fn>).mockImplementation((table: string) => {
+    queried.push(table);
+    if (!builders[table]) builders[table] = makeTableBuilder(tables[table] ?? {});
+    return builders[table];
+  });
   return { builders, queried };
 }
 
-function stubHappyPath(overrides: Record<string, any> = {}) {
+// Module m1: page p1 (done), assignment item a1 (done: stored progress), quiz item q1 (not done). 2 of 3.
+const snapshot = { totalItems: 3, completedItems: 2, percent: 67, isComplete: false, itemIds: ['p1', 'a1', 'q1'] };
+const done = new Set(['p1', 'a1']);
+const types = new Map([['p1', 'page'], ['a1', 'assignment'], ['q1', 'quiz']]);
+
+function stubDetails(overrides: Record<string, QueryResult> = {}) {
   return mockTables({
     content_items: {
       data: [
-        { id: 'i1', title: 'Intro video', type: 'video', position: 1 },
-        { id: 'i2', title: 'Reading', type: 'page', position: 2 },
+        { id: 'p1', title: 'Reading', type: 'page', position: 1 },
+        { id: 'a1', title: 'Essay', type: 'assignment', position: 2 },
+        { id: 'q1', title: 'Quiz 1', type: 'quiz', position: 3 },
       ],
     },
-    content_item_progressions: {
-      data: [{ content_item_id: 'i1', workflow_state: 'completed' }],
-    },
-    assignments: {
-      data: [{
-        id: 'a1', title: 'Essay', due_date: null, points: 10,
-        submissions: [{ id: 's1', workflow_state: 'graded', grade: 9 }],
-      }],
-    },
-    quizzes: {
-      data: [{
-        id: 'q1', title: 'Quiz 1', points_possible: 5,
-        attempts: [],
-      }],
-    },
+    // The assessment rows the old card COUNTED in addition to the content items: here the essay's submission is only
+    // submitted (not graded) and the quiz has no finished attempt. Neither may change any count.
+    assignments: { data: [{ id: 'A1', points: 10, content_item_id: 'a1', submissions: [{ id: 's1', workflow_state: 'submitted', grade: null, submitted_at: '2026-11-01T00:00:00Z' }] }] },
+    quizzes: { data: [{ id: 'Q1', points_possible: 5, content_item_id: 'q1', attempts: [] }] },
     ...overrides,
   });
 }
 
-describe('ModuleProgressCard', () => {
-  // REGRESSION: the card used to call the calculate_module_progress RPC and
-  // join lessons -> lesson_completions with assignment_submissions.status /
-  // student_id. None of those exist in the live database; the page 400'd.
-  it('queries live tables only — no RPC, no lessons/lesson_completions, submissions by user_id', async () => {
-    const { builders, queried } = stubHappyPath();
+const props = { moduleId: 'm1', moduleTitle: 'Week 1', studentId: 'user-1', snapshot, doneItemIds: done, typeById: types };
 
-    render(
-      <ModuleProgressCard
-        moduleId="m1"
-        moduleTitle="Week 1"
-        studentId="user-1"
-        showDetails={true}
-      />
-    );
-    await screen.findByText('Week 1');
+describe('ModuleProgressCard (T-10 r2)', () => {
+  it('summary card: figures, percent, badge and breakdown come from the snapshot; no table is read', async () => {
+    const { queried } = mockTables({});
+    render(<ModuleProgressCard {...props} showDetails={false} />);
+    expect(screen.getByText('2/3 items completed')).toBeInTheDocument();
+    expect(screen.getByText('67%')).toBeInTheDocument();
+    expect(screen.getByText('In Progress')).toBeInTheDocument();
+    expect(screen.getByTestId('module-breakdown-page')).toHaveTextContent('1/1');
+    expect(screen.getByTestId('module-breakdown-assignment')).toHaveTextContent('1/1');
+    expect(screen.getByTestId('module-breakdown-quiz')).toHaveTextContent('0/1');
+    // Providers may read page_visibility; no progress or content table is read by the summary card.
+    expect(queried.filter((t) => t !== 'page_visibility')).toEqual([]);
+    expect(mockSupabaseClient.rpc).not.toHaveBeenCalled();
+  });
 
-    expect(mockSupabaseClient.rpc).not.toHaveBeenCalledWith(
-      'calculate_module_progress',
-      expect.anything()
-    );
-    expect(queried).not.toContain('lessons');
-    expect(queried).not.toContain('lesson_completions');
-    expect(queried).toContain('content_items');
-    expect(queried).toContain('content_item_progressions');
-    expect(builders['content_item_progressions'].eq).toHaveBeenCalledWith('user_id', 'user-1');
-    const assignmentSelect = builders['assignments'].select.mock.calls[0][0] as string;
-    expect(assignmentSelect).toContain('workflow_state');
-    expect(assignmentSelect).not.toMatch(/(^|[,\s(])status([,\s)]|$)/);
+  it('details: reads only eligible items and assessment rows by content_item_id; assessment status is separate from the checkmark', async () => {
+    const { builders } = stubDetails();
+    render(<ModuleProgressCard {...props} showDetails={true} />);
+    await userEvent.click(screen.getByRole('button', { name: /view details/i }));
+    const essay = await screen.findByTestId('module-item-a1');
+    // Stored progress says done; the assessment fact says only submitted. Both are shown, neither overrides the other.
+    expect(essay).toHaveAttribute('data-done', 'true');
+    expect(within(essay).getByTestId('assessment-a1')).toHaveTextContent('Submitted, not graded');
+    expect(screen.getByTestId('assessment-q1')).toHaveTextContent('No completed attempt');
+    // Counts unchanged by the details read (the old card would have shown 2/5 = 40%: 3 items plus 2 assessment rows).
+    expect(screen.getByText('2/3 items completed')).toBeInTheDocument();
+    expect(screen.getByText('67%')).toBeInTheDocument();
+    expect(builders['content_items'].in).toHaveBeenCalledWith('id', ['p1', 'a1', 'q1']);
+    expect(builders['assignments'].in).toHaveBeenCalledWith('content_item_id', ['p1', 'a1', 'q1']);
     expect(builders['assignments'].eq).toHaveBeenCalledWith('submissions.user_id', 'user-1');
+    expect(builders['quizzes'].eq).toHaveBeenCalledWith('attempts.user_id', 'user-1');
+    expect(mockSupabaseClient.from).not.toHaveBeenCalledWith('content_item_progressions');
+    expect(mockSupabaseClient.from).not.toHaveBeenCalledWith('lesson_completions');
   });
 
-  it('computes progress client-side: 2 of 4 items done (1 content item + 1 graded assignment) = 50%', async () => {
-    stubHappyPath();
-
-    render(
-      <ModuleProgressCard
-        moduleId="m1"
-        moduleTitle="Week 1"
-        studentId="user-1"
-        showDetails={true}
-      />
-    );
-    await screen.findByText('Week 1');
-
-    // i1 completed + a1 graded = 2 done; i2 + q1 not done. 2/4 = 50%.
-    expect(screen.getByText(/50%/)).toBeInTheDocument();
-    expect(screen.getByText(/2\s*\/\s*4/)).toBeInTheDocument();
-  });
-
-  // REGRESSION: quiz completion comes from quiz_submissions.workflow_state.
-  // The card previously embedded quiz_attempts and checked completed_at — a
-  // table nothing writes — so finished quizzes never counted.
-  it('counts a completed quiz_submissions row as a finished quiz', async () => {
-    stubHappyPath({
-      quizzes: {
-        data: [{
-          id: 'q1', title: 'Quiz 1', points_possible: 5,
-          attempts: [{ id: 'qs1', score: 5, finished_at: '2026-01-02T00:00:00Z', workflow_state: 'complete' }],
-        }],
-      },
+  it('a graded submission and a finished quiz attempt are reported as assessment status', async () => {
+    stubDetails({
+      assignments: { data: [{ id: 'A1', points: 10, content_item_id: 'a1', submissions: [{ id: 's1', workflow_state: 'graded', grade: 9 }] }] },
+      quizzes: { data: [{ id: 'Q1', points_possible: 5, content_item_id: 'q1', attempts: [{ id: 'x', score: 4, workflow_state: 'complete' }] }] },
     });
-
-    render(
-      <ModuleProgressCard
-        moduleId="m1"
-        moduleTitle="Week 1"
-        studentId="user-1"
-        showDetails={true}
-      />
-    );
-
-    // 3 of 4 items done: 1 content item + 1 graded assignment + 1 quiz = 75%
-    expect(await screen.findByText('75%')).toBeInTheDocument();
+    render(<ModuleProgressCard {...props} showDetails={true} />);
+    await userEvent.click(screen.getByRole('button', { name: /view details/i }));
+    expect(await screen.findByTestId('assessment-a1')).toHaveTextContent('Graded 9/10');
+    expect(screen.getByTestId('assessment-q1')).toHaveTextContent('Attempt complete 4/5');
+    // A finished attempt does not tick a stored-progress checkmark.
+    expect(screen.getByTestId('module-item-q1')).toHaveAttribute('data-done', 'false');
+    expect(screen.getByText('2/3 items completed')).toBeInTheDocument();
   });
 
-  it('renders the error state with retry when a query fails', async () => {
-    mockTables({
-      content_items: { data: null, error: { message: 'boom' } },
-      content_item_progressions: { data: [] },
-      assignments: { data: [] },
-      quizzes: { data: [] },
+  it('renders the details error state with retry when a details query fails', async () => {
+    stubDetails({ content_items: { data: null, error: { message: 'boom' } } });
+    render(<ModuleProgressCard {...props} showDetails={true} />);
+    await userEvent.click(screen.getByRole('button', { name: /view details/i }));
+    expect(await screen.findByText(/Failed to load details for Week 1/i)).toBeInTheDocument();
+    expect(screen.getByText('2/3 items completed')).toBeInTheDocument();
+  });
+
+  it('missing type metadata for one of the module items makes the breakdown Unknown, not a smaller count', () => {
+    mockTables({});
+    render(<ModuleProgressCard {...props} typeById={new Map([['p1', 'page'], ['a1', 'assignment']])} showDetails={false} />);
+    expect(screen.getByTestId('module-breakdown-page')).toHaveTextContent('Unknown');
+    expect(screen.getByTestId('module-breakdown-quiz')).toHaveTextContent('Unknown');
+    expect(screen.getByText('2/3 items completed')).toBeInTheDocument();
+  });
+
+  it('moduleBreakdown: extra type rows are ignored, a missing one gives null, graded-done counts as done', () => {
+    const extra = new Map([...types, ['zz', 'page']]);
+    expect(moduleBreakdown(['p1', 'a1', 'q1'], done, extra)).toEqual({
+      page: { done: 1, total: 1 }, assignment: { done: 1, total: 1 }, quiz: { done: 0, total: 1 },
     });
+    expect(moduleBreakdown(['p1', 'a1', 'q1'], done, new Map([['p1', 'page']]))).toBeNull();
+    expect(moduleBreakdown(['p1'], done, null)).toBeNull();
+  });
 
-    render(
-      <ModuleProgressCard
-        moduleId="m1"
-        moduleTitle="Week 1"
-        studentId="user-1"
-        showDetails={true}
-      />
-    );
-
-    expect(
-      await screen.findByText(/Failed to load progress for Week 1/i)
-    ).toBeInTheDocument();
+  it('badge Completed only for an exactly complete snapshot', () => {
+    mockTables({});
+    render(<ModuleProgressCard {...props} snapshot={{ ...snapshot, completedItems: 3, percent: 100, isComplete: true }} doneItemIds={new Set(['p1', 'a1', 'q1'])} showDetails={false} />);
+    expect(screen.getByText('Completed')).toBeInTheDocument();
   });
 });

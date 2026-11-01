@@ -147,10 +147,10 @@ describe('useCourseProgress read model (T-10)', () => {
     expect(d.isComplete).toBe(false);
     expect(d.modules.map((m) => m.moduleId).sort()).toEqual(['m1', 'm2']);
     expect(d.modules.find((m) => m.moduleId === 'm1')).toEqual({
-      moduleId: 'm1', totalItems: 3, completedItems: 2, percent: 67, isComplete: false,
+      moduleId: 'm1', totalItems: 3, completedItems: 2, percent: 67, isComplete: false, itemIds: ['i1', 'i2', 'i3'],
     });
     expect(d.modules.find((m) => m.moduleId === 'm2')).toEqual({
-      moduleId: 'm2', totalItems: 3, completedItems: 0, percent: 0, isComplete: false,
+      moduleId: 'm2', totalItems: 3, completedItems: 0, percent: 0, isComplete: false, itemIds: ['q4', 'i5', 'i6'],
     });
     // The exclusion comes from the hook's own published filters, not from fixture luck.
     expect(calls.find((c) => c.table === 'modules')!.filters).toContainEqual(['eq', 'published', true]);
@@ -210,7 +210,7 @@ describe('useCourseProgress read model (T-10)', () => {
     expect(result.current.data!.completedItems).toBe(1);
     expect(result.current.data!.percent).toBe(50);
     expect(result.current.data!.modules[0]).toEqual({
-      moduleId: 'm1', totalItems: 2, completedItems: 1, percent: 50, isComplete: false,
+      moduleId: 'm1', totalItems: 2, completedItems: 1, percent: 50, isComplete: false, itemIds: ['i1', 'i2'], // deduplicated
     });
   });
 
@@ -224,7 +224,7 @@ describe('useCourseProgress read model (T-10)', () => {
     expect(d.completedItems).toBe(0);
     expect(d.percent).toBe(0);
     expect(d.isComplete).toBe(false);
-    expect(d.modules).toEqual([{ moduleId: 'm1', totalItems: 0, completedItems: 0, percent: 0, isComplete: false }]);
+    expect(d.modules).toEqual([{ moduleId: 'm1', totalItems: 0, completedItems: 0, percent: 0, isComplete: false, itemIds: [] }]);
   });
 
   it('known 0: a non-empty course with nothing done is a legitimate 0%, distinct from unknown', async () => {
@@ -327,6 +327,69 @@ describe('useCourseProgress read model (T-10)', () => {
       releaseB();
     });
     await waitFor(() => expect(result.current.data?.totalItems).toBe(1));
+  });
+
+  // T-10 r2 (3): EVERY render is recorded, not just what waitFor eventually sees. The first render after the identity
+  // changes runs before the effect starts the new fetch; it must already be masked (no previous-key data, loading).
+  type Obs = { id: string; total: number | undefined; done: string[] | undefined; loading: boolean; error: string | null };
+  const observe = (log: Obs[], id: string, r: ReturnType<typeof useCourseProgress>) => {
+    log.push({ id, total: r.data?.totalItems, done: r.data?.doneItemIds, loading: r.isLoading, error: r.error });
+    return r;
+  };
+
+  it('T-10 r2: course change, every render observation: no render for B ever shows A data or loading=false before B resolves', async () => {
+    seedSixItemCourse([{ content_item_id: 'i1', workflow_state: 'read' }]);
+    tables.modules.push({ id: 'mB', course_id: COURSE_B, published: true });
+    tables.content_items.push({ id: 'b1', module_id: 'mB', published: true });
+    const log: Obs[] = [];
+    const { rerender } = renderHook(({ id }) => observe(log, id, useCourseProgress(id)), { initialProps: { id: COURSE_A } });
+    await waitFor(() => expect(log.at(-1)?.total).toBe(6));
+
+    const releaseB = gate('modules', COURSE_B);
+    const firstB = log.length;
+    rerender({ id: COURSE_B });
+    // Stage 1: the very first render for B (before any effect) is masked.
+    expect(log[firstB]).toEqual({ id: COURSE_B, total: undefined, done: undefined, loading: true, error: null });
+    await waitFor(() => expect(log.length).toBeGreaterThan(firstB + 1));
+    // Stage 2: every render for B until release is unknown + loading.
+    for (const o of log.slice(firstB)) expect(o).toEqual({ id: COURSE_B, total: undefined, done: undefined, loading: true, error: null });
+    await act(async () => { releaseB(); });
+    await waitFor(() => expect(log.at(-1)?.total).toBe(1));
+    // Stage 3: across ALL B renders, A's 6 never appears.
+    expect(log.slice(firstB).some((o) => o.total === 6)).toBe(false);
+  });
+
+  it('T-10 r2: user change, every render observation: the first render for user-2 never shows user-1 done IDs', async () => {
+    seedSixItemCourse([{ content_item_id: 'i1', workflow_state: 'read' }]);
+    tables.content_item_progressions.push({ user_id: 'user-2', content_item_id: 'i5', workflow_state: 'read' });
+    const log: Obs[] = [];
+    const { rerender } = renderHook(() => observe(log, authUserId ?? '', useCourseProgress(COURSE_A)));
+    await waitFor(() => expect(log.at(-1)?.done).toEqual(['i1']));
+
+    const releaseProg = gate('content_item_progressions');
+    const firstU2 = log.length;
+    authUserId = 'user-2';
+    rerender();
+    expect(log[firstU2]).toEqual({ id: 'user-2', total: undefined, done: undefined, loading: true, error: null });
+    await act(async () => { releaseProg(); });
+    await waitFor(() => expect(log.at(-1)?.done).toEqual(['i5']));
+    expect(log.slice(firstU2).some((o) => (o.done ?? []).includes('i1'))).toBe(false);
+    expect(log.slice(firstU2).filter((o) => o.done === undefined).every((o) => o.loading)).toBe(true);
+  });
+
+  it('T-10 r2: an error for the previous key is not shown for the new key on its first render', async () => {
+    seedSixItemCourse([]);
+    tables.modules.push({ id: 'mB', course_id: COURSE_B, published: true });
+    tableErrors.content_items = 'boom';
+    const log: Obs[] = [];
+    const { rerender } = renderHook(({ id }) => observe(log, id, useCourseProgress(id)), { initialProps: { id: COURSE_A } });
+    await waitFor(() => expect(log.at(-1)?.error).toBe('boom'));
+    delete tableErrors.content_items;
+    const releaseB = gate('modules', COURSE_B);
+    const firstB = log.length;
+    rerender({ id: COURSE_B });
+    expect(log[firstB]).toEqual({ id: COURSE_B, total: undefined, done: undefined, loading: true, error: null });
+    await act(async () => { releaseB(); });
   });
 
   it('a user change resets to unknown and reads the new user progressions only', async () => {

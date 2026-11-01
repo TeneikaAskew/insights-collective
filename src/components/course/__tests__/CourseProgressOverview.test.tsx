@@ -180,9 +180,9 @@ describe('CourseProgressOverview read model (T-10)', () => {
       content_items: { data: [{ id: 'i1', type: 'page' }, { id: 'i2', type: 'page' }, { id: 'a1', type: 'assignment' }, { id: 'x9', type: 'page' }], error: null },
     });
     render(<CourseProgressOverview courseId="course-1" studentId="student-1" />);
-    expect(await screen.findByText('1 of 2 completed')).toBeInTheDocument(); // pages: i1 of i1,i2 (x9 ignored)
-    expect(screen.getByText('1 of 1 submitted')).toBeInTheDocument(); // assignments: a1 graded
-    expect(screen.getByText('0 of 0 completed')).toBeInTheDocument(); // quizzes
+    expect(await screen.findByText('1 of 2 marked done')).toBeInTheDocument(); // pages: i1 of i1,i2 (x9 ignored)
+    expect(screen.getByText('1 of 1 marked done')).toBeInTheDocument(); // assignments: a1 graded
+    expect(screen.getByText('0 of 0 marked done')).toBeInTheDocument(); // quizzes
     expect(screen.getByText('67%')).toBeInTheDocument(); // overall = the same snapshot: 2 of 3
     // No second progress universe: the overview never reads progressions or modules itself.
     expect(tablesQueried()).not.toContain('content_item_progressions');
@@ -200,12 +200,12 @@ describe('CourseProgressOverview read model (T-10)', () => {
     setProgressHook(snap(['i1']));
     mockTables({ ...successTables(), content_items: { data: [{ id: 'i1', type: 'page' }, { id: 'a1', type: 'assignment' }], error: null } });
     const { rerender } = render(<CourseProgressOverview courseId="course-1" studentId="student-1" />);
-    expect(await screen.findByText('1 of 1 completed')).toBeInTheDocument();
-    expect(screen.getByText('0 of 1 submitted')).toBeInTheDocument();
+    expect(await screen.findByText('1 of 1 marked done')).toBeInTheDocument();
+    expect(screen.getByText('0 of 1 marked done')).toBeInTheDocument();
     setProgressHook(snap(['a1']));
     rerender(<CourseProgressOverview courseId="course-1" studentId="student-1" />);
-    expect(await screen.findByText('0 of 1 completed')).toBeInTheDocument();
-    expect(screen.getByText('1 of 1 submitted')).toBeInTheDocument();
+    expect(await screen.findByText('0 of 1 marked done')).toBeInTheDocument();
+    expect(screen.getByText('1 of 1 marked done')).toBeInTheDocument();
   });
 
   it('a same-count change of the eligible IDs re-reads the item types for the new universe', async () => {
@@ -219,12 +219,12 @@ describe('CourseProgressOverview read model (T-10)', () => {
     setProgressHook(snap(['i1', 'i2']));
     mockTables({ ...successTables(), content_items: { data: [{ id: 'i1', type: 'page' }, { id: 'i2', type: 'page' }, { id: 'q1', type: 'quiz' }], error: null } });
     const { rerender } = render(<CourseProgressOverview courseId="course-1" studentId="student-1" />);
-    expect(await screen.findByText('0 of 2 completed')).toBeInTheDocument();
+    expect(await screen.findByText('0 of 2 marked done')).toBeInTheDocument();
     setProgressHook(snap(['i1', 'q1']));
     rerender(<CourseProgressOverview courseId="course-1" studentId="student-1" />);
     // pages 0/1 (i1 only; i2 left the universe) and quizzes 0/1 (q1 joined it)
-    expect(await screen.findAllByText('0 of 1 completed')).toHaveLength(2);
-    expect(screen.queryByText('0 of 2 completed')).not.toBeInTheDocument();
+    expect(await screen.findAllByText('0 of 1 marked done')).toHaveLength(2);
+    expect(screen.queryByText('0 of 2 marked done')).not.toBeInTheDocument();
   });
 
   it('a same-key refresh (isLoading) shows no stale figures', async () => {
@@ -301,5 +301,120 @@ describe('CourseProgressOverview read model (T-10)', () => {
     render(<CourseProgressOverview courseId="course-1" studentId="student-1" />);
     expect(await screen.findByText('Overall Progress')).toBeInTheDocument();
     expect(screen.queryByText(/earn your certificate/i)).not.toBeInTheDocument();
+  });
+});
+
+// T-10 r2 (1): certificate access and the congratulations follow an ISSUED certificate row, never the legacy RPC.
+describe('CourseProgressOverview certificate matrix (T-10 r2)', () => {
+  const rpcCalls = () => (mockSupabaseClient.rpc as Mock).mock.calls.map((c) => c[0]);
+  const viewButton = () => screen.queryByRole('button', { name: /view certificate/i });
+  const congrats = () => screen.queryByText(/Congratulations! You've completed this course!/);
+
+  beforeEach(() => {
+    // The legacy RPC would say "complete"; it must not be consulted.
+    (mockSupabaseClient.rpc as Mock).mockResolvedValue({ data: true, error: null });
+  });
+
+  it('RPC true but NO issued row: no View Certificate, no congratulations, RPC never called', async () => {
+    setProgressHook();
+    mockTables({ ...successTables(), certificates: { data: [], error: null } });
+    render(<CourseProgressOverview courseId="course-1" studentId="student-1" />);
+    expect(await screen.findByText('Overall Progress')).toBeInTheDocument();
+    // Behavioural first (independent of new test ids): the legacy RPC's true must not offer a certificate.
+    await new Promise((r) => setTimeout(r, 50));
+    expect(viewButton()).toBeNull();
+    expect(congrats()).toBeNull();
+    expect(screen.getByTestId('certificate-status')).toBeInTheDocument();
+    expect(congrats()).toBeNull();
+    expect(rpcCalls()).not.toContain('check_course_completion');
+  });
+
+  it('an issued row at 2/6 (and RPC false) offers View Certificate and the congratulations', async () => {
+    (mockSupabaseClient.rpc as Mock).mockResolvedValue({ data: false, error: null });
+    const ids = ['i1', 'i2', 'i3', 'i4', 'i5', 'i6'];
+    setProgressHook({
+      data: {
+        modules: [{ moduleId: 'm1', totalItems: 6, completedItems: 2, percent: 33, isComplete: false, itemIds: ids }],
+        totalItems: 6, completedItems: 2, percent: 33, isComplete: false, doneItemIds: ['i1', 'i2'], eligibleItemIds: ids,
+      },
+    });
+    const onView = vi.fn();
+    mockTables({
+      ...successTables(),
+      content_items: { data: ids.map((id) => ({ id, type: 'page' })), error: null },
+      certificates: { data: [{ id: 'cert-1' }], error: null },
+    });
+    render(<CourseProgressOverview courseId="course-1" studentId="student-1" onViewCertificate={onView} />);
+    const btn = await screen.findByRole('button', { name: /view certificate/i });
+    btn.click();
+    expect(onView).toHaveBeenCalledTimes(1); // existing certificate access preserved
+    expect(screen.getByTestId('certificate-issued')).toBeInTheDocument();
+    expect(screen.getByText('33%')).toBeInTheDocument();
+    expect(rpcCalls()).not.toContain('check_course_completion');
+  });
+
+  it('stored 100% without an issued row shows the stored-completion copy only', async () => {
+    setProgressHook({
+      data: {
+        modules: [{ moduleId: 'm1', totalItems: 2, completedItems: 2, percent: 100, isComplete: true, itemIds: ['i1', 'i2'] }],
+        totalItems: 2, completedItems: 2, percent: 100, isComplete: true, doneItemIds: ['i1', 'i2'], eligibleItemIds: ['i1', 'i2'],
+      },
+    });
+    mockTables({ ...successTables(), certificates: { data: [], error: null } });
+    render(<CourseProgressOverview courseId="course-1" studentId="student-1" />);
+    expect(await screen.findByTestId('certificate-status')).toHaveTextContent(/Every item is checked off\. A certificate depends on/);
+    expect(viewButton()).toBeNull();
+    expect(congrats()).toBeNull();
+  });
+
+  it('an unreadable certificate row is unknown: no View, no congratulations, says unavailable', async () => {
+    setProgressHook();
+    mockTables({ ...successTables(), certificates: { data: null, error: { message: 'permission denied' } } });
+    render(<CourseProgressOverview courseId="course-1" studentId="student-1" />);
+    expect(await screen.findByText(/Certificate status is unavailable right now\./)).toBeInTheDocument();
+    expect(viewButton()).toBeNull();
+    expect(congrats()).toBeNull();
+    // The progress view itself still renders; a certificate read failure is not a progress failure.
+    expect(screen.getByText('Overall Progress')).toBeInTheDocument();
+  });
+
+  it('a certificate read still in flight is unknown: no View, says checking', async () => {
+    setProgressHook();
+    const pending = new Promise(() => {});
+    (mockSupabaseClient.from as Mock).mockImplementation((table: string) => {
+      if (table !== 'certificates') return tableBuilder(successTables()[table] ?? { data: [], error: null });
+      const b = tableBuilder({ data: [], error: null });
+      b.then = (f: any, r: any) => pending.then(f, r);
+      return b;
+    });
+    render(<CourseProgressOverview courseId="course-1" studentId="student-1" />);
+    expect(await screen.findByText(/Checking certificate status/)).toBeInTheDocument();
+    expect(viewButton()).toBeNull();
+    expect(congrats()).toBeNull();
+  });
+});
+
+// T-10 r2 (4): the per-type breakdown is known only when EVERY eligible ID has a type row.
+describe('CourseProgressOverview type completeness (T-10 r2)', () => {
+  beforeEach(() => {
+    (mockSupabaseClient.rpc as Mock).mockResolvedValue({ data: false, error: null });
+  });
+
+  it('a missing type row for an eligible ID makes the breakdown unknown, never a smaller count', async () => {
+    setProgressHook(); // eligible i1, i2
+    mockTables({ ...successTables(), content_items: { data: [{ id: 'i1', type: 'page' }], error: null } });
+    render(<CourseProgressOverview courseId="course-1" studentId="student-1" />);
+    expect(await screen.findByTestId('breakdown-unknown')).toBeInTheDocument();
+    expect(screen.queryByText(/of 1 marked done/)).toBeNull();
+    expect(screen.getByText('50%')).toBeInTheDocument(); // the overall figure does not depend on types
+  });
+
+  it('control: an EXTRA (non-eligible) type row with all eligible rows present keeps the breakdown known', async () => {
+    setProgressHook();
+    mockTables({ ...successTables(), content_items: { data: [{ id: 'i1', type: 'page' }, { id: 'i2', type: 'page' }, { id: 'zz', type: 'quiz' }], error: null } });
+    render(<CourseProgressOverview courseId="course-1" studentId="student-1" />);
+    expect(await screen.findByText('1 of 2 marked done')).toBeInTheDocument();
+    expect(screen.queryByTestId('breakdown-unknown')).toBeNull();
+    expect(screen.getAllByText('0 of 0 marked done')).toHaveLength(2); // assignments and quizzes; zz ignored
   });
 });

@@ -39,12 +39,8 @@ interface CourseProgressOverviewProps {
 interface CourseStats {
   totalModules: number;
   completedModules: number;
-  totalLessons: number;
-  completedLessons: number;
-  totalAssignments: number;
-  completedAssignments: number;
-  totalQuizzes: number;
-  completedQuizzes: number;
+  /** null when the type of some eligible item could not be read: the per-type breakdown is then unknown. */
+  breakdown: { lessons: { done: number; total: number }; assignments: { done: number; total: number }; quizzes: { done: number; total: number } } | null;
   overallProgress: number;
   averageGrade: number;
   timeSpent: number;
@@ -194,6 +190,9 @@ export const CourseProgressOverview: React.FC<CourseProgressOverviewProps> = ({
   const stats = React.useMemo<CourseStats | null>(() => {
     if (!progress || !typeById || averageGrade === undefined) return null;
     const done = new Set(progress.doneItemIds);
+    // T-10 r2 (4): the breakdown is known only when EVERY eligible ID has a type row. A silently missing row would
+    // make the per-type subtotals undercount while still looking authoritative, so it makes the breakdown unknown.
+    const typesComplete = progress.eligibleItemIds.every((id) => typeById.has(id));
     // Only eligible IDs are counted; a type row for anything else is ignored.
     const ofType = (type: string) => progress.eligibleItemIds.filter((id) => typeById.get(id) === type);
     const count = (type: string) => {
@@ -207,18 +206,18 @@ export const CourseProgressOverview: React.FC<CourseProgressOverviewProps> = ({
       // Only eligible (published) modules, the same universe the progress read model counts.
       totalModules: progress.modules.length,
       completedModules: progress.modules.filter((m) => m.isComplete).length,
-      totalLessons: pages.total,
-      completedLessons: pages.done,
-      totalAssignments: assignments.total,
-      completedAssignments: assignments.done,
-      totalQuizzes: quizzes.total,
-      completedQuizzes: quizzes.done,
+      breakdown: typesComplete ? { lessons: pages, assignments, quizzes } : null,
       overallProgress: progress.percent,
       averageGrade,
       timeSpent: 0, // legacy content_progress dropped; reintroduce when tracking is back
       lastActivity: null,
     };
   }, [progress, typeById, averageGrade]);
+  const doneSet = React.useMemo(() => new Set(progress?.doneItemIds ?? []), [progress]);
+  const moduleSnapshots = React.useMemo(
+    () => new Map((progress?.modules ?? []).map((m) => [m.moduleId, { ...m, itemIds: m.itemIds ?? [] }])),
+    [progress],
+  );
   const statsLoading = typesLoading || gradesLoading;
   const statsError = typesError || gradesError;
   const refetchStats = () => {
@@ -226,20 +225,34 @@ export const CourseProgressOverview: React.FC<CourseProgressOverviewProps> = ({
     if (gradesError) void refetchGrades();
   };
 
-  // Check if course is completed
-  const { data: isCompleted } = useQuery({
-    queryKey: ['course-completion', courseId, studentId],
+  // T-10 r2 (1): certificate access and the congratulations follow an ISSUED certificate row this user can read,
+  // the same issued/none/unknown matrix as CourseLearn. The legacy check_course_completion RPC is no longer read here:
+  // it does not require the assessment evidence the r5 issuer does, so its true could offer a certificate that does
+  // not exist, and its false could hide one that does. Loading or an unreadable row is 'unknown', never 'none'.
+  const {
+    data: certificateRows,
+    isLoading: certificateLoading,
+    error: certificateError,
+  } = useQuery({
+    queryKey: ['course-certificate-issued', courseId, studentId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .rpc('check_course_completion', {
-          p_course_id: courseId,
-          p_student_id: studentId,
-        });
-      
-      if (error) throw error;
-      return data;
+        .from('certificates')
+        .select('id')
+        .eq('course_id', courseId)
+        .eq('user_id', studentId)
+        .limit(1);
+      if (error) throw new Error(error.message);
+      return data || [];
     },
+    enabled: !!courseId && !!studentId,
   });
+  const certificate: 'issued' | 'none' | 'unknown' =
+    certificateLoading || certificateError || !certificateRows
+      ? 'unknown'
+      : certificateRows.length > 0
+        ? 'issued'
+        : 'none';
 
   const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
@@ -299,7 +312,7 @@ export const CourseProgressOverview: React.FC<CourseProgressOverviewProps> = ({
                 Track your progress and achievements in this course
               </CardDescription>
             </div>
-            {isCompleted && (
+            {certificate === 'issued' && (
               <Button onClick={onViewCertificate} className="gap-2 flex-shrink-0">
                 <Award className="h-4 w-4" />
                 View Certificate
@@ -323,16 +336,23 @@ export const CourseProgressOverview: React.FC<CourseProgressOverviewProps> = ({
             <Progress value={stats.overallProgress} className="h-3" />
           </div>
           
-          {isCompleted ? (
-            <div className="flex items-center gap-2 p-4 bg-ss-good-chip rounded-lg border border-ss-good">
+          {certificate === 'issued' ? (
+            <div
+              className="flex items-center gap-2 p-4 bg-ss-good-chip rounded-lg border border-ss-good"
+              data-testid="certificate-issued"
+            >
               <Trophy className="h-5 w-5 text-ss-good" />
               <span className="font-medium text-ss-good">
                 Congratulations! You've completed this course!
               </span>
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">
-              A certificate is issued once the course's requirements are met
+            <p className="text-sm text-muted-foreground" data-testid="certificate-status">
+              {/* Stored completion is its own fact and never implies a certificate. */}
+              {progress!.isComplete
+                ? 'Every item is checked off. A certificate depends on the course’s own requirements and appears here once it has been issued.'
+                : 'A certificate is issued once the course’s requirements are met.'}
+              {certificate === 'unknown' && (certificateError ? ' Certificate status is unavailable right now.' : ' Checking certificate status…')}
             </p>
           )}
         </CardContent>
@@ -418,55 +438,34 @@ export const CourseProgressOverview: React.FC<CourseProgressOverviewProps> = ({
           <CardTitle className="text-lg">Progress Breakdown</CardTitle>
         </CardHeader>
         <CardContent>
+          {stats.breakdown ? (
           <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div className="flex items-center gap-3">
-                <BookOpen className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="font-medium">Lessons</p>
-                  <p className="text-sm text-muted-foreground">
-                    {stats.completedLessons} of {stats.totalLessons} completed
-                  </p>
+            {([
+              ['Lessons', BookOpen, stats.breakdown.lessons],
+              ['Assignments', FileText, stats.breakdown.assignments],
+              ['Quizzes', ClipboardList, stats.breakdown.quizzes],
+            ] as const).map(([label, Icon, b]) => (
+              <div key={label} className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="flex items-center gap-3">
+                  <Icon className="h-5 w-5 text-muted-foreground" />
+                  <div>
+                    <p className="font-medium">{label}</p>
+                    {/* Stored progress only ("marked done"): it is not assessment evidence such as a submission,
+                        a grade or a finished attempt, so it never says "submitted" or "passed". */}
+                    <p className="text-sm text-muted-foreground">
+                      {b.done} of {b.total} marked done
+                    </p>
+                  </div>
                 </div>
+                <Progress value={barValue(b.done, b.total)} className="w-32 h-2" />
               </div>
-              <Progress 
-                value={barValue(stats.completedLessons, stats.totalLessons)} 
-                className="w-32 h-2"
-              />
-            </div>
-
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div className="flex items-center gap-3">
-                <FileText className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="font-medium">Assignments</p>
-                  <p className="text-sm text-muted-foreground">
-                    {stats.completedAssignments} of {stats.totalAssignments} submitted
-                  </p>
-                </div>
-              </div>
-              <Progress 
-                value={barValue(stats.completedAssignments, stats.totalAssignments)} 
-                className="w-32 h-2"
-              />
-            </div>
-
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div className="flex items-center gap-3">
-                <ClipboardList className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="font-medium">Quizzes</p>
-                  <p className="text-sm text-muted-foreground">
-                    {stats.completedQuizzes} of {stats.totalQuizzes} completed
-                  </p>
-                </div>
-              </div>
-              <Progress 
-                value={barValue(stats.completedQuizzes, stats.totalQuizzes)} 
-                className="w-32 h-2"
-              />
-            </div>
+            ))}
           </div>
+          ) : (
+            <p className="text-sm text-muted-foreground" data-testid="breakdown-unknown">
+              Breakdown unavailable: the type of some items could not be read.
+            </p>
+          )}
         </CardContent>
       </Card>
 
@@ -474,31 +473,30 @@ export const CourseProgressOverview: React.FC<CourseProgressOverviewProps> = ({
       <div className="space-y-4">
         <h3 className="text-lg font-semibold">Module Progress</h3>
         <Accordion type="single" collapsible className="space-y-4">
-          {course?.modules
+          {/* T-10 r2 (2): only modules in the canonical snapshot (published, eligible), with the snapshot's counts. */}
+          {(course?.modules ?? [])
+            .filter((module) => moduleSnapshots.has(module.id))
             .slice()
             .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
             .map((module) => {
               const locked = isModuleLocked(module.prerequisite_module_ids);
+              const snapshot = moduleSnapshots.get(module.id)!;
+              const shared = {
+                moduleId: module.id,
+                moduleTitle: module.title,
+                studentId,
+                snapshot,
+                doneItemIds: doneSet,
+                typeById: typeById ?? null,
+                isLocked: locked,
+              };
               return (
                 <AccordionItem key={module.id} value={module.id}>
                   <AccordionTrigger className="hover:no-underline">
-                    <ModuleProgressCard
-                      moduleId={module.id}
-                      moduleTitle={module.title}
-                      studentId={studentId}
-                      isLocked={locked}
-                      showDetails={false}
-                    />
+                    <ModuleProgressCard {...shared} showDetails={false} />
                   </AccordionTrigger>
                   <AccordionContent>
-                    <ModuleProgressCard
-                      moduleId={module.id}
-                      moduleTitle={module.title}
-                      studentId={studentId}
-                      isLocked={locked}
-                      onLessonClick={onNavigateToLesson}
-                      showDetails={true}
-                    />
+                    <ModuleProgressCard {...shared} onLessonClick={onNavigateToLesson} showDetails={true} />
                   </AccordionContent>
                 </AccordionItem>
               );

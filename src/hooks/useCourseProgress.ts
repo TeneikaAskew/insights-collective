@@ -20,6 +20,8 @@ export interface ModuleProgress {
   percent: number;
   /** Exact: completedItems === totalItems && totalItems > 0. */
   isComplete: boolean;
+  /** This module's eligible item IDs (a subset of CourseProgress.eligibleItemIds). */
+  itemIds: string[];
 }
 
 /**
@@ -177,24 +179,26 @@ export function useCourseProgress(
       }
 
       // 4. Aggregate per module
-      const byModule = new Map<string, { total: number; completed: number }>();
+      const byModule = new Map<string, { total: number; completed: number; itemIds: string[] }>();
       for (const id of moduleIds) {
-        byModule.set(id, { total: 0, completed: 0 });
+        byModule.set(id, { total: 0, completed: 0, itemIds: [] });
       }
       for (const item of contentItems) {
         const bucket = byModule.get(item.module_id);
         if (!bucket) continue;
         bucket.total += 1;
+        bucket.itemIds.push(item.id);
         if (completedIds.has(item.id)) bucket.completed += 1;
       }
 
       const modulesProgress: ModuleProgress[] = Array.from(byModule.entries()).map(
-        ([moduleId, { total, completed }]) => ({
+        ([moduleId, { total, completed, itemIds: ids }]) => ({
           moduleId,
           totalItems: total,
           completedItems: completed,
           percent: displayPercent(completed, total),
           isComplete: total > 0 && completed === total,
+          itemIds: ids,
         }),
       );
 
@@ -237,18 +241,27 @@ export function useCourseProgress(
     [fetchProgress],
   );
 
+  // T-10 r2 (3): data, isLoading and error belong to the identity the last fetch STARTED for (lastKey). On the first
+  // render after a course/user change the effect has not run yet, so the stored state is still the previous key's.
+  // Until the fetch for the current identity has started, that state is masked: no data, no error, loading when there
+  // is a course to load. Nothing from the previous key is ever returned for the new one, not even for one render.
+  const stateIsCurrent = lastKey.current === identity;
+  const visibleData = stateIsCurrent ? data : undefined;
+  const visibleLoading = stateIsCurrent ? isLoading : Boolean(courseId);
+  const visibleError = stateIsCurrent ? error : null;
+
   const getModulePercent = useCallback(
     (moduleId: string): number => {
-      const module = data?.modules.find((m) => m.moduleId === moduleId);
+      const module = visibleData?.modules.find((m) => m.moduleId === moduleId);
       return module?.percent ?? 0;
     },
-    [data],
+    [visibleData],
   );
 
   return {
-    data,
-    isLoading,
-    error,
+    data: visibleData,
+    isLoading: visibleLoading,
+    error: visibleError,
     refetch: fetchProgress,
     markItemComplete,
     getModulePercent,
