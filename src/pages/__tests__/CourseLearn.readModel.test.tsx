@@ -286,7 +286,8 @@ describe('CourseLearn read model (T-10)', () => {
       expect(await screen.findByText(/6 lessons · Course completion unavailable/)).toBeInTheDocument();
       expect(screen.queryByText(/\d+ \/ \d+ complete/)).not.toBeInTheDocument();
       expect(screen.queryAllByRole('img', { name: 'Completed' })).toHaveLength(0);
-      expect(screen.queryByText(/^Resume:|Pick up where you left off/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/^Resume:/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Pick up where you left off/)).not.toBeInTheDocument();
       expect(screen.getByText(/^Open course:/)).toBeInTheDocument();
     });
   });

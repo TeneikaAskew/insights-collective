@@ -138,7 +138,6 @@ const CourseLearn = () => {
     refetch: refetchProgress,
   } = useCourseProgress(courseId);
   const progressKnown = Boolean(user?.id && progress && !progressLoadError && !progressLoading);
-  const progressError = !progressKnown;
   // A FAILED read (or no signed-in learner) shows the error notice; an in-flight read is only "unknown", not an error.
   const progressFailed = Boolean(!user?.id || progressLoadError);
   const completionState: CompletionState = effectiveEdit ? 'editing' : progressKnown ? 'known' : 'unknown';
