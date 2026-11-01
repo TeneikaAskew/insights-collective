@@ -37,19 +37,39 @@ test.describe('Course Management (Instructor)', () => {
     ).toBeVisible();
   });
 
-  // Students and Assignments are not sections of this screen. The rail offers
-  // "Students" only as a COMING SOON placeholder, and assignments are reached
-  // through Curriculum — so the two tests named for those tabs were asserting
-  // navigation this page does not have.
-  test('students management is still a placeholder', async ({ page }) => {
+  // Students and Reports are working sections (IC-LMS-04/05). The old version of
+  // this test asserted Students was a "Coming soon" placeholder, which stopped
+  // matching the page once the roster shipped.
+  test('Students opens a real roster whose count matches its list', async ({ page }) => {
     await goto(page, mgmtUrl);
-    // Asserted rather than skipped, because the placeholder is the real current
-    // behavior and this fails the day it becomes a working section — which is
-    // when the test above it should grow a Students case.
-    const students = page.getByRole('button', { name: /Students/ });
-    await expect(students).toBeVisible();
-    // Case-insensitive: the DOM says "Coming soon" and CSS uppercases it, so
-    // innerText and textContent disagree. toContainText reads textContent.
-    await expect(students).toContainText(/coming soon/i);
+    const students = page.getByRole('button', { name: /^Students/ });
+    await expect(students).not.toContainText(/coming soon/i);
+    await students.click();
+    await expect(page.getByRole('heading', { name: 'Students', level: 2 })).toBeVisible();
+    await expect(page.getByRole('status', { name: 'Loading students' })).toHaveCount(0, { timeout: 15_000 });
+    // The seeded course has an enrolled member, so the empty state is a failure here.
+    const list = page.getByRole('list', { name: 'Enrolled students' });
+    await expect(list).toBeVisible();
+    const rows = await list.getByRole('listitem').count();
+    expect(rows).toBeGreaterThan(0);
+    const enrolled = page.locator('dt', { hasText: /^Enrolled$/ }).locator('xpath=following-sibling::dd[1]');
+    await expect(enrolled).toHaveText(String(rows));
+  });
+
+  test('Reports shows the same enrolled count as Students', async ({ page }) => {
+    await goto(page, mgmtUrl);
+    await page.getByRole('button', { name: /^Students/ }).click();
+    const list = page.getByRole('list', { name: 'Enrolled students' });
+    await expect(list).toBeVisible({ timeout: 15_000 });
+    const rows = await list.getByRole('listitem').count();
+
+    const reports = page.getByRole('button', { name: /^Reports/ });
+    await expect(reports).not.toContainText(/coming soon/i);
+    await reports.click();
+    await expect(page.getByRole('heading', { name: 'Reports', level: 2 })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Overview' })).toBeVisible({ timeout: 15_000 });
+    const kpi = page.locator('dt', { hasText: /^Enrolled$/ }).locator('xpath=following-sibling::dd[1]');
+    await expect(kpi).toHaveText(String(rows));
+    await expect(page.getByRole('heading', { name: 'Module progression' })).toBeVisible();
   });
 });
