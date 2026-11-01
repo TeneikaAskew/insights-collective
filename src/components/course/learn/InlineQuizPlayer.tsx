@@ -182,6 +182,11 @@ function InlineQuizPlayerSession({ item, quiz, onCompleted }: InlineQuizPlayerPr
   // settle it. Starting again could burn an attempt or strand a limit-1 quiz,
   // so nothing may start until a read confirms the outcome.
   const [startUncertain, setStartUncertain] = useState<Error | null>(null);
+  // The FIRST start of this quiz was refused and the read-back confirmed no
+  // attempt exists (e.g. start_quiz_attempt denied access). The questions are
+  // replaced by a blocking error: nothing was stored, so answer controls and a
+  // Submit button would only pretend to work. Retry asks the server again.
+  const [startRefused, setStartRefused] = useState<Error | null>(null);
   // score-quiz failed and the read-back could not show whether the attempt was
   // finalized. Writing answers or scoring again could alter or double-submit a
   // finalized attempt, so both stay blocked until a read settles it.
@@ -430,6 +435,7 @@ function InlineQuizPlayerSession({ item, quiz, onCompleted }: InlineQuizPlayerPr
       setReviewError(null);
       setProgressState('idle');
       setStartUncertain(null);
+      setStartRefused(null);
       setQuizStarted(true);
       setSaved(false);
       setSaveError(false);
@@ -514,6 +520,16 @@ function InlineQuizPlayerSession({ item, quiz, onCompleted }: InlineQuizPlayerPr
           setStartUncertain(new Error(error?.message || 'The quiz attempt could not be confirmed.'));
           return null;
         }
+        if (!current) {
+          // First start: block the questions with an honest error (below).
+          // A refused RETAKE keeps the finalized result on screen and toasts.
+          setStartRefused(
+            new Error(
+              `${error?.message || 'The quiz could not be started.'} No attempt was started and your answers were not saved.`,
+            ),
+          );
+          return null;
+        }
         toast({
           title: 'Error starting quiz',
           description: error?.message,
@@ -528,6 +544,13 @@ function InlineQuizPlayerSession({ item, quiz, onCompleted }: InlineQuizPlayerPr
     startPromiseRef.current = run;
     return run;
   }, [quiz.id, quiz.allowed_attempts, user?.id, toast, startUncertain, adoptAttempt, reconcileStart]);
+
+  // Asks the server to start again after a confirmed refusal. Answers kept in
+  // this tab are still unsaved; they are written only once an attempt exists.
+  const retryRefusedStart = () => {
+    setStartRefused(null);
+    void ensureAttempt();
+  };
 
   const retryConfirmStart = async () => {
     const outcome = await reconcileStart(submissionRef.current);
@@ -983,6 +1006,12 @@ function InlineQuizPlayerSession({ item, quiz, onCompleted }: InlineQuizPlayerPr
         error={startUncertain}
         onRetry={() => void retryConfirmStart()}
       />
+    );
+  }
+
+  if (startRefused) {
+    return (
+      <CourseErrorState title="Couldn't start this quiz" error={startRefused} onRetry={retryRefusedStart} />
     );
   }
 

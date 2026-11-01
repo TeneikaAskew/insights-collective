@@ -375,7 +375,7 @@ describe('InlineQuizPlayer lifecycle', () => {
     await waitFor(() => expect(onCompleted).toHaveBeenCalledWith('item-qa'));
   });
 
-  it('a failed start leaves the learner on the question with an honest error and no attempt', async () => {
+  it('a failed start shows an honest blocking error and leaves no attempt', async () => {
     const server = createQuizServer({ quizzes: [serverQuiz('qa', 1)] });
     server.install();
     server.hooks.failStart = 'You do not have access to this quiz.';
@@ -383,11 +383,9 @@ describe('InlineQuizPlayer lifecycle', () => {
     render(<InlineQuizPlayer item={itemFor('qa')} quiz={makeQuiz('qa', 1)} />);
     fireEvent.click(await screen.findByRole('radio', { name: 'Four' }));
 
-    await waitFor(() =>
-      expect(toastMock).toHaveBeenCalledWith(
-        expect.objectContaining({ title: 'Error starting quiz', description: 'You do not have access to this quiz.' }),
-      ),
-    );
+    // T-62 follow-up: a refused first start replaces the questions (see InlineQuizPlayer.startRefusal.test.tsx).
+    expect(await screen.findByText("Couldn't start this quiz")).toBeInTheDocument();
+    expect(screen.getByText(/You do not have access to this quiz\./)).toBeInTheDocument();
     expect(server.submissions).toHaveLength(0);
     expect(server.calls.directInsert).toHaveLength(0);
   });
