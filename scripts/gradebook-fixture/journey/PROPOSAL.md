@@ -1,11 +1,11 @@
-# No-quiz authentic UI journey: publish, enroll, upload, grade, readback, certificate (PROPOSAL r2, UNRUN)
+# No-quiz authentic UI journey: publish, enroll, upload, grade, readback, certificate (PROPOSAL r3, UNRUN)
 
 **Status:** a proposal plus local checks only. It is not run-ready.
 - Nothing here has run against any GoTrue, PostgREST, Storage, database or browser stack.
 - Nothing was dispatched, pushed or published. There are no production writes.
-- Receipt label: **75 fake/unit (selftest) / 1 mock (vitest characterization) / 12 journey list + 18 grading list preserved / tsc / lint inspected; no authentic journey.**
+- Receipt label: **123 fake/unit/static checks (selftest; helper and comparator behaviour on fakes, NOT journey executions) / 1 mock (vitest characterization) / 12 journey list + 18 grading list preserved / tsc / lint inspected; no authentic journey.**
 
-**Successor of** 5d9714b, which is kept frozen and exported unchanged. This r2 is the one bounded correction batch for the 22:14Z consolidated review.
+**History:** 5d9714b (frozen) → bc65540 (r2, the 22:14Z review batch; its security holds, A and D are closed) → r3, the small oracle-only batch for the 22:48Z recheck (section 9). Every earlier commit and export is kept unchanged.
 
 **Base:** the qualified grading fixture db3ba0a (tree aa07052f), on #139 644504d. This is NOT current main.
 
@@ -42,10 +42,13 @@ No workflow, shared runner (`scripts/e2e`, `e2e/support`), migration or product 
 - **After setup** the session dir must hold exactly `instructor.json,member.json`. J2c later adds the private `run-state-j2.json` (0600, exclusive create) for J3 and J4.
 
 ## 3. The journey (one persona per Playwright project, chained)
-Observation is at request level (`observe.ts`). It records every request the app STARTS, together with its terminal state. Each expectation requires:
+Observation is at request level (`observe.ts` over the pure core `observe-core.mjs`). It records every request the app STARTS, together with its terminal state. Each expectation requires:
 - the exact origin, method and path, and the exact query (any non-passthrough key that is not named makes it a near-miss, and near-misses fail);
 - the exact count after a settle window, so a late duplicate fails;
-- a finished, not failed, request with an allowed status.
+- a finished, not failed, request with an allowed status;
+- with `ordered` (J2c only), the first start of each expectation in the declared order (upload, submission, attachment, progression; the app awaits each step).
+
+The core's codes (OBS_COUNT, OBS_PENDING, OBS_FAILED, OBS_STATUS, OBS_NEAR_MISS, OBS_ORDER) are exercised on a fake emitter in the selftest. Those are helper checks, not journey executions.
 
 The journey never sends a write itself. Its only own reads are the response bodies of the app's own requests.
 
@@ -75,10 +78,10 @@ The journey never sends a write itself. Its only own reads are the response bodi
 - A future, separate Edge scope would use this oracle: "Verified certificate" plus the exact code and course title. The absence of "invalid format" would not be enough.
 
 ## 4. Certificate claim, scoped exactly (review B)
-- The claim "certificate exists right after submission, before any grade" holds **only on composed-r5**: the ic_base snapshot plus the pinned T-09 000500 (blob de4f8c27) and 000600 (blob 8d520861).
-- There, the issuer accepts a final `submitted` row with `submitted_at` plus 2 `read` progressions, and applies no score threshold.
-- Setup refuses unless `GB_COMPOSITION=composed-r5` (`JOURNEY_SETUP_E_COMPOSITION_NOT_R5`).
-- This is **not** the baseline #139 behaviour. Nothing is inferred from "there is no threshold" beyond those pinned prerequisites.
+- **Corrected in r3.** The positive path "certificate exists right after submission, before any grade" is **not** specific to composed-r5. The baseline issuer (`auto_issue_certificate_on_progression`, `scripts/local-stack/schema/03_functions.sql` about lines 2292 to 2370) already issues when every published item has a `read`/`completed` row, with no grade threshold. So this legitimate positive **also passes on the old issuer**, and it does not prove r5.
+- **composed-r5 is still the required acceptance target:** the ic_base snapshot plus the pinned T-09 000500 (blob de4f8c27) and 000600 (blob 8d520861). Setup refuses unless `GB_COMPOSITION=composed-r5` (`JOURNEY_SETUP_E_COMPOSITION_NOT_R5`).
+- What r5 adds is **final-evidence safeguards** (an assessed item counts only with a final submission: `graded`, or `submitted` with `submitted_at`), not this positive-path timing. This journey does not exercise the negative case (a read-only assignment row without a submission), so it makes no r5-specific safeguard claim.
+- No SQL, policy or product change.
 - Proof comes from the app's own scoped certificate SELECT and the issued card, never from a page heading. J2c's legacy "ready" heading is not proof (F3).
 
 ## 5. Seed, witness, expected state, comparator (review C)
@@ -102,9 +105,12 @@ The journey never sends a write itself. Its only own reads are the response bodi
   - Binds `<ID:name>` consistently and distinctly across lines.
   - Requires the journey lines to equal the expected multiset exactly, with no extra and no missing lines.
   - Requires every bound id to be an added row of its table, with no extra, missing or removed manifest rows.
+  - Requires EXACTLY the 21 declared HASH scopes (`DECLARED_HASHES`, checked against the witness SQL by the selftest and static contract R10) in BOTH witnesses, once each, with no undeclared scope. A scope missing from both sides fails as missing on both sides; missing is never treated as unchanged.
+  - Validates the hash grammar: counted `<n≥1> <32-hex md5>` or `0 empty`; the two single-row shell hashes as a bare 32-hex md5; `certificate_verification_attempts` may print `ABSENT`, which FAILS.
   - Requires every HASH to be equal before and after.
   - A HASH that is empty in both is reported as **UNPROVEN-EMPTY** (a narrowed claim, not protection). It FAILS for the required non-empty scopes (other_courses, other_modules, other_items, buckets), which the control course and the bucket make non-empty.
-  - Fake controls: a faithful fake passes. Each of these fails with its own code: wrong row, inconsistent binding, missing event, extra event, extra manifest row, bound id not added, non-empty pre manifest, changed hash, empty required scope, non-pristine pre, unknown line.
+  - Fake controls: a faithful full-inventory fake (21 scopes, empty histories reported UNPROVEN-EMPTY) passes. Causal old-fail controls: the bc65540 comparator ACCEPTED a both-side omission (grade_history + other_submissions), an undeclared extra scope, and a malformed 4-hex hash; the r3 comparator refuses all three. Also refused: post-only omission, duplicate line, uppercase or 33-char md5, count without md5, `0 <md5>`, `3 empty`, leading-zero count, single-row hash with a count, ABSENT on a non-guarded scope.
+  - Earlier fake controls kept: a faithful fake passes. Each of these fails with its own code: wrong row, inconsistent binding, missing event, extra event, extra manifest row, bound id not added, non-empty pre manifest, changed hash, empty required scope, non-pristine pre, unknown line.
 - **Narrowed claim.** Protection covers only the hashed scopes listed in the witness. It says nothing about:
   - auth/profiles beyond what the witness hashes;
   - other schemas;
@@ -116,7 +122,7 @@ The journey never sends a write itself. Its only own reads are the response bodi
 - **F1, valid MOCK characterization.**
   - SpeedGrader stores `<p>…</p>`, and the learner view renders `grader_comments` as text.
   - `journey/feedback-render.test.tsx` shows the literal tags at the mocked tier.
-  - The 5d causal control (a tag-stripped component) made it fail. That control was not re-run in r2, because neither file changed.
+  - The 5d causal control (a tag-stripped component) made it fail. That control was not re-run in r2 or r3, because neither file changed.
   - J4a stays strict and red. The product fix is a separate scope, and no fix approach (such as stripping tags) is assumed.
 - **F2, snapshot policy gap, not runtime.** The snapshot's enrollments INSERT policy checks only `auth.uid() = user_id`. It was not observed at runtime and is not probed (no API shortcuts).
 - **F3, known; the SQL is not reopened.** The legacy `check_course_completion` "ready" heading and the r5 issuer can differ. The journey therefore never uses the heading as issuance proof.
@@ -127,7 +133,7 @@ The journey never sends a write itself. Its only own reads are the response bodi
 | Command | Exit |
 |---|---|
 | `node scripts/gradebook-fixture/journey/tests/static-contract.mjs` | 0 PASS |
-| `node scripts/gradebook-fixture/journey/tests/journey-selftest.mjs` | 0, 75 ok |
+| `node scripts/gradebook-fixture/journey/tests/journey-selftest.mjs` | 0, 123 ok |
 | `npx vitest run --config e2e/gradebook-roles/journey/vitest.journey.config.ts` | 0, 1/1 (mock) |
 | `npx tsc --noEmit -p tsconfig.json` and `npx tsc -b` | 0 / 0 |
 | Direct tsc over journey files, config and grading specs (scratch tsconfig in receipts) | 0 |
@@ -140,8 +146,16 @@ The journey never sends a write itself. Its only own reads are the response bodi
 The list runs used placeholder loopback env values. No server was listening, and nothing was contacted.
 
 ## 8. Not done and not claimed
+- The 123 selftest checks are helper, comparator, gate and static-contract behaviour on fakes and temp files. None is a journey execution.
 - No authentic evidence. Every journey case is **UNRUN**, and J4a is expected red.
 - Selectors and request shapes come from reading the source. None has met a rendered page or a live API.
 - The comparator ran on fakes only. No real witness exists.
 - Desktop Chromium only.
 - No product, policy, migration, workflow or shared-runner change.
+
+## 9. r3 oracle-only batch (22:48Z recheck)
+1. **Comparator inventory and grammar** (`tests/compare-witness.mjs`): exact 21 declared scopes on both sides; grammar per kind; full-inventory positive; causal old-fail controls (see section 5).
+2. **Progress oracle** (`progress-oracle.ts`): each count-bearing node (the completion percent span, the muted count paragraph under Lessons and under Assignments, the Average Grade value) must exist once and match its whole text, so `11 of 1 completed` cannot pass for `1 of 1 completed`.
+3. **Run state**: the submission, attachment and certificate UUIDs, the 12-hex code, the full ISO `issued_at`, the object key shape and the exact key set are validated (`runStateFailures`) BEFORE the private file is written, and again on read. There is no `String()` coercion, so an absent value fails instead of becoming "undefined".
+4. **Observer**: logic moved into `observe-core.mjs` unchanged in meaning, plus an `ordered` option, and fake controls for start, terminal, pending, failed, duplicate, wrong query, foreign origin, other method, sibling prefix, order and stop().
+5. **Wording**: section 4 and the J2/session-setup comments are corrected; composed-r5 stays the acceptance target.

@@ -13,12 +13,30 @@ const JOURNEY_KINDS = ['COURSE', 'ENROLL', 'PROG', 'SUB', 'ATT', 'OBJ', 'CERT', 
 /** Protected scopes that the seed itself makes non-empty (control course, its module and page, the private bucket). An
  *  empty value here means the witness did not see what it claims to protect, so it FAILS instead of passing vacuously. */
 export const REQUIRED_NONEMPTY = ['other_courses', 'other_modules', 'other_items', 'buckets'];
+/** The EXACT set of HASH scopes witness-journey.sql declares (the selftest and static contract R10 check this list against
+ *  the SQL). Both witnesses must carry every one of them, once, and nothing else: a scope missing from BOTH sides is a
+ *  missing scope, never "unchanged". Grammar per kind:
+ *    counted  "<n> <md5>" with n >= 1, or "0 empty"
+ *    single   "<md5>"                          (one-row hashes of the journey shell)
+ *    guarded  counted, or "ABSENT" (table missing on this stack: FAILS) */
+export const DECLARED_HASHES = {
+  other_courses: 'counted', other_enrollments: 'counted', other_progressions: 'counted', other_submissions: 'counted',
+  other_attachments: 'counted', other_objects: 'counted', buckets: 'counted', other_certificates: 'counted',
+  other_audit_events: 'counted', other_notifications: 'counted', other_modules: 'counted', other_items: 'counted',
+  other_assignments: 'counted', quiz_submissions: 'counted', quiz_submission_answers: 'counted',
+  grade_change_notifications: 'counted', certificate_verification_attempts: 'guarded', grades: 'counted',
+  grade_history: 'counted', journey_course_rest: 'single', journey_modules_items_assignment: 'single',
+};
+const MD5 = '[0-9a-f]{32}';
+const COUNTED = new RegExp(`^(?:[1-9][0-9]* ${MD5}|0 empty)$`);
+const SINGLE = new RegExp(`^${MD5}$`);
+const hashWellFormed = (kind, v) => kind === 'single' ? SINGLE.test(v) : kind === 'guarded' ? (v === 'ABSENT' || COUNTED.test(v)) : COUNTED.test(v);
 
 const kindOf = (l) => l.split(' ', 1)[0];
 
 /** @param {string} text */
 export function parseWitness(text) {
-  const out = { journey: [], manifest: new Map(), hashes: new Map(), unknown: [] };
+  const out = { journey: [], manifest: new Map(), hashes: new Map(), unknown: [], duplicateHashes: [] };
   for (const raw of text.split('\n')) {
     const l = raw.replace(/\r$/, '');
     if (!l.trim() || l.startsWith('#')) continue;
@@ -31,7 +49,8 @@ export function parseWitness(text) {
       out.manifest.get(m[1]).add(m[2]);
     } else if (k === 'HASH') {
       const m = l.match(/^HASH (\S+) (.+)$/);
-      if (!m || out.hashes.has(m[1])) { out.unknown.push(l); continue; }
+      if (!m) { out.unknown.push(l); continue; }
+      if (out.hashes.has(m[1])) { out.duplicateHashes.push(m[1]); continue; }
       out.hashes.set(m[1], m[2]);
     } else out.unknown.push(l);
   }
@@ -139,21 +158,27 @@ export function compareWitness(preText, postText, exp = {}) {
     }
   }
 
-  // Protected hashes: same names, equal values; empty is reported (narrowed claim), and FAILS for required scopes.
+  // Protected hashes: EXACTLY the declared scopes on BOTH sides, well formed, equal. Empty is reported as UNPROVEN-EMPTY
+  // (a narrowed claim, not protection) and FAILS for the required non-empty scopes.
   const protectedHashes = [];
   const unprovenEmpty = [];
-  const names = new Set([...pre.hashes.keys(), ...post.hashes.keys()]);
-  if (!names.size) failures.push('W_NO_HASHES');
-  for (const n of [...names].sort()) {
+  for (const [side, w] of [['PRE', pre], ['POST', post]]) {
+    for (const n of w.duplicateHashes) failures.push(`W_HASH_DUPLICATE_${side} ${n}`);
+    for (const n of w.hashes.keys()) if (!(n in DECLARED_HASHES)) failures.push(`W_HASH_UNDECLARED_${side} ${n}`);
+    for (const n of Object.keys(DECLARED_HASHES)) {
+      if (!w.hashes.has(n)) failures.push(`W_HASH_MISSING_${side} ${n}`);
+      else if (!hashWellFormed(DECLARED_HASHES[n], w.hashes.get(n))) failures.push(`W_HASH_MALFORMED_${side} ${n}`);
+    }
+  }
+  for (const n of Object.keys(DECLARED_HASHES)) {
     const a = pre.hashes.get(n), b = post.hashes.get(n);
-    if (a === undefined || b === undefined) { failures.push(`W_HASH_MISSING ${n}`); continue; }
+    if (a === undefined || b === undefined || !hashWellFormed(DECLARED_HASHES[n], a) || !hashWellFormed(DECLARED_HASHES[n], b)) continue;
     if (a !== b) { failures.push(`W_HASH_CHANGED ${n}`); continue; }
     if (a === 'ABSENT') { failures.push(`W_HASH_ABSENT ${n}`); continue; }
-    if (/^0 empty$/.test(a)) {
+    if (a === '0 empty') {
       if (REQUIRED_NONEMPTY.includes(n)) failures.push(`W_REQUIRED_SCOPE_EMPTY ${n}`); else unprovenEmpty.push(n);
     } else protectedHashes.push(n);
   }
-  for (const n of REQUIRED_NONEMPTY) if (!names.has(n)) failures.push(`W_REQUIRED_SCOPE_MISSING ${n}`);
 
   return { ok: failures.length === 0, failures, protectedHashes, unprovenEmpty };
 }

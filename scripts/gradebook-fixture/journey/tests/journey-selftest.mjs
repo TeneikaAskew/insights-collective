@@ -7,7 +7,9 @@ import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { assertPrivateSessionDir, assertPrivateDir, writePrivateFile, readPrivateJson } from '../../../../e2e/gradebook-roles/journey/private-dir.mjs';
-import { compareWitness } from './compare-witness.mjs';
+import { compareWitness, DECLARED_HASHES } from './compare-witness.mjs';
+import { createRecorder, evaluate, settled, runStateFailures } from '../../../../e2e/gradebook-roles/journey/observe-core.mjs';
+import { EventEmitter } from 'node:events';
 import { assertPairingProof } from '../../../../e2e/gradebook-roles/journey/pairing-proof.mjs';
 import { checkJourney } from './static-contract.mjs';
 
@@ -89,14 +91,17 @@ try {
   for (const k of Object.keys(ids)) ids[k] = randomUUID();
   const table = { enrollment: 'enrollments', prog_page: 'content_item_progressions', prog_assignment: 'content_item_progressions', submission: 'assignment_submissions', attachment: 'submission_attachments', object: 'storage.objects', certificate: 'certificates', audit_download: 'submission_audit_events', audit_grade: 'submission_audit_events', notif_staff: 'notifications', notif_receipt: 'notifications', notif_grade: 'notifications' };
   const fill = (l) => l.replace(/<ID:([a-z_]+)>/g, (_, n) => ids[n]);
-  const hashes = ['HASH other_courses 3 0f0f', 'HASH other_modules 2 1e1e', 'HASH other_items 4 2d2d', 'HASH buckets 2 3c3c', 'HASH quiz_submissions 0 empty', 'HASH journey_course_rest 4b4b'];
+  // Full declared inventory (21 scopes); the histories and other optional scopes are empty here (UNPROVEN-EMPTY).
+  const md5of = (x) => createHash('md5').update(x).digest('hex');
+  const EMPTY_OK = new Set(['other_enrollments', 'other_progressions', 'other_submissions', 'other_attachments', 'other_objects', 'other_certificates', 'other_audit_events', 'other_notifications', 'other_assignments', 'quiz_submissions', 'quiz_submission_answers', 'grade_change_notifications', 'certificate_verification_attempts', 'grades', 'grade_history']);
+  const hashes = Object.entries(DECLARED_HASHES).map(([n, kind]) => `HASH ${n} ${kind === 'single' ? md5of(n) : EMPTY_OK.has(n) ? '0 empty' : `2 ${md5of(n)}`}`);
   const journeyLines = expPost.split('\n').filter((l) => l && !l.startsWith('#') && !l.startsWith('ADDED '));
   const manifest = Object.keys(ids).map((n) => `MANIFEST ${table[n]} ${ids[n]}`);
   const preFake = ['COURSE 9b6c0000-0000-4000-8000-000000000001 published=false status=draft', ...hashes].join('\n');
   const postFake = (over = {}) => [...(over.journey ?? journeyLines.map(fill)), ...(over.manifest ?? manifest), ...(over.hashes ?? hashes)].join('\n');
   const C = (pre, post) => compareWitness(pre, post);
   const good1 = C(preFake, postFake());
-  ok(`CMP faithful fake passes (protected ${good1.protectedHashes.length}, unproven-empty ${good1.unprovenEmpty.join(',')})`, good1.ok && good1.unprovenEmpty.includes('quiz_submissions'));
+  ok(`CMP faithful fake passes (protected ${good1.protectedHashes.length}, unproven-empty ${good1.unprovenEmpty.join(',')})`, good1.ok && good1.unprovenEmpty.includes('grade_history') && good1.protectedHashes.length + good1.unprovenEmpty.length === 21);
   const has = (r, c) => !r.ok && r.failures.some((f) => f.startsWith(c));
   const jl = journeyLines.map(fill);
   ok('CMP wrong row (grade 8) fails', has(C(preFake, postFake({ journey: jl.map((l) => l.replace(' grade=7 ', ' grade=8 ')) })), 'W_POST_JOURNEY_MISMATCH'));
@@ -106,18 +111,95 @@ try {
   ok('CMP extra manifest row (second enrollment) fails', has(C(preFake, postFake({ manifest: [...manifest, `MANIFEST enrollments ${randomUUID()}`] })), 'W_MANIFEST_EXTRA enrollments'));
   ok('CMP bound id not in manifest fails', has(C(preFake, postFake({ manifest: manifest.map((m) => m.includes(ids.certificate) ? `MANIFEST certificates ${randomUUID()}` : m) })), 'W_BOUND_ID_NOT_ADDED certificates'));
   ok('CMP removed pre row fails', has(C(preFake + `\nMANIFEST enrollments ${randomUUID()}`, postFake()), 'W_PRE_MANIFEST_NOT_EMPTY'));
-  ok('CMP changed protected hash fails', has(C(preFake, postFake({ hashes: hashes.map((h) => h.startsWith('HASH other_courses') ? 'HASH other_courses 3 ffff' : h) })), 'W_HASH_CHANGED other_courses'));
+  ok('CMP changed protected hash fails', has(C(preFake, postFake({ hashes: hashes.map((h) => h.startsWith('HASH other_courses') ? `HASH other_courses 2 ${md5of('changed')}` : h) })), 'W_HASH_CHANGED other_courses'));
   const emptyReq = hashes.map((h) => h.startsWith('HASH other_items') ? 'HASH other_items 0 empty' : h);
   ok('CMP empty required protected scope fails', has(C(['COURSE 9b6c0000-0000-4000-8000-000000000001 published=false status=draft', ...emptyReq].join('\n'), postFake({ hashes: emptyReq })), 'W_REQUIRED_SCOPE_EMPTY other_items'));
   ok('CMP pre not pristine (already published) fails', has(C(preFake.replace('published=false status=draft', 'published=true status=published'), postFake()), 'W_PRE_JOURNEY_MISMATCH'));
   ok('CMP unknown line fails', has(C(preFake, postFake() + '\nERROR: relation does not exist'), 'W_POST_UNKNOWN_LINE'));
+
+  // Hash inventory and grammar (review r3 item 1). Causal: the bc65540 comparator ACCEPTED a both-side omission.
+  const without = (names) => hashes.filter((h) => !names.includes(h.split(' ')[1]));
+  const preWith = (hs) => ['COURSE 9b6c0000-0000-4000-8000-000000000001 published=false status=draft', ...hs].join('\n');
+  const omit = without(['grade_history', 'other_submissions']);
+  const oldSrc = execFileSync('git', ['show', 'bc65540:scripts/gradebook-fixture/journey/tests/compare-witness.mjs'], { cwd: repo, encoding: 'utf8' });
+  const oldF = path.join(tmp, 'compare-witness-bc65540.mjs'); fs.writeFileSync(oldF, oldSrc);
+  const oldCmp = (await import(oldF)).compareWitness;
+  const expBoth = { expectedPre: fs.readFileSync(path.join(repo, 'scripts/gradebook-fixture/journey/expected-journey-pre.txt'), 'utf8'), expectedPost: expPost };
+  ok('CMP causal: OLD comparator (bc65540) accepted both-side omission of grade_history + other_submissions', oldCmp(preWith(omit), postFake({ hashes: omit }), expBoth).ok === true);
+  const extraHs = [...hashes, 'HASH bonus 0 empty'];
+  ok('CMP causal: OLD comparator accepted an undeclared extra scope on both sides', oldCmp(preWith(extraHs), postFake({ hashes: extraHs }), expBoth).ok === true);
+  const shortHs = hashes.map((h) => h.split(' ')[1] === 'other_courses' ? 'HASH other_courses 2 0f0f' : h);
+  ok('CMP causal: OLD comparator accepted a malformed (4-hex) hash equal on both sides', oldCmp(preWith(shortHs), postFake({ hashes: shortHs }), expBoth).ok === true);
+  const om = C(preWith(omit), postFake({ hashes: omit }));
+  ok('CMP both-side omission now fails on BOTH sides for both scopes', ['W_HASH_MISSING_PRE grade_history', 'W_HASH_MISSING_POST grade_history', 'W_HASH_MISSING_PRE other_submissions', 'W_HASH_MISSING_POST other_submissions'].every((c) => om.failures.includes(c)));
+  ok('CMP post-only omission fails', has(C(preFake, postFake({ hashes: without(['grades']) })), 'W_HASH_MISSING_POST grades'));
+  ok('CMP undeclared extra scope fails', has(C(preWith([...hashes, 'HASH bonus 0 empty']), postFake({ hashes: [...hashes, 'HASH bonus 0 empty'] })), 'W_HASH_UNDECLARED_PRE bonus'));
+  ok('CMP duplicate scope line fails', has(C(preFake, postFake({ hashes: [...hashes, hashes[0]] })), 'W_HASH_DUPLICATE_POST other_courses'));
+  const mal = (name, v) => { const hs = hashes.map((h) => h.split(' ')[1] === name ? `HASH ${name} ${v}` : h); return C(preWith(hs), postFake({ hashes: hs })); };
+  ok('CMP short md5 (4 hex) fails even when equal on both sides', has(mal('other_courses', '2 0f0f'), 'W_HASH_MALFORMED_PRE other_courses'));
+  ok('CMP uppercase / 33-char md5 fails', has(mal('other_courses', `2 ${md5of('x').toUpperCase()}`), 'W_HASH_MALFORMED') && has(mal('other_courses', `2 ${md5of('x')}a`), 'W_HASH_MALFORMED'));
+  ok('CMP count without md5 / "0 <md5>" / "3 empty" fail', has(mal('grades', '3'), 'W_HASH_MALFORMED') && has(mal('grades', `0 ${md5of('x')}`), 'W_HASH_MALFORMED') && has(mal('grades', '3 empty'), 'W_HASH_MALFORMED'));
+  ok('CMP leading-zero count fails', has(mal('grades', `02 ${md5of('x')}`), 'W_HASH_MALFORMED'));
+  ok('CMP single-row hash with a count fails', has(mal('journey_course_rest', `1 ${md5of('x')}`), 'W_HASH_MALFORMED') && has(mal('journey_course_rest', '0 empty'), 'W_HASH_MALFORMED'));
+  ok('CMP ABSENT allowed only on the guarded scope, and still FAILS there', has(mal('certificate_verification_attempts', 'ABSENT'), 'W_HASH_ABSENT certificate_verification_attempts') && has(mal('grades', 'ABSENT'), 'W_HASH_MALFORMED_PRE grades'));
+  ok('CMP empty optional history stays UNPROVEN-EMPTY (not a failure)', good1.unprovenEmpty.includes('grade_history') && !good1.failures.length);
+  ok('CMP non-empty history is protected', (() => { const hs = hashes.map((h) => h.split(' ')[1] === 'grade_history' ? `HASH grade_history 4 ${md5of('gh')}` : h); const r = C(preWith(hs), postFake({ hashes: hs })); return r.ok && r.protectedHashes.includes('grade_history'); })());
+  const witSql = fs.readFileSync(path.join(repo, 'scripts/gradebook-fixture/journey/witness-journey.sql'), 'utf8');
+  const sqlNames = [...new Set([...witSql.matchAll(/^select 'HASH ([a-z_]+) /gm)].map((m) => m[1]))].sort();
+  ok(`CMP declared inventory equals the witness SQL (${sqlNames.length} scopes)`, sqlNames.length === 21 && JSON.stringify(sqlNames) === JSON.stringify(Object.keys(DECLARED_HASHES).sort()));
+
+  // ---- Observer core on a fake emitter (helper behaviour only; NOT journey executions) ----
+  const O = 'http://127.0.0.1:54321';
+  const fakeTarget = () => new EventEmitter();
+  const tick = () => new Promise((r) => setImmediate(r));
+  const start = (t, method, url) => { const req = { url: () => url, method: () => method, _s: null, response: async () => (req._s === null ? null : { status: () => req._s }) }; t.emit('request', req); return req; };
+  const finish = async (t, req, status) => { req._s = status; t.emit('requestfinished', req); await tick(); };
+  const fail = (t, req) => t.emit('requestfailed', req);
+  const SPEC = { spec: { method: 'POST', path: '/rest/v1/enrollments' }, count: 1, status: [201] };
+  const obs = async (script, want = [SPEC], o = {}) => { const t = fakeTarget(); const rec = createRecorder(t); await script(t); rec.stop(); return evaluate(rec.calls, want, { origin: O, ...o }).failures; };
+  const OBS = (name, fails, expectCode) => ok(`OBS ${name}`, expectCode === null ? fails.length === 0 : fails.some((f) => f.startsWith(expectCode)));
+  OBS('one start, finished 201: pass', await obs(async (t) => { await finish(t, start(t, 'POST', `${O}/rest/v1/enrollments?select=*`), 201); }), null);
+  OBS('no request started: OBS_COUNT', await obs(async () => {}), 'OBS_COUNT');
+  OBS('duplicate start: OBS_COUNT', await obs(async (t) => { for (let i = 0; i < 2; i++) await finish(t, start(t, 'POST', `${O}/rest/v1/enrollments`), 201); }), 'OBS_COUNT');
+  OBS('started but never terminal: OBS_PENDING', await obs(async (t) => { start(t, 'POST', `${O}/rest/v1/enrollments`); }), 'OBS_PENDING');
+  OBS('requestfailed: OBS_FAILED', await obs(async (t) => { fail(t, start(t, 'POST', `${O}/rest/v1/enrollments`)); }), 'OBS_FAILED');
+  OBS('terminal 403: OBS_STATUS', await obs(async (t) => { await finish(t, start(t, 'POST', `${O}/rest/v1/enrollments`), 403); }), 'OBS_STATUS');
+  OBS('unexpected query key: OBS_NEAR_MISS', await obs(async (t) => { await finish(t, start(t, 'POST', `${O}/rest/v1/enrollments?on_conflict=user_id`), 201); }), 'OBS_NEAR_MISS');
+  const Q = { spec: { method: 'PATCH', path: '/rest/v1/assignment_submissions', query: { id: 'eq.a' } }, count: 1, status: [200] };
+  OBS('wrong query value: OBS_NEAR_MISS', await obs(async (t) => { await finish(t, start(t, 'PATCH', `${O}/rest/v1/assignment_submissions?id=eq.b`), 200); }, [Q]), 'OBS_NEAR_MISS');
+  OBS('repeated query key: OBS_NEAR_MISS', await obs(async (t) => { await finish(t, start(t, 'PATCH', `${O}/rest/v1/assignment_submissions?id=eq.a&id=eq.b`), 200); }, [Q]), 'OBS_NEAR_MISS');
+  OBS('exact query plus passthrough select: pass', await obs(async (t) => { await finish(t, start(t, 'PATCH', `${O}/rest/v1/assignment_submissions?id=eq.a&select=id,grade`), 200); }, [Q]), null);
+  OBS('same path on a foreign origin is not counted: OBS_COUNT', await obs(async (t) => { await finish(t, start(t, 'POST', 'http://127.0.0.1:9999/rest/v1/enrollments'), 201); }), 'OBS_COUNT');
+  OBS('other method on the path is not counted: OBS_COUNT', await obs(async (t) => { await finish(t, start(t, 'GET', `${O}/rest/v1/enrollments`), 200); }), 'OBS_COUNT');
+  const A = { spec: { method: 'POST', path: '/storage/v1/object/b/p/' }, count: 1 }, B = { spec: { method: 'POST', path: '/rest/v1/x' }, count: 1 };
+  OBS('ordered: declared order: pass', await obs(async (t) => { await finish(t, start(t, 'POST', `${O}/storage/v1/object/b/p/1.pdf`), 200); await finish(t, start(t, 'POST', `${O}/rest/v1/x`), 201); }, [A, B], { ordered: true }), null);
+  OBS('ordered: reversed starts: OBS_ORDER', await obs(async (t) => { await finish(t, start(t, 'POST', `${O}/rest/v1/x`), 201); await finish(t, start(t, 'POST', `${O}/storage/v1/object/b/p/1.pdf`), 200); }, [A, B], { ordered: true }), 'OBS_ORDER');
+  OBS('prefix spec does not match a sibling prefix: OBS_COUNT', await obs(async (t) => { await finish(t, start(t, 'POST', `${O}/storage/v1/object/b/px/1.pdf`), 200); }, [A]), 'OBS_COUNT');
+  OBS('start is what counts: a start finished later still counts once', await obs(async (t) => { const r = start(t, 'POST', `${O}/rest/v1/enrollments`); await tick(); await finish(t, r, 201); }), null);
+  { const t = fakeTarget(); const rec = createRecorder(t); rec.stop(); await finish(t, start(t, 'POST', `${O}/rest/v1/enrollments`), 201); ok('OBS requests after stop() are not recorded', rec.calls.length === 0); }
+  { const t = fakeTarget(); const rec = createRecorder(t); const r = start(t, 'POST', `${O}/rest/v1/enrollments`); const before = settled(rec.calls, [SPEC], O); await finish(t, r, 201); ok('OBS settled() waits for the terminal event', before === false && settled(rec.calls, [SPEC], O) === true); }
+
+  // ---- Run-state validation before persistence (review r3 item 2) ----
+  const PFX = 'submissions/9b6c0000-0000-4000-8000-000000000001/e2e00000-0000-4000-8000-000000000003/';
+  const rs = { submissionId: randomUUID(), attachmentId: randomUUID(), attachmentKey: `${PFX}1730500000000-abc123.pdf`, certificate: { id: randomUUID(), code: 'A1B2C3D4E5F6', issuedAt: '2026-11-01T22:00:00.123456+00:00' } };
+  const RS = (name, s, code) => ok(`RS ${name}`, code === null ? runStateFailures(s, PFX).length === 0 : runStateFailures(s, PFX).includes(code));
+  RS('faithful run state accepted', rs, null);
+  RS('String(undefined) submission id refused', { ...rs, submissionId: String(undefined) }, 'RS_SUBMISSION_ID');
+  RS('missing attachment id refused', { ...rs, attachmentId: undefined }, 'RS_ATTACHMENT_ID');
+  RS('numeric certificate id refused', { ...rs, certificate: { ...rs.certificate, id: 42 } }, 'RS_CERTIFICATE_ID');
+  RS('lowercase / short code refused', { ...rs, certificate: { ...rs.certificate, code: 'a1b2c3' } }, 'RS_CERTIFICATE_CODE');
+  RS('"undefined" issued_at refused', { ...rs, certificate: { ...rs.certificate, issuedAt: 'undefined' } }, 'RS_CERTIFICATE_ISSUED_AT');
+  RS('date-only issued_at refused', { ...rs, certificate: { ...rs.certificate, issuedAt: '2026-11-01' } }, 'RS_CERTIFICATE_ISSUED_AT');
+  RS('key outside the learner prefix refused', { ...rs, attachmentKey: 'submissions/other/1-a.pdf' }, 'RS_ATTACHMENT_KEY');
+  RS('same id for submission and attachment refused', { ...rs, attachmentId: rs.submissionId }, 'RS_IDS_NOT_DISTINCT');
+  RS('extra key refused', { ...rs, note: 'x' }, 'RS_KEYS');
 
   // ---- Static contract: real tree PASS, each mutation FAILS its own rule ----
   const real = checkJourney(repo);
   ok(`SC real tree passes (${real.length ? real.join('; ') : 'no violations'})`, real.length === 0);
   const copyTree = () => {
     const root = fs.mkdtempSync(path.join(tmp, 'tree-'));
-    for (const d of ['e2e/gradebook-roles/journey', 'scripts/gradebook-fixture/journey']) {
+    for (const d of ['e2e/gradebook-roles/journey', 'scripts/gradebook-fixture/journey', 'scripts/gradebook-fixture/journey/tests']) {
       fs.mkdirSync(path.join(root, d), { recursive: true });
       for (const f of fs.readdirSync(path.join(repo, d))) {
         const s = path.join(repo, d, f);
@@ -156,7 +238,11 @@ try {
     ['expected post goes back to OBSERVED', `${S}/expected-journey-post.txt`, (s) => s.replace('completion_status=0', 'completion_status=<OBSERVED>'), 'R9_EXPECTED_UNPINNED'],
     ['expected post loses a notification', `${S}/expected-journey-post.txt`, (s) => s.replace(/^NOTIF user=e2e00000-0000-4000-8000-000000000002 .*\n/m, ''), 'R9_EXPECTED_EVENTS'],
     ['progress oracle sends its own request', `${J}/progress-oracle.ts`, (s) => s.replace('await page.goto(route.progress);', "await page.goto(route.progress);\n  await page.request.post('http://127.0.0.1:54321/rest/v1/content_item_progressions');"), 'R3_OWN_REQUEST'],
+    ['witness gains an undeclared hash scope', `${S}/witness-journey.sql`, (s) => s + "\nselect 'HASH surprise ' || count(*) || ' ' || coalesce(md5(string_agg(t::text, '|' order by t.id)), 'empty') from public.profiles t;\n", 'R10_HASH_INVENTORY'],
+    ['comparator drops grade_history from its inventory', `${S}/tests/compare-witness.mjs`, (s) => s.replace("grade_history: 'counted', ", ''), 'R10_HASH_INVENTORY'],
+    ['observer core sends its own request', `${J}/observe-core.mjs`, (s) => s + "\nexport const leak = () => fetch('http://127.0.0.1:54321/rest/v1/x');\n", 'R3_OWN_REQUEST'],
   ];
+  ok('SC unmutated copy of the tree passes (mutants fail only by their own change)', mutate(`${S}/seed-journey.sql`, (x) => x).length === 0);
   for (const [name, rel, fn, rule] of cases) {
     const v = mutate(rel, fn);
     ok(`SC causal: ${name} -> ${rule}`, v.some((x) => x.startsWith(rule)));

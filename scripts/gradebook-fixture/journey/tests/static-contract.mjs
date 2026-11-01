@@ -37,7 +37,7 @@ export function checkJourney(root) {
   if (/\b(insert|update|delete|truncate|drop|alter|create|grant|revoke|copy|set_config)\b/.test(wit)) v.push('R2_WITNESS_WRITES witness-journey.sql');
 
   // R3 specs: UI-driven only. No own writes, no API mocking, no client shortcuts, no service key, no URL logging.
-  for (const f of [...JOURNEY_SPECS, 'observe.ts', 'progress-oracle.ts']) {
+  for (const f of [...JOURNEY_SPECS, 'observe.ts', 'observe-core.mjs', 'progress-oracle.ts']) {
     const src = stripJsComments(rd(`${jdir}/${f}`));
     if (/\.request\.(post|patch|put|delete|fetch)\s*\(|request\.newContext|\bfetch\s*\(/.test(src)) v.push(`R3_OWN_REQUEST ${f}`);
     if (/\.route\s*\(|\.fulfill\s*\(|routeFromHAR/.test(src)) v.push(`R3_MOCKED_API ${f}`);
@@ -90,6 +90,13 @@ export function checkJourney(root) {
   const exp = rd(`${sdir}/expected-journey-post.txt`).split('\n').filter((l) => l && !l.startsWith('#'));
   if (exp.some((l) => /<OBSERVED>|<UPLOAD_BYTES>|<MD5_FEEDBACK>|to pin|>=/.test(l))) v.push('R9_EXPECTED_UNPINNED expected-journey-post.txt');
   if (exp.filter((l) => l.startsWith('AUDIT ')).length !== 2 || exp.filter((l) => l.startsWith('NOTIF ')).length !== 3) v.push('R9_EXPECTED_EVENTS expected-journey-post.txt');
+
+  // R10 the comparator's declared HASH inventory is exactly the set of scopes the witness SQL prints.
+  const cmp = rd(`${sdir}/tests/compare-witness.mjs`);
+  const decl = (cmp.match(/DECLARED_HASHES = \{([\s\S]*?)\};/) || [, ''])[1];
+  const declNames = [...decl.matchAll(/([a-z_]+):\s*'(?:counted|single|guarded)'/g)].map((m) => m[1]).sort();
+  const sqlNames = [...new Set([...rd(`${sdir}/witness-journey.sql`).matchAll(/^select 'HASH ([a-z_]+) /gm)].map((m) => m[1]))].sort();
+  if (!declNames.length || JSON.stringify(declNames) !== JSON.stringify(sqlNames)) v.push('R10_HASH_INVENTORY compare-witness.mjs');
 
   return v;
 }

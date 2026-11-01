@@ -57,8 +57,9 @@ async function run(): Promise<void> {
     if (d === dir) throw new JourneyGateError('JOURNEY_GATE2_E_SAME_AS_SESSION_DIR');
     diagDir = d;
   }
-  // The certificate-at-submission oracle holds only on the composed-r5 stack (T-09 000500 + 000600 applied). The runner
-  // must export what scripts/gradebook-fixture/composition.sql detected; anything else refuses.
+  // composed-r5 (T-09 000500 + 000600 applied) is the required acceptance target. The certificate-before-grade positive also
+  // passes on the baseline issuer, so it does not prove r5; r5 adds the final-evidence safeguards. The runner must export
+  // what scripts/gradebook-fixture/composition.sql detected; anything else refuses.
   if (process.env.GB_COMPOSITION !== 'composed-r5') throw new JourneyGateError('JOURNEY_SETUP_E_COMPOSITION_NOT_R5');
   // Gate 3 (shape and placement only; see pairing-proof.mjs for why this is not trust). Before the first POST.
   assertPairingProof(process.env.GB_JOURNEY_PAIRING_PROOF, { sessionDir: dir });

@@ -6,11 +6,13 @@
 // (course_submission_insert policy); submission INSERT; attachment INSERT; assignment progression upsert (also 'read',
 // accepted by enforce_assessed_progression only with final evidence).
 //
-// Certificate claim, scoped: ONLY on the composed-r5 stack (session setup refuses anything else), where the exact pinned
-// 000500/000600 issuer accepts a final 'submitted' row with submitted_at plus two 'read' progressions and applies no score
-// threshold, the certificate exists right after submission. That is NOT the baseline #139 behaviour. J2c proves issuance
-// with the app's own certificate SELECT (the issued card), never with a page heading, and records id, code and issued_at
-// so J4d can require the same three values after grading.
+// Certificate oracle and acceptance target: the positive path (certificate exists right after submission, before any grade,
+// with no score threshold) is NOT specific to composed-r5. The baseline issuer in scripts/local-stack/schema/03_functions.sql
+// (auto_issue_certificate_on_progression, about lines 2292-2370) already issues on read/completed rows for every published
+// item, so this positive also passes on the old issuer. composed-r5 (000500 + 000600) is still the REQUIRED acceptance
+// target (session setup refuses anything else): r5 adds final-evidence safeguards (an assessed item needs a final
+// submission), not this timing. J2c proves issuance with the app's own certificate SELECT (the issued card), never with
+// a page heading, and records id, code and issued_at so J4d can require the same three values after grading.
 import { test, expect } from '../guarded-test';
 import { waitForPageLoad } from '../../fixtures/page-helpers';
 import { J, UPLOAD, SUBMISSION_PREFIX, PROGRESS, route } from './ids';
@@ -84,7 +86,7 @@ test('J2c assignment: Storage upload under the learner prefix, one submission, o
     { spec: { method: 'POST', path: '/rest/v1/assignment_submissions' }, count: 1, status: [201] },
     { spec: { method: 'POST', path: '/rest/v1/submission_attachments' }, count: 1, status: [201] },
     { spec: progUpsert, count: 1, status: [200, 201] },
-  ], () => page.getByRole('button', { name: /Submit/ }).click());
+  ], () => page.getByRole('button', { name: /Submit/ }).click(), { ordered: true }); // the app awaits each step in this order
 
   const key = decodeURIComponent(up.url.pathname.slice('/storage/v1/object/course-documents/'.length));
   expect(key.startsWith(SUBMISSION_PREFIX)).toBe(true);
@@ -98,7 +100,8 @@ test('J2c assignment: Storage upload under the learner prefix, one submission, o
   expect(sentSub.submission_type).toBe('online_upload');
   const subRows = await rowsOf(sub);
   expect(subRows).toHaveLength(1);
-  const submissionId = String(subRows[0].id);
+  const submissionId = subRows[0].id as string;
+  expect(submissionId, 'submission id is a UUID from the returned row').toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
   expect(subRows[0].user_id).toBe(J.memberId);
   expect(subRows[0].assignment_id).toBe(J.assignment);
   expect(subRows[0].workflow_state).toBe('submitted');
@@ -134,13 +137,14 @@ test('J2c assignment: Storage upload under the learner prefix, one submission, o
   expect(certs).toHaveLength(1);
   expect(certs[0].user_id).toBe(J.memberId);
   expect(certs[0].course_id).toBe(J.course);
-  const code = String(certs[0].verification_code);
+  const code = certs[0].verification_code as string;
   expect(code).toMatch(/^[0-9A-F]{12}$/);
   await expect(page.getByText(code, { exact: true }).filter({ visible: true })).toHaveCount(1);
   await shot(page, info, 'J2c-certificate-issued-before-grade');
 
+  // No String() coercion: an absent value must fail validation (inside saveRunState), never become "undefined".
   saveRunState({
-    submissionId, attachmentId: String(attRows[0].id), attachmentKey: key,
-    certificate: { id: String(certs[0].id), code, issuedAt: String(certs[0].issued_at) },
+    submissionId, attachmentId: attRows[0].id as string, attachmentKey: key,
+    certificate: { id: certs[0].id as string, code, issuedAt: certs[0].issued_at as string },
   });
 });
