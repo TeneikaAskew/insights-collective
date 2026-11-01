@@ -17,6 +17,7 @@ stdin=""; for a in "\$@"; do [ "\$a" = "-" ] && stdin=\$(cat); done
 printf '%s' "\$stdin" > "$T/call.\$n.stdin"
 echo "psql: echo argv: \$*" >&2
 echo "psql: echo stdin: \$stdin" >&2
+[ -n "\${FAKE_PSQL_STDERR:-}" ] && echo "psql:<stdin>:9: \$FAKE_PSQL_STDERR" >&2
 if [ -n "\${FAKE_PSQL_EXISTS:-}" ] && grep -q "from pg_database" <<<"\$stdin"; then echo 1; exit 0; fi
 if [ -n "\${FAKE_PSQL_TPL_OK:-}" ] && grep -q "from pg_database" <<<"\$stdin"; then
   grep -q ":'tpl'" <<<"\$stdin" && echo 1 || echo 0; exit 0
@@ -41,7 +42,10 @@ grep -q "$LEARNER_PW" <<<"$out" && bad "fixture.sh: learner password leaked into
 grep -q "$DB_PW" <<<"$out" && bad "fixture.sh: DB password leaked into output" || ok "fixture.sh: DB password not in output"
 grep -q "psql: echo" <<<"$out" && bad "fixture.sh: raw psql stderr forwarded" || ok "fixture.sh: raw psql stderr withheld"
 
+NOTICE_OK="NOTICE:  quiz-lifecycle fixture: learner, course, 16 quizzes, 0 attempts"
 reset; out=$(E2E_TEST_PASSWORD="$LEARNER_PW" SUPABASE_DB_URL="$DSN" run "$HERE/fixture.sh" --no-target-guard); st=$?
+[ "$st" = 1 ] && grep -q "FAIL fixture \[F07\]" <<<"$out" && ok "fixture.sh: psql exit 0 without the completion notice is a FAIL (F07)" || bad "fixture.sh: missing notice accepted (exit $st)"
+reset; out=$(FAKE_PSQL_STDERR="$NOTICE_OK" E2E_TEST_PASSWORD="$LEARNER_PW" SUPABASE_DB_URL="$DSN" run "$HERE/fixture.sh" --no-target-guard); st=$?
 argv=$(cat "$T"/call.*.argv 2>/dev/null)
 [ "$(calls)" = 1 ] && ok "fixture.sh: exactly one psql call" || bad "fixture.sh: psql calls $(calls)"
 grep -q "$LEARNER_PW" <<<"$argv" && bad "fixture.sh: learner password in psql argv" || ok "fixture.sh: learner password not in psql argv"
@@ -59,6 +63,31 @@ for case in "non-loopback|postgresql://postgres@db.example.com:5432/postgres" \
   reset; out=$(E2E_TEST_PASSWORD="$LEARNER_PW" SUPABASE_DB_URL="${case#*|}" run "$HERE/fixture.sh" --no-target-guard); st=$?
   [ "$st" = 2 ] && [ "$(calls)" = 0 ] && ok "fixture.sh: ${case%%|*} DSN refused before any psql call" || bad "fixture.sh: ${case%%|*} (exit $st, calls $(calls))"
 done
+
+# Fixed failure messages: a marker after the fixture's own prefix never prints, and the failure is still reported.
+MK="MARKERmsg$(od -An -N6 -tx1 /dev/urandom | tr -d ' \n')"
+reset; out=$(FAKE_PSQL_EXIT=3 FAKE_PSQL_STDERR="ERROR:  quiz-lifecycle fixture: $MK unexpected" E2E_TEST_PASSWORD="$LEARNER_PW" SUPABASE_DB_URL="$DSN" run "$HERE/fixture.sh" --no-target-guard); st=$?
+[ "$st" = 1 ] && grep -q "FAIL fixture \[F00\]" <<<"$out" && ! grep -q "$MK" <<<"$out" && ok "fixture.sh: unknown prefixed error -> fixed F00, marker absent, failure kept" || bad "fixture.sh: prefixed marker (exit $st): $out"
+reset; out=$(FAKE_PSQL_EXIT=3 FAKE_PSQL_STDERR="ERROR:  quiz-lifecycle fixture: the learner already holds attempts; $MK" E2E_TEST_PASSWORD="$LEARNER_PW" SUPABASE_DB_URL="$DSN" run "$HERE/fixture.sh" --no-target-guard); st=$?
+[ "$st" = 1 ] && grep -q "FAIL fixture \[F02\]" <<<"$out" && ! grep -q "$MK" <<<"$out" && ok "fixture.sh: known error with a marker suffix -> fixed F02 text, marker absent" || bad "fixture.sh: F02 marker (exit $st): $out"
+reset; out=$(FAKE_PSQL_STDERR="NOTICE:  quiz-lifecycle fixture: learner, course, 16 quizzes, 0 attempts $MK" E2E_TEST_PASSWORD="$LEARNER_PW" SUPABASE_DB_URL="$DSN" run "$HERE/fixture.sh" --no-target-guard); st=$?
+[ "$st" = 0 ] && grep -q "PASS fixture" <<<"$out" && ! grep -q "$MK" <<<"$out" && ok "fixture.sh: success notice with a marker suffix -> fixed line, marker absent" || bad "fixture.sh: notice marker (exit $st): $out"
+
+# Full child chain: every execve of fixture.sh and all its descendants, traced. No password in any argv.
+if command -v strace >/dev/null; then
+  reset; strace -f -qq -e trace=execve -s 65535 -o "$T/trace" env PATH="$T/bin:$PATH" E2E_TEST_PASSWORD="$LEARNER_PW" SUPABASE_DB_URL="$DSN" \
+    FAKE_PSQL_STDERR="NOTICE:  quiz-lifecycle fixture: learner, course, 16 quizzes, 0 attempts" "$HERE/fixture.sh" --no-target-guard >/dev/null 2>&1
+  n=$(grep -c 'execve(' "$T/trace"); grep -q 'execve("[^"]*/psql"' "$T/trace" && ok "chain trace: $n execve calls captured, including psql" || bad "chain trace did not capture psql"
+  # The trace's first line is the launcher (strace's own `env ... SUPABASE_DB_URL=...` argv, test harness only); judge the chain after it.
+  tail -n +2 "$T/trace" | grep -q "$DB_PW" && bad "chain trace: DB password in some descendant argv" || ok "chain trace: DB password in no argv of fixture.sh or any descendant"
+  tail -n +2 "$T/trace" | grep -q "$LEARNER_PW" && bad "chain trace: learner password in some descendant argv" || ok "chain trace: learner password in no argv of fixture.sh or any descendant"
+  [ "$(cat "$T"/call.1.pgpw 2>/dev/null)" = "$DB_PW" ] && ok "chain trace: psql still received the DB password (process environment)" || bad "chain trace: psql did not receive PGPASSWORD"
+  # Causal control: the detector sees an `env VAR=secret` argv (the 989c22f pattern).
+  strace -f -qq -e trace=execve -s 65535 -o "$T/trace2" bash -c 'env PGPASSWORD="$1" true' _ "$DB_PW" >/dev/null 2>&1
+  tail -n +2 "$T/trace2" | grep -q "env.*PGPASSWORD=$DB_PW" && ok "chain trace control: an env-argv password IS detected" || bad "chain trace control: detector missed an env-argv password"
+else
+  bad "strace unavailable: full child chain not traced"
+fi
 
 # ---- sql-selftest.sh
 for case in "template injection|$DSN|tpl; drop database x" \

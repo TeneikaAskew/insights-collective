@@ -20,11 +20,14 @@
 //                                                       learner repeats actions and moves A -> B -> A.
 // Every forwarded fault request goes through forwardApproved() (exact origin first, maxRedirects 0, 3xx refused).
 // Run only through playwright.quiz-lifecycle.config.ts, after preflight.mjs and fixture.sh have passed.
-import type { Page } from '@playwright/test';
+import type { Page, Request } from '@playwright/test';
 import {
   test, expect, scenario, readLedger, expectFinalized, expectProgressRead, attemptHistory, interactionShot,
-  sent, settledAll, type NetEvent,
+  sent, settledAll, type NetEvent, type Scenario,
 } from './session.fixture';
+import {
+  TIMER_MIN_ELAPSED_S, TIMER_TICK_MARGIN_S, pgTime, serverSecondsLeft, timerMatchesServer,
+} from '../../scripts/local-stack/quiz-lifecycle/timer-oracle.mjs';
 
 const REAL = 'REAL-BACKEND';
 const FAULT = (k: string) => `FAULT(${k})`;
@@ -62,17 +65,28 @@ async function expectResultSettled(page: Page, points: string) {
   await expect(page.getByText('Saving your course progress…')).toHaveCount(0, { timeout: 30000 });
   await expect(page.getByText("Your quiz was submitted, but your course progress wasn't saved.")).toHaveCount(0);
 }
-/** PostgreSQL timestamptz text ("2026-11-01 16:20:01.123+00") to epoch ms. */
-function pgTime(t: string): number {
-  return Date.parse(t.replace(' ', 'T').replace(/([+-]\d\d)$/, '$1:00'));
-}
-/** The timer shows the time left from the SERVER's started_at, within `tol` seconds. */
-async function expectTimerFromServer(page: Page, startedAt: string, limitMinutes: number, tol = 5) {
+/** The timer shows the time left from the SERVER's started_at (timer-oracle.mjs tolerance). Returns what was compared. */
+async function expectTimerFromServer(page: Page, startedAt: string, limitMinutes: number) {
   const text = (await page.getByTestId('quiz-timer').innerText()).match(/(\d+):(\d\d)/);
   expect(text, 'timer text').not.toBeNull();
   const shown = Number(text![1]) * 60 + Number(text![2]);
-  const expected = limitMinutes * 60 - (Date.now() - pgTime(startedAt)) / 1000;
-  expect(Math.abs(shown - expected), `timer ${shown}s vs server-derived ${Math.round(expected)}s`).toBeLessThanOrEqual(tol);
+  const now = Date.now();
+  const startedMs = pgTime(startedAt);
+  expect(timerMatchesServer(shown, startedMs, now, limitMinutes),
+    `timer ${shown}s vs server-derived ${Math.round(serverSecondsLeft(startedMs, now, limitMinutes))}s`).toBe(true);
+  return { shown, now, startedMs };
+}
+/** Successful (2xx) answer-write responses observed so far. */
+const okWrites = (net: NetEvent[]) => net.filter((e) => e.kind === 'write' && e.phase === 'done' && (e.status ?? 0) >= 200 && (e.status ?? 0) < 300).length;
+/** Every SENT request of kind k paired with its own terminal event (same Request object); unmatched ones are null. */
+function terminals(net: NetEvent[], k: NetEvent['kind']) {
+  return sent(net, k).map((e) => ({ sent: e, end: net.find((x) => x.req === e.req && x.phase !== 'sent') ?? null }));
+}
+/** Answer and confirm persistence: the UI says Saved AND the ledger holds exactly `expected` for attempt `attempt`. */
+async function answerPersisted(page: Page, s: Scenario, label: string, attempt: number, expected: Array<[string, string]>) {
+  await expect(page.getByText('Saved', { exact: true })).toBeVisible({ timeout: 15000 });
+  await expect.poll(() => readLedger(s.quiz, label).answers.filter((r) => r.attempt === attempt).map((r) => [r.question, r.answer]),
+    { timeout: 15000 }).toEqual(expected);
 }
 const writesAfter = (net: NetEvent[], t: number) => net.filter((e) => e.kind === 'write' && e.phase === 'sent' && e.at >= t);
 
@@ -105,7 +119,12 @@ test.describe(REAL, () => {
     const before = readLedger(s.quiz, 'F2-before');
     expect(before.attempts.map((a) => [a.attempt, a.state, a.answers])).toEqual([[1, 'pending_review', 1]]);
     await expectTimerFromServer(page, before.attempts[0].startedAt, 30);
-    await page.waitForTimeout(3000); // let the clock move so a reset timer would be visible
+    // Wait until the SERVER-derived elapsed time is clearly past what tolerance + one tick could hide, so a timer that
+    // restarted at reload cannot pass (arithmetic control: tests/timer-oracle-selftest.mjs). No clock or policy change.
+    const startedMs = pgTime(before.attempts[0].startedAt);
+    const waitMs = (TIMER_MIN_ELAPSED_S + 2 * TIMER_TICK_MARGIN_S) * 1000 - (Date.now() - startedMs);
+    if (waitMs > 0) await page.waitForTimeout(waitMs);
+    const reloadAt = Date.now();
     await page.reload({ waitUntil: 'domcontentloaded' });
     await expect(radio(page, 'Four')).toBeChecked({ timeout: 30000 });
     const after = readLedger(s.quiz, 'F2-after');
@@ -113,7 +132,11 @@ test.describe(REAL, () => {
     expect(after.attempts[0].id).toBe(before.attempts[0].id);
     expect(after.attempts[0].startedAt).toBe(before.attempts[0].startedAt);
     expect(after.answers.map((r) => [r.attempt, r.question, r.answer])).toEqual([[1, s.q1, s.four]]);
-    await expectTimerFromServer(page, after.attempts[0].startedAt, 30);
+    const t = await expectTimerFromServer(page, after.attempts[0].startedAt, 30);
+    expect((t.now - t.startedMs) / 1000).toBeGreaterThanOrEqual(TIMER_MIN_ELAPSED_S);
+    // In-test control: a timer that restarted at this reload would show the full duration minus time since reload.
+    const resetShown = 30 * 60 - Math.floor((t.now - reloadAt) / 1000);
+    expect(timerMatchesServer(resetShown, t.startedMs, t.now, 30), 'control: a reset timer must fail here').toBe(false);
     await snapshot('F2-resume', 'real', async () => {
       await expect(page.getByTestId(ACTIVE)).toBeVisible();
       await expect(page.getByTestId('quiz-timer')).toBeVisible();
@@ -127,9 +150,18 @@ test.describe(REAL, () => {
   test('F3 limit 2 retake: attempt 2 stays empty in DB and UI for >2s, attempt 1 history unchanged', async ({ learner: page, net }) => {
     const s = scenario('12');
     await open(page, '12');
-    await take(page, 'Four', 'Red');
+    // Attempt 1 is answered through REAL autosaves before it is submitted: both answers persisted and >= 1 successful
+    // autosave observed, so the retake below starts after real old writes, not after none.
+    await choose(page, 'Four');
+    await answerPersisted(page, s, 'F3-q1-saved', 1, [[s.q1, s.four]]);
+    await next(page);
+    await choose(page, 'Red');
+    await answerPersisted(page, s, 'F3-q2-saved', 1, [[s.q1, s.four], [s.q2, s.red]]);
+    expect(okWrites(net), 'observed successful autosaves before submit').toBeGreaterThanOrEqual(1);
+    await submit(page);
     await expectResultSettled(page, '1 / 2 points');
-    await expect.poll(() => settledAll(net, 'write'), { timeout: 15000 }).toBe(true); // old autosave settled
+    // Old autosave queue empty: every sent write has its own terminal event.
+    await expect.poll(() => terminals(net, 'write').every((x) => x.end !== null), { timeout: 15000 }).toBe(true);
     const first = readLedger(s.quiz, 'F3-after-1');
     expectFinalized(first, s, [{ attempt: 1, q1: s.four, q2: s.red }]);
     const retakeAt = Date.now();
@@ -355,9 +387,11 @@ test.describe(FAULT('answer-write-held-before-forward'), () => {
     let release!: () => void;
     const released = new Promise<void>((r) => { release = r; });
     let heldUrl = '';
+    let heldReq: Request | null = null;
     await page.route('**/rest/v1/quiz_submission_answers**', async (route) => {
       if (route.request().method() !== 'POST' || heldUrl) return route.fallback();
       heldUrl = route.request().url();
+      heldReq = route.request();
       await released; // held in the browser; nothing has been forwarded yet
       return route.fallback();
     });
@@ -377,12 +411,18 @@ test.describe(FAULT('answer-write-held-before-forward'), () => {
 
     const scoreSent = net.find((e) => e.kind === 'score' && e.phase === 'sent')!;
     expect(scoreSent).toBeTruthy();
-    const writes = net.filter((e) => e.kind === 'write');
-    const firstDone = writes.find((e) => e.phase === 'done');
-    expect(firstDone?.status, 'held write settled successfully').toBeGreaterThanOrEqual(200);
-    expect(firstDone!.status!).toBeLessThan(300);
-    expect(firstDone!.at).toBeLessThanOrEqual(scoreSent.at);
-    expect(writes.every((e) => e.phase === 'sent' || e.at <= scoreSent.at)).toBe(true); // all settled before score
+    // Every SENT write is matched to its OWN terminal event by Request identity: none unmatched, all 2xx, all settled
+    // before score-quiz was sent. The first sent write is the held one.
+    const pairs = terminals(net, 'write');
+    expect(pairs.length).toBeGreaterThanOrEqual(1);
+    expect(pairs.filter((x) => x.end === null), 'unmatched sent writes').toEqual([]);
+    expect(pairs[0].sent.req === heldReq, 'the first sent write is the held request itself').toBe(true);
+    for (const x of pairs) {
+      expect(x.end!.phase, 'write terminal').toBe('done');
+      expect(x.end!.status!).toBeGreaterThanOrEqual(200);
+      expect(x.end!.status!).toBeLessThan(300);
+      expect(x.end!.at).toBeLessThanOrEqual(scoreSent.at);
+    }
     const atResult = readLedger(s.quiz, 'U3-result');
     expectFinalized(atResult, s, [{ attempt: 1, q1: s.four, q2: s.blue }]);
     await page.waitForTimeout(3000); // longer than the 2 s autosave debounce
@@ -476,7 +516,13 @@ test.describe(FAULT('start-held-before-forward'), () => {
     await open(page, '1d');
     await choose(page, 'Four');
     await expect.poll(() => held, { timeout: 15000 }).toBe(true);
-    for (const label of ['Three', 'Four', 'Three', 'Four']) await radio(page, label).click({ timeout: 2000 }).catch(() => undefined); // repeated
+    // Repeated changes WHILE the start is held: each one must take effect (no swallowed click), and none may send
+    // another start.
+    for (const label of ['Three', 'Four', 'Three', 'Four']) {
+      await radio(page, label).click();
+      await expect(radio(page, label)).toBeChecked();
+    }
+    expect(sent(net, 'start')).toHaveLength(1);
     expect(readLedger(a.quiz, 'R3-A-held').attempts).toEqual([]); // held before forward: nothing committed
     await nav(page, 'QLC R3 slow start B').click();
     await expect(page.getByTestId('quiz-player-loading')).toHaveCount(0, { timeout: 30000 });

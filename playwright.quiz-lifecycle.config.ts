@@ -9,8 +9,6 @@
 import os from 'node:os';
 import path from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
-import { chromiumExecutableOption } from './e2e/support/chromium-executable';
-import { BROWSER_EGRESS_ARGS } from './scripts/local-stack/quiz-lifecycle/browser-egress.mjs';
 
 const BASE_URL = process.env.E2E_BASE_URL;
 if (!BASE_URL) throw new Error('quiz-lifecycle config: E2E_BASE_URL is required (the preflight-checked preview)');
@@ -39,11 +37,8 @@ export default defineConfig({
     ...devices['Desktop Chrome'],
     // register() becomes a stub that never creates a worker (measured by the egress self-test).
     serviceWorkers: 'block',
-    launchOptions: {
-      ...chromiumExecutableOption(),
-      // Browser-level egress block (scripts/local-stack/quiz-lifecycle/browser-egress.mjs), proven by its self-test.
-      args: [...BROWSER_EGRESS_ARGS],
-    },
+    // launchOptions are set by e2e/quiz-lifecycle/session.fixture.ts (worker scope), because the browser-wide proxy
+    // must be the worker's own refusal listener, whose port exists only at run time. Proven by the egress self-test.
   },
   projects: [{ name: 'chromium-quiz-lifecycle' }],
 });

@@ -20,7 +20,7 @@ SCRATCH="${SCRATCH:0:63}"
 [[ "$SCRATCH" =~ ^qlc_selftest_[0-9]+_[0-9a-f]+$ ]] || refuse "could not derive a scratch name"
 M=$(printf '%s' "$BASE" | node "$HERE/local-dsn.mjs" derive postgres 2>/dev/null) || refuse "maintenance DSN is not a canonical strict local URI"
 S=$(printf '%s' "$BASE" | node "$HERE/local-dsn.mjs" derive "$SCRATCH" 2>/dev/null) || refuse "scratch DSN could not be derived"
-M_CONN=$(sed -n 1p <<<"$M"); S_CONN=$(sed -n 1p <<<"$S"); export PGPASSWORD; PGPASSWORD=$(sed -n 2p <<<"$M"); unset M S
+M_CONN=${M%%$'\n'*}; S_CONN=${S%%$'\n'*}; export PGPASSWORD; PGPASSWORD=${M#*$'\n'}; unset M S
 # The scratch URI handed to fixture.sh carries the same credentials, rebuilt by the same helper.
 S_URI_WITH_PW="$S_CONN"
 if [ -n "$PGPASSWORD" ]; then
@@ -53,7 +53,15 @@ ok()  { echo "PASS $*"; pass=$((pass + 1)); }
 bad() { echo "FAIL $*"; fail=$((fail + 1)); }
 
 SUPABASE_DB_URL="$S_URI_WITH_PW" "$HERE/fixture.sh" --no-target-guard >/dev/null && ok "fixture applies (16 quizzes)" || bad "fixture applies"
-out=$(SUPABASE_DB_URL="$S_URI_WITH_PW" "$HERE/fixture.sh" --no-target-guard 2>&1); [ $? -eq 0 ] && ok "fixture re-run on an unused stack is idempotent" || bad "fixture re-run: $out"
+# Re-run under strace with the REAL psql: every execve of the child chain is traced. If the maintenance URI carries no
+# password (trust auth), a synthetic one is used for this run only, so the DB-password path is exercised too.
+TRACE_PW="$PGPASSWORD"; [ -n "$TRACE_PW" ] || TRACE_PW="shimdb$(od -An -N8 -tx1 /dev/urandom | tr -d ' \n')"
+TRACE_URI=$(PGPASSWORD="$TRACE_PW" node -e 'const u=new URL(process.argv[1]); u.password=encodeURIComponent(process.env.PGPASSWORD); console.log(u.toString())' "$S_CONN")
+TR=$(mktemp); out=$(SUPABASE_DB_URL="$TRACE_URI" strace -f -qq -e trace=execve -s 65535 -o "$TR" "$HERE/fixture.sh" --no-target-guard 2>&1); st=$?
+[ "$st" -eq 0 ] && ok "fixture re-run on an unused stack is idempotent (real psql, traced)" || bad "fixture re-run: $out"
+grep -q 'execve("[^"]*psql' "$TR" && ! grep -qF "$TRACE_PW" "$TR" && ! grep -qF "$E2E_TEST_PASSWORD" "$TR" \
+  && ok "real child chain: $(grep -c 'execve(' "$TR") execve calls, no DB or learner password in any argv" || bad "real child chain: password in an argv or psql not traced"
+rm -f "$TR"; unset TRACE_PW TRACE_URI
 
 # as_learner <sql>: one transaction as the learner, through the role and claims PostgREST would set.
 as_learner() {

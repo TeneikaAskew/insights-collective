@@ -2,22 +2,28 @@
 // ABOUTME: gate on exact approved origins, validated forwarding for fault handlers, a strict read-only DB ledger, shots.
 //
 // Egress, in layers (any violation fails the test):
-//   1. Browser level (playwright.quiz-lifecycle.config.ts): every non-loopback destination goes to a dead proxy and
-//      cannot resolve, and service workers are blocked. This covers redirects, new pages and workers, not one page.
+//   1. Browser level: every context gets a proxy that is a REFUSAL listener owned by this worker (answers 403, never
+//      forwards, records the destination), with bypass "<-loopback>" plus ONLY the exact approved scheme://host:port
+//      (browser-egress.mjs). So redirects, new pages, other loopback ports and link-local all go to the refusal proxy;
+//      ordinary redirect hops, which route interception does not see, are confined here. Service workers are blocked.
 //   2. Context level (this file): every request from every page of the context must have an EXACT approved origin
 //      (scheme + host + port of the app and of the API); anything else is aborted and recorded.
 //   3. Observers: any redirect hop (request.redirectedFrom()), any 3xx response, and any second page are violations.
-//   4. Fault handlers that forward a request themselves (route.fetch) must use forwardApproved(): it re-checks the exact
-//      origin BEFORE the fetch, sends with maxRedirects: 0 and refuses a 3xx.
+//   4. Fault handlers that forward a request themselves must use forwardApproved(): it re-checks the exact origin BEFORE
+//      sending, sends from this process with redirect 'manual' (never followed) and refuses a 3xx. It does not use
+//      route.fetch(), whose node-side proxy matching is domain-only and would send approved traffic to the refusal proxy.
 // Nothing is written to disk except evidence under QLC_EVIDENCE_DIR. No storage state, no password change, no cleanup.
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
+import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { APIResponse, Page, Request, Route } from '@playwright/test';
+import type { Page, Request, Route } from '@playwright/test';
 import { test as base, expect } from '../fixtures/console-errors.fixture';
 import { splitLocalDsn } from '../../scripts/local-stack/quiz-lifecycle/local-dsn.mjs';
+import { BROWSER_EGRESS_ARGS, exactBypassList } from '../../scripts/local-stack/quiz-lifecycle/browser-egress.mjs';
+import { chromiumExecutableOption } from '../support/chromium-executable';
 
 export const LEARNER_ID = '9c000000-0000-4000-8000-0000000000a1';
 export const COURSE_ID = '9c000000-0000-4000-8000-000000000001';
@@ -148,6 +154,9 @@ export function settledAll(net: NetEvent[], k: NetEvent['kind']) {
 }
 
 type Egress = { violations: string[] };
+export type Forwarded = { status: number; headers: Record<string, string>; body: Buffer };
+/** The worker's refusal proxy: every connection is recorded (destination host:port only) and answered 403. */
+export type RefusalProxy = { server: string; destinations: string[]; onHit: ((dest: string) => void) | null };
 type ShotCheck = () => Promise<void>;
 type Fixtures = {
   egress: Egress;
@@ -155,15 +164,66 @@ type Fixtures = {
   learner: Page;
   /** Responsive snapshot: the SAME state resized to each viewport, with `check` asserted at every viewport. */
   snapshot: (name: string, tier: string, check: ShotCheck) => Promise<void>;
-  forwardApproved: (route: Route) => Promise<APIResponse | null>;
+  /** Sends the routed request to its exact approved origin and returns the response WITHOUT fulfilling the route; null if refused. */
+  forwardApproved: (route: Route) => Promise<Forwarded | null>;
 };
 
-export const test = base.extend<Fixtures & { egressGate: void }>({
+export const test = base.extend<Fixtures & { egressGate: void }, { refusalProxy: RefusalProxy }>({
+  refusalProxy: [
+    async ({ browserName: _b }, use) => {
+      const rp: RefusalProxy = { server: '', destinations: [], onHit: null };
+      const srv = net.createServer((sock) => {
+        let buf = '';
+        let done = false;
+        const finish = () => {
+          if (done) return;
+          done = true;
+          const m = buf.slice(0, Math.max(0, buf.indexOf('\r\n'))).match(/^([A-Z]+) (\S+)/);
+          let dest = 'unparsed';
+          if (m) { if (m[1] === 'CONNECT') dest = m[2]; else { try { dest = new URL(m[2]).host; } catch { /* keep */ } } }
+          dest = dest.slice(0, 100);
+          rp.destinations.push(dest);
+          rp.onHit?.(dest);
+          sock.end('HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n');
+        };
+        sock.setTimeout(5000, finish);
+        sock.on('data', (d) => { buf += d.toString('latin1'); if (buf.includes('\r\n') || buf.length > 8192) finish(); });
+        sock.on('end', finish);
+        sock.on('error', () => undefined);
+      });
+      await new Promise<void>((res) => srv.listen(0, '127.0.0.1', () => res()));
+      rp.server = `http://127.0.0.1:${(srv.address() as net.AddressInfo).port}`;
+      await use(rp);
+      await new Promise<void>((res) => srv.close(() => res()));
+    },
+    { scope: 'worker' },
+  ],
+
+  // The WHOLE browser is confined: without a launch-level proxy, Chromium's own background traffic would follow the
+  // process environment's proxy settings (measured: HTTPS_PROXY was used). With it, nothing leaves except the exact
+  // approved origins; everything else, browser-internal or page, reaches only the refusal listener.
+  launchOptions: [
+    async ({ refusalProxy }, use) => {
+      await use({
+        ...chromiumExecutableOption(),
+        args: [...BROWSER_EGRESS_ARGS],
+        proxy: { server: refusalProxy.server, bypass: exactBypassList(APPROVED_ORIGINS) },
+      });
+    },
+    { scope: 'worker' },
+  ],
+
+  // Every context of every test is confined the same way, explicitly.
+  proxy: async ({ refusalProxy }, use) => {
+    await use({ server: refusalProxy.server, bypass: exactBypassList(APPROVED_ORIGINS) });
+  },
+
   // Playwright requires a destructured first argument; `page` is named only to avoid an empty pattern.
   egress: async ({ page: _page }, use) => { await use({ violations: [] }); },
 
   egressGate: [
-    async ({ context, page, egress }, use, testInfo) => {
+    async ({ context, page, egress, refusalProxy }, use, testInfo) => {
+      refusalProxy.onHit = (dest) => egress.violations.push(`refusal proxy received a request for ${dest}`);
       await context.route('**/*', (route) => {
         const url = route.request().url();
         if (approved(url)) return route.fallback();
@@ -180,6 +240,7 @@ export const test = base.extend<Fixtures & { egressGate: void }>({
       // self-test); any worker that still starts is a violation.
       context.on('serviceworker', () => egress.violations.push('a service worker started'));
       await use();
+      refusalProxy.onHit = null;
       fs.mkdirSync(OUT, { recursive: true });
       fs.appendFileSync(path.join(OUT, 'egress.txt'), `${testInfo.title}\t${egress.violations.length}\n`);
       expect(egress.violations, 'egress violations').toEqual([]);
@@ -189,19 +250,26 @@ export const test = base.extend<Fixtures & { egressGate: void }>({
 
   forwardApproved: async ({ egress }, use) => {
     await use(async (route) => {
-      const url = route.request().url();
-      if (!approved(url)) {
+      const req = route.request();
+      const url = req.url();
+      if (!approved(url) || NON_NETWORK.test(url)) {
         egress.violations.push('fault handler asked to forward to a non-approved origin');
         await route.abort('failed');
         return null;
       }
-      const res = await route.fetch({ maxRedirects: 0 });
-      if (res.status() >= 300 && res.status() < 400) {
-        egress.violations.push(`forwarded request answered ${res.status()} (redirects refused)`);
+      const headers = await req.allHeaders();
+      for (const h of ['host', 'connection', 'content-length', 'keep-alive', 'transfer-encoding', 'proxy-connection']) delete headers[h];
+      for (const h of Object.keys(headers)) if (h.startsWith(':')) delete headers[h];
+      // Node's fetch does not read proxy settings from the environment; the destination is the exact approved origin.
+      const res = await fetch(url, { method: req.method(), headers, body: req.postDataBuffer() ?? undefined, redirect: 'manual' });
+      if (res.status >= 300 && res.status < 400) {
+        egress.violations.push(`forwarded request answered ${res.status} (redirects refused)`);
         await route.abort('failed');
         return null;
       }
-      return res;
+      const out: Record<string, string> = {};
+      res.headers.forEach((v, k) => { if (!['content-encoding', 'content-length', 'transfer-encoding', 'connection'].includes(k)) out[k] = v; });
+      return { status: res.status, headers: out, body: Buffer.from(await res.arrayBuffer()) };
     });
   },
 

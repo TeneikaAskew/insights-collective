@@ -8,23 +8,29 @@ These files are lane-owned and fixture-only. They do not edit the shared runner 
 |---|---|
 | `preflight.mjs` | Fail-closed checks, run after the stack, functions and preview are up and **before any fixture write**: config parses, API/DB/app loopback with exact ports, effective listeners loopback-only, no relay, `score-quiz` answers through the gateway, preview serves this `dist`. |
 | `local-dsn.mjs` (+ `.d.mts`) | Strict local DSN handling: `assert-local-dsn` first, then URI form only, no query or fragment, host `127.0.0.1`/`localhost`, explicit port, plain identifiers, both parsers agree. Splits into a password-free URI (safe for argv) and the password (PGPASSWORD only). `derive <db>` requires a canonical maintenance URI (database `postgres`). Reads the DSN from **stdin**, never argv. |
-| `fixture.sh`, `fixture.sql` | Dedicated synthetic learner, one unpublished course, **16 scenario quizzes**. **No `quiz_submissions` rows.** No grant, policy, RLS or trigger change. The DSN comes only from `SUPABASE_DB_URL` (a positional DSN is refused); refuses an empty password, a non-strict-local DSN, an unreadable source and a failed mutating target guard, all before psql. The DB password reaches psql only through `PGPASSWORD`, the synthetic learner password only through psql's stdin; both producers are checked (`PIPESTATUS`). psql output is captured privately and never forwarded; only the fixture's own notice or RAISE text and a byte count print. |
+| `fixture.sh`, `fixture.sql` | Dedicated synthetic learner, one unpublished course, **16 scenario quizzes**. **No `quiz_submissions` rows.** No grant, policy, RLS or trigger change. The DSN comes only from `SUPABASE_DB_URL` (a positional DSN is refused); refuses an empty password, a non-strict-local DSN, an unreadable source and a failed mutating target guard, all before psql. The DB password is exported by bash builtins in a subshell that `exec`s psql, so it is only in psql's process environment, never in any argv (no `env VAR=...`); the synthetic learner password reaches psql only through stdin. Both producers are checked (`PIPESTATUS`). psql output is captured privately and **never printed**: success prints a fixed line; failure prints a fixed message by code (`F01`-`F06` for the fixture's own RAISEs, `F07` missing completion notice, `F00` anything else, `P01` producer) and a byte count. |
 | `ledger.sql` | Read-only per-quiz ledger (session set read-only): attempts, answer rows with correct/points and row timestamp, progress rows. No auth columns. |
-| `browser-egress.mjs` (+ `.d.mts`) | Chromium args for egress layer 1: dead proxy `127.0.0.1:9` and a resolver that maps every name except loopback to NOTFOUND. |
-| `../../../playwright.quiz-lifecycle.config.ts` | Own config: **no globalSetup, no globalTeardown, no webServer, no storageState**, retries 0, workers 1, trace/video/screenshot off, `serviceWorkers: 'block'`, the egress args. Specs are `*.isolated.ts`, so the default config never matches them. |
+| `browser-egress.mjs` (+ `.d.mts`) | `exactBypassList()`: `<-loopback>` (subtracts Chromium's implicit bypass of localhost, 127/8, ::1, 169.254/16 and fe80::/10) followed ONLY by the exact approved `scheme://host:port` entries. Plus a resolver rule as defence in depth. |
+| `timer-oracle.mjs` (+ `.d.mts`) | F2 timer arithmetic: tolerance 3 s, one tick margin, minimum server elapsed 10 s. |
+| `../../../playwright.quiz-lifecycle.config.ts` | Own config: **no globalSetup, no globalTeardown, no webServer, no storageState**, retries 0, workers 1, trace/video/screenshot off, `serviceWorkers: 'block'`. Launch options (with the browser-wide proxy) come from the session fixture. Specs are `*.isolated.ts`, so the default config never matches them. |
 | `../../../e2e/quiz-lifecycle/session.fixture.ts` | In-memory sign-in through the real login page; the layered egress gate; `forwardApproved()`; the network event log; `readLedger()` (strict DSN validation before psql, stderr withheld); `expectFinalized()`, `expectProgressRead()`, `attemptHistory()`; state-checked `snapshot()` and `interactionShot()`. |
 | `../../../e2e/quiz-lifecycle/lifecycle.isolated.ts` | The cases below. NOT RUN. |
 | `tests/sql-selftest.sh` | LOCAL-SHIM self-test (plain PostgreSQL + shim, not a Supabase stack). |
 | `tests/isolation-selftest.sh` | MOCKED self-test with a fake psql. |
-| `tests/egress-selftest.sh`, `tests/egress.selftest.ts`, `tests/playwright.egress-selftest.config.ts` | MOCKED self-test in a real Chromium against local stand-in servers. |
+| `tests/egress-selftest.sh`, `tests/egress.selftest.ts`, `tests/playwright.egress-selftest.config.ts`, `tests/egress-causal-control.mjs` | MOCKED self-test in a real Chromium (headless shell) against local stand-in servers: a non-loopback "external" sink and an unapproved THIRD loopback port sink, both counting hits. Includes the causal control. |
+| `tests/timer-oracle-selftest.mjs` | Arithmetic control: a server-clock timer passes, a timer reset at reload fails once elapsed >= 10 s. |
 | `tests/preflight-selftest.sh` | MOCKED: a fake `ss` and a fake loopback HTTP server prove every refuse path. |
 
 ## Egress, in layers (any violation fails the test)
 
-1. Browser: non-loopback destinations go to a dead proxy and cannot resolve; service workers are blocked (`register()` resolves without creating a worker, measured). This holds for redirects, new pages and workers, not one page.
-2. Context `route('**/*')`: every request of every page needs an **exact approved origin** (scheme, host and port of `E2E_BASE_URL` and `VITE_SUPABASE_URL`); otherwise aborted and recorded.
-3. Observers: any redirect hop, any 3xx response, any additional page and any service worker are violations.
-4. A fault handler that forwards a request itself uses `forwardApproved()`: exact origin check **before** `route.fetch`, `maxRedirects: 0`, a 3xx is refused.
+1. Browser-wide and per context: the proxy is a **refusal listener owned by the test worker** (answers 403, never forwards, records only `host:port`), with bypass `exactBypassList(APPROVED_ORIGINS)`. Without a launch-level proxy Chromium's own background traffic follows the process environment's proxy settings (measured here), so the launch-level proxy is set too. Ordinary redirect hops, which route interception does not see after the initial URL, are confined by this layer alone. Nothing assumes any port is dead. Service workers are blocked (`register()` resolves without creating a worker, measured).
+2. Context `route('**/*')`: every intercepted request needs an exact approved origin; otherwise aborted and recorded.
+3. Observers: any redirect hop, 3xx response, additional page, service worker, or request reaching the refusal proxy is a violation.
+4. Fault handlers forward with `forwardApproved()`: exact origin check first, sent from the test process with `redirect: 'manual'`, 3xx refused. It does not use `route.fetch()`, whose node-side proxy matching is domain-only and would send approved traffic to the refusal proxy.
+
+Proof (MOCKED, real headless Chromium): approved -> 302 -> unapproved third loopback port, by fetch and by navigation, with the 302 actually served and received: 0 sink hits, the hop recorded at the refusal proxy. **Causal control:** the same navigation with `<-loopback>` removed reaches the sink (>= 1 hit). Link-local and metadata addresses are covered by the documented subtraction and are never probed.
+
+**Browser build:** the mode expects Playwright's default headless shell (what CI launches). A full Chrome's background services produce refused requests to Google hosts (measured); they never leave, but the gate counts them as violations, so such a run fails closed.
 
 ## Persisted acceptance (central helpers)
 
@@ -37,18 +43,18 @@ These files are lane-owned and fixture-only. They do not edit the shared runner 
 | Case | Label | What it proves |
 |---|---|---|
 | F1 | REAL-BACKEND | limit 1: one start, one finalized attempt, progress read, result after reload |
-| F2 | REAL-BACKEND | resume: same attempt id and `started_at`, saved answer restored, timer within 5 s of the server-derived time left, before and after reload |
-| F3 | REAL-BACKEND | old autosave settled, immediate retake, attempt 2 has 0 rows in DB and nothing checked in the UI for 2.5 s with no write, attempt 1 history unchanged |
+| F2 | REAL-BACKEND | resume: same attempt id and `started_at`, saved answer restored; reload only after server-derived elapsed >= 12 s; timer within 3 s of the server-derived time left; in-test control that a timer reset at reload fails |
+| F3 | REAL-BACKEND | attempt 1 answered through real autosaves (both answers persisted, >= 1 successful write observed) before submit; every sent write matched to its terminal event; immediate retake; attempt 2 has 0 rows in DB and nothing checked in the UI for 2.5 s with no write; attempt 1 history unchanged |
 | F4 x2 | REAL-BACKEND | `allowed_attempts` NULL and 0: three finalized attempts |
 | F5 | REAL-BACKEND | A to B to A: each quiz holds only its own attempt and answer; no progress |
 | M1 | REAL-BACKEND, viewport interaction 390x844 | the whole flow driven at 390x844, controls in viewport |
 | F6 | FAULT(progress-write-500-before-db) | the first progress write is answered 500 by the test and never reaches the DB; result kept, scored once, Retry, ledger exactly `read`, UI settled |
 | U1 | FAULT(start-committed-response-lost + reconcile-read-aborted-before-db) | retake start forwarded (commits), response replaced by a network error; first reconciliation read aborted before the DB; Retry adopts attempt 2 blank; attempt 1 history unchanged |
 | U2 | FAULT(score-committed-response-lost + readback-aborted-before-db) | score-quiz forwarded (finalizes), response lost, read-backs aborted until released; blocked with no write or progress for 3 s; Retry confirms; scored once; progress read |
-| U3 | FAULT(answer-write-held-before-forward) | first answer write held in the browser (not in DB while held); leave and return; the held write settles 2xx before score-quiz is sent; no write and no ledger change for 3 s after |
+| U3 | FAULT(answer-write-held-before-forward) | first answer write held in the browser (not in DB while held); leave and return; every sent write, the held one first, matched by request identity to its own 2xx completion before score-quiz is sent; no write and no ledger change for 3 s after |
 | R1 | FAULT(answers-read-500-before-db) | saved-answer restore fails: honest block, no radios, no new start or write, ledger unchanged; Retry restores the same attempt |
 | R2 | FAULT(answers-read-500-before-db) | review answer read fails: no "Incorrect" and no "0/1"; Retry shows "Correct · 1/1" twice |
-| R3 | FAULT(start-held-before-forward) | first start held while answers are repeated and the learner moves A to B to A: one start, one attempt on A, none on B, screen agrees with the ledger |
+| R3 | FAULT(start-held-before-forward) | first start held; four repeated answer changes while held, each required to take effect, still one start; A to B to A: one attempt on A, none on B, screen agrees with the ledger |
 
 F5 and F6 are not proof of R1 to R3. Each FAULT case is in its own `describe` and its own screenshot tier.
 
