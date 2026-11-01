@@ -40,9 +40,13 @@ describe('candidate alignment', () => {
     expect(sql).toMatch(/IF v_n <> 1 THEN RAISE EXCEPTION/);
     expect(sql).not.toMatch(/\b(INSERT|DELETE|TRUNCATE|DROP|ALTER|GRANT|REVOKE)\b/);
   });
-  it('the original fixture seed is unchanged from the 882 run commit', () => {
+  // Re-pinned at composition: the seed is exactly the quiz owner's H1 correction plus readiness successor
+  // (#153 90c021d, blob 5e573129; published synthetic courses plus one private control). It is no longer the 882 seed.
+  it('the fixture seed is exactly the #153 90c021d blob (H1 correction), not the 882 seed', () => {
+    const blob = execFileSync('git', ['hash-object', `${QLC}/fixture.sql`], { cwd: ROOT, encoding: 'utf8' }).trim();
+    expect(blob).toBe('5e573129adc54c43903132b05829a01565b2f8f2');
     const at882 = execFileSync('git', ['show', '882e76d:scripts/local-stack/quiz-lifecycle/fixture.sql'], { cwd: ROOT, encoding: 'utf8' });
-    expect(read(`${QLC}/fixture.sql`)).toBe(at882);
+    expect(read(`${QLC}/fixture.sql`)).not.toBe(at882);
   });
 });
 
