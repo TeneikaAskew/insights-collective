@@ -36,7 +36,6 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 }) => {
   const { isAuthenticated, user, session, storeRedirectPath, loading } = useAuth();
   const location = useLocation();
-  const { toast } = useToast();
   const [hasAdminAccess, setHasAdminAccess] = React.useState<boolean | null>(null);
   // Presence, not identity: useAuthProvider calls setSession for every auth
   // event, so depending on the session object re-ran the admin check and wrote
@@ -121,13 +120,15 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   // Enhanced session validation
   if (isAuthenticated && session && !validateSessionIntegrity(session)) {
-    logger.warn('[ProtectedRoute] Invalid session detected, redirecting to login');
-    toast({
-      title: 'Session Invalid',
-      description: 'Your session has expired. Please log in again.',
-      variant: 'destructive',
-    });
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    return (
+      <RedirectWithNotice
+        to="/login"
+        state={{ from: location }}
+        title="Session Invalid"
+        description="Your session has expired. Please log in again."
+        onShown={() => logger.warn('[ProtectedRoute] Invalid session detected, redirecting to login')}
+      />
+    );
   }
 
   if (!isAuthenticated) {
@@ -136,22 +137,48 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   // Enhanced admin access validation using new security function
   if (requireAdmin && !hasAdminAccess) {
-    logger.warn('[ProtectedRoute] Non-admin user attempted protected access:', user?.id);
-    
-    // Log security event for unauthorized access attempt
-    if (user?.id) {
-      logSecurityEvent(user.id, 'unauthorized_protected_access', 'warning', 'Non-admin user attempted to access admin-protected route', { path: location.pathname });
-    }
-    
-    toast({
-      title: 'Access Denied',
-      description: 'You do not have permission to access this page.',
-      variant: 'destructive',
-    });
-    return <Navigate to="/dashboard" replace />;
+    const userId = user?.id;
+    const path = location.pathname;
+    return (
+      <RedirectWithNotice
+        to="/dashboard"
+        title="Access Denied"
+        description="You do not have permission to access this page."
+        onShown={() => {
+          logger.warn('[ProtectedRoute] Non-admin user attempted protected access:', userId);
+          if (userId) {
+            logSecurityEvent(userId, 'unauthorized_protected_access', 'warning', 'Non-admin user attempted to access admin-protected route', { path });
+          }
+        }}
+      />
+    );
   }
 
   return <>{children}</>;
+};
+
+/**
+ * Redirects and announces why, ONCE per mount, from an effect. Calling toast() or logging during render updated the
+ * toast context this guard reads, so it rendered again and toasted again; with React Router's v7_startTransition the
+ * urgent toast updates kept interrupting the redirect, leaving a blank page and a toast that remounted thousands of
+ * times (run 41294441748; docs in the review export).
+ */
+const RedirectWithNotice: React.FC<{
+  to: string;
+  state?: unknown;
+  title: string;
+  description: string;
+  onShown?: () => void;
+}> = ({ to, state, title, description, onShown }) => {
+  const { toast } = useToast();
+  const shown = React.useRef(false);
+  React.useEffect(() => {
+    if (shown.current) return;
+    shown.current = true;
+    onShown?.();
+    toast({ title, description, variant: 'destructive' });
+  }, [toast, title, description, onShown]);
+  return <Navigate to={to} state={state} replace />;
 };
 
 export default ProtectedRoute;
