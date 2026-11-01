@@ -184,3 +184,58 @@ describe('CourseList', () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// Catalog filter contract (unit-contract proof only; RLS and live data are not exercised here).
+//
+// The builder above ignores every filter (`eq` returns the same rows whatever it is given), so the tests above would
+// pass with ANY filter, including the legacy `status = 'published'` one. Here the mock is query-aware: it applies each
+// `.eq(column, value)` to the fixture rows, and any other filter method fails loudly. The fixtures make the two
+// columns contradict each other, so only the canonical `published = true` filter renders exactly the right cards.
+// ---------------------------------------------------------------------------
+describe('CourseList catalog filter contract', () => {
+  const FIXTURES = [
+    makeCourse({ id: 'flag-only', title: 'Flag Published, Status Draft', published: true, status: 'draft' }),
+    makeCourse({ id: 'status-only', title: 'Status Published, Flag Off', published: false, status: 'published' }),
+    makeCourse({ id: 'both', title: 'Both Published', published: true, status: 'published' }),
+    makeCourse({ id: 'neither', title: 'Neither Published', published: false, status: 'draft' }),
+  ];
+  const FILTERS = ['neq', 'in', 'is', 'gt', 'gte', 'lt', 'lte', 'not', 'or', 'filter', 'match', 'range', 'contains', 'like', 'ilike'];
+
+  function queryAwareCourses(rows: Record<string, unknown>[]) {
+    const log: { select: unknown[]; eq: [string, unknown][]; order: unknown[][]; other: string[] } = { select: [], eq: [], order: [], other: [] };
+    (mockSupabaseClient.from as ReturnType<typeof vi.fn>).mockImplementation((table: string) => {
+      if (table !== 'courses') return makeTableBuilder({});
+      const b: any = {};
+      b.select = vi.fn((cols: unknown) => (log.select.push(cols), b));
+      b.eq = vi.fn((col: string, val: unknown) => (log.eq.push([col, val]), b));
+      b.order = vi.fn((...a: unknown[]) => (log.order.push(a), b));
+      for (const m of FILTERS) b[m] = vi.fn(() => { log.other.push(m); throw new Error(`unexpected filter ${m}() on courses`); });
+      b.then = (ok: any, bad: any) =>
+        Promise.resolve({ data: rows.filter((r) => log.eq.every(([c, v]) => r[c] === v)), error: null }).then(ok, bad);
+      return b;
+    });
+    return log;
+  }
+  const cardTitles = () => screen.queryAllByRole('heading', { level: 3 }).map((h) => h.textContent?.trim()).sort();
+
+  it('applies exactly one filter, published = true, and renders exactly the flag-published cards', async () => {
+    const log = queryAwareCourses(FIXTURES);
+    render(<CourseList />);
+    expect(await screen.findByText('Both Published')).toBeInTheDocument();
+    expect(log.eq).toEqual([['published', true]]);
+    expect(log.other).toEqual([]);
+    expect(cardTitles()).toEqual(['Both Published', 'Flag Published, Status Draft']);
+    // The legacy status mirror must not decide visibility in either direction.
+    expect(screen.queryByText('Status Published, Flag Off')).not.toBeInTheDocument();
+    expect(screen.queryByText('Neither Published')).not.toBeInTheDocument();
+  });
+
+  it('shows the empty state when no row has published = true, even if status says published', async () => {
+    const log = queryAwareCourses(FIXTURES.filter((r) => (r as Record<string, unknown>).published !== true));
+    render(<CourseList />);
+    expect(await screen.findByText('No courses found')).toBeInTheDocument();
+    expect(log.eq).toEqual([['published', true]]);
+    expect(screen.queryByText('Status Published, Flag Off')).not.toBeInTheDocument();
+  });
+});
