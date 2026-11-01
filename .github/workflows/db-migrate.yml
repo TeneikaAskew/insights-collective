@@ -158,20 +158,12 @@ jobs:
           VERSION: ${{ steps.resolve.outputs.version }}
           NAME: ${{ inputs.migration }}
         run: |
-          # One transaction covering both the file and the ledger entry.
-          # psql runs -f and -c in the order given and --single-transaction
-          # wraps the lot, so the schema change and the record of it commit
-          # together. Two invocations would leave a window where the schema is
-          # changed and the ledger still says pending — a later `db push` would
-          # then run the file a second time, which is fine for `add constraint`
-          # and not fine for anything that moves data.
-          #
-          # ON_ERROR_STOP because psql's default is to carry on after an error
-          # and exit 0. Only `version` on the insert — that is the column
-          # Supabase matches on, and the one every version of the table has.
-          psql "$PGURL" -v ON_ERROR_STOP=1 --single-transaction \
-            -f "$FILE" \
-            -c "insert into supabase_migrations.schema_migrations (version) values ('$VERSION')"
+          # One transaction covering both the file and the ledger entry, for real. The ledger INSERT runs FIRST inside
+          # psql --single-transaction: a file wrapped in its own BEGIN...COMMIT then commits schema and ledger together,
+          # and any failure or disconnect before that COMMIT rolls back both. (The earlier `-f FILE -c insert` order let a
+          # wrapped file's own COMMIT land the schema before the ledger row; scripts/db-migrate/tests proves both.)
+          # Files with any other top-level transaction control are refused before connecting. Bytes run unchanged.
+          bash scripts/db-migrate/apply-atomic.sh "$FILE" "$VERSION"
           echo "Applied and recorded $VERSION ($NAME)."
 
       - name: Apply every pending migration, oldest first
