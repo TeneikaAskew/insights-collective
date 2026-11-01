@@ -7,7 +7,8 @@
 import { test as gated, expect } from '../../../../e2e/quiz-lifecycle/session.fixture';
 
 const test = gated.extend<{ consoleErrors: unknown }>({
-  consoleErrors: async ({}, use) => { await use(undefined); }, // overrides the auto fixture; stays auto
+  // Overrides the auto fixture (stays auto). `page` is named only to avoid an empty destructuring pattern.
+  consoleErrors: async ({ page: _page }, use) => { await use(undefined); },
 });
 const EXT = process.env.QLC_EXT_URL!; // http://<non-loopback ip>:<port>
 

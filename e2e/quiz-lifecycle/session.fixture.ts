@@ -159,7 +159,8 @@ type Fixtures = {
 };
 
 export const test = base.extend<Fixtures & { egressGate: void }>({
-  egress: async ({}, use) => { await use({ violations: [] }); },
+  // Playwright requires a destructured first argument; `page` is named only to avoid an empty pattern.
+  egress: async ({ page: _page }, use) => { await use({ violations: [] }); },
 
   egressGate: [
     async ({ context, page, egress }, use, testInfo) => {
