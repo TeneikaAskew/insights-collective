@@ -1,0 +1,19 @@
+# UNRUN PROPOSAL. Expected journey-scope witness AFTER the browser run (pre-run: COURSE published=false status=draft, no other journey lines).
+# <ID:...> marks a run-generated UUID; the runner binds each to the value in the post MANIFEST, then requires every line
+# below to match exactly and every HASH line to equal the pre-run witness. <MD5_FEEDBACK> = md5 of the literal
+# '<p>Journey fixture: clear structure, cite one more source.</p>' computed by the runner from ids.ts, never from the DB.
+COURSE 9b6c0000-0000-4000-8000-000000000001 published=true status=published
+ENROLL <ID:enrollment> user=e2e00000-0000-4000-8000-000000000003 completion_status=<OBSERVED>
+PROG <ID:prog_page> user=e2e00000-0000-4000-8000-000000000003 item=9b6c0000-0000-4000-8000-000000000101 state=read
+PROG <ID:prog_assignment> user=e2e00000-0000-4000-8000-000000000003 item=9b6c0000-0000-4000-8000-000000000102 state=read
+SUB <ID:submission> user=e2e00000-0000-4000-8000-000000000003 assignment=9b6c0000-0000-4000-8000-000000000202 state=graded type=online_upload attempt=1 submitted_at=set grade=7 score=NULL comments_md5=<MD5_FEEDBACK> graded_at=set
+ATT <ID:attachment> submission=<ID:submission> filename=journey-essay.pdf size=<UPLOAD_BYTES> key_in_learner_prefix=true object_exists=true
+OBJ <ID:object> bucket=course-documents owner=e2e00000-0000-4000-8000-000000000003 in_learner_prefix=true size=<UPLOAD_BYTES> mimetype=application/pdf
+CERT <ID:certificate> user=e2e00000-0000-4000-8000-000000000003 type=completion auto_issued=true total_items=2 code_shape_ok=true issued_before_graded=true
+# AUDIT lines: exact sequence is NOT yet pinned. Expected to include file_downloaded by the instructor (J3a, SubmissionAttachments
+# audit) and the grade event written by the grading trigger. Pin it only after reading the #139 + r5 audit triggers in review.
+# NOTIF lines: expected at least the instructor's "submitted" notice and the learner's grade notice; exact multiset to be pinned
+# in review from notify triggers on the composed stack, the same way the grading fixture pinned expected-notif-added.txt.
+# MANIFEST added rows: enrollments 1, content_item_progressions 2, assignment_submissions 1, submission_attachments 1,
+# storage.objects 1, certificates 1, submission_audit_events >=1 (to pin), notifications >=1 (to pin). Anything else = FAIL.
+# Every HASH line: identical to the pre-run witness.
