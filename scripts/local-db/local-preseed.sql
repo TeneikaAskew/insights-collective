@@ -25,8 +25,11 @@ from generate_series(2,5) n on conflict (id) do nothing;
 insert into public.modules (id, course_id, title, position, published)
 values ('770e8400-e29b-41d4-a716-446655440012', '660e8400-e29b-41d4-a716-446655440002', 'Module 1', 1, true)
 on conflict (id) do nothing;
-insert into public.modules (id, course_id, title, position, published)
-values ('770e8400-e29b-41d4-a716-446655440001', '660e8400-e29b-41d4-a716-446655440001', 'Week 1', 1, true),
-       ('770e8400-e29b-41d4-a716-446655440002', '660e8400-e29b-41d4-a716-446655440001', 'Week 2', 2, true)
+-- The reference course's modules carry the production titles and weeks that e2e/courses/course-detail.spec.ts
+-- asserts and that 20251005171349 locates by week (1..3); synthetic ids, local rehearsal only.
+insert into public.modules (id, course_id, title, week, position, published)
+values ('770e8400-e29b-41d4-a716-446655440001', '660e8400-e29b-41d4-a716-446655440001', 'Foundations of Data Science', 1, 1, true),
+       ('770e8400-e29b-41d4-a716-446655440002', '660e8400-e29b-41d4-a716-446655440001', 'Python for Data Analysis', 2, 2, true),
+       ('770e8400-e29b-41d4-a716-446655440003', '660e8400-e29b-41d4-a716-446655440001', 'Statistical Methods', 3, 3, true)
 on conflict (id) do nothing;
 commit;
