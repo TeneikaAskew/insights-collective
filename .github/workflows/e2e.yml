@@ -203,7 +203,12 @@ jobs:
           echo "selected $n tests"
       - name: Playwright (read-only course specs, member session, built app)
         if: inputs.specs == 'readonly-courses'
-        run: npx --no-install playwright test --project=chromium-member e2e/courses/course-list.spec.ts e2e/courses/course-detail.spec.ts
+        env:
+          # Labels for every evidence screenshot (e2e/evidence/frontend-evidence.spec.ts). The backend mode is not a
+          # label: the spec measures it from the API responses and fails unless it is the loopback stack, unstubbed.
+          E2E_EVIDENCE_COMMIT: ${{ github.sha }}
+          E2E_EVIDENCE_ENVIRONMENT: isolated local Supabase stack (supabase start, loopback) + production build served by vite preview, GitHub-hosted ubuntu runner, chromium
+        run: npx --no-install playwright test --project=chromium-member e2e/courses/course-list.spec.ts e2e/courses/course-detail.spec.ts e2e/evidence/frontend-evidence.spec.ts
 
       - name: Upload evidence
         if: always()
