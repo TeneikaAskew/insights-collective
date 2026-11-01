@@ -1,6 +1,10 @@
 // ABOUTME: Labelled frontend evidence for an isolated local run: screenshots of the course catalog, a course
 // ABOUTME: detail page and a member-denied admin route at desktop, tablet and mobile viewports, each paired in a manifest
 // ABOUTME: with the commit, environment, viewport, backend mode and the API/data/permission outcomes observed.
+// Everything is a Playwright attachment (PNG, a JSON sidecar per screenshot, a JSON manifest per viewport), so the
+// spec itself writes nothing to disk; the html reporter stores the attachments in playwright-report/, which the
+// workflow uploads. The sidecars carry network-derived metadata (API method/host/path/query/status/row counts/course
+// ids, never bodies); CodeQL's js/http-to-file-access exclusion is not relied on for this spec.
 // Backend mode is MEASURED, not declared: the spec installs no route stubs and fails if any Supabase API
 // response comes from a host other than the configured loopback API. Save is NOT exercised: the
 // readonly-courses dispatch scope authorises no mutation, and the manifest says so instead of implying it.
@@ -8,10 +12,6 @@ import { test, expect } from '../fixtures/page-helpers';
 import { waitForPageLoad } from '../fixtures/page-helpers';
 import { Routes } from '../helpers/route-helpers';
 import type { Page, Response, TestInfo } from '@playwright/test';
-import { mkdirSync, writeFileSync, appendFileSync } from 'node:fs';
-import path from 'node:path';
-
-const OUT = path.resolve('test-results', 'frontend-evidence');
 const API = process.env.VITE_SUPABASE_URL || '';
 const LABELS = {
   commit: process.env.E2E_EVIDENCE_COMMIT || 'UNLABELLED',
@@ -67,14 +67,15 @@ function backendMode(calls: ApiCall[]) {
   };
 }
 
-async function capture(page: Page, info: TestInfo, vp: string, step: string, calls: ApiCall[], outcome: Record<string, unknown>) {
-  mkdirSync(OUT, { recursive: true });
+type Entry = Record<string, unknown> & { file: string; backend: ReturnType<typeof backendMode> };
+
+async function capture(page: Page, info: TestInfo, vp: string, step: string, calls: ApiCall[], outcome: Record<string, unknown>, manifest: Entry[]) {
   const file = `${LABELS.commit.slice(0, 12)}__${vp}__${step}.png`;
-  await page.screenshot({ path: path.join(OUT, file), fullPage: true });
-  const entry = { file, ...LABELS, viewport: vp, url: new URL(page.url()).pathname, backend: backendMode(calls), api: calls.slice(), outcome, capturedAt: new Date().toISOString() };
-  writeFileSync(path.join(OUT, file.replace(/\.png$/, '.json')), JSON.stringify(entry, null, 2));
-  appendFileSync(path.join(OUT, 'manifest.jsonl'), JSON.stringify(entry) + '\n');
-  await info.attach(file, { path: path.join(OUT, file), contentType: 'image/png' });
+  const png = await page.screenshot({ fullPage: true });
+  const entry: Entry = { file, ...LABELS, viewport: vp, url: new URL(page.url()).pathname, backend: backendMode(calls), api: calls.slice(), outcome, capturedAt: new Date().toISOString() };
+  manifest.push(entry);
+  await info.attach(file, { body: png, contentType: 'image/png' });
+  await info.attach(file.replace(/\.png$/, '.json'), { body: JSON.stringify(entry, null, 2), contentType: 'application/json' });
   expect(entry.backend.mode, `backend for ${step}`).toBe('authentic local Supabase (loopback, no stubs)');
 }
 
@@ -85,7 +86,11 @@ for (const vp of VIEWPORTS) {
     test('catalog, detail and a member-denied admin route, with paired outcomes', async ({ page }, info) => {
       expect(LABELS.commit, 'E2E_EVIDENCE_COMMIT must label every screenshot').not.toBe('UNLABELLED');
       const calls: ApiCall[] = [];
+      const manifest: Entry[] = [];
       recordApi(page, calls);
+      // The per-viewport manifest is attached even when an assertion fails part-way, so a failed run still shows
+      // every screenshot taken and its paired outcome.
+      try {
 
       await page.goto(Routes.courses); await waitForPageLoad(page);
       const cards = page.locator('[data-onboarding="course-grid"]').locator('button:has(h3)');
@@ -95,7 +100,7 @@ for (const vp of VIEWPORTS) {
       await capture(page, info, vp.name, '01-catalog', calls, {
         data: { cardsRendered: shown, coursesApiResponses: courseReads.map((c) => c.rows) },
         save: 'NOT EXERCISED (read-only dispatch scope)',
-      });
+      }, manifest);
 
       calls.length = 0;
       const detailPath = Routes.courseDetail(SEEDED_COURSE.id);
@@ -112,7 +117,7 @@ for (const vp of VIEWPORTS) {
           failedApi: calls.filter((c) => c.status >= 400).map((c) => `${c.status} ${c.path}`),
         },
         save: 'NOT EXERCISED (read-only dispatch scope)',
-      });
+      }, manifest);
       expect(headingText, 'the detail page must show the seeded course, not any h1').toBe(SEEDED_COURSE.title);
       expect(rowReads.length, 'the seeded course row must come back from the local REST API').toBeGreaterThan(0);
 
@@ -133,8 +138,11 @@ for (const vp of VIEWPORTS) {
       await capture(page, info, vp.name, '03-admin-as-member', calls, {
         permission: { requested: Routes.admin, finalPath, outcome, sessionBefore: before, sessionAfter: after, accessDeniedToast: toastShown },
         save: 'NOT EXERCISED (read-only dispatch scope)',
-      });
+      }, manifest);
       expect(outcome, 'a signed-in member must be refused at /admin and stay signed in').toBe('AUTHENTICATED MEMBER DENIED');
+      } finally {
+        await info.attach(`${LABELS.commit.slice(0, 12)}__${vp.name}__manifest.json`, { body: JSON.stringify(manifest, null, 2), contentType: 'application/json' });
+      }
     });
   });
 }
