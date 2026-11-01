@@ -110,6 +110,43 @@ describe('ProtectedRoute denial identity without unmount', () => {
     expect(toastSpy).toHaveBeenCalledTimes(2);
   });
 
+  // Deferred replies, resolved out of order: the first user's reply lands AFTER the second user's.
+  const deferred = () => { const waits = new Map<string, (v: boolean) => void>();
+    mockSupabaseClient.rpc = vi.fn((fn: string, args: Record<string, unknown>) => {
+      calls.push({ fn, args });
+      if (fn !== 'has_admin_access') return Promise.resolve({ data: null, error: null });
+      return new Promise((res) => waits.set(String(args.user_id_param), (v) => res({ data: v, error: null })));
+    }) as never;
+    return (id: string, v: boolean) => act(async () => { waits.get(id)!(v); await new Promise((r) => setTimeout(r, 20)); }); };
+
+  it('A pending, switch to admin B, B resolves, then A resolves: B keeps its grant (no spinner forever, no denial)', async () => {
+    const resolve = deferred();
+    const { rerender } = render(tree('/admin/a'));
+    await settle();
+    auth.id = 'admin-2'; rerender(tree('/admin/a')); await settle();
+    await resolve('admin-2', true);
+    expect(screen.getByText('ADMIN-A')).toBeTruthy();
+    await resolve('member-1', false);
+    expect(screen.getByText('ADMIN-A')).toBeTruthy();
+    expect(screen.queryByText('Verifying access...')).toBeNull();
+    expect(screen.queryByTestId('redirect')).toBeNull();
+    expect(denials()).toEqual([]);
+  });
+
+  it('admin A pending, switch to member B, B resolves, then A resolves: A\'s late grant never admits B', async () => {
+    const resolve = deferred();
+    auth.id = 'admin-0';
+    const { rerender } = render(tree('/admin/a'));
+    await settle();
+    auth.id = 'member-1'; rerender(tree('/admin/a')); await settle();
+    await resolve('member-1', false);
+    expect(denials()).toEqual(['member-1/admin/a']);
+    await resolve('admin-0', true);
+    expect(screen.queryByText('ADMIN-A')).toBeNull();
+    expect(screen.getByTestId('redirect').textContent).toBe('/dashboard');
+    expect(denials()).toEqual(['member-1/admin/a']);
+  });
+
   it('loading: no decision, notice or log until auth settles, then exactly one', async () => {
     auth.loading = true;
     const { rerender } = render(tree('/admin/a'));

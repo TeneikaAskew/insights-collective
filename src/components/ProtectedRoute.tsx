@@ -37,8 +37,8 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   const { isAuthenticated, user, session, storeRedirectPath, loading } = useAuth();
   const location = useLocation();
   // The decision records WHICH user it was made for. A decision for a previous user (sign-out and sign-in as someone
-  // else without this route unmounting, or a has_admin_access reply that lands after the user changed) is treated as
-  // pending, so it can neither redirect nor be announced as the new user's denial.
+  // else without this route unmounting) is treated as pending, so it can neither redirect nor be announced as the new
+  // user's denial. Late replies from a superseded check are dropped in the effect below (see `obsolete`).
   const [decision, setDecision] = React.useState<{ userId: string | null; granted: boolean; reason: DenialReason } | null>(null);
   const decisionSubject = user?.id ?? null;
   const hasAdminAccess = decision && decision.userId === decisionSubject ? decision.granted : null;
@@ -58,16 +58,21 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   // Check admin access if required
   React.useEffect(() => {
+    // A reply that arrives after this effect was superseded (another user, path or setting) is obsolete and must not
+    // write the decision: otherwise user A's late has_admin_access reply overwrote user B's decision with userId A,
+    // and B stayed on the spinner because nothing re-ran this effect. Security logs of the check still happen.
+    let obsolete = false;
+    const decide: typeof setHasAdminAccess = (...args) => { if (!obsolete) setHasAdminAccess(...args); };
     const checkAdminAccess = async () => {
       if (!requireAdmin || !user?.id) {
-        setHasAdminAccess(true);
+        decide(true);
         return;
       }
 
       // An instructor satisfies routes that opt into instructor access without
       // needing the admin RPC. Admins still fall through to has_admin_access.
       if (allowInstructor && isInstructor) {
-        setHasAdminAccess(true);
+        decide(true);
         await logSecurityEvent(user.id, 'protected_route_access', 'info', 'Protected route access: granted (instructor)', { path: location.pathname, requireAdmin, allowInstructor });
         return;
       }
@@ -79,18 +84,18 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         if (error) {
           logger.error('Error checking admin access in ProtectedRoute:', error);
           await logSecurityEvent(user.id, 'protected_route_admin_check_failed', 'error', 'Failed to verify admin access in ProtectedRoute', { error: error.message, path: location.pathname });
-          setHasAdminAccess(false, 'check_failed');
+          decide(false, 'check_failed');
           return;
         }
         
-        setHasAdminAccess(data || false);
+        decide(data || false);
         
         // Log access attempt
         await logSecurityEvent(user.id, 'protected_route_access', 'info', `Protected route access: ${data ? 'granted' : 'denied'}`, { path: location.pathname, requireAdmin });
         
       } catch (error) {
         logger.error('Exception in ProtectedRoute admin check:', error);
-        setHasAdminAccess(false, 'check_exception');
+        decide(false, 'check_exception');
       }
     };
 
@@ -103,8 +108,9 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
       // false, which stopped the loading check below from holding the route
       // and redirected a real admin away — logging them as an unauthorized
       // access attempt — before has_admin_access could reply.
-      setHasAdminAccess(!requireAdmin);
+      decide(!requireAdmin);
     }
+    return () => { obsolete = true; };
   }, [isAuthenticated, user?.id, hasSession, loading, requireAdmin, allowInstructor, isInstructor, location.pathname, setHasAdminAccess]);
 
   React.useEffect(() => {
