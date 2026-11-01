@@ -18,4 +18,9 @@ grep -v '^::add-mask::' <<<"$out" | grep -qE "eyJ|secret-|dbpw" && no "value-pri
 grep -qF 'SUPABASE_DB_URL=postgresql://' "$T/env" && ! grep -q SERVICE_ROLE "$T/env" && ! grep -q jwt-secret "$T/env" && ok "env-has-only-endpoints-and-anon" || no "env-content"
 mk; chmod 644 "$T/s"; node "$HERE/export-status.mjs" "$T/s" "$T/env" >/dev/null 2>"$T/e"; [ $? -ne 0 ] && grep -q 'readable by others' "$T/e" && [ ! -s "$T/env" ] && ok "refuses-readable-status-file" || no "readable"
 mk 10.0.0.5; out=$(node "$HERE/export-status.mjs" "$T/s" "$T/env" 2>"$T/e"); [ $? -ne 0 ] && grep -q 'non-loopback' "$T/e" && [ ! -s "$T/env" ] && ok "refuses-non-loopback (nothing exported)" || no "non-loopback"
+mk; out=$(node "$HERE/export-status.mjs" "$T/s" "$T/env" "$T/keys"); st=$?
+[ $st -eq 0 ] && [ "$(stat -c %a "$T/keys")" = 700 ] && [ "$(stat -c %a "$T/keys/service")" = 600 ] && [ "$(cat "$T/keys/service")" = "$J2" ] \
+  && grep -q "^T09_SERVICE_KEY_FILE=$T/keys/service$" "$T/env" && ! grep -qF "$J2" "$T/env" && ! grep -v '^::add-mask::' <<<"$out" | grep -qF "$J2" \
+  && ok "key-dir: 0700 dir, 0600 key files, only paths exported, service key never printed" || no "key-dir"
+mk; node "$HERE/export-status.mjs" "$T/s" "$T/env" "$T/keys" >/dev/null 2>"$T/e"; [ $? -ne 0 ] && grep -q 'never reused' "$T/e" && ok "key-dir-reuse-refused" || no "key-dir-reuse"
 echo "== export-status selftest (MOCKED status): $([ $RC -eq 0 ] && echo ALL PASS || echo FAILURES)"; exit $RC

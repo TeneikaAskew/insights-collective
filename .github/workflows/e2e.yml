@@ -243,7 +243,9 @@ jobs:
   # is registered with ::add-mask:: before it reaches GITHUB_ENV; evidence is scanned and staged as an exact manifest.
   # No allow_shim anywhere: authentic pg_net is required, and a missing capability stops the job with an exact BLOCKER
   # (nothing is granted, re-owned or reconfigured to get past it). External delivery is INTERCEPTED, NOT VERIFIED.
-  # Not yet in this job (separate review): GoTrue personas, API controls, history hash.
+  # API tier: personas via the local GoTrue admin API, persona JWTs through Kong -> PostgREST, witness reads; keys and
+  # tokens live only in 0600 files under RUNNER_TEMP and are deleted at stop. Protected history is hashed across the
+  # migrations and certificates are re-checked after every trigger-firing control.
   t09-runtime:
     name: T-09 runtime (OLD then NEW, local stacks)
     if: inputs.specs == 't09-runtime'
@@ -315,7 +317,7 @@ jobs:
           if ! npx --no-install supabase status --workdir "$IC_WORKDIR_OLD" -o env > "$S" 2> "$S.err"; then
             echo "supabase status failed; redacted:"; scripts/local-stack/t09/stack-checks.sh redact < "$S.err"; rm -f "$S" "$S.err"; exit 1
           fi
-          node scripts/local-stack/t09/export-status.mjs "$S" "$GITHUB_ENV"
+          node scripts/local-stack/t09/export-status.mjs "$S" "$GITHUB_ENV" "$RUNNER_TEMP/t09-keys-old"
           rm -f "$S" "$S.err"
       - name: OLD - target guards
         run: |
@@ -331,8 +333,10 @@ jobs:
         run: scripts/local-stack/bootstrap.sh "$SUPABASE_DB_URL" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$T09_EVIDENCE/old-bootstrap.txt"
       - name: OLD - verify identities
         run: scripts/local-stack/verify-identities.sh "$SUPABASE_DB_URL" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$T09_EVIDENCE/old-identities.txt"
-      - name: OLD - STAGE APP (verify bootstrap's vault, app sentinels, 2 migrations, SQL tier expecting OLD assertion failures)
-        run: scripts/local-stack/t09/stage-app.sh "$SUPABASE_DB_URL" OLD 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$T09_EVIDENCE/old-stage-app.txt"
+      - name: OLD - STAGE APP (personas + legacy API fixtures, history seed and hash window, 2 migrations, app sentinels, SQL tier expecting OLD assertion failures, API controls)
+        run: |
+          export T09_PERSONA_FILE="$RUNNER_TEMP/t09-old-personas.json"
+          scripts/local-stack/t09/stage-app.sh "$SUPABASE_DB_URL" OLD 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$T09_EVIDENCE/old-stage-app.txt"
       # Cleanup runs for a PREPARED stack whatever failed before it; the earlier failure still fails the job.
       - name: OLD - stop (no backup)
         if: always() && steps.old_prep.outcome == 'success'
@@ -343,6 +347,8 @@ jobs:
             echo "supabase stop failed; redacted tail:"; tail -20 "$LOG" | scripts/local-stack/t09/stack-checks.sh redact; exit 1
           fi
           echo "supabase stop ok (OLD)"
+          rm -rf "$RUNNER_TEMP/t09-keys-old" "$RUNNER_TEMP/t09-old-personas.json"
+          echo "local keys and persona tokens for OLD deleted"
       - name: OLD - nothing left behind (runs after any failure once the stack was prepared)
         if: always() && steps.old_prep.outcome == 'success'
         run: scripts/local-stack/t09/stack-checks.sh leftovers | tee "$T09_EVIDENCE/old-leftovers.txt"
@@ -373,7 +379,7 @@ jobs:
           if ! npx --no-install supabase status --workdir "$IC_WORKDIR_NEW" -o env > "$S" 2> "$S.err"; then
             echo "supabase status failed; redacted:"; scripts/local-stack/t09/stack-checks.sh redact < "$S.err"; rm -f "$S" "$S.err"; exit 1
           fi
-          node scripts/local-stack/t09/export-status.mjs "$S" "$GITHUB_ENV"
+          node scripts/local-stack/t09/export-status.mjs "$S" "$GITHUB_ENV" "$RUNNER_TEMP/t09-keys-new"
           rm -f "$S" "$S.err"
       - name: NEW - target guards
         run: |
@@ -389,8 +395,10 @@ jobs:
         run: scripts/local-stack/bootstrap.sh "$SUPABASE_DB_URL" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$T09_EVIDENCE/new-bootstrap.txt"
       - name: NEW - verify identities
         run: scripts/local-stack/verify-identities.sh "$SUPABASE_DB_URL" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$T09_EVIDENCE/new-identities.txt"
-      - name: NEW - STAGE APP (verify bootstrap's vault, app sentinels, 7 migrations, SQL tier requiring exit 0)
-        run: scripts/local-stack/t09/stage-app.sh "$SUPABASE_DB_URL" NEW 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$T09_EVIDENCE/new-stage-app.txt"
+      - name: NEW - STAGE APP (personas + legacy API fixtures, history seed and hash window, 7 migrations, app sentinels, SQL tier requiring exit 0, API controls)
+        run: |
+          export T09_PERSONA_FILE="$RUNNER_TEMP/t09-new-personas.json"
+          scripts/local-stack/t09/stage-app.sh "$SUPABASE_DB_URL" NEW 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$T09_EVIDENCE/new-stage-app.txt"
       # Cleanup runs for a PREPARED stack whatever failed before it; the earlier failure still fails the job.
       - name: NEW - stop (no backup)
         if: always() && steps.new_prep.outcome == 'success'
@@ -401,6 +409,8 @@ jobs:
             echo "supabase stop failed; redacted tail:"; tail -20 "$LOG" | scripts/local-stack/t09/stack-checks.sh redact; exit 1
           fi
           echo "supabase stop ok (NEW)"
+          rm -rf "$RUNNER_TEMP/t09-keys-new" "$RUNNER_TEMP/t09-new-personas.json"
+          echo "local keys and persona tokens for NEW deleted"
       - name: NEW - nothing left behind (runs after any failure once the stack was prepared)
         if: always() && steps.new_prep.outcome == 'success'
         run: scripts/local-stack/t09/stack-checks.sh leftovers | tee "$T09_EVIDENCE/new-leftovers.txt"
