@@ -10,7 +10,7 @@
 //   pgconn.mjs check <dsn>                 exit 0 or 1 with a fixed reason (the DSN is never echoed)
 //   pgconn.mjs passfile <dsn> <out file>   writes the libpq passfile for exactly this host:port:db:user, mode 0600
 // Importable: checkDsn(dsn) -> { ok, reason, parts }, childEnv(passfile) -> env for a psql child.
-import { closeSync, constants, fstatSync, lstatSync, openSync, readFileSync, writeFileSync } from 'node:fs';
+import { closeSync, constants, fstatSync, lstatSync, openSync, readSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { assertLocalDsn } from '../../local-db/assert-local-dsn.mjs';
@@ -40,17 +40,46 @@ export function checkDsn(dsn) {
   return { ok: true, reason: '', parts: { host: u.hostname.replace(/^\[|\]$/g, ''), port: u.port, db, user } };
 }
 
-/** Reads the password file with the private-file rule; never returns or throws its content. */
-function readPassword(file) {
-  if (!path.isAbsolute(file)) throw new Error('LE_DB_PASSWORD_FILE must be an absolute path');
+/**
+ * Reads the password file with the private-file rule; never returns or throws its content. The OPENED handle is the
+ * authority: open is read-only, no-follow and NON-BLOCKING (a FIFO or device cannot stall it), then fstat on that same
+ * descriptor must show a regular file, owned by this user, with no group/other bits, before any byte is read. The lstat
+ * beforehand only gives an early, clear message; replacing the path after it changes nothing. `hooks.afterPathCheck` exists
+ * only for tests/pgconn-selftest.mjs (a replacement between the path check and the open).
+ */
+const MAX_PASSWORD_FILE = 4096;
+export function readPassword(file, hooks = {}) {
+  if (typeof file !== 'string' || !path.isAbsolute(file)) throw new Error('LE_DB_PASSWORD_FILE must be an absolute path');
   const l = lstatSync(file, { throwIfNoEntry: false });
   if (!l || !l.isFile() || l.isSymbolicLink()) throw new Error('LE_DB_PASSWORD_FILE must be a regular file');
-  const fd = openSync(file, constants.O_RDONLY | constants.O_NOFOLLOW);
+  hooks.afterPathCheck?.();
+  let fd;
+  try {
+    fd = openSync(file, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK | constants.O_NOCTTY);
+  } catch (e) {
+    throw new Error(e?.code === 'ELOOP' ? 'LE_DB_PASSWORD_FILE must be a regular file (symlink refused)' : 'LE_DB_PASSWORD_FILE could not be opened');
+  }
   try {
     const st = fstatSync(fd);
+    if (!st.isFile()) throw new Error('LE_DB_PASSWORD_FILE must be a regular file');
     if ((st.mode & 0o077) !== 0) throw new Error('LE_DB_PASSWORD_FILE must not be readable by group or others (mode 600)');
     if (typeof process.getuid === 'function' && st.uid !== process.getuid()) throw new Error('LE_DB_PASSWORD_FILE must be owned by this user');
-    const pw = readFileSync(fd, 'utf8').replace(/\r?\n$/, '');
+    if (st.size > MAX_PASSWORD_FILE) throw new Error('LE_DB_PASSWORD_FILE is too large');
+    const buf = Buffer.alloc(MAX_PASSWORD_FILE + 1);
+    let n = 0;
+    for (;;) {
+      let r;
+      try {
+        r = readSync(fd, buf, n, buf.length - n, null);
+      } catch {
+        throw new Error('LE_DB_PASSWORD_FILE could not be read');
+      }
+      if (r === 0) break;
+      n += r;
+      if (n > MAX_PASSWORD_FILE) throw new Error('LE_DB_PASSWORD_FILE is too large');
+    }
+    const pw = buf.subarray(0, n).toString('utf8').replace(/\r?\n$/, '');
+    buf.fill(0);
     if (!pw || /[\r\n]/.test(pw)) throw new Error('LE_DB_PASSWORD_FILE must hold exactly one non-empty line');
     return pw;
   } finally {

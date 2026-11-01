@@ -51,7 +51,10 @@ real version trigger and conditional fence, roles under real RLS, and the recove
 - **Traces, videos and automatic screenshots are off** (a trace would hold request headers and storage).
 - **Database credentials.** Every DB URL is password-free (`postgresql://user@host:port/db`, checked by `pgconn.mjs` and
   the shared strict parser). The password, when needed, comes only from `LE_DB_PASSWORD_FILE` (absolute, regular, not a
-  symlink, owned by the caller, no group or other bits, one line). Each invocation writes a private 0600 libpq passfile
+  symlink, owned by the caller, no group or other bits, one line, at most 4 KiB). The OPENED handle decides: the open is
+  read-only, no-follow and non-blocking, and fstat on that descriptor must show a regular file before any byte is read,
+  so replacing the path after the check (a FIFO, a symlink) is refused instead of hanging. `tests/pgconn-selftest.mjs`
+  (K1-K13, no database) proves it; its `blocking-open` control fails the regular-to-FIFO replacement case by hanging. Each invocation writes a private 0600 libpq passfile
   for exactly that host, port, database and user, names it to psql only in the child environment (`PGPASSFILE`), and
   removes it on exit. An external `PGPASSWORD` is refused by `run.sh`, `preflight.mjs` and the spec. psql always runs with
   `-w`, so a missing password fails closed instead of prompting.
