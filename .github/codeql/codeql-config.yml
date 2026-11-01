@@ -33,7 +33,13 @@ query-filters:
   # by default, and writes to a fixed path, but it is covered by this exclusion and
   # should be named rather than discovered later.
   #
-  # Those two are the whole reviewed set. The "Filesystem writes stay in reviewed
+  # The write-location gate below also allows one exact test file,
+  # src/test/ci/checkLocalTarget.test.ts, which writes fixed synthetic fixture
+  # strings into a fresh mkdtemp directory. It reads no network data, so it is not a
+  # flow this exclusion is about; it is listed only because the gate matches every
+  # write call. This adds no query suppression.
+  #
+  # Those two are the whole reviewed network-to-disk set. The "Filesystem writes stay in reviewed
   # locations" step in security.yml is what keeps it that way: it enumerates every
   # tracked source file, subtracts those two, and fails the build on anything left.
   # Remove that step and this exclusion stops being narrow.
