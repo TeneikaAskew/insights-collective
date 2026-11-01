@@ -5,6 +5,8 @@
 # does when it receives only the one-line preamble. The real target guard runs against loopback values.
 # Each script is copied into a private sandbox with the repository layout, so nothing in the checkout is modified.
 # Optional: SEED_SH / SEED_AUTH_SH point at other copies of the scripts (used for the before/after control).
+# Each assertion's status is saved in $ok BEFORE its message is built: a command substitution inside the
+# message (e.g. $(id -u)) would otherwise reset $? and turn a failed assertion into a PASS.
 # Unreadable-file cases need a non-root uid; under root they run through `setpriv` as uid 1000 (skipped, and
 # reported as SKIP, if that is impossible).
 set -u
@@ -58,42 +60,42 @@ for spec in "seed.sh:scripts/e2e/seed.sh:e2e/fixtures/seed.sql:END-OF-SEED-SQL" 
   t=$(tree "pos-$name"); st=$(run "$t" "$rel")
   [ "$st" = 0 ] && psql_ran "$t" && head -1 "$t/log/stdin" | grep -q "set_config('e2e.password'" && tail -1 "$t/log/stdin" | grep -q "$marker" \
     && grep -qx -- '-v' "$t/log/args" && grep -qx 'ON_ERROR_STOP=1' "$t/log/args"
-  say "$name valid source: exit 0, psql receives preamble + full SQL (positive control)" $?
+  ok=$?; say "$name valid source: exit 0, psql receives preamble + full SQL (positive control)" $ok
 
   # missing source
   t=$(tree "missing-$name"); rm -f "$t/$src"; st=$(run "$t" "$rel")
-  [ "$st" != 0 ] && ! psql_ran "$t"; say "$name missing source: non-zero exit ($st) and psql never started" $?
+  [ "$st" != 0 ] && ! psql_ran "$t"; ok=$?; say "$name missing source: non-zero exit ($st) and psql never started" $ok
 
   # directory in place of the file (not a regular file)
   t=$(tree "dir-$name"); rm -f "$t/$src"; mkdir "$t/$src"; st=$(run "$t" "$rel")
-  [ "$st" != 0 ] && ! psql_ran "$t"; say "$name directory instead of file: non-zero exit ($st) and psql never started" $?
+  [ "$st" != 0 ] && ! psql_ran "$t"; ok=$?; say "$name directory instead of file: non-zero exit ($st) and psql never started" $ok
 
   # empty file
   t=$(tree "empty-$name"); : > "$t/$src"; st=$(run "$t" "$rel")
-  [ "$st" != 0 ] && ! psql_ran "$t"; say "$name empty source: non-zero exit ($st) and psql never started" $?
+  [ "$st" != 0 ] && ! psql_ran "$t"; ok=$?; say "$name empty source: non-zero exit ($st) and psql never started" $ok
 
   # dangling symlink
   t=$(tree "dangle-$name"); rm -f "$t/$src"; ln -s "$t/nowhere.sql" "$t/$src"; st=$(run "$t" "$rel")
-  [ "$st" != 0 ] && ! psql_ran "$t"; say "$name dangling symlink: non-zero exit ($st) and psql never started" $?
+  [ "$st" != 0 ] && ! psql_ran "$t"; ok=$?; say "$name dangling symlink: non-zero exit ($st) and psql never started" $ok
 
   # unreadable (mode 000), as a non-root uid
   if [ "$(id -u)" = 0 ] && ! command -v setpriv >/dev/null; then skip "$name unreadable source (no setpriv)"
   else
     uid=""; [ "$(id -u)" = 0 ] && uid=1000
     t=$(tree "unread-$name"); chmod 000 "$t/$src"; st=$(run "$t" "$rel" "" "$uid")
-    [ "$st" != 0 ] && ! psql_ran "$t"; say "$name unreadable source (mode 000, uid ${uid:-$(id -u)}): non-zero exit ($st) and psql never started" $?
+    [ "$st" != 0 ] && ! psql_ran "$t"; ok=$?; say "$name unreadable source (mode 000, uid ${uid:-$(id -u)}): non-zero exit ($st) and psql never started" $ok
     # control for the uid switch itself: the same uid CAN run the valid case
     t=$(tree "unread-ctl-$name"); st=$(run "$t" "$rel" "" "$uid")
-    [ "$st" = 0 ] && psql_ran "$t"; say "$name same uid with a readable source: exit 0 (control for the unreadable case)" $?
+    [ "$st" = 0 ] && psql_ran "$t"; ok=$?; say "$name same uid with a readable source: exit 0 (control for the unreadable case)" $ok
   fi
 
   # pipefail: preflight passes but `cat` fails; the fake psql still exits 0 after the preamble
   t=$(tree "badcat-$name"); st=$(run "$t" "$rel" "$SB/badcat")
-  [ "$st" != 0 ]; say "$name cat fails after preflight: pipeline failure propagates (exit $st) although psql exited 0" $?
+  [ "$st" != 0 ]; ok=$?; say "$name cat fails after preflight: pipeline failure propagates (exit $st) although psql exited 0" $ok
 
   # psql failure propagates
   t=$(tree "psqlfail-$name"); st=$(FAKE_PSQL_EXIT=3 run "$t" "$rel")
-  [ "$st" = 3 ]; say "$name psql exit 3 is the script's exit status" $?
+  [ "$st" = 3 ]; ok=$?; say "$name psql exit 3 is the script's exit status" $ok
 done
 echo "summary: $npass PASS / $nfail FAIL / $nskip SKIP"
 exit $rc
