@@ -50,30 +50,30 @@ test.describe('Course Detail', () => {
     expect((await errorMsg.count()) > 0 || redirected).toBe(true);
   });
 
-  // There is no breadcrumb and no back link on this page. Measured: no visible
-  // a[href="/courses"], and the only actions are Message instructor, Download
-  // .ics file and Copy feed URL. The old locator passed on its bare `nav`
-  // alternative, which the app shell renders on every page — so the test was
-  // green for the shell, not for a breadcrumb.
-  //
-  // Skipped with the measurement rather than deleted: a course page with no way
-  // back to the catalog is a reasonable thing to want to fix, and a skip keeps
-  // that visible in the coverage report where a deletion erases it.
-  test.skip(
-    'breadcrumb or back link renders',
-    {
-      annotation: {
-        type: 'skip-reason',
-        description:
-          'UI gap: /courses/:id renders no breadcrumb and no back link (no visible a[href="/courses"]); navigation back to the catalog is only via the app sidebar.',
-      },
-    },
-    async ({ page }) => {
-      await goto(page, courseUrl);
-      await expect(page.locator('a[href="/courses"]').filter({ visible: true }).first()).toBeVisible();
-    },
-  );
+  // The page has a breadcrumb, and has had one since at least 2025-10-05 (the clone's history boundary). The earlier
+  // skip recorded "no breadcrumb" because it measured only `a[href="/courses"]`: for a signed-in user the "Courses"
+  // crumb goes to /enrolled-courses (CourseDetail.tsx: `isAuthenticated ? "/enrolled-courses" : "/courses"`), so that
+  // locator could never match here. This runs in signed-in projects only; the signed-out target (/courses) is NOT
+  // exercised.
+  test('breadcrumb: current course is the page crumb; Courses goes to My Courses and Back returns', async ({ page }) => {
+    await goto(page, courseUrl);
+    const crumbs = page.getByRole('navigation', { name: 'breadcrumb' }).filter({ visible: true });
+    await expect(crumbs).toHaveCount(1);
+    const title = (await page.locator('h1:visible').first().textContent())?.trim() ?? '';
+    expect(title).not.toBe('');
+    await expect(crumbs.locator('[aria-current="page"]')).toHaveText(title);
+    const courses = crumbs.getByRole('link', { name: 'Courses', exact: true });
+    await expect(courses).toHaveAttribute('href', '/enrolled-courses');
 
+    await courses.click();
+    await expect(page).toHaveURL(/\/enrolled-courses$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'My Courses' }).filter({ visible: true })).toBeVisible();
+
+    await page.goBack();
+    await expect(page).toHaveURL(new RegExp(`${courseUrl}$`));
+    await expect(page.getByRole('navigation', { name: 'breadcrumb' }).filter({ visible: true })
+      .locator('[aria-current="page"]')).toHaveText(title);
+  });
 
   test('sidebar is visible', async ({ page }) => {
     await goto(page, courseUrl);
