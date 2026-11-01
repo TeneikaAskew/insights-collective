@@ -1,5 +1,5 @@
--- ABOUTME: Re-checks the pg_net interception guard and the local-only integration state. Run right after the guard
--- ABOUTME: (before bootstrap), after migrations, after controls and at teardown. Strictly read-only: it sends nothing and
+-- ABOUTME: Re-checks the pg_net interception guard and the local-only integration state. -v stage=pre right after the guard
+-- ABOUTME: (before bootstrap, queue-only); -v stage=app after bootstrap, after migrations, after controls and at teardown. Strictly read-only: it sends nothing and
 -- ABOUTME: writes nothing (sentinels live in egress-sentinels.sql). Any deviation raises (ON_ERROR_STOP -> exit 3).
 \set ON_ERROR_STOP 1
 -- LOCAL-SHIM MODE mirrors egress-guard.sql: only with -v allow_shim=1 and the net shim marker present may the local
@@ -8,6 +8,18 @@
 select set_config('t09.allow_shim', :'allow_shim', false) \gset t09_
 \else
 select set_config('t09.allow_shim', '0', false) \gset t09_
+\endif
+-- STAGE is required, with no default, so a caller can never get the weaker stage by omission.
+--   pre : right after the guard, BEFORE any bootstrap write. Queue-only: design and guard identity, enable mode, owner,
+--         replica proof, exclusivity, empty queue, no non-placeholder attempt, and none of the frozen vault names
+--         present yet. Application functions, vault readers and cron do not exist yet and are NOT checked here.
+--   app : after bootstrap (and after migrations, controls and at teardown). Everything in pre, plus the exact vault
+--         name set and placeholder values, the frozen vault-reader set, and pg_cron with zero jobs.
+\if :{?stage}
+select set_config('t09.stage', :'stage', false) \gset t09_
+\else
+\echo 'egress-verify: -v stage=pre|app is required'
+select 1/0 as stage_required;
 \endif
 -- The frozen vault-name set and reader-function set, computed from scripts/local-stack/schema/03_functions.sql at
 -- 9cd162ff24a59142dca20b926a88139bfeb66076. A change to either is a failure here, never an automatic update.
@@ -82,6 +94,22 @@ begin
       (select count(*) from local_evidence.egress_attempts where dest_class = 'other');
   end if;
 
+  if current_setting('t09.stage') not in ('pre', 'app') then
+    raise exception 'egress-verify: stage must be pre or app (got %)', current_setting('t09.stage');
+  end if;
+  if current_setting('t09.stage') = 'pre' then
+    -- Nothing may have seeded the integration secrets before the guard existed.
+    if to_regclass('vault.decrypted_secrets') is not null then
+      select count(*) into n from vault.decrypted_secrets where name = any (expected_names);
+      if n <> 0 then raise exception 'egress-verify[pre]: % frozen vault name(s) already present before bootstrap', n; end if;
+    end if;
+    raise notice 'egress-verify OK [pre, queue-only]: pg_net %, guard mode %, attempts local-placeholder=% other=0 (application functions, vault readers and cron NOT checked at this stage)',
+      coalesce((select extversion from pg_extension where extname = 'pg_net'), 'LOCAL-SHIM'),
+      (select v from local_evidence.guard_identity where k = 'trigger_enabled'),
+      (select count(*) from local_evidence.egress_attempts where dest_class = 'local-placeholder');
+    return;
+  end if;
+
   -- Vault: schema present, exact name set, each exactly once, non-NULL, exactly the placeholder. Names only printed.
   if to_regclass('vault.decrypted_secrets') is null then raise exception 'egress-verify: vault.decrypted_secrets missing'; end if;
   for r in select e.nm, count(s.name) c, bool_and(s.decrypted_secret is not null and s.decrypted_secret = placeholder) ok
@@ -106,7 +134,7 @@ begin
   select count(*) into n from cron.job;
   if n <> 0 then raise exception 'egress-verify: cron.job has % job(s) (expected 0)', n; end if;
 
-  raise notice 'egress-verify OK: pg_net %, pg_cron %, vault names %, attempts local-placeholder=% other=0',
+  raise notice 'egress-verify OK [app]: pg_net %, pg_cron %, vault names %, attempts local-placeholder=% other=0',
     coalesce((select extversion from pg_extension where extname = 'pg_net'), 'LOCAL-SHIM'),
     coalesce((select extversion from pg_extension where extname = 'pg_cron'), 'LOCAL-SHIM'),
     array_length(expected_names, 1), (select count(*) from local_evidence.egress_attempts where dest_class = 'local-placeholder');

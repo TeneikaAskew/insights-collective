@@ -47,5 +47,5 @@ done
 got=$(psql "$DB" -Atc "select count(*) || '|' || string_agg(sha256, ',' order by seq) from local_evidence.applied_migrations")
 want="$N|$(for pin in "${PINS[@]:0:$N}"; do echo "${pin##*|}"; done | paste -sd,)"
 [ "$got" = "$want" ] && echo "PASS ledger: $N rows, sha256 sequence matches" || { echo "FAIL ledger: $got"; exit 1; }
-psql "$DB" -v allow_shim="$ALLOW_SHIM" -q -f "$HERE/egress-verify.sql" 2>&1 | grep -E "egress-verify|ERROR" | sed 's/^.*NOTICE: */   /'
+psql "$DB" -v allow_shim="$ALLOW_SHIM" -v stage=app -q -f "$HERE/egress-verify.sql" 2>&1 | grep -E "egress-verify|ERROR" | sed 's/^.*NOTICE: */   /'
 [ "${PIPESTATUS[0]}" -eq 0 ] && echo "PASS guard intact after $MODE migrations" || { echo "FAIL guard after $MODE migrations"; exit 1; }

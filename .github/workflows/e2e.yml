@@ -30,7 +30,8 @@ on:
         description: Playwright spec scope. Starts with the read-only course specs (evidence gate 1).
         type: choice
         default: readonly-courses
-        options: [readonly-courses]
+        # t09-runtime: the T-09 SQL runtime job below. LOCAL stack only; it runs no browser and serves no Edge Function.
+        options: [readonly-courses, t09-runtime]
 
 permissions: {}
 
@@ -41,6 +42,8 @@ concurrency:
 jobs:
   isolated:
     name: Isolated stack (PG15, loopback)
+    # Narrowed, not broadened: this job runs only for its own scope, so a t09-runtime dispatch never starts it.
+    if: inputs.specs == 'readonly-courses'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
@@ -229,3 +232,166 @@ jobs:
         if: always()
         continue-on-error: true
         run: npx --no-install supabase stop --workdir "$IC_WORKDIR" --no-backup
+
+  # T-09 SQL runtime on authentic local stacks: OLD (pre-T-09 control: 000000 + 000100) then NEW (all seven), each on its
+  # own fresh `supabase start`, stopped with --no-backup and checked empty before the next. Order per mode:
+  #   start -> ports + mail checks -> STAGE PRE (guard installed BEFORE any bootstrap write; queue-only verify; installed
+  #   net.* sentinels) -> bootstrap + identities -> STAGE APP (vault placeholders; full verify; vault-caller sentinels,
+  #   fanout catalog inventory and the SYNTHETIC scratch-relation fanout unit; reviewed migrations with the guard
+  #   re-verified; sentinels again; SQL tier; teardown verify) -> stop --no-backup -> leftovers check.
+  # No allow_shim anywhere: authentic pg_net is required, and a missing capability stops the job with an exact BLOCKER
+  # (nothing is granted, re-owned or reconfigured to get past it). External delivery is INTERCEPTED, NOT VERIFIED.
+  # Not yet in this job (separate review): GoTrue personas, API controls, history hash.
+  t09-runtime:
+    name: T-09 runtime (OLD then NEW, local stacks)
+    if: inputs.specs == 't09-runtime'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    env:
+      E2E_TEST_PASSWORD: local-only-e2e-password
+      E2E_BASE_URL: http://127.0.0.1:8080
+      E2E_ISOLATED_TARGET_REF: ''
+      CI: 'true'
+      T09_EVIDENCE: t09-evidence
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Record tested commit and tree
+        run: |
+          git rev-parse HEAD HEAD^{tree} | tee tested-ids.txt
+          git log -1 --format='%H %P' >> tested-ids.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+      - name: npm ci (no lifecycle scripts)
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Workflow policy check (executed file; no secrets, no writes, no remote Supabase)
+        run: node scripts/ci/check-isolated-workflow.mjs --executed
+      - name: npm rebuild (dependency install scripts)
+        run: npm rebuild
+
+      # Static, no database: frozen fanout source inventory and the OLD-classifier selftest.
+      - name: Fanout source inventory (snapshot + seven pinned migrations attach it nowhere)
+        run: |
+          mkdir -p "$T09_EVIDENCE"
+          scripts/local-stack/t09/fanout-inventory.sh | tee "$T09_EVIDENCE/fanout-inventory.txt"
+      - name: SQL-tier classifier selftest
+        run: scripts/local-stack/t09/sql-tier.sh --selftest | tee "$T09_EVIDENCE/sql-tier-selftest.txt"
+      - name: Stack-check selftest (MOCKED docker/ss; proves the refuse paths before they guard a real stack)
+        run: scripts/local-stack/t09/tests/stack-checks-selftest.sh | tee "$T09_EVIDENCE/stack-checks-selftest.txt"
+
+      # ---------------- OLD ----------------
+      - name: OLD - prepare workdir
+        run: |
+          W="$RUNNER_TEMP/ic-t09-old"
+          scripts/local-stack/workdir.sh "$W"
+          echo "IC_WORKDIR=$W" >> "$GITHUB_ENV"
+      - name: OLD - supabase start (local; no studio, no edge runtime)
+        run: npx --no-install supabase start --workdir "$IC_WORKDIR" -x studio,imgproxy,logflare,vector,supavisor,edge-runtime
+      - name: OLD - export loopback endpoints
+        run: |
+          npx --no-install supabase status --workdir "$IC_WORKDIR" -o env > "$RUNNER_TEMP/status.env"
+          node - "$RUNNER_TEMP/status.env" >> "$GITHUB_ENV" <<'JS'
+          const fs = require('fs');
+          const kv = Object.fromEntries(fs.readFileSync(process.argv[2], 'utf8').split('\n')
+            .map(l => l.match(/^([A-Z_]+)="?(.*?)"?$/)).filter(Boolean).map(m => [m[1], m[2]]));
+          for (const k of ['API_URL', 'DB_URL', 'ANON_KEY']) if (!kv[k]) { console.error(`status: ${k} missing`); process.exit(2); }
+          const api = new URL(kv.API_URL), db = new URL(kv.DB_URL);
+          for (const u of [api, db]) if (!['127.0.0.1', 'localhost'].includes(u.hostname)) { console.error('status: non-loopback endpoint'); process.exit(2); }
+          console.log(`VITE_SUPABASE_URL=${kv.API_URL}`);
+          console.log(`E2E_RELAY_TARGET=${kv.API_URL}`);
+          console.log(`SUPABASE_DB_URL=${kv.DB_URL}`);
+          console.log(`VITE_SUPABASE_ANON_KEY=${kv.ANON_KEY}`);
+          console.log(`VITE_SUPABASE_PUBLISHABLE_KEY=${kv.ANON_KEY}`);
+          JS
+          rm -f "$RUNNER_TEMP/status.env"
+      - name: OLD - target guards
+        run: |
+          node scripts/e2e/assert-safe-target.mjs --mutating
+          node scripts/ci/check-local-target.mjs env
+      - name: OLD - published ports loopback-only, mail to the local catcher only
+        run: |
+          scripts/local-stack/t09/stack-checks.sh ports | tee "$T09_EVIDENCE/old-ports.txt"
+          scripts/local-stack/t09/stack-checks.sh mail | tee "$T09_EVIDENCE/old-mail.txt"
+      - name: OLD - STAGE PRE (guard before any bootstrap write; queue-only verify; installed net.* sentinels)
+        run: scripts/local-stack/t09/stage-pre.sh "$SUPABASE_DB_URL" | tee "$T09_EVIDENCE/old-stage-pre.txt"
+      - name: OLD - bootstrap schema snapshot
+        run: scripts/local-stack/bootstrap.sh "$SUPABASE_DB_URL" | tee "$T09_EVIDENCE/old-bootstrap.txt"
+      - name: OLD - verify identities
+        run: scripts/local-stack/verify-identities.sh "$SUPABASE_DB_URL" | tee "$T09_EVIDENCE/old-identities.txt"
+      - name: OLD - STAGE APP (vault, full verify, app sentinels, 2 migrations, SQL tier expecting OLD failures)
+        run: scripts/local-stack/t09/stage-app.sh "$SUPABASE_DB_URL" OLD | tee "$T09_EVIDENCE/old-stage-app.txt"
+      - name: OLD - stop (no backup)
+        if: always()
+        run: npx --no-install supabase stop --workdir "$IC_WORKDIR" --no-backup
+      - name: OLD - nothing left behind
+        run: scripts/local-stack/t09/stack-checks.sh leftovers | tee "$T09_EVIDENCE/old-leftovers.txt"
+
+      # ---------------- NEW (fresh stack) ----------------
+      - name: NEW - prepare workdir
+        run: |
+          W="$RUNNER_TEMP/ic-t09-new"
+          scripts/local-stack/workdir.sh "$W"
+          echo "IC_WORKDIR=$W" >> "$GITHUB_ENV"
+      - name: NEW - supabase start (local; no studio, no edge runtime)
+        run: npx --no-install supabase start --workdir "$IC_WORKDIR" -x studio,imgproxy,logflare,vector,supavisor,edge-runtime
+      - name: NEW - export loopback endpoints
+        run: |
+          npx --no-install supabase status --workdir "$IC_WORKDIR" -o env > "$RUNNER_TEMP/status.env"
+          node - "$RUNNER_TEMP/status.env" >> "$GITHUB_ENV" <<'JS'
+          const fs = require('fs');
+          const kv = Object.fromEntries(fs.readFileSync(process.argv[2], 'utf8').split('\n')
+            .map(l => l.match(/^([A-Z_]+)="?(.*?)"?$/)).filter(Boolean).map(m => [m[1], m[2]]));
+          for (const k of ['API_URL', 'DB_URL', 'ANON_KEY']) if (!kv[k]) { console.error(`status: ${k} missing`); process.exit(2); }
+          const api = new URL(kv.API_URL), db = new URL(kv.DB_URL);
+          for (const u of [api, db]) if (!['127.0.0.1', 'localhost'].includes(u.hostname)) { console.error('status: non-loopback endpoint'); process.exit(2); }
+          console.log(`VITE_SUPABASE_URL=${kv.API_URL}`);
+          console.log(`E2E_RELAY_TARGET=${kv.API_URL}`);
+          console.log(`SUPABASE_DB_URL=${kv.DB_URL}`);
+          console.log(`VITE_SUPABASE_ANON_KEY=${kv.ANON_KEY}`);
+          console.log(`VITE_SUPABASE_PUBLISHABLE_KEY=${kv.ANON_KEY}`);
+          JS
+          rm -f "$RUNNER_TEMP/status.env"
+      - name: NEW - target guards
+        run: |
+          node scripts/e2e/assert-safe-target.mjs --mutating
+          node scripts/ci/check-local-target.mjs env
+      - name: NEW - published ports loopback-only, mail to the local catcher only
+        run: |
+          scripts/local-stack/t09/stack-checks.sh ports | tee "$T09_EVIDENCE/new-ports.txt"
+          scripts/local-stack/t09/stack-checks.sh mail | tee "$T09_EVIDENCE/new-mail.txt"
+      - name: NEW - STAGE PRE (guard before any bootstrap write; queue-only verify; installed net.* sentinels)
+        run: scripts/local-stack/t09/stage-pre.sh "$SUPABASE_DB_URL" | tee "$T09_EVIDENCE/new-stage-pre.txt"
+      - name: NEW - bootstrap schema snapshot
+        run: scripts/local-stack/bootstrap.sh "$SUPABASE_DB_URL" | tee "$T09_EVIDENCE/new-bootstrap.txt"
+      - name: NEW - verify identities
+        run: scripts/local-stack/verify-identities.sh "$SUPABASE_DB_URL" | tee "$T09_EVIDENCE/new-identities.txt"
+      - name: NEW - STAGE APP (vault, full verify, app sentinels, 7 migrations, SQL tier requiring exit 0)
+        run: scripts/local-stack/t09/stage-app.sh "$SUPABASE_DB_URL" NEW | tee "$T09_EVIDENCE/new-stage-app.txt"
+      - name: NEW - stop (no backup)
+        if: always()
+        run: npx --no-install supabase stop --workdir "$IC_WORKDIR" --no-backup
+      - name: NEW - nothing left behind
+        run: scripts/local-stack/t09/stack-checks.sh leftovers | tee "$T09_EVIDENCE/new-leftovers.txt"
+
+      # Evidence is scanned for credential-shaped content BEFORE upload; a hit fails the job and nothing is uploaded.
+      - name: Redaction scan of evidence
+        if: always()
+        id: redact
+        run: scripts/local-stack/t09/stack-checks.sh redact-scan tested-ids.txt "$T09_EVIDENCE"
+      - name: Upload evidence
+        if: always() && steps.redact.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: t09-runtime-${{ github.run_id }}
+          retention-days: 14
+          path: |
+            tested-ids.txt
+            t09-evidence/

@@ -19,7 +19,7 @@ fresh() { # name -> clone of TEMPLATE with the queue shim and the frozen vault p
   q "$1" "delete from vault.secrets; select count(*) from (select vault.create_secret('$PH', n) from unnest(array['coursera_refresh_secret','coursera_refresh_url','notification_digest_url','notification_email_secret','notification_email_url']) n) x" >/dev/null
 }
 guard() { psql "$URL_PREFIX/$1" -v allow_shim="${2:-1}" -q -f "$HERE/egress-guard.sql" 2>&1; }
-verify() { psql "$URL_PREFIX/$1" -v allow_shim=1 -q -f "$HERE/egress-verify.sql" 2>&1; }
+verify() { psql "$URL_PREFIX/$1" -v allow_shim=1 -v stage=app -q -f "$HERE/egress-verify.sql" 2>&1; }
 expect_fail() { # id, output, exit status, required message fragment
   if [ "$3" -ne 0 ] && grep -q -- "$4" <<<"$2"; then pass "$1 failed closed: $4"; else fail "$1 expected failure containing '$4' (exit $3): $(tail -2 <<<"$2" | tr '\n' ' ')"; fi
 }
@@ -39,7 +39,7 @@ fresh t09c_g; out=$(guard t09c_g); st=$?
 [ $st -eq 0 ] && pass "G-install $(grep -o 'egress-guard installed.*' <<<"$out")" || { fail "G-install exit $st: $out"; exit 1; }
 out=$(verify t09c_g); [ $? -eq 0 ] && pass "G-verify-after-install $(grep -o 'egress-verify OK.*' <<<"$out")" || fail "G-verify-after-install: $out"
 
-out=$(psql "$URL_PREFIX/t09c_g" -q -f "$HERE/egress-verify.sql" 2>&1); expect_fail G-verify-refuses-shim-without-allow "$out" $? 'local shim marker present but shim mode is off'
+out=$(psql "$URL_PREFIX/t09c_g" -v stage=app -q -f "$HERE/egress-verify.sql" 2>&1); expect_fail G-verify-refuses-shim-without-allow "$out" $? 'local shim marker present but shim mode is off'
 
 # S1: committed sentinels through every public entry point and several roles; queue must stay empty.
 q t09c_g "select set_config('t09.stack_label','sentinel',false); select net.http_post('$PH'), net.http_get('$PH'), net.http_delete('$PH')" >/dev/null
@@ -94,6 +94,37 @@ neg N15-pg-net-identity "update local_evidence.guard_identity set v = 'other' wh
 neg N16-proof-function-replaced "create or replace function local_evidence.replica_mode_reachable_by(p_roles text[]) returns text language sql as \$f\$ select null::text \$f\$" 'proof function changed'
 neg N17-mixed-design "create extension if not exists pg_trgm; update pg_extension set extname = 'pg_net' where extname = 'pg_trgm'" 'mixed design'
 
+# Stage split (review 2026-11-01 13:12Z): stage is mandatory; pre is queue-only and refuses pre-seeded secrets; app adds
+# the fanout inventory and the synthetic scratch-relation unit, which must leave no application rows behind.
+sent() { psql "$URL_PREFIX/$1" -v allow_shim=1 -v stage="$2" -qAt -f "$HERE/egress-sentinels.sql" 2>&1; }
+out=$(psql "$URL_PREFIX/t09c_g" -v allow_shim=1 -q -f "$HERE/egress-verify.sql" 2>&1); expect_fail ST1-verify-stage-required "$out" $? 'stage=pre|app is required'
+out=$(psql "$URL_PREFIX/t09c_g" -v allow_shim=1 -qAt -f "$HERE/egress-sentinels.sql" 2>&1); expect_fail ST2-sentinels-stage-required "$out" $? 'stage=pre|app is required'
+out=$(psql "$URL_PREFIX/t09c_g" -v allow_shim=1 -v stage=pre -q -f "$HERE/egress-verify.sql" 2>&1); expect_fail ST3-pre-refuses-preseeded-vault "$out" $? 'already present before bootstrap'
+# ST4: stage-pre needs NO application schema: a database with only the queue shim (no public tables, functions or vault).
+psql "$BASE" -qc "drop database if exists t09c_b" -qc "create database t09c_b template template0" >/dev/null
+psql "$URL_PREFIX/t09c_b" -v ON_ERROR_STOP=1 -q -f "$HERE/pgnet-queue-shim.sql" >/dev/null 2>&1 || fail "ST4 shim on bare db"
+napp=$(q t09c_b "select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public'")
+out=$("$HERE/stage-pre.sh" "$URL_PREFIX/t09c_b" 1 2>&1); st=$?
+[ $st -eq 0 ] && [ "$napp" = 0 ] && [ -z "$(q t09c_b "select to_regclass('vault.secrets')")" ] && pass "ST4-stage-pre-on-bare-db (0 public functions, no vault): $(grep -c '^PASS pre' <<<"$out") steps" || fail "ST4 exit $st napp=$napp: $(tail -3 <<<"$out" | tr '\n' ' ')"
+# F1: the catalog inventory catches the function attached to ANY relation. A synthetic relation is used; the historical
+#     application trigger on public.notifications is never restored to test this.
+psql "$BASE" -qc "drop database if exists t09c_f" -qc "create database t09c_f template t09c_g" >/dev/null
+q t09c_f "create table public.t09_unrelated (id uuid primary key default gen_random_uuid()); create trigger t09_reattached after insert on public.t09_unrelated for each row execute function public.email_notification_fanout()" >/dev/null
+out=$(sent t09c_f app); expect_fail F1-fanout-reattached-detected "$out" $? 'email_notification_fanout is unexpectedly attached: public.t09_unrelated.t09_reattached'
+# F2: the scratch unit leaves no application rows, relations or triggers, and the file never writes those tables.
+before=$(q t09c_g "select (select count(*) from public.notifications)||'|'||(select count(*) from auth.users)")
+out=$(sent t09c_g app); st=$?
+after=$(q t09c_g "select (select count(*) from public.notifications)||'|'||(select count(*) from auth.users)")
+resid=$(q t09c_g "select (select count(*) from pg_class where relname like 't09_scratch%')+(select count(*) from pg_trigger where tgfoid='public.email_notification_fanout()'::regprocedure)")
+writes=$(grep -ciE "(insert into|update|delete from) +(public\.)?notifications|auth\.users" "$HERE/egress-sentinels.sql")
+[ $st -eq 0 ] && [ "$before" = "$after" ] && [ "$resid" = 0 ] && [ "$writes" = 0 ] && grep -q 'SENTINEL fanout-unit SYNTHETIC' <<<"$out" \
+  && pass "F2-scratch-unit notifications|users $before -> $after, residue 0, application writes in file 0" || fail "F2 exit $st $before->$after resid=$resid writes=$writes"
+# F3: a swallowed dispatch (missing secret -> NOTICE, RETURN NEW) shows as delta 0 and fails the unit, not passes it.
+psql "$BASE" -qc "drop database if exists t09c_f" -qc "create database t09c_f template t09c_g" >/dev/null
+q t09c_f "delete from vault.secrets where name='notification_email_url'" >/dev/null
+out=$(sent t09c_f app); expect_fail F3-swallowed-fanout-fails-unit "$out" $? 'sentinel fanout unit (synthetic scratch relation): in-transaction delta 0'
+out=$(verify t09c_g); [ $? -eq 0 ] && pass "G-verify-after-stage-controls" || fail "G-verify-after-stage-controls: $out"
+
 # C3: exclusivity is enforced BEFORE install (before any bootstrap write), not only by the verifier afterwards.
 fresh t09c_x
 q t09c_x "create function public.t09_noop() returns trigger language plpgsql as \$f\$ begin return new; end \$f\$; create trigger zzz_other before insert on net.http_request_queue for each row execute function public.t09_noop()" >/dev/null
@@ -112,15 +143,15 @@ out=$(psql "$TURL" -v allow_shim=1 -q -f "$HERE/egress-guard.sql" 2>&1); expect_
 out=$(psql "$TURL" -v allow_shim=1 -v executing_roles=t09_trig,anon,authenticated,service_role -q -f "$HERE/egress-guard.sql" 2>&1); st=$?
 mode=$(q t09c_o "select v from local_evidence.guard_identity where k='trigger_enabled'" 2>/dev/null)
 [ $st -eq 0 ] && [ "$mode" = O ] && pass "O2-origin-proved roles=t09_trig,anon,authenticated,service_role mode=O" || fail "O2-origin-proved exit $st mode=$mode: $(tail -2 <<<"$out" | tr '\n' ' ')"
-out=$(psql "$TURL" -v allow_shim=1 -q -f "$HERE/egress-verify.sql" 2>&1); [ $? -eq 0 ] && pass "O3-verify-origin-proved" || fail "O3-verify-origin-proved: $(tail -2 <<<"$out" | tr '\n' ' ')"
+out=$(psql "$TURL" -v allow_shim=1 -v stage=app -q -f "$HERE/egress-verify.sql" 2>&1); [ $? -eq 0 ] && pass "O3-verify-origin-proved" || fail "O3-verify-origin-proved: $(tail -2 <<<"$out" | tr '\n' ' ')"
 psql "$BASE" -qc "grant set on parameter session_replication_role to anon" >/dev/null
-out=$(psql "$TURL" -v allow_shim=1 -q -f "$HERE/egress-verify.sql" 2>&1); expect_fail O4-parameter-grant "$out" $? 'anon holds SET on session_replication_role'
+out=$(psql "$TURL" -v allow_shim=1 -v stage=app -q -f "$HERE/egress-verify.sql" 2>&1); expect_fail O4-parameter-grant "$out" $? 'anon holds SET on session_replication_role'
 cleanup_origin
 q t09c_o "alter role authenticated in database t09c_o set session_replication_role = replica" >/dev/null
-out=$(psql "$TURL" -v allow_shim=1 -q -f "$HERE/egress-verify.sql" 2>&1); expect_fail O5-stored-role-setting "$out" $? 'authenticated has a stored session_replication_role setting'
+out=$(psql "$TURL" -v allow_shim=1 -v stage=app -q -f "$HERE/egress-verify.sql" 2>&1); expect_fail O5-stored-role-setting "$out" $? 'authenticated has a stored session_replication_role setting'
 q t09c_o "alter role authenticated in database t09c_o reset session_replication_role" >/dev/null
 q t09c_o "grant postgres to service_role" >/dev/null
-out=$(psql "$TURL" -v allow_shim=1 -q -f "$HERE/egress-verify.sql" 2>&1); expect_fail O6-superuser-membership "$out" $? 'service_role can act as a superuser'
+out=$(psql "$TURL" -v allow_shim=1 -v stage=app -q -f "$HERE/egress-verify.sql" 2>&1); expect_fail O6-superuser-membership "$out" $? 'service_role can act as a superuser'
 q t09c_o "revoke postgres from service_role" >/dev/null
 
 # N12: a role without TRIGGER on the queue gets the exact blocker and nothing is escalated.
@@ -129,5 +160,5 @@ q t09c_p "do \$\$ begin if not exists (select 1 from pg_roles where rolname='t09
 out=$(psql "${URL_PREFIX/postgres@/t09_noprivs@}/t09c_p" -v allow_shim=1 -q -f "$HERE/egress-guard.sql" 2>&1); st=$?
 expect_fail N12-no-trigger-privilege "$out" $st 'BLOCKER: role t09_noprivs lacks TRIGGER'
 
-for d in t09c_c0 t09c_c1 t09c_g t09c_n t09c_p t09c_x t09c_o; do psql "$BASE" -qc "drop database if exists $d" >/dev/null; done
+for d in t09c_c0 t09c_c1 t09c_g t09c_n t09c_p t09c_x t09c_o t09c_b t09c_f; do psql "$BASE" -qc "drop database if exists $d" >/dev/null; done
 echo "== LOCAL-SHIM controls: $([ $RC -eq 0 ] && echo ALL PASS || echo FAILURES)"; exit $RC
