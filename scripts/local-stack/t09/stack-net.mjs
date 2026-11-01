@@ -19,14 +19,33 @@ const OPT = 'com.docker.network.bridge.host_binding_ipv4';
 const LABEL = 'ic.t09.owner';
 const NAMES = /^ic-t09-(old|new)-net-[0-9]{1,20}-[0-9]{1,4}$/;   // mode + run id + attempt: unique per run
 const fail = (m) => { console.log(`FAIL net: ${m}`); process.exit(1); };
+// Any unexpected exception ends in a controlled, content-free line: never an Error message or stack, which could carry
+// untrusted output (a child's stderr, a JSON fragment). The exit stays non-zero.
+process.on('uncaughtException', (e) => { console.log(`FAIL net: unexpected ${e?.constructor?.name ?? 'error'} (detail withheld)`); process.exit(1); });
 const refuse = (m) => { console.log(`REFUSED net: ${m}`); process.exit(2); };
-function docker(args, { allowFail = false } = {}) {
-  try { return execFileSync('docker', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim(); }
-  catch (e) { if (allowFail) return null; fail(`docker ${args[0]} ${args[1] ?? ''} exited ${e.status} (stderr withheld)`); }
+// Every child runs with stdout AND stderr captured; stderr is never printed, only its byte count. A failed child (non-zero
+// exit, signal, missing binary, daemon or socket unavailable) is ALWAYS a failure: no caller can turn it into "absent".
+function run(bin, args) {
+  try { return execFileSync(bin, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 8 << 20 }); }
+  catch (e) {
+    const why = e?.code === 'ENOENT' ? 'not found' : e?.signal ? `signal ${e.signal}` : `exit ${e?.status ?? '?'}`;
+    fail(`${bin} ${args[0]} ${args[1] ?? ''} failed (${why}; stderr withheld: ${Buffer.byteLength(String(e?.stderr ?? ''))} bytes)`);
+  }
 }
+const docker = (args) => run('docker', args).trim();
+const parse = (text, what) => { try { return JSON.parse(text); } catch { fail(`${what}: unparseable output (withheld)`); } };
+// Presence comes ONLY from a successful exact-name listing: success + no line = absent; success + the name = present;
+// anything else (listing failed, an unexpected line) fails closed.
+function present(name) {
+  const lines = docker(['network', 'ls', '--filter', `name=^${name}$`, '--format', '{{.Name}}']).split('\n').filter(Boolean);
+  if (lines.length === 0) return false;
+  if (lines.length === 1 && lines[0] === name) return true;
+  fail(`network listing for ${name} returned ${lines.length} unexpected line(s)`);
+}
+// Inspect only something the listing showed present; a failed inspect is a failure, never "absent".
 function inspect(name) {
-  const out = docker(['network', 'inspect', name, '--format', '{{json .}}'], { allowFail: true });
-  return out === null ? null : JSON.parse(out);
+  if (!present(name)) return null;
+  return parse(docker(['network', 'inspect', name, '--format', '{{json .}}']), `inspect ${name}`);
 }
 function checkNetwork(net, name, owner) {
   if (!net) fail(`${name} does not exist`);
@@ -66,7 +85,7 @@ switch (cmd) {
     const containers = docker(['ps', '--format', '{{.Names}}']).split('\n').filter((n) => /^supabase_/.test(n));
     if (containers.length === 0) fail('no supabase_* container is running');
     for (const c of containers) {
-      const nets = Object.keys(JSON.parse(docker(['inspect', c, '--format', '{{json .NetworkSettings.Networks}}'])) ?? {});
+      const nets = Object.keys(parse(docker(['inspect', c, '--format', '{{json .NetworkSettings.Networks}}']), 'container networks') ?? {});
       if (nets.length !== 1 || nets[0] !== name) fail(`a stack container is attached to [${nets.length} network(s)], expected only ${name}`);
     }
     const members = Object.keys(inspect(name).Containers ?? {}).length;
@@ -75,7 +94,7 @@ switch (cmd) {
     break;
   }
   case 'listeners': {
-    const ss = execFileSync('ss', ['-ltnH'], { encoding: 'utf8' });
+    const ss = run('ss', ['-ltnH']);
     const seen = new Map(); let bad = 0;
     for (const line of ss.split('\n').filter(Boolean)) {
       const local = line.trim().split(/\s+/)[3] ?? '';
@@ -94,8 +113,8 @@ switch (cmd) {
     const net = inspect(name);
     if (!net) { console.log(`PASS net remove: ${name} absent (never created or already removed)`); break; }
     if ((net.Labels ?? {})[LABEL] !== owner) refuse(`${name} exists but is not owned by this job; it is left untouched`);
-    docker(['network', 'rm', name]);
-    if (inspect(name)) fail(`${name} still present after rm`);
+    docker(['network', 'rm', name]);                  // a failed rm fails here (run), never reaches the absence check
+    if (present(name)) fail(`${name} still present after rm`);
     console.log(`PASS net remove: ${name} removed and verified absent`);
     break;
   }
