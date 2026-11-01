@@ -29,6 +29,7 @@ import {
   test, expect, scenario, readLedger, expectFinalized, expectProgressRead, attemptHistory, interactionShot, revokeAccess,
   sent, settledAll, type NetEvent, type Scenario,
 } from './session.fixture';
+import { gotoReady, expectMounted } from './readiness';
 import {
   TIMER_MIN_ELAPSED_S, TIMER_TICK_MARGIN_S, pgTime, serverSecondsLeft, timerMatchesServer,
 } from '../../scripts/local-stack/quiz-lifecycle/timer-oracle.mjs';
@@ -38,9 +39,10 @@ const FAULT = (k: string) => `FAULT(${k})`;
 const RESULT = 'quiz-player-review';
 const ACTIVE = 'quiz-player-active';
 
+// Positive readiness (readiness.ts): the app's own course GET returned the expected synthetic course, then a mounted
+// player state is visible. Loading-marker absence alone is vacuous when the player never mounts (run 41359219343).
 async function open(page: Page, nn: string) {
-  await page.goto(scenario(nn).url, { waitUntil: 'domcontentloaded' });
-  await expect(page.getByTestId('quiz-player-loading')).toHaveCount(0, { timeout: 30000 });
+  await gotoReady(page, scenario(nn).url, `open-${nn}`);
 }
 const radio = (page: Page, label: string) => page.getByRole('radio', { name: label, exact: true });
 async function choose(page: Page, label: string) { await radio(page, label).click(); }
@@ -529,12 +531,12 @@ test.describe(FAULT('start-held-before-forward'), () => {
     expect(sent(net, 'start')).toHaveLength(1);
     expect(readLedger(a.quiz, 'R3-A-held').attempts).toEqual([]); // held before forward: nothing committed
     await nav(page, 'QLC R3 slow start B').click();
-    await expect(page.getByTestId('quiz-player-loading')).toHaveCount(0, { timeout: 30000 });
+    await expectMounted(page, 'R3-B');
     release();
     await expect.poll(() => settledAll(net, 'start'), { timeout: 15000 }).toBe(true);
     await expect(radio(page, 'Four')).not.toBeChecked();
     await nav(page, 'QLC R3 slow start A').click();
-    await expect(page.getByTestId('quiz-player-loading')).toHaveCount(0, { timeout: 30000 });
+    await expectMounted(page, 'R3-A');
     await page.waitForTimeout(2500); // any debounced write has fired
     await expect.poll(() => settledAll(net, 'write'), { timeout: 15000 }).toBe(true);
 
@@ -574,8 +576,7 @@ test.describe('REAL-BACKEND + ACCESS-REVOKED', () => {
       test.use({ viewport: c.viewport });
       test(`T62 ${c.viewport.width}: denied first start blocks honestly, Retry re-asks, Continue only navigates, nothing persisted`, async ({ learner: page, net }) => {
         const s = scenario(c.gg);
-        await page.goto(t62Url(c.gg, c.gg), { waitUntil: 'domcontentloaded' });
-        await expect(page.getByTestId('quiz-player-loading')).toHaveCount(0, { timeout: 30000 });
+        await gotoReady(page, t62Url(c.gg, c.gg), `T62-${c.gg}`);
         await expect(radio(page, 'Four')).toBeVisible();
         const before = readLedger(s.quiz, `T62-${c.gg}-before`);
         expect(courseView(before)).toEqual({ ...unchangedCourse, course: { enrollments: 1, progressions: 0, certificates: 0 } });

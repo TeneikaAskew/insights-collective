@@ -23,6 +23,7 @@ DECLARE
   v_email    text := 'qlc-learner@insightscollective.local';
   v_course   uuid := '9c000000-0000-4000-8000-000000000001';
   v_module   uuid := '9c000000-0000-4000-8000-000000000002';
+  v_private  uuid := '9c009900-0000-4000-8000-0000000000c0';
   r record;
   v_item uuid; v_quiz uuid; v_n int := 0;
   v_c uuid; v_m uuid; v_pos int;
@@ -59,10 +60,13 @@ BEGIN
   UPDATE public.profiles SET first_name = 'QLC', last_name = 'Learner' WHERE id = v_learner;
   INSERT INTO public.user_roles (user_id, role) VALUES (v_learner, 'student') ON CONFLICT DO NOTHING;
 
-  -- Course: unpublished, so it never appears in a catalogue; the learner reaches it through the enrollment.
+  -- Course: PUBLISHED. The intended journey is an enrolled learner opening a readable course: the snapshot's courses
+  -- SELECT policies admit only published courses (or instructors/admins), never enrollment, so an unpublished course
+  -- renders "Course not found" and the player never mounts (run 41359219343, H1). This is synthetic data on an
+  -- isolated local stack only; no policy, grant, RLS or quiz rule changes.
   INSERT INTO public.courses (id, title, description, category, level, published)
   VALUES (v_course, 'QLC Quiz Lifecycle (test fixture)', 'Synthetic course for the learner quiz lifecycle mode. Not for humans.',
-          'analytics', 'beginner', false)
+          'analytics', 'beginner', true)
   ON CONFLICT (id) DO NOTHING;
   INSERT INTO public.modules (id, course_id, title, position, published)
   VALUES (v_module, v_course, 'QLC scenarios', 1, true)
@@ -71,13 +75,14 @@ BEGIN
   SELECT v_learner, v_course, 0
   WHERE NOT EXISTS (SELECT 1 FROM public.enrollments WHERE user_id = v_learner AND course_id = v_course);
 
-  -- T-62 courses: unpublished like the main one, with the learner enrolled.
+  -- T-62 courses: published like the main one, with the learner enrolled. T-62 denial still comes from revoking the
+  -- ENROLLMENT (can_access_quiz requires it); a published course does not grant quiz access.
   FOR r IN SELECT * FROM (VALUES ('20'), ('22'), ('24')) AS t(gg) LOOP
     v_c := ('9c00' || r.gg || '00-0000-4000-8000-0000000000c0')::uuid;
     v_m := ('9c00' || r.gg || '00-0000-4000-8000-0000000000d0')::uuid;
     INSERT INTO public.courses (id, title, description, category, level, published)
     VALUES (v_c, 'QLC T62 refusal ' || r.gg || ' (test fixture)', 'Synthetic course for the T-62 refused-start case. Not for humans.',
-            'analytics', 'beginner', false)
+            'analytics', 'beginner', true)
     ON CONFLICT (id) DO NOTHING;
     INSERT INTO public.modules (id, course_id, title, position, published)
     VALUES (v_m, v_c, 'QLC T62 scenarios', 1, true)
@@ -86,6 +91,17 @@ BEGIN
     SELECT v_learner, v_c, 0
     WHERE NOT EXISTS (SELECT 1 FROM public.enrollments WHERE user_id = v_learner AND course_id = v_c);
   END LOOP;
+
+  -- Negative control: a DISTINCT private (unpublished) synthetic course, learner enrolled, no module or content. It
+  -- proves the stored courses policies are unchanged: the enrolled learner still cannot read an unpublished course.
+  -- Not used by any browser case.
+  INSERT INTO public.courses (id, title, description, category, level, published)
+  VALUES (v_private, 'QLC private control (test fixture)', 'Synthetic unpublished course: negative control. Not for humans.',
+          'analytics', 'beginner', false)
+  ON CONFLICT (id) DO NOTHING;
+  INSERT INTO public.enrollments (user_id, course_id, completion_status)
+  SELECT v_learner, v_private, 0
+  WHERE NOT EXISTS (SELECT 1 FROM public.enrollments WHERE user_id = v_learner AND course_id = v_private);
 
   -- One quiz per scenario, so no scenario consumes another's attempts. allowed_attempts NULL and 0 are both unlimited.
   -- Column gg: the T-62 course the quiz belongs to (NULL = the main course); pos: its position in that course.
@@ -152,8 +168,12 @@ BEGIN
   END LOOP;
 
   IF v_n <> 23 THEN RAISE EXCEPTION 'quiz-lifecycle fixture: expected 23 scenario quizzes, prepared %', v_n; END IF;
-  IF (SELECT count(*) FROM public.enrollments WHERE user_id = v_learner AND course_id::text LIKE '9c00%') <> 4 THEN
-    RAISE EXCEPTION 'quiz-lifecycle fixture: expected 4 synthetic enrollments';
+  IF (SELECT count(*) FROM public.enrollments WHERE user_id = v_learner AND course_id::text LIKE '9c00%') <> 5 THEN
+    RAISE EXCEPTION 'quiz-lifecycle fixture: expected 5 synthetic enrollments';
+  END IF;
+  IF (SELECT count(*) FROM public.courses WHERE id::text LIKE '9c00%' AND published) <> 4
+     OR (SELECT count(*) FROM public.courses WHERE id::text LIKE '9c00%' AND NOT published) <> 1 THEN
+    RAISE EXCEPTION 'quiz-lifecycle fixture: expected 4 published synthetic courses and 1 private control';
   END IF;
   IF (SELECT count(*) FROM public.quizzes WHERE id::text LIKE '9c00%' AND allowed_attempts IS NULL) <> 1
      OR (SELECT count(*) FROM public.quizzes WHERE id::text LIKE '9c00%' AND allowed_attempts = 0) <> 1 THEN
