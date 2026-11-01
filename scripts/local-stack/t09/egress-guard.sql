@@ -51,11 +51,15 @@ begin
     end loop;
     if n = 0 and f in ('net.http_get', 'net.http_post') then raise exception 'egress-guard: % missing (pg_net %)', f, v_ext; end if;
   end loop;
-  if exists (select 1 from net.http_request_queue) then raise exception 'egress-guard: net.http_request_queue is not empty at install'; end if;
+  -- Privilege first, so a role that cannot even read the queue still gets the exact blocker.
   select pg_get_userbyid(c.relowner) into v_owner from pg_class c where c.oid = 'net.http_request_queue'::regclass;
   if not has_table_privilege(current_user, 'net.http_request_queue', 'TRIGGER') then
     raise exception 'egress-guard BLOCKER: role % lacks TRIGGER on net.http_request_queue (owner %); not escalating', current_user, v_owner;
   end if;
+  if not has_table_privilege(current_user, 'net.http_request_queue', 'SELECT') then
+    raise exception 'egress-guard BLOCKER: role % cannot read net.http_request_queue to prove it empty (owner %); not escalating', current_user, v_owner;
+  end if;
+  if exists (select 1 from net.http_request_queue) then raise exception 'egress-guard: net.http_request_queue is not empty at install'; end if;
   raise notice 'egress-guard: pg_net % ; queue owner % ; installing as %', v_ext, v_owner, current_user;
 end $$;
 

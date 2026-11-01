@@ -2,6 +2,13 @@
 -- ABOUTME: migrations, after the controls and at teardown. Read-only except the sentinels, which run in a savepoint-free
 -- ABOUTME: transaction of their own and COMMIT their evidence rows. Any deviation raises (psql ON_ERROR_STOP -> exit 3).
 \set ON_ERROR_STOP 1
+-- LOCAL-SHIM MODE mirrors egress-guard.sql: only with -v allow_shim=1 and the net shim marker present may the local
+-- cron stand-in replace the pg_cron extension, and the result line then says LOCAL-SHIM. CI never passes allow_shim.
+\if :{?allow_shim}
+select set_config('t09.allow_shim', :'allow_shim', false) \gset t09_
+\else
+select set_config('t09.allow_shim', '0', false) \gset t09_
+\endif
 -- The frozen vault-name set and reader-function set, computed from scripts/local-stack/schema/03_functions.sql at
 -- 9cd162ff24a59142dca20b926a88139bfeb66076. A change to either is a failure here, never an automatic update.
 do $$
@@ -42,6 +49,8 @@ begin
     if r.c <> 1 then raise exception 'egress-verify: vault name % present % times (expected 1)', r.nm, r.c; end if;
     if not r.ok then raise exception 'egress-verify: vault name % is NULL or not the local placeholder', r.nm; end if;
   end loop;
+  select count(*) into n from vault.decrypted_secrets where name is null or not (name = any (expected_names));
+  if n <> 0 then raise exception 'egress-verify: % vault name(s) outside the frozen set', n; end if;
   select array_agg(p.proname order by p.proname) into readers from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace
    where ns.nspname = 'public' and p.prokind in ('f','p') and pg_get_functiondef(p.oid) like '%decrypted_secrets%';
   if readers is distinct from (select array_agg(x order by x) from unnest(expected_readers) x) then
@@ -49,12 +58,16 @@ begin
   end if;
 
   -- pg_cron: installed, version printed, zero jobs.
-  if not exists (select 1 from pg_extension where extname = 'pg_cron') then raise exception 'egress-verify: pg_cron not installed'; end if;
+  if not exists (select 1 from pg_extension where extname = 'pg_cron')
+     and not (current_setting('t09.allow_shim') = '1' and to_regprocedure('net._t09_local_shim_marker()') is not null) then
+    raise exception 'egress-verify: pg_cron not installed';
+  end if;
   if to_regclass('cron.job') is null then raise exception 'egress-verify: cron.job missing'; end if;
   select count(*) into n from cron.job;
   if n <> 0 then raise exception 'egress-verify: cron.job has % job(s) (expected 0)', n; end if;
 
   raise notice 'egress-verify OK: pg_net %, pg_cron %, vault names %, attempts local-placeholder=% other=0',
-    (select extversion from pg_extension where extname = 'pg_net'), (select extversion from pg_extension where extname = 'pg_cron'),
+    coalesce((select extversion from pg_extension where extname = 'pg_net'), 'LOCAL-SHIM'),
+    coalesce((select extversion from pg_extension where extname = 'pg_cron'), 'LOCAL-SHIM'),
     array_length(expected_names, 1), (select count(*) from local_evidence.egress_attempts where dest_class = 'local-placeholder');
 end $$;
