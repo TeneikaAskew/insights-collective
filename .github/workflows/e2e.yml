@@ -883,12 +883,14 @@ jobs:
         run: |
           set -o pipefail
           node scripts/local-stack/quiz-lifecycle/preflight.mjs --dist "$LQ_SERVED" --expect-ports 54321,54322,8080 --deadline 120 --no-edge | tee "$LQ_EVIDENCE/qlc/checks-preflight.txt"
+      - name: Install Chromium headless shell
+        run: npx --no-install playwright install --with-deps --only-shell chromium
+      - name: Pin the headless shell (package-declared revision; refuses before any fixture write or browser launch)
+        run: node scripts/local-stack/quiz-lifecycle/headless-shell.mjs receipt | tee "$LQ_EVIDENCE/checks/headless-shell.txt"
       - name: Quiz fixture (synthetic learner, 4 unpublished courses (main + T62 20/22/24), 23 quizzes, 0 attempts)
         run: |
           set -o pipefail
           scripts/local-stack/quiz-lifecycle/fixture.sh | tee "$LQ_EVIDENCE/qlc/checks-fixture.txt"
-      - name: Install Chromium headless shell
-        run: npx --no-install playwright install --with-deps --only-shell chromium
       - name: No-Edge guard self-test (MOCKED; owned loopback API sink; refusal before forwarding; before the subset)
         run: |
           set -o pipefail
@@ -951,7 +953,7 @@ jobs:
         run: |
           REQ=""; [ "${{ job.status }}" = success ] && REQ=--require-all
           E="$LQ_EVIDENCE"
-          scripts/local-stack/t09/stack-checks.sh stage-evidence $REQ lqn-upload "$E/checks/net-create.txt" "$E/checks/net-verify-start.txt" "$E/checks/ports-start.txt" "$E/checks/mail.txt" "$E/checks/no-edge-start.txt" "$E/checks/stage-pre.txt" "$E/checks/bootstrap.txt" "$E/checks/identities.txt" "$E/checks/migrations-new.txt" "$E/checks/hermetic.txt" "$E/checks/HERMETIC-PROVENANCE.json" "$E/qlc/checks-preflight.txt" "$E/qlc/checks-fixture.txt" "$E/qlc/playwright/results.json" "$E/qlc/egress.txt" "$E/qlc/checks/revoke-access.txt" "$E/checks/no-edge-end.txt" "$E/checks/owned-stop.txt" "$E/checks/net-remove.txt" "$E/checks/leftovers.txt" -- tested-ids.txt "$E"
+          scripts/local-stack/t09/stack-checks.sh stage-evidence $REQ lqn-upload "$E/checks/net-create.txt" "$E/checks/net-verify-start.txt" "$E/checks/ports-start.txt" "$E/checks/mail.txt" "$E/checks/no-edge-start.txt" "$E/checks/stage-pre.txt" "$E/checks/bootstrap.txt" "$E/checks/identities.txt" "$E/checks/migrations-new.txt" "$E/checks/hermetic.txt" "$E/checks/HERMETIC-PROVENANCE.json" "$E/qlc/checks-preflight.txt" "$E/checks/headless-shell.txt" "$E/qlc/checks-fixture.txt" "$E/qlc/playwright/results.json" "$E/qlc/egress.txt" "$E/qlc/checks/revoke-access.txt" "$E/checks/no-edge-end.txt" "$E/checks/owned-stop.txt" "$E/checks/net-remove.txt" "$E/checks/leftovers.txt" -- tested-ids.txt "$E"
       - name: Upload evidence (the staged manifest only)
         if: always() && steps.stage.outcome == 'success'
         uses: actions/upload-artifact@v4

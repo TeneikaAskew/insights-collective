@@ -29,9 +29,9 @@ grep -q "/probe" "$T/sinkhits" || { echo "FAIL the API sink is not reachable out
 cd "$HERE"
 if grep -n 'route\.continue(' e2e/quiz-lifecycle/lifecycle.isolated.ts; then echo "FAIL a spec route handler calls route.continue(), which bypasses the preventive guard"; exit 1; fi
 echo "static: no route.continue() in the spec (every forwarding path is the context route or forwardApproved)"
-if [ -z "${PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH:-}" ] && ! [ -x "$(node -e "console.log(require('playwright').chromium.executablePath().replace('chromium-', 'chromium_headless_shell-').replace('chrome-linux64/chrome', 'chrome-headless-shell-linux64/chrome-headless-shell'))" 2>/dev/null)" ]; then
-  export PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=$(ls /opt/pw-browsers/chromium_headless_shell-*/*/chrome-headless-shell 2>/dev/null | sort | tail -1)
-fi
+# Browser pin: the exact Playwright headless shell, or refuse before any browser starts (run 41344646821 fell back to a
+# full system Chromium). The fixture resolves the same pin itself; this prints the receipt first.
+node scripts/local-stack/quiz-lifecycle/headless-shell.mjs receipt || { echo "FAIL headless shell pin refused (no browser launched)"; exit 1; }
 COMMON=(E2E_BASE_URL="http://127.0.0.1:$APP" VITE_SUPABASE_URL="http://127.0.0.1:$SINKP" QLC_SINK_HITS="$T/sinkhits" QLC_EVIDENCE_DIR="$T/ev")
 env "${COMMON[@]}" QLC_NO_EDGE=1 npx playwright test -c scripts/local-stack/quiz-lifecycle/tests/playwright.noedge-selftest.config.ts; a=$?
 fa=$(grep -cE 'probe=(RF|FF)[0-9]+$' "$T/sinkhits"); pa=$(grep -cE 'probe=(RA|FA)[0-9]+$' "$T/sinkhits")

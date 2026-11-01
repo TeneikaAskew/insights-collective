@@ -31,13 +31,9 @@ grep -q "/probe" "$T/hits" || { echo "FAIL the external stand-in is not reachabl
 grep -q "/probe" "$T/loophits" || { echo "FAIL the third-port loopback sink is not reachable outside the browser, so a 0-hit result would prove nothing"; exit 1; }
 : > "$T/hits"; : > "$T/loophits"
 cd "$HERE"
-# Use the same browser build Playwright launches by default in CI (headless shell). Here the bundled build is absent, so
-# the environment's preinstalled headless shell is named explicitly; the choice is printed. A full Chrome is NOT used:
-# its own background services generate refused requests (measured), which the gate counts as violations (fail closed).
-if [ -z "${PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH:-}" ] && ! [ -x "$(node -e "console.log(require('playwright').chromium.executablePath().replace('chromium-', 'chromium_headless_shell-').replace('chrome-linux64/chrome', 'chrome-headless-shell-linux64/chrome-headless-shell'))" 2>/dev/null)" ]; then
-  export PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=$(ls /opt/pw-browsers/chromium_headless_shell-*/*/chrome-headless-shell 2>/dev/null | sort | tail -1)
-fi
-echo "browser: ${PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH:-Playwright default (headless shell)}"
+# Browser pin: the exact Playwright headless shell (the fixture resolves the same pin), or refuse before any launch. A full
+# Chrome is never used: its own background services generate refused requests (measured), which the gate counts.
+node scripts/local-stack/quiz-lifecycle/headless-shell.mjs receipt || { echo "FAIL headless shell pin refused (no browser launched)"; exit 1; }
 env E2E_BASE_URL="http://127.0.0.1:$APP" VITE_SUPABASE_URL="http://127.0.0.1:$APP" QLC_EXT_URL="http://$EXT_IP:$EXTP" QLC_EVIDENCE_DIR="$T/ev" \
     QLC_LOOP_URL="http://127.0.0.1:$LOOPP" QLC_LOOP_HITS="$T/loophits" QLC_APP_LOG="$T/applog" \
   npx playwright test -c scripts/local-stack/quiz-lifecycle/tests/playwright.egress-selftest.config.ts ${QLC_SELFTEST_GREP:+--grep "$QLC_SELFTEST_GREP"}

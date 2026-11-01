@@ -23,7 +23,8 @@ import type { Page, Request, Route } from '@playwright/test';
 import { test as base, expect } from '../fixtures/console-errors.fixture';
 import { splitLocalDsn } from '../../scripts/local-stack/quiz-lifecycle/local-dsn.mjs';
 import { BROWSER_EGRESS_ARGS, exactBypassList } from '../../scripts/local-stack/quiz-lifecycle/browser-egress.mjs';
-import { chromiumExecutableOption } from '../support/chromium-executable';
+// The confined modes launch ONLY the pinned Playwright headless shell; no system-browser fallback (run 41344646821).
+import { resolveHeadlessShell } from '../../scripts/local-stack/quiz-lifecycle/headless-shell.mjs';
 
 export const LEARNER_ID = '9c000000-0000-4000-8000-0000000000a1';
 export const COURSE_ID = '9c000000-0000-4000-8000-000000000001';
@@ -247,8 +248,11 @@ export const test = base.extend<Fixtures & { egressGate: void }, { refusalProxy:
   // approved origins; everything else, browser-internal or page, reaches only the refusal listener.
   launchOptions: [
     async ({ refusalProxy }, use) => {
+      // Throws (refuses) before any browser starts when the pinned shell is missing, tampered or not the declared build.
+      const shell = resolveHeadlessShell();
       await use({
-        ...chromiumExecutableOption(),
+        executablePath: shell.path,
+        headless: true,
         args: [...BROWSER_EGRESS_ARGS],
         proxy: { server: refusalProxy.server, bypass: exactBypassList(APPROVED_ORIGINS) },
       });
