@@ -80,7 +80,9 @@ export function BlogPostForm({ postId }: BlogPostFormProps) {
   const [activeTab, setActiveTab] = useState('content');
   const [blogSettings, setBlogSettings] = useState<any>(null);
 
-  const form = useForm<BlogPostFormData>({
+  const form = // zod 4 + @hookform/resolvers 5: fields with .default() are optional on INPUT and required on OUTPUT, so the
+  // form is typed with both (input for registration/controls, output for the submit handler).
+  useForm<z.input<typeof blogPostSchema>, unknown, BlogPostFormData>({
     resolver: zodResolver(blogPostSchema),
     defaultValues: {
       title: '',
