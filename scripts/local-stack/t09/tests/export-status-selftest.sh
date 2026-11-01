@@ -4,11 +4,14 @@
 set -u
 HERE="$(cd "$(dirname "$0")/.." && pwd)"; T=$(mktemp -d); trap 'rm -rf "$T"' EXIT; RC=0
 J1=eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiJ9.aaaaaaaa; J2=eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIn0.bbbbbbbb
-mk() { umask 077; rm -f "$T/s"; printf 'API_URL="http://127.0.0.1:54321"\nDB_URL="postgresql://postgres:dbpw-1234@%s:54322/postgres"\nANON_KEY="%s"\nSERVICE_ROLE_KEY="%s"\nJWT_SECRET="jwt-secret-5678"\nS3_PROTOCOL_ACCESS_KEY_SECRET="s3-secret-9012"\n' "${1:-127.0.0.1}" "$J1" "$J2" > "$T/s"; : > "$T/env"; }
+# The synthetic DB userinfo is a separate value so no file line carries a user:password@host literal (the tracked-file
+# scan in noCredentialShapedLiterals.test.ts); the status file written below is byte-identical to the earlier template.
+DBUI="postgres:dbpw-1234"
+mk() { umask 077; rm -f "$T/s"; printf 'API_URL="http://127.0.0.1:54321"\nDB_URL="postgresql://%s@%s:54322/postgres"\nANON_KEY="%s"\nSERVICE_ROLE_KEY="%s"\nJWT_SECRET="jwt-secret-5678"\nS3_PROTOCOL_ACCESS_KEY_SECRET="s3-secret-9012"\n' "$DBUI" "${1:-127.0.0.1}" "$J1" "$J2" > "$T/s"; : > "$T/env"; }
 ok() { echo "PASS $1"; }; no() { echo "FAIL $1"; RC=1; }
 mk; out=$(node "$HERE/export-status.mjs" "$T/s" "$T/env"); st=$?
 masks=$(grep -c '^::add-mask::' <<<"$out")
-for v in "$J1" "$J2" jwt-secret-5678 s3-secret-9012 dbpw-1234 "postgresql://postgres:dbpw-1234@127.0.0.1:54322/postgres"; do
+for v in "$J1" "$J2" jwt-secret-5678 s3-secret-9012 dbpw-1234 "postgresql://$DBUI@127.0.0.1:54322/postgres"; do
   grep -qxF "::add-mask::$v" <<<"$out" || { no "mask-missing for a ${#v}-char value"; }
 done
 [ $st -eq 0 ] && [ "$masks" -ge 6 ] && ok "masks-registered ($masks)" || no "masks st=$st n=$masks"

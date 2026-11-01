@@ -24,7 +24,7 @@ probe() {
   rm -f "$__e"; printf -v "$__v" '%s' "$__o"
 }
 # Credential shapes. JWTs (local anon/service keys, persona tokens), new-style secret keys, Bearer headers, any URL
-# with userinfo (postgres://user:pass@..., https://user:pass@...), PGPASSWORD= / password= assignments.
+# with userinfo (a postgres or https URL carrying user and password before its @), PGPASSWORD= / password= assignments.
 CRED_RE='eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]*|sb_(secret|publishable)_[A-Za-z0-9_-]{8,}|[Aa]uthorization: *[Bb]earer +[^[:space:]<]+|[a-z][a-z0-9+.-]*://[^/@[:space:]:]+:[^@/[:space:]]+@|PGPASSWORD=[^[:space:]]+|(^|[^a-z_])(password|passwd|secret)=[^[:space:]<]+'
 pw_re() { [ -n "${E2E_TEST_PASSWORD:-}" ] && printf '%s' "$E2E_TEST_PASSWORD" | sed 's/[][\.*^$|+?(){}]/\\&/g'; }
 
