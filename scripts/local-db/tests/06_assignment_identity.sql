@@ -138,4 +138,6 @@ delete from public.assignment_submissions where user_id = :'stud';
 select (case when pass then 'PASS ' else 'FAIL ' end) || name || case when detail <> '' then '  [' || detail || ']' else '' end from results order by name;
 select line from obs;
 select 'SUMMARY ' || count(*) filter (where pass) || '/' || count(*) || ' pass' from results;
+-- a FAIL must fail the run, not just print
+do $$ declare n int; begin select count(*) into n from results where not pass; if n > 0 then raise exception '% check(s) FAILED', n; end if; end $$;
 rollback;
