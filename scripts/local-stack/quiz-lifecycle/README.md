@@ -1,6 +1,6 @@
 # Learner quiz lifecycle mode: fixture-only source
 
-**Status: NOT RUN.** No case in `lifecycle.isolated.ts` has been executed against any stack. A `playwright --list` of it, a source count or a case list is not a test pass. The only things that have run are the self-tests below, each labelled with its tier.
+**Status: NOT RUN.** No case in `lifecycle.isolated.ts` (18 with T62) has been executed against any stack. A `playwright --list` of it, a source count or a case list is not a test pass. The only things that have run are the self-tests below, each labelled with its tier.
 
 These files are lane-owned and fixture-only. They do not edit the shared runner (`.github/workflows/e2e.yml`, `scripts/ci/check-isolated-workflow.mjs`, `scripts/local-stack/t09/*`). The T09 harness owner adds the mode to the shared files after a T09 runtime run is green on its exact head. Dispatch waits for that integration review.
 
@@ -9,7 +9,8 @@ These files are lane-owned and fixture-only. They do not edit the shared runner 
 | `preflight.mjs` | Fail-closed checks, run after the stack, functions and preview are up and **before any fixture write**: config parses, API/DB/app loopback with exact ports, effective listeners loopback-only, no relay, `score-quiz` answers through the gateway, preview serves this `dist`. |
 | `local-dsn.mjs` (+ `.d.mts`) | Strict local DSN handling: `assert-local-dsn` first, then URI form only, no query or fragment, host `127.0.0.1`/`localhost`, explicit port, plain identifiers, both parsers agree. Splits into a password-free URI (safe for argv) and the password (PGPASSWORD only). `derive <db>` requires a canonical maintenance URI (database `postgres`). Reads the DSN from **stdin**, never argv. |
 | `fixture.sh`, `fixture.sql` | Dedicated synthetic learner, one unpublished course, **16 scenario quizzes**. **No `quiz_submissions` rows.** No grant, policy, RLS or trigger change. The DSN comes only from `SUPABASE_DB_URL` (a positional DSN is refused); refuses an empty password, a non-strict-local DSN, an unreadable source and a failed mutating target guard, all before psql. The DB password is exported by bash builtins in a subshell that `exec`s psql, so it is only in psql's process environment, never in any argv (no `env VAR=...`); the synthetic learner password reaches psql only through stdin. Both producers are checked (`PIPESTATUS`). psql output is captured privately and **never printed**: success prints a fixed line; failure prints a fixed message by code (`F01`-`F06` for the fixture's own RAISEs, `F07` missing completion notice, `F00` anything else, `P01` producer) and a byte count. |
-| `ledger.sql` | Read-only per-quiz ledger (session set read-only): attempts, answer rows with correct/points and row timestamp, progress rows. No auth columns. |
+| `ledger.sql` | Read-only per-quiz ledger (session set read-only): attempts, answer rows with correct/points and row timestamp, progress rows, and for the quiz's course the learner's enrollment, progression-row and certificate counts (E/G/C). No auth columns. |
+| `revoke-access.sh` | T-62 only: removes the synthetic learner's enrollment in ONE synthetic T-62 course (key 20, 22 or 24 only), so the real `can_access_quiz` denies `start_quiz_attempt`. Same guards and secret channel as `fixture.sh`; exactly one synthetic row or a fixed `V01` failure. |
 | `browser-egress.mjs` (+ `.d.mts`) | `exactBypassList()`: `<-loopback>` (subtracts Chromium's implicit bypass of localhost, 127/8, ::1, 169.254/16 and fe80::/10) followed ONLY by the exact approved `scheme://host:port` entries. Plus a resolver rule as defence in depth. |
 | `timer-oracle.mjs` (+ `.d.mts`) | F2 timer arithmetic: tolerance 3 s, one tick margin, minimum server elapsed 10 s. |
 | `../../../playwright.quiz-lifecycle.config.ts` | Own config: **no globalSetup, no globalTeardown, no webServer, no storageState**, retries 0, workers 1, trace/video/screenshot off, `serviceWorkers: 'block'`. Launch options (with the browser-wide proxy) come from the session fixture. Specs are `*.isolated.ts`, so the default config never matches them. |
@@ -55,6 +56,13 @@ Proof (MOCKED, real headless Chromium): approved -> 302 -> unapproved third loop
 | R1 | FAULT(answers-read-500-before-db) | saved-answer restore fails: honest block, no radios, no new start or write, ledger unchanged; Retry restores the same attempt |
 | R2 | FAULT(answers-read-500-before-db) | review answer read fails: no "Incorrect" and no "0/1"; Retry shows "Correct · 1/1" twice |
 | R3 | FAULT(start-held-before-forward) | first start held; four repeated answer changes while held, each required to take effect, still one start; A to B to A: one attempt on A, none on B, screen agrees with the ledger |
+
+| T62 x3 | REAL-BACKEND + ACCESS-REVOKED, viewport interaction 1440x900 / 768x1024 / 390x844 | after load, the synthetic enrollment is removed; the first answer gets a real access denial; blocking "Couldn't start this quiz" with the server reason and "No attempt was started and your answers were not saved", no radios, no Submit, no "Saved", Retry re-asks (second real denial); Continue only navigates to the next item; 0 attempts, 0 answers, 0 progression rows, 0 certificates, percentage text unchanged |
+| T62 control | REAL-BACKEND | an authorized first answer on quiz 26 starts exactly one attempt and shows no refusal |
+
+T62 needs BOTH the player follow-up (local 00b3c57 on eba62b0) and #135's migration 20261101000100 in the stack: the schema snapshot's `start_quiz_attempt` has no access check, so without that migration a revoked learner can still start (measured in the LOCAL-SHIM self-test as a control).
+
+**Known product gap seen while writing T62 (not asserted, outside this lane):** CourseLearn's outer button for an unsubmitted quiz reads "Complete" below the `sm` breakpoint and its hint says "Mark this lesson done and continue", although for assessments it only navigates. T62 asserts the behaviour (navigation only, nothing persisted) and records screenshots; the label is for the user and CourseLearn's owner.
 
 F5 and F6 are not proof of R1 to R3. Each FAULT case is in its own `describe` and its own screenshot tier.
 

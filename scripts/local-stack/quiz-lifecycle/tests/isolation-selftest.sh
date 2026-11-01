@@ -42,7 +42,7 @@ grep -q "$LEARNER_PW" <<<"$out" && bad "fixture.sh: learner password leaked into
 grep -q "$DB_PW" <<<"$out" && bad "fixture.sh: DB password leaked into output" || ok "fixture.sh: DB password not in output"
 grep -q "psql: echo" <<<"$out" && bad "fixture.sh: raw psql stderr forwarded" || ok "fixture.sh: raw psql stderr withheld"
 
-NOTICE_OK="NOTICE:  quiz-lifecycle fixture: learner, course, 16 quizzes, 0 attempts"
+NOTICE_OK="NOTICE:  quiz-lifecycle fixture: learner, course, 23 quizzes, 0 attempts"
 reset; out=$(E2E_TEST_PASSWORD="$LEARNER_PW" SUPABASE_DB_URL="$DSN" run "$HERE/fixture.sh" --no-target-guard); st=$?
 [ "$st" = 1 ] && grep -q "FAIL fixture \[F07\]" <<<"$out" && ok "fixture.sh: psql exit 0 without the completion notice is a FAIL (F07)" || bad "fixture.sh: missing notice accepted (exit $st)"
 reset; out=$(FAKE_PSQL_STDERR="$NOTICE_OK" E2E_TEST_PASSWORD="$LEARNER_PW" SUPABASE_DB_URL="$DSN" run "$HERE/fixture.sh" --no-target-guard); st=$?
@@ -70,13 +70,13 @@ reset; out=$(FAKE_PSQL_EXIT=3 FAKE_PSQL_STDERR="ERROR:  quiz-lifecycle fixture: 
 [ "$st" = 1 ] && grep -q "FAIL fixture \[F00\]" <<<"$out" && ! grep -q "$MK" <<<"$out" && ok "fixture.sh: unknown prefixed error -> fixed F00, marker absent, failure kept" || bad "fixture.sh: prefixed marker (exit $st): $out"
 reset; out=$(FAKE_PSQL_EXIT=3 FAKE_PSQL_STDERR="ERROR:  quiz-lifecycle fixture: the learner already holds attempts; $MK" E2E_TEST_PASSWORD="$LEARNER_PW" SUPABASE_DB_URL="$DSN" run "$HERE/fixture.sh" --no-target-guard); st=$?
 [ "$st" = 1 ] && grep -q "FAIL fixture \[F02\]" <<<"$out" && ! grep -q "$MK" <<<"$out" && ok "fixture.sh: known error with a marker suffix -> fixed F02 text, marker absent" || bad "fixture.sh: F02 marker (exit $st): $out"
-reset; out=$(FAKE_PSQL_STDERR="NOTICE:  quiz-lifecycle fixture: learner, course, 16 quizzes, 0 attempts $MK" E2E_TEST_PASSWORD="$LEARNER_PW" SUPABASE_DB_URL="$DSN" run "$HERE/fixture.sh" --no-target-guard); st=$?
+reset; out=$(FAKE_PSQL_STDERR="NOTICE:  quiz-lifecycle fixture: learner, course, 23 quizzes, 0 attempts $MK" E2E_TEST_PASSWORD="$LEARNER_PW" SUPABASE_DB_URL="$DSN" run "$HERE/fixture.sh" --no-target-guard); st=$?
 [ "$st" = 0 ] && grep -q "PASS fixture" <<<"$out" && ! grep -q "$MK" <<<"$out" && ok "fixture.sh: success notice with a marker suffix -> fixed line, marker absent" || bad "fixture.sh: notice marker (exit $st): $out"
 
 # Full child chain: every execve of fixture.sh and all its descendants, traced. No password in any argv.
 if command -v strace >/dev/null; then
   reset; strace -f -qq -e trace=execve -s 65535 -o "$T/trace" env PATH="$T/bin:$PATH" E2E_TEST_PASSWORD="$LEARNER_PW" SUPABASE_DB_URL="$DSN" \
-    FAKE_PSQL_STDERR="NOTICE:  quiz-lifecycle fixture: learner, course, 16 quizzes, 0 attempts" "$HERE/fixture.sh" --no-target-guard >/dev/null 2>&1
+    FAKE_PSQL_STDERR="NOTICE:  quiz-lifecycle fixture: learner, course, 23 quizzes, 0 attempts" "$HERE/fixture.sh" --no-target-guard >/dev/null 2>&1
   n=$(grep -c 'execve(' "$T/trace"); grep -q 'execve("[^"]*/psql"' "$T/trace" && ok "chain trace: $n execve calls captured, including psql" || bad "chain trace did not capture psql"
   # The trace's first line is the launcher (strace's own `env ... SUPABASE_DB_URL=...` argv, test harness only); judge the chain after it.
   tail -n +2 "$T/trace" | grep -q "$DB_PW" && bad "chain trace: DB password in some descendant argv" || ok "chain trace: DB password in no argv of fixture.sh or any descendant"
@@ -87,6 +87,25 @@ if command -v strace >/dev/null; then
   tail -n +2 "$T/trace2" | grep -q "env.*PGPASSWORD=$DB_PW" && ok "chain trace control: an env-argv password IS detected" || bad "chain trace control: detector missed an env-argv password"
 else
   bad "strace unavailable: full child chain not traced"
+fi
+
+# ---- revoke-access.sh (T-62)
+for case in "bad key|21" "injection key|20;drop" "empty key|"; do
+  reset; out=$(SUPABASE_DB_URL="$DSN" run "$HERE/revoke-access.sh" "${case#*|}" --no-target-guard); st=$?
+  [ "$st" = 2 ] && [ "$(calls)" = 0 ] && ok "revoke-access: ${case%%|*} refused before any psql call" || bad "revoke-access: ${case%%|*} (exit $st, calls $(calls))"
+done
+reset; out=$(SUPABASE_DB_URL="$DSN" run "$HERE/revoke-access.sh" 20 "$DSN"); st=$?
+[ "$st" = 2 ] && [ "$(calls)" = 0 ] && ok "revoke-access: a DSN argument is refused" || bad "revoke-access: positional DSN (exit $st)"
+reset; out=$(SUPABASE_DB_URL="postgresql://postgres@db.example.com:5432/postgres" run "$HERE/revoke-access.sh" 20 --no-target-guard); st=$?
+[ "$st" = 2 ] && [ "$(calls)" = 0 ] && ok "revoke-access: non-loopback DSN refused before any psql call" || bad "revoke-access: non-loopback (exit $st)"
+reset; out=$(FAKE_PSQL_EXIT=3 FAKE_PSQL_STDERR="ERROR:  quiz-lifecycle revoke: expected exactly one synthetic enrollment, found 0 $MK" SUPABASE_DB_URL="$DSN" run "$HERE/revoke-access.sh" 20 --no-target-guard); st=$?
+[ "$st" = 1 ] && grep -q "FAIL revoke \[V01\]" <<<"$out" && ! grep -q "$MK" <<<"$out" && ! grep -q "$DB_PW" <<<"$out" && ok "revoke-access: fixed V01 failure, marker and DB password absent" || bad "revoke-access: failure output (exit $st): $out"
+if command -v strace >/dev/null; then
+  reset; strace -f -qq -e trace=execve -s 65535 -o "$T/trace3" env PATH="$T/bin:$PATH" SUPABASE_DB_URL="$DSN" \
+    FAKE_PSQL_STDERR="NOTICE:  quiz-lifecycle revoke: one synthetic enrollment removed" "$HERE/revoke-access.sh" 20 --no-target-guard >/dev/null 2>&1
+  grep -q 'execve("[^"]*/psql"' "$T/trace3" && ! tail -n +2 "$T/trace3" | grep -q "$DB_PW" && [ "$(cat "$T"/call.1.pgpw 2>/dev/null)" = "$DB_PW" ] \
+    && ok "revoke-access chain trace: psql reached, DB password in no argv, delivered via environment" || bad "revoke-access chain trace"
+  grep -q "9c0020" "$T"/call.1.stdin && ok "revoke-access: statement names only synthetic course 20" || bad "revoke-access: statement target"
 fi
 
 # ---- sql-selftest.sh
