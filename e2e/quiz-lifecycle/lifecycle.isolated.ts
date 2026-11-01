@@ -18,11 +18,15 @@
 //                                                   R2  the review answer read is answered 500 by the test.
 //   FAULT(start-held-before-forward)                R3  the first start is held in the browser, not forwarded, while the
 //                                                       learner repeats actions and moves A -> B -> A.
+//   REAL-BACKEND + ACCESS-REVOKED                   T62 after the quiz loaded, revoke-access.sh removes the synthetic
+//                                                       learner's enrollment in that synthetic course; the REAL
+//                                                       start_quiz_attempt then denies access (can_access_quiz). No
+//                                                       transport fault. Needs the player follow-up 00b3c57 on eba62b0.
 // Every forwarded fault request goes through forwardApproved() (exact origin first, maxRedirects 0, 3xx refused).
 // Run only through playwright.quiz-lifecycle.config.ts, after preflight.mjs and fixture.sh have passed.
 import type { Page, Request } from '@playwright/test';
 import {
-  test, expect, scenario, readLedger, expectFinalized, expectProgressRead, attemptHistory, interactionShot,
+  test, expect, scenario, readLedger, expectFinalized, expectProgressRead, attemptHistory, interactionShot, revokeAccess,
   sent, settledAll, type NetEvent, type Scenario,
 } from './session.fixture';
 import {
@@ -548,6 +552,88 @@ test.describe(FAULT('start-held-before-forward'), () => {
     else { await expect(radio(page, 'Four')).not.toBeChecked(); await expect(radio(page, 'Three')).not.toBeChecked(); }
     expect(la.progress).toEqual([]);
     expect(lb.progress).toEqual([]);
+  });
+});
+
+// T-62 (screenshot-derived acceptance): a definite, authorization-denied FIRST start. One synthetic course per
+// viewport, each driven AT that viewport (viewport interaction, not a resize).
+const T62 = [
+  { gg: '20', next: '21', viewport: { width: 1440, height: 900 } },
+  { gg: '22', next: '23', viewport: { width: 768, height: 1024 } },
+  { gg: '24', next: '25', viewport: { width: 390, height: 844 } },
+] as const;
+const t62Url = (gg: string, nn: string) =>
+  `/courses/9c00${gg}00-0000-4000-8000-0000000000c0/learn/9c00${gg}00-0000-4000-8000-0000000000d0/9c00${nn}01-0000-4000-8000-000000000000`;
+const percentText = (page: Page) => page.locator('[data-onboarding="learn-progress"] span.tabular-nums:visible').last().innerText();
+const unchangedCourse = { attempts: [], answers: [], progress: [], course: { enrollments: 0, progressions: 0, certificates: 0 } };
+const courseView = (l: ReturnType<typeof readLedger>) => ({ attempts: l.attempts, answers: l.answers, progress: l.progress, course: l.course });
+
+test.describe('REAL-BACKEND + ACCESS-REVOKED', () => {
+  for (const c of T62) {
+    test.describe(`viewport interaction ${c.viewport.width}x${c.viewport.height}`, () => {
+      test.use({ viewport: c.viewport });
+      test(`T62 ${c.viewport.width}: denied first start blocks honestly, Retry re-asks, Continue only navigates, nothing persisted`, async ({ learner: page, net }) => {
+        const s = scenario(c.gg);
+        await page.goto(t62Url(c.gg, c.gg), { waitUntil: 'domcontentloaded' });
+        await expect(page.getByTestId('quiz-player-loading')).toHaveCount(0, { timeout: 30000 });
+        await expect(radio(page, 'Four')).toBeVisible();
+        const before = readLedger(s.quiz, `T62-${c.gg}-before`);
+        expect(courseView(before)).toEqual({ ...unchangedCourse, course: { enrollments: 1, progressions: 0, certificates: 0 } });
+        const pct0 = await percentText(page);
+
+        revokeAccess(c.gg); // real authorization change on synthetic rows only
+        expect(readLedger(s.quiz, `T62-${c.gg}-revoked`).course.enrollments).toBe(0);
+
+        const startAt = Date.now();
+        await choose(page, 'Four');
+        const blocked = page.getByText("Couldn't start this quiz");
+        await expect(blocked).toBeVisible({ timeout: 30000 });
+        const honest = async () => {
+          await expect(blocked).toBeVisible();
+          await expect(page.getByText(/You do not have access to this quiz\./)).toBeVisible();
+          await expect(page.getByText(/No attempt was started and your answers were not saved\./)).toBeVisible();
+          await expect(page.getByRole('radio')).toHaveCount(0);
+          await expect(page.getByRole('button', { name: /submit quiz/i })).toHaveCount(0);
+          await expect(page.getByText('Saved', { exact: true })).toHaveCount(0);
+          await expect(retryButton(page)).toBeEnabled();
+        };
+        await honest();
+        await interactionShot(page, `T62-${c.gg}-refused`);
+        expect(sent(net, 'start')).toHaveLength(1);
+        expect(courseView(readLedger(s.quiz, `T62-${c.gg}-refused`))).toEqual(unchangedCourse);
+        expect(await percentText(page)).toBe(pct0);
+
+        await retryButton(page).click(); // access is still revoked: the server must refuse again
+        await expect.poll(() => sent(net, 'start').length, { timeout: 15000 }).toBe(2);
+        await expect.poll(() => settledAll(net, 'start'), { timeout: 15000 }).toBe(true);
+        await honest();
+        expect(courseView(readLedger(s.quiz, `T62-${c.gg}-retried`))).toEqual(unchangedCourse);
+
+        // Continue after the failure is navigation only (root's audit; CourseLearn handleContinue).
+        const continueAt = Date.now();
+        await page.locator('[data-onboarding="learn-continue"]').click();
+        await expect(page).toHaveURL(new RegExp(`9c00${c.next}01-0000-4000-8000-000000000000`), { timeout: 30000 });
+        await page.waitForTimeout(3000);
+        expect(courseView(readLedger(s.quiz, `T62-${c.gg}-after-continue`))).toEqual(unchangedCourse);
+        expect(readLedger(scenario(c.next).quiz, `T62-${c.next}-next`).attempts).toEqual([]);
+        expect(net.filter((e) => e.kind === 'progress' && e.at >= startAt)).toHaveLength(0);
+        expect(net.filter((e) => (e.kind === 'write' || e.kind === 'score') && e.at >= startAt)).toHaveLength(0);
+        expect(net.filter((e) => e.kind === 'start' && e.at >= continueAt)).toHaveLength(0);
+        expect(await percentText(page)).toBe(pct0);
+        await interactionShot(page, `T62-${c.gg}-after-continue`);
+      });
+    });
+  }
+
+  test('T62 allowed control: an authorized first answer starts exactly one attempt and shows no refusal', async ({ learner: page, net }) => {
+    const s = scenario('26');
+    await open(page, '26');
+    await choose(page, 'Four');
+    await expect(page.getByText(/Attempt 1 of 1/)).toBeVisible({ timeout: 30000 });
+    await expect(page.getByText("Couldn't start this quiz")).toHaveCount(0);
+    await expect.poll(() => readLedger(s.quiz, 'T62-26-allowed').attempts.map((a) => [a.attempt, a.state]), { timeout: 15000 })
+      .toEqual([[1, 'pending_review']]);
+    expect(sent(net, 'start')).toHaveLength(1);
   });
 });
 

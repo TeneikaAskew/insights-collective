@@ -11,6 +11,11 @@
 --
 -- Ids: 9c00…, so a fixture row is recognisable in any query result. Per scenario NN (two hex digits):
 --   content item 9c00NN01-…, quiz 9c00NN02-…, questions 9c00NN03-… and 9c00NN04-….
+-- T-62 (definite refusal): three more synthetic courses, one per viewport, course 9c00GG00-0000-4000-8000-0000000000c0
+-- and module 9c00GG00-0000-4000-8000-0000000000d0 for GG in 20, 22, 24. Each holds the refused quiz GG (position 1)
+-- and a next quiz GG+1 (position 2) that is never answered, so Continue has a destination. The learner IS enrolled;
+-- revoke-access.sh removes exactly that enrollment mid-test (synthetic rows only). Allowed control: quiz 26 in the
+-- main course.
 DO $$
 DECLARE
   v_password text := NULLIF(current_setting('e2e.password', true), '');
@@ -20,6 +25,7 @@ DECLARE
   v_module   uuid := '9c000000-0000-4000-8000-000000000002';
   r record;
   v_item uuid; v_quiz uuid; v_n int := 0;
+  v_c uuid; v_m uuid; v_pos int;
 BEGIN
   IF v_password IS NULL THEN
     RAISE EXCEPTION 'quiz-lifecycle fixture: e2e.password is empty; set E2E_TEST_PASSWORD';
@@ -65,7 +71,24 @@ BEGIN
   SELECT v_learner, v_course, 0
   WHERE NOT EXISTS (SELECT 1 FROM public.enrollments WHERE user_id = v_learner AND course_id = v_course);
 
+  -- T-62 courses: unpublished like the main one, with the learner enrolled.
+  FOR r IN SELECT * FROM (VALUES ('20'), ('22'), ('24')) AS t(gg) LOOP
+    v_c := ('9c00' || r.gg || '00-0000-4000-8000-0000000000c0')::uuid;
+    v_m := ('9c00' || r.gg || '00-0000-4000-8000-0000000000d0')::uuid;
+    INSERT INTO public.courses (id, title, description, category, level, published)
+    VALUES (v_c, 'QLC T62 refusal ' || r.gg || ' (test fixture)', 'Synthetic course for the T-62 refused-start case. Not for humans.',
+            'analytics', 'beginner', false)
+    ON CONFLICT (id) DO NOTHING;
+    INSERT INTO public.modules (id, course_id, title, position, published)
+    VALUES (v_m, v_c, 'QLC T62 scenarios', 1, true)
+    ON CONFLICT (id) DO NOTHING;
+    INSERT INTO public.enrollments (user_id, course_id, completion_status)
+    SELECT v_learner, v_c, 0
+    WHERE NOT EXISTS (SELECT 1 FROM public.enrollments WHERE user_id = v_learner AND course_id = v_c);
+  END LOOP;
+
   -- One quiz per scenario, so no scenario consumes another's attempts. allowed_attempts NULL and 0 are both unlimited.
+  -- Column gg: the T-62 course the quiz belongs to (NULL = the main course); pos: its position in that course.
   FOR r IN
     SELECT * FROM (VALUES
       ('10', 'F1 limit one',        1::int,    NULL::int),
@@ -83,17 +106,34 @@ BEGIN
       ('1c', 'R2 review failure',   1,         NULL),
       ('1d', 'R3 slow start A',     1,         NULL),
       ('1e', 'R3 slow start B',     1,         NULL),
-      ('1f', 'M1 mobile flow',      1,         NULL)
+      ('1f', 'M1 mobile flow',      1,         NULL),
+      ('26', 'T62 allowed control', 1,         NULL),
+      ('20', 'T62 refused 1440',    1,         NULL),
+      ('21', 'T62 next 1440',       1,         NULL),
+      ('22', 'T62 refused 768',     1,         NULL),
+      ('23', 'T62 next 768',        1,         NULL),
+      ('24', 'T62 refused 390',     1,         NULL),
+      ('25', 'T62 next 390',        1,         NULL)
     ) AS t(nn, title, allowed, time_limit)
   LOOP
     v_item := ('9c00' || r.nn || '01-0000-4000-8000-000000000000')::uuid;
     v_quiz := ('9c00' || r.nn || '02-0000-4000-8000-000000000000')::uuid;
+    IF r.nn IN ('20', '21', '22', '23', '24', '25') THEN
+      -- '20'/'21' -> course 20, '22'/'23' -> course 22, '24'/'25' -> course 24
+      v_c := ('9c00' || CASE WHEN r.nn IN ('20', '21') THEN '20' WHEN r.nn IN ('22', '23') THEN '22' ELSE '24' END
+              || '00-0000-4000-8000-0000000000c0')::uuid;
+      v_m := ('9c00' || CASE WHEN r.nn IN ('20', '21') THEN '20' WHEN r.nn IN ('22', '23') THEN '22' ELSE '24' END
+              || '00-0000-4000-8000-0000000000d0')::uuid;
+      v_pos := CASE WHEN r.nn IN ('20', '22', '24') THEN 1 ELSE 2 END;
+    ELSE
+      v_c := v_course; v_m := v_module; v_pos := v_n + 1;
+    END IF;
     INSERT INTO public.content_items (id, course_id, module_id, type, title, content, position, published)
-    VALUES (v_item, v_course, v_module, 'quiz', 'QLC ' || r.title, '', v_n + 1, true)
+    VALUES (v_item, v_c, v_m, 'quiz', 'QLC ' || r.title, '', v_pos, true)
     ON CONFLICT (id) DO NOTHING;
     INSERT INTO public.quizzes (id, content_item_id, module_id, title, quiz_type, points_possible,
                                 allowed_attempts, time_limit, show_correct_answers)
-    VALUES (v_quiz, v_item, v_module, 'QLC ' || r.title, 'assignment', 2, r.allowed, r.time_limit, true)
+    VALUES (v_quiz, v_item, v_m, 'QLC ' || r.title, 'assignment', 2, r.allowed, r.time_limit, true)
     ON CONFLICT (id) DO NOTHING;
     -- Explicit, because allowed_attempts has a column default of 1 and NULL must stay NULL.
     UPDATE public.quizzes SET allowed_attempts = r.allowed, time_limit = r.time_limit WHERE id = v_quiz;
@@ -111,7 +151,10 @@ BEGIN
     v_n := v_n + 1;
   END LOOP;
 
-  IF v_n <> 16 THEN RAISE EXCEPTION 'quiz-lifecycle fixture: expected 16 scenario quizzes, prepared %', v_n; END IF;
+  IF v_n <> 23 THEN RAISE EXCEPTION 'quiz-lifecycle fixture: expected 23 scenario quizzes, prepared %', v_n; END IF;
+  IF (SELECT count(*) FROM public.enrollments WHERE user_id = v_learner AND course_id::text LIKE '9c00%') <> 4 THEN
+    RAISE EXCEPTION 'quiz-lifecycle fixture: expected 4 synthetic enrollments';
+  END IF;
   IF (SELECT count(*) FROM public.quizzes WHERE id::text LIKE '9c00%' AND allowed_attempts IS NULL) <> 1
      OR (SELECT count(*) FROM public.quizzes WHERE id::text LIKE '9c00%' AND allowed_attempts = 0) <> 1 THEN
     RAISE EXCEPTION 'quiz-lifecycle fixture: unlimited quizzes (NULL and 0) not prepared exactly once each';

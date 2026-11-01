@@ -33,6 +33,7 @@ const OUT = process.env.QLC_EVIDENCE_DIR || path.join(os.tmpdir(), 'qlc-evidence
 const SHA = (process.env.E2E_EVIDENCE_COMMIT || 'local').slice(0, 12);
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const LEDGER_SQL = path.resolve(HERE, '../../scripts/local-stack/quiz-lifecycle/ledger.sql');
+const REVOKE_SH = path.resolve(HERE, '../../scripts/local-stack/quiz-lifecycle/revoke-access.sh');
 
 function originOf(value: string | undefined, name: string): string {
   if (!value) throw new Error(`${name} is required`);
@@ -66,7 +67,11 @@ export type Scenario = ReturnType<typeof scenario>;
 
 export type Attempt = { attempt: number; id: string; state: string; score: string; startedAt: string; finishedAt: string; answers: number };
 export type AnswerRow = { attempt: number; question: string; answer: unknown; correct: string; points: string };
-export type Ledger = { attempts: Attempt[]; answers: AnswerRow[]; progress: string[]; raw: string[] };
+export type Ledger = {
+  attempts: Attempt[]; answers: AnswerRow[]; progress: string[]; raw: string[];
+  /** Course-level counts for the quiz's course (learner only): enrollments, progression rows, certificates. */
+  course: { enrollments: number; progressions: number; certificates: number };
+};
 
 /**
  * Read-only ledger over loopback psql. The DSN is validated by splitLocalDsn (assert-local-dsn, then URI-only, exact
@@ -86,15 +91,18 @@ export function readLedger(quizId: string, label: string): Ledger {
   } catch (e: any) {
     throw new Error(`ledger: psql failed (status ${e?.status ?? 'none'}, stderr withheld: ${String(e?.stderr ?? '').length} bytes)`);
   }
-  const lines = out.split('\n').filter((l) => /^[AWP]\t/.test(l));
+  const lines = out.split('\n').filter((l) => /^[AWPEGC]\t/.test(l));
   fs.mkdirSync(path.join(OUT, 'ledger'), { recursive: true });
   fs.writeFileSync(path.join(OUT, 'ledger', `${label}.tsv`), lines.join('\n') + '\n');
-  const ledger: Ledger = { attempts: [], answers: [], progress: [], raw: lines };
+  const ledger: Ledger = { attempts: [], answers: [], progress: [], raw: lines, course: { enrollments: -1, progressions: -1, certificates: -1 } };
   for (const l of lines) {
     const c = l.split('\t');
     if (c[0] === 'A') ledger.attempts.push({ attempt: Number(c[1]), id: c[2], state: c[3], score: c[4], startedAt: c[5], finishedAt: c[6], answers: Number(c[7]) });
     else if (c[0] === 'W') ledger.answers.push({ attempt: Number(c[1]), question: c[2], answer: c[3] ? JSON.parse(c[3]) : null, correct: c[4], points: c[5] });
     else if (c[0] === 'P') ledger.progress.push(c[2]);
+    else if (c[0] === 'E') ledger.course.enrollments = Number(c[1]);
+    else if (c[0] === 'G') ledger.course.progressions = Number(c[1]);
+    else if (c[0] === 'C') ledger.course.certificates = Number(c[1]);
   }
   return ledger;
 }
@@ -130,6 +138,21 @@ export function expectFinalized(l: Ledger, s: Scenario, expected: Array<{ attemp
  */
 export function attemptHistory(l: Ledger, attempt: number): string[] {
   return l.raw.filter((line) => line.startsWith(`A\t${attempt}\t`) || line.startsWith(`W\t${attempt}\t`));
+}
+
+/**
+ * T-62: removes the synthetic learner's enrollment in synthetic course gg (20, 22 or 24) through revoke-access.sh
+ * (strict local DSN, mutating target guard, exactly one synthetic row, fixed output). Only the scenario key is an
+ * argument; the DSN stays in the environment. Throws with the script's fixed line on any refusal.
+ */
+export function revokeAccess(gg: '20' | '22' | '24') {
+  try {
+    const out = execFileSync('bash', [REVOKE_SH, gg], { encoding: 'utf8', env: process.env, stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000 });
+    fs.mkdirSync(path.join(OUT, 'checks'), { recursive: true });
+    fs.appendFileSync(path.join(OUT, 'checks', 'revoke-access.txt'), out);
+  } catch (e: any) {
+    throw new Error(`revoke-access ${gg} failed: ${String(e?.stdout ?? '').trim().split('\n').pop()}`);
+  }
 }
 
 /** Polls until the item's progression row is exactly ['read'] (the app's contract: content_item_progressions). */

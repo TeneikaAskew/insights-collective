@@ -52,7 +52,7 @@ pass=0; fail=0
 ok()  { echo "PASS $*"; pass=$((pass + 1)); }
 bad() { echo "FAIL $*"; fail=$((fail + 1)); }
 
-SUPABASE_DB_URL="$S_URI_WITH_PW" "$HERE/fixture.sh" --no-target-guard >/dev/null && ok "fixture applies (16 quizzes)" || bad "fixture applies"
+SUPABASE_DB_URL="$S_URI_WITH_PW" "$HERE/fixture.sh" --no-target-guard >/dev/null && ok "fixture applies (23 quizzes)" || bad "fixture applies"
 # Re-run under strace with the REAL psql: every execve of the child chain is traced. If the maintenance URI carries no
 # password (trust auth), a synthetic one is used for this run only, so the DB-password path is exercised too.
 TRACE_PW="$PGPASSWORD"; [ -n "$TRACE_PW" ] || TRACE_PW="shimdb$(od -An -N8 -tx1 /dev/urandom | tr -d ' \n')"
@@ -71,7 +71,7 @@ as_learner() {
 }
 q() { printf '9c00%s02-0000-4000-8000-000000000000' "$1"; }
 
-n=$(psql "$S_CONN" -Atq -c "select count(*) from public.quizzes where id::text like '9c00%'"); [ "$n" = 16 ] && ok "16 scenario quizzes" || bad "scenario quizzes: $n"
+n=$(psql "$S_CONN" -Atq -c "select count(*) from public.quizzes where id::text like '9c00%'"); [ "$n" = 23 ] && ok "23 scenario quizzes" || bad "scenario quizzes: $n"
 n=$(as_learner "select count(*) from public.get_quiz_questions_for_taking('$(q 10)')"); [ "$n" = 2 ] && ok "learner reads F1 questions (2)" || bad "learner reads F1 questions: $n"
 leak=$(as_learner "select count(*) from public.get_quiz_questions_for_taking('$(q 10)') g where g::text like '%\"correct\"%'")
 [ "$leak" = 0 ] && ok "taking RPC returns no correct flag" || bad "taking RPC leaks correct flags: $leak"
@@ -90,6 +90,23 @@ n=$(psql "$S_CONN" -At -F $'\t' -v quiz="$(q 13)" -f "$HERE/ledger.sql" | grep -
 [ "$n" = 3 ] && ok "ledger lists 3 attempts for quiz 13" || bad "ledger attempts: $n"
 w=$(printf '%s\n' "SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY;" "delete from public.quiz_submissions;" | psql "$S_CONN" -At -f - 2>&1)
 grep -q "read-only transaction" <<<"$w" && ok "ledger session refuses writes" || bad "ledger session is writable"
+
+# T-62: the learner is enrolled in synthetic course 20 and may start; after revoke-access.sh the REAL predicate denies.
+n=$(psql "$S_CONN" -At -F $'\t' -v quiz="$(q 20)" -f "$HERE/ledger.sql" | grep '^E' | cut -f2); [ "$n" = 1 ] && ok "T62: learner enrolled in synthetic course 20 (ledger E=1)" || bad "T62 enrollment before revoke: $n"
+out=$(SUPABASE_DB_URL="$S_URI_WITH_PW" "$HERE/revoke-access.sh" 20 --no-target-guard 2>&1); [ $? -eq 0 ] && grep -q "PASS revoke" <<<"$out" && ok "T62: revoke-access removes exactly one synthetic enrollment" || bad "T62 revoke: $out"
+n=$(psql "$S_CONN" -At -F $'\t' -v quiz="$(q 20)" -f "$HERE/ledger.sql" | grep '^E' | cut -f2); [ "$n" = 0 ] && ok "T62: ledger E=0 after revoke" || bad "T62 enrollment after revoke: $n"
+# Dependency, measured: the snapshot's start_quiz_attempt has NO access check, so the denial exists only once #135's
+# 20261101000100 is applied. Control first (scratch quiz 22, revoked): allowed without it. Then apply that repo file to
+# THIS scratch database only and require the denial on quiz 20. The integrated mode must apply #135's migrations.
+SUPABASE_DB_URL="$S_URI_WITH_PW" "$HERE/revoke-access.sh" 22 --no-target-guard >/dev/null 2>&1
+a=$(as_learner "select attempt from public.start_quiz_attempt('$(q 22)')")
+[ "$a" = 1 ] && ok "T62 control: WITHOUT 20261101000100 a revoked learner can still start (snapshot RPC has no access check)" || bad "T62 control: $a"
+ACCESS_MIG="$HERE/../../../supabase/migrations/20261101000100_start_quiz_attempt_requires_quiz_access.sql"
+psql "$S_CONN" -X -q -v ON_ERROR_STOP=1 -f "$ACCESS_MIG" >/dev/null 2>&1 && ok "T62: applied #135 20261101000100 to the scratch database only" || bad "T62: could not apply 20261101000100 to scratch"
+e=$(as_learner "select attempt from public.start_quiz_attempt('$(q 20)')"); grep -q "You do not have access to this quiz" <<<"$e" && ok "T62: real start_quiz_attempt denies access after revoke" || bad "T62 start not denied: $e"
+n=$(psql "$S_CONN" -Atq -c "select count(*) from public.quiz_submissions where quiz_id = '$(q 20)'"); [ "$n" = 0 ] && ok "T62: denied start left 0 attempts" || bad "T62 attempts after denial: $n"
+out=$(SUPABASE_DB_URL="$S_URI_WITH_PW" "$HERE/revoke-access.sh" 20 --no-target-guard 2>&1); [ $? -eq 1 ] && grep -q "FAIL revoke \[V01\]" <<<"$out" && ok "T62: a second revoke refuses (not exactly one row)" || bad "T62 second revoke: $out"
+a=$(as_learner "select attempt from public.start_quiz_attempt('$(q 26)')"); [ "$a" = 1 ] && ok "T62 allowed control: quiz 26 start -> attempt 1" || bad "T62 allowed control: $a"
 
 e=$(SUPABASE_DB_URL="$S_URI_WITH_PW" "$HERE/fixture.sh" --no-target-guard 2>&1); [ $? -ne 0 ] && grep -q "already holds attempts" <<<"$e" && ok "fixture refuses a used stack" || bad "fixture on a used stack: $e"
 E2E_TEST_PASSWORD= SUPABASE_DB_URL="$S_URI_WITH_PW" "$HERE/fixture.sh" --no-target-guard >/dev/null 2>&1; [ $? -eq 2 ] && ok "fixture refuses an empty password" || bad "fixture accepted an empty password"
