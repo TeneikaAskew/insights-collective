@@ -68,6 +68,11 @@ describe('learner-quiz job', () => {
     expect(STEPS[edgeServe].run).not.toMatch(/curl|functions\/v1/);
     expect(STEPS[edgeServe].run).toMatch(/stack-net\.mjs verify[\s\S]*stack-checks\.sh ports/);
     expect(STEPS[edge].run).toMatch(/stack-net\.mjs verify[\s\S]*stack-net\.mjs listeners[\s\S]*stack-checks\.sh ports/);
+    // Generation binding: start id recorded; pre-readiness accepts only a different, stable container; post-readiness requires it.
+    expect(STEPS[edgeStart].run).toContain('--record-id "$RUNNER_TEMP/lq-edge-id/start.id"');
+    expect(STEPS[edgeServe].run).toContain('--exclude-id "$D/start.id" --record-id "$D/poll.id"');
+    expect(STEPS[edgeServe].run).toContain('mv "$D/poll.id" "$D/serve.id"');
+    expect(STEPS[edge].run).toContain('--expect-id "$RUNNER_TEMP/lq-edge-id/serve.id"');
   });
 
   it('uses only the network name the unchanged stack-net guard accepts, with the lq owner label, and no new name pattern', () => {
@@ -130,10 +135,10 @@ describe('learner-quiz job', () => {
   it('launches background servers only as owned process groups and stops only those, then proves 8080 has no listener', () => {
     const lqText = STEPS.map((s) => String(s.run ?? '')).join('\n');
     expect(lqText).not.toMatch(/\bpkill\b|\bpgrep\b|killall|nohup|FUNCTIONS_PID/);
-    expect(STEPS[at(/supabase functions serve/)].run).toMatch(/owned-proc\.sh start "\$RUNNER_TEMP\/lq-owned" functions /);
-    expect(STEPS[at(/vite preview --outDir/)].run).toMatch(/owned-proc\.sh start "\$RUNNER_TEMP\/lq-owned" preview /);
+    expect(STEPS[at(/supabase functions serve/)].run).toMatch(/owned-proc\.mjs start "\$RUNNER_TEMP\/lq-owned" functions /);
+    expect(STEPS[at(/vite preview --outDir/)].run).toMatch(/owned-proc\.mjs start "\$RUNNER_TEMP\/lq-owned" preview /);
     const bg = STEPS.find((s) => /Stop background servers/.test(s.name ?? ''))!;
-    expect(bg.run).toContain('owned-proc.sh stop "$RUNNER_TEMP/lq-owned" 8080');
+    expect(bg.run).toContain('owned-proc.mjs stop "$RUNNER_TEMP/lq-owned" 8080');
     expect(bg.run).toMatch(/ss -Hltn 'sport = :8080'\) \|\| \{ echo "ss failed"; exit 1; \}/);
     expect(STEPS[at(/stage-evidence/)].run).toContain('owned-stop.txt');
   });

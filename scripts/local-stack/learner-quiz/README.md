@@ -30,18 +30,22 @@ owner's integration of three separately reviewed sources. Nothing here is accept
 6. **Edge check 1 of 3:** `edge-runtime-check.sh` at initial start, before bootstrap. It checks exactly one runtime, on the owned
    network only, with no published port and SUPABASE_URL set to the in-network gateway.
 7. STAGE PRE, bootstrap, identities, then the seven pinned migrations (NEW).
-8. `functions serve`, launched through `owned-proc.sh start`, which records pid and kernel start time at launch.
+8. `functions serve`, launched through `owned-proc.mjs start`, which records pid and kernel start time at launch.
 9. **Edge check 2 of 3:** after the serve recreation and BEFORE readiness.
-   - It polls `edge-runtime-check.sh` (docker inspection only, no request to any function) until exactly one runtime passes,
-     bounded at 90 s.
+   - It polls `edge-runtime-check.sh` (docker inspection only, no request to any function).
+   - Check 1 recorded the start-generation container ID. This check accepts only a DIFFERENT container that passes, seen with
+     the same ID on two consecutive polls, bounded at 90 s, and records that ID as the serve generation. The original container
+     may still be visible on early polls.
+   - If serve never replaces the container, the step fails closed. That is a finding.
    - Then it runs net verify and ports.
 10. Readiness: score-quiz OPTIONS gives `200 ok`. This is the first request that boots a worker.
-11. **Edge check 3 of 3:** after readiness, it runs `edge-runtime-check.sh`, net verify, listeners and ports. It also greps the
+11. **Edge check 3 of 3:** after readiness, it requires the SAME serve-generation container ID (`--expect-id`), so a later
+    replacement fails. Then, it runs `edge-runtime-check.sh`, net verify, listeners and ports. It also greps the
     runtime log for a remote module download. That grep is a detector only.
-12. Build, `check-local-target`, the hermetic selftest, the TEST-SERVED copy, and the preview through `owned-proc.sh start`.
+12. Build, `check-local-target`, the hermetic selftest, the TEST-SERVED copy, and the preview through `owned-proc.mjs start`.
 13. Fixture preflight, `fixture.sh`, then Playwright. The exit status is preserved.
 14. Cleanup always runs:
-    - `owned-proc.sh stop … 8080` signals ONLY the recorded process groups. It skips a reused pid. It then requires no listener
+    - `owned-proc.mjs stop … 8080` signals ONLY the recorded process groups. It skips a reused pid. It then requires no listener
       on 8080 and fails on any inspection error.
     - Then `stop --no-backup`, owned-network removal and the leftovers check.
     - Then `stage-evidence` with the explicit receipt list.
