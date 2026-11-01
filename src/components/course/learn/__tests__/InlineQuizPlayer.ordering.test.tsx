@@ -195,10 +195,10 @@ describe('InlineQuizPlayer ordering and recovery', () => {
     server.hooks.failStart = 'You do not have access to this quiz.';
     render(<InlineQuizPlayer item={item('qa')} quiz={makeQuiz('qa', 1)} />);
     fireEvent.click(await screen.findByRole('radio', { name: 'Four' }));
-    await waitFor(() => expect(toastMock).toHaveBeenCalledWith(expect.objectContaining({ title: 'Error starting quiz' })));
+    await screen.findByText("Couldn't start this quiz");
     expect(server.submissions).toHaveLength(0);
     server.hooks.failStart = null;
-    fireEvent.click(screen.getByRole('radio', { name: 'Three' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     await screen.findByText(/attempt 1 of 1/i);
     expect(server.calls.startRpc).toHaveLength(2);
     expect(server.submissions).toHaveLength(1);
