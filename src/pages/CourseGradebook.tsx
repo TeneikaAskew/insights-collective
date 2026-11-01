@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCoursePermissions } from '@/hooks/useCoursePermissions';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { assertGradeSaved } from '@/lib/assignmentGrading';
 import { useAssignments } from '@/hooks/useAssignments';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -30,18 +31,21 @@ interface GradeUpdatePayload {
 // resulting error, so grading silently did nothing. Throws on failure so
 // callers can surface the error.
 async function updateSubmissionGrade(submissionId: string, grade: number) {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('assignment_submissions')
     .update({
       grade,
       graded_at: new Date().toISOString(),
       workflow_state: 'graded',
     })
-    .eq('id', submissionId);
+    .eq('id', submissionId)
+    .select('id, grade, workflow_state');
 
   if (error) {
     throw new Error(error.message || 'Failed to save grade');
   }
+  // A zero-row (RLS) or pin-reverted update is not a saved grade.
+  assertGradeSaved(data as any, submissionId, grade);
 }
 
 // Applies a batch of grade updates as per-submission assignment_submissions

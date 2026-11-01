@@ -120,11 +120,14 @@ function useTables(tables: Record<string, any>) {
 }
 // ---------------------------------------------------------------------------
 
+// Shaped like the real embed: content_items -> assignments(*) carries the table's `points` column and NO
+// points_possible (public.assignments has none). The previous mock invented points_possible: 100, which matched
+// the page's fallback and hid that a genuine 10-point assignment was graded out of 100.
 const contentItem = {
   id: 'item-1',
   type: 'assignment',
   title: 'Essay 1',
-  assignment: { id: 'assignment-1', points_possible: 100 },
+  assignment: { id: 'assignment-1', course_id: 'course-1', title: 'Essay 1', points: 10 },
 };
 
 const alice = { id: 'u1', first_name: 'Alice', last_name: 'Adams' };
@@ -163,7 +166,8 @@ describe('CanvasGradingInterface', () => {
           makeGradingSubmission({
             id: 'sub-2',
             workflow_state: 'graded',
-            grade: 90,
+            grade: 7,
+            score: null,
             user: { id: 'u2', first_name: 'Bob', last_name: 'Brown' },
           }),
         ],
@@ -178,7 +182,7 @@ describe('CanvasGradingInterface', () => {
     expect(screen.getAllByText('Alice Adams').length).toBeGreaterThan(0);
     expect(screen.getByLabelText('Score')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Save & next' })).toBeInTheDocument();
-    expect(screen.getByText('1 of 2 graded • 1 still needs grading • 100 pts')).toBeInTheDocument();
+    expect(screen.getByText('1 of 2 graded • 1 still needs grading • 10 pts')).toBeInTheDocument();
   });
 
   it('mounts the submission comments panel for the selected submission', async () => {
@@ -303,13 +307,14 @@ describe('CanvasGradingInterface', () => {
     render(<CanvasGradingInterface />);
     await screen.findByText('Essay 1');
 
-    fireEvent.change(screen.getByLabelText('Score'), { target: { value: '42' } });
+    fireEvent.change(screen.getByLabelText('Score'), { target: { value: '7' } });
     fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
 
     await waitFor(() => expect(subsBuilder.update).toHaveBeenCalled());
     expect(subsBuilder.update).toHaveBeenCalledWith(
-      expect.objectContaining({ grade: 42, workflow_state: 'graded' }),
+      expect.objectContaining({ grade: 7, workflow_state: 'graded' }),
     );
+    expect(subsBuilder.select).toHaveBeenCalledWith('id, grade, grader_comments, workflow_state, graded_at');
     // REGRESSION: assignment_submissions has no grader_id column. Sending it
     // made PostgREST reject the entire update, so grading silently failed in
     // production while this mocked test still passed.
@@ -321,13 +326,16 @@ describe('CanvasGradingInterface', () => {
       expect.objectContaining({ title: 'Grade published' }),
     );
 
-    resolveUpdate({ data: null, error: null });
+    resolveUpdate({
+      data: [{ id: 'sub-1', grade: 7, grader_comments: '', workflow_state: 'graded', graded_at: '2026-11-01T12:00:00Z' }],
+      error: null,
+    });
 
     await waitFor(() =>
       expect(toastMock).toHaveBeenCalledWith(
         expect.objectContaining({
           title: 'Grade published',
-          description: 'Alice Adams: 42/100',
+          description: 'Alice Adams: 7/10',
         }),
       ),
     );
@@ -344,7 +352,7 @@ describe('CanvasGradingInterface', () => {
     render(<CanvasGradingInterface />);
     await screen.findByText('Essay 1');
 
-    fireEvent.change(screen.getByLabelText('Score'), { target: { value: '42' } });
+    fireEvent.change(screen.getByLabelText('Score'), { target: { value: '7' } });
     fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
 
     await waitFor(() =>
@@ -360,4 +368,75 @@ describe('CanvasGradingInterface', () => {
       expect.objectContaining({ title: 'Grade published' }),
     );
   });
+
+  describe('10-point assignment (actual schema: assignments.points = 10, no points_possible)', () => {
+    it('uses 10 as the denominator for the list, input max and quick-fill, with grade 0 and 7 (score NULL)', async () => {
+      vi.mocked(CanvasContentService.getContentItem).mockResolvedValue(contentItem as any);
+      useTables({
+        assignment_submissions: makeTableBuilder({
+          data: [
+            makeGradingSubmission({ body: 'needs grading' }),
+            makeGradingSubmission({ id: 'sub-0', workflow_state: 'graded', grade: 0, score: null, user: { id: 'u2', first_name: 'Bob', last_name: 'Zero' } }),
+            makeGradingSubmission({ id: 'sub-7', workflow_state: 'graded', grade: 7, score: null, user: { id: 'u3', first_name: 'Cy', last_name: 'Seven' } }),
+          ],
+          error: null,
+        }),
+      });
+      render(<CanvasGradingInterface />);
+      await screen.findByText('Essay 1');
+      expect(screen.getByLabelText('Score')).toHaveAttribute('max', '10');
+      expect(screen.getByText('/ 10')).toBeInTheDocument();
+      fireEvent.mouseDown(screen.getByRole('tab', { name: /^Graded/ }), { button: 0 });
+      expect(await screen.findByText('0/10')).toBeInTheDocument();
+      expect(screen.getByText('7/10')).toBeInTheDocument();
+      expect(screen.queryByText(/\/100\b/)).not.toBeInTheDocument();
+      // Quick-fill "Full" fills the real maximum, not 100.
+      fireEvent.click(screen.getByRole('button', { name: 'Full' }));
+      expect(screen.getByLabelText('Score')).toHaveValue(10);
+    });
+
+    it('rejects 42 on a 10-point assignment instead of saving it', async () => {
+      vi.mocked(CanvasContentService.getContentItem).mockResolvedValue(contentItem as any);
+      const subsBuilder = makeTableBuilder({ data: [makeGradingSubmission({ body: 'x' })], error: null });
+      useTables({ assignment_submissions: subsBuilder });
+      render(<CanvasGradingInterface />);
+      await screen.findByText('Essay 1');
+      fireEvent.change(screen.getByLabelText('Score'), { target: { value: '42' } });
+      fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+      await waitFor(() =>
+        expect(toastMock).toHaveBeenCalledWith(expect.objectContaining({ title: 'Invalid grade', description: 'Enter a value between 0 and 10.' })),
+      );
+      expect(subsBuilder.update).not.toHaveBeenCalled();
+    });
+
+    it('keeps the previous 100 fallback ONLY when the assignment row has no points at all', async () => {
+      vi.mocked(CanvasContentService.getContentItem).mockResolvedValue({ ...contentItem, assignment: { id: 'assignment-1', points: null } } as any);
+      useTables({ assignment_submissions: makeTableBuilder({ data: [makeGradingSubmission({ body: 'x' })], error: null }) });
+      render(<CanvasGradingInterface />);
+      await screen.findByText('Essay 1');
+      expect(screen.getByLabelText('Score')).toHaveAttribute('max', '100');
+    });
+  });
+
+  for (const [label, result] of [
+    ['zero rows (RLS-filtered update)', { data: [], error: null }],
+    ['the row with its old grade (pin trigger reverted it)', { data: [{ id: 'sub-1', grade: null, grader_comments: null, workflow_state: 'submitted', graded_at: null }], error: null }],
+  ] as const) {
+    it(`does not publish when the save returns ${label}`, async () => {
+      vi.mocked(CanvasContentService.getContentItem).mockResolvedValue(contentItem as any);
+      const subsBuilder = makeTableBuilder(
+        { data: [makeGradingSubmission({ body: 'Great essay text' })], error: null },
+        result as any,
+      );
+      useTables({ assignment_submissions: subsBuilder });
+      render(<CanvasGradingInterface />);
+      await screen.findByText('Essay 1');
+      fireEvent.change(screen.getByLabelText('Score'), { target: { value: '7' } });
+      fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+      await waitFor(() =>
+        expect(toastMock).toHaveBeenCalledWith(expect.objectContaining({ title: 'Error saving grade', variant: 'destructive' })),
+      );
+      expect(toastMock).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'Grade published' }));
+    });
+  }
 });

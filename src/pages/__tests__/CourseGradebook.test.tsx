@@ -271,7 +271,13 @@ describe('CourseGradebook', () => {
   });
 
   it('saves a grade to assignment_submissions with only real columns and toasts success', async () => {
-    const builders = wireTables(successTables());
+    const tables = successTables();
+    // The write is read back: exactly one row with the grade that was sent.
+    tables.assignment_submissions = tableBuilder(
+      { data: [makeSubmission({ id: 'sub-1', assignment_id: 'a1', user_id: 'student-1', grade: 90, workflow_state: 'graded' })], error: null },
+      { data: [{ id: 'sub-1', grade: 95, workflow_state: 'graded' }], error: null },
+    );
+    const builders = wireTables(tables);
 
     render(<CourseGradebook />);
 
@@ -294,6 +300,7 @@ describe('CourseGradebook', () => {
     expect(payload).not.toHaveProperty('graded_by');
     expect(payload).not.toHaveProperty('status');
     expect(builders.assignment_submissions.eq).toHaveBeenCalledWith('id', 'sub-1');
+    expect(builders.assignment_submissions.select).toHaveBeenCalledWith('id, grade, workflow_state');
 
     // REGRESSION: the nonexistent grades table is never touched.
     expect(tablesQueried()).not.toContain('grades');
@@ -307,6 +314,31 @@ describe('CourseGradebook', () => {
       expect.objectContaining({ variant: 'destructive' }),
     );
   });
+
+  // An error-free update is not a saved grade. RLS can match zero rows (PostgREST still answers 200), and the
+  // pin_assignment_grade_columns trigger silently keeps the OLD grade for non-staff. Neither may toast Success.
+  for (const [label, updateResult] of [
+    ['zero rows (RLS-filtered)', { data: [], error: null }],
+    ['row returned with the old grade (pin reverted it)', { data: [{ id: 'sub-1', grade: 90, workflow_state: 'graded' }], error: null }],
+  ] as const) {
+    it(`does not report success when the save returns ${label}`, async () => {
+      const tables = successTables();
+      tables.assignment_submissions = tableBuilder(
+        { data: [makeSubmission({ id: 'sub-1', assignment_id: 'a1', user_id: 'student-1', grade: 90, workflow_state: 'graded' })], error: null },
+        updateResult as any,
+      );
+      wireTables(tables);
+      render(<CourseGradebook />);
+      fireEvent.click(await screen.findByText('90'));
+      const input = await screen.findByRole('spinbutton');
+      fireEvent.change(input, { target: { value: '95' } });
+      fireEvent.click(input.parentElement!.querySelector('button')!);
+      await waitFor(() =>
+        expect(toastMock).toHaveBeenCalledWith(expect.objectContaining({ variant: 'destructive' })),
+      );
+      expect(toastMock).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'Success' }));
+    });
+  }
 
   it('shows a destructive toast when the grade update fails', async () => {
     const tables = successTables();
@@ -349,13 +381,15 @@ describe('CourseGradebook', () => {
   describe('bulk grade updates', () => {
     it('applies per-submission updates and collects failures honestly', async () => {
       const builder: any = { update: vi.fn(() => builder) };
-      builder.eq = vi.fn((_col: string, id: string) =>
-        Promise.resolve(
-          id === 'sub-bad'
-            ? { data: null, error: { message: 'row locked' } }
-            : { data: null, error: null },
+      builder.eq = vi.fn((_col: string, id: string) => ({
+        select: vi.fn(() =>
+          Promise.resolve(
+            id === 'sub-bad'
+              ? { data: null, error: { message: 'row locked' } }
+              : { data: [{ id, grade: 10, workflow_state: 'graded' }], error: null },
+          ),
         ),
-      );
+      }));
       // Call history accumulates across tests in this file; start clean so the
       // table assertions below only see this test's queries.
       (mockSupabaseClient.from as Mock).mockClear();
