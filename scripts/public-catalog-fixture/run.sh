@@ -1,40 +1,55 @@
 #!/usr/bin/env bash
-# ABOUTME: Anonymous public-catalog acceptance runner for an OWNED, disposable loopback Supabase stack that is already up and
-# ABOUTME: bootstrapped (scripts/local-stack, owned by another lane) with the app served against it. Not run by anything yet.
+# ABOUTME: Anonymous public-catalog acceptance runner for an OWNED, disposable loopback Supabase stack (bootstrapped by the shared
+# ABOUTME: local-stack lane) with the hermetic test-served app on loopback. BLOCKED today: no reviewed owned-stack proof producer.
 #
-# Order (each step fails closed): guards -> served-build check -> witness W0 -> seed -> witness W1 -> browser specs ->
-# witness W2 (must equal W1: anonymous browsing wrote nothing) -> anon RLS probe (reads, then run-owned write attempts)
-# -> witness W3 (must equal W1, else the probe proves an accepted write). No cleanup: the stack is destroyed with the job.
+# Order, each step fails closed with a fixed code and prints no raw output:
+#   helper pins -> guards (targets, canonical DSN + private passfile, anon key, proof consumer) -> PRE stack egress checks ->
+#   served-asset provenance -> hermetic verify -> W0 (must be pristine) -> seed -> W1 -> browser -> W2 (must equal W1; a W2
+#   failure or mismatch STOPS here, before any write probe) -> anon probe -> W3 (must equal W1).
+# Output contract:
+#   $PUBLIC_ACCEPT_OUT/evidence/  sanitized, allowlisted files only; the ONLY directory a runner may upload.
+#   private staging               mktemp -d, mode 0700, files 0600: raw psql, Playwright and probe output. Never printed, never
+#                                 uploaded, and ALWAYS removed on exit (trap), pass or fail.
+# No DB cleanup exists or is allowed: no DELETE/TRUNCATE/DROP anywhere. Whole-stack disposal belongs to the runner job alone.
 set -u -o pipefail
+umask 077
 HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$(cd "$HERE/../.." && pwd)"
-OUT="${PUBLIC_ACCEPT_OUT:?set PUBLIC_ACCEPT_OUT to a new, empty evidence directory}"
-[ -e "$OUT" ] && { echo "PUBLIC_CATALOG_E_OUT_EXISTS: $OUT"; exit 2; }
-mkdir -p "$OUT" && chmod 700 "$OUT"
-step() { echo "== $1" | tee -a "$OUT/STEPS.txt"; }
-psqlx() { command env -u PGHOST -u PGHOSTADDR -u PGSERVICE -u PGSERVICEFILE -u PGPORT -u PGPASSFILE psql "$PUBLIC_ACCEPT_DB_URL" -X -q -At "$@"; }
+die() { echo "$1"; [ -n "${EV:-}" ] && [ -d "$EV" ] && echo "$1" >> "$EV/STEPS.txt"; exit "${2:-2}"; }
+OUT="${PUBLIC_ACCEPT_OUT:-}"; [ -n "$OUT" ] || die PUBLIC_CATALOG_E_NO_OUT
+[ -e "$OUT" ] && die PUBLIC_CATALOG_E_OUT_EXISTS
+[[ "${PUBLIC_ACCEPT_RUN_ID:-}" =~ ^[0-9a-f]{32}$ ]] || die PUBLIC_CATALOG_E_RUN_ID
+[ "${PUBLIC_ACCEPT_TIER:-authentic}" = authentic ] || die PUBLIC_CATALOG_E_TIER
+[ -z "${PUBLIC_ACCEPT_LIST_ONLY+x}" ] || die PUBLIC_CATALOG_E_LIST_ONLY_SET
+mkdir -p "$OUT/evidence" && chmod 700 "$OUT" "$OUT/evidence" || die PUBLIC_CATALOG_E_OUT_CREATE
+EV="$OUT/evidence"
+PRIV="$(mktemp -d "${TMPDIR:-/tmp}/pca-private.XXXXXXXX")" || die PUBLIC_CATALOG_E_PRIVATE
+chmod 700 "$PRIV"; trap 'rm -rf -- "$PRIV"' EXIT
+step() { echo "== $1" >> "$EV/STEPS.txt"; echo "== $1"; }
+psqlx() { env -i PATH="$PATH" PGPASSFILE="$PUBLIC_ACCEPT_DB_PASSFILE" psql -w -X -q -At -v ON_ERROR_STOP=1 "$PUBLIC_ACCEPT_DB_URL" "$@"; }
+codes() { grep -oE 'PUBLIC_CATALOG_E_[A-Z_]+' "$1" | sort -u | head -20; }
 
-[ "${PUBLIC_ACCEPT_TIER:-authentic}" = authentic ] || { echo "PUBLIC_CATALOG_E_TIER: run.sh runs the authentic tier only"; exit 2; }
-export PUBLIC_ACCEPT_TIER=authentic
-step guards;        node "$HERE/guards.mjs" > "$OUT/guards.txt" 2>&1 || { cat "$OUT/guards.txt"; exit 2; }
-step served-build;  node "$HERE/served-build-check.mjs" > "$OUT/served-build.txt" 2>&1 || { cat "$OUT/served-build.txt"; exit 2; }
-# The served directory must be the reviewed hermetic test-served derivation (scripts/served-app, owned by the local-stack lane;
-# not on main yet). Without that contract the run cannot start: the product index.html loads cdn.gpteng.co for every visitor.
-step hermetic;      { [ -f "$ROOT/scripts/served-app/hermetic-dist.mjs" ] && [ -n "${PUBLIC_ACCEPT_PRODUCT_DIST:-}" ] && [ -n "${PUBLIC_ACCEPT_SERVED_DIR:-}" ]; } \
-                      || { echo "PUBLIC_CATALOG_E_NO_HERMETIC_CONTRACT: scripts/served-app/hermetic-dist.mjs and PUBLIC_ACCEPT_PRODUCT_DIST/SERVED_DIR are required"; exit 2; }
-                    node "$ROOT/scripts/served-app/hermetic-dist.mjs" verify "$PUBLIC_ACCEPT_PRODUCT_DIST" "$PUBLIC_ACCEPT_SERVED_DIR" > "$OUT/hermetic-verify.txt" 2>&1 || { cat "$OUT/hermetic-verify.txt"; exit 2; }
-step W0;            psqlx -f "$HERE/witness.sql" > "$OUT/W0.txt" || exit 2
-step seed;          psqlx -f "$HERE/seed.sql" > "$OUT/seed.txt" 2>&1 || { cat "$OUT/seed.txt"; exit 2; }
-step W1;            psqlx -f "$HERE/witness.sql" > "$OUT/W1.txt" || exit 2
-node --input-type=module -e "import('$HERE/fixtures.mjs').then((m) => import('node:fs').then((fs) => fs.writeFileSync('$OUT/MANIFEST.json', JSON.stringify({ ids: m.ALL_IDS, created_by: 'seed.sql' }, null, 2))))" || exit 2
-step browser;       (cd "$ROOT" && PUBLIC_ACCEPT_REPORT="$OUT/playwright.json" timeout 1800 npx playwright test -c playwright.public-catalog.config.ts --output="$OUT/pw" > "$OUT/playwright.log" 2>&1); echo $? > "$OUT/playwright.exit"
-step W2;            psqlx -f "$HERE/witness.sql" > "$OUT/W2.txt" || exit 2
-cmp -s "$OUT/W1.txt" "$OUT/W2.txt" && echo unchanged > "$OUT/W1-W2.txt" || diff "$OUT/W1.txt" "$OUT/W2.txt" > "$OUT/W1-W2.txt"
-step anon-probe;    node "$HERE/anon-probe.mjs" "$OUT/anon-probe.json" > "$OUT/anon-probe.txt" 2>&1; echo $? > "$OUT/anon-probe.exit"
-step W3;            psqlx -f "$HERE/witness.sql" > "$OUT/W3.txt" || exit 2
-cmp -s "$OUT/W1.txt" "$OUT/W3.txt" && echo unchanged > "$OUT/W1-W3.txt" || diff "$OUT/W1.txt" "$OUT/W3.txt" > "$OUT/W1-W3.txt"
+step pins;      node --input-type=module -e "import('$HERE/helper-pins.mjs').then((m) => { const e = m.checkHelperPins('$ROOT'); for (const x of e) console.error(x.split(':')[0]); process.exit(e.length ? 2 : 0); })" 2> "$PRIV/pins.txt" \
+                  || { codes "$PRIV/pins.txt" >> "$EV/STEPS.txt"; die PUBLIC_CATALOG_E_PINS; }
+step guards;    node "$HERE/guards.mjs" > "$PRIV/guards.txt" 2>&1 || { codes "$PRIV/guards.txt" | tee -a "$EV/STEPS.txt"; die PUBLIC_CATALOG_E_GUARDS; }
+step pre-stack; psqlx -f "$HERE/pre-stack.sql" > "$PRIV/pre.txt" 2>/dev/null || die PUBLIC_CATALOG_E_PRE_STACK_QUERY
+                [ "$(grep -c '|ok$' "$PRIV/pre.txt")" = 4 ] && [ "$(wc -l < "$PRIV/pre.txt")" = 4 ] || { cut -d'|' -f1,2 "$PRIV/pre.txt" >> "$EV/STEPS.txt"; die PUBLIC_CATALOG_E_PRE_STACK; }
+                cp "$PRIV/pre.txt" "$EV/pre-stack.txt"
+step served;    node "$HERE/served-build-check.mjs" > "$PRIV/served.txt" 2>&1 || { codes "$PRIV/served.txt" | tee -a "$EV/STEPS.txt"; die PUBLIC_CATALOG_E_SERVED; }
+step hermetic;  { [ -f "$ROOT/scripts/served-app/hermetic-dist.mjs" ] && [ -n "${PUBLIC_ACCEPT_PRODUCT_DIST:-}" ] && [ -n "${PUBLIC_ACCEPT_SERVED_DIR:-}" ]; } || die PUBLIC_CATALOG_E_NO_HERMETIC_CONTRACT
+                node "$ROOT/scripts/served-app/hermetic-dist.mjs" verify "$PUBLIC_ACCEPT_PRODUCT_DIST" "$PUBLIC_ACCEPT_SERVED_DIR" > "$PRIV/hermetic.txt" 2>&1 || die PUBLIC_CATALOG_E_HERMETIC_VERIFY
+step W0;        psqlx -f "$HERE/witness.sql" > "$EV/W0.txt" 2>/dev/null || die PUBLIC_CATALOG_E_WITNESS
+                grep -qx 'public.courses|0|empty' "$EV/W0.txt" && grep -qx 'public.modules|0|empty' "$EV/W0.txt" || die PUBLIC_CATALOG_E_NOT_PRISTINE
+step seed;      psqlx -f "$HERE/seed.sql" > "$PRIV/seed.txt" 2>&1 || { codes "$PRIV/seed.txt" >> "$EV/STEPS.txt"; die PUBLIC_CATALOG_E_SEED; }
+step W1;        psqlx -f "$HERE/witness.sql" > "$EV/W1.txt" 2>/dev/null || die PUBLIC_CATALOG_E_WITNESS
+node --input-type=module -e "import('$HERE/fixtures.mjs').then((m) => import('node:fs').then((fs) => fs.writeFileSync('$EV/MANIFEST.json', JSON.stringify({ run_id: '$PUBLIC_ACCEPT_RUN_ID', ids: m.ALL_IDS, created_by: 'seed.sql' }, null, 2))))" || die PUBLIC_CATALOG_E_MANIFEST
+step browser;   (cd "$ROOT" && PUBLIC_ACCEPT_REPORT="$PRIV/playwright.json" timeout 1800 npx playwright test -c playwright.public-catalog.config.ts --output="$PRIV/pw" > "$PRIV/playwright.log" 2>&1); echo $? > "$EV/playwright.exit"
+                node "$HERE/pw-summary.mjs" "$PRIV/playwright.json" > "$EV/playwright-summary.txt" 2>/dev/null || echo PUBLIC_CATALOG_E_PW_REPORT >> "$EV/STEPS.txt"
+step W2;        psqlx -f "$HERE/witness.sql" > "$EV/W2.txt" 2>/dev/null || die PUBLIC_CATALOG_E_W2_FAILED 1
+                cmp -s "$EV/W1.txt" "$EV/W2.txt" || die PUBLIC_CATALOG_E_W2_MISMATCH 1   # stop BEFORE any write probe
+step probe;     node "$HERE/anon-probe.mjs" "$PRIV/anon-probe.json" "$EV/anon-probe-summary.txt" > /dev/null 2>&1; echo $? > "$EV/anon-probe.exit"
+step W3;        psqlx -f "$HERE/witness.sql" > "$EV/W3.txt" 2>/dev/null || die PUBLIC_CATALOG_E_W3_FAILED 1
 rc=0
-[ "$(cat "$OUT/playwright.exit")" = 0 ] || rc=1
-[ "$(cat "$OUT/W1-W2.txt")" = unchanged ] || { echo "DB changed during anonymous browsing"; rc=1; }
-[ "$(cat "$OUT/anon-probe.exit")" = 0 ] || rc=1
-[ "$(cat "$OUT/W1-W3.txt")" = unchanged ] || { echo "an anonymous write was accepted"; rc=1; }
-echo "exit $rc" | tee -a "$OUT/STEPS.txt"; exit $rc
+[ "$(< "$EV/playwright.exit")" = 0 ] || rc=1
+[ "$(< "$EV/anon-probe.exit")" = 0 ] || rc=1   # 1 = leak or accepted write, 3 = UNVERIFIED response; both fail
+cmp -s "$EV/W1.txt" "$EV/W3.txt" || { echo PUBLIC_CATALOG_E_W3_MISMATCH >> "$EV/STEPS.txt"; rc=1; }  # supporting evidence only, not RLS causality
+echo "exit $rc" | tee -a "$EV/STEPS.txt"; exit $rc

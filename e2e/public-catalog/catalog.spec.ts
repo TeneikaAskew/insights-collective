@@ -1,10 +1,20 @@
 // ABOUTME: Anonymous public catalog on a served build against a real loopback Supabase stack: GET -> render, estimated time,
 // ABOUTME: the ?category= URL contract (pointer and keyboard), Back, the unknown notice, course detail and the private negative.
-import { test, expect, UNDER_OWN_CONFIG, NOT_OWN_CONFIG_REASON, FIXTURE, ANON_TITLES, byTitle, catalogRows, cards, cardTitles, card, categoryTrigger } from './support';
+import { test, expect, UNDER_OWN_CONFIG, NOT_OWN_CONFIG_REASON, FIXTURE, FIXTURE_MODULES, ANON_TITLES, byTitle, catalogRows, cards, cardTitles, card, categoryTrigger, estimatedTimeNodes } from './support';
 
 test.skip(!UNDER_OWN_CONFIG, NOT_OWN_CONFIG_REASON);
-// @ts-expect-error: plain ESM helper without type declarations
-import { formatEstimatedHours } from '../../src/lib/estimatedTime';
+/** LITERAL expected Estimated time per fixture title (independent of src/lib/estimatedTime.ts). null = no value node at all. */
+const ESTIMATE: Record<string, string | null> = {
+  'PCA Analytics Course': '2.5 hours',
+  'PCA BI Course': '12 hours',
+  'PCA Leading Space Course': '1 hour',
+  'PCA Newline Name Course': null,
+  'PCA Unicode Course': 'Under 0.1 hours',
+  'PCA Published-Flag Draft-Status Course': '4 hours',
+};
+/** The three newest published fixtures, newest first, written out (not derived). */
+const HOME_FEATURED = ['PCA Analytics Course', 'PCA BI Course', 'PCA Leading Space Course'];
+const SENTINEL = 'pca_keep';
 
 const param = (url: string) => new URL(url).searchParams.get('category');
 const MENU = [
@@ -22,15 +32,15 @@ test.describe('anonymous catalog', () => {
     expect(net.courseResponses.length).toBeGreaterThan(0);
   });
 
-  test('A2 every card shows Estimated time from estimated_hours only, never the legacy duration', async ({ page, net }) => {
+  test('A2 every card shows the literal Estimated time value node from estimated_hours, never the legacy duration', async ({ page, net }) => {
     await catalogRows(page, '/courses');
-    for (const c of FIXTURE.filter((f) => f.published)) {
-      const el = card(page, c.title);
+    expect(Object.keys(ESTIMATE).sort()).toEqual(FIXTURE.filter((f) => f.published).map((f) => f.title).sort());
+    for (const [title, want] of Object.entries(ESTIMATE)) {
+      const el = card(page, title);
       await expect(el).toHaveCount(1);
-      const want = formatEstimatedHours(c.estimated_hours);
-      if (want) await expect(el).toContainText(`Estimated time: ${want}`);
-      else await expect(el).not.toContainText('Estimated time');
-      if (c.duration != null && formatEstimatedHours(c.duration) !== want) await expect(el).not.toContainText(`${c.duration} hour`);
+      expect(await estimatedTimeNodes(el), `${title} Estimated time value node`).toEqual(want ? [`Estimated time: ${want}`] : []);
+      const c = byTitle(title);
+      if (c.duration != null) await expect(el).not.toContainText(`${c.duration} hour`);
     }
   });
 
@@ -82,21 +92,29 @@ test.describe('anonymous catalog', () => {
   });
 
   test('A7 an unknown ?category= shows every course and says so; Clear category drops only that parameter', async ({ page, net }) => {
-    await catalogRows(page, '/courses?category=nope&q=');
+    await catalogRows(page, `/courses?category=nope&${SENTINEL}=1`);
     await expect(page.getByRole('status').filter({ hasText: '“nope”' })).toContainText('so courses from all categories are shown');
     await expect(cards(page)).toHaveCount(ANON_TITLES.length);
     await page.getByRole('button', { name: 'Clear category' }).click();
-    await expect.poll(() => param(page.url())).toBe(null);
+    await expect.poll(() => new URL(page.url()).searchParams.get('category')).toBe(null);
+    expect(new URL(page.url()).searchParams.get(SENTINEL), 'the unrelated query parameter survives Clear').toBe('1');
+    expect([...new URL(page.url()).searchParams.keys()]).toEqual([SENTINEL]);
   });
 
-  test('A8 course detail from a card shows the same Estimated time', async ({ page, net }) => {
+  test('A8 course detail from a card shows the same literal Estimated time and only the public module', async ({ page, net }) => {
     await catalogRows(page, '/courses');
     const c = byTitle('PCA Analytics Course');
     await card(page, c.title).click();
     await expect(page).toHaveURL(new RegExp(`/courses/${c.id}$`));
     await expect(page.getByRole('heading', { name: c.title }).first()).toBeVisible();
-    await expect(page.getByText(`Estimated time: ${formatEstimatedHours(c.estimated_hours)}`).filter({ visible: true }).first()).toBeAttached();
-    await expect(page.getByText('PCA Unpublished Module')).toHaveCount(0);
+    const nodes = await estimatedTimeNodes(page.locator('main'));
+    expect(nodes.length, 'at least one visible Estimated time value node').toBeGreaterThan(0);
+    expect(new Set(nodes), 'every visible value node reads the literal value').toEqual(new Set(['Estimated time: 2.5 hours']));
+    const pub = FIXTURE_MODULES.find((m) => m.course_id === c.id && m.published)!;
+    const hidden = FIXTURE_MODULES.find((m) => m.course_id === c.id && !m.published)!;
+    expect(pub.title).toBe('PCA Published Module');
+    await expect(page.getByText(pub.title, { exact: true }).filter({ visible: true }).first()).toBeVisible();
+    await expect(page.getByText(hidden.title, { exact: true })).toHaveCount(0);
   });
 
   test('A9 a private draft course is not rendered for an anonymous visitor, even by direct URL', async ({ page, net }) => {
@@ -104,22 +122,24 @@ test.describe('anonymous catalog', () => {
     const res = page.waitForResponse((r) => r.url().includes('/rest/v1/courses') && r.url().includes(c.id));
     await page.goto(`/courses/${c.id}`);
     const r = await res;
-    const body = await r.text();
-    expect(body, 'the API itself returned no private row').not.toContain(c.title);
+    // Only ids are compared, so a failure never prints a response body.
+    let ids: string[] = ['<unparseable>'];
+    try { const j = await r.json(); ids = (Array.isArray(j) ? j : [j]).filter((x) => x && typeof x.id === 'string').map((x) => x.id); } catch { /* stays unparseable */ }
+    expect(ids, 'the API itself returned no private row').not.toContain(c.id);
     await page.waitForLoadState('networkidle');
     await expect(page.getByText(c.title)).toHaveCount(0);
   });
 
-  test('A10 the home page features the three newest published courses with their Estimated time', async ({ page, net }) => {
+  test('A10 the home page features exactly the three newest published courses with their literal Estimated time', async ({ page, net }) => {
     await page.goto('/');
     const section = page.locator('[data-tour="courses"]');
     await section.scrollIntoViewIfNeeded();
-    for (const t of ANON_TITLES.slice(0, 3)) {
-      const c = byTitle(t);
-      const h = section.getByRole('heading', { name: t, level: 3 });
-      await expect(h).toBeVisible({ timeout: 20_000 });
-      const want = formatEstimatedHours(c.estimated_hours);
-      if (want) await expect(h.locator('xpath=ancestor::a[1]')).toContainText(want);
+    const headings = section.getByRole('heading', { level: 3 }).filter({ visible: true });
+    await expect(headings).toHaveCount(HOME_FEATURED.length, { timeout: 20_000 });
+    expect((await headings.allTextContents()).map((t) => t.trim())).toEqual(HOME_FEATURED);
+    for (const t of HOME_FEATURED) {
+      const cardLink = section.getByRole('heading', { name: t, level: 3, exact: true }).locator('xpath=ancestor::a[1]');
+      expect(await estimatedTimeNodes(cardLink), `${t} featured Estimated time`).toEqual([`Estimated time: ${ESTIMATE[t]}`]);
     }
   });
 });

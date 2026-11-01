@@ -2,11 +2,14 @@
 // ABOUTME: Stack-free self-test for the public-catalog lane: generated seed, INSERT-only and read-only SQL shapes, run-owned
 // ABOUTME: ids, guard refusals and one positive, and spec/config shapes (no login, no mocks, empty storage). Prints PASS/FAIL.
 import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync, chmodSync, mkdtempSync } from 'node:fs';
+import { readFileSync, writeFileSync, chmodSync, mkdtempSync, symlinkSync, linkSync, mkdirSync, copyFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { runGuards, checkStackProof } from '../guards.mjs';
+import { runGuards } from '../guards.mjs';
+import { checkStackProof, assessProofStat, assessProofFields } from '../proof.mjs';
+import { canonicalDsn, checkDb } from '../pgconn.mjs';
+import { checkHelperPins, HELPER_PINS } from '../helper-pins.mjs';
 import { ALL_IDS, ID_PREFIX } from '../fixtures.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url)); const DIR = path.resolve(HERE, '..'); const ROOT = path.resolve(DIR, '../..');
@@ -26,32 +29,76 @@ for (const f of ['rls-anon-read.sql', 'rls-anon-write.sql']) say(/set local role
 const probe = read('anon-probe.mjs');
 say([...probe.matchAll(/'(POST|PATCH|DELETE)', `?([^`',]+)/g)].every((m) => !/\?/.test(m[2]) || /id=eq\.\$\{(COURSES|MODULES)\[\d\]\.id\}/.test(m[2])), 'anon write attempts target fixture ids only');
 
-const good = { PUBLIC_ACCEPT_BASE_URL: 'http://127.0.0.1:4173', PUBLIC_ACCEPT_API_URL: 'http://127.0.0.1:54321', PUBLIC_ACCEPT_DB_URL: 'postgresql://postgres@127.0.0.1:54322/postgres', PUBLIC_ACCEPT_ANON_KEY: 'k'.repeat(30) };
 const tmp = mkdtempSync(path.join(tmpdir(), 'pc-proof-'));
-const proof = (obj, mode = 0o600) => { const p = path.join(tmp, `p${Math.random()}.json`); writeFileSync(p, JSON.stringify(obj)); chmodSync(p, mode); return p; };
-const sid = 'a'.repeat(32); const okProof = proof({ version: 1, stack_id: sid, db_read: sid, api_read: sid, produced_before_seed: true });
-const has = (env, code) => runGuards(env).some((e) => e.startsWith(code));
-say(runGuards({ ...good, PUBLIC_ACCEPT_STACK_PROOF: okProof }).length === 0, 'guards accept loopback targets with a valid proof (positive control)');
-say(has(good, 'PUBLIC_CATALOG_E_NO_STACK_PROOF'), 'guards refuse without an owned-stack proof (producer missing today)');
-say(has({ ...good, PUBLIC_ACCEPT_STACK_PROOF: proof({ version: 1, stack_id: sid, db_read: sid, api_read: sid, produced_before_seed: true }, 0o644) }, 'PUBLIC_CATALOG_E_BAD_STACK_PROOF'), 'guards refuse a world-readable proof');
-say(has({ ...good, PUBLIC_ACCEPT_STACK_PROOF: proof({ version: 1, stack_id: sid, db_read: 'b'.repeat(32), api_read: sid, produced_before_seed: true }) }, 'PUBLIC_CATALOG_E_BAD_STACK_PROOF'), 'guards refuse a proof whose DB and API reads differ');
-say(has({ ...good, PUBLIC_ACCEPT_STACK_PROOF: okProof, PUBLIC_ACCEPT_BASE_URL: 'https://example.com' }, 'PUBLIC_CATALOG_E_NOT_LOOPBACK'), 'guards refuse a non-loopback app');
-say(has({ ...good, PUBLIC_ACCEPT_STACK_PROOF: okProof, PUBLIC_ACCEPT_API_URL: 'https://siuqvhscuiycvdrtiqsh.supabase.co' }, 'PUBLIC_CATALOG_E_NOT_LOOPBACK'), 'guards refuse the hosted project API');
-say(has({ ...good, PUBLIC_ACCEPT_STACK_PROOF: okProof, PUBLIC_ACCEPT_DB_URL: 'postgresql://postgres@db.siuqvhscuiycvdrtiqsh.supabase.co:5432/postgres' }, 'PUBLIC_CATALOG_E_SHARED_GUARD'), 'guards refuse the hosted project DB (shared guard)');
-say(has({ ...good, PUBLIC_ACCEPT_STACK_PROOF: okProof, PUBLIC_ACCEPT_DB_URL: undefined }, 'PUBLIC_CATALOG_E_SHARED_GUARD'), 'guards refuse an unset DB target');
-say(has({ ...good, PUBLIC_ACCEPT_STACK_PROOF: okProof, E2E_ISOLATED_TARGET_REF: 'abcdefghijklmnopqrst' }, 'PUBLIC_CATALOG_E_ISOLATED_REF_SET'), 'guards refuse any isolated hosted ref (loopback-only lane)');
-say(has({ ...good, PUBLIC_ACCEPT_STACK_PROOF: okProof, PUBLIC_ACCEPT_ANON_KEY: '' }, 'PUBLIC_CATALOG_E_NO_ANON_KEY'), 'guards refuse a missing anon key');
-say(checkStackProof('/nonexistent/proof.json')?.startsWith('PUBLIC_CATALOG_E_NO_STACK_PROOF'), 'a missing proof file is refused');
+const file = (name, text, mode = 0o600) => { const p = path.join(tmp, name); writeFileSync(p, text); chmodSync(p, mode); return p; };
+const pass = file('pgpass', '127.0.0.1:54322:postgres:postgres:x\n');
+const RUN = 'c'.repeat(32); const sid = 'a'.repeat(32);
+const fields = { version: 2, stack_id: sid, db_read: sid, api_read: sid, run_id: RUN, produced_before_seed: true, producer: 'scripts/local-stack/stack-proof.mjs' };
+const okProof = file('proof.json', JSON.stringify(fields));
+const good = { PUBLIC_ACCEPT_BASE_URL: 'http://127.0.0.1:4173', PUBLIC_ACCEPT_API_URL: 'http://127.0.0.1:54321', PUBLIC_ACCEPT_DB_URL: 'postgresql://postgres@127.0.0.1:54322/postgres', PUBLIC_ACCEPT_DB_PASSFILE: pass, PUBLIC_ACCEPT_ANON_KEY: 'k'.repeat(30), PUBLIC_ACCEPT_STACK_PROOF: okProof, PUBLIC_ACCEPT_RUN_ID: RUN };
+const codes = (env) => runGuards(env).map((e) => e.split(':')[0]);
+const has = (env, code) => codes(env).includes(code);
+say(JSON.stringify(codes(good)) === JSON.stringify(['PUBLIC_CATALOG_E_BLOCKED_NO_PRODUCER']), 'a fully valid environment is refused ONLY by BLOCKED_NO_PRODUCER (no reviewed producer exists)');
+say(has({ ...good, PUBLIC_ACCEPT_STACK_PROOF: undefined }, 'PUBLIC_CATALOG_E_NO_STACK_PROOF'), 'guards refuse without a proof');
+const link = path.join(tmp, 'proof-link.json'); symlinkSync(okProof, link);
+say(checkStackProof(link, RUN)?.startsWith('PUBLIC_CATALOG_E_NO_STACK_PROOF'), 'a symlinked proof is refused (O_NOFOLLOW)');
+say(checkStackProof(file('p644.json', JSON.stringify(fields), 0o644), RUN)?.startsWith('PUBLIC_CATALOG_E_PROOF_FILE'), 'a 0644 proof is refused');
+say(checkStackProof(file('p400.json', JSON.stringify(fields), 0o400), RUN)?.startsWith('PUBLIC_CATALOG_E_PROOF_FILE'), 'a 0400 proof is refused (mode must be exactly 0600)');
+const hard = path.join(tmp, 'proof-hard.json'); linkSync(file('ph.json', JSON.stringify(fields)), hard);
+say(checkStackProof(hard, RUN)?.startsWith('PUBLIC_CATALOG_E_PROOF_FILE'), 'a hard-linked proof (nlink 2) is refused');
+say(assessProofStat({ isFile: () => true, nlink: 1, uid: 4242, mode: 0o100600 }, 0)?.includes('not owned'), 'a proof owned by another uid is refused');
+say(assessProofStat({ isFile: () => true, nlink: 1, uid: 0, mode: 0o100600 }, 0) === null, 'owner 0600 single-link file stat is accepted (pure positive)');
+say(assessProofFields({ ...fields, run_id: 'd'.repeat(32) }, RUN)?.startsWith('PUBLIC_CATALOG_E_PROOF_FIELDS'), 'a proof bound to another run is refused');
+say(assessProofFields({ ...fields, db_read: 'b'.repeat(32) }, RUN)?.startsWith('PUBLIC_CATALOG_E_PROOF_FIELDS'), 'a proof whose DB and API reads differ is refused');
+say(assessProofFields({ ...fields, version: 1, run_id: undefined }, RUN)?.startsWith('PUBLIC_CATALOG_E_PROOF_FIELDS'), 'the old unbound v1 shape is refused');
+say(has({ ...good, PUBLIC_ACCEPT_BASE_URL: 'https://example.com' }, 'PUBLIC_CATALOG_E_NOT_LOOPBACK'), 'guards refuse a non-loopback app');
+say(has({ ...good, PUBLIC_ACCEPT_API_URL: 'https://siuqvhscuiycvdrtiqsh.supabase.co' }, 'PUBLIC_CATALOG_E_NOT_LOOPBACK'), 'guards refuse the hosted project API');
+say(has({ ...good, PUBLIC_ACCEPT_DB_URL: 'postgresql://postgres@db.siuqvhscuiycvdrtiqsh.supabase.co:5432/postgres' }, 'PUBLIC_CATALOG_E_SHARED_GUARD'), 'guards refuse the hosted project DB (shared guard)');
+say(has({ ...good, E2E_ISOLATED_TARGET_REF: 'abcdefghijklmnopqrst' }, 'PUBLIC_CATALOG_E_ISOLATED_REF_SET'), 'guards refuse any isolated hosted ref');
+say(has({ ...good, PUBLIC_ACCEPT_ANON_KEY: '' }, 'PUBLIC_CATALOG_E_NO_ANON_KEY'), 'guards refuse a missing anon key');
+say(has({ ...good, PUBLIC_ACCEPT_TIER: 'rehearsal' }, 'PUBLIC_CATALOG_E_TIER'), 'the rehearsal tier no longer exists');
+say(canonicalDsn('postgresql://postgres:pw@127.0.0.1:54322/postgres').error?.startsWith('PUBLIC_CATALOG_E_DB_DSN'), 'a DSN carrying a password is refused');
+say(canonicalDsn('postgresql://postgres@127.0.0.1:54322/postgres?sslmode=disable').error?.startsWith('PUBLIC_CATALOG_E_DB_DSN'), 'a DSN with query options is refused');
+say(has({ ...good, PGPASSWORD: 'x' }, 'PUBLIC_CATALOG_E_DB_ENV'), 'an ambient PGPASSWORD is refused');
+say(has({ ...good, PUBLIC_ACCEPT_DB_PASSFILE: file('pass644', 'x', 0o644) }, 'PUBLIC_CATALOG_E_DB_PASSFILE'), 'a 0644 passfile is refused');
+say(checkDb({ ...good }).length === 0, 'canonical DSN plus owner-0600 passfile is accepted (positive)');
+
+// Helper pins: real tree, plus absent and drifted copies in a scratch root.
+const pinErr = checkHelperPins(ROOT);
+say(pinErr.length === 0 || pinErr.every((e) => e.startsWith('PUBLIC_CATALOG_E_HELPER_ABSENT: e2e/lesson-editor/')), `helper pins: ${pinErr.length ? 'only the #152 lesson-editor helpers are absent (not on this ref; composition pending)' : 'all 4 pinned helpers present and exact'}`);
+const fakeRoot = path.join(tmp, 'root'); for (const rel of Object.keys(HELPER_PINS)) mkdirSync(path.join(fakeRoot, path.dirname(rel)), { recursive: true });
+for (const rel of Object.keys(HELPER_PINS)) writeFileSync(path.join(fakeRoot, rel), 'drifted\n');
+say(checkHelperPins(fakeRoot).every((e) => e.startsWith('PUBLIC_CATALOG_E_HELPER_DRIFT')) && checkHelperPins(fakeRoot).length === 4, 'drifted helpers are refused');
+say(checkHelperPins(path.join(tmp, 'nothing')).filter((e) => e.startsWith('PUBLIC_CATALOG_E_HELPER_ABSENT')).length === 4, 'absent helpers are refused');
 
 const specs = ['catalog.spec.ts', 'sidebar-rail.spec.ts', 'support.ts'].map((f) => readFileSync(path.join(ROOT, 'e2e/public-catalog', f), 'utf8')).join('\n');
 say(!/\.fulfill\(|signIn|login|storageState:\s*['"]/i.test(specs), 'specs never fulfil (mock) a response and never sign in');
-say(/route\.abort\(\)/.test(specs) && /offOrigin.*toEqual\(\[\]\)/.test(specs), 'off-origin requests are aborted and any unknown one fails the test');
-say(/TIER === 'rehearsal' && KNOWN_THIRD_PARTY/.test(specs) && /process\.env\.PUBLIC_ACCEPT_TIER === 'rehearsal' \? 'rehearsal' : 'authentic'/.test(specs), 'known foreign attempts are tolerated ONLY in the rehearsal tier; authentic is the default');
+say(!/estimatedTime'|formatEstimatedHours/.test(specs), 'specs do not import the production Estimated time formatter as their oracle');
+say(/from '\.\.\/lesson-editor\/egress-test'/.test(specs) && !/route\.abort|KNOWN_THIRD_PARTY|rehearsal/.test(specs), 'specs use the pinned egress boundary; no own route, no third-party exception, no rehearsal tier');
+say(/offOrigin, 'no foreign request attempt'\)\.toEqual\(\[\]\)/.test(specs), 'any foreign attempt fails the test');
+say(/^export const UNDER_OWN_CONFIG = process\.env\.PUBLIC_ACCEPT_OWN_CONFIG === '1';$/m.test(specs) && /^export const NOT_OWN_CONFIG_REASON = /m.test(specs), 'support.ts exports the own-config flag and reason the specs import');
 for (const f of ['catalog.spec.ts', 'sidebar-rail.spec.ts']) say(/^test\.skip\(!UNDER_OWN_CONFIG, NOT_OWN_CONFIG_REASON\);$/m.test(readFileSync(path.join(ROOT, 'e2e/public-catalog', f), 'utf8')), `${f} skips itself outside the lane's own config`);
 const runsh = read('run.sh');
-say(/PUBLIC_CATALOG_E_TIER/.test(runsh) && /export PUBLIC_ACCEPT_TIER=authentic/.test(runsh), 'run.sh refuses the rehearsal tier');
-say(/PUBLIC_CATALOG_E_NO_HERMETIC_CONTRACT/.test(runsh) && runsh.indexOf('step hermetic') < runsh.indexOf('step seed'), 'run.sh requires the hermetic served-app verify before the seed');
+const at = (t) => runsh.indexOf(t);
+say(at('step pins') < at('step guards') && at('step guards') < at('step pre-stack') && at('step pre-stack') < at('step served') && at('step served') < at('step hermetic') && at('step hermetic') < at('step W0') && at('step W0') < at('step seed'), 'run.sh order: pins, guards, PRE stack, served provenance, hermetic, W0, seed');
+say(at('PUBLIC_CATALOG_E_W2_MISMATCH') > 0 && at('PUBLIC_CATALOG_E_W2_MISMATCH') < at('step probe') && at('PUBLIC_CATALOG_E_W2_FAILED') < at('step probe'), 'a W2 failure or mismatch stops the run before any write probe');
+say(!/\bcat\b/.test(runsh.replace(/^#.*$/gm, '')) && /trap 'rm -rf -- "\$PRIV"' EXIT/.test(runsh) && /umask 077/.test(runsh), 'run.sh prints no raw output (no cat), stages privately with umask 077, always removes private staging');
+say(/env -i PATH="\$PATH" PGPASSFILE=/.test(runsh) && /psql -w/.test(runsh), 'psql runs with a clean env, the private passfile and -w (no prompt, no password in argv)');
+say(/PUBLIC_CATALOG_E_LIST_ONLY_SET/.test(runsh), 'run.sh refuses PUBLIC_ACCEPT_LIST_ONLY');
+for (const f of ['seed.sql', 'witness.sql', 'pre-stack.sql', 'rls-anon-read.sql', 'rls-anon-write.sql']) {
+  const raw = read(f).split('\n').filter((l) => !l.trim().startsWith('--')).join('\n');
+  // The only DELETE allowed anywhere is rls-anon-write.sql's anon attempt on one exact fixture id, inside a rolled-back transaction.
+  const dels = [...raw.matchAll(/\bdelete\s+from\b[^;]*;/gi)].map((m) => m[0]);
+  const delOk = f === 'rls-anon-write.sql' ? dels.every((d) => /^delete from public\.(courses|modules) where id = '7e57ca7a-0000-4000-8000-\d{12}';$/.test(d)) && /set local role anon;/.test(raw) && /rollback;\s*$/.test(raw) : dels.length === 0;
+  say(delOk && !/\b(truncate|drop)\b/i.test(raw.replace(/'[^']*'/g, '')), `${f}: no cleanup SQL (no TRUNCATE/DROP; DELETE only as the anon probe on one fixture id, rolled back)`);
+}
+say(/begin transaction read only;/.test(read('pre-stack.sql')) && (read('pre-stack.sql').match(/^select '/gm) || []).length === 4, 'pre-stack.sql is read-only with exactly 4 checks');
 const cfg = readFileSync(path.join(ROOT, 'playwright.public-catalog.config.ts'), 'utf8');
-say(/storageState: \{ cookies: \[\], origins: \[\] \}/.test(cfg) && !/globalSetup:|webServer:/.test(cfg) && /runGuards\(process\.env\)/.test(cfg) && cfg.indexOf("process.env.PUBLIC_ACCEPT_OWN_CONFIG = '1'") > -1 && cfg.indexOf("process.env.PUBLIC_ACCEPT_OWN_CONFIG = '1'") < cfg.indexOf('runGuards(process.env)'), 'config: empty storage, no globalSetup/webServer, own-config flag then guards at load');
+say(/storageState: \{ cookies: \[\], origins: \[\] \}/.test(cfg) && !/globalSetup:|webServer:/.test(cfg) && /trace: 'off'/.test(cfg) && /screenshot: 'off'/.test(cfg), 'config: empty storage, no globalSetup/webServer, traces and screenshots off');
+say(cfg.indexOf('checkHelperPins(ROOT)') < cfg.indexOf("await import('./e2e/support/chromium-executable')") && cfg.indexOf('checkHelperPins(ROOT)') < cfg.indexOf('runGuards(process.env)'), 'config: helper pins are checked before any helper import and before guards');
+say(/process\.argv\.includes\('--list'\)/.test(cfg) && /LE_ALLOWED_ORIGINS', 'LE_EGRESS_CONTROL'/.test(cfg), 'config: LIST_ONLY only with --list; egress self-test overrides refused');
+say(!/proxy:\s*\{/.test(cfg) && /EXCLUDE 127\.0\.0\.1/.test(cfg), 'config: no own proxy bypassing loopback; the shared resolver rule is used');
 say(/'desktop'/.test(cfg) && /'tablet'/.test(cfg) && /'mobile'/.test(cfg), 'config: desktop, tablet and mobile projects');
+const cls = execFileSync('node', [path.join(HERE, 'probe-classifier-controls.mjs')], { encoding: 'utf8' });
+say(/^ALL PASS$/m.test(cls), 'probe classifier fake controls pass (see probe-classifier-controls.mjs)');
 console.log(fail ? `${fail} FAILED` : 'ALL PASS'); process.exit(fail ? 1 : 0);

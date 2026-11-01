@@ -17,55 +17,72 @@ No file in `scripts/local-stack`, `scripts/e2e`, `e2e/support`, the workflows or
 
 ## Base and labels
 
-**LOCAL-SHIM / UNRUN / integration-blocked.** Nothing in this lane is acceptance. The only browser runs used a loopback shim API (rehearsal); the real stack run has never happened.
+**LOCAL-SHIM (historical) / UNRUN / integration-blocked / BLOCKED (no proof producer).** Nothing in this lane is acceptance. The only browser runs ever made used a loopback shim API under a rehearsal tier that no longer exists; the real stack run has never happened.
 
-- Published as one commit on #145's head `6f61532b` (main `32ccf7df` plus the reviewed catalog commit). The specs import `src/lib/estimatedTime.ts`, which exists only from #145, so this is a stacked draft on #145's branch.
-- T-42's 3 files are **not** on this branch. Their owner publishes them as a separate draft. S1 (`sidebar-rail.spec.ts`) asserts the T-42 behaviour and is expected to fail until T-42 is also on the tested ref.
-- The rehearsal evidence below was produced on the local branch `local/public-acceptance` (e4c2f1d6), which carried T-42 as a separate commit `8df20645` under the lane. The lane files here equal e4c2f1d6 except the own-config skip described next.
-- **Own-config skip.** main's `playwright.config.ts` (`chromium-member`, `testDir: './e2e'`) collects every `e2e/**` directory it does not ignore, with a signed-in session. So `playwright.public-catalog.config.ts` sets `PUBLIC_ACCEPT_OWN_CONFIG=1` before its guards, and each spec file calls `test.skip(!UNDER_OWN_CONFIG, ...)`. Under a foreign config all 11 tests are skipped before any page opens. A `testIgnore` entry in the shared config is the shared owner's separate decision.
+- One branch, `claude/public-catalog-acceptance-proposal`, stacked on #145 (`6f61532b`): the specs need #145's catalog behaviour. T-42's files are not here; their owner publishes them (#151). S1 asserts T-42 and is expected to fail until T-42 is on the tested ref.
+- **Runner composition (agreed with the PR134 runner owner, 23:47Z).** The browser boundary imports helpers that live on #152, so the runner ref must be an explicit composition of the #145, #142, #152 and #150 heads, each named by SHA. Nothing is dispatched until that composed ref is approved.
+- **Own-config skip.** main's `playwright.config.ts` (`chromium-member`, `testDir: './e2e'`) collects every `e2e/**` directory. `playwright.public-catalog.config.ts` sets `PUBLIC_ACCEPT_OWN_CONFIG=1`, and each spec calls `test.skip(!UNDER_OWN_CONFIG, ...)`.
 
-## Run order (`run.sh`, authentic tier only; each step fails closed)
+## Run order (`run.sh`; each step fails closed with a fixed code and prints no raw output)
 
-1. **Tier.** `PUBLIC_ACCEPT_TIER` must be `authentic`; rehearsal is refused.
-2. **Guards** (`guards.mjs`). Targets must be loopback only. The shared guard runs `--mutating` on the API, DB and relay variables. Any `E2E_ISOLATED_TARGET_REF` is refused, the anon key must be present, and an **owned-stack proof is required**.
-3. **Served build.** The served entry bundle must reference this stack's API origin, so a build without `VITE_SUPABASE_URL` cannot fall back to the hosted project.
-4. **Hermetic served app.** `scripts/served-app/hermetic-dist.mjs verify <product dist> <served dir>` must pass. If it is absent, the run fails closed.
-5. **W0, seed, W1.** The seed is INSERT-only, in one transaction, and refuses a stack that already holds course or module rows.
-6. **Browser specs.**
-7. **W2.** Must equal W1, proving anonymous browsing wrote nothing.
-8. **Anonymous RLS probe** (`anon-probe.mjs`) through real PostgREST with the anon key. Reads are unfiltered; write attempts target run-owned ids only.
-9. **W3.** Must equal W1; otherwise a write was accepted.
+1. **Inputs.** `PUBLIC_ACCEPT_OUT` must not exist; `PUBLIC_ACCEPT_RUN_ID` is 32 hex; `PUBLIC_ACCEPT_TIER` is unset or `authentic`; `PUBLIC_ACCEPT_LIST_ONLY` must be unset.
+2. **Helper pins** (`helper-pins.mjs`). The 4 imported helpers must exist and match their git blob ids (below). Absence or drift refuses.
+3. **Guards** (`guards.mjs`): loopback app and API origins; the shared guard (`assert-safe-target.mjs`, mutating); no `E2E_ISOLATED_TARGET_REF`; anon key; canonical DSN plus private passfile (`pgconn.mjs`); the proof consumer (`proof.mjs`).
+4. **PRE stack egress checks** (`pre-stack.sql`, read only): no `pg_net`, `http`, `dblink` or `postgres_fdw`; no trigger on `public.courses`/`public.modules` whose function mentions net, http, `supabase_functions`, `pg_notify` or mail. The lane sends no GoTrue request, so these are the mail paths it can reach.
+5. **Served-asset provenance** (`served-build-check.mjs`): the served `/` must hash to `served_index_sha256`, every asset it references must be same-origin, listed in `HERMETIC-PROVENANCE.json` and hash to its pinned sha256, and the entry bundle must reference this stack's API origin.
+6. **Hermetic verify**: `scripts/served-app/hermetic-dist.mjs verify` (f169429 contract). Absent today, so the run stops here even if a producer existed.
+7. **W0** must be pristine (`public.courses|0|empty`, `public.modules|0|empty`), then the INSERT-only **seed**, then **W1**.
+8. **Browser specs**, raw output private; only `playwright-summary.txt` (project, location, title, status) reaches evidence.
+9. **W2.** A W2 failure or any W2 ≠ W1 **stops the run before any write probe**.
+10. **Anon probe** (`anon-probe.mjs` + `probe-classify.mjs`), then **W3** (must equal W1; supporting evidence only).
 
-There is no cleanup: the stack is destroyed with the job, and the manifest lists every created id.
+**Output contract.**
+- `$PUBLIC_ACCEPT_OUT/evidence/` is the only directory a runner may upload. Its files are allowlisted: `STEPS.txt` (step names and fixed codes), `pre-stack.txt`, `W0..W3.txt` (table name, row count, md5 per table), `MANIFEST.json`, `playwright.exit`, `playwright-summary.txt`, `anon-probe.exit` and `anon-probe-summary.txt`.
+- Private staging is `mktemp -d`, mode 0700 under `umask 077`, and holds raw psql, Playwright and probe output. It is never printed or uploaded, and a `trap` removes it on every exit.
+- No traces, videos or screenshots are recorded. Probe records never include a response body, a header or a non-fixture id.
+- psql runs under `env -i` with only `PATH` and `PGPASSFILE` set, `-w`, and the canonical password-free DSN `postgresql://user@loopback:port/db` in argv. Ambient `PG*` variables are refused.
+- There is no DB cleanup, and no DELETE, TRUNCATE or DROP outside the rolled-back anon probe. Whole-stack disposal belongs solely to the runner job.
 
-**Witness** (`witness.sql`). A read-only transaction recording, for every table in `public`, `auth` and `storage`, its row count and an md5 over all of its rows.
+## What this lane needs from the local-stack/PR134 lane (proposed integration, no shared file edited)
 
-## What this lane needs from the local-stack/PR134 lane (proposed integration, no edits made)
+1. **A trusted pre-seed owned-stack proof producer.** It must read `stack_id` from the stack's DB and through its PostgREST before anything is written. It writes `{version:2, stack_id, db_read, api_read, run_id, produced_before_seed:true, producer}` to a regular, single-link, owner-only 0600 file.
+   - The consumer opens it with `O_NOFOLLOW` and checks type, link count, uid, exact mode, run binding and the DB/API pairing.
+   - A correct shape alone is NOT ownership. `TRUSTED_PRODUCERS` is empty, so every real run refuses with `PUBLIC_CATALOG_E_BLOCKED_NO_PRODUCER` until a reviewed producer's path and blob id are added.
+2. **The hermetic served-app contract (f169429) on the composed ref.** Build against the owned stack, derive the served directory with `HERMETIC-PROVENANCE.json` and serve it on loopback. Evidence is labelled "TEST-SERVED MODIFICATION: NOT production bytes".
+3. **Local avatar data for `/`.** CommunityShowcase hotlinks `i.pravatar.cc`, so A10 cannot pass. The fix is either a product change or a provenance-recorded test-served substitution, and either one needs its own review. This lane does not choose it and keeps no exception.
+4. **A runner job** on the composed ref. It stands up a fresh stack, passes the PG15 parity gate, exports `PUBLIC_ACCEPT_*` (including `RUN_ID`, `DB_PASSFILE`, `PRODUCT_DIST` and `SERVED_DIR`), runs `run.sh` and uploads only `$PUBLIC_ACCEPT_OUT/evidence`. It needs its own stack and its own run approval.
 
-1. **An owned-stack proof producer** in the stack bootstrap. It writes `{version:1, stack_id, db_read, api_read, produced_before_seed:true}` (32 hex characters, mode 0600) and sets `PUBLIC_ACCEPT_STACK_PROOF`.
-   - `db_read` must be read from the stack's DB, and `api_read` through that stack's PostgREST with the anon key, before the seed.
-   - This is the same gap as the gradebook lane's gate 3. Until it exists, `guards.mjs` refuses with `PUBLIC_CATALOG_E_NO_STACK_PROOF`.
-2. **The hermetic served-app contract on the runner's ref.** `scripts/served-app/hermetic-dist.mjs` is f169429, local and unpublished. It must be on the ref, and the runner must:
-   - build the app with `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` set to the owned stack;
-   - derive the test-served directory and keep `HERMETIC-PROVENANCE.json`;
-   - serve that directory on loopback.
+## Browser boundary (imported, pinned, not weakened)
 
-   Evidence from this lane is then labelled "TEST-SERVED MODIFICATION: … NOT production bytes".
-3. **Deterministic local avatar data for `/`.** `src/components/home/CommunityShowcase.tsx` hotlinks three `https://i.pravatar.cc/150?img=…` images.
-   - Under the authentic tier every foreign attempt fails, so **A10 (home page) cannot pass** until those images are served from the app origin, either by a product change or by an exact, provenance-recorded test-served substitution.
-   - Which of the two is the owner's call. This lane does not choose it and does not loosen the guard.
-4. **A runner job.** It should:
-   - stand up a fresh stack (`workdir.sh`, `supabase start`, `bootstrap.sh`, `verify-identities.sh`);
-   - pass the PG15 parity gate;
-   - export `PUBLIC_ACCEPT_{BASE_URL,API_URL,DB_URL,ANON_KEY,STACK_PROOF,PRODUCT_DIST,SERVED_DIR,OUT}`;
-   - run `scripts/public-catalog-fixture/run.sh`;
-   - upload `$PUBLIC_ACCEPT_OUT`.
+The specs extend `e2e/lesson-editor/egress-test.ts` (from #152). Imported as-is, never copied:
 
-   It needs its own stack, never the gradebook lane's, and its own bounded-run approval.
+| Helper | git blob | From |
+|---|---|---|
+| `e2e/support/chromium-executable.ts` | ce26c40e | main 32ccf7df (shared) |
+| `e2e/lesson-editor/egress-test.ts` | edd43ce4 | #152 c74986bc |
+| `e2e/lesson-editor/egress-boundary.ts` | 7b0474fe | #152 c74986bc |
+| `e2e/lesson-editor/egress-proxy.ts` | 8934885b | #152 c74986bc |
 
-## Foreign-origin policy (not weakened)
+If #152's helpers change in review they are re-pinned, never forked.
 
-Every off-origin request is aborted before it is sent; that is prevention only. In the **authentic** tier (the default, and the only tier `run.sh` accepts) **any** foreign attempt fails the test, including `cdn.gpteng.co` and `i.pravatar.cc`. The browser is also pinned to a dead loopback proxy. Only `PUBLIC_ACCEPT_TIER=rehearsal`, used with the loopback shim, reports those two known product attempts as annotations instead of failing. A rehearsal result is never acceptance.
+**Layers.**
+- The resolver rule is `MAP * 127.0.0.1:1, EXCLUDE localhost, EXCLUDE 127.0.0.1`.
+- An allowlist proxy forces loopback through it (`<-loopback>`), so other loopback ports, redirect hops and WebSocket tunnels are refused.
+- A context route and WebSocket filter aborts non-allowlisted origins.
+- Redirect, service-worker and unparseable-URL observation fails the test.
+
+The allowlist is exactly two origins: `PUBLIC_ACCEPT_BASE_URL` and `PUBLIC_ACCEPT_API_URL`, mapped onto `LE_APP_ORIGIN` and `LE_API_ORIGIN`. `LE_ALLOWED_ORIGINS` and `LE_EGRESS_CONTROL` are refused. **Any foreign attempt fails the test, including `cdn.gpteng.co` and `i.pravatar.cc`. There is no tolerated-third-party list and no rehearsal tier.**
+
+The previous design pinned the browser to a dead proxy that bypassed all of loopback, plus a page route. Review found that insufficient, and it is gone. `PUBLIC_ACCEPT_LIST_ONLY=1` is honoured only together with `--list`.
+
+## Independent UI oracles
+
+The specs compare against literal strings and never import `src/lib/estimatedTime.ts`:
+- **A2:** 2.5 hours, 12 hours, 1 hour, nothing for NULL, Under 0.1 hours and 4 hours, each read from the exact "Estimated time:" value node.
+- **A7:** an unrelated `pca_keep=1` sentinel must survive Clear category.
+- **A8:** the public module is present and the unpublished one absent.
+- **A9:** compares ids only, so no body is printed.
+- **A10:** the exact featured set is `PCA Analytics Course`, `PCA BI Course` and `PCA Leading Space Course`, in order, with their literal values.
 
 ## Fixture (`fixtures.mjs`, generating `seed.sql`; synthetic and run-owned, ids `7e57ca7a-0000-4000-8000-…`)
 
@@ -89,15 +106,17 @@ Every off-origin request is aborted before it is sent; that is prevention only. 
 
 | # | Check | Tier that ran | Result | Acceptance? |
 |---|---|---|---|---|
-| E1 | Guards: 10 refusals, 1 positive; generated seed; INSERT-only; read-only witness; anon-only rollback probes; spec and config shapes; tier rules | `tests/selftest.mjs`, no stack | 26/26 PASS | no (static) |
-| E2 | Seed applies on the sanitized snapshot; reseed refused (`PUBLIC_CATALOG_E_NOT_PRISTINE`); witness stable twice | PG16 + `bootstrap.sh` on the SIMULATED managed layout | PASS. The first seed attempt FAILED on the live CHECK for `estimated_hours = 0`, so the fixture was changed to NULL. | no (not PG15, not `supabase start`) |
+| E1 | Static selftest (guards, proof consumer, DSN, helper pins, run order, no cleanup SQL, spec/config shapes) plus the probe classifier fake controls | `tests/selftest.mjs`, `tests/probe-classifier-controls.mjs`, no stack | at the successor head: see the successor receipts (raw output kept). Earlier counts 26/26 (e4c2f1d) and 28/28 (405850e) were reported without the raw aggregate in the export | no (static) |
+| E2 | Seed applies on the sanitized snapshot; reseed refused (`PUBLIC_CATALOG_E_NOT_PRISTINE`). **Erratum:** not "witness stable twice": witness-B equals the pre-seed witness exactly (courses 0, modules 0), and witness-A equals the after-write witness (courses 7, modules 3). A and B are not equal | PG16 + `bootstrap.sh` on the SIMULATED managed layout | PASS. The first seed attempt FAILED on the live CHECK for `estimated_hours = 0`, so the fixture was changed to NULL. | no (not PG15, not `supabase start`) |
 | E3 | Anon reads, actual policies, no client filter (`rls-anon-read.sql`) | same PG16 snapshot, `set role anon` | anon sees courses 1–5 and 7 (the contradictory row); NOT 6 (private); sees module 101 only, NOT 102 or 103 | no (not PostgREST) |
 | E4 | Anon writes on run-owned ids (`rls-anon-write.sql`) | same | insert refused 42501 (courses, modules); update/delete 0 rows ×4; witness unchanged | no |
-| E5 | Browser, NEW (this branch), rehearsal tier, loopback shim API | vite preview + `tests/rehearsal-api.mjs` | run3: 31 passed, 2 skipped (S1 is desktop-only) | **no: shim, emulated policy** |
+| E5 | Browser, NEW (e4c2f1d bytes), the since-removed rehearsal tier, loopback shim API | vite preview + `tests/rehearsal-api.mjs` | run3: 31 passed, 2 skipped (S1 is desktop-only) | **no: shim, emulated policy** |
 | E6 | Browser, NEW, **authentic tier on the shim** (negative control for the foreign guard) | same | run4: 31 failed, every one on "no foreign request attempt": gptengineer.js in 31 tests, i.pravatar.cc in 9. 2 skipped. | no; it shows that the authentic tier fails on known foreign attempts |
 | E7 | Browser, OLD (main 32ccf7df: no #145, no T-42), rehearsal tier | same | run2: 6 passed, 25 failed or timed out, 2 skipped (see the OLD table) | no |
-| E8 | vitest full; `tsc -b`; eslint on the owned paths and AppSidebar; `check:migrations` | local | 195 files, 1995/1995 passed; all exit 0. eslint has 0 errors and 1 warning (a rules-of-hooks false positive on Playwright's fixture `use`). | no |
+| E8 | vitest full; `tsc -b`; eslint on the owned paths and AppSidebar; `check:migrations` | local | 195 files, 1995/1995 passed; all exit 0 (as reported for e4c2f1d; the raw vitest aggregate was not in that export, so this is not independently inspectable). eslint has 0 errors and 1 warning (a rules-of-hooks false positive on Playwright's fixture `use`). | no |
 | — | Real PostgREST, GoTrue, `supabase start` PG15, the hermetic served app, the owned-stack proof, the real anon probe, the authentic browser run | **UNRUN** | — | this is the acceptance |
+
+**Scope of E5 to E7.** All browser results are on the e4c2f1d spec bytes: the formatter oracle, the lane's own route abort with a loopback-bypassing dead proxy, and the rehearsal tier. The successor specs (literal oracles, the pinned egress boundary, one tier) have **not run in any tier**, local or real.
 
 **OLD rehearsal (E7), classified by the first reached assertion** (desktop; tablet and mobile match except S1, which is desktop-only):
 
