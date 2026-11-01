@@ -107,5 +107,21 @@ BAD=$(mktemp); { cat "$ROOT/scripts/local-stack/schema/05_triggers_grants.sql"; 
 out=$("$ROOT/scripts/local-stack/reconcile-table-acl.sh" "$PGBASE/ls_defacl" "$BAD" quiz_analytics 2>&1); st=$?; rm -f "$BAD"
 [ $st -eq 2 ] && echo "$out" | grep -q "do not match the strict form"; say "reconcile refuses an unparseable grant line" $?
 # 17) narrow version-aware view signature (captured PG15 text, PG16 identity, changed-definition controls)
+# 18) diagnostics: the coursera_crawl_progress evidence is kept on a PASSING run, and a drifted view's diagnostics are
+# real catalog text (the b256e74 form passed :'v' inside psql -c, which psql never interpolates: a syntax error)
+out=$(timeout 600 "$ROOT/scripts/local-stack/verify-identities.sh" "$PGBASE/ls_sim" 2>&1); st=$?
+ev=$(echo "$out" | sed -n '/^\[evidence\] view coursera_crawl_progress/,$p')
+[ $st -eq 0 ] && echo "$ev" | grep -q "server_version_num: " && echo "$ev" | grep -q "FROM coursera_crawl_queue" && echo "$ev" | grep -qE "md5\(reloptions\|raw definition\): [0-9a-f]{32}" && echo "$ev" | grep -qE "identity signature: [0-9a-f]{32}"
+say "verify-identities keeps coursera_crawl_progress evidence (version, options, raw text, both hashes) on a passing run" $?
+VDEF=$(psql "$PGBASE/ls_sim" -Atc "select pg_get_viewdef('public.coursera_crawl_progress'::regclass, false)")
+psql "$PGBASE/ls_sim" -v ON_ERROR_STOP=1 -qc "create or replace view public.coursera_crawl_progress with (security_invoker=true) as select state, source, count(*) as urls, min(enqueued_at) as oldest_enqueued_at, max(processed_at) as newest_processed_at from public.coursera_crawl_queue where state is not null group by state, source" >/dev/null
+out=$(timeout 600 "$ROOT/scripts/local-stack/verify-identities.sh" "$PGBASE/ls_sim" 2>&1); st=$?
+diagv=$(echo "$out" | sed -n '/^  diagnostics view coursera_crawl_progress:/,/identity signature/p')
+[ $st -ne 0 ] && echo "$diagv" | grep -q "WHERE state IS NOT NULL" && echo "$diagv" | grep -qE "md5\(reloptions\|raw definition\): [0-9a-f]{32}" && ! echo "$out" | grep -qiE "syntax error|evidence query FAILED"
+say "a drifted view fails parity and its diagnostics carry the real definition and both hashes (no psql syntax error)" $?
+psql "$PGBASE/ls_sim" -v ON_ERROR_STOP=1 -qc "create or replace view public.coursera_crawl_progress with (security_invoker=true) as $VDEF" >/dev/null
+out=$(timeout 600 "$ROOT/scripts/local-stack/verify-identities.sh" "$PGBASE/ls_sim" 2>&1); st=$?; say "parity passes again once the view is restored" $st
+# 19) reconcile input/capture failures stop before psql (no database needed)
+out=$("$ROOT/scripts/local-stack/tests/reconcile-negative.sh" 2>&1); st=$?; echo "$out" | grep -E "^(FAIL|SKIP)" | sed 's/^/   /'; say "reconcile-negative.sh: $(echo "$out" | grep -c '^PASS') checks pass" $st
 out=$("$ROOT/scripts/local-stack/tests/view-signature.sh" "$PGBASE/postgres" 2>&1); st=$?; echo "$out" | grep -E "^FAIL" | sed 's/^/   /'; say "view-signature.sh: $(echo "$out" | grep -c '^PASS') cases pass" $st
 rm -rf "$FAKE"; echo "bootstrap-negative: $npass PASS, $nfail FAIL of $((npass+nfail)) named checks; exit $rc"; exit $rc
