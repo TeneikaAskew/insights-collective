@@ -12,12 +12,14 @@
 set -u
 refuse() { echo "FAIL $*"; exit 1; }
 redact_names() { sed -E 's/(supabase_[a-z_-]+_)[a-z0-9]{20}/\1<project>/g'; }
-# probe <var> <cmd...>: runs the command, stores stdout in <var>; a non-zero exit fails with the (redacted) stderr tail.
+# probe <var> <cmd...>: runs the command, stores stdout in <var>; a non-zero exit fails. The probe's stderr is NEVER
+# emitted (not even redacted): a pattern-based redactor can miss a credential shape, so only the exit status and the
+# stderr byte count are printed. The failure itself is preserved (exit 1).
 probe() {
   local __v="$1"; shift; local __o __e __st
   __e=$(mktemp); __o=$("$@" 2>"$__e"); __st=$?
   if [ $__st -ne 0 ]; then
-    echo "FAIL probe '$1 ${2:-}' exited $__st: $(tail -c 300 "$__e" | redact_names | tr '\n' ' ')"; rm -f "$__e"; exit 1
+    echo "FAIL probe '$1 ${2:-}' exited $__st (stderr withheld: $(wc -c < "$__e") bytes)"; rm -f "$__e"; exit 1
   fi
   rm -f "$__e"; printf -v "$__v" '%s' "$__o"
 }

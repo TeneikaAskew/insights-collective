@@ -59,6 +59,22 @@ reset; set_ ps-a "supabase_db_$P\n";                 expect leftovers-container 
 reset; set_ volume "supabase_db_$P\n";               expect leftovers-volume 1 'volumes 1' "$SC" leftovers
 reset; set_ ss "LISTEN 0 4096 127.0.0.1:54322 0.0.0.0:*\n"; expect leftovers-listener 1 'listeners on 54320-54324: 1' "$SC" leftovers
 
+# ---- a failing probe never emits its stderr (review 13:33Z): synthetic secrets on stderr, exit 1, must stay absent ----
+MARK=FAKE_REVIEW_MARKER
+leak_err() { printf 'password=%s\npostgresql://u:%s@127.0.0.1:1/x\nAuthorization: Bearer %s\n%s\n' "$MARK" "$MARK" "$MARK" "$MARK" > "$T/case/$1.err"; rc "$1" 1; }
+for sub in leftovers ports mail; do
+  for k in ps ps-a volume network ss inspect-auth inspect-catcher; do
+    reset; [ $sub = mail ] && { set_ ps "supabase_auth_$P\nsupabase_inbucket_$P\n"; set_ inspect-auth "GOTRUE_SMTP_HOST=supabase_inbucket_$P\nGOTRUE_SMTP_PORT=1025\n"; set_ inspect-catcher "X=1\n"; }
+    [ $sub = ports ] && set_ ps "$GOOD_PS"
+    if [ $k = ss ]; then printf '%s\n' "password=$MARK" > "$T/case/ss.err"; rc ss 1; printf '#!/usr/bin/env bash\ncat "$FAKE/ss.err" >&2 2>/dev/null; exit "$(cat "$FAKE/ss.rc" 2>/dev/null || echo 0)"\n' > "$T/bin/ss"; chmod +x "$T/bin/ss"; else leak_err $k; fi
+    out=$(FAKE="$T/case" PATH="$T/bin:$PATH" "$SC" $sub 2>&1); st=$?
+    if grep -q "probe '" <<<"$out"; then
+      [ $st -ne 0 ] && ! grep -q "$MARK" <<<"$out" && grep -q 'stderr withheld' <<<"$out" && echo "PASS probe-stderr-withheld $sub/$k" || { echo "FAIL probe-stderr-withheld $sub/$k (exit $st)"; RC=1; }
+    fi
+  done
+done
+printf '#!/usr/bin/env bash\ncat "$FAKE/ss.out" 2>/dev/null; exit "$(cat "$FAKE/ss.rc" 2>/dev/null || echo 0)"\n' > "$T/bin/ss"; chmod +x "$T/bin/ss"
+
 # ---- stage-evidence (real find/grep unless a fake is placed) ----
 ev() { rm -rf "$T/w"; mkdir -p "$T/w/ev"; cd "$T/w" || exit 2; echo "abc tested" > ids.txt; echo "PASS one" > ev/r1.txt; echo "PASS two" > ev/r2.txt; }
 ev; expect evidence-ok 0 'PASS stage-evidence: 3 file(s) scanned and staged, 0 receipt(s) missing' "$SC" stage-evidence --require-all up ev/r1.txt ev/r2.txt -- ids.txt ev
