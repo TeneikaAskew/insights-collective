@@ -253,14 +253,14 @@ export const test = base.extend<Fixtures & { egressGate: void }, { refusalProxy:
         egress.violations.push(`blocked ${route.request().method()} to a non-approved origin`);
         return route.abort('failed');
       });
-      // No-Edge subset (shared-runner delta, QLC_NO_EDGE=1): any Edge Function request, and any direct quiz_submissions INSERT
+      // No-Edge subset (shared-runner delta, QLC_NO_EDGE=1): any Edge Function request, and any direct quiz_submissions write (any method but GET/HEAD)
       // (the T-08 defect; starts must go through rpc/start_quiz_attempt), is a violation. Checked on every browser request.
       const noEdge = process.env.QLC_NO_EDGE === '1';
       context.on('request', (r) => {
         if (noEdge) {
           const p = new URL(r.url()).pathname;
-          if (p.startsWith('/functions/v1/')) egress.violations.push('Edge Function request in no-Edge mode');
-          if (p === '/rest/v1/quiz_submissions' && r.method() === 'POST') egress.violations.push('direct quiz_submissions INSERT');
+          if (p === '/functions/v1' || p.startsWith('/functions/v1/')) egress.violations.push('Edge Function request in no-Edge mode');
+          if (p === '/rest/v1/quiz_submissions' && r.method() !== 'GET' && r.method() !== 'HEAD') egress.violations.push(`direct quiz_submissions ${r.method()}`);
         }
         if (r.redirectedFrom()) egress.violations.push('redirect hop observed');
         if (!approved(r.url())) egress.violations.push('request to a non-approved origin observed');
