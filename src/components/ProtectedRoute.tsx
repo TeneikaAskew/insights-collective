@@ -36,7 +36,17 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 }) => {
   const { isAuthenticated, user, session, storeRedirectPath, loading } = useAuth();
   const location = useLocation();
-  const [hasAdminAccess, setHasAdminAccess] = React.useState<boolean | null>(null);
+  // The decision records WHICH user it was made for. A decision for a previous user (sign-out and sign-in as someone
+  // else without this route unmounting, or a has_admin_access reply that lands after the user changed) is treated as
+  // pending, so it can neither redirect nor be announced as the new user's denial.
+  const [decision, setDecision] = React.useState<{ userId: string | null; granted: boolean; reason: DenialReason } | null>(null);
+  const decisionSubject = user?.id ?? null;
+  const hasAdminAccess = decision && decision.userId === decisionSubject ? decision.granted : null;
+  const setHasAdminAccess = React.useCallback(
+    (granted: boolean, reason: DenialReason = 'not_admin', subject: string | null = decisionSubject) =>
+      setDecision({ userId: subject, granted, reason }),
+    [decisionSubject],
+  );
   // Presence, not identity: useAuthProvider calls setSession for every auth
   // event, so depending on the session object re-ran the admin check and wrote
   // another protected_route_access audit entry on each token refresh.
@@ -69,7 +79,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         if (error) {
           logger.error('Error checking admin access in ProtectedRoute:', error);
           await logSecurityEvent(user.id, 'protected_route_admin_check_failed', 'error', 'Failed to verify admin access in ProtectedRoute', { error: error.message, path: location.pathname });
-          setHasAdminAccess(false);
+          setHasAdminAccess(false, 'check_failed');
           return;
         }
         
@@ -80,7 +90,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         
       } catch (error) {
         logger.error('Exception in ProtectedRoute admin check:', error);
-        setHasAdminAccess(false);
+        setHasAdminAccess(false, 'check_exception');
       }
     };
 
@@ -95,7 +105,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
       // access attempt — before has_admin_access could reply.
       setHasAdminAccess(!requireAdmin);
     }
-  }, [isAuthenticated, user?.id, hasSession, loading, requireAdmin, allowInstructor, isInstructor, location.pathname]);
+  }, [isAuthenticated, user?.id, hasSession, loading, requireAdmin, allowInstructor, isInstructor, location.pathname, setHasAdminAccess]);
 
   React.useEffect(() => {
     // Validate and store redirect path securely
@@ -124,6 +134,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
       <RedirectWithNotice
         to="/login"
         state={{ from: location }}
+        noticeKey={`session_invalid|${user?.id ?? ''}|${location.pathname}`}
         title="Session Invalid"
         description="Your session has expired. Please log in again."
         onShown={() => logger.warn('[ProtectedRoute] Invalid session detected, redirecting to login')}
@@ -139,9 +150,11 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   if (requireAdmin && !hasAdminAccess) {
     const userId = user?.id;
     const path = location.pathname;
+    const reason = decision?.reason ?? 'not_admin';
     return (
       <RedirectWithNotice
         to="/dashboard"
+        noticeKey={`denied|${userId ?? ''}|${path}|${reason}`}
         title="Access Denied"
         description="You do not have permission to access this page."
         onShown={() => {
@@ -157,8 +170,13 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   return <>{children}</>;
 };
 
+type DenialReason = 'not_admin' | 'check_failed' | 'check_exception';
+
 /**
- * Redirects and announces why, ONCE per mount, from an effect. Calling toast() or logging during render updated the
+ * Redirects and announces why, ONCE per distinct `noticeKey` (who, where, why), from an effect. Re-renders with the
+ * same key (a new onShown closure, a toast-context update, StrictMode's double effect) announce nothing; a genuinely
+ * different denial (another user, another protected path, another reason) is announced even if this component never
+ * unmounted, e.g. an admin navigation interrupted by a second one before the redirect committed. Calling toast() or logging during render updated the
  * toast context this guard reads, so it rendered again and toasted again; with React Router's v7_startTransition the
  * urgent toast updates kept interrupting the redirect, leaving a blank page and a toast that remounted thousands of
  * times (run 41294441748; docs in the review export).
@@ -168,17 +186,22 @@ const RedirectWithNotice: React.FC<{
   state?: unknown;
   title: string;
   description: string;
+  noticeKey: string;
   onShown?: () => void;
-}> = ({ to, state, title, description, onShown }) => {
+}> = ({ to, state, title, description, noticeKey, onShown }) => {
   const { toast } = useToast();
-  const shown = React.useRef(false);
+  const lastShown = React.useRef<string | null>(null);
+  // Latest props without making them effect dependencies: only the key decides whether to announce.
+  const latest = React.useRef({ title, description, onShown });
+  latest.current = { title, description, onShown };
   React.useEffect(() => {
-    if (shown.current) return;
-    shown.current = true;
-    onShown?.();
-    toast({ title, description, variant: 'destructive' });
-  }, [toast, title, description, onShown]);
+    if (lastShown.current === noticeKey) return;
+    lastShown.current = noticeKey;
+    latest.current.onShown?.();
+    toast({ title: latest.current.title, description: latest.current.description, variant: 'destructive' });
+  }, [toast, noticeKey]);
   return <Navigate to={to} state={state} replace />;
 };
 
+export { RedirectWithNotice };
 export default ProtectedRoute;
