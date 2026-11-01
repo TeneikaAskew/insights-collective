@@ -46,10 +46,13 @@ insert into public.quizzes (id, content_item_id, title) values
 -- any published course is self-enrollable, so this is the realistic cross-course read path.
 insert into public.enrollments (user_id, course_id) values
   (:'studA', :'courseA'), (:'studB', :'courseB'), (:'enrInstr', :'courseA');
--- quiz submissions first: enforce_assessed_progression refuses a done quiz without one
-insert into public.quiz_submissions (id, quiz_id, user_id, attempt, workflow_state, started_at) values
-  ('aaaaaaaa-0000-4000-8000-000000000031', 'aaaaaaaa-0000-4000-8000-000000000021', :'studA', 1, 'pending_review', now()),
-  ('bbbbbbbb-0000-4000-8000-000000000031', 'bbbbbbbb-0000-4000-8000-000000000021', :'studB', 1, 'pending_review', now());
+-- quiz submissions first: enforce_assessed_progression refuses a done quiz without a SUBMITTED attempt (T-09),
+-- so the fixture writes them the way finalize_quiz_submission does (service_role claims, complete + finished_at).
+select set_config('request.jwt.claims', '{"role":"service_role"}', true) is not null as as_service \gset
+insert into public.quiz_submissions (id, quiz_id, user_id, attempt, workflow_state, started_at, finished_at) values
+  ('aaaaaaaa-0000-4000-8000-000000000031', 'aaaaaaaa-0000-4000-8000-000000000021', :'studA', 1, 'complete', now(), now()),
+  ('bbbbbbbb-0000-4000-8000-000000000031', 'bbbbbbbb-0000-4000-8000-000000000021', :'studB', 1, 'complete', now(), now());
+select set_config('request.jwt.claims', '', true) is not null as as_postgres \gset
 insert into public.quiz_questions (id, quiz_id, question_text, question_type, position) values
   ('aaaaaaaa-0000-4000-8000-000000000051', 'aaaaaaaa-0000-4000-8000-000000000021', 'A q1', 'multiple_choice', 1),
   ('bbbbbbbb-0000-4000-8000-000000000051', 'bbbbbbbb-0000-4000-8000-000000000021', 'B q1', 'multiple_choice', 1);

@@ -30,7 +30,8 @@ on:
         description: Playwright spec scope. Starts with the read-only course specs (evidence gate 1).
         type: choice
         default: readonly-courses
-        options: [readonly-courses]
+        # t09-runtime: the T-09 SQL runtime job below. LOCAL stack only; it runs no browser and serves no Edge Function.
+        options: [readonly-courses, t09-runtime]
 
 permissions: {}
 
@@ -41,6 +42,8 @@ concurrency:
 jobs:
   isolated:
     name: Isolated stack (PG15, loopback)
+    # Narrowed, not broadened: this job runs only for its own scope, so a t09-runtime dispatch never starts it.
+    if: inputs.specs == 'readonly-courses'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
@@ -229,3 +232,249 @@ jobs:
         if: always()
         continue-on-error: true
         run: npx --no-install supabase stop --workdir "$IC_WORKDIR" --no-backup
+
+  # T-09 SQL runtime on authentic local stacks: OLD (pre-T-09 control: 000000 + 000100) then NEW (all seven), each on its
+  # own fresh `supabase start` in its own job-scoped workdir, stopped with --no-backup and checked empty. Order per mode:
+  #   start -> ports + mail -> STAGE PRE (guard installed BEFORE any bootstrap write; queue-only verify; installed net.*
+  #   sentinels) -> bootstrap (its localize.sql writes each vault placeholder once) + identities -> STAGE APP (verifies,
+  #   never rewrites, the vault; app sentinels incl. fanout inventory and the SYNTHETIC scratch-relation unit; reviewed
+  #   migrations with the guard re-verified; sentinels again; SQL tier; teardown verify) -> stop -> leftovers.
+  # Credentials: CLI output is kept in 0600 files and printed only through the redactor; every generated local credential
+  # is registered with ::add-mask:: before it reaches GITHUB_ENV; evidence is scanned and staged as an exact manifest.
+  # No allow_shim anywhere: authentic pg_net is required, and a missing capability stops the job with an exact BLOCKER
+  # (nothing is granted, re-owned or reconfigured to get past it). External delivery is INTERCEPTED, NOT VERIFIED.
+  # API tier: personas via the local GoTrue admin API, persona JWTs through Kong -> PostgREST, witness reads; keys and
+  # tokens live only in 0600 files under RUNNER_TEMP and are deleted at stop. Protected history is hashed across the
+  # migrations and certificates are re-checked after every trigger-firing control.
+  t09-runtime:
+    name: T-09 runtime (OLD then NEW, local stacks)
+    if: inputs.specs == 't09-runtime'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    env:
+      E2E_TEST_PASSWORD: local-only-e2e-password
+      E2E_BASE_URL: http://127.0.0.1:8080
+      E2E_ISOLATED_TARGET_REF: ''
+      CI: 'true'
+      T09_EVIDENCE: t09-evidence
+      # The API tier is REQUIRED here: stage-app.sh fails before any work if T09_API_URL or a key/persona path is missing.
+      # The labelled local `sql-only` tier exists for local runs only and is never selected by this job.
+      T09_TIER: full
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Record tested commit and tree
+        run: |
+          git rev-parse HEAD HEAD^{tree} | tee tested-ids.txt
+          git log -1 --format='%H %P' >> tested-ids.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+      - name: npm ci (no lifecycle scripts)
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Workflow policy check (executed file; no secrets, no writes, no remote Supabase)
+        run: node scripts/ci/check-isolated-workflow.mjs --executed
+      - name: Mask the synthetic run password
+        run: echo "::add-mask::$E2E_TEST_PASSWORD"
+      - name: npm rebuild (dependency install scripts)
+        run: npm rebuild
+
+      # Static, no database.
+      - name: Fanout source inventory (snapshot + seven pinned migrations attach it nowhere)
+        run: |
+          mkdir -p "$T09_EVIDENCE"
+          scripts/local-stack/t09/fanout-inventory.sh | tee "$T09_EVIDENCE/fanout-inventory.txt"
+      - name: SQL-tier classifier selftest
+        run: scripts/local-stack/t09/sql-tier.sh --selftest | tee "$T09_EVIDENCE/sql-tier-selftest.txt"
+      - name: Stack-check selftest (MOCKED docker/ss; proves the refuse paths before they guard a real stack)
+        run: scripts/local-stack/t09/tests/stack-checks-selftest.sh | tee "$T09_EVIDENCE/stack-checks-selftest.txt"
+      - name: Export-status selftest (MOCKED status file; masks before export, private file, loopback only)
+        run: scripts/local-stack/t09/tests/export-status-selftest.sh | tee "$T09_EVIDENCE/export-status-selftest.txt"
+      - name: Stack-net selftest (FAKE docker/ss; proves every refuse path of the owned loopback network before it is used)
+        run: scripts/local-stack/t09/tests/stack-net-selftest.sh | tee "$T09_EVIDENCE/stack-net-selftest.txt"
+
+      # ---------------- OLD ----------------
+      - name: OLD - prepare workdir (job-scoped path, never reused)
+        id: old_prep
+        run: |
+          W="$RUNNER_TEMP/ic-t09-old"
+          scripts/local-stack/workdir.sh "$W"
+          echo "IC_WORKDIR_OLD=$W" >> "$GITHUB_ENV"
+      # The Supabase CLI has no bind-address setting; its documented method is a Docker network whose default host binding
+      # is loopback, passed with --network-id. This job creates its OWN network per mode (refused on Docker < 28 or if the
+      # name exists), and removes only that network. No daemon, default, firewall or privilege change.
+      - name: OLD - create owned loopback-binding network (Docker >= 28; refuses an existing name)
+        run: node scripts/local-stack/t09/stack-net.mjs create "ic-t09-old-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-old" | tee "$T09_EVIDENCE/old-net-create.txt"
+      - name: OLD - supabase start (local; no studio, no edge runtime; output kept private, shown only redacted on failure)
+        run: |
+          umask 077
+          LOG="$RUNNER_TEMP/t09-old-start.log"
+          if ! npx --no-install supabase start --workdir "$IC_WORKDIR_OLD" --network-id "ic-t09-old-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" -x studio,imgproxy,logflare,vector,supavisor,edge-runtime > "$LOG" 2>&1; then
+            echo "supabase start failed; redacted tail:"; tail -40 "$LOG" | scripts/local-stack/t09/stack-checks.sh redact; exit 1
+          fi
+          echo "supabase start ok (OLD); its key summary is not printed"
+      - name: OLD - export loopback endpoints (masks registered before any value reaches the env or the log)
+        run: |
+          umask 077
+          # The private status file and its stderr are removed on EVERY exit path (trap set before any command that can
+          # fail); the step's own exit status is preserved, and absence is checked by the trap itself.
+          S=
+          trap 'rc=$?; if [ -n "$S" ]; then rm -f -- "$S" "$S.err"; if [ -e "$S" ] || [ -e "$S.err" ]; then echo "private status file still present"; exit 1; fi; fi; exit $rc' EXIT
+          S=$(mktemp "$RUNNER_TEMP/status.XXXXXXXX")
+          if ! npx --no-install supabase status --workdir "$IC_WORKDIR_OLD" -o env > "$S" 2> "$S.err"; then
+            echo "supabase status failed; redacted:"; scripts/local-stack/t09/stack-checks.sh redact < "$S.err"; exit 1
+          fi
+          node scripts/local-stack/t09/export-status.mjs "$S" "$GITHUB_ENV" "$RUNNER_TEMP/t09-keys-old"
+      - name: OLD - target guards
+        run: |
+          node scripts/e2e/assert-safe-target.mjs --mutating
+          node scripts/ci/check-local-target.mjs env
+      - name: OLD - published ports loopback-only, mail to the local catcher only
+        run: |
+          node scripts/local-stack/t09/stack-net.mjs verify "ic-t09-old-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-old" | tee "$T09_EVIDENCE/old-net-verify.txt"
+          node scripts/local-stack/t09/stack-net.mjs listeners | tee -a "$T09_EVIDENCE/old-net-verify.txt"
+          scripts/local-stack/t09/stack-checks.sh ports | tee "$T09_EVIDENCE/old-ports.txt"
+          scripts/local-stack/t09/stack-checks.sh mail | tee "$T09_EVIDENCE/old-mail.txt"
+      - name: OLD - STAGE PRE (guard before any bootstrap write; queue-only verify; installed net.* sentinels)
+        run: scripts/local-stack/t09/stage-pre.sh "$SUPABASE_DB_URL" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$T09_EVIDENCE/old-stage-pre.txt"
+      - name: OLD - bootstrap schema snapshot (includes localize.sql, which writes the vault placeholders once)
+        run: scripts/local-stack/bootstrap.sh "$SUPABASE_DB_URL" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$T09_EVIDENCE/old-bootstrap.txt"
+      - name: OLD - verify identities
+        run: scripts/local-stack/verify-identities.sh "$SUPABASE_DB_URL" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$T09_EVIDENCE/old-identities.txt"
+      - name: OLD - STAGE APP (personas + legacy API fixtures, history seed and hash window, 2 migrations, app sentinels, SQL tier expecting OLD assertion failures, API controls)
+        run: |
+          export T09_PERSONA_FILE="$RUNNER_TEMP/t09-old-personas.json"
+          scripts/local-stack/t09/stage-app.sh "$SUPABASE_DB_URL" OLD 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$T09_EVIDENCE/old-stage-app.txt"
+      # Private files are deleted by their OWN always() step, before and independent of the stack stop: a failed stop can no
+      # longer leave keys or persona tokens behind, and each step's failure is reported separately (neither masks the other).
+      - name: OLD - delete local keys and persona tokens (independent of stop; absence verified)
+        if: always()
+        run: |
+          rm -rf "$RUNNER_TEMP/t09-keys-old" "$RUNNER_TEMP/t09-old-personas.json"
+          if [ -e "$RUNNER_TEMP/t09-keys-old" ] || [ -e "$RUNNER_TEMP/t09-old-personas.json" ]; then echo "OLD: a private key or persona file is still present"; exit 1; fi
+          echo "OLD: local keys and persona tokens absent"
+      # Cleanup runs for a PREPARED stack whatever failed before it; the earlier failure still fails the job.
+      - name: OLD - stop (no backup)
+        if: always() && steps.old_prep.outcome == 'success'
+        run: |
+          umask 077
+          LOG="$RUNNER_TEMP/t09-old-stop.log"
+          if ! npx --no-install supabase stop --workdir "$IC_WORKDIR_OLD" --no-backup > "$LOG" 2>&1; then
+            echo "supabase stop failed; redacted tail:"; tail -20 "$LOG" | scripts/local-stack/t09/stack-checks.sh redact; exit 1
+          fi
+          echo "supabase stop ok (OLD)"
+      - name: OLD - remove owned network (only the one this job created; absence verified)
+        if: always() && steps.old_prep.outcome == 'success'
+        run: node scripts/local-stack/t09/stack-net.mjs remove "ic-t09-old-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-old" | tee "$T09_EVIDENCE/old-net-remove.txt"
+      - name: OLD - nothing left behind (runs after any failure once the stack was prepared)
+        if: always() && steps.old_prep.outcome == 'success'
+        run: scripts/local-stack/t09/stack-checks.sh leftovers | tee "$T09_EVIDENCE/old-leftovers.txt"
+      - name: OLD - record not started
+        if: always() && steps.old_prep.outcome != 'success'
+        run: |
+          echo "OLD: NOT STARTED (workdir step outcome '${{ steps.old_prep.outcome }}'); no stack, so no cleanup or leftover check applies" | tee "$T09_EVIDENCE/old-not-started.txt"
+
+      # ---------------- NEW ----------------
+      - name: NEW - prepare workdir (job-scoped path, never reused)
+        id: new_prep
+        run: |
+          W="$RUNNER_TEMP/ic-t09-new"
+          scripts/local-stack/workdir.sh "$W"
+          echo "IC_WORKDIR_NEW=$W" >> "$GITHUB_ENV"
+      # The Supabase CLI has no bind-address setting; its documented method is a Docker network whose default host binding
+      # is loopback, passed with --network-id. This job creates its OWN network per mode (refused on Docker < 28 or if the
+      # name exists), and removes only that network. No daemon, default, firewall or privilege change.
+      - name: NEW - create owned loopback-binding network (Docker >= 28; refuses an existing name)
+        run: node scripts/local-stack/t09/stack-net.mjs create "ic-t09-new-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-new" | tee "$T09_EVIDENCE/new-net-create.txt"
+      - name: NEW - supabase start (local; no studio, no edge runtime; output kept private, shown only redacted on failure)
+        run: |
+          umask 077
+          LOG="$RUNNER_TEMP/t09-new-start.log"
+          if ! npx --no-install supabase start --workdir "$IC_WORKDIR_NEW" --network-id "ic-t09-new-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" -x studio,imgproxy,logflare,vector,supavisor,edge-runtime > "$LOG" 2>&1; then
+            echo "supabase start failed; redacted tail:"; tail -40 "$LOG" | scripts/local-stack/t09/stack-checks.sh redact; exit 1
+          fi
+          echo "supabase start ok (NEW); its key summary is not printed"
+      - name: NEW - export loopback endpoints (masks registered before any value reaches the env or the log)
+        run: |
+          umask 077
+          # The private status file and its stderr are removed on EVERY exit path (trap set before any command that can
+          # fail); the step's own exit status is preserved, and absence is checked by the trap itself.
+          S=
+          trap 'rc=$?; if [ -n "$S" ]; then rm -f -- "$S" "$S.err"; if [ -e "$S" ] || [ -e "$S.err" ]; then echo "private status file still present"; exit 1; fi; fi; exit $rc' EXIT
+          S=$(mktemp "$RUNNER_TEMP/status.XXXXXXXX")
+          if ! npx --no-install supabase status --workdir "$IC_WORKDIR_NEW" -o env > "$S" 2> "$S.err"; then
+            echo "supabase status failed; redacted:"; scripts/local-stack/t09/stack-checks.sh redact < "$S.err"; exit 1
+          fi
+          node scripts/local-stack/t09/export-status.mjs "$S" "$GITHUB_ENV" "$RUNNER_TEMP/t09-keys-new"
+      - name: NEW - target guards
+        run: |
+          node scripts/e2e/assert-safe-target.mjs --mutating
+          node scripts/ci/check-local-target.mjs env
+      - name: NEW - published ports loopback-only, mail to the local catcher only
+        run: |
+          node scripts/local-stack/t09/stack-net.mjs verify "ic-t09-new-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-new" | tee "$T09_EVIDENCE/new-net-verify.txt"
+          node scripts/local-stack/t09/stack-net.mjs listeners | tee -a "$T09_EVIDENCE/new-net-verify.txt"
+          scripts/local-stack/t09/stack-checks.sh ports | tee "$T09_EVIDENCE/new-ports.txt"
+          scripts/local-stack/t09/stack-checks.sh mail | tee "$T09_EVIDENCE/new-mail.txt"
+      - name: NEW - STAGE PRE (guard before any bootstrap write; queue-only verify; installed net.* sentinels)
+        run: scripts/local-stack/t09/stage-pre.sh "$SUPABASE_DB_URL" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$T09_EVIDENCE/new-stage-pre.txt"
+      - name: NEW - bootstrap schema snapshot (includes localize.sql, which writes the vault placeholders once)
+        run: scripts/local-stack/bootstrap.sh "$SUPABASE_DB_URL" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$T09_EVIDENCE/new-bootstrap.txt"
+      - name: NEW - verify identities
+        run: scripts/local-stack/verify-identities.sh "$SUPABASE_DB_URL" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$T09_EVIDENCE/new-identities.txt"
+      - name: NEW - STAGE APP (personas + legacy API fixtures, history seed and hash window, 7 migrations, app sentinels, SQL tier requiring exit 0, API controls)
+        run: |
+          export T09_PERSONA_FILE="$RUNNER_TEMP/t09-new-personas.json"
+          scripts/local-stack/t09/stage-app.sh "$SUPABASE_DB_URL" NEW 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$T09_EVIDENCE/new-stage-app.txt"
+      # Private files are deleted by their OWN always() step, before and independent of the stack stop: a failed stop can no
+      # longer leave keys or persona tokens behind, and each step's failure is reported separately (neither masks the other).
+      - name: NEW - delete local keys and persona tokens (independent of stop; absence verified)
+        if: always()
+        run: |
+          rm -rf "$RUNNER_TEMP/t09-keys-new" "$RUNNER_TEMP/t09-new-personas.json"
+          if [ -e "$RUNNER_TEMP/t09-keys-new" ] || [ -e "$RUNNER_TEMP/t09-new-personas.json" ]; then echo "NEW: a private key or persona file is still present"; exit 1; fi
+          echo "NEW: local keys and persona tokens absent"
+      # Cleanup runs for a PREPARED stack whatever failed before it; the earlier failure still fails the job.
+      - name: NEW - stop (no backup)
+        if: always() && steps.new_prep.outcome == 'success'
+        run: |
+          umask 077
+          LOG="$RUNNER_TEMP/t09-new-stop.log"
+          if ! npx --no-install supabase stop --workdir "$IC_WORKDIR_NEW" --no-backup > "$LOG" 2>&1; then
+            echo "supabase stop failed; redacted tail:"; tail -20 "$LOG" | scripts/local-stack/t09/stack-checks.sh redact; exit 1
+          fi
+          echo "supabase stop ok (NEW)"
+      - name: NEW - remove owned network (only the one this job created; absence verified)
+        if: always() && steps.new_prep.outcome == 'success'
+        run: node scripts/local-stack/t09/stack-net.mjs remove "ic-t09-new-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-new" | tee "$T09_EVIDENCE/new-net-remove.txt"
+      - name: NEW - nothing left behind (runs after any failure once the stack was prepared)
+        if: always() && steps.new_prep.outcome == 'success'
+        run: scripts/local-stack/t09/stack-checks.sh leftovers | tee "$T09_EVIDENCE/new-leftovers.txt"
+      - name: NEW - record not started
+        if: always() && steps.new_prep.outcome != 'success'
+        run: |
+          echo "NEW: NOT STARTED (workdir step outcome '${{ steps.new_prep.outcome }}'); no stack, so no cleanup or leftover check applies" | tee "$T09_EVIDENCE/new-not-started.txt"
+
+      # Evidence: every expected receipt is listed (all required after a successful job), every file under the roots is
+      # scanned (I/O errors fail), and only the scanned copy in t09-upload/ with its MANIFEST.sha256 is uploaded.
+      - name: Stage evidence (exact manifest, credential scan)
+        if: always()
+        id: stage
+        run: |
+          REQ=""; [ "${{ job.status }}" = success ] && REQ=--require-all
+          scripts/local-stack/t09/stack-checks.sh stage-evidence $REQ t09-upload "$T09_EVIDENCE/old-net-create.txt" "$T09_EVIDENCE/old-net-verify.txt" "$T09_EVIDENCE/old-ports.txt" "$T09_EVIDENCE/old-mail.txt" "$T09_EVIDENCE/old-stage-pre.txt" "$T09_EVIDENCE/old-bootstrap.txt" "$T09_EVIDENCE/old-identities.txt" "$T09_EVIDENCE/old-stage-app.txt" "$T09_EVIDENCE/old-net-remove.txt" "$T09_EVIDENCE/old-leftovers.txt" "$T09_EVIDENCE/new-net-create.txt" "$T09_EVIDENCE/new-net-verify.txt" "$T09_EVIDENCE/new-ports.txt" "$T09_EVIDENCE/new-mail.txt" "$T09_EVIDENCE/new-stage-pre.txt" "$T09_EVIDENCE/new-bootstrap.txt" "$T09_EVIDENCE/new-identities.txt" "$T09_EVIDENCE/new-stage-app.txt" "$T09_EVIDENCE/new-net-remove.txt" "$T09_EVIDENCE/new-leftovers.txt" -- tested-ids.txt "$T09_EVIDENCE"
+      - name: Upload evidence (the staged manifest only)
+        if: always() && steps.stage.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: t09-runtime-${{ github.run_id }}
+          retention-days: 14
+          if-no-files-found: error
+          path: t09-upload/
