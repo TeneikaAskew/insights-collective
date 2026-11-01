@@ -43,15 +43,37 @@ export function classifyCourseBody(status: number, bodyText: string, course: str
   return { observed: true, status, code, id_match };
 }
 
+export type NavResult = 'ok' | 'aborted' | 'timeout' | 'failed' | 'not_attempted';
+
+/** Reduces a navigation error to a fixed token. The message is inspected here and never returned. */
+export function classifyNavError(message: string): NavResult {
+  if (/net::ERR_ABORTED/.test(message)) return 'aborted';
+  if (/timeout/i.test(message)) return 'timeout';
+  return 'failed';
+}
+
+/** Scenario titles from fixture.sql's scenario VALUES rows: ('nn', 'title', ...). */
+export function scenarioTitles(fixtureSql: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const m of fixtureSql.matchAll(/^\s+\('([0-9a-f]{2})', '([^']+)',/gm)) out[m[1]] = m[2];
+  return out;
+}
+
+/** The learn-page heading of a synthetic quiz item (content_items.title = 'QLC ' || title), or null if unknown. */
+export function expectedItemTitle(titles: Record<string, string>, itemId: string): string | null {
+  const m = /^9c00([0-9a-f]{2})01-0000-4000-8000-000000000000$/.exec(itemId);
+  return m && titles[m[1]] ? `QLC ${titles[m[1]]}` : null;
+}
+
 /** One fixed-format line; every value is a fixed token, boolean or integer. */
 export function readinessLine(label: string, f: {
-  routeTemplate: boolean; courseMatch: boolean; itemMatch: boolean; get: CourseGet;
-  headings: Record<string, boolean>; states: Record<string, boolean>;
+  nav?: NavResult; routeTemplate: boolean; courseMatch: boolean; itemMatch: boolean; targetHeading?: boolean;
+  get: CourseGet; headings: Record<string, boolean>; states: Record<string, boolean>;
 }): string {
   const get = f.get.observed ? `status=${Number.isInteger(f.get.status) ? f.get.status : -1} code=${f.get.code} id_match=${f.get.id_match}` : 'not_observed';
   const heads = HEADING_ALLOW.map((h, i) => `h${i}=${f.headings[h] ? 1 : 0}`).join(',');
   const states = STATE_TESTIDS.map((t) => `${t.replace('quiz-player-', '')}=${f.states[t] ? 1 : 0}`).join(',');
-  return `QLC-READINESS case=${label.replace(/[^A-Za-z0-9_-]/g, '_')} route_template=${f.routeTemplate} course_match=${f.courseMatch} `
-    + `item_match=${f.itemMatch} course_get[${get}] headings[${heads}] states[${states}]`;
+  return `QLC-READINESS case=${label.replace(/[^A-Za-z0-9_-]/g, '_')} nav=${f.nav ?? 'not_attempted'} route_template=${f.routeTemplate} `
+    + `course_match=${f.courseMatch} item_match=${f.itemMatch} target_heading=${f.targetHeading === true} `
+    + `course_get[${get}] headings[${heads}] states[${states}]`;
 }
-
