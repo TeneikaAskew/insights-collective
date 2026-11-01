@@ -102,14 +102,14 @@ psql -X -At "$BASE/$db" -c "select 1" >/dev/null; P2=$(fp $db | sort | md5sum | 
 echo "== outcome unknown: read-only reconciliation (verify-applied.sh), never auto-rollback or blind re-run"
 V="$HERE/verify-applied.sh"
 db=atomic_v_$$; fresh $db
-PGURL="$BASE/$db" bash "$V" 20261101000000 > /tmp/out.$$; st=$?; [ $st = 40 ] && ok "V0 fresh target: $(head -c 120 /tmp/out.$$)" || no "V0 exit $st $(cat /tmp/out.$$)"
+WRITER_RUN_TERMINAL=1000001:failure PGURL="$BASE/$db" bash "$V" 20261101000000 > /tmp/out.$$; st=$?; [ $st = 40 ] && ok "V0 fresh target: $(head -c 120 /tmp/out.$$)" || no "V0 exit $st $(cat /tmp/out.$$)"
 ( atomic $db "$f0" 20261101000000 >/dev/null 2>&1 ) ; # L1: runner exit status and output DISCARDED (response lost after COMMIT)
 PGURL="$BASE/$db" bash "$V" 20261101000000 > /tmp/out.$$; st=$?; [ $st = 0 ] && ok "L1 response lost AFTER commit: $(cat /tmp/out.$$)" || no "L1 exit $st $(cat /tmp/out.$$)"
 drop $db; db=atomic_v2_$$; fresh $db
 ( psql -X -q "$BASE/$db" -c "begin; lock table public.content_item_progressions in access exclusive mode; select pg_sleep(2); commit;" >/dev/null 2>&1 ) & L=$!
 sleep 0.4; ( PGURL="$BASE/$db" exec psql "$BASE/$db" -X -q -v ON_ERROR_STOP=1 --single-transaction -c "insert into supabase_migrations.schema_migrations (version) values ('20261101000000')" -f "$f0" >/dev/null 2>&1 ) & C=$!
 sleep 0.6; waiting=$(psql -X -At "$BASE/$db" -c "select count(*) from pg_stat_activity where datname = current_database() and wait_event_type = 'Lock' and pid <> pg_backend_pid()"); kill -9 $C 2>/dev/null; wait $L 2>/dev/null; sleep 1.5
-PGURL="$BASE/$db" bash "$V" 20261101000000 > /tmp/out.$$; st=$?; [ $st = 40 ] && [ "${waiting:-0}" -ge 1 ] && ok "L2 client killed BEFORE commit while its backend was inside the file (lock waiters before kill: $waiting): $(cat /tmp/out.$$)" || no "L2 exit $st $(cat /tmp/out.$$)"
+WRITER_RUN_TERMINAL=1000001:failure PGURL="$BASE/$db" bash "$V" 20261101000000 > /tmp/out.$$; st=$?; [ $st = 40 ] && [ "${waiting:-0}" -ge 1 ] && ok "L2 client killed BEFORE commit while its backend was inside the file (lock waiters before kill: $waiting): $(cat /tmp/out.$$)" || no "L2 exit $st $(cat /tmp/out.$$)"
 psql -X -q "$BASE/$db" -c "insert into supabase_migrations.schema_migrations (version) values ('20261101000000')" >/dev/null
 PGURL="$BASE/$db" bash "$V" 20261101000000 > /tmp/out.$$; st=$?; [ $st = 41 ] && ok "L3 ledger row without the schema (forged here): $(cat /tmp/out.$$)" || no "L3 exit $st $(cat /tmp/out.$$)"
 drop $db; rm -f /tmp/out.$$; rm -rf "$SOLO"
