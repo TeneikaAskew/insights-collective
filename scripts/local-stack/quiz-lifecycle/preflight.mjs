@@ -2,7 +2,9 @@
 // ABOUTME: Fail-closed preflight for the learner quiz lifecycle mode. Runs after the stack, functions and preview are up
 // ABOUTME: and BEFORE any fixture write: config parses, API/DB/app are loopback-bound, no relay, score-quiz answers, app = dist.
 //
-// Usage: preflight.mjs [--dist <dir>] [--expect-ports <api>,<db>,<app>] [--deadline <seconds>]
+// Usage: preflight.mjs [--dist <dir>] [--expect-ports <api>,<db>,<app>] [--deadline <seconds>] [--no-edge]
+//   --no-edge (shared-runner delta for the no-Edge subset): the Edge runtime is not started in that job, so the functions probe is
+//   NOT sent at all (no request to /functions/v1); the job itself asserts that no edge-runtime container exists.
 //   Defaults: --dist dist, --expect-ports 54321,54322,8080, --deadline 120.
 // Reads VITE_SUPABASE_URL, SUPABASE_DB_URL, E2E_BASE_URL, E2E_USE_RELAY, E2E_RELAY_PORT from the environment.
 //
@@ -33,7 +35,7 @@ process.on('uncaughtException', (e) => {
 });
 
 function parseArgs(argv) {
-  const out = { dist: 'dist', ports: [54321, 54322, 8080], deadline: 120 };
+  const out = { dist: 'dist', ports: [54321, 54322, 8080], deadline: 120, noEdge: false };
   for (let i = 0; i < argv.length; i += 1) {
     const [k, v] = [argv[i], argv[i + 1]];
     if (k === '--dist' && v) { out.dist = v; i += 1; }
@@ -42,11 +44,12 @@ function parseArgs(argv) {
       if (p.length !== 3 || p.some((n) => !Number.isInteger(n) || n < 1 || n > 65535)) usage();
       out.ports = p; i += 1;
     } else if (k === '--deadline' && v && /^[0-9]{1,4}$/.test(v)) { out.deadline = Number(v); i += 1; }
+    else if (k === '--no-edge') out.noEdge = true;
     else usage();
   }
   return out;
 }
-function usage() { console.log('usage: preflight.mjs [--dist <dir>] [--expect-ports api,db,app] [--deadline seconds]'); process.exit(2); }
+function usage() { console.log('usage: preflight.mjs [--dist <dir>] [--expect-ports api,db,app] [--deadline seconds] [--no-edge]'); process.exit(2); }
 
 /** Runs a child with all output captured; a failed child is ALWAYS a failure. Returns stdout or null. */
 function run(check, bin, args, label = `${path.basename(bin)} ${args[0] ?? ''}`) {
@@ -167,7 +170,8 @@ async function main() {
   }
 
   // 4. Functions through the API gateway; 5. app is this build.
-  if (api) await probeFunctions('functions', api.origin, opt.deadline);
+  if (opt.noEdge) console.log('SKIP functions: no-Edge mode; no request sent to /functions/v1 (the job asserts no edge-runtime container)');
+  else if (api) await probeFunctions('functions', api.origin, opt.deadline);
   if (app) await probeApp('app', app.origin, opt.dist);
   if (run('app', process.execPath, [path.join(ROOT, 'scripts/ci/check-local-target.mjs'), 'dist', opt.dist], 'check-local-target dist') !== null) {
     pass('app', 'check-local-target dist');

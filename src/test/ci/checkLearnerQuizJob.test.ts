@@ -10,7 +10,7 @@ const ROOT = path.resolve(__dirname, '../../..');
 const WF = readFileSync(path.join(ROOT, '.github/workflows/e2e.yml'), 'utf8');
 const DOC = YAML.parse(WF);
 const JOB = DOC.jobs['learner-quiz'];
-type Step = { name?: string; if?: string; run?: string; uses?: string; env?: Record<string, string> };
+type Step = { id?: string; name?: string; if?: string; run?: string; uses?: string; env?: Record<string, string> };
 const STEPS = JOB.steps as Step[];
 const at = (re: RegExp) => {
   const i = STEPS.findIndex((s) => re.test(String(s.run ?? '')));
@@ -25,7 +25,7 @@ describe('learner-quiz job', () => {
   });
 
   it('is dispatch-only, scoped to its own input, read-only, with no secrets, services or containers', () => {
-    expect(DOC.on.workflow_dispatch.inputs.specs.options).toEqual(['readonly-courses', 't09-runtime', 'learner-quiz']);
+    expect(DOC.on.workflow_dispatch.inputs.specs.options).toEqual(['readonly-courses', 't09-runtime', 'learner-quiz', 'learner-quiz-noedge']);
     expect(JOB.if).toBe("inputs.specs == 'learner-quiz'");
     expect(JOB.permissions).toEqual({ contents: 'read' });
     expect(JOB.secrets).toBeUndefined();
