@@ -1,7 +1,7 @@
 // ABOUTME: Unit tests for e2e/evidence/evidence-metadata.mjs: label validation refuses off-shape values, attachment
 // ABOUTME: names are built only from validated parts, API metadata is reduced to primitives, foreign bodies are never read.
 import { describe, it, expect, vi } from 'vitest';
-import { validateLabels, attachmentName, apiRecord, courseRows, appPath, apiPath, method, status, MAX_IDS } from '../../../e2e/evidence/evidence-metadata.mjs';
+import { validateLabels, attachmentName, apiRecord, courseRows, appPath, apiPath, method, status, MAX_IDS, createApiObserver, captureWindow, AUTHENTIC } from '../../../e2e/evidence/evidence-metadata.mjs';
 
 const SHA = 'b54dd6cfbdc094ad5284911ba9bb1a59ef6a309f';
 const ID = '660e8400-e29b-41d4-a716-446655440001';
@@ -75,5 +75,60 @@ describe('apiRecord', () => {
   it('survives an unreadable body', async () => {
     const r = await apiRecord({ isConfiguredApi: true, pathname: '/rest/v1/courses', requestMethod: 'GET', responseStatus: 200, contentType: 'application/json', readJson: async () => { throw new Error('gone'); } });
     expect(r.rows).toBeNull();
+  });
+});
+
+const local = (path = '/rest/v1/courses') => ({ origin: 'configured-loopback-api', method: 'GET', path, status: 200, rows: 1, courseIds: [ID], rejectedIds: 0 });
+const foreign = { origin: 'FOREIGN', method: 'GET', path: '/rest/v1/courses', status: 200, rows: null, courseIds: [], rejectedIds: 0 };
+const tick = () => new Promise((r) => setTimeout(r, 0));
+
+describe('captureWindow (screenshot, then settle, then one snapshot)', () => {
+  it('a FOREIGN response arriving during the screenshot is in the attached metadata and makes the window not authentic', async () => {
+    const obs = createApiObserver();
+    obs.record(Promise.resolve(local()));
+    await obs.settle();
+    const w = await captureWindow({
+      observer: obs, apiOk: true,
+      screenshot: async () => { obs.record(new Promise((r) => setTimeout(() => r(foreign), 5))); await tick(); return Buffer.from('png'); },
+      outcomeFrom: (api: readonly { origin: string }[]) => ({ responses: api.length, foreign: api.filter((c) => c.origin === 'FOREIGN').length }),
+    });
+    expect(w.api.map((c: { origin: string }) => c.origin)).toEqual(['configured-loopback-api', 'FOREIGN']);
+    expect(w.backend.mode).toBe('NOT AUTHENTIC');
+    expect(w.backend.foreignResponses).toBe(1);
+    expect(w.outcome).toEqual({ responses: 2, foreign: 1 });
+  });
+  it('derives backend and outcome from the same immutable snapshot', async () => {
+    const obs = createApiObserver();
+    obs.record(Promise.resolve(local()));
+    let seen: unknown;
+    const w = await captureWindow({ observer: obs, apiOk: true, screenshot: async () => Buffer.from('p'), outcomeFrom: (api: unknown) => { seen = api; return {}; } });
+    expect(seen).toBe(w.api);
+    expect(Object.isFrozen(w.api)).toBe(true);
+    expect(Object.isFrozen(w.api[0])).toBe(true);
+    expect(w.backend.mode).toBe(AUTHENTIC);
+  });
+  it('settle() also waits for observations added while it is draining', async () => {
+    const obs = createApiObserver();
+    obs.record(new Promise((r) => setTimeout(() => { obs.record(new Promise((r2) => setTimeout(() => r2(foreign), 5))); r(local()); }, 5)));
+    await obs.settle();
+    expect(obs.pendingCount()).toBe(0);
+    expect(obs.snapshot().length).toBe(2);
+  });
+  it('an observation completing after the snapshot is kept for the next window, not dropped or merged back', async () => {
+    const obs = createApiObserver();
+    obs.record(Promise.resolve(local('/rest/v1/a')));
+    await obs.settle();
+    let release: (v: unknown) => void = () => {};
+    obs.record(new Promise((r) => { release = r; }));
+    const first = obs.snapshot();
+    release(local('/rest/v1/b'));
+    await obs.settle();
+    const second = obs.snapshot();
+    expect(first.map((c: { path: string }) => c.path)).toEqual(['/rest/v1/a']);
+    expect(second.map((c: { path: string }) => c.path)).toEqual(['/rest/v1/b']);
+  });
+  it('a window with no API responses is not authentic', async () => {
+    const w = await captureWindow({ observer: createApiObserver(), apiOk: true, screenshot: async () => Buffer.from('p'), outcomeFrom: () => ({}) });
+    expect(w.backend.mode).toBe('NOT AUTHENTIC');
   });
 });

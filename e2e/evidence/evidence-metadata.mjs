@@ -1,5 +1,5 @@
 // ABOUTME: Validation for everything the frontend evidence spec attaches. Labels must have a fixed shape or the spec
-// ABOUTME: refuses to run; API metadata is reduced to validated primitives; foreign-origin responses are never read.
+// ABOUTME: refuses to run; API metadata is reduced to validated primitives; foreign-origin response bodies are never read.
 // Pure functions, no I/O: unit-tested in src/test/e2e/evidenceMetadata.test.ts.
 
 export const VIEWPORT_NAMES = Object.freeze(['desktop-1440x900', 'tablet-768x1024', 'mobile-390x844']);
@@ -62,4 +62,48 @@ export async function apiRecord({ isConfiguredApi, pathname, requestMethod, resp
     } catch { /* body unavailable: recorded as rows null */ }
   }
   return { ...base, rows: parsed.rows, courseIds: parsed.ids, rejectedIds: parsed.rejectedIds };
+}
+
+export const AUTHENTIC = 'authentic local Supabase (loopback, no stubs)';
+
+/** Backend mode from one API snapshot: authentic only if every response came from the configured loopback API. */
+export function backendFrom(api, apiOk) {
+  const foreign = api.filter((c) => c.origin !== 'configured-loopback-api').length;
+  return { mode: apiOk && foreign === 0 && api.length > 0 ? AUTHENTIC : 'NOT AUTHENTIC', foreignResponses: foreign, responses: api.length, stubs: 0 };
+}
+
+/**
+ * Collects API records produced asynchronously by response handlers. settle() waits for every pending record,
+ * including records whose tasks were added while it was waiting. snapshot() returns an immutable copy of what has
+ * been observed so far and starts a new window, so a response that arrives later belongs to the next window
+ * instead of being lost or silently added to evidence already taken.
+ */
+export function createApiObserver() {
+  const pending = new Set();
+  let window = [];
+  return {
+    record(promise) {
+      const task = Promise.resolve(promise).then((rec) => { window.push(Object.freeze({ ...rec, courseIds: Object.freeze([...(rec.courseIds || [])]) })); });
+      pending.add(task);
+      task.finally(() => pending.delete(task)).catch(() => {});
+      return task;
+    },
+    async settle() { while (pending.size > 0) await Promise.allSettled([...pending]); },
+    snapshot() { const snap = Object.freeze(window); window = []; return snap; },
+    pendingCount() { return pending.size; },
+  };
+}
+
+/**
+ * One evidence window: take the screenshot, THEN settle every pending observation, take ONE snapshot, and derive the
+ * backend mode and the step's outcome synchronously from that same snapshot. Nothing observed after the snapshot can
+ * change what is attached with this screenshot; it is reported in the next window (or the final tail check).
+ */
+export async function captureWindow({ observer, screenshot, apiOk, outcomeFrom }) {
+  const png = await screenshot();
+  await observer.settle();
+  const api = observer.snapshot();
+  const backend = backendFrom(api, apiOk);
+  const outcome = outcomeFrom(api);
+  return { png, api, backend, outcome };
 }

@@ -39,9 +39,13 @@ query-filters:
   # flow this exclusion is about; it is listed only because the gate matches every
   # write call. This adds no query suppression.
   #
-  # Those two are the whole reviewed network-to-disk set. The "Filesystem writes stay in reviewed
-  # locations" step in security.yml is what keeps it that way: it enumerates every
-  # tracked source file, subtracts those two, and fails the build on anything left.
+  # The reviewed network-to-disk writes are those two: the crawler cache under
+  # scripts/ and the opt-in console-errors audit log. The "Filesystem writes stay in
+  # reviewed locations" step in security.yml keeps the set closed: it enumerates
+  # every tracked source file, subtracts its ALLOWED list (scripts/, the
+  # console-errors fixture, and the one fixture-only test file above), and fails
+  # the build on any other write call. That gate limits where writes may appear; it
+  # does not make this repo-wide exclusion safe, which remains reviewed debt.
   # Remove that step and this exclusion stops being narrow.
   - exclude:
       id: js/http-to-file-access
