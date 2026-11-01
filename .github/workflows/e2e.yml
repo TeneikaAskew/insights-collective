@@ -891,6 +891,14 @@ jobs:
         run: |
           set -o pipefail
           scripts/local-stack/quiz-lifecycle/fixture.sh | tee "$LQ_EVIDENCE/qlc/checks-fixture.txt"
+      # Causal auth gate (run 41353483766 failed all 7 cases still on /login; cause NOT established). After the UNCHANGED
+      # original fixture: read-only null-state booleans + one password-grant probe for the exact learner (phase=old-seed).
+      # Only if that fails: the candidate alignment (shared auth-fixtures rule set), then state + probe again
+      # (phase=candidate). The browser cases run only when a probe passed. Fixed lines only; no body, token, id or secret.
+      - name: Learner auth gate (OLD seed probe, then candidate only on failure; booleans and allowlisted codes only)
+        run: |
+          set -o pipefail
+          scripts/local-stack/quiz-lifecycle/auth-gate.sh | tee "$LQ_EVIDENCE/qlc/checks-auth-gate.txt"
       - name: No-Edge guard self-test (MOCKED; owned loopback API sink; refusal before forwarding; before the subset)
         run: |
           set -o pipefail
@@ -908,7 +916,7 @@ jobs:
           n=$(node -e 'const r=require(process.argv[1]);let c=0;const w=s=>{for(const x of s.suites||[])w(x);for(const sp of s.specs||[])c+=sp.tests.length};w(r);console.log(c)' "$QLC_EVIDENCE_DIR/playwright/results.json" 2>/dev/null || echo 0)
           [ "$n" = 7 ] || { echo "expected exactly 7 selected cases, got $n"; rc=1; }
           # Only the inventoried evidence leaves the private dir; playwright-output/ is never copied.
-          for d in ledger screens playwright; do [ -d "$QLC_EVIDENCE_DIR/$d" ] && cp -R "$QLC_EVIDENCE_DIR/$d/." "$LQ_EVIDENCE/qlc/$d/"; done
+          for d in ledger screens playwright login-diagnostics; do [ -d "$QLC_EVIDENCE_DIR/$d" ] && cp -R "$QLC_EVIDENCE_DIR/$d/." "$LQ_EVIDENCE/qlc/$d/"; done
           [ -f "$QLC_EVIDENCE_DIR/egress.txt" ] && cp "$QLC_EVIDENCE_DIR/egress.txt" "$LQ_EVIDENCE/qlc/egress.txt"
           mkdir -p "$LQ_EVIDENCE/qlc/checks"; [ -f "$QLC_EVIDENCE_DIR/checks/revoke-access.txt" ] && cp "$QLC_EVIDENCE_DIR/checks/revoke-access.txt" "$LQ_EVIDENCE/qlc/checks/revoke-access.txt"
           exit $rc
@@ -953,7 +961,7 @@ jobs:
         run: |
           REQ=""; [ "${{ job.status }}" = success ] && REQ=--require-all
           E="$LQ_EVIDENCE"
-          scripts/local-stack/t09/stack-checks.sh stage-evidence $REQ lqn-upload "$E/checks/net-create.txt" "$E/checks/net-verify-start.txt" "$E/checks/ports-start.txt" "$E/checks/mail.txt" "$E/checks/no-edge-start.txt" "$E/checks/stage-pre.txt" "$E/checks/bootstrap.txt" "$E/checks/identities.txt" "$E/checks/migrations-new.txt" "$E/checks/hermetic.txt" "$E/checks/HERMETIC-PROVENANCE.json" "$E/qlc/checks-preflight.txt" "$E/checks/headless-shell.txt" "$E/qlc/checks-fixture.txt" "$E/qlc/playwright/results.json" "$E/qlc/egress.txt" "$E/qlc/checks/revoke-access.txt" "$E/checks/no-edge-end.txt" "$E/checks/owned-stop.txt" "$E/checks/net-remove.txt" "$E/checks/leftovers.txt" -- tested-ids.txt "$E"
+          scripts/local-stack/t09/stack-checks.sh stage-evidence $REQ lqn-upload "$E/checks/net-create.txt" "$E/checks/net-verify-start.txt" "$E/checks/ports-start.txt" "$E/checks/mail.txt" "$E/checks/no-edge-start.txt" "$E/checks/stage-pre.txt" "$E/checks/bootstrap.txt" "$E/checks/identities.txt" "$E/checks/migrations-new.txt" "$E/checks/hermetic.txt" "$E/checks/HERMETIC-PROVENANCE.json" "$E/qlc/checks-preflight.txt" "$E/checks/headless-shell.txt" "$E/qlc/checks-fixture.txt" "$E/qlc/checks-auth-gate.txt" "$E/qlc/playwright/results.json" "$E/qlc/egress.txt" "$E/qlc/checks/revoke-access.txt" "$E/checks/no-edge-end.txt" "$E/checks/owned-stop.txt" "$E/checks/net-remove.txt" "$E/checks/leftovers.txt" -- tested-ids.txt "$E"
       - name: Upload evidence (the staged manifest only)
         if: always() && steps.stage.outcome == 'success'
         uses: actions/upload-artifact@v4
