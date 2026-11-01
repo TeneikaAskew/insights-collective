@@ -174,23 +174,25 @@ function CanvasGradingInterface() {
       }
       try {
         setSaving(true);
+        // assignment_submissions has no grader_id column; grader attribution
+        // is modeled on grades.graded_by / grade_history.changed_by. Sending
+        // it here made PostgREST reject the whole update, so saving a grade
+        // failed outright.
+        const written = {
+          grade: gradeNum,
+          grader_comments: feedback,
+          graded_at: new Date().toISOString(),
+          workflow_state: 'graded',
+        };
         const { data, error } = await supabase
           .from('assignment_submissions')
-          .update({
-            // assignment_submissions has no grader_id column; grader attribution
-            // is modeled on grades.graded_by / grade_history.changed_by. Sending
-            // it here made PostgREST reject the whole update, so saving a grade
-            // failed outright.
-            grade: gradeNum,
-            grader_comments: feedback,
-            graded_at: new Date().toISOString(),
-            workflow_state: 'graded',
-          })
+          .update(written)
           .eq('id', selectedSubmission.id)
           .select('id, grade, grader_comments, workflow_state, graded_at');
         if (error) throw error;
-        // Error-free is not saved: RLS can match zero rows and the grade pin can revert the value.
-        const saved = assertGradeSaved(data as any, selectedSubmission.id, gradeNum) as any;
+        // Error-free is not saved: RLS can match zero rows and the grade pin can revert grade, feedback and
+        // graded_at while workflow_state still changes. Every written field must read back.
+        const saved = assertGradeSaved(data as any, selectedSubmission.id, written) as any;
 
         setSubmissions((prev) =>
           prev.map((s) =>

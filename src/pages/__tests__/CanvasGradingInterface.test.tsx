@@ -326,8 +326,10 @@ describe('CanvasGradingInterface', () => {
       expect.objectContaining({ title: 'Grade published' }),
     );
 
+    // Readback echoes what was written (graded_at re-formatted the way timestamptz comes back).
+    const written = subsBuilder.update.mock.calls[0][0];
     resolveUpdate({
-      data: [{ id: 'sub-1', grade: 7, grader_comments: '', workflow_state: 'graded', graded_at: '2026-11-01T12:00:00Z' }],
+      data: [{ id: 'sub-1', ...written, graded_at: new Date(written.graded_at).toISOString().replace('Z', '+00:00') }],
       error: null,
     });
 
@@ -418,19 +420,33 @@ describe('CanvasGradingInterface', () => {
     });
   });
 
-  for (const [label, result] of [
-    ['zero rows (RLS-filtered update)', { data: [], error: null }],
-    ['the row with its old grade (pin trigger reverted it)', { data: [{ id: 'sub-1', grade: null, grader_comments: null, workflow_state: 'submitted', graded_at: null }], error: null }],
+  // Readback must carry EVERY written field. Each case below returns an error-free response that the old
+  // id+grade-only check accepted or that the pin trigger really produces for a non-staff caller.
+  const prior = { grade: 7, grader_comments: 'old feedback', workflow_state: 'graded', graded_at: '2026-10-01T00:00:00+00:00' };
+  const echo = (b: any, over: Record<string, unknown> = {}) => () => {
+    const w = b.update.mock.calls.at(-1)[0];
+    return { data: [{ id: 'sub-1', ...w, ...over }], error: null };
+  };
+  for (const [label, result, typedFeedback] of [
+    ['zero rows (RLS-filtered update)', () => ({ data: [], error: null }), undefined],
+    ['the row with its old grade (pin trigger reverted it)', () => ({ data: [{ id: 'sub-1', grade: null, grader_comments: null, workflow_state: 'submitted', graded_at: null }], error: null }), undefined],
+    // Same grade, changed feedback: the pin keeps OLD grader_comments and graded_at; the grade alone still matches.
+    ['the same grade but the OLD feedback and graded_at (pin reverted feedback)', () => ({ data: [{ id: 'sub-1', ...prior }], error: null }), 'new feedback'],
+    // Grade matches but the row is not graded (workflow_state is not pinned, but another writer or policy could hold it).
+    ['the matching grade with workflow_state still submitted', 'wrong-state', undefined],
   ] as const) {
     it(`does not publish when the save returns ${label}`, async () => {
       vi.mocked(CanvasContentService.getContentItem).mockResolvedValue(contentItem as any);
-      const subsBuilder = makeTableBuilder(
-        { data: [makeGradingSubmission({ body: 'Great essay text' })], error: null },
-        result as any,
+      let subsBuilder: any;
+      const lazy = { then: (ok: any, bad: any) => Promise.resolve(result === 'wrong-state' ? echo(subsBuilder, { workflow_state: 'submitted' })() : (result as any)()).then(ok, bad) };
+      subsBuilder = makeTableBuilder(
+        { data: [makeGradingSubmission({ body: 'Great essay text', workflow_state: 'submitted', ...(typedFeedback ? prior : {}) })], error: null },
+        lazy as any,
       );
       useTables({ assignment_submissions: subsBuilder });
       render(<CanvasGradingInterface />);
       await screen.findByText('Essay 1');
+      if (typedFeedback) fireEvent.change(screen.getByTestId('editor'), { target: { value: typedFeedback } });
       fireEvent.change(screen.getByLabelText('Score'), { target: { value: '7' } });
       fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
       await waitFor(() =>
@@ -439,4 +455,23 @@ describe('CanvasGradingInterface', () => {
       expect(toastMock).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'Grade published' }));
     });
   }
+
+  it('publishes an unchanged same-grade, same-feedback re-save (idempotent staff save is not a failure)', async () => {
+    vi.mocked(CanvasContentService.getContentItem).mockResolvedValue(contentItem as any);
+    let subsBuilder: any;
+    const lazy = { then: (ok: any, bad: any) => Promise.resolve({ data: [{ id: 'sub-1', ...subsBuilder.update.mock.calls.at(-1)[0] }], error: null }).then(ok, bad) };
+    subsBuilder = makeTableBuilder(
+      { data: [makeGradingSubmission({ body: 'x', grade: 7, grader_comments: 'same', workflow_state: 'graded', graded_at: '2026-10-01T00:00:00+00:00' })], error: null },
+      lazy as any,
+    );
+    useTables({ assignment_submissions: subsBuilder });
+    render(<CanvasGradingInterface />);
+    await screen.findByText('Essay 1');
+    expect(screen.getByLabelText('Score')).toHaveValue(7);
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+    await waitFor(() =>
+      expect(toastMock).toHaveBeenCalledWith(expect.objectContaining({ title: 'Grade published', description: 'Alice Adams: 7/10' })),
+    );
+    expect(subsBuilder.update).toHaveBeenCalledWith(expect.objectContaining({ grade: 7, grader_comments: 'same' }));
+  });
 });

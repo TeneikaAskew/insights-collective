@@ -27,20 +27,41 @@ export function submissionEarnedPoints(s: { grade?: unknown; score?: unknown } |
   return finite(s.grade) ?? finite(s.score) ?? null;
 }
 
-export interface SavedGradeRow { id: string; grade: number | null; workflow_state?: string | null }
+export interface SavedGradeRow { id: string; grade: number | null; workflow_state?: string | null; [k: string]: unknown }
+
+const sameValue = (key: string, got: unknown, want: unknown): boolean => {
+  if (want === null || want === undefined) return got === null || got === undefined;
+  if (typeof want === 'number') return finite(got) === want;
+  // timestamptz comes back re-formatted (e.g. +00:00 instead of Z); compare the instant, not the text.
+  if (key.endsWith('_at') && typeof want === 'string') {
+    const a = Date.parse(String(got)); const b = Date.parse(want);
+    return Number.isFinite(a) && a === b;
+  }
+  return got === want;
+};
 
 /**
- * A grade save succeeded only if exactly one row came back with the grade that was sent. PostgREST reports an
- * RLS-filtered update as success with zero rows, and the pin_assignment_grade_columns trigger silently reverts grade
- * columns for non-staff, returning the row with the OLD grade. Both must surface as a failure, not "published".
+ * A grade save succeeded only if exactly one row came back carrying EVERY field that was written. PostgREST reports
+ * an RLS-filtered update as success with zero rows, and the pin_assignment_grade_columns trigger silently keeps the
+ * OLD grade, grader_comments and graded_at for non-staff while letting workflow_state through. Checking the grade
+ * alone accepted a same-grade save whose feedback was reverted, and a matching grade left in a non-graded state.
+ * A legitimate same-value re-save still passes: staff writes persist every field, including the new graded_at.
+ *
+ * This is a persisted-state check only. The update filters on id alone, so it is not optimistic concurrency and does
+ * not make a save safe against a newer attempt or a concurrent grader.
  */
-export function assertGradeSaved(rows: SavedGradeRow[] | null | undefined, submissionId: string, grade: number): SavedGradeRow {
+export function assertGradeSaved(
+  rows: SavedGradeRow[] | null | undefined,
+  submissionId: string,
+  written: Record<string, unknown>,
+): SavedGradeRow {
   const list = rows ?? [];
   if (list.length !== 1 || list[0].id !== submissionId) {
     throw new Error('Grade was not saved: the submission was not updated (no permission, or it no longer exists).');
   }
-  if (finite(list[0].grade) !== grade) {
-    throw new Error('Grade was not saved: the stored grade did not change (grading permission is required).');
+  const mismatched = Object.keys(written).filter((k) => !sameValue(k, list[0][k], written[k]));
+  if (mismatched.length > 0) {
+    throw new Error(`Grade was not saved: the stored ${mismatched.join(', ')} did not take the new value (grading permission is required).`);
   }
   return list[0];
 }

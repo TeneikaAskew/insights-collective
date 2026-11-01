@@ -30,15 +30,33 @@ describe('submissionEarnedPoints', () => {
 });
 
 describe('assertGradeSaved', () => {
-  it('accepts exactly one row carrying the sent grade, including 0', () => {
-    expect(assertGradeSaved([{ id: 's', grade: 0 }], 's', 0)).toEqual({ id: 's', grade: 0 });
+  const at = '2026-11-01T12:00:00.000Z';
+  const written = { grade: 7, grader_comments: 'new feedback', graded_at: at, workflow_state: 'graded' };
+  const row = (over: Record<string, unknown> = {}) => [{ id: 's', ...written, graded_at: '2026-11-01 12:00:00+00', ...over }];
+
+  it('accepts exactly one row carrying every written field, including grade 0 and a re-formatted timestamp', () => {
+    expect(assertGradeSaved(row(), 's', written).grade).toBe(7);
+    expect(assertGradeSaved([{ id: 's', grade: 0 }], 's', { grade: 0 }).grade).toBe(0);
   });
-  it('rejects zero rows, extra rows, a different id, and a reverted grade', () => {
-    expect(() => assertGradeSaved([], 's', 7)).toThrow(/not updated/);
-    expect(() => assertGradeSaved(null, 's', 7)).toThrow(/not updated/);
-    expect(() => assertGradeSaved([{ id: 's', grade: 7 }, { id: 't', grade: 7 }], 's', 7)).toThrow(/not updated/);
-    expect(() => assertGradeSaved([{ id: 't', grade: 7 }], 's', 7)).toThrow(/not updated/);
-    expect(() => assertGradeSaved([{ id: 's', grade: null }], 's', 7)).toThrow(/did not change/);
+  it('accepts an idempotent same-value re-save (staff writes persist every field)', () => {
+    expect(() => assertGradeSaved(row(), 's', { ...written })).not.toThrow();
+  });
+  it('rejects zero rows, extra rows and a different id', () => {
+    expect(() => assertGradeSaved([], 's', written)).toThrow(/not updated/);
+    expect(() => assertGradeSaved(null, 's', written)).toThrow(/not updated/);
+    expect(() => assertGradeSaved([...row(), { id: 't', ...written }], 's', written)).toThrow(/not updated/);
+    expect(() => assertGradeSaved(row({ id: 't' }), 's', written)).toThrow(/not updated/);
+  });
+  it('rejects a same-grade save whose feedback and graded_at the pin reverted', () => {
+    expect(() => assertGradeSaved(row({ grader_comments: 'old feedback', graded_at: '2026-10-01T00:00:00Z' }), 's', written))
+      .toThrow(/grader_comments, graded_at did not take/);
+  });
+  it('rejects a matching grade left in a non-graded workflow_state', () => {
+    expect(() => assertGradeSaved(row({ workflow_state: 'submitted' }), 's', written)).toThrow(/workflow_state did not take/);
+  });
+  it('rejects a reverted grade and a missing field', () => {
+    expect(() => assertGradeSaved(row({ grade: null }), 's', written)).toThrow(/grade did not take/);
+    expect(() => assertGradeSaved([{ id: 's', grade: 7 }], 's', written)).toThrow(/grader_comments, graded_at, workflow_state/);
   });
 });
 
