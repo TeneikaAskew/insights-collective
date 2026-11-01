@@ -87,6 +87,10 @@ insert into public.grades (id, course_id, student_id, assignment_id, grade_type,
 values ('9b6b0000-0000-4000-8000-000000000601', '9b6b0000-0000-4000-8000-000000000021', 'e2e00000-0000-4000-8000-000000000001',
         '9b6b0000-0000-4000-8000-000000000221', 'assignment', 5, 10, 50, 'canary', '2026-01-02T00:00:00Z', '2026-01-02T00:00:00Z')
 on conflict (id) do nothing;
+insert into public.notifications (id, user_id, title, message, type, is_read, link, created_at, course_id)
+values ('9b6b0000-0000-4000-8000-000000000801', 'e2e00000-0000-4000-8000-000000000003', 'Canary notification', 'Protected canary', 'canary', false,
+        '/courses/9b6b0000-0000-4000-8000-000000000021', '2026-01-04T00:00:00Z', '9b6b0000-0000-4000-8000-000000000021')
+on conflict (id) do nothing;
 insert into public.certificates (id, user_id, course_id, certificate_type, verification_code, issued_at)
 values ('9b6b0000-0000-4000-8000-000000000701', 'e2e00000-0000-4000-8000-000000000001', '9b6b0000-0000-4000-8000-000000000021', 'completion', 'GBCANARY0001', '2026-01-03T00:00:00Z')
 on conflict (id) do nothing;

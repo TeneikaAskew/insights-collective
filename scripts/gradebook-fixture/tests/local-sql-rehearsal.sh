@@ -35,9 +35,10 @@ P -f "$HERE/witness.sql" > "$OUT/witness-post.txt"
 oracle() { printf '%s' "$1" | md5sum | cut -c1-32; }
 sed -e "s/<SG0b>/$(oracle '<p>GB fixture: thesis missing; see rubric row 1.</p>')/" -e "s/<SG7>/$(oracle '<p>GB fixture: solid argument.</p>')/" "$HERE/expected-post.txt" > "$OUT/expected-post.resolved.txt"
 pass=0; fail=0; ok() { echo "PASS $*"; pass=$((pass+1)); }; no() { echo "FAIL $*"; fail=$((fail+1)); }
-cmp_state() { diff <(grep -E '^(STATE|AUDIT) ' "$1") "$OUT/expected-post.resolved.txt"; }
+{ grep -v '^#' "$HERE/expected-notif-added.txt"; grep '^NOTIF ' "$OUT/witness-pre.txt"; } | LC_ALL=C sort > "$OUT/expected-notif.resolved.txt"
+cmp_state() { diff <(grep -E '^(STATE|AUDIT) ' "$1") "$OUT/expected-post.resolved.txt" && diff <(grep '^NOTIF ' "$1") "$OUT/expected-notif.resolved.txt"; }
 cmp_prot() { diff <(grep '^HASH ' "$OUT/witness-pre.txt") <(grep '^HASH ' "$1"); }
-for k in other_submissions other_audit_events grades grade_history certificates fixture_assignments fixture_submission_immutable fixture_courses fixture_modules fixture_items fixture_enrollments; do
+for k in other_submissions other_audit_events grades grade_history certificates fixture_assignments fixture_submission_immutable fixture_courses fixture_modules fixture_items fixture_enrollments other_notifications; do
   grep -qE "^HASH $k [1-9]" "$OUT/witness-pre.txt" && ok "R0-$k non-empty" || no "R0-$k EMPTY"
 done
 cmp_state "$OUT/witness-post.txt" > "$OUT/state-diff.txt" && ok "R1 post state + audit exactly as expected (oracle hashes)" || no "R1 state differs (state-diff.txt)"
@@ -53,6 +54,8 @@ neg feedback-not-oracle "update public.assignment_submissions set grader_comment
 neg canary-grade-corrupted "update public.grades set points_earned=6 where id='9b6b0000-0000-4000-8000-000000000601'" prot
 neg canary-certificate-touched "update public.certificates set issued_at=issued_at + interval '1 second' where id='9b6b0000-0000-4000-8000-000000000701'" prot
 neg immutable-body-changed "update public.assignment_submissions set body='<p>rewritten</p>' where id='9b6b0000-0000-4000-8000-000000000302'" prot
+neg extra-notification "insert into public.notifications (user_id, title, message, type, link, course_id) values ('e2e00000-0000-4000-8000-000000000003', 'Assignment graded: Points GB7', 'Your submission was graded.', 'assignment_graded', '/x', '9b6b0000-0000-4000-8000-000000000001')" state
+neg canary-notification-read "update public.notifications set is_read = true where id = '9b6b0000-0000-4000-8000-000000000801'" prot
 neg enrollment-removed "delete from public.enrollments where course_id='9b6b0000-0000-4000-8000-000000000001'" prot
 P -f "$HERE/seed.sql" > "$OUT/seed-on-used-stack.txt" 2>&1 && no "N-seed-reuse seed accepted a used stack" || ok "N-seed-reuse seed refused a used stack: $(grep -o 'GRADEBOOK FIXTURE REFUSED[^"]*' "$OUT/seed-on-used-stack.txt" | head -1 | cut -c1-90)"
 echo "== LOCAL SQL rehearsal (plain PostgreSQL; no GoTrue, PostgREST or browser): $pass PASS, $fail FAIL"

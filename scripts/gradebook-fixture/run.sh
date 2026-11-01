@@ -15,7 +15,7 @@ PSQL=(env -u PGHOST -u PGHOSTADDR -u PGSERVICE -u PGSERVICEFILE -u PGPORT -u PGP
 "${PSQL[@]}" -f "$HERE/seed.sql" | tee "$OUT/seed.txt"
 "${PSQL[@]}" -f "$HERE/witness.sql" > "$OUT/witness-pre.txt"
 # Non-vacuity: the protected set must contain rows to protect (the e2e seed's own submissions).
-for k in other_submissions other_audit_events grades grade_history certificates fixture_assignments fixture_submission_immutable fixture_courses fixture_modules fixture_items fixture_enrollments; do
+for k in other_submissions other_audit_events grades grade_history certificates fixture_assignments fixture_submission_immutable fixture_courses fixture_modules fixture_items fixture_enrollments other_notifications; do
   grep -qE "^HASH $k [1-9]" "$OUT/witness-pre.txt" || { echo "run refused: protected set $k is empty (its hash would be vacuous)"; exit 4; }
 done
 set +e
@@ -29,6 +29,8 @@ SG0B=$(oracle '<p>GB fixture: thesis missing; see rubric row 1.</p>'); SG7=$(ora
 sed -e "s/<SG0b>/$SG0B/" -e "s/<SG7>/$SG7/" "$HERE/expected-post.txt" > "$OUT/expected-post.resolved.txt"
 rc=0
 diff <(grep -E '^(STATE|AUDIT) ' "$OUT/witness-post.txt") "$OUT/expected-post.resolved.txt" > "$OUT/state-diff.txt" && echo "PASS fixture state and audit trail exactly as expected" || { echo "FAIL fixture state/audit differs (state-diff.txt)"; rc=1; }
+{ grep -v '^#' "$HERE/expected-notif-added.txt"; grep '^NOTIF ' "$OUT/witness-pre.txt"; } | LC_ALL=C sort > "$OUT/expected-notif.resolved.txt"
+diff <(grep '^NOTIF ' "$OUT/witness-post.txt") "$OUT/expected-notif.resolved.txt" > "$OUT/notif-diff.txt" && echo "PASS fixture-course notifications exactly the pre set plus one per real grade/feedback change" || { echo "FAIL fixture-course notifications differ (notif-diff.txt)"; rc=1; }
 diff <(grep '^HASH ' "$OUT/witness-pre.txt") <(grep '^HASH ' "$OUT/witness-post.txt") > "$OUT/protected-diff.txt" && echo "PASS protected rows byte-identical (other submissions, other audit events, grades, grade_history, certificates, fixture assignments/courses/module/items/enrollments, fixture submission immutable fields)" || { echo "FAIL a protected hash changed (protected-diff.txt)"; rc=1; }
 [ $PW -eq 0 ] && echo "PASS playwright (both projects)" || { echo "FAIL playwright exit $PW"; rc=1; }
 exit $rc

@@ -44,8 +44,22 @@ select 'HASH fixture_modules ' || count(*) || ' ' || md5(string_agg(t::text, '|'
 select 'HASH fixture_items ' || count(*) || ' ' || md5(string_agg(t::text, '|' order by t.id)) from public.content_items t where t.id::text like '9b6b0000-0000-4000-8000-0000000001%';
 select 'HASH fixture_enrollments ' || count(*) || ' ' || md5(string_agg(concat_ws('|', t.id, t.user_id, t.course_id, t.enrolled_at, t.completion_status), '#' order by t.id))
   from public.enrollments t where t.course_id::text like '9b6b0000-0000-4000-8000-0000000000%';
--- Observed only, NOT asserted: progress on fixture items (a learner opening a lesson may legitimately record it), and the
--- member's notifications (the grade notification trigger adds rows).
+-- Observed only, NOT asserted: progress on fixture items (a learner opening a lesson may legitimately record it).
 select 'OBSERVED fixture_item_progressions ' || count(*) from public.content_item_progressions where content_item_id::text like '9b6b0000-0000-4000-8000-0000000001%';
--- Observed only (the grade notification trigger is expected to add rows for the member; not asserted as policy).
-select 'OBSERVED member_notifications ' || count(*) from public.notifications where user_id = 'e2e00000-0000-4000-8000-000000000003';
+-- Notifications on the two fixture courses are ASSERTED as an exact multiset (sorted lines; id, created_at, is_read and
+-- email_digest_sent_at excluded because they are row identity or reader state, not trigger output). The grade trigger
+-- (notify_student_on_grade) must add exactly one row per real grade/feedback change and none for pinned, zero-row or
+-- feedback-less changes. Every other notification row is protected byte-identical.
+select line from (
+  select 'NOTIF user=' || coalesce(right(n.user_id::text, 3), 'NULL') || ' course=' || right(n.course_id::text, 3)
+      || ' type=' || coalesce(n.type, 'NULL') || ' title=' || coalesce(n.title, 'NULL') || ' message=' || coalesce(n.message, 'NULL')
+      || ' link=' || coalesce(replace(n.link, '9b6b0000-0000-4000-8000-000000000', '~'), 'NULL') as line
+    from public.notifications n
+   where n.course_id in ('9b6b0000-0000-4000-8000-000000000001', '9b6b0000-0000-4000-8000-000000000011')) x
+ order by line collate "C";
+select 'HASH other_notifications ' || count(*) || ' ' || coalesce(md5(string_agg(t::text, '|' order by t.id)), 'empty')
+  from public.notifications t
+ where t.course_id is null or t.course_id not in ('9b6b0000-0000-4000-8000-000000000001', '9b6b0000-0000-4000-8000-000000000011');
+-- Observed only: reader state of the fixture-course notifications (the learner UI may mark them read).
+select 'OBSERVED fixture_notifications_read ' || count(*) filter (where is_read) || '/' || count(*)
+  from public.notifications where course_id in ('9b6b0000-0000-4000-8000-000000000001', '9b6b0000-0000-4000-8000-000000000011');

@@ -1,0 +1,8 @@
+# Notifications the run must ADD on the fixture courses: one per real grade/feedback change by the instructor (W1, W1b, W2,
+# W3 x2). None for U1/Z1 (zero rows), U2/P1-P3 (pinned, no column changes), P4 (workflow_state only, no feedback), Z2.
+# The expected post set is the pre-witness NOTIF lines plus these, sorted bytewise; nothing is taken from the post state.
+NOTIF user=003 course=001 type=assignment_graded title=Assignment graded: Points GB0 message=Your submission was graded. link=/courses/~001/modules/~002/assignments/~203
+NOTIF user=003 course=001 type=assignment_graded title=Assignment graded: Points GB7 message=Your submission was graded. link=/courses/~001/modules/~002/assignments/~204
+NOTIF user=003 course=001 type=assignment_graded title=Assignment graded: Points SG0 message=Your submission was graded. link=/courses/~001/modules/~002/assignments/~201
+NOTIF user=003 course=001 type=assignment_graded title=Assignment graded: Points SG0 message=Your submission was graded. link=/courses/~001/modules/~002/assignments/~201
+NOTIF user=003 course=001 type=assignment_graded title=Assignment graded: Points SG7 message=Your submission was graded. link=/courses/~001/modules/~002/assignments/~202
