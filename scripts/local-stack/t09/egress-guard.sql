@@ -21,6 +21,13 @@ select set_config('t09.allow_shim', :'allow_shim', false) \gset t09_
 \else
 select set_config('t09.allow_shim', '0', false) \gset t09_
 \endif
+-- Roles whose sessions execute SQL on this stack (harness, PostgREST, GoTrue, Storage). Used only for the replica-mode
+-- proof below when the guard cannot be ENABLE ALWAYS. Overridable for local controls; recorded in guard_identity.
+\if :{?executing_roles}
+\else
+\set executing_roles 'postgres,authenticator,anon,authenticated,service_role,supabase_auth_admin,supabase_storage_admin'
+\endif
+select set_config('t09.executing_roles', :'executing_roles', false) \gset t09_
 begin;
 
 do $$
@@ -60,6 +67,11 @@ begin
     raise exception 'egress-guard BLOCKER: role % cannot read net.http_request_queue to prove it empty (owner %); not escalating', current_user, v_owner;
   end if;
   if exists (select 1 from net.http_request_queue) then raise exception 'egress-guard: net.http_request_queue is not empty at install'; end if;
+  -- Exclusivity BEFORE any bootstrap write: no other user trigger may exist on the queue (one could re-route or copy
+  -- a row before ours drops it). Our own name is excluded only because a re-run drops and recreates it.
+  select count(*) into n from pg_trigger
+   where tgrelid = 'net.http_request_queue'::regclass and not tgisinternal and tgname <> 't09_drop_http_request';
+  if n <> 0 then raise exception 'egress-guard: % other trigger(s) already on net.http_request_queue; refusing', n; end if;
   raise notice 'egress-guard: pg_net % ; queue owner % ; installing as %', v_ext, v_owner, current_user;
 end $$;
 
@@ -94,13 +106,51 @@ create trigger t09_drop_http_request before insert on net.http_request_queue
   for each row execute function local_evidence.drop_http_request();
 
 -- ENABLE ALWAYS makes the guard fire under session_replication_role = replica as well. It needs table ownership,
--- which this script never acquires: when unavailable the mode stays ORIGIN and is recorded as a stated residual
--- (replica mode itself requires superuser, which the stack's postgres is not on Supabase).
+-- which this script never acquires. When unavailable the mode stays ORIGIN, and then the guard must PROVE that no
+-- executing role can select replica mode; "not superuser" alone is not enough (a role can hold SET on the parameter,
+-- inherit a superuser role, or carry an ALTER ROLE/DATABASE setting). Nothing is granted or revoked to make it pass.
 do $$
 begin
   execute 'alter table net.http_request_queue enable always trigger t09_drop_http_request';
 exception when insufficient_privilege then
-  raise notice 'egress-guard: not owner of net.http_request_queue; trigger stays ENABLE ORIGIN (residual: replica mode)';
+  raise notice 'egress-guard: not owner of net.http_request_queue; trigger stays ENABLE ORIGIN; proving replica mode unreachable';
+end $$;
+
+create or replace function local_evidence.replica_mode_reachable_by(p_roles text[]) returns text
+language plpgsql stable set search_path = pg_catalog, pg_temp as $fn$
+declare r text; v_oid oid; why text := '';
+begin
+  if to_regprocedure('pg_catalog.has_parameter_privilege(name, text, text)') is null then
+    return 'BLOCKER: has_parameter_privilege() unavailable (PostgreSQL < 15); parameter SET grants cannot be checked';
+  end if;
+  foreach r in array p_roles loop
+    select oid into v_oid from pg_roles where rolname = r;
+    if v_oid is null then continue; end if;  -- absent roles cannot execute anything
+    if exists (select 1 from pg_roles s where s.rolsuper and pg_has_role(v_oid, s.oid, 'MEMBER')) then
+      why := why || format('%s can act as a superuser; ', r);
+    end if;
+    if has_parameter_privilege(v_oid, 'session_replication_role', 'SET') then
+      why := why || format('%s holds SET on session_replication_role; ', r);
+    end if;
+    if exists (select 1 from pg_db_role_setting d, unnest(d.setconfig) c
+               where (d.setrole = v_oid or d.setrole = 0) and c ilike 'session_replication_role=%') then
+      why := why || format('%s has a stored session_replication_role setting; ', r);
+    end if;
+  end loop;
+  return nullif(why, '');
+end $fn$;
+revoke all on function local_evidence.replica_mode_reachable_by(text[]) from public;
+
+do $$
+declare v_mode "char"; v_why text;
+begin
+  select tgenabled into v_mode from pg_trigger where tgname = 't09_drop_http_request' and tgrelid = 'net.http_request_queue'::regclass;
+  if v_mode = 'O' then
+    v_why := local_evidence.replica_mode_reachable_by(string_to_array(current_setting('t09.executing_roles'), ','));
+    if v_why is not null then
+      raise exception 'egress-guard BLOCKER: trigger is ENABLE ORIGIN (not owner) and replica mode is reachable: %not escalating', v_why;
+    end if;
+  end if;
 end $$;
 
 -- Fingerprint of the guard for later intactness checks (egress-verify.sql).
@@ -110,7 +160,10 @@ insert into local_evidence.guard_identity values
   ('trigger_def', pg_get_triggerdef((select oid from pg_trigger where tgname = 't09_drop_http_request' and tgrelid = 'net.http_request_queue'::regclass))),
   ('trigger_enabled', (select tgenabled::text from pg_trigger where tgname = 't09_drop_http_request' and tgrelid = 'net.http_request_queue'::regclass)),
   ('function_owner', (select pg_get_userbyid(proowner) from pg_proc where oid = 'local_evidence.drop_http_request()'::regprocedure)),
-  ('pg_net', coalesce((select extversion from pg_extension where extname = 'pg_net'), 'LOCAL-SHIM'))
+  ('pg_net', coalesce((select extversion from pg_extension where extname = 'pg_net'), 'LOCAL-SHIM')),
+  ('pg_net_ext_oid', coalesce((select oid::text from pg_extension where extname = 'pg_net'), 'LOCAL-SHIM')),
+  ('executing_roles', current_setting('t09.executing_roles')),
+  ('proof_md5', md5(pg_get_functiondef('local_evidence.replica_mode_reachable_by(text[])'::regprocedure)))
 on conflict (k) do update set v = excluded.v;
 
 commit;

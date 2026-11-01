@@ -1,6 +1,6 @@
--- ABOUTME: Re-checks the pg_net interception guard and the local-only integration state. Run after bootstrap, after
--- ABOUTME: migrations, after the controls and at teardown. Read-only except the sentinels, which run in a savepoint-free
--- ABOUTME: transaction of their own and COMMIT their evidence rows. Any deviation raises (psql ON_ERROR_STOP -> exit 3).
+-- ABOUTME: Re-checks the pg_net interception guard and the local-only integration state. Run right after the guard
+-- ABOUTME: (before bootstrap), after migrations, after controls and at teardown. Strictly read-only: it sends nothing and
+-- ABOUTME: writes nothing (sentinels live in egress-sentinels.sql). Any deviation raises (ON_ERROR_STOP -> exit 3).
 \set ON_ERROR_STOP 1
 -- LOCAL-SHIM MODE mirrors egress-guard.sql: only with -v allow_shim=1 and the net shim marker present may the local
 -- cron stand-in replace the pg_cron extension, and the result line then says LOCAL-SHIM. CI never passes allow_shim.
@@ -20,10 +20,50 @@ declare
   placeholder constant text := 'http://127.0.0.1:1/local-placeholder';
   r record; n int; readers text[];
 begin
-  -- Guard identity: trigger present, enabled, unchanged; function body unchanged.
+  -- Design identity. Shim mode is accepted only when explicitly allowed; otherwise authentic pg_net is required and the
+  -- shim marker must be absent. Both present is a mixed design and always fails.
+  if to_regprocedure('net._t09_local_shim_marker()') is not null then
+    if exists (select 1 from pg_extension where extname = 'pg_net') then
+      raise exception 'egress-verify: mixed design: pg_net is installed AND the local shim marker exists';
+    end if;
+    if current_setting('t09.allow_shim') <> '1' then
+      raise exception 'egress-verify: local shim marker present but shim mode is off (authentic pg_net required)';
+    end if;
+  elsif not exists (select 1 from pg_extension where extname = 'pg_net') then
+    raise exception 'egress-verify: pg_net extension is not installed';
+  end if;
+  if (select v from local_evidence.guard_identity where k = 'pg_net')
+     is distinct from coalesce((select extversion from pg_extension where extname = 'pg_net'), 'LOCAL-SHIM')
+     or (select v from local_evidence.guard_identity where k = 'pg_net_ext_oid')
+     is distinct from coalesce((select oid::text from pg_extension where extname = 'pg_net'), 'LOCAL-SHIM') then
+    raise exception 'egress-verify: pg_net identity changed since install (version or extension re-created)';
+  end if;
+  -- Guard identity: trigger present, enabled in EXACTLY the recorded mode, unchanged; function body and owner unchanged.
   select count(*) into n from pg_trigger
    where tgname = 't09_drop_http_request' and tgrelid = 'net.http_request_queue'::regclass and tgenabled in ('O', 'A');
   if n <> 1 then raise exception 'egress-verify: guard trigger missing or disabled (found %)', n; end if;
+  if (select v from local_evidence.guard_identity where k = 'trigger_enabled') is distinct from
+     (select tgenabled::text from pg_trigger where tgname = 't09_drop_http_request' and tgrelid = 'net.http_request_queue'::regclass) then
+    raise exception 'egress-verify: guard trigger enable mode changed since install (recorded %, now %)',
+      (select v from local_evidence.guard_identity where k = 'trigger_enabled'),
+      (select tgenabled::text from pg_trigger where tgname = 't09_drop_http_request' and tgrelid = 'net.http_request_queue'::regclass);
+  end if;
+  if (select v from local_evidence.guard_identity where k = 'function_owner') is distinct from
+     (select pg_get_userbyid(proowner) from pg_proc where oid = 'local_evidence.drop_http_request()'::regprocedure) then
+    raise exception 'egress-verify: guard function owner changed since install';
+  end if;
+  if (select v from local_evidence.guard_identity where k = 'proof_md5') is distinct from
+     md5(pg_get_functiondef('local_evidence.replica_mode_reachable_by(text[])'::regprocedure)) then
+    raise exception 'egress-verify: replica-mode proof function changed since install';
+  end if;
+  -- ORIGIN mode is acceptable only while replica mode stays unreachable for every executing role; re-prove it each time.
+  if (select v from local_evidence.guard_identity where k = 'trigger_enabled') = 'O' then
+    declare v_why text := local_evidence.replica_mode_reachable_by(
+      string_to_array((select v from local_evidence.guard_identity where k = 'executing_roles'), ','));
+    begin
+      if v_why is not null then raise exception 'egress-verify: trigger is ENABLE ORIGIN and replica mode is reachable: %', v_why; end if;
+    end;
+  end if;
   if (select v from local_evidence.guard_identity where k = 'function_md5')
      is distinct from md5(pg_get_functiondef('local_evidence.drop_http_request()'::regprocedure)) then
     raise exception 'egress-verify: guard function changed since install';
